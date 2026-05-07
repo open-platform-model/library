@@ -1,0 +1,162 @@
+schema: spec-driven
+
+context: |
+  # OPM Library Development Constitution
+
+  ## Core Principles (Kernel Library)
+
+  The library is the kernel of OPM. It provides the generic, reusable building blocks
+  for loading, processing, validating, and rendering OPM `#Module`s, and will host the
+  full `#Workflow` and `#Lifecycle` system. Every implementation of OPM (CLI, controller,
+  future runtimes) depends on this library and inherits its behavior.
+
+  ### I. Kernel Neutrality & Determinism
+  The library is consumed by many downstream implementations. It MUST NOT assume a
+  particular runtime, process model, or operator persona.
+  - No global mutable state; no package-level singletons that hide behavior.
+  - No `os.Exit`, no direct logging output, no shell invocation.
+  - No hidden environment lookups; configuration arrives explicitly via arguments.
+  - Loading, parsing, and rendering MUST be deterministic given identical inputs.
+  - I/O (filesystem, registry, network) MUST live at edges and accept caller-supplied configuration.
+  - Logging, when needed, MUST come from the caller (parameter or `context.Context`).
+
+  ### II. Type Safety First
+  All inputs MUST be validated at load time. Invalid modules, releases, providers, or
+  configuration MUST be rejected before processing or rendering begins.
+  - Validate in order: input types -> CUE schema -> module/release semantics -> render.
+  - Use CUE for schema-level validation.
+  - Prefer concrete Go types over `interface{}` / `any`.
+  - `any` is acceptable only at genuine open-ended boundaries (raw CUE values, rendered payloads).
+
+  ### III. Separation of Concerns
+  The library MUST preserve clear package boundaries:
+  - `pkg/core/`: shared domain primitives (resource identity, rendered output).
+  - `pkg/errors/`: structured errors and sentinels (alias as `oerrors`).
+  - `pkg/loader/`: CUE artifact loading (modules, providers, releases).
+  - `pkg/module/`: module/release model, parsing, helpers.
+  - `pkg/provider/`: provider model.
+  - `pkg/render/`: render pipeline (match, process, execute, finalize).
+  - `pkg/validate/`: configuration validation helpers.
+  Domain logic belongs in focused packages, not aggregated into one monolithic API.
+
+  ### IV. Composability via Stable Contracts
+  The library is a kernel; its public API is contractual.
+  - Accept interfaces, return concrete structs.
+  - Public surface lives in `pkg/`; non-public helpers live in `internal/`.
+  - `pkg/` packages MUST NOT import command, controller, or runtime-specific concerns.
+  - Output formatting and presentation MUST stay outside the library.
+  - Functions accept `context.Context` for any I/O, longer workflows, or cancellation.
+
+  ### V. CUE-Native Module Resolution
+  OPM modules are CUE modules. The library MUST use CUE's native module system for
+  module acquisition, dependency resolution, and caching against OCI registries.
+  - The library is the single place where CUE plumbing lives.
+  - Custom OCI fetch logic, custom dependency resolvers, and custom caches do not belong in downstream implementations.
+  - Future module sources MUST be expressed through CUE-native mechanisms where possible.
+
+  ### VI. Semantic Versioning & Public API Discipline
+  The library MUST follow SemVer 2.0.0. Public API stability is contractual because
+  multiple downstream implementations depend on it.
+  - MAJOR: any breaking change to `pkg/` types, signatures, or behavior.
+  - MINOR: additive changes that preserve existing behavior.
+  - PATCH: bug fixes, performance improvements, internal refactors.
+  - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
+  - Types: feat, fix, refactor, docs, test, chore.
+  - Scopes: core, loader, module, provider, render, validate, errors.
+
+  ### VII. Simplicity & YAGNI
+  Start with the simplest implementation that satisfies a real downstream need.
+  - Prefer direct functions over speculative abstractions.
+  - Defer extension points until a consumer actually requires them.
+  - Defer plug-in style hooks, callbacks, and option-bag expansion until proven necessary.
+  - Every public symbol increases the SemVer surface and the burden of long-term support.
+
+  ### VIII. Small Batch Sizes (Iterative & Incremental Delivery)
+  All changes MUST be kept TINY. Small, incremental, independently verifiable steps are required.
+  - **WARNING & BLOCK**: If a user requests a change that is too large (e.g., refactoring multiple packages at once, redesigning the render pipeline in one go, or designing + implementing + testing a major feature in one go), the Agent MUST warn the user, block the execution, and suggest a way to split the request into smaller, sequential tasks.
+  - **Commit Quality**: Tiny changes lead to focused, atomic commits. A single commit should ideally touch one specific concern (e.g., a single loader helper, one render phase, one new error type).
+
+  ## Execution Gate (Agent Directive)
+  Before beginning ANY implementation, the Agent MUST evaluate the scope of the request against the "Small Batch Sizes" principle.
+  If the request is too large, the Agent MUST reply with:
+  "🛑 **Scope Warning**: This request is too large for a single safe iteration. I suggest we split it into the following smaller steps: [list 2-3 logical, tiny steps]. Should we start with step 1?"
+
+  ## Technology Standards
+
+  See [CONSTITUTION.md](../CONSTITUTION.md) for full details.
+  - Language: Go (version pinned in `go.mod`).
+  - CUE Go SDK: `cuelang.org/go`.
+  - Tests: `github.com/stretchr/testify`.
+  - Build/test entrypoint: `Taskfile.yml`. The library ships no binary.
+
+  ## Code Style
+
+  ### Go Patterns
+  - Accept interfaces, return structs.
+  - Context propagation for I/O, CUE evaluation, and longer workflows.
+  - Wrap errors with context: `fmt.Errorf("loading module: %w", err)`.
+  - Reuse `pkg/errors` types and sentinels where applicable.
+  - Prefer concrete types over `map[string]any`.
+  - No package-level mutable state; build fresh CUE contexts at the boundary.
+
+  ### Logging
+  - The library MUST NOT log directly to stdout or stderr.
+  - Accept a logger from the caller (parameter or context) when logging is needed.
+  - Caller-provided log messages SHOULD be capitalized, no trailing period.
+
+  ### Import Order
+  1. Standard library
+  2. External dependencies (including CUE)
+  3. Local module imports (`github.com/open-platform-model/library/...`)
+
+  ## Validation Gates (before merge)
+  1. `task fmt` — Code is formatted (gofmt + goimports).
+  2. `task vet` — Code passes go vet.
+  3. `task lint` — golangci-lint passes.
+  4. `task test` — Unit tests pass.
+
+  Equivalently, `task check` runs all four.
+
+rules:
+  proposal:
+    - "Focus: WHY we're doing this, WHAT's in/out of scope"
+    - "Updates when: Scope changes, intent clarifies, approach fundamentally shifts"
+    - Identify affected `pkg/` packages and any downstream consumers (CLI, controller).
+    - State whether this is MAJOR/MINOR/PATCH per SemVer (Principle VI).
+    - Breaking changes to `pkg/` MUST be called out explicitly with downstream migration cost.
+    - Complexity additions MUST include justification (Principle VII).
+    - Scope MUST be small enough to implement in a short session (Principle VIII).
+
+  design:
+    - "Focus: HOW we'll implement it technically"
+    - "Updates when: Implementation reveals better approach, constraints change"
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - MUST include "Research & Decisions" section when exploration was done.
+    - Format: |
+        ## Research & Decisions
+
+        ### [Topic]
+        **Context**: [Why this decision was needed]
+        **Explored**: [What was investigated - link to exploration notes]
+        **Decision**: [Chosen option]
+        **Rationale**: [Why this option was selected]
+    - Include Go pseudo-code or CUE snippets where they clarify intent.
+    - Detail the impact across loader / module / render / validate phases.
+    - Call out any change to the public surface in `pkg/`.
+
+  specs:
+    - "Focus: WHAT behavior is changing (not HOW it's implemented)"
+    - "Updates when: New or changed requirements emerge"
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - Describe observable behavior (returned errors, rendered output, surfaced validation results).
+    - Use ADDED/MODIFIED/REMOVED sections to show deltas.
+    - Include scenarios demonstrating library behavior (e.g., valid load vs invalid load, render success vs render failure).
+
+  tasks:
+    - "Focus: STEPS to take for implementation"
+    - "Updates when: Tasks complete, new tasks discovered, blockers identified"
+    - "CRITICAL: Break tasks into TINY chunks (max 1-2 hours)."
+    - "CRITICAL: If the task list grows too long (>10 items) or spans multiple distinct packages, suggest splitting into a new OpenSpec change."
+    - Group tasks by package (`core`, `loader`, `module`, `provider`, `render`, `validate`, `errors`).
+    - Each task should be independently testable.
+    - Include validation gates as final tasks (`task fmt`, `task vet`, `task lint`, `task test`).
