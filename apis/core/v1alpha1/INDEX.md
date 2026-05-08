@@ -7,40 +7,17 @@ CUE module: `opmodel.dev/core/v1alpha1@v1`
 ## Project Structure
 
 ```
-+-- bundle/
-+-- bundlerelease/
 +-- component/
 +-- helpers/
 +-- matcher/
 +-- module/
 +-- modulerelease/
-+-- policy/
 +-- primitives/
 +-- provider/
 +-- schemas/
 +-- transformer/
 +-- types/
 ```
-
----
-
-## Bundle
-
-| Definition | File | Description |
-|---|---|---|
-| `#Bundle` | `bundle/bundle.cue` | #Bundle: Defines a collection of modules grouped for distribution |
-| `#BundleDefinitionMap` | `bundle/bundle.cue` |  |
-| `#BundleInstance` | `bundle/bundle.cue` | #BundleInstance: A single module instance within a #Bundle |
-| `#Module` | `bundle/bundle.cue` | Local alias — workaround: CUE's import tracker does not always see module |
-
----
-
-## Bundlerelease
-
-| Definition | File | Description |
-|---|---|---|
-| `#BundleRelease` | `bundlerelease/bundle_release.cue` | #BundleRelease: The concrete deployment instance for a #Bundle |
-| `#BundleReleaseMap` | `bundlerelease/bundle_release.cue` |  |
 
 ---
 
@@ -90,25 +67,12 @@ CUE module: `opmodel.dev/core/v1alpha1@v1`
 
 ---
 
-## Policy
-
-| Definition | File | Description |
-|---|---|---|
-| `#Policy` | `policy/policy.cue` | #Policy: Groups PolicyRules and Directives and targets them to a set of components via label matching or explicit references |
-| `#PolicyMap` | `policy/policy.cue` |  |
-
----
-
 ## Primitives
 
 | Definition | File | Description |
 |---|---|---|
 | `#Blueprint` | `primitives/blueprint.cue` | #Blueprint: Defines a reusable blueprint that composes resources and traits into a higher-level abstraction |
 | `#BlueprintMap` | `primitives/blueprint.cue` |  |
-| `#Directive` | `primitives/directive.cue` | #Directive: Describes operational behavior that the platform should execute on behalf of the module author |
-| `#DirectiveMap` | `primitives/directive.cue` |  |
-| `#PolicyRule` | `primitives/policy_rule.cue` | #PolicyRule: Encodes governance rules, security requirements, compliance controls, and operational guardrails |
-| `#PolicyRuleMap` | `primitives/policy_rule.cue` |  |
 | `#Resource` | `primitives/resource.cue` | #Resource: Defines a resource of deployment within the system |
 | `#ResourceMap` | `primitives/resource.cue` |  |
 | `#Trait` | `primitives/trait.cue` | #Trait: Defines additional behavior or characteristics that can be attached to components |
