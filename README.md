@@ -34,7 +34,8 @@ pkg/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   loader/                 Deprecated re-export shim of pkg/helper/loader/file (kept for one SemVer cycle)
   module/                 Module / Release model, parsing, value validation entry point
-  provider/               Provider model
+  platform/               Platform artifact model — slice 08 type + loader landing pad (slice 09 wires it into match)
+  provider/               Provider model (retired by slice 09 once Platform replaces it)
   compile/                Match -> finalize -> execute -> emit pipeline
   validate/               #config validation against supplied values
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)

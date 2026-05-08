@@ -9,7 +9,7 @@ This is slice 08 of the kernel-redesign umbrella ([001-kernel-redesign-around-pl
 - Introduce `pkg/platform/` package with:
   - `Platform` struct: `{ APIVersion apiversion.Version; Metadata *PlatformMetadata; Package cue.Value }`.
   - `PlatformMetadata` struct: name, type, description, labels, annotations (mirroring catalog 014's `metadata` block plus the `type` field).
-  - `NewPlatformFromValue(k *kernel.Kernel, v cue.Value) (*Platform, error)` constructor analogous to `NewModuleFromValue` from slice 02.
+  - `NewPlatformFromValue(k *kernel.Kernel, v cue.Value) (*Platform, error)` constructor analogous to `NewModuleFromValue` from slice 02. (Implementation note: the first parameter is typed as a small `CueContextOwner` interface rather than `*kernel.Kernel` directly so `pkg/platform` does not import `pkg/kernel`. `*kernel.Kernel` satisfies the interface, so call sites are unchanged. This mirrors `module.NewModuleFromValue`.)
 - Extend the version binding interface (from `add-multi-apiversion-support`) to expose paths within a Platform package: `Registry`, `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`. Each binding (`pkg/api/v1alpha2/`) implements these.
 - Add `pkg/helper/loader/file/platform.go` with `LoadPlatformFile(ctx, path, opts)` mirroring `LoadReleaseFile` for platform.cue artifacts.
 - Add an `(k *Kernel) LoadPlatformFile(...)` wrapper.

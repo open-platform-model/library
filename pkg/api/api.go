@@ -41,6 +41,16 @@ type Paths struct {
 	// Provider.
 	Transformers cue.Path // "#transformers"
 
+	// Platform. The five Platform paths point at #registry and the four
+	// CUE-computed views over it. Bindings expose them so kernel callers
+	// (today: tests; slice 09: the matcher) can read the views via
+	// Package.LookupPath without hand-spelling path literals.
+	Registry             cue.Path // "#registry"
+	KnownResources       cue.Path // "#knownResources"
+	KnownTraits          cue.Path // "#knownTraits"
+	ComposedTransformers cue.Path // "#composedTransformers"
+	Matchers             cue.Path // "#matchers"
+
 	// Transformer body and matching predicates.
 	Transform                    cue.Path // "#transform"
 	TransformerRequiredLabels    cue.Path // "requiredLabels"
@@ -104,6 +114,18 @@ type ProviderMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// PlatformMetadata is the canonical decoded platform-level metadata returned
+// by Binding.DecodePlatformMetadata. Type is the top-level #Platform.type
+// field hoisted into the metadata projection so callers see one Go-level
+// identity record per Platform artifact.
+type PlatformMetadata struct {
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Description string            `json:"description,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
 // ReleaseView is the read-only view of a module release that the binding needs
 // to construct a transformer context. It exists so that BuildTransformerContext
 // stays decoupled from pkg/module; any caller-supplied type that exposes these
@@ -145,6 +167,13 @@ type Binding interface {
 	// field is absent — typically the config map key under which the provider
 	// was loaded.
 	DecodeProviderMetadata(v cue.Value, fallbackName string) (*ProviderMetadata, error)
+
+	// DecodePlatformMetadata extracts PlatformMetadata from a #Platform
+	// artifact value. The input v is the artifact root (the value whose
+	// apiVersion field matches Version()). The returned struct merges
+	// metadata.{name,description,labels,annotations} with the top-level
+	// #Platform.type field.
+	DecodePlatformMetadata(v cue.Value) (*PlatformMetadata, error)
 
 	// BuildTransformerContext constructs the per-(release, component, transformer)
 	// #context value. The returned cue.Value MUST be filled by the renderer at

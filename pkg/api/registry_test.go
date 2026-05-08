@@ -30,6 +30,9 @@ func (s *stubBinding) DecodeReleaseMetadata(cue.Value) (*ReleaseMetadata, error)
 func (s *stubBinding) DecodeProviderMetadata(cue.Value, string) (*ProviderMetadata, error) {
 	panic("unused in registry tests")
 }
+func (s *stubBinding) DecodePlatformMetadata(cue.Value) (*PlatformMetadata, error) {
+	panic("unused in registry tests")
+}
 func (s *stubBinding) BuildTransformerContext(
 	*cue.Context, ReleaseView, string, cue.Value, string,
 ) (cue.Value, []string, error) {

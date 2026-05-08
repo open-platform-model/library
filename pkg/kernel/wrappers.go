@@ -10,6 +10,7 @@ import (
 	oerrors "github.com/open-platform-model/library/pkg/errors"
 	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/module"
+	"github.com/open-platform-model/library/pkg/platform"
 	"github.com/open-platform-model/library/pkg/provider"
 	"github.com/open-platform-model/library/pkg/validate"
 )
@@ -36,6 +37,20 @@ func (k *Kernel) LoadValuesFile(_ context.Context, path string) (cue.Value, erro
 // See [loaderfile.LoadProvider].
 func (k *Kernel) LoadProvider(providerName string, providers map[string]cue.Value) (*provider.Provider, error) {
 	return loaderfile.LoadProvider(providerName, providers)
+}
+
+// LoadPlatformFile loads a #Platform from a standalone .cue file (or from a
+// directory containing platform.cue) using the kernel's [*cue.Context].
+// See [loaderfile.LoadPlatformFile].
+func (k *Kernel) LoadPlatformFile(_ context.Context, path string, opts loaderfile.LoadOptions) (cue.Value, string, error) {
+	return loaderfile.LoadPlatformFile(k.cueCtx, path, opts)
+}
+
+// NewPlatformFromValue builds a typed [*platform.Platform] from a raw
+// [cue.Value] using the version-aware binding registry.
+// See [platform.NewPlatformFromValue].
+func (k *Kernel) NewPlatformFromValue(v cue.Value) (*platform.Platform, error) {
+	return platform.NewPlatformFromValue(k, v)
 }
 
 // ParseModuleRelease validates values and constructs a concrete

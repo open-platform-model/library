@@ -6,6 +6,43 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `pkg/platform/` — new package introducing the `Platform` Go type that
+  mirrors catalog enhancement
+  [014-platform-construct](../catalog/enhancements/014-platform-construct/)'s
+  `#Platform`. `Platform` follows the unified
+  `(APIVersion, Metadata, Package)` artifact shape. Construct via
+  `platform.NewPlatformFromValue(k, v)` or the kernel wrapper
+  `(*Kernel).NewPlatformFromValue`. The constructor's first parameter is
+  typed as the small `platform.CueContextOwner` interface (a single
+  `CueContext() *cue.Context` method) so `pkg/platform` does not import
+  `pkg/kernel`; `*kernel.Kernel` satisfies the interface, so call sites
+  are unchanged. Mirrors the `module.NewModuleFromValue` shape. The four
+  CUE-computed views
+  (`#knownResources`, `#knownTraits`, `#composedTransformers`,
+  `#matchers`) remain accessible only via `Package.LookupPath` using the
+  new binding paths — they are intentionally not eagerly decoded into Go.
+- `pkg/helper/loader/file.LoadPlatformFile(ctx, path, opts)` and
+  `(*Kernel).LoadPlatformFile(ctx, path, opts)` — load a `#Platform`
+  from a standalone `.cue` file or from a directory containing
+  `platform.cue`. Mirrors `LoadReleaseFile` in shape, return type, and
+  `LoadOptions`.
+- `pkg/api.PlatformMetadata` — canonical decoded platform-level
+  metadata (`Name`, `Type`, `Description`, `Labels`, `Annotations`).
+  `Type` is hoisted from the top-level `#Platform.type` field into the
+  metadata projection per catalog 014.
+- `pkg/api.Binding.DecodePlatformMetadata(v)` and `pkg/api.Paths`
+  extensions: `Registry` (`#registry`), `KnownResources`
+  (`#knownResources`), `KnownTraits` (`#knownTraits`),
+  `ComposedTransformers` (`#composedTransformers`), `Matchers`
+  (`#matchers`). The v1alpha2 binding implements them all.
+- `pkg/kernel.MatchInput.Platform`, `PlanInput.Platform`, and
+  `CompileInput.Platform` — optional `*platform.Platform` fields. Today
+  the phase methods continue to drive matching off `Provider` and ignore
+  `Platform`. Slice 09 (`rewrite-match-around-platform`) makes
+  `Platform` required and removes the `Provider` field.
+- `library/testdata/platform/v1alpha2/platform.cue` — minimal Platform
+  fixture for the new tests.
+
 - `pkg/helper/` — opt-in convenience boundary. Subpackages under
   `pkg/helper/` are opinionated frontend helpers that a frontend MAY
   skip; everything outside `pkg/helper/` is part of the kernel
