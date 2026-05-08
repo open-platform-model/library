@@ -60,6 +60,20 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `pkg/helper/platform/` — new helper package shipping
+  `Compose(owner, shell, modules) (*Platform, error)` and the kernel
+  wrapper `(*Kernel).ComposePlatform(shell, modules)`. Builds a fully
+  registered Platform by FillPath-injecting each `*module.Module` into
+  `shell.Package` at `binding.Paths().Registry[<id>]` (id =
+  `module.Metadata.Name`), with `enabled: true` set explicitly. Inputs
+  are not mutated; calling Compose twice with the same inputs is
+  idempotent. Multi-fulfiller violations (catalog enhancement
+  [014](../catalog/enhancements/014-platform-construct/) D13) surface as
+  `*helper/platform.MultiFulfillerError`, which carries parsed
+  attribution (`FQN`, `ConflictingModules`, `ConflictingTransformers`)
+  when extractable and otherwise wraps the raw CUE diagnostic via
+  `Unwrap`. Slice 10 of the kernel-redesign-around-platform enhancement.
+
 - `pkg/platform/` — new package introducing the `Platform` Go type that
   mirrors catalog enhancement
   [014-platform-construct](../catalog/enhancements/014-platform-construct/)'s

@@ -28,13 +28,14 @@ The library SHALL expose `func Compose(k *kernel.Kernel, shell *platform.Platfor
 
 ### Requirement: Multi-Fulfiller Error Surface
 
-When two registered Modules' transformers claim the same primitive FQN (violating catalog 014 D13), `Compose` SHALL return a non-nil `*MultiFulfillerError` carrying the offending FQN(s) and the Module names that contributed conflicting transformers.
+When two registered Modules' transformers claim the same primitive FQN (violating catalog 014 D13), `Compose` SHALL return a non-nil `*MultiFulfillerError`. The error type carries `FQN`, `ConflictingModules`, and `ConflictingTransformers` fields for structured attribution; these MAY be empty when the underlying CUE diagnostic does not surface enough structure to extract them safely. In that fallback case the raw CUE error is preserved on the value and reachable via `errors.Unwrap`, so frontends can still surface a useful diagnostic. Richer extraction (e.g. re-evaluating against `#PlatformBase` to read `#matchers._invalid`) is a follow-up; the initial slice ships the type and the detection, not necessarily the parser.
 
 #### Scenario: Multi-fulfiller failure
 
 - **WHEN** two Modules each register a transformer with `requiredResources["<fqn>"]`
-- **THEN** `Compose` returns a `*MultiFulfillerError`
-- **AND** the error includes the FQN, both Module names, and both transformer FQNs
+- **THEN** `Compose` returns an error whose chain contains a `*MultiFulfillerError` (verifiable via `errors.As`)
+- **AND** the wrapped CUE diagnostic (returned by `Unwrap`) describes the multi-fulfiller violation
+- **AND** structured fields (`FQN`, `ConflictingModules`, `ConflictingTransformers`) MAY be empty when classification fell back to wrapping the raw error
 
 ### Requirement: Kernel Convenience Method
 

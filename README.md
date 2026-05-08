@@ -79,6 +79,7 @@ import (
     "context"
 
     "github.com/open-platform-model/library/pkg/kernel"
+    "github.com/open-platform-model/library/pkg/module"
     loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 )
 
@@ -94,12 +95,15 @@ mod, err := k.NewModuleFromValue(moduleVal)
 releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
 rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, []cue.Value{userValues})
 
-// Load the Platform — the kernel's matching and execution input. Slice 10
-// of the kernel-redesign enhancement ships pkg/helper/platform.Compose to
-// build a Platform programmatically from a Module registry; today, load it
-// from a platform.cue file.
-platformVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
-plat, err := k.NewPlatformFromValue(platformVal)
+// Load the Platform — the kernel's matching and execution input. The
+// shell is a Platform whose #registry is empty (or partial); Compose
+// FillPath-injects each registered Module so the schema's computed views
+// (#composedTransformers, #matchers, #knownResources, #knownTraits)
+// resolve. Frontends that load a fully-authored platform.cue can skip
+// Compose and use NewPlatformFromValue directly.
+shellVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
+shell, err := k.NewPlatformFromValue(shellVal)
+plat, err := k.ComposePlatform(shell, []*module.Module{mod /* + others */})
 
 result, err := k.Compile(ctx, kernel.CompileInput{
     Module:        mod,

@@ -8,6 +8,7 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 	oerrors "github.com/open-platform-model/library/pkg/errors"
 	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
+	helperplatform "github.com/open-platform-model/library/pkg/helper/platform"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
 	"github.com/open-platform-model/library/pkg/validate"
@@ -43,6 +44,14 @@ func (k *Kernel) LoadPlatformFile(_ context.Context, path string, opts loaderfil
 // See [platform.NewPlatformFromValue].
 func (k *Kernel) NewPlatformFromValue(v cue.Value) (*platform.Platform, error) {
 	return platform.NewPlatformFromValue(k, v)
+}
+
+// ComposePlatform returns a new [*platform.Platform] with the given Modules
+// FillPath-injected into shell.Package at the binding's Registry path.
+// See [helperplatform.Compose] for the full contract, including the
+// multi-fulfiller error surface.
+func (k *Kernel) ComposePlatform(shell *platform.Platform, modules []*module.Module) (*platform.Platform, error) {
+	return helperplatform.Compose(k, shell, modules)
 }
 
 // ParseModuleRelease validates values and constructs a concrete

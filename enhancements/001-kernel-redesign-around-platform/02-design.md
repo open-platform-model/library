@@ -25,7 +25,7 @@ This document captures the cross-cutting kernel design and how the slices fit to
    │   values/        [slice 05]            Stack & unify values;    │
    │                                        Tier-1 source-positioned │
    │                                        validation.              │
-   │   platform/      [slice 10]            Compose(shell, modules) →│
+   │   platform/      [shipped, slice 10]   Compose(shell, modules) →│
    │                                        *Platform with #registry │
    │                                        filled.                  │
    │   embed/         [deferred]            One-call wrapper for the │

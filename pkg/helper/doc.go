@@ -18,14 +18,14 @@
 //   - loader/bytes — in-memory loading skeleton; full implementation
 //     deferred until a consumer (Crossplane composition fn, fuzzing
 //     harness, in-memory tests) demands it.
+//   - platform     — Platform composition (Compose(shell, modules) →
+//     *Platform with #registry filled). Implemented by slice 10
+//     (add-platform-composition-helper).
 //
 // Planned subpackages (added by their respective slices):
 //
 //   - values   — Tier-1 layered value validation with source-attributed
 //     errors. Implemented by slice 05 (introduce-tiered-validation).
-//   - platform — Platform composition (Compose(shell, modules) → *Platform
-//     with #registry filled). Implemented by slice 10
-//     (add-platform-composition-helper).
 //   - embed    — one-call embedding wrappers for the most common patterns.
 //     Deferred until a consumer asks for it (YAGNI).
 //
