@@ -1,0 +1,56 @@
+version: "3"
+
+silent: true
+
+tasks:
+  # ============================================================================
+  # Index Generation
+  # ============================================================================
+
+  generate:index:
+    desc: Generate INDEX.md for all CUE API modules
+    cmds:
+      - bash .tasks/generate-index.sh core/v1alpha1 > core/v1alpha1/INDEX.md
+      - bash .tasks/generate-index.sh core/v1alpha2 > core/v1alpha2/INDEX.md
+
+  generate:index:check:
+    desc: Verify INDEX.md files match generated output (exits non-zero if any differ)
+    cmds:
+      - |
+        set -euo pipefail
+        TMPDIR_CHECK=$(mktemp -d)
+        trap 'rm -rf "$TMPDIR_CHECK"' EXIT
+
+        check_module() {
+          local dir="$1"
+          local expected="$dir/INDEX.md"
+          local generated="$TMPDIR_CHECK/$(echo "$dir" | tr '/' '_').md"
+
+          bash .tasks/generate-index.sh "$dir" > "$generated"
+
+          if [[ ! -f "$expected" ]]; then
+            echo "FAIL: $expected does not exist — run 'task generate:index' to create it"
+            return 1
+          fi
+
+          if ! diff -q "$expected" "$generated" > /dev/null 2>&1; then
+            echo "FAIL: $expected is out of date"
+            diff "$expected" "$generated" || true
+            return 1
+          fi
+
+          echo "OK: $expected"
+        }
+
+        FAILED=0
+        check_module core/v1alpha1 || FAILED=1
+        check_module core/v1alpha2 || FAILED=1
+
+        if [[ "$FAILED" -eq 1 ]]; then
+          echo ""
+          echo "Run 'task generate:index' to regenerate INDEX.md files."
+          exit 1
+        fi
+
+        echo ""
+        echo "All INDEX.md files are up to date."

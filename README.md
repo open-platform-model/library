@@ -1,0 +1,153 @@
+# OPM kernel
+
+The reference implementation of the Open Platform Model runtime, packaged as a Go library. Every OPM front-end — the `opm` CLI, the `opm-operator` controller, the planned Crossplane composition function, and any future runtime — embeds this kernel and inherits its behaviour.
+
+The kernel owns:
+
+- Loading OPM artifacts (modules, providers, releases) from CUE module directories and `.cue` files.
+- Resolving CUE module references through the native CUE module system (OCI registries, `cue.mod`).
+- Validating user-supplied values against `#config` schemas with grouped, position-aware diagnostics.
+- Matching component requirements against provider transformer registries.
+- Executing matched transformers and emitting platform-neutral rendered values with full provenance.
+
+The kernel does **not** own:
+
+- Process model, command flags, exit codes, stdout/stderr formatting (lives in CLI / controller).
+- Logging output (loggers are passed in by the caller).
+- Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
+- Platform-native identity beyond the `core.Identity` tuple — adapters wrap rendered values into platform-specific resources.
+
+See `CONSTITUTION.md` for the full set of principles.
+
+## Layout
+
+```
+apis/                     Versioned OPM schema (CUE)
+  core/v1alpha1/          Schema for v1alpha1 — single source of truth for that version
+  core/v1alpha2/          Schema for v1alpha2 — single source of truth for that version
+pkg/
+  api/                    Per-schema-version Binding interface and registry
+  api/v1alpha2/           v1alpha2 binding (registers itself in init())
+  apiversion/             apiVersion enum + Detect helper
+  core/                   Platform-neutral primitives — Rendered, Resource, Identity
+  errors/                 Sentinels, structured errors, grouped CUE diagnostics
+  kernel/                 Public Kernel struct — single entry point for the OPM runtime
+  loader/                 Filesystem and CUE-module loading (modules, providers, releases)
+  module/                 Module / Release model, parsing, value validation entry point
+  provider/               Provider model
+  render/                 Match -> finalize -> execute -> emit pipeline
+  validate/               #config validation against supplied values
+openspec/                 OpenSpec proposals, specs, archives
+Taskfile.yml              fmt / vet / lint / test entry points
+```
+
+## Render pipeline
+
+```
+loader.LoadReleaseFile        ->  cue.Value (release artifact)
+module.ParseModuleRelease     ->  *module.Release          (validated, concrete)
+render.ProcessModuleRelease   ->  *render.ModuleResult     (rendered + provenance)
+        |
+        +-- render.FinalizeValue   strip schema constraints from components
+        +-- render.Match           component <-> transformer pairing
+        +-- render.executeTransforms
+                |
+                +-- FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
+                +-- decode `output` (cue.ListKind | cue.StructKind)
+                +-- emit []*core.Rendered carrying Release/Component/Transformer FQN provenance
+```
+
+`*core.Rendered` is the kernel's terminal output. Adapters in downstream implementations wrap each `Rendered` with a platform-specific `core.Resource` that fills `core.Identity`.
+
+## Quick start
+
+The recommended entry point is the `kernel.Kernel` struct, which owns its
+`*cue.Context` and threads cross-cutting dependencies (logger, tracer, clock)
+through every operation. Construct one Kernel per goroutine.
+
+```go
+import (
+    "context"
+
+    "github.com/open-platform-model/library/pkg/kernel"
+    "github.com/open-platform-model/library/pkg/loader"
+    "github.com/open-platform-model/library/pkg/module"
+    "github.com/open-platform-model/library/pkg/provider"
+)
+
+k := kernel.New() // optional: kernel.New(kernel.WithLogger(myLogger))
+
+// Load the module CUE package and build a typed *module.Module.
+moduleVal, _, err := k.LoadModulePackage(ctx, "./module/")
+mod, err := k.NewModuleFromValue(moduleVal)
+
+// Load and parse the release. The release's Package embeds the source #module
+// reference; ParseModuleRelease uses it to validate user values against
+// #module.#config without a separate schema argument.
+releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
+rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, []cue.Value{userValues})
+
+p := &provider.Provider{ /* loaded via k.LoadProvider */ }
+
+result, err := k.ProcessModuleRelease(ctx, rel, p, "opm-cli")
+for _, r := range result.Rendered {
+    // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
+}
+```
+
+The free-function form is preserved for backward compatibility but
+`// Deprecated:`-marked. New consumers should construct a `Kernel`.
+
+```go
+import (
+    "cuelang.org/go/cue/cuecontext"
+
+    "github.com/open-platform-model/library/pkg/loader"
+    "github.com/open-platform-model/library/pkg/module"
+    "github.com/open-platform-model/library/pkg/render"
+)
+
+cueCtx := cuecontext.New()
+releaseVal, _, ver, err := loader.LoadReleaseFile(cueCtx, "./release.cue", loader.LoadOptions{})
+rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, []cue.Value{userValues})
+result, err := render.ProcessModuleRelease(ctx, rel, p, "opm-cli")
+```
+
+## API stability
+
+The library follows SemVer 2.0.0. The public surface is everything under `pkg/`. Two distinct compatibility tracks coexist and must not be confused:
+
+- **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
+- **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Provider`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
+
+The two tracks are independent: a kernel `v1.4.0` may simultaneously support OPM schema versions `v1alpha1` and `v1alpha2`.
+
+## Multi-version OPM schema support
+
+The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` and a sibling Go package under `pkg/api/<vN>/`, and the new version coexists at runtime with every other registered binding. `pkg/render`, `pkg/loader`, and `pkg/module` need no edits.
+
+Key pieces:
+
+- `pkg/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
+- `pkg/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
+- `pkg/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
+- `apis/core/<vN>/embed.go` — embeds that version's CUE source so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
+
+The render pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. The public `render.ProcessModuleRelease` signature is unchanged; the only breaking signature in this round is `render.Match`, which now takes the binding explicitly. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
+
+## Quality gates
+
+```
+task fmt
+task vet
+task lint
+task test
+# or all four
+task check
+```
+
+## Further reading
+
+- `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
+- `openspec/config.yaml` — normative constitution source.
+- `apis/v1alpha2/core/` — current OPM schema definitions in CUE.

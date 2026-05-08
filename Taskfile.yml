@@ -1,0 +1,124 @@
+version: "3"
+
+# Silent by default — set TASK_VERBOSE=1 or use --verbose to show commands
+silent: true
+
+includes:
+  apis:
+    taskfile: ./apis/Taskfile.yaml
+    dir: ./apis
+
+vars:
+  COVERAGE_FILE: coverage.out
+  COVERAGE_HTML: coverage.html
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  ## Code quality
+
+  fmt:
+    desc: Format Go code (gofmt + goimports)
+    cmds:
+      - go fmt ./...
+      - |
+        if command -v goimports >/dev/null 2>&1; then
+          goimports -w .
+        fi
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint
+    preconditions:
+      - sh: command -v golangci-lint
+        msg: "golangci-lint is not installed: https://golangci-lint.run/usage/install/"
+    cmds:
+      - golangci-lint run ./...
+
+  lint:fix:
+    desc: Run golangci-lint with --fix
+    preconditions:
+      - sh: command -v golangci-lint
+        msg: "golangci-lint is not installed: https://golangci-lint.run/usage/install/"
+    cmds:
+      - golangci-lint run --fix ./...
+
+  ## Module hygiene
+
+  tidy:
+    desc: Tidy go.mod and go.sum
+    cmds:
+      - go mod tidy
+
+  build:
+    desc: Compile all packages (no binary; library has no main)
+    cmds:
+      - go build ./...
+
+  ## Tests
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  test:verbose:
+    desc: Run unit tests with verbose output
+    cmds:
+      - go test -v ./...
+
+  test:run:
+    desc: Run a specific test by name
+    summary: |
+      Run a specific test by name using the TEST parameter.
+
+      Usage:
+        task test:run TEST=TestResource_GVK
+        task test:run TEST=TestConfigError
+    vars:
+      TEST: '{{.TEST | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.TEST}}" ]'
+        msg: "TEST variable is required. Usage: task test:run TEST=TestName"
+    cmds:
+      - go test -v ./... -run "{{.TEST}}"
+
+  test:coverage:
+    desc: Run tests with coverage and produce HTML report
+    cmds:
+      - go test -coverprofile={{.COVERAGE_FILE}} ./...
+      - go tool cover -html={{.COVERAGE_FILE}} -o {{.COVERAGE_HTML}}
+    generates:
+      - "{{.COVERAGE_FILE}}"
+      - "{{.COVERAGE_HTML}}"
+
+  ## Aggregates
+
+  check:
+    desc: Run fmt, vet, lint, and tests
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: lint
+      - task: test
+
+  check:fast:
+    desc: Run fmt, vet, and tests (skip lint)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+
+  ## Cleanup
+
+  clean:
+    desc: Remove coverage artifacts
+    cmds:
+      - rm -f {{.COVERAGE_FILE}} {{.COVERAGE_HTML}}
