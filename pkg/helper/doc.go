@@ -21,11 +21,13 @@
 //   - platform     — Platform composition (Compose(shell, modules) →
 //     *Platform with #registry filled). Implemented by slice 10
 //     (add-platform-composition-helper).
+//   - values       — Tier-1 layered value validation with source-attributed
+//     errors. ValidateAndUnify(k, schema, stack) validates each layer
+//     against the schema (partial mode), then unifies on success.
+//     Implemented by slice 05 (introduce-tiered-validation).
 //
 // Planned subpackages (added by their respective slices):
 //
-//   - values   — Tier-1 layered value validation with source-attributed
-//     errors. Implemented by slice 05 (introduce-tiered-validation).
 //   - embed    — one-call embedding wrappers for the most common patterns.
 //     Deferred until a consumer asks for it (YAGNI).
 //

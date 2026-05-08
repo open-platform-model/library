@@ -9,6 +9,7 @@ import (
 	oerrors "github.com/open-platform-model/library/pkg/errors"
 	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
 	helperplatform "github.com/open-platform-model/library/pkg/helper/platform"
+	helpervalues "github.com/open-platform-model/library/pkg/helper/values"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
 	"github.com/open-platform-model/library/pkg/validate"
@@ -80,4 +81,19 @@ func (k *Kernel) NewReleaseFromValue(v cue.Value) (*module.Release, error) {
 // "no values supplied". See [validate.Config].
 func (k *Kernel) ValidateConfig(schema cue.Value, values cue.Value, contextLabel, name string) (cue.Value, *oerrors.ConfigError) {
 	return validate.Config(schema, values, contextLabel, name) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+}
+
+// ValidateAndUnify performs Tier-1 source-positioned validation on each
+// [helpervalues.Layer] in the [helpervalues.Stack], then unifies in order
+// on success. Per-layer failures aggregate into a
+// [*helpervalues.MultiSourceError] so frontends can render diagnostics
+// with per-source attribution. The kernel's Tier-2 validation (see
+// [Kernel.ValidateConfig]) remains the safety net; pass the unified value
+// returned here to the kernel for Tier-2.
+//
+// Canonical implementation lives in [helpervalues.ValidateAndUnify]; this
+// method is an ergonomic shortcut so readers anchored on [Kernel] discover
+// the helper through the same surface.
+func (k *Kernel) ValidateAndUnify(schema cue.Value, layers helpervalues.Stack) (cue.Value, *helpervalues.MultiSourceError) {
+	return helpervalues.ValidateAndUnify(k, schema, layers)
 }

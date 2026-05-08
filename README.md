@@ -102,9 +102,40 @@ k := kernel.New() // optional: kernel.New(kernel.WithLogger(myLogger))
 moduleVal, _, err := k.LoadModulePackage(ctx, "./module/")
 mod, err := k.NewModuleFromValue(moduleVal)
 
+// Tier-1: validate every values source independently and unify on success.
+// Each Layer carries a human-friendly Name and stable Source so error
+// messages cite the file or K8s object that owns each diagnostic.
+//
+// `pkg/helper/values` is opt-in convenience; a frontend MAY merge values
+// itself and pass them straight to the kernel (Tier-2 alone is correct,
+// just less helpful). Use the helper whenever the frontend has more than
+// one source.
+import (
+    "github.com/open-platform-model/library/pkg/helper/values"
+)
+
+// Resolve the #config schema once; helper/values validates each layer
+// against it before unification.
+b, _ := api.Lookup(mod.APIVersion)
+schema := mod.Package.LookupPath(b.Paths().Config)
+
+stack := values.Stack{
+    {Name: "defaults", Source: "embedded",       Value: defaultsVal},
+    {Name: "user",     Source: "values.cue",     Value: userVal},
+    {Name: "overlay",  Source: "-f overlay.cue", Value: overlayVal},
+}
+
+userValues, msErr := k.ValidateAndUnify(schema, stack)
+if msErr != nil {
+    for _, le := range msErr.Errors() {
+        // present le.LayerName + le.Source + le.Err to the user
+    }
+    return msErr
+}
+
 // Load and parse the release. The release's Package embeds the source #module
 // reference; ParseModuleRelease uses it to validate user values against
-// #module.#config without a separate schema argument.
+// #module.#config without a separate schema argument (Tier-2 safety net).
 releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
 rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, userValues)
 

@@ -43,26 +43,30 @@ func Config(schema cue.Value, values cue.Value, context, name string) (cue.Value
 	return values, nil
 }
 
-// UnifyAndValidate unifies the slice of values via the merge loop the kernel
-// previously performed internally and returns the resulting single cue.Value.
-// The result is suitable to pass to [Config] (or [Kernel.ValidateConfig]).
+// ConfigPartial validates partial values against the schema without requiring
+// every schema field to be concrete in values. It catches type errors,
+// disallowed fields, and pattern/regex violations on fields that ARE set,
+// but does NOT flag fields that are missing entirely. Tier-1 building block
+// for [pkg/helper/values.ValidateAndUnify]: each layer in a Stack is
+// validated with this entry point so partial overlays validate cleanly even
+// when the full schema requires fields the layer does not set. The merged
+// result is then re-validated by [Config] / [Kernel.ValidateConfig] (Tier-2)
+// with full concreteness.
 //
-// An empty or nil slice returns the zero cue.Value, which Config treats as
-// "no values".
-//
-// Deprecated: use pkg/helper/values for layering and pass the unified result
-// to validate.Config. This helper exists only to bridge consumers migrating
-// off the previous []cue.Value signature; it will be removed when slice 05
-// (introduce-tiered-validation) ships pkg/helper/values.
-func UnifyAndValidate(values []cue.Value) cue.Value {
-	if len(values) == 0 {
-		return cue.Value{}
+// The zero cue.Value (no values) is treated as success.
+func ConfigPartial(schema cue.Value, values cue.Value, context, name string) (cue.Value, *oerrors.ConfigError) {
+	if !schema.Exists() || !values.Exists() {
+		return cue.Value{}, nil
 	}
-	merged := values[0]
-	for _, v := range values[1:] {
-		merged = merged.Unify(v)
+
+	var combined cueerrors.Error
+	combined, _ = appendSchemaErrors(schema, values, combined, false)
+
+	if combined != nil {
+		return cue.Value{}, &oerrors.ConfigError{Context: context, Name: name, RawError: combined}
 	}
-	return merged
+
+	return values, nil
 }
 
 func appendSchemaErrors(schema, value cue.Value, acc cueerrors.Error, requireConcrete bool) (cueerrors.Error, bool) {

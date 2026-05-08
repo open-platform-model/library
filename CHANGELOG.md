@@ -18,14 +18,20 @@ All notable changes to this library are documented here. The library follows [Se
 - Layering policy (CLI `-f` stack, operator ConfigMap → Secret → CR overlay,
   XR fn composition input) now lives outside the kernel. Slice 05
   (`introduce-tiered-validation`) ships `pkg/helper/values/` as the
-  recommended source-positioned Tier-1 helper; until then, migrate via the
-  one-line shim below.
+  recommended source-positioned Tier-1 helper.
 
 #### Migration
 
 ```diff
 - merged, cfgErr := validate.Config(schema, []cue.Value{a, b, c}, "module", name)
-+ merged, cfgErr := validate.Config(schema, validate.UnifyAndValidate([]cue.Value{a, b, c}), "module", name)
++ stack := values.Stack{
++     {Name: "a", Source: "a.cue", Value: a},
++     {Name: "b", Source: "b.cue", Value: b},
++     {Name: "c", Source: "c.cue", Value: c},
++ }
++ merged, msErr := k.ValidateAndUnify(schema, stack)
++ // Tier-2 safety net (also runs internally in ParseModuleRelease):
++ got, cfgErr := k.ValidateConfig(schema, merged, "module", name)
 ```
 
 ```diff
@@ -33,18 +39,30 @@ All notable changes to this library are documented here. The library follows [Se
 + rel, err := k.ParseModuleRelease(ctx, spec, mod, userValues)
 ```
 
-When the recommended migration target lands (slice 05, `pkg/helper/values`),
-replace `validate.UnifyAndValidate` with the helper-driven layering call so
-errors carry per-source attribution.
-
-### Added (transitional)
-
-- `pkg/validate.UnifyAndValidate(values []cue.Value) cue.Value` — temporary
-  shim that performs the previous slice-merge loop and returns a single
-  `cue.Value` for the new `Config` signature. Marked `// Deprecated:` from
-  introduction; will be removed when slice 05 ships `pkg/helper/values`.
-
 ### Removed (BREAKING)
+
+- `pkg/validate.UnifyAndValidate` — the slice-04 transitional shim is
+  removed. Slice 05 (`introduce-tiered-validation`) ships
+  `pkg/helper/values.ValidateAndUnify` as the recommended Tier-1 helper;
+  consumers that just need to merge without source-positioned diagnostics
+  inline the two-line loop.
+
+  Migration:
+
+  ```diff
+  - merged := validate.UnifyAndValidate([]cue.Value{a, b, c})
+  - got, cfgErr := validate.Config(schema, merged, "module", name)
+  + stack := values.Stack{
+  +     {Name: "defaults", Source: "embedded",      Value: a},
+  +     {Name: "user",     Source: "values.cue",    Value: b},
+  +     {Name: "overlay",  Source: "-f overlay.cue", Value: c},
+  + }
+  + merged, msErr := k.ValidateAndUnify(schema, stack)
+  + if msErr != nil {
+  +     // per-layer source-positioned diagnostics: msErr.Errors()
+  + }
+  + got, cfgErr := k.ValidateConfig(schema, merged, "module", name) // Tier-2 safety net
+  ```
 
 - `pkg/provider/` — package deleted. Catalog enhancement 014's `#Platform`
   replaces `#Provider` end-to-end; `*provider.Provider` no longer appears
@@ -99,6 +117,28 @@ errors carry per-source attribution.
 ## Unreleased — next MINOR
 
 ### Added
+
+- `pkg/helper/values/` — new helper package shipping the Tier-1 layered
+  values validator. `Layer{Name, Source, Value}` labels a single values
+  source; `Stack []Layer` is ordered later-overrides-earlier; and
+  `ValidateAndUnify(k, schema, stack) (cue.Value, *MultiSourceError)`
+  validates each layer independently against the `#config` schema (partial
+  mode — see `validate.ConfigPartial`), then unifies in stack order on
+  success. Per-layer failures aggregate into `*MultiSourceError`, exposing
+  `Errors() []LayerError` (with `LayerName`, `Source`, and the underlying
+  `*oerrors.ConfigError`) and `Unwrap() []error` for stdlib `errors.Is/As`
+  walks. The kernel ships an ergonomic shortcut
+  `(*Kernel).ValidateAndUnify(schema, stack)` delegating to the helper.
+  Frontends pass the unified result to the kernel's Tier-2 validation
+  (`(*Kernel).ValidateConfig`, or downstream methods like
+  `(*Kernel).ParseModuleRelease`) so both tiers run. Slice 05 of the
+  kernel-redesign-around-platform enhancement; see decisions D1 and D5.
+- `pkg/validate.ConfigPartial(schema, values, context, name)` — Tier-1
+  building block used by `pkg/helper/values`. Same signature and error
+  shape as `validate.Config` but without `cue.Concrete(true)`, so partial
+  layers (overlays that intentionally leave fields unset) validate without
+  noise. The merged result is still re-validated by `Config`/`ValidateConfig`
+  (Tier-2) with full concreteness.
 
 - `pkg/api.Paths.DebugValues` (`"debugValues"`) — module-internal field
   path exposing `#Module.debugValues` for frontend reads. The
