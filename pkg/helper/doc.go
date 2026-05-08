@@ -1,0 +1,43 @@
+// Package helper is the opt-in convenience boundary of the OPM library.
+//
+// Anything under pkg/helper/ is opinionated frontend convenience: it makes
+// embedding the kernel easier, but a frontend MAY skip it and call the
+// kernel directly. Anything outside pkg/helper/ is part of the kernel
+// contract that every frontend (CLI, controller, Crossplane fn, future
+// runtimes) MUST honour.
+//
+// Helper subpackages are added by their owning slices of the
+// kernel-redesign-around-platform enhancement. Drift requires a deliberate
+// enhancement; one-off additions are not allowed.
+//
+// Current subpackages:
+//
+//   - loader/file  — filesystem-coupled loading of modules, releases, and
+//     providers from a CUE module directory or .cue file. Use when the
+//     frontend has access to a real filesystem.
+//   - loader/bytes — in-memory loading skeleton; full implementation
+//     deferred until a consumer (Crossplane composition fn, fuzzing
+//     harness, in-memory tests) demands it.
+//
+// Planned subpackages (added by their respective slices):
+//
+//   - values   — Tier-1 layered value validation with source-attributed
+//     errors. Implemented by slice 05 (introduce-tiered-validation).
+//   - platform — Platform composition (Compose(shell, modules) → *Platform
+//     with #registry filled). Implemented by slice 10
+//     (add-platform-composition-helper).
+//   - embed    — one-call embedding wrappers for the most common patterns.
+//     Deferred until a consumer asks for it (YAGNI).
+//
+// In scope: opinionated convenience that wraps kernel primitives for a
+// specific embedding pattern.
+//
+// Out of scope: anything the kernel must own (artifact types, render
+// pipeline, validation rules, version dispatch). Those live outside
+// pkg/helper/.
+//
+// Slice 07 (reorganize-helpers-under-helper) established this boundary by
+// moving pkg/loader to pkg/helper/loader/file. See the umbrella enhancement
+// at enhancements/001-kernel-redesign-around-platform/ for the full
+// design.
+package helper

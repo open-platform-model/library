@@ -18,13 +18,19 @@ This document captures the cross-cutting kernel design and how the slices fit to
    ┌─────────────────────────────────▼────────────────────────────────┐
    │  pkg/helper/  (kernel-shipped, opt-in)                           │
    │                                                                  │
-   │   loader/file/  loader/bytes/    Build cue.Value from FS / mem.  │
-   │   values/                        Stack & unify values; Tier-1    │
-   │                                  source-positioned validation.  │
-   │   platform/                      Compose(shell, modules) →       │
-   │                                  *Platform with #registry filled.│
-   │   embed/                         One-call wrapper for the most   │
-   │                                  common embedding patterns.     │
+   │   loader/file/   [shipped, slice 07]   Build cue.Value from FS.  │
+   │   loader/bytes/  [skeleton, slice 07]  In-memory loading; full   │
+   │                                        impl deferred until a    │
+   │                                        consumer asks.           │
+   │   values/        [slice 05]            Stack & unify values;    │
+   │                                        Tier-1 source-positioned │
+   │                                        validation.              │
+   │   platform/      [slice 10]            Compose(shell, modules) →│
+   │                                        *Platform with #registry │
+   │                                        filled.                  │
+   │   embed/         [deferred]            One-call wrapper for the │
+   │                                        most common embedding    │
+   │                                        patterns.                │
    └─────────────────────────────────┬────────────────────────────────┘
                                      │ canonical pre-unified inputs
                                      ▼

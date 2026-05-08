@@ -8,34 +8,34 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 	"github.com/open-platform-model/library/pkg/compile"
 	oerrors "github.com/open-platform-model/library/pkg/errors"
-	"github.com/open-platform-model/library/pkg/loader"
+	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/provider"
 	"github.com/open-platform-model/library/pkg/validate"
 )
 
 // LoadModulePackage loads a module CUE package from a directory using the
-// kernel's [*cue.Context]. See [loader.LoadModulePackage].
+// kernel's [*cue.Context]. See [loaderfile.LoadModulePackage].
 func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string) (cue.Value, apiversion.Version, error) {
-	return loader.LoadModulePackage(k.cueCtx, dirPath) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+	return loaderfile.LoadModulePackage(k.cueCtx, dirPath)
 }
 
 // LoadReleaseFile loads a #ModuleRelease from a standalone .cue file using
-// the kernel's [*cue.Context]. See [loader.LoadReleaseFile].
-func (k *Kernel) LoadReleaseFile(_ context.Context, filePath string, opts loader.LoadOptions) (cue.Value, string, apiversion.Version, error) {
-	return loader.LoadReleaseFile(k.cueCtx, filePath, opts) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+// the kernel's [*cue.Context]. See [loaderfile.LoadReleaseFile].
+func (k *Kernel) LoadReleaseFile(_ context.Context, filePath string, opts loaderfile.LoadOptions) (cue.Value, string, apiversion.Version, error) {
+	return loaderfile.LoadReleaseFile(k.cueCtx, filePath, opts)
 }
 
 // LoadValuesFile loads a standalone CUE values file using the kernel's
-// [*cue.Context]. See [loader.LoadValuesFile].
+// [*cue.Context]. See [loaderfile.LoadValuesFile].
 func (k *Kernel) LoadValuesFile(_ context.Context, path string) (cue.Value, error) {
-	return loader.LoadValuesFile(k.cueCtx, path) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+	return loaderfile.LoadValuesFile(k.cueCtx, path)
 }
 
 // LoadProvider selects and wraps a provider from a pre-loaded providers map.
-// See [loader.LoadProvider].
+// See [loaderfile.LoadProvider].
 func (k *Kernel) LoadProvider(providerName string, providers map[string]cue.Value) (*provider.Provider, error) {
-	return loader.LoadProvider(providerName, providers) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+	return loaderfile.LoadProvider(providerName, providers)
 }
 
 // ParseModuleRelease validates values and constructs a concrete

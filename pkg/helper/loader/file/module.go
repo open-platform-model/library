@@ -1,4 +1,4 @@
-package loader
+package file
 
 import (
 	"fmt"
@@ -18,8 +18,10 @@ import (
 // An unrecognised or missing apiVersion produces an error wrapping
 // apiversion.ErrUnknownAPIVersion.
 //
-// Deprecated: use Kernel.LoadModulePackage. The Kernel owns its [*cue.Context]
-// and threads cross-cutting dependencies through every operation.
+// The recommended entry point is Kernel.LoadModulePackage, which owns its
+// [*cue.Context] and threads cross-cutting dependencies through every
+// operation. Call this function directly only if you are not using a
+// Kernel.
 func LoadModulePackage(ctx *cue.Context, dirPath string) (cue.Value, apiversion.Version, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {

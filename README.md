@@ -32,11 +32,14 @@ pkg/
   core/                   Platform-neutral primitives — Rendered, Resource, Identity
   errors/                 Sentinels, structured errors, grouped CUE diagnostics
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
-  loader/                 Filesystem and CUE-module loading (modules, providers, releases)
+  loader/                 Deprecated re-export shim of pkg/helper/loader/file (kept for one SemVer cycle)
   module/                 Module / Release model, parsing, value validation entry point
   provider/               Provider model
   compile/                Match -> finalize -> execute -> emit pipeline
   validate/               #config validation against supplied values
+  helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
+    loader/file/          Filesystem-coupled loading (modules, providers, releases)
+    loader/bytes/         In-memory loading (skeleton; deferred implementation)
 openspec/                 OpenSpec proposals, specs, archives
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
@@ -76,7 +79,7 @@ import (
     "context"
 
     "github.com/open-platform-model/library/pkg/kernel"
-    "github.com/open-platform-model/library/pkg/loader"
+    loader "github.com/open-platform-model/library/pkg/helper/loader/file"
     "github.com/open-platform-model/library/pkg/module"
     "github.com/open-platform-model/library/pkg/provider"
 )
@@ -114,7 +117,7 @@ construct a `Kernel` and call `Compile`.
 import (
     "cuelang.org/go/cue/cuecontext"
 
-    "github.com/open-platform-model/library/pkg/loader"
+    loader "github.com/open-platform-model/library/pkg/helper/loader/file"
     "github.com/open-platform-model/library/pkg/module"
     "github.com/open-platform-model/library/pkg/compile"
 )
@@ -146,6 +149,14 @@ Key pieces:
 - `apis/core/<vN>/embed.go` — embeds that version's CUE source so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
 
 The compile pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
+
+## Helper boundary (`pkg/helper/`)
+
+Anything under `pkg/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `pkg/helper/` is part of the kernel contract.
+
+Today this layer holds the filesystem loader (`pkg/helper/loader/file`) and a skeleton for the in-memory loader (`pkg/helper/loader/bytes`). Future slices add layered values (`pkg/helper/values`) and Platform composition (`pkg/helper/platform`); see `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+
+The old `pkg/loader/` import path remains as a deprecation shim that re-exports `pkg/helper/loader/file/` symbols for one SemVer cycle. New code SHOULD import the new path.
 
 ## Quality gates
 

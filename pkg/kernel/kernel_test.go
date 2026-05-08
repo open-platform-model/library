@@ -20,8 +20,8 @@ import (
 	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
 	"github.com/open-platform-model/library/pkg/apiversion"
 	"github.com/open-platform-model/library/pkg/compile"
+	loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/kernel"
-	"github.com/open-platform-model/library/pkg/loader"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/provider"
 	"github.com/open-platform-model/library/pkg/validate"
@@ -124,7 +124,7 @@ kind: "Module"
 	gotVal, gotVer, gotErr := k.LoadModulePackage(context.Background(), dir)
 	require.NoError(t, gotErr)
 
-	wantVal, wantVer, wantErr := loader.LoadModulePackage(k.CueContext(), dir) //nolint:staticcheck // SA1019: parity test against deprecated free function
+	wantVal, wantVer, wantErr := loader.LoadModulePackage(k.CueContext(), dir)
 	require.NoError(t, wantErr)
 
 	assert.Equal(t, wantVer, gotVer)
@@ -148,7 +148,7 @@ metadata: {
 	gotVal, gotDir, gotVer, gotErr := k.LoadReleaseFile(context.Background(), path, loader.LoadOptions{})
 	require.NoError(t, gotErr)
 
-	wantVal, wantDir, wantVer, wantErr := loader.LoadReleaseFile(k.CueContext(), path, loader.LoadOptions{}) //nolint:staticcheck // SA1019: parity test against deprecated free function
+	wantVal, wantDir, wantVer, wantErr := loader.LoadReleaseFile(k.CueContext(), path, loader.LoadOptions{})
 	require.NoError(t, wantErr)
 
 	assert.Equal(t, wantDir, gotDir)
@@ -171,7 +171,7 @@ values: {
 	gotVal, gotErr := k.LoadValuesFile(context.Background(), path)
 	require.NoError(t, gotErr)
 
-	wantVal, wantErr := loader.LoadValuesFile(k.CueContext(), path) //nolint:staticcheck // SA1019: parity test against deprecated free function
+	wantVal, wantErr := loader.LoadValuesFile(k.CueContext(), path)
 	require.NoError(t, wantErr)
 
 	gotReplicas, err := gotVal.LookupPath(cue.ParsePath("replicas")).Int64()
@@ -195,7 +195,7 @@ metadata: { name: "kubernetes", version: "v0" }
 	gotP, gotErr := k.LoadProvider("kubernetes", providers)
 	require.NoError(t, gotErr)
 
-	wantP, wantErr := loader.LoadProvider("kubernetes", providers) //nolint:staticcheck // SA1019: parity test against deprecated free function
+	wantP, wantErr := loader.LoadProvider("kubernetes", providers)
 	require.NoError(t, wantErr)
 
 	assert.Equal(t, wantP.APIVersion, gotP.APIVersion)

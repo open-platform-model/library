@@ -1,4 +1,4 @@
-package loader
+package file
 
 import (
 	"fmt"
@@ -34,8 +34,10 @@ type LoadOptions struct {
 // error wrapping apiversion.ErrUnknownAPIVersion; callers are expected to
 // reject the artifact rather than rendering with an empty Version.
 //
-// Deprecated: use Kernel.LoadReleaseFile. The Kernel owns its [*cue.Context]
-// and threads cross-cutting dependencies through every operation.
+// The recommended entry point is Kernel.LoadReleaseFile, which owns its
+// [*cue.Context] and threads cross-cutting dependencies through every
+// operation. Call this function directly only if you are not using a
+// Kernel.
 func LoadReleaseFile(ctx *cue.Context, filePath string, opts LoadOptions) (cue.Value, string, apiversion.Version, error) {
 	var err error
 	filePath, err = resolveReleaseFile(filePath)
@@ -83,8 +85,10 @@ func LoadReleaseFile(ctx *cue.Context, filePath string, opts LoadOptions) (cue.V
 // Used by module-only vet validation when -f is provided but there is no
 // release.cue in the module directory.
 //
-// Deprecated: use Kernel.LoadValuesFile. The Kernel owns its [*cue.Context]
-// and threads cross-cutting dependencies through every operation.
+// The recommended entry point is Kernel.LoadValuesFile, which owns its
+// [*cue.Context] and threads cross-cutting dependencies through every
+// operation. Call this function directly only if you are not using a
+// Kernel.
 func LoadValuesFile(ctx *cue.Context, path string) (cue.Value, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {

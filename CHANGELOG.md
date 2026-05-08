@@ -6,6 +6,45 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `pkg/helper/` — opt-in convenience boundary. Subpackages under
+  `pkg/helper/` are opinionated frontend helpers that a frontend MAY
+  skip; everything outside `pkg/helper/` is part of the kernel
+  contract. Boundary documented in `pkg/helper/doc.go`. See slice 07
+  (`reorganize-helpers-under-helper`) of the kernel-redesign
+  enhancement.
+- `pkg/helper/loader/file/` — new home of the filesystem-coupled
+  loader (`LoadModulePackage`, `LoadReleaseFile`, `LoadValuesFile`,
+  `LoadProvider`, `LoadOptions`). Symbols, return types, and error
+  semantics are unchanged from the prior `pkg/loader/` package.
+- `pkg/helper/loader/bytes/` — skeleton for in-memory loading.
+  Doc-only package; no functions yet. Full implementation deferred
+  until a Crossplane composition fn, fuzzing harness, or in-memory
+  test consumer pulls on the design.
+
+### Changed
+
+- **BREAKING (`pkg/loader` → `pkg/helper/loader/file`)** — the
+  filesystem loader moved under the helper boundary. The old
+  `pkg/loader/` import path is preserved for one SemVer cycle as a
+  thin re-export shim with `// Deprecated:` notices on every symbol.
+  Migration is mechanical: replace the import path and the symbols
+  resolve identically. The shim is scheduled for removal in the next
+  MAJOR release.
+
+  ```diff
+  - import "github.com/open-platform-model/library/pkg/loader"
+  + import loader "github.com/open-platform-model/library/pkg/helper/loader/file"
+  ```
+
+  `LoadOptions` is a Go type alias (`type LoadOptions = file.LoadOptions`),
+  so values constructed against either identifier are interchangeable
+  during the migration window.
+
+- `pkg/kernel` wrapper methods (`LoadModulePackage`, `LoadReleaseFile`,
+  `LoadValuesFile`, `LoadProvider`) now delegate directly to
+  `pkg/helper/loader/file` instead of going through the deprecated
+  shim. Wrapper signatures and behaviour are unchanged.
+
 - `pkg/kernel` phase methods — `Validate`, `Match`, `Plan`, `Compile` on `*Kernel`, each accepting a phase-specific input struct (`ValidateInput`, `MatchInput`, `PlanInput`, `CompileInput`). `Plan` returns a `*PlanResult` with component summaries, unmatched FQNs, ambiguous FQNs, and warnings — no rendered values. `Compile` returns a `*CompileResult` (re-exported from `pkg/compile`) with rendered values plus the same summary fields. The phase methods map onto frontend subcommands: vet → Validate, match → Match, plan → Plan, apply → Compile.
 - `pkg/kernel.DetectAPIVersion(v cue.Value)` and `pkg/kernel.Finalize(v cue.Value)` utility methods.
 - `pkg/compile.CompileResult` with `Unmatched` and `Ambiguous` fields. `pkg/compile.ModuleResult` is a `// Deprecated:` Go type alias for `CompileResult`.

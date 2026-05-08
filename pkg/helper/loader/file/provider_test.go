@@ -1,4 +1,4 @@
-package loader_test
+package file_test
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/pkg/apiversion"
-	"github.com/open-platform-model/library/pkg/loader"
+	loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 )
 
 func TestLoadProvider_PopulatesAPIVersion(t *testing.T) {

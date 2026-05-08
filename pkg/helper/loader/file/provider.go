@@ -1,7 +1,12 @@
-// Package loader provides functions to load providers and module releases
-// from CUE module directories. These are the entry points for embedding
-// the OPM runtime in other tools.
-package loader
+// Package file provides filesystem-coupled loaders for OPM artifacts:
+// module CUE packages, standalone release files, values files, and
+// providers from a pre-loaded CUE map. It is the I/O substrate behind
+// Kernel.LoadModulePackage / LoadReleaseFile / LoadValuesFile / LoadProvider.
+//
+// Callers without a real filesystem (Crossplane composition fn,
+// fuzzing harnesses, in-memory tests) should use the sibling
+// pkg/helper/loader/bytes package once it is implemented.
+package file
 
 import (
 	"fmt"
@@ -19,8 +24,8 @@ import (
 // providerName selects which provider to use. If empty, defaults to "kubernetes".
 // If the named provider is not found, an error listing available names is returned.
 //
-// Deprecated: use Kernel.LoadProvider. The Kernel is the public anchor type
-// for all OPM runtime operations.
+// The recommended entry point is Kernel.LoadProvider; the Kernel is the
+// public anchor type for all OPM runtime operations.
 func LoadProvider(providerName string, providers map[string]cue.Value) (*provider.Provider, error) {
 	if len(providers) == 0 {
 		return nil, fmt.Errorf("no providers configured — add a providers block to config.cue")
