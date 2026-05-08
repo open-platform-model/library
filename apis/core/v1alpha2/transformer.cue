@@ -4,9 +4,9 @@ import (
 	"strings"
 )
 
-// #Transformer: Declares how to convert OPM components into platform-specific resources.
+// #ComponentTransformer: Declares how to convert OPM components into platform-specific resources.
 //
-// Transformers use label-based matching to determine which components they can handle.
+// ComponentTransformers use label-based matching to determine which components they can handle.
 // A transformer matches a component when ALL of the following are true:
 //  1. ALL requiredLabels are present on the component with matching values
 //  2. ALL requiredResources FQNs exist in component #resources
@@ -14,9 +14,9 @@ import (
 //
 // Component labels are inherited from the union of labels from all attached
 // #resources, #traits, and #policies definitions.
-#Transformer: {
+#ComponentTransformer: {
 	apiVersion: #ApiVersion
-	kind:       "Transformer"
+	kind:       "ComponentTransformer"
 
 	metadata: {
 		modulePath!: #ModulePathType   // Example: "opmodel.dev/opm/transformers/kubernetes"
@@ -77,7 +77,7 @@ import (
 }
 
 // Map of transformers by fully qualified name
-#TransformerMap: [#FQNType]: #Transformer
+#TransformerMap: [#FQNType]: #ComponentTransformer
 
 // Provider context passed to transformers
 #TransformerContext: {
