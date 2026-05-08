@@ -57,6 +57,9 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
+- `pkg/apiversion/` — `Version` type, registered constants, `Detect(cue.Value)`
+- `pkg/api/` — per-schema-version `Binding` interface and registry
+- `pkg/api/<vN>/` — concrete bindings (registered in `init()`)
 - `pkg/core/` — shared domain primitives (resource identity, rendered output)
 - `pkg/errors/` — structured errors and sentinels (alias as `oerrors` in consumers)
 - `pkg/loader/` — load CUE artifacts (modules, providers, releases) into `cue.Value`
