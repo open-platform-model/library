@@ -8,11 +8,10 @@
 // Catalog enhancement 014 introduces #Platform as the replacement for
 // #Provider. #Platform carries a #registry of #ModuleRegistration entries
 // and exposes computed CUE views — #knownResources, #knownTraits,
-// #composedTransformers, #matchers — that the kernel matcher (slice 09 of
-// the kernel-redesign umbrella) consumes when walking a consumer Module's
-// FQN demand. This Go package is the type + loader landing pad for that
-// construct: it does not yet rewrite the matcher and does not retire
-// pkg/provider.Provider, which lives in parallel until slice 09.
+// #composedTransformers, #matchers — that the kernel matcher consumes
+// when walking a consumer Module's FQN demand. The matcher rewrite
+// retires the previous Provider package; Platform is now the kernel's
+// sole input for matching and execution.
 //
 // All Platform views remain accessible only via Package.LookupPath using
 // the version-binding paths (api.Binding.Paths().Registry,

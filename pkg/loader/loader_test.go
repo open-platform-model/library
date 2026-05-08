@@ -125,26 +125,6 @@ values: {
 	assert.Equal(t, int64(3), gotReplicas)
 }
 
-func TestShim_LoadProvider_Parity(t *testing.T) {
-	ctx := cuecontext.New()
-	v := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
-kind: "Provider"
-metadata: { name: "kubernetes", version: "v0" }
-`)
-	require.NoError(t, v.Err())
-	providers := map[string]cue.Value{"kubernetes": v}
-
-	gotP, gotErr := loader.LoadProvider("kubernetes", providers) //nolint:staticcheck // SA1019: parity test for the deprecated shim
-	require.NoError(t, gotErr)
-
-	wantP, wantErr := loaderfile.LoadProvider("kubernetes", providers)
-	require.NoError(t, wantErr)
-
-	assert.Equal(t, wantP.APIVersion, gotP.APIVersion)
-	assert.Equal(t, wantP.Metadata.Name, gotP.Metadata.Name)
-}
-
 // Compile-time assertions that loader.LoadOptions is the same Go type as
 // loaderfile.LoadOptions (i.e. a type alias, not a wrapper). If the alias
 // becomes a distinct named type these declarations stop compiling.

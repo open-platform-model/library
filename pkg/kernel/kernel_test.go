@@ -23,7 +23,7 @@ import (
 	loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/kernel"
 	"github.com/open-platform-model/library/pkg/module"
-	"github.com/open-platform-model/library/pkg/provider"
+	"github.com/open-platform-model/library/pkg/platform"
 	"github.com/open-platform-model/library/pkg/validate"
 )
 
@@ -182,26 +182,6 @@ values: {
 	assert.Equal(t, int64(3), gotReplicas)
 }
 
-func TestKernel_LoadProvider_Parity(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
-kind: "Provider"
-metadata: { name: "kubernetes", version: "v0" }
-`)
-	require.NoError(t, v.Err())
-	providers := map[string]cue.Value{"kubernetes": v}
-
-	gotP, gotErr := k.LoadProvider("kubernetes", providers)
-	require.NoError(t, gotErr)
-
-	wantP, wantErr := loader.LoadProvider("kubernetes", providers)
-	require.NoError(t, wantErr)
-
-	assert.Equal(t, wantP.APIVersion, gotP.APIVersion)
-	assert.Equal(t, wantP.Metadata.Name, gotP.Metadata.Name)
-}
-
 func TestKernel_ValidateConfig_Parity(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
@@ -285,7 +265,7 @@ metadata: {
 	assert.Equal(t, wantRel.Metadata.Namespace, gotRel.Metadata.Namespace)
 }
 
-// --- Render parity: minimal release + provider that round-trip through both
+// --- Compile parity: minimal release + platform that round-trip through both
 // the kernel method and the free function.
 
 func minimalReleaseValue(t *testing.T, k *kernel.Kernel) *module.Release {
@@ -304,46 +284,46 @@ components: {}
 	}
 }
 
-func minimalProviderValue(t *testing.T, k *kernel.Kernel) *provider.Provider {
+// minimalPlatformValue constructs a *platform.Platform with the given
+// apiVersion and an empty registry / matchers / composedTransformers index.
+func minimalPlatformValue(t *testing.T, k *kernel.Kernel) *platform.Platform {
 	t.Helper()
 	pv := k.CueContext().CompileString(`
 apiVersion: "ignored-by-test"
-kind: "Provider"
-metadata: { name: "kubernetes", version: "v0" }
-#transformers: {}
+kind: "Platform"
+metadata: { name: "kubernetes" }
+type: "kubernetes"
+#registry: {}
+#knownResources: {}
+#knownTraits: {}
+#composedTransformers: {}
+#matchers: {
+	resources: {}
+	traits: {}
+}
 `)
 	require.NoError(t, pv.Err())
-	return &provider.Provider{
+	return &platform.Platform{
 		APIVersion: apiversion.V1alpha2,
-		Metadata:   &provider.ProviderMetadata{Name: "kubernetes"},
-		Data:       pv,
+		Metadata:   &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
+		Package:    pv,
 	}
 }
 
-func TestKernel_NewRenderModule_Parity(t *testing.T) {
-	k := kernel.New()
-	p := minimalProviderValue(t, k)
-
-	got := k.NewRenderModule(p, "opm-cli")
-	want := compile.NewModule(p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
-
-	require.NotNil(t, got)
-	require.NotNil(t, want)
-	// Both should produce non-nil *compile.Module values for the same provider.
-	// Internal state is unexported; we round-trip through the public APIs in
-	// the ProcessModuleRelease parity test below.
-	assert.IsType(t, want, got)
-}
-
-func TestKernel_ProcessModuleRelease_Parity_VersionMismatch(t *testing.T) {
+func TestKernel_Compile_Parity_VersionMismatch(t *testing.T) {
 	k := kernel.New()
 	rel := minimalReleaseValue(t, k)
-	p := minimalProviderValue(t, k)
+	plat := minimalPlatformValue(t, k)
 	// Force a mismatch.
-	p.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
+	plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
 
-	_, gotErr := k.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
-	_, wantErr := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
+	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
+		Module:        &module.Module{APIVersion: apiversion.V1alpha2, Metadata: &module.ModuleMetadata{Name: "m"}},
+		ModuleRelease: rel,
+		Platform:      plat,
+		RuntimeName:   "opm-cli",
+	})
+	_, wantErr := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
 	require.Error(t, wantErr)
@@ -351,16 +331,22 @@ func TestKernel_ProcessModuleRelease_Parity_VersionMismatch(t *testing.T) {
 	assert.Contains(t, wantErr.Error(), "apiVersion mismatch")
 }
 
-func TestKernel_ProcessModuleRelease_Parity_UnknownVersion(t *testing.T) {
+func TestKernel_Compile_Parity_UnknownVersion(t *testing.T) {
 	k := kernel.New()
 	unknown := apiversion.Version("opmodel.dev/never-registered")
 	rel := minimalReleaseValue(t, k)
 	rel.APIVersion = unknown
-	p := minimalProviderValue(t, k)
-	p.APIVersion = unknown
+	plat := minimalPlatformValue(t, k)
+	plat.APIVersion = unknown
 
-	_, gotErr := k.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
-	_, wantErr := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
+	mod := &module.Module{APIVersion: unknown, Metadata: &module.ModuleMetadata{Name: "m"}}
+	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
+		Module:        mod,
+		ModuleRelease: rel,
+		Platform:      plat,
+		RuntimeName:   "opm-cli",
+	})
+	_, wantErr := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
 	require.Error(t, wantErr)
@@ -375,7 +361,7 @@ func TestKernel_BindingRegistered(t *testing.T) {
 }
 
 // --- Goroutine-safety regression: N kernels (one per goroutine) each run a
-// basic Load + Process cycle. With -race enabled, this confirms no shared
+// basic Load + Compile cycle. With -race enabled, this confirms no shared
 // state leaks across kernels.
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
@@ -410,10 +396,10 @@ kind: "Module"
 			}
 
 			rel := minimalReleaseValue(t, k)
-			p := minimalProviderValue(t, k)
-			_, perr := k.ProcessModuleRelease(ctx, rel, p, "opm-cli")
+			plat := minimalPlatformValue(t, k)
+			_, perr := compile.CompileModuleRelease(ctx, rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity guard for the deprecated free function
 			if perr != nil {
-				// ProcessModuleRelease may legitimately error on the minimal
+				// CompileModuleRelease may legitimately error on the minimal
 				// fixture (no components/transformers); we only care that the
 				// call returns deterministically without racing.
 				_ = perr

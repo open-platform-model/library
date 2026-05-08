@@ -51,14 +51,14 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 	if in.ModuleRelease == nil {
 		return nil, fmt.Errorf("MatchInput.ModuleRelease is required")
 	}
-	if in.Provider == nil {
-		return nil, fmt.Errorf("MatchInput.Provider is required")
+	if in.Platform == nil {
+		return nil, fmt.Errorf("MatchInput.Platform is required")
 	}
-	if in.ModuleRelease.APIVersion != in.Provider.APIVersion {
+	if in.ModuleRelease.APIVersion != in.Platform.APIVersion {
 		return nil, fmt.Errorf(
-			"apiVersion mismatch: release %q has %q but provider %q has %q",
+			"apiVersion mismatch: release %q has %q but platform %q has %q",
 			in.ModuleRelease.Metadata.Name, in.ModuleRelease.APIVersion,
-			in.Provider.Metadata.Name, in.Provider.APIVersion,
+			in.Platform.Metadata.Name, in.Platform.APIVersion,
 		)
 	}
 	b, err := api.Lookup(in.ModuleRelease.APIVersion)
@@ -69,7 +69,7 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 	if !components.Exists() {
 		return nil, fmt.Errorf("release %q: no components field in release spec", in.ModuleRelease.Metadata.Name)
 	}
-	return compile.Match(components, in.Provider, b)
+	return compile.Match(components, in.Platform, b)
 }
 
 // Plan runs Validate + Match + Execute (dry-run) and returns a
@@ -87,8 +87,8 @@ func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
 	if in.ModuleRelease == nil {
 		return nil, fmt.Errorf("PlanInput.ModuleRelease is required")
 	}
-	if in.Provider == nil {
-		return nil, fmt.Errorf("PlanInput.Provider is required")
+	if in.Platform == nil {
+		return nil, fmt.Errorf("PlanInput.Platform is required")
 	}
 	if in.RuntimeName == "" {
 		return nil, fmt.Errorf("PlanInput.RuntimeName must be non-empty")
@@ -118,8 +118,8 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 	if in.ModuleRelease == nil {
 		return nil, fmt.Errorf("CompileInput.ModuleRelease is required")
 	}
-	if in.Provider == nil {
-		return nil, fmt.Errorf("CompileInput.Provider is required")
+	if in.Platform == nil {
+		return nil, fmt.Errorf("CompileInput.Platform is required")
 	}
 	if in.RuntimeName == "" {
 		return nil, fmt.Errorf("CompileInput.RuntimeName must be non-empty")
@@ -133,7 +133,7 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 		return nil, err
 	}
 
-	return compile.CompileModuleRelease(ctx, in.ModuleRelease, in.Provider, in.RuntimeName) //nolint:staticcheck // SA1019: compile.CompileModuleRelease is the underlying implementation for this method
+	return compile.CompileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName) //nolint:staticcheck // SA1019: compile.CompileModuleRelease is the underlying implementation for this method
 }
 
 // DetectAPIVersion reads the apiVersion literal from the root of v and

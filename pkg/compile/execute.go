@@ -26,7 +26,7 @@ func executeTransforms(
 	ctx context.Context,
 	cueCtx *cue.Context,
 	plan *MatchPlan,
-	providerVal cue.Value,
+	platformVal cue.Value,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
 	rel *module.Release,
@@ -44,7 +44,7 @@ func executeTransforms(
 		default:
 		}
 
-		res, pairWarnings, err := executePair(cueCtx, providerVal, schemaComponents, dataComponents, rel, pair, runtimeName, binding)
+		res, pairWarnings, err := executePair(cueCtx, platformVal, schemaComponents, dataComponents, rel, pair, runtimeName, binding)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -59,7 +59,7 @@ func executeTransforms(
 // executePair runs the CUE #transform for a single (component, transformer) matched pair.
 //
 // The flow:
-//  1. Look up the transformer's #transform from the provider raw value.
+//  1. Look up the transformer's #transform from Platform.#composedTransformers.
 //  2. Look up the component from dataComponents (already finalized — no constraints).
 //  3. FillPath #component with the data component value directly (no materialize needed).
 //  4. FillPath #context.* fields (#moduleReleaseMetadata, #componentMetadata, #runtimeName).
@@ -67,7 +67,7 @@ func executeTransforms(
 //  5. Look up and decode the output field.
 func executePair(
 	cueCtx *cue.Context,
-	providerVal cue.Value,
+	platformVal cue.Value,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
 	rel *module.Release,
@@ -79,14 +79,15 @@ func executePair(
 	tfFQN := pair.TransformerFQN
 	paths := binding.Paths()
 
-	// Retrieve the transformer's #transform definition from the provider value.
-	transformVal := providerVal.
-		LookupPath(paths.Transformers).
+	// Retrieve the transformer's #transform definition from
+	// Platform.#composedTransformers.
+	transformVal := platformVal.
+		LookupPath(paths.ComposedTransformers).
 		LookupPath(cue.MakePath(cue.Str(tfFQN))).
 		LookupPath(paths.Transform)
 
 	if !transformVal.Exists() {
-		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform not found in provider", compName, tfFQN)
+		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform not found in platform.#composedTransformers", compName, tfFQN)
 	}
 	if err := transformVal.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform error: %w", compName, tfFQN, err)

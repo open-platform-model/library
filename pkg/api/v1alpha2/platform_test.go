@@ -47,6 +47,8 @@ func TestPlatformPathsResolve(t *testing.T) {
 		{"KnownTraits", p.KnownTraits, "#knownTraits"},
 		{"ComposedTransformers", p.ComposedTransformers, "#composedTransformers"},
 		{"Matchers", p.Matchers, "#matchers"},
+		{"MatchersResources", p.MatchersResources, "#matchers.resources"},
+		{"MatchersTraits", p.MatchersTraits, "#matchers.traits"},
 	}
 	for _, c := range cases {
 		t.Run(c.name+"/Literal", func(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/open-platform-model/library/pkg/apiversion"
 	"github.com/open-platform-model/library/pkg/helper/loader/file"
-	"github.com/open-platform-model/library/pkg/provider"
 )
 
 // LoadOptions is a deprecation alias for [file.LoadOptions].
@@ -36,12 +35,4 @@ func LoadReleaseFile(ctx *cue.Context, filePath string, opts LoadOptions) (cue.V
 // github.com/open-platform-model/library/pkg/helper/loader/file.
 func LoadValuesFile(ctx *cue.Context, path string) (cue.Value, error) {
 	return file.LoadValuesFile(ctx, path)
-}
-
-// LoadProvider delegates to [file.LoadProvider].
-//
-// Deprecated: use [file.LoadProvider] from
-// github.com/open-platform-model/library/pkg/helper/loader/file.
-func LoadProvider(providerName string, providers map[string]cue.Value) (*provider.Provider, error) {
-	return file.LoadProvider(providerName, providers)
 }

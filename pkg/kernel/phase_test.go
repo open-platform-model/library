@@ -15,16 +15,18 @@ import (
 	oerrors "github.com/open-platform-model/library/pkg/errors"
 	"github.com/open-platform-model/library/pkg/kernel"
 	"github.com/open-platform-model/library/pkg/module"
-	"github.com/open-platform-model/library/pkg/provider"
+	"github.com/open-platform-model/library/pkg/platform"
 )
 
-// phaseFixture builds a minimal Module + Release + Provider with a single
-// component and a transformer that matches it. The transformer's output
-// echoes #context fields so tests can confirm the full pipeline ran.
+// phaseFixture builds a minimal Module + Release + Platform with a single
+// component declaring one resource FQN, and one transformer in the
+// platform's #composedTransformers / #matchers index that fulfills it.
+// The transformer's output echoes #context fields so tests can confirm the
+// full pipeline ran.
 type phaseFixture struct {
-	mod *module.Module
-	rel *module.Release
-	p   *provider.Provider
+	mod  *module.Module
+	rel  *module.Release
+	plat *platform.Platform
 }
 
 func newPhaseFixture(t *testing.T, k *kernel.Kernel) phaseFixture {
@@ -58,16 +60,23 @@ components: {
 			name: "web"
 			labels: { tier: "web" }
 		}
+		#resources: {
+			"example.com/r/echo@v0": {}
+		}
 	}
 }
 `)
 	require.NoError(t, relPkg.Err())
 
-	pv := ctx.CompileString(`
+	platVal := ctx.CompileString(`
 apiVersion: "opmodel.dev/v1alpha2"
-kind: "Provider"
-metadata: { name: "k8s", version: "v0" }
-#transformers: {
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#knownResources: {}
+#knownTraits: {}
+#composedTransformers: {
 	"example.com/p/echo@v0": {
 		requiredLabels: { tier: "web" }
 		requiredResources: {}
@@ -85,8 +94,14 @@ metadata: { name: "k8s", version: "v0" }
 		}
 	}
 }
+#matchers: {
+	resources: {
+		"example.com/r/echo@v0": ["example.com/p/echo@v0"]
+	}
+	traits: {}
+}
 `)
-	require.NoError(t, pv.Err())
+	require.NoError(t, platVal.Err())
 
 	return phaseFixture{
 		mod: &module.Module{
@@ -107,10 +122,10 @@ metadata: { name: "k8s", version: "v0" }
 			},
 			Package: relPkg,
 		},
-		p: &provider.Provider{
+		plat: &platform.Platform{
 			APIVersion: apiversion.V1alpha2,
-			Metadata:   &provider.ProviderMetadata{Name: "k8s"},
-			Data:       pv,
+			Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+			Package:    platVal,
 		},
 	}
 }
@@ -171,7 +186,7 @@ func TestKernel_Match_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	plan, err := k.Match(context.Background(), kernel.MatchInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, plan)
@@ -184,10 +199,10 @@ func TestKernel_Match_OK(t *testing.T) {
 func TestKernel_Match_VersionMismatch(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
-	f.p.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
+	f.plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
 
 	_, err := k.Match(context.Background(), kernel.MatchInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "apiVersion mismatch")
@@ -198,7 +213,7 @@ func TestKernel_Plan_NoRendered(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Plan(context.Background(), kernel.PlanInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -217,12 +232,12 @@ func TestKernel_Plan_RequiresInputs(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	_, err := k.Plan(context.Background(), kernel.PlanInput{
-		ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.Error(t, err)
 
 	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.Error(t, err, "RuntimeName must be required")
 }
@@ -232,7 +247,7 @@ func TestKernel_Compile_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Compile(context.Background(), kernel.CompileInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -244,18 +259,18 @@ func TestKernel_Compile_OK(t *testing.T) {
 	assert.Equal(t, "opm-cli", runtime)
 }
 
-// TestKernel_Compile_MatchesProcessModuleRelease confirms Compile produces
-// the same rendered count and provenance as the deprecated
-// ProcessModuleRelease wrapper on the same fixture.
-func TestKernel_Compile_MatchesProcessModuleRelease(t *testing.T) {
+// TestKernel_Compile_MatchesCompileModuleRelease confirms Compile produces
+// the same rendered count and provenance as the deprecated free function
+// compile.CompileModuleRelease on the same fixture.
+func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 
-	want, err := k.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli")
+	want, err := compile.CompileModuleRelease(context.Background(), f.rel, f.plat, "opm-cli") //nolint:staticcheck // SA1019: parity test for the deprecated free function
 	require.NoError(t, err)
 
 	got, err := k.Compile(context.Background(), kernel.CompileInput{
-		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 
@@ -265,30 +280,6 @@ func TestKernel_Compile_MatchesProcessModuleRelease(t *testing.T) {
 		assert.Equal(t, want.Rendered[i].Transformer, got.Rendered[i].Transformer)
 		assert.Equal(t, want.Rendered[i].Release, got.Rendered[i].Release)
 	}
-}
-
-// TestKernel_ProcessModuleRelease_DeprecatedAlias_Works confirms the
-// deprecated alias still produces a usable result.
-func TestKernel_ProcessModuleRelease_DeprecatedAlias_Works(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	out, err := k.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli")
-	require.NoError(t, err)
-	require.NotNil(t, out)
-	assert.Len(t, out.Rendered, 1)
-}
-
-// TestCompile_ProcessModuleRelease_DeprecatedAlias_Works confirms the
-// free-function alias in pkg/compile still works.
-func TestCompile_ProcessModuleRelease_DeprecatedAlias_Works(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	out, err := compile.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated alias
-	require.NoError(t, err)
-	require.NotNil(t, out)
-	assert.Len(t, out.Rendered, 1)
 }
 
 // TestRender_ModuleResult_Aliased verifies *compile.ModuleResult resolves to

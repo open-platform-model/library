@@ -90,19 +90,19 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 
 #### Scenario: Match phase method
 
-- **WHEN** a caller invokes `k.Match(ctx, MatchInput{Module, ModuleRelease, Provider})`
+- **WHEN** a caller invokes `k.Match(ctx, MatchInput{Module, ModuleRelease, Platform})`
 - **THEN** the kernel produces a `*MatchPlan` describing matched and non-matched component/transformer pairs
 - **AND** does not execute any transformer
 
 #### Scenario: Plan phase method
 
-- **WHEN** a caller invokes `k.Plan(ctx, PlanInput{Module, ModuleRelease, Values, Provider, RuntimeName})`
+- **WHEN** a caller invokes `k.Plan(ctx, PlanInput{Module, ModuleRelease, Values, Platform, RuntimeName})`
 - **THEN** the kernel runs the full Compile pipeline (Validate + Match + Execute + Finalize) and returns a `*PlanResult` containing component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 - **AND** does not return rendered values
 
 #### Scenario: Compile phase method
 
-- **WHEN** a caller invokes `k.Compile(ctx, CompileInput{Module, ModuleRelease, Values, Provider, RuntimeName})`
+- **WHEN** a caller invokes `k.Compile(ctx, CompileInput{Module, ModuleRelease, Values, Platform, RuntimeName})`
 - **THEN** the kernel runs the full pipeline (Validate + Match + Execute + Finalize) and returns a `*CompileResult` containing `Rendered []*core.Rendered`, component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 
 ### Requirement: Phase Input Structs
@@ -118,22 +118,23 @@ Each phase method SHALL accept a phase-specific input struct rather than positio
 #### Scenario: CompileInput shape
 
 - **WHEN** a developer reads the `CompileInput` struct
-- **THEN** the struct has at minimum `Module *module.Module`, `ModuleRelease *module.Release`, `Values cue.Value`, `Provider *provider.Provider` (substituted by `Platform *Platform` after slice 08 lands), and `RuntimeName string`
+- **THEN** the struct has at minimum `Module *module.Module`, `ModuleRelease *module.Release`, `Values cue.Value`, `Platform *platform.Platform`, and `RuntimeName string`
+- **AND** the struct has no `Provider` field
 
 ### Requirement: Compile Rename
 
-The render pipeline's terminal verb SHALL be `Compile`. `pkg/render/process_module.go` SHALL be renamed to `pkg/render/compile_module.go`. `render.ProcessModuleRelease` SHALL be renamed to `render.CompileModuleRelease`. The old name SHALL remain as a `// Deprecated:` alias delegating to the new name.
+The render pipeline's terminal verb SHALL be `Compile`. `pkg/render/process_module.go` SHALL be renamed to `pkg/render/compile_module.go`. `render.ProcessModuleRelease` SHALL be renamed to `render.CompileModuleRelease`.
 
 #### Scenario: New name available
 
-- **WHEN** a caller invokes `render.CompileModuleRelease(ctx, rel, p, runtimeName)`
-- **THEN** the call performs the full render pipeline and returns a `*CompileResult`
+- **WHEN** a caller invokes `compile.CompileModuleRelease(ctx, rel, plat, runtimeName)`
+- **THEN** the call performs the full render pipeline against the supplied `*platform.Platform` and returns a `*CompileResult`
 
-#### Scenario: Deprecated alias still works
+#### Scenario: ProcessModuleRelease alias removed
 
-- **WHEN** a caller invokes `render.ProcessModuleRelease(ctx, rel, p, runtimeName)`
-- **THEN** the call succeeds with the same behavior as `CompileModuleRelease`
-- **AND** the function carries a `// Deprecated:` doc comment pointing to `CompileModuleRelease`
+- **WHEN** a developer searches for `ProcessModuleRelease` in `pkg/compile/` or `pkg/kernel/`
+- **THEN** the symbol does not exist
+- **AND** callers MUST use `CompileModuleRelease` (free function) or `(*Kernel).Compile` (method)
 
 #### Scenario: ModuleResult aliased
 

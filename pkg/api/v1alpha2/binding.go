@@ -34,6 +34,8 @@ var paths = api.Paths{
 	KnownTraits:          cue.ParsePath("#knownTraits"),
 	ComposedTransformers: cue.ParsePath("#composedTransformers"),
 	Matchers:             cue.ParsePath("#matchers"),
+	MatchersResources:    cue.ParsePath("#matchers.resources"),
+	MatchersTraits:       cue.ParsePath("#matchers.traits"),
 
 	Transform:                    cue.ParsePath("#transform"),
 	TransformerRequiredLabels:    cue.ParsePath("requiredLabels"),

@@ -2,6 +2,60 @@
 
 All notable changes to this library are documented here. The library follows [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html); this changelog distinguishes Go-module SemVer from OPM-schema versioning per the README.
 
+## Unreleased — next MAJOR
+
+### Removed (BREAKING)
+
+- `pkg/provider/` — package deleted. Catalog enhancement 014's `#Platform`
+  replaces `#Provider` end-to-end; `*provider.Provider` no longer appears
+  on any kernel input. Construct `*platform.Platform` instead — slice 10
+  ships `pkg/helper/platform.Compose` to make this a one-line migration
+  from a Module registry.
+- `pkg/helper/loader/file.LoadProvider` (and its `pkg/loader/` shim
+  re-export) — removed alongside the provider package.
+- `(*Kernel).LoadProvider` and `(*Kernel).NewRenderModule` wrappers —
+  removed; both delegated to provider-only paths.
+- `(*Kernel).ProcessModuleRelease` and `compile.ProcessModuleRelease`
+  deprecated aliases — removed; replace with `(*Kernel).Compile` or
+  `compile.CompileModuleRelease` (now Platform-based).
+- `MatchInput.Provider`, `PlanInput.Provider`, `CompileInput.Provider`
+  fields — removed; the `Platform` field is now required on each.
+
+### Changed (BREAKING)
+
+- `pkg/compile.Match(components, plat *platform.Platform, b api.Binding)` —
+  the matcher now consumes `Platform.#composedTransformers` and walks
+  each component's `#resources`/`#traits` keys against
+  `Platform.#matchers.{resources, traits}` via the binding paths.
+  `requiredLabels` matching is preserved verbatim. Multi-fulfiller is
+  forbidden at the platform layer (catalog 014 D13); the matcher keeps
+  a defensive ambiguity check that surfaces in `MatchPlan.Ambiguous`.
+- `pkg/compile.NewModule(plat *platform.Platform, runtimeName string)` —
+  signature changed; `*provider.Provider` parameter retired.
+- `pkg/compile.CompileModuleRelease(ctx, rel, plat, runtimeName)` —
+  signature changed; takes `*platform.Platform` instead of
+  `*provider.Provider`. APIVersion mismatch error now reads
+  `release "X" has "..." but platform "Y" has "..."`.
+- `pkg/compile.MatchPlan` — gained an `Ambiguous []string` field for FQNs
+  that resolved to more than one transformer at the platform-matchers
+  layer.
+
+### Migration
+
+```diff
+- p, err := loader.LoadProvider("kubernetes", providers)
+- result, err := k.Compile(ctx, kernel.CompileInput{
+-     Module: mod, ModuleRelease: rel, Provider: p, RuntimeName: "opm-cli",
+- })
++ // Compose a Platform from your Module registry. Slice 10 will ship
++ // pkg/helper/platform.Compose; until then build it inline:
++ platVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
++ plat, err := k.NewPlatformFromValue(platVal)
++ result, err := k.Compile(ctx, kernel.CompileInput{
++     Module: mod, ModuleRelease: rel, Platform: plat, RuntimeName: "opm-cli",
++ })
+```
+
 ## Unreleased — next MINOR
 
 ### Added

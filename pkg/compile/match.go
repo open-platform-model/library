@@ -1,3 +1,22 @@
+// Package compile's matching logic.
+//
+// Match walks each consumer Module component, collects the union of resource
+// and trait FQNs the component declares (component.#resources keys ∪
+// component.#traits keys), and looks each demanded FQN up in
+// Platform.#matchers.{resources, traits}. The lookup is reverse-indexed by
+// catalog enhancement 014's #PlatformMatch construct: matchers[FQN] yields
+// the (single) transformer FQN that publishes that primitive on the platform.
+// Catalog 014 D13 forbids multi-fulfiller at the platform layer; this matcher
+// keeps a defensive ambiguity check anyway.
+//
+// Located transformer bodies live in Platform.#composedTransformers[tfFQN];
+// requiredLabels matching against component metadata.labels still applies
+// and is retained verbatim from the previous implementation. All path access
+// goes through binding.Paths() so v1alpha1/v1alpha2/etc. share one walk.
+//
+// Match is in Go (not CUE #PlatformMatch) per umbrella decision Q1: keeps
+// the Go-native error/diagnostic shape, avoids one CUE evaluation per match,
+// and reuses the existing #config / labels code paths unchanged.
 package compile
 
 import (
@@ -7,7 +26,7 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/pkg/api"
-	"github.com/open-platform-model/library/pkg/provider"
+	"github.com/open-platform-model/library/pkg/platform"
 )
 
 // MatchResult is the per-(component, transformer) match outcome.
@@ -18,10 +37,11 @@ type MatchResult struct {
 	MissingTraits    []string `json:"missingTraits"`
 }
 
-// MatchPlan is the full result of matching components against a provider's transformers.
+// MatchPlan is the full result of matching components against a platform's transformers.
 type MatchPlan struct {
 	Matches         map[string]map[string]MatchResult
 	Unmatched       []string
+	Ambiguous       []string
 	UnhandledTraits map[string][]string
 }
 
@@ -41,18 +61,15 @@ type NonMatchedPair struct {
 	MissingTraits    []string
 }
 
-// Match compares each component against all transformers in the provider, returning a MatchPlan
-// that details which transformers matched which components and what was missing for non-matches.
-// It also identifies any traits present in components that are not handled by any matched transformer,
-// which will be ignored in rendering and should be surfaced as warnings to the user.
+// Match walks a consumer Module's components against a Platform's
+// #matchers index and returns a MatchPlan describing matched pairs,
+// unmatched FQNs, and ambiguous FQNs. The binding argument supplies the
+// per-schema-version CUE path inventory; every lookup goes through b.Paths().
 //
-// The binding argument supplies the per-schema-version CUE path inventory;
-// every lookup goes through b.Paths().
-//
-//nolint:gocyclo // matching is naturally branchy but kept in one place for parity with matcher.cue
-func Match(components cue.Value, p *provider.Provider, b api.Binding) (*MatchPlan, error) {
-	if p == nil {
-		return nil, fmt.Errorf("provider is required")
+//nolint:gocyclo // matching is naturally branchy but kept in one place
+func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*MatchPlan, error) {
+	if plat == nil {
+		return nil, fmt.Errorf("platform is required")
 	}
 	if b == nil {
 		return nil, fmt.Errorf("binding is required")
@@ -60,15 +77,15 @@ func Match(components cue.Value, p *provider.Provider, b api.Binding) (*MatchPla
 	paths := b.Paths()
 	plan := &MatchPlan{Matches: map[string]map[string]MatchResult{}, UnhandledTraits: map[string][]string{}}
 
+	composed := plat.Package.LookupPath(paths.ComposedTransformers)
+	matchersResources := plat.Package.LookupPath(paths.MatchersResources)
+	matchersTraits := plat.Package.LookupPath(paths.MatchersTraits)
+
 	compIter, err := components.Fields()
 	if err != nil {
 		return nil, fmt.Errorf("iterating components: %w", err)
 	}
-
-	transformers := p.Data.LookupPath(paths.Transformers)
-	if !transformers.Exists() {
-		return plan, nil
-	}
+	ambiguousSet := map[string]struct{}{}
 
 	for compIter.Next() {
 		compName := compIter.Selector().Unquoted()
@@ -78,54 +95,145 @@ func Match(components cue.Value, p *provider.Provider, b api.Binding) (*MatchPla
 		traits := fieldKeys(compVal.LookupPath(paths.ComponentTraits))
 
 		plan.Matches[compName] = map[string]MatchResult{}
-		tfIter, err := transformers.Fields()
-		if err != nil {
-			return nil, fmt.Errorf("iterating transformers: %w", err)
-		}
-		matchedTFs := []string{}
-		for tfIter.Next() {
-			tfFQN := tfIter.Selector().Unquoted()
-			tfVal := tfIter.Value()
-			missingLabels := missingMapLabels(tfVal.LookupPath(paths.TransformerRequiredLabels), labels)
-			missingResources := missingKeys(tfVal.LookupPath(paths.TransformerRequiredResources), resources)
-			missingTraits := missingKeys(tfVal.LookupPath(paths.TransformerRequiredTraits), traits)
+		matched := map[string]struct{}{}
+		traitHandled := map[string]struct{}{}
 
-			result := MatchResult{
-				Matched:          len(missingLabels) == 0 && len(missingResources) == 0 && len(missingTraits) == 0,
-				MissingLabels:    missingLabels,
-				MissingResources: missingResources,
-				MissingTraits:    missingTraits,
-			}
-			plan.Matches[compName][tfFQN] = result
-			if result.Matched {
-				matchedTFs = append(matchedTFs, tfFQN)
+		// Resource demand walk.
+		for _, fqn := range resources {
+			tfFQN, status := lookupCandidate(matchersResources, fqn)
+			switch status {
+			case candidateAmbiguous:
+				ambiguousSet[fqn] = struct{}{}
+			case candidateMissing:
+				// Record component-level missing-resource diagnostic keyed by FQN.
+				plan.Matches[compName][fqn] = MatchResult{MissingResources: []string{fqn}}
+			case candidateFound:
+				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
 			}
 		}
 
-		if len(matchedTFs) == 0 {
+		// Trait demand walk.
+		for _, fqn := range traits {
+			tfFQN, status := lookupCandidate(matchersTraits, fqn)
+			switch status {
+			case candidateAmbiguous:
+				ambiguousSet[fqn] = struct{}{}
+			case candidateMissing:
+				plan.Matches[compName][fqn] = MatchResult{MissingTraits: []string{fqn}}
+			case candidateFound:
+				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
+				traitHandled[fqn] = struct{}{}
+			}
+		}
+
+		if len(matched) == 0 {
 			plan.Unmatched = append(plan.Unmatched, compName)
 		}
-
-		handled := map[string]struct{}{}
-		for _, tfFQN := range matchedTFs {
-			tfVal := transformers.LookupPath(cue.MakePath(cue.Str(tfFQN)))
-			for _, fqn := range fieldKeys(tfVal.LookupPath(paths.TransformerRequiredTraits)) {
-				handled[fqn] = struct{}{}
-			}
+		// Carry forward optionalTraits handled by any matched transformer so
+		// they are not flagged as unhandled.
+		for tfFQN := range matched {
+			tfVal := composed.LookupPath(cue.MakePath(cue.Str(tfFQN)))
 			for _, fqn := range fieldKeys(tfVal.LookupPath(paths.TransformerOptionalTraits)) {
-				handled[fqn] = struct{}{}
+				traitHandled[fqn] = struct{}{}
 			}
 		}
 		for _, fqn := range traits {
-			if _, ok := handled[fqn]; !ok {
+			if _, ok := traitHandled[fqn]; !ok {
 				plan.UnhandledTraits[compName] = append(plan.UnhandledTraits[compName], fqn)
 			}
 		}
 		sort.Strings(plan.UnhandledTraits[compName])
 	}
 
+	for fqn := range ambiguousSet {
+		plan.Ambiguous = append(plan.Ambiguous, fqn)
+	}
+	sort.Strings(plan.Ambiguous)
 	sort.Strings(plan.Unmatched)
 	return plan, nil
+}
+
+// candidateStatus encodes the three outcomes of matchers[FQN] lookup.
+type candidateStatus int
+
+const (
+	candidateMissing candidateStatus = iota
+	candidateFound
+	candidateAmbiguous
+)
+
+// lookupCandidate reads matchersIndex[FQN] and returns the single
+// transformer FQN. Catalog 014 D13 forbids multi-fulfiller at the platform
+// layer; this defensively flags any list with len>1.
+func lookupCandidate(matchersIndex cue.Value, fqn string) (string, candidateStatus) {
+	if !matchersIndex.Exists() {
+		return "", candidateMissing
+	}
+	entry := matchersIndex.LookupPath(cue.MakePath(cue.Str(fqn)))
+	if !entry.Exists() {
+		return "", candidateMissing
+	}
+	switch entry.Kind() {
+	case cue.ListKind:
+		iter, err := entry.List()
+		if err != nil {
+			return "", candidateMissing
+		}
+		var got []string
+		for iter.Next() {
+			s, err := iter.Value().String()
+			if err != nil {
+				return "", candidateMissing
+			}
+			got = append(got, s)
+		}
+		switch len(got) {
+		case 0:
+			return "", candidateMissing
+		case 1:
+			return got[0], candidateFound
+		default:
+			return "", candidateAmbiguous
+		}
+	case cue.StringKind:
+		s, err := entry.String()
+		if err != nil {
+			return "", candidateMissing
+		}
+		return s, candidateFound
+	default:
+		return "", candidateMissing
+	}
+}
+
+// pairTransformer records a (component, transformer) outcome in the plan.
+// The transformer's requiredLabels are evaluated against the component's
+// labels; mismatches surface as MissingLabels and the pair is not marked
+// matched.
+func pairTransformer(
+	plan *MatchPlan,
+	compName, tfFQN string,
+	composed cue.Value,
+	paths api.Paths,
+	labels map[string]struct{},
+	matched map[string]struct{},
+) {
+	if _, already := plan.Matches[compName][tfFQN]; already {
+		// Multiple demanded FQNs may map to the same transformer; record once.
+		if _, ok := matched[tfFQN]; ok {
+			return
+		}
+	}
+	tfVal := composed.LookupPath(cue.MakePath(cue.Str(tfFQN)))
+	missingLabels := missingMapLabels(tfVal.LookupPath(paths.TransformerRequiredLabels), labels)
+	result := MatchResult{
+		Matched:       len(missingLabels) == 0,
+		MissingLabels: missingLabels,
+	}
+	plan.Matches[compName][tfFQN] = result
+	if result.Matched {
+		matched[tfFQN] = struct{}{}
+	}
 }
 
 // MatchedPairs returns all matched component-transformer pairs,
@@ -249,28 +357,6 @@ func missingMapLabels(required cue.Value, have map[string]struct{}) []string {
 		pair := fmt.Sprintf("%s=%s", iter.Selector().Unquoted(), str)
 		if _, ok := have[pair]; !ok {
 			missing = append(missing, pair)
-		}
-	}
-	sort.Strings(missing)
-	return missing
-}
-
-// missingKeys compares required keys in a transformer against the
-// keys present in a component, returning any missing keys.
-func missingKeys(required cue.Value, have []string) []string {
-	haveSet := map[string]struct{}{}
-	for _, k := range have {
-		haveSet[k] = struct{}{}
-	}
-	iter, err := required.Fields(cue.Optional(true))
-	if err != nil {
-		return nil
-	}
-	var missing []string
-	for iter.Next() {
-		key := iter.Selector().Unquoted()
-		if _, ok := haveSet[key]; !ok {
-			missing = append(missing, key)
 		}
 	}
 	sort.Strings(missing)

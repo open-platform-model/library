@@ -50,6 +50,8 @@ type Paths struct {
 	KnownTraits          cue.Path // "#knownTraits"
 	ComposedTransformers cue.Path // "#composedTransformers"
 	Matchers             cue.Path // "#matchers"
+	MatchersResources    cue.Path // "#matchers.resources"
+	MatchersTraits       cue.Path // "#matchers.traits"
 
 	// Transformer body and matching predicates.
 	Transform                    cue.Path // "#transform"

@@ -5,7 +5,6 @@ import (
 
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
-	"github.com/open-platform-model/library/pkg/provider"
 )
 
 // ValidateInput is the input for [Kernel.Validate].
@@ -32,15 +31,8 @@ type MatchInput struct {
 	// [module.Release.MatchComponents]. Required.
 	ModuleRelease *module.Release
 
-	// Provider supplies the transformer registry. Required.
-	Provider *provider.Provider
-
 	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher.
-	//
-	// Optional today; becomes required when slice 09
-	// (`rewrite-match-around-platform`) lands. Slice 09 also removes the
-	// Provider field.
+	// #matchers index drive the matcher. Required.
 	Platform *platform.Platform
 }
 
@@ -58,15 +50,8 @@ type PlanInput struct {
 	// the zero cue.Value skips validation.
 	Values cue.Value
 
-	// Provider supplies the transformer registry. Required.
-	Provider *provider.Provider
-
 	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher.
-	//
-	// Optional today; becomes required when slice 09
-	// (`rewrite-match-around-platform`) lands. Slice 09 also removes the
-	// Provider field.
+	// #matchers index drive the matcher. Required.
 	Platform *platform.Platform
 
 	// RuntimeName identifies the runtime executing this plan (e.g.
@@ -88,15 +73,8 @@ type CompileInput struct {
 	// the zero cue.Value skips validation.
 	Values cue.Value
 
-	// Provider supplies the transformer registry. Required.
-	Provider *provider.Provider
-
 	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher.
-	//
-	// Optional today; becomes required when slice 09
-	// (`rewrite-match-around-platform`) lands. Slice 09 also removes the
-	// Provider field.
+	// #matchers index drive the matcher. Required.
 	Platform *platform.Platform
 
 	// RuntimeName identifies the runtime executing this compile (e.g.

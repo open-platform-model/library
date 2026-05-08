@@ -4,11 +4,11 @@ The reference implementation of the Open Platform Model runtime, packaged as a G
 
 The kernel owns:
 
-- Loading OPM artifacts (modules, providers, releases) from CUE module directories and `.cue` files.
+- Loading OPM artifacts (modules, platforms, releases) from CUE module directories and `.cue` files.
 - Resolving CUE module references through the native CUE module system (OCI registries, `cue.mod`).
 - Validating user-supplied values against `#config` schemas with grouped, position-aware diagnostics.
-- Matching component requirements against provider transformer registries.
-- Executing matched transformers and emitting platform-neutral rendered values with full provenance.
+- Matching component requirements against the active Platform's `#matchers` index.
+- Executing matched transformers (resolved by FQN against `Platform.#composedTransformers`) and emitting platform-neutral rendered values with full provenance.
 
 The kernel does **not** own:
 
@@ -34,8 +34,7 @@ pkg/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   loader/                 Deprecated re-export shim of pkg/helper/loader/file (kept for one SemVer cycle)
   module/                 Module / Release model, parsing, value validation entry point
-  platform/               Platform artifact model — slice 08 type + loader landing pad (slice 09 wires it into match)
-  provider/               Provider model (retired by slice 09 once Platform replaces it)
+  platform/               Platform artifact model — kernel's sole input for matching and execution
   compile/                Match -> finalize -> execute -> emit pipeline
   validate/               #config validation against supplied values
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
@@ -81,8 +80,6 @@ import (
 
     "github.com/open-platform-model/library/pkg/kernel"
     loader "github.com/open-platform-model/library/pkg/helper/loader/file"
-    "github.com/open-platform-model/library/pkg/module"
-    "github.com/open-platform-model/library/pkg/provider"
 )
 
 k := kernel.New() // optional: kernel.New(kernel.WithLogger(myLogger))
@@ -97,13 +94,18 @@ mod, err := k.NewModuleFromValue(moduleVal)
 releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
 rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, []cue.Value{userValues})
 
-p := &provider.Provider{ /* loaded via k.LoadProvider */ }
+// Load the Platform — the kernel's matching and execution input. Slice 10
+// of the kernel-redesign enhancement ships pkg/helper/platform.Compose to
+// build a Platform programmatically from a Module registry; today, load it
+// from a platform.cue file.
+platformVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
+plat, err := k.NewPlatformFromValue(platformVal)
 
 result, err := k.Compile(ctx, kernel.CompileInput{
     Module:        mod,
     ModuleRelease: rel,
     Values:        userValues,
-    Provider:      p,
+    Platform:      plat,
     RuntimeName:   "opm-cli",
 })
 for _, r := range result.Rendered {
@@ -119,14 +121,18 @@ import (
     "cuelang.org/go/cue/cuecontext"
 
     loader "github.com/open-platform-model/library/pkg/helper/loader/file"
-    "github.com/open-platform-model/library/pkg/module"
     "github.com/open-platform-model/library/pkg/compile"
+    "github.com/open-platform-model/library/pkg/module"
+    "github.com/open-platform-model/library/pkg/platform"
 )
 
 cueCtx := cuecontext.New()
 releaseVal, _, ver, err := loader.LoadReleaseFile(cueCtx, "./release.cue", loader.LoadOptions{})
 rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, []cue.Value{userValues})
-result, err := compile.CompileModuleRelease(ctx, rel, p, "opm-cli")
+
+platformVal, _, err := loader.LoadPlatformFile(cueCtx, "./platform.cue", loader.LoadOptions{})
+plat, err := platform.NewPlatformFromValue(nil, platformVal)
+result, err := compile.CompileModuleRelease(ctx, rel, plat, "opm-cli")
 ```
 
 ## API stability
@@ -134,7 +140,7 @@ result, err := compile.CompileModuleRelease(ctx, rel, p, "opm-cli")
 The library follows SemVer 2.0.0. The public surface is everything under `pkg/`. Two distinct compatibility tracks coexist and must not be confused:
 
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
-- **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Provider`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
+- **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
 The two tracks are independent: a kernel `v1.4.0` may simultaneously support OPM schema versions `v1alpha1` and `v1alpha2`.
 

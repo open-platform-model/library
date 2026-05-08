@@ -6,12 +6,10 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/pkg/apiversion"
-	"github.com/open-platform-model/library/pkg/compile"
 	oerrors "github.com/open-platform-model/library/pkg/errors"
 	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
-	"github.com/open-platform-model/library/pkg/provider"
 	"github.com/open-platform-model/library/pkg/validate"
 )
 
@@ -31,12 +29,6 @@ func (k *Kernel) LoadReleaseFile(_ context.Context, filePath string, opts loader
 // [*cue.Context]. See [loaderfile.LoadValuesFile].
 func (k *Kernel) LoadValuesFile(_ context.Context, path string) (cue.Value, error) {
 	return loaderfile.LoadValuesFile(k.cueCtx, path)
-}
-
-// LoadProvider selects and wraps a provider from a pre-loaded providers map.
-// See [loaderfile.LoadProvider].
-func (k *Kernel) LoadProvider(providerName string, providers map[string]cue.Value) (*provider.Provider, error) {
-	return loaderfile.LoadProvider(providerName, providers)
 }
 
 // LoadPlatformFile loads a #Platform from a standalone .cue file (or from a
@@ -69,19 +61,6 @@ func (k *Kernel) NewModuleFromValue(v cue.Value) (*module.Module, error) {
 // using the version-aware binding registry. See [module.NewReleaseFromValue].
 func (k *Kernel) NewReleaseFromValue(v cue.Value) (*module.Release, error) {
 	return module.NewReleaseFromValue(k, v)
-}
-
-// NewRenderModule constructs a compile Module for the given provider and
-// runtime identity. See [compile.NewModule].
-func (k *Kernel) NewRenderModule(p *provider.Provider, runtimeName string) *compile.Module {
-	return compile.NewModule(p, runtimeName) //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
-}
-
-// ProcessModuleRelease renders a prepared release with the given provider.
-//
-// Deprecated: use [Kernel.Compile].
-func (k *Kernel) ProcessModuleRelease(ctx context.Context, rel *module.Release, p *provider.Provider, runtimeName string) (*compile.CompileResult, error) {
-	return compile.CompileModuleRelease(ctx, rel, p, runtimeName) //nolint:staticcheck // SA1019: kernel methods are thin shims over the deprecated free functions
 }
 
 // ValidateConfig validates supplied values against a #config schema and

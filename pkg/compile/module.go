@@ -16,7 +16,7 @@ import (
 	"github.com/open-platform-model/library/pkg/api"
 	"github.com/open-platform-model/library/pkg/core"
 	"github.com/open-platform-model/library/pkg/module"
-	"github.com/open-platform-model/library/pkg/provider"
+	"github.com/open-platform-model/library/pkg/platform"
 )
 
 // ComponentSummary contains display-oriented summary data extracted from a component
@@ -43,10 +43,10 @@ type ComponentSummary struct {
 
 // Module drives the OPM render pipeline for a single ModuleRelease.
 //
-// A Module is constructed once per provider and reused across multiple
+// A Module is constructed once per platform and reused across multiple
 // Execute calls. It is not safe for concurrent use (CUE context is single-threaded).
 type Module struct {
-	provider    *provider.Provider
+	platform    *platform.Platform
 	runtimeName string // identity of the runtime executing this render
 }
 
@@ -69,8 +69,9 @@ type CompileResult struct {
 	// transformer.
 	Unmatched []string
 
-	// Ambiguous is the list of component FQNs that matched more than one
-	// transformer in a way that requires caller resolution.
+	// Ambiguous is the list of FQNs that resolved to more than one
+	// transformer at the platform-matchers layer (catalog 014 D13 forbids
+	// this; reported defensively).
 	Ambiguous []string
 
 	// Warnings is a list of human-readable advisory messages (e.g. unhandled traits).
@@ -83,13 +84,11 @@ type CompileResult struct {
 // Deprecated: use [CompileResult].
 type ModuleResult = CompileResult
 
-// NewModule creates a Module for the given provider and runtime identity.
+// NewModule creates a Module for the given platform and runtime identity.
 // runtimeName must be non-empty — the catalog requires #context.#runtimeName
 // to be populated and CUE evaluation fails on empty values.
-//
-// Deprecated: use [Kernel.NewRenderModule].
-func NewModule(p *provider.Provider, runtimeName string) *Module {
-	return &Module{provider: p, runtimeName: runtimeName}
+func NewModule(plat *platform.Platform, runtimeName string) *Module {
+	return &Module{platform: plat, runtimeName: runtimeName}
 }
 
 // Execute runs matched transformers against the provided component views and
@@ -111,13 +110,16 @@ func (r *Module) Execute(
 	if rel == nil {
 		return nil, fmt.Errorf("release is required")
 	}
+	if r.platform == nil {
+		return nil, fmt.Errorf("platform is required")
+	}
 	binding, err := api.Lookup(rel.APIVersion)
 	if err != nil {
 		return nil, fmt.Errorf("resolving binding for release %q: %w", rel.Metadata.Name, err)
 	}
 
-	// The CUE context lives on each cue.Value — extract it from the provider.
-	cueCtx := r.provider.Data.Context()
+	// The CUE context lives on each cue.Value — extract it from the platform.
+	cueCtx := r.platform.Package.Context()
 
 	if plan == nil {
 		return nil, fmt.Errorf("match plan is required")
@@ -135,7 +137,7 @@ func (r *Module) Execute(
 	// Passes both schemaComponents (for metadata extraction) and dataComponents
 	// (already finalized, no materialize() needed).
 	rendered, warnings, errs := executeTransforms(
-		ctx, cueCtx, plan, r.provider.Data,
+		ctx, cueCtx, plan, r.platform.Package,
 		schemaComponents, dataComponents, rel,
 		r.runtimeName, binding,
 	)
@@ -151,7 +153,7 @@ func (r *Module) Execute(
 		MatchPlan:  plan,
 		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents, binding)),
 		Unmatched:  []string{},
-		Ambiguous:  []string{},
+		Ambiguous:  nonNilStrings(plan.Ambiguous),
 		Warnings:   allWarnings,
 	}, nil
 }
@@ -175,6 +177,13 @@ func nonNilWarnings(warnings []string) []string {
 		return []string{}
 	}
 	return warnings
+}
+
+func nonNilStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // extractComponentSummaries iterates the schemaComponents CUE value and builds
