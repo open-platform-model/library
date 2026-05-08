@@ -4,7 +4,12 @@ import (
 	"strings"
 )
 
-#ApiVersion: #ApiVersion
+#ApiVersion: "opmodel.dev/v1alpha2"
+
+// _apiVersionSmoke pins the literal to a concrete string. Regressing #ApiVersion
+// to a self-reference (or any non-string) fails CUE evaluation here, before any
+// downstream artifact can validate.
+_apiVersionSmoke: "opmodel.dev/v1alpha2" & #ApiVersion
 
 #LabelsAnnotationsType: [string]: string | int | bool | [string | int | bool]
 
