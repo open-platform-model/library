@@ -39,7 +39,7 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 		return nil
 	}
 	name := releaseDisplayName(in.ModuleRelease)
-	if _, cfgErr := validate.Config(schema, []cue.Value{in.Values}, "module", name); cfgErr != nil { //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+	if _, cfgErr := validate.Config(schema, in.Values, "module", name); cfgErr != nil { //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
 		return cfgErr
 	}
 	return nil

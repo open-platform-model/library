@@ -106,7 +106,7 @@ mod, err := k.NewModuleFromValue(moduleVal)
 // reference; ParseModuleRelease uses it to validate user values against
 // #module.#config without a separate schema argument.
 releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
-rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, []cue.Value{userValues})
+rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, userValues)
 
 // Load the Platform — the kernel's matching and execution input. The
 // shell is a Platform whose #registry is empty (or partial); Compose
@@ -145,7 +145,7 @@ import (
 
 cueCtx := cuecontext.New()
 releaseVal, _, ver, err := loader.LoadReleaseFile(cueCtx, "./release.cue", loader.LoadOptions{})
-rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, []cue.Value{userValues})
+rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, userValues)
 
 platformVal, _, err := loader.LoadPlatformFile(cueCtx, "./platform.cue", loader.LoadOptions{})
 plat, err := platform.NewPlatformFromValue(nil, platformVal)

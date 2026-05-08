@@ -19,9 +19,13 @@ import (
 // metadata.name is not yet concrete) and is not retained on the returned
 // Release — the source module remains reachable through Release.Package.
 //
+// values is a single, pre-unified cue.Value — layering happens in the
+// frontend / helper before this call. The zero cue.Value{} is treated as
+// "no values supplied".
+//
 // Deprecated: use Kernel.ParseModuleRelease. The Kernel is the public anchor
 // type for all OPM runtime operations.
-func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values []cue.Value) (*Release, error) {
+func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values cue.Value) (*Release, error) {
 	// Best-effort name for error messages — metadata.name may already be
 	// concrete before values filling (it comes from the module definition).
 	name := bestEffortReleaseName(spec, mod)
@@ -36,15 +40,15 @@ func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values []
 	// spec's #module reference so Package stays the source of truth.
 	schema := spec.LookupPath(paths.Module).LookupPath(paths.Config)
 
-	// Validate and merge values against the module config schema.
-	merged, cfgErr := validate.Config(schema, values, "module", name) //nolint:staticcheck // SA1019: parse.go is itself the deprecated path called by Kernel.ParseModuleRelease
+	// Tier-2 schema validation against the module's #config.
+	validated, cfgErr := validate.Config(schema, values, "module", name) //nolint:staticcheck // SA1019: parse.go is itself the deprecated path called by Kernel.ParseModuleRelease
 	if cfgErr != nil {
 		return nil, cfgErr
 	}
 
-	// Fill merged values into the release spec.
-	if merged.Exists() {
-		spec = spec.FillPath(paths.Values, merged)
+	// Fill validated values into the release spec.
+	if validated.Exists() {
+		spec = spec.FillPath(paths.Values, validated)
 		if err := spec.Err(); err != nil {
 			return nil, fmt.Errorf("filling values into release spec: %w", err)
 		}

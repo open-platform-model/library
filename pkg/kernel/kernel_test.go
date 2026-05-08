@@ -186,10 +186,8 @@ func TestKernel_ValidateConfig_Parity(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
-	values := []cue.Value{
-		k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`),
-	}
-	require.NoError(t, values[0].Err())
+	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
+	require.NoError(t, values.Err())
 
 	gotMerged, gotErr := k.ValidateConfig(schema, values, "module", "demo")
 	wantMerged, wantErr := validate.Config(schema, values, "module", "demo") //nolint:staticcheck // SA1019: parity test against deprecated free function
@@ -210,8 +208,8 @@ func TestKernel_ValidateConfig_Parity_Error(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
-	bad := []cue.Value{k.CueContext().CompileString(`{ replicas: -1 }`)}
-	require.NoError(t, bad[0].Err())
+	bad := k.CueContext().CompileString(`{ replicas: -1 }`)
+	require.NoError(t, bad.Err())
 
 	_, gotErr := k.ValidateConfig(schema, bad, "module", "demo")
 	_, wantErr := validate.Config(schema, bad, "module", "demo") //nolint:staticcheck // SA1019: parity test against deprecated free function
@@ -252,10 +250,10 @@ metadata: {
 `)
 	require.NoError(t, spec.Err())
 
-	gotRel, gotErr := k.ParseModuleRelease(context.Background(), spec, minimalModule(), nil)
+	gotRel, gotErr := k.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
 	require.NoError(t, gotErr)
 
-	wantRel, wantErr := module.ParseModuleRelease(context.Background(), spec, minimalModule(), nil) //nolint:staticcheck // SA1019: parity test against deprecated free function
+	wantRel, wantErr := module.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{}) //nolint:staticcheck // SA1019: parity test against deprecated free function
 	require.NoError(t, wantErr)
 
 	require.NotNil(t, gotRel)

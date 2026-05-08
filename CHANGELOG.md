@@ -4,6 +4,46 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Changed (BREAKING) — kernel values input is a single cue.Value
+
+- `pkg/validate.Config(schema, values, context, name)` — `values` parameter
+  changes from `[]cue.Value` to a single `cue.Value`. The kernel no longer
+  unifies internally; callers pre-merge. The zero `cue.Value{}` is treated as
+  "no values supplied".
+- `pkg/module.ParseModuleRelease(ctx, spec, mod, values)` — `values`
+  parameter changes from `[]cue.Value` to a single `cue.Value` for the same
+  reason.
+- `(*Kernel).ValidateConfig` and `(*Kernel).ParseModuleRelease` wrapper
+  methods follow suit.
+- Layering policy (CLI `-f` stack, operator ConfigMap → Secret → CR overlay,
+  XR fn composition input) now lives outside the kernel. Slice 05
+  (`introduce-tiered-validation`) ships `pkg/helper/values/` as the
+  recommended source-positioned Tier-1 helper; until then, migrate via the
+  one-line shim below.
+
+#### Migration
+
+```diff
+- merged, cfgErr := validate.Config(schema, []cue.Value{a, b, c}, "module", name)
++ merged, cfgErr := validate.Config(schema, validate.UnifyAndValidate([]cue.Value{a, b, c}), "module", name)
+```
+
+```diff
+- rel, err := k.ParseModuleRelease(ctx, spec, mod, []cue.Value{userValues})
++ rel, err := k.ParseModuleRelease(ctx, spec, mod, userValues)
+```
+
+When the recommended migration target lands (slice 05, `pkg/helper/values`),
+replace `validate.UnifyAndValidate` with the helper-driven layering call so
+errors carry per-source attribution.
+
+### Added (transitional)
+
+- `pkg/validate.UnifyAndValidate(values []cue.Value) cue.Value` — temporary
+  shim that performs the previous slice-merge loop and returns a single
+  `cue.Value` for the new `Config` signature. Marked `// Deprecated:` from
+  introduction; will be removed when slice 05 ships `pkg/helper/values`.
+
 ### Removed (BREAKING)
 
 - `pkg/provider/` — package deleted. Catalog enhancement 014's `#Platform`
