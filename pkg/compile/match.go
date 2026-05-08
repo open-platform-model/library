@@ -1,4 +1,4 @@
-package render
+package compile
 
 import (
 	"fmt"
@@ -46,10 +46,8 @@ type NonMatchedPair struct {
 // It also identifies any traits present in components that are not handled by any matched transformer,
 // which will be ignored in rendering and should be surfaced as warnings to the user.
 //
-// The binding argument supplies the per-schema-version CUE path inventory.
-// Match no longer reads hardcoded path strings; every lookup goes through
-// b.Paths(). This is the single breaking signature change in pkg/render for
-// the multi-apiversion refactor.
+// The binding argument supplies the per-schema-version CUE path inventory;
+// every lookup goes through b.Paths().
 //
 //nolint:gocyclo // matching is naturally branchy but kept in one place for parity with matcher.cue
 func Match(components cue.Value, p *provider.Provider, b api.Binding) (*MatchPlan, error) {

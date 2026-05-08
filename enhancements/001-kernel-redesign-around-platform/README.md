@@ -51,7 +51,7 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 ## Open Questions
 
 - **OQ1 — `Resolve` collision.** 015 introduces a `#resolution` writeback channel for Claims. The Kernel public method `Resolve` (if introduced later) would collide. Once Claim support lands in the kernel, choose a different verb for the writeback surface (current candidate: leave it as a `Resolution map[string]cue.Value` field on `CompileResult`, no method named Resolve).
-- **OQ2 — `Plan` semantics.** `Plan` is shipped in slice 06 as "dry-compile — validate + match + execute, no commit." But OPM has no commit phase in the kernel (the kernel is pure transform). Distinction between `Plan` and `Compile` may collapse to "Compile with finalization stripped" — revisit while implementing 06.
+- **OQ2 — `Plan` semantics.** Resolved in slice 06 as "Compile with the rendered slice dropped." Plan delegates to Compile internally and copies `MatchPlan`, `Components`, `Unmatched`, `Ambiguous`, and `Warnings` into a `*PlanResult` — no separate execution path. This pins Plan and Compile to one pipeline, so any error a future Compile would surface (transformer evaluation, finalization) also surfaces at Plan time. The cost is that Plan is no cheaper than Compile; if a frontend later needs a faster preview, Plan can grow a stop-after-match flag without changing its return type.
 - **OQ3 — Concurrent `Kernel` reuse.** The `Kernel` struct holds a `cue.Context` and is documented as goroutine-unsafe across compile calls. Operator workers should construct one Kernel per goroutine. If real-world operator throughput proves this expensive, consider a `KernelPool` helper later — not in scope for any current slice.
 
 ## Cross-References

@@ -1,9 +1,9 @@
-// Package render executes matched transforms and emits rendered values.
+// Package compile executes matched transforms and emits rendered values.
 //
 // The package is platform-neutral: its public output type is *core.Rendered,
 // a CUE value plus provenance. Adapters wrap each Rendered with their
 // platform-specific Resource implementation (see pkg/core).
-package render
+package compile
 
 import (
 	"context"
@@ -50,8 +50,8 @@ type Module struct {
 	runtimeName string // identity of the runtime executing this render
 }
 
-// ModuleResult holds the output of a successful Execute call.
-type ModuleResult struct {
+// CompileResult holds the output of a successful Execute call.
+type CompileResult struct {
 	// Rendered is the ordered list of rendered values from the pipeline.
 	// Each entry carries Component and Transformer provenance for inventory
 	// tracking. Adapters wrap each Rendered with a platform-specific
@@ -65,17 +65,29 @@ type ModuleResult struct {
 	// Components is a per-component summary for verbose output, sorted by name.
 	Components []ComponentSummary
 
+	// Unmatched is the list of component FQNs that found no matching
+	// transformer.
+	Unmatched []string
+
+	// Ambiguous is the list of component FQNs that matched more than one
+	// transformer in a way that requires caller resolution.
+	Ambiguous []string
+
 	// Warnings is a list of human-readable advisory messages (e.g. unhandled traits).
 	// A non-empty Warnings slice does NOT indicate failure.
 	Warnings []string
 }
 
+// ModuleResult is an alias for [CompileResult].
+//
+// Deprecated: use [CompileResult].
+type ModuleResult = CompileResult
+
 // NewModule creates a Module for the given provider and runtime identity.
 // runtimeName must be non-empty — the catalog requires #context.#runtimeName
 // to be populated and CUE evaluation fails on empty values.
 //
-// Deprecated: use Kernel.NewRenderModule. The Kernel is the public anchor
-// type for all OPM runtime operations.
+// Deprecated: use [Kernel.NewRenderModule].
 func NewModule(p *provider.Provider, runtimeName string) *Module {
 	return &Module{provider: p, runtimeName: runtimeName}
 }
@@ -88,16 +100,14 @@ func NewModule(p *provider.Provider, runtimeName string) *Module {
 // dataComponents is the finalized, constraint-free components value for FillPath injection.
 //
 // The api.Binding for rel.APIVersion is looked up internally so callers do
-// not have to thread one through. ProcessModuleRelease has typically already
-// performed the same lookup; the small duplicate cost (a map read) keeps the
-// public Execute signature stable.
+// not have to thread one through.
 func (r *Module) Execute(
 	ctx context.Context,
 	rel *module.Release,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
 	plan *MatchPlan,
-) (*ModuleResult, error) {
+) (*CompileResult, error) {
 	if rel == nil {
 		return nil, fmt.Errorf("release is required")
 	}
@@ -136,10 +146,12 @@ func (r *Module) Execute(
 	allWarnings := nonNilWarnings(plan.Warnings())
 	allWarnings = append(allWarnings, warnings...)
 
-	return &ModuleResult{
+	return &CompileResult{
 		Rendered:   nonNilRendered(rendered),
 		MatchPlan:  plan,
 		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents, binding)),
+		Unmatched:  []string{},
+		Ambiguous:  []string{},
 		Warnings:   allWarnings,
 	}, nil
 }

@@ -30,7 +30,7 @@ This slice depends on slice 01 (Kernel struct exists). It does NOT yet require s
 
 **`Plan` and `Compile` are distinct method names with distinct return types.** Reason: callers asking for a plan want a different result shape than callers asking for a compile (Plan has a "would-be-rendered" preview but no `Rendered` slice; Compile has the full `Rendered` slice). One method with a `Mode` enum was considered and rejected — it complicates return-type discrimination.
 
-**`Plan` semantics are: validate + match + dry-execute (no finalize), surface unmatched / ambiguous, return summaries.** Reason: this is what every frontend's "plan/preview" command wants. Finalization (stripping schema constraints) commits the model; Plan stops before that to keep the operation cheap.
+**`Plan` semantics are: run the full Compile pipeline and discard the rendered slice — return component summaries, unmatched, ambiguous, and warnings only.** Reason: pinning Plan and Compile to one execution path means any error a real Compile would surface (transformer evaluation, finalization) also surfaces at Plan time, so a green Plan is a strong signal that Compile will succeed. The umbrella's OQ2 asked whether Plan should be cheaper ("stop after match"); the resolution chose the single-pipeline form because no frontend currently needs the speed difference. If one later does, Plan can grow a stop-after-match flag without changing its return type.
 
 **`CompileResult` carries `Rendered`, `Components`, `Warnings`, `Unmatched`, `Ambiguous`.** Reason: matches the umbrella's `RenderResult` sketch. `Resolution` (for Claims) is added later when Claim support lands; not in this slice.
 
@@ -50,6 +50,6 @@ This slice depends on slice 01 (Kernel struct exists). It does NOT yet require s
 
 **Risk — input structs accrete fields.** Each subsequent slice adds a field. Mitigation: input structs ship with explicit godoc on each field; structs grow additively; old call sites that omitted new fields just take the zero value.
 
-**Trade-off — `Plan` and `Compile` share substantial internal pipeline.** Internally they call the same match → execute path; Plan stops one step earlier. This is acceptable duplication of orchestration code; the alternative (one internal pipeline with stop-after flag) muddles return-type discrimination.
+**Trade-off — `Plan` is no cheaper than `Compile`.** Plan delegates to Compile and only drops the `Rendered` slice; the full match → finalize → execute path runs both times. The alternative (a stop-after-match shortcut) was rejected because no current frontend needs the speedup and a single-pipeline guarantee is more valuable: a green Plan implies a green Compile.
 
 **Trade-off — rename is broad.** `Render` appears in many filenames, doc comments, test names, and CHANGELOG entries. Mechanical churn but small per-site change.

@@ -19,11 +19,11 @@ import (
 	"github.com/open-platform-model/library/pkg/api"
 	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
 	"github.com/open-platform-model/library/pkg/apiversion"
+	"github.com/open-platform-model/library/pkg/compile"
 	"github.com/open-platform-model/library/pkg/kernel"
 	"github.com/open-platform-model/library/pkg/loader"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/provider"
-	"github.com/open-platform-model/library/pkg/render"
 	"github.com/open-platform-model/library/pkg/validate"
 )
 
@@ -325,11 +325,11 @@ func TestKernel_NewRenderModule_Parity(t *testing.T) {
 	p := minimalProviderValue(t, k)
 
 	got := k.NewRenderModule(p, "opm-cli")
-	want := render.NewModule(p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
+	want := compile.NewModule(p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.NotNil(t, got)
 	require.NotNil(t, want)
-	// Both should produce non-nil *render.Module values for the same provider.
+	// Both should produce non-nil *compile.Module values for the same provider.
 	// Internal state is unexported; we round-trip through the public APIs in
 	// the ProcessModuleRelease parity test below.
 	assert.IsType(t, want, got)
@@ -343,7 +343,7 @@ func TestKernel_ProcessModuleRelease_Parity_VersionMismatch(t *testing.T) {
 	p.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
 
 	_, gotErr := k.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
-	_, wantErr := render.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
+	_, wantErr := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
 	require.Error(t, wantErr)
@@ -360,7 +360,7 @@ func TestKernel_ProcessModuleRelease_Parity_UnknownVersion(t *testing.T) {
 	p.APIVersion = unknown
 
 	_, gotErr := k.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
-	_, wantErr := render.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
+	_, wantErr := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
 	require.Error(t, wantErr)

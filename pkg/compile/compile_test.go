@@ -1,4 +1,4 @@
-package render_test
+package compile_test
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"github.com/open-platform-model/library/pkg/api"
 	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
 	"github.com/open-platform-model/library/pkg/apiversion"
+	"github.com/open-platform-model/library/pkg/compile"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/provider"
-	"github.com/open-platform-model/library/pkg/render"
 )
 
 // minimalRelease constructs a *module.Release with the given apiVersion. The
@@ -60,7 +60,7 @@ func TestProcessModuleRelease_VersionMismatch(t *testing.T) {
 	rel := minimalRelease(t, apiversion.V1alpha2)
 	p := minimalProvider(t, apiversion.Version("opmodel.dev/v1alpha-other"))
 
-	_, err := render.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
+	_, err := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "apiVersion mismatch")
 }
@@ -72,7 +72,7 @@ func TestProcessModuleRelease_NoBindingRegistered(t *testing.T) {
 	rel := minimalRelease(t, unknown)
 	p := minimalProvider(t, unknown)
 
-	_, err := render.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
+	_, err := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion), "want ErrUnknownAPIVersion in chain, got %v", err)
 }
@@ -83,7 +83,7 @@ func TestMatch_RequiresBinding(t *testing.T) {
 	require.NoError(t, components.Err())
 	p := minimalProvider(t, apiversion.V1alpha2)
 
-	_, err := render.Match(components, p, nil)
+	_, err := compile.Match(components, p, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "binding is required")
 }
@@ -120,7 +120,7 @@ func TestMatch_UsesBindingPaths(t *testing.T) {
 	b, err := api.Lookup(apiversion.V1alpha2)
 	require.NoError(t, err)
 
-	plan, err := render.Match(components, p, b)
+	plan, err := compile.Match(components, p, b)
 	require.NoError(t, err)
 	require.NotNil(t, plan)
 	pairs := plan.MatchedPairs()
@@ -223,7 +223,7 @@ metadata: { name: "k8s", version: "v0" }
 		Data:       pv,
 	}
 
-	out, err := render.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
+	out, err := compile.ProcessModuleRelease(context.Background(), rel, p, "opm-cli")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Rendered, 1, "expected one rendered item")

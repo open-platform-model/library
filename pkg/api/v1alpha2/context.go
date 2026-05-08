@@ -35,8 +35,7 @@ type ComponentContextData struct {
 //
 // schemaComp must be the schema-preserving component value (the one that still
 // has metadata.labels and metadata.annotations as concrete fields). Decode
-// errors on those metadata fields are returned as warnings, mirroring the
-// pre-refactor behaviour of pkg/render/execute.go.
+// errors on those metadata fields are returned as warnings.
 func (binding) BuildTransformerContext(
 	cueCtx *cue.Context,
 	rel api.ReleaseView,

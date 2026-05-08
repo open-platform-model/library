@@ -20,7 +20,7 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 #### Scenario: Plan phase method
 
 - **WHEN** a caller invokes `k.Plan(ctx, PlanInput{Module, ModuleRelease, Values, Provider, RuntimeName})`
-- **THEN** the kernel runs Validate + Match, executes transformers in dry-run mode (no finalization commits), and returns a `*PlanResult` containing component summaries, unmatched FQNs, ambiguous FQNs, and warnings
+- **THEN** the kernel runs the full Compile pipeline (Validate + Match + Execute + Finalize) and returns a `*PlanResult` containing component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 - **AND** does not return rendered values
 
 #### Scenario: Compile phase method

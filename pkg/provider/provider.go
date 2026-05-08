@@ -11,7 +11,7 @@ import (
 
 // Provider holds a loaded provider definition.
 // Data is the complete CUE value (including #transformers).
-// Matching against components happens in Go via pkg/render.
+// Matching against components happens in Go via pkg/compile.
 type Provider struct {
 	// APIVersion is the OPM schema version detected on the provider artifact.
 	// Populated by LoadProvider at extraction time. The zero value is the

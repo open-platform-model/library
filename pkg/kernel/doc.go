@@ -4,7 +4,7 @@
 // cross-cutting dependencies (logger, tracer, clock) through every operation.
 // Downstream binaries (CLI, controller, Crossplane function) construct one
 // Kernel per goroutine and call methods on it instead of importing the
-// individual loader / module / render / validate packages.
+// individual loader / module / compile / validate packages.
 //
 // # Goroutine safety
 //
@@ -37,6 +37,27 @@
 //	    }
 //	    return nil
 //	}
+//
+// # Phase methods
+//
+// The kernel exposes four phase-explicit methods that mirror the OPM
+// pipeline. Each accepts a phase-specific input struct and returns a
+// phase-appropriate result:
+//
+//   - [Kernel.Validate] — Tier-2 schema validation of values against
+//     the module's `#config`. Returns nil or *errors.ConfigError.
+//   - [Kernel.Match] — component / transformer pairing. Returns
+//     [*MatchPlan] without executing any transformer.
+//   - [Kernel.Plan] — Validate + Match + summaries. Returns
+//     [*PlanResult]; does NOT produce rendered values. This is the
+//     verb every frontend's "plan" / "preview" subcommand wants.
+//   - [Kernel.Compile] — full pipeline (Validate + Match + Execute +
+//     Finalize). Returns [*CompileResult] containing rendered values
+//     plus provenance. This is the terminal output and the verb every
+//     frontend's "apply" / "render" subcommand wants.
+//
+// CLI subcommands map naturally onto these methods (vet → Validate,
+// match → Match, plan → Plan, apply → Compile).
 //
 // # Advanced: CueContext accessor
 //

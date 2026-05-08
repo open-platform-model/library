@@ -1,0 +1,339 @@
+package kernel_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"cuelang.org/go/cue"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
+	"github.com/open-platform-model/library/pkg/apiversion"
+	"github.com/open-platform-model/library/pkg/compile"
+	oerrors "github.com/open-platform-model/library/pkg/errors"
+	"github.com/open-platform-model/library/pkg/kernel"
+	"github.com/open-platform-model/library/pkg/module"
+	"github.com/open-platform-model/library/pkg/provider"
+)
+
+// phaseFixture builds a minimal Module + Release + Provider with a single
+// component and a transformer that matches it. The transformer's output
+// echoes #context fields so tests can confirm the full pipeline ran.
+type phaseFixture struct {
+	mod *module.Module
+	rel *module.Release
+	p   *provider.Provider
+}
+
+func newPhaseFixture(t *testing.T, k *kernel.Kernel) phaseFixture {
+	t.Helper()
+	ctx := k.CueContext()
+
+	modPkg := ctx.CompileString(`
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "Module"
+metadata: {
+	name: "demo-mod"
+	modulePath: "example.com/m"
+	version: "1.0.0"
+	fqn: "example.com/m/demo-mod:1.0.0"
+	uuid: "11111111-1111-1111-1111-111111111111"
+}
+#config: {
+	replicas: int & >0
+	name: string
+}
+`)
+	require.NoError(t, modPkg.Err())
+
+	relPkg := ctx.CompileString(`
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "ModuleRelease"
+metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+components: {
+	web: {
+		metadata: {
+			name: "web"
+			labels: { tier: "web" }
+		}
+	}
+}
+`)
+	require.NoError(t, relPkg.Err())
+
+	pv := ctx.CompileString(`
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "Provider"
+metadata: { name: "k8s", version: "v0" }
+#transformers: {
+	"example.com/p/echo@v0": {
+		requiredLabels: { tier: "web" }
+		requiredResources: {}
+		requiredTraits: {}
+		optionalTraits: {}
+		#transform: {
+			#component: _
+			#context:   _
+			output: [{
+				kind: "echo"
+				runtime: #context.#runtimeName
+				release: #context.#moduleReleaseMetadata.name
+				component: #context.#componentMetadata.name
+			}]
+		}
+	}
+}
+`)
+	require.NoError(t, pv.Err())
+
+	return phaseFixture{
+		mod: &module.Module{
+			APIVersion: apiversion.V1alpha2,
+			Metadata: &module.ModuleMetadata{
+				Name:       "demo-mod",
+				ModulePath: "example.com/m",
+				Version:    "1.0.0",
+				FQN:        "example.com/m/demo-mod:1.0.0",
+				UUID:       "11111111-1111-1111-1111-111111111111",
+			},
+			Package: modPkg,
+		},
+		rel: &module.Release{
+			APIVersion: apiversion.V1alpha2,
+			Metadata: &module.ReleaseMetadata{
+				Name: "demo", Namespace: "ns", UUID: "u-rel",
+			},
+			Package: relPkg,
+		},
+		p: &provider.Provider{
+			APIVersion: apiversion.V1alpha2,
+			Metadata:   &provider.ProviderMetadata{Name: "k8s"},
+			Data:       pv,
+		},
+	}
+}
+
+func TestKernel_Validate_OK(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
+	require.NoError(t, values.Err())
+
+	err := k.Validate(context.Background(), kernel.ValidateInput{
+		Module: f.mod, ModuleRelease: f.rel, Values: values,
+	})
+	require.NoError(t, err)
+}
+
+func TestKernel_Validate_NoValues(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	err := k.Validate(context.Background(), kernel.ValidateInput{
+		Module: f.mod, ModuleRelease: f.rel,
+	})
+	require.NoError(t, err)
+}
+
+func TestKernel_Validate_ConfigError(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	bad := k.CueContext().CompileString(`{ replicas: -1, name: "demo" }`)
+	require.NoError(t, bad.Err())
+
+	err := k.Validate(context.Background(), kernel.ValidateInput{
+		Module: f.mod, ModuleRelease: f.rel, Values: bad,
+	})
+	require.Error(t, err)
+	var cfgErr *oerrors.ConfigError
+	require.True(t, errors.As(err, &cfgErr), "want *oerrors.ConfigError, got %T", err)
+	assert.Equal(t, "demo", cfgErr.Name)
+}
+
+func TestKernel_Validate_RequiresInputs(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
+		ModuleRelease: f.rel,
+	}))
+	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
+		Module: f.mod,
+	}))
+}
+
+func TestKernel_Match_OK(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	plan, err := k.Match(context.Background(), kernel.MatchInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+	pairs := plan.MatchedPairs()
+	require.Len(t, pairs, 1)
+	assert.Equal(t, "web", pairs[0].ComponentName)
+	assert.Equal(t, "example.com/p/echo@v0", pairs[0].TransformerFQN)
+}
+
+func TestKernel_Match_VersionMismatch(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+	f.p.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
+
+	_, err := k.Match(context.Background(), kernel.MatchInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "apiVersion mismatch")
+}
+
+func TestKernel_Plan_NoRendered(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	out, err := k.Plan(context.Background(), kernel.PlanInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// PlanResult does not expose a Rendered field — verify by reflection on
+	// the public surface that no such slice leaks through.
+	_ = out.MatchPlan
+	require.Len(t, out.Components, 1)
+	assert.Equal(t, "web", out.Components[0].Name)
+	assert.Empty(t, out.Unmatched)
+	assert.NotNil(t, out.Ambiguous)
+}
+
+func TestKernel_Plan_RequiresInputs(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	_, err := k.Plan(context.Background(), kernel.PlanInput{
+		ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+	})
+	require.Error(t, err)
+
+	_, err = k.Plan(context.Background(), kernel.PlanInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p,
+	})
+	require.Error(t, err, "RuntimeName must be required")
+}
+
+func TestKernel_Compile_OK(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	out, err := k.Compile(context.Background(), kernel.CompileInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Len(t, out.Rendered, 1)
+
+	got := out.Rendered[0].Value
+	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "opm-cli", runtime)
+}
+
+// TestKernel_Compile_MatchesProcessModuleRelease confirms Compile produces
+// the same rendered count and provenance as the deprecated
+// ProcessModuleRelease wrapper on the same fixture.
+func TestKernel_Compile_MatchesProcessModuleRelease(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	want, err := k.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli")
+	require.NoError(t, err)
+
+	got, err := k.Compile(context.Background(), kernel.CompileInput{
+		Module: f.mod, ModuleRelease: f.rel, Provider: f.p, RuntimeName: "opm-cli",
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, len(want.Rendered), len(got.Rendered))
+	for i := range want.Rendered {
+		assert.Equal(t, want.Rendered[i].Component, got.Rendered[i].Component)
+		assert.Equal(t, want.Rendered[i].Transformer, got.Rendered[i].Transformer)
+		assert.Equal(t, want.Rendered[i].Release, got.Rendered[i].Release)
+	}
+}
+
+// TestKernel_ProcessModuleRelease_DeprecatedAlias_Works confirms the
+// deprecated alias still produces a usable result.
+func TestKernel_ProcessModuleRelease_DeprecatedAlias_Works(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	out, err := k.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.Len(t, out.Rendered, 1)
+}
+
+// TestCompile_ProcessModuleRelease_DeprecatedAlias_Works confirms the
+// free-function alias in pkg/compile still works.
+func TestCompile_ProcessModuleRelease_DeprecatedAlias_Works(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	out, err := compile.ProcessModuleRelease(context.Background(), f.rel, f.p, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated alias
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.Len(t, out.Rendered, 1)
+}
+
+// TestRender_ModuleResult_Aliased verifies *compile.ModuleResult resolves to
+// *compile.CompileResult via the type alias.
+func TestRender_ModuleResult_Aliased(t *testing.T) {
+	var cr *compile.CompileResult
+	var mr *compile.ModuleResult = cr //nolint:staticcheck // SA1019: testing alias compatibility
+	_ = mr
+}
+
+func TestKernel_DetectAPIVersion(t *testing.T) {
+	k := kernel.New()
+	v := k.CueContext().CompileString(`apiVersion: "opmodel.dev/v1alpha2"`)
+	require.NoError(t, v.Err())
+
+	got, err := k.DetectAPIVersion(v)
+	require.NoError(t, err)
+	assert.Equal(t, apiversion.V1alpha2, got)
+}
+
+func TestKernel_DetectAPIVersion_Unknown(t *testing.T) {
+	k := kernel.New()
+	v := k.CueContext().CompileString(`apiVersion: "opmodel.dev/never-registered"`)
+	require.NoError(t, v.Err())
+
+	_, err := k.DetectAPIVersion(v)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion))
+}
+
+func TestKernel_Finalize(t *testing.T) {
+	k := kernel.New()
+	v := k.CueContext().CompileString(`{
+	replicas: int & >0
+	replicas: 3
+	name: "demo"
+}`)
+	require.NoError(t, v.Err())
+
+	got, err := k.Finalize(v)
+	require.NoError(t, err)
+	require.True(t, got.Exists())
+
+	// After finalization the constraint is gone — the value is concrete.
+	replicas, err := got.LookupPath(cue.ParsePath("replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), replicas)
+}

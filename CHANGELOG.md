@@ -6,6 +6,10 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `pkg/kernel` phase methods — `Validate`, `Match`, `Plan`, `Compile` on `*Kernel`, each accepting a phase-specific input struct (`ValidateInput`, `MatchInput`, `PlanInput`, `CompileInput`). `Plan` returns a `*PlanResult` with component summaries, unmatched FQNs, ambiguous FQNs, and warnings — no rendered values. `Compile` returns a `*CompileResult` (re-exported from `pkg/compile`) with rendered values plus the same summary fields. The phase methods map onto frontend subcommands: vet → Validate, match → Match, plan → Plan, apply → Compile.
+- `pkg/kernel.DetectAPIVersion(v cue.Value)` and `pkg/kernel.Finalize(v cue.Value)` utility methods.
+- `pkg/compile.CompileResult` with `Unmatched` and `Ambiguous` fields. `pkg/compile.ModuleResult` is a `// Deprecated:` Go type alias for `CompileResult`.
+- `pkg/compile.CompileModuleRelease` (file: `pkg/compile/compile_module.go`). `pkg/compile.ProcessModuleRelease` and `Kernel.ProcessModuleRelease` are `// Deprecated:` aliases for `CompileModuleRelease` and `Kernel.Compile` respectively.
 - `pkg/apiversion` — `Version` type, `V1alpha2` constant, `ErrUnknownAPIVersion` sentinel, and `Detect(cue.Value) (Version, error)` helper.
 - `pkg/api` — `Binding` interface, `Paths` inventory, `ModuleMetadata`/`ReleaseMetadata`/`ProviderMetadata` LCD structs, `ReleaseView` interface, registry (`Register`, `Lookup`, `For`), and `EmbeddedSchema(version) (fs.FS, error)`.
 - `pkg/api/v1alpha2` — first concrete binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema via `go:embed`.
@@ -16,6 +20,7 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Changed
 
+- **BREAKING (`pkg/render` → `pkg/compile`)** — package directory renamed; import path is now `github.com/open-platform-model/library/pkg/compile`. Identifiers (`Match`, `MatchPlan`, `Module`, `NewModule`, `CompileResult`, `ModuleResult`, `CompileModuleRelease`, `ProcessModuleRelease`, `FinalizeValue`, `UnmatchedComponentsError`) are unchanged; mechanical import rewrite for downstream consumers.
 - **BREAKING (`pkg/render`)** — `render.Match(components, p) → render.Match(components, p, b api.Binding)`. The renderer no longer reads hardcoded CUE path strings; every lookup goes through the binding. Downstream code today calls `render.ProcessModuleRelease`, which keeps its signature, so the practical migration cost is zero.
 - **BREAKING (`pkg/loader`)** — `LoadReleaseFile` now returns `(cue.Value, string, apiversion.Version, error)` and `LoadModulePackage` now returns `(cue.Value, apiversion.Version, error)`. Both reject artifacts whose `apiVersion` is missing or unrecognised with an error that wraps `apiversion.ErrUnknownAPIVersion`.
 - `apis/core/v1alpha2/types.cue` — `#ApiVersion` is now the literal `"opmodel.dev/v1alpha2"` (was a self-reference). User-authored artifacts evaluate to the literal automatically once they re-resolve against the new schema.

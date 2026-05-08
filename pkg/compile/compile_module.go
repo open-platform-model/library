@@ -1,4 +1,4 @@
-package render
+package compile
 
 import (
 	"context"
@@ -9,27 +9,26 @@ import (
 	"github.com/open-platform-model/library/pkg/provider"
 )
 
-// ProcessModuleRelease renders a prepared release with the given provider.
+// CompileModuleRelease compiles a prepared release with the given provider.
 // The release must already be fully prepared via module.ParseModuleRelease.
 //
-// runtimeName identifies the runtime executing this render (e.g. "opm-cli",
+// runtimeName identifies the runtime executing this compile (e.g. "opm-cli",
 // "opm-controller", "compose-runtime"). It MUST be non-empty — the catalog
 // declares #context.#runtimeName as mandatory and CUE evaluation fails on
 // empty values.
 //
 // The binding for the release's apiVersion is looked up internally via
 // api.Lookup(rel.APIVersion); callers do not pass a binding. If the release
-// and provider declare different apiVersions, ProcessModuleRelease returns
+// and provider declare different apiVersions, CompileModuleRelease returns
 // an error before invoking any transformer.
 //
-// Deprecated: use Kernel.ProcessModuleRelease. The Kernel is the public
-// anchor type for all OPM runtime operations.
-func ProcessModuleRelease(
+// Deprecated: use Kernel.Compile.
+func CompileModuleRelease(
 	ctx context.Context,
 	rel *module.Release,
 	p *provider.Provider,
 	runtimeName string,
-) (*ModuleResult, error) {
+) (*CompileResult, error) {
 	if runtimeName == "" {
 		return nil, fmt.Errorf("runtimeName must be non-empty")
 	}
@@ -67,4 +66,16 @@ func ProcessModuleRelease(
 	}
 
 	return NewModule(p, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan)
+}
+
+// ProcessModuleRelease is an alias for [CompileModuleRelease].
+//
+// Deprecated: use [CompileModuleRelease] or [Kernel.Compile].
+func ProcessModuleRelease(
+	ctx context.Context,
+	rel *module.Release,
+	p *provider.Provider,
+	runtimeName string,
+) (*ModuleResult, error) {
+	return CompileModuleRelease(ctx, rel, p, runtimeName)
 }

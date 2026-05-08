@@ -35,27 +35,33 @@ pkg/
   loader/                 Filesystem and CUE-module loading (modules, providers, releases)
   module/                 Module / Release model, parsing, value validation entry point
   provider/               Provider model
-  render/                 Match -> finalize -> execute -> emit pipeline
+  compile/                Match -> finalize -> execute -> emit pipeline
   validate/               #config validation against supplied values
 openspec/                 OpenSpec proposals, specs, archives
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
 
-## Render pipeline
+## Compile pipeline
 
 ```
 loader.LoadReleaseFile        ->  cue.Value (release artifact)
 module.ParseModuleRelease     ->  *module.Release          (validated, concrete)
-render.ProcessModuleRelease   ->  *render.ModuleResult     (rendered + provenance)
+kernel.Compile                ->  *kernel.CompileResult    (rendered + provenance)
         |
-        +-- render.FinalizeValue   strip schema constraints from components
-        +-- render.Match           component <-> transformer pairing
-        +-- render.executeTransforms
+        +-- compile.FinalizeValue   strip schema constraints from components
+        +-- compile.Match           component <-> transformer pairing
+        +-- compile.executeTransforms
                 |
                 +-- FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
                 +-- decode `output` (cue.ListKind | cue.StructKind)
                 +-- emit []*core.Rendered carrying Release/Component/Transformer FQN provenance
 ```
+
+The kernel exposes four phase-explicit methods that map onto frontend
+subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match),
+`Kernel.Plan` (plan / preview), and `Kernel.Compile` (apply / render).
+`compile.CompileModuleRelease` and `compile.ProcessModuleRelease` (an alias
+for the former) remain as deprecated free-function entry points.
 
 `*core.Rendered` is the kernel's terminal output. Adapters in downstream implementations wrap each `Rendered` with a platform-specific `core.Resource` that fills `core.Identity`.
 
@@ -89,14 +95,20 @@ rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, []cue.Value{userValues})
 
 p := &provider.Provider{ /* loaded via k.LoadProvider */ }
 
-result, err := k.ProcessModuleRelease(ctx, rel, p, "opm-cli")
+result, err := k.Compile(ctx, kernel.CompileInput{
+    Module:        mod,
+    ModuleRelease: rel,
+    Values:        userValues,
+    Provider:      p,
+    RuntimeName:   "opm-cli",
+})
 for _, r := range result.Rendered {
     // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
 }
 ```
 
-The free-function form is preserved for backward compatibility but
-`// Deprecated:`-marked. New consumers should construct a `Kernel`.
+The free-function form is `// Deprecated:`-marked. New consumers should
+construct a `Kernel` and call `Compile`.
 
 ```go
 import (
@@ -104,13 +116,13 @@ import (
 
     "github.com/open-platform-model/library/pkg/loader"
     "github.com/open-platform-model/library/pkg/module"
-    "github.com/open-platform-model/library/pkg/render"
+    "github.com/open-platform-model/library/pkg/compile"
 )
 
 cueCtx := cuecontext.New()
 releaseVal, _, ver, err := loader.LoadReleaseFile(cueCtx, "./release.cue", loader.LoadOptions{})
 rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, []cue.Value{userValues})
-result, err := render.ProcessModuleRelease(ctx, rel, p, "opm-cli")
+result, err := compile.CompileModuleRelease(ctx, rel, p, "opm-cli")
 ```
 
 ## API stability
@@ -124,7 +136,7 @@ The two tracks are independent: a kernel `v1.4.0` may simultaneously support OPM
 
 ## Multi-version OPM schema support
 
-The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` and a sibling Go package under `pkg/api/<vN>/`, and the new version coexists at runtime with every other registered binding. `pkg/render`, `pkg/loader`, and `pkg/module` need no edits.
+The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` and a sibling Go package under `pkg/api/<vN>/`, and the new version coexists at runtime with every other registered binding. `pkg/compile`, `pkg/loader`, and `pkg/module` need no edits.
 
 Key pieces:
 
@@ -133,7 +145,7 @@ Key pieces:
 - `pkg/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
 - `apis/core/<vN>/embed.go` — embeds that version's CUE source so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
 
-The render pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. The public `render.ProcessModuleRelease` signature is unchanged; the only breaking signature in this round is `render.Match`, which now takes the binding explicitly. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
+The compile pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
 
 ## Quality gates
 
