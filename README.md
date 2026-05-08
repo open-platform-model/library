@@ -16,6 +16,19 @@ The kernel does **not** own:
 - Logging output (loggers are passed in by the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity beyond the `core.Identity` tuple — adapters wrap rendered values into platform-specific resources.
+- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleRelease`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
+
+## Artifact types
+
+The kernel accepts exactly three artifact types — every input ultimately resolves to one of them:
+
+| Artifact         | Schema definition          | Go type              | Role                                                                                          |
+| ---------------- | -------------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
+| `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).     |
+| `ModuleRelease`  | `#ModuleRelease`           | `*module.Release`    | Per-deployment instantiation of a `Module` with concrete user values.                         |
+| `Platform`       | `#Platform`                | `*platform.Platform` | Composed registry of Modules; supplies `#composedTransformers` and `#matchers` to the kernel. |
+
+`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**. The migration is one line: read `mod.Package.LookupPath(b.Paths().DebugValues)` (with `b, _ := api.Lookup(mod.APIVersion)`) and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
 See `CONSTITUTION.md` for the full set of principles.
 

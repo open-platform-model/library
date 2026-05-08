@@ -1,6 +1,8 @@
 package v1alpha2_test
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -34,6 +36,7 @@ func TestPathsCoverExpectedFields(t *testing.T) {
 		{"Metadata", p.Metadata, "metadata"},
 		{"Components", p.Components, "components"},
 		{"Values", p.Values, "values"},
+		{"DebugValues", p.DebugValues, "debugValues"},
 		{"Transformers", p.Transformers, "#transformers"},
 		{"Transform", p.Transform, "#transform"},
 		{"Component", p.Component, "#component"},
@@ -171,4 +174,29 @@ func TestBindingRegistered(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, b)
 	assert.IsType(t, v1alpha2.ModuleReleaseContextData{}, v1alpha2.ModuleReleaseContextData{})
+}
+
+// TestBindingHasNoDebugArtifactDecoder enforces that the binding never grows
+// a top-level debug artifact decoder (e.g. DecodeModuleDebugMetadata). Debug
+// values are a Module field accessed via Paths().DebugValues, not a kernel
+// artifact. See enhancement 001-kernel-redesign-around-platform D6 and the
+// retire-module-debug change.
+func TestBindingHasNoDebugArtifactDecoder(t *testing.T) {
+	b := lookup(t)
+	rt := reflect.TypeOf(b)
+	for i := 0; i < rt.NumMethod(); i++ {
+		name := rt.Method(i).Name
+		if strings.HasPrefix(name, "Decode") && strings.Contains(strings.ToLower(name), "debug") {
+			t.Fatalf("binding exposes forbidden debug-artifact decoder %q; debug overlays are a frontend concern, accessed via Paths().DebugValues", name)
+		}
+	}
+}
+
+// TestDebugValuesPathIsModuleInternal asserts DebugValues resolves to the
+// Module-internal "debugValues" field, not a definition (which would imply a
+// separate artifact). The path must be readable as Module.Package.LookupPath.
+func TestDebugValuesPathIsModuleInternal(t *testing.T) {
+	p := lookup(t).Paths()
+	assert.Equal(t, "debugValues", p.DebugValues.String(),
+		"DebugValues must be a regular field path within Module.Package, not a definition")
 }

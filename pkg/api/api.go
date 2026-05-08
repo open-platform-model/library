@@ -38,6 +38,13 @@ type Paths struct {
 	Module         cue.Path // "#module" — release's reference to its source #Module
 	ModuleMetadata cue.Path // "#moduleMetadata" — release-side projection of #module.metadata
 
+	// Module-internal field. DebugValues is a Module field — NOT a separate
+	// kernel artifact. Frontends that want a debug overlay read the value at
+	// this path from Module.Package and decide whether to layer it into the
+	// values stack; the kernel never receives debugValues as a parameter.
+	// See enhancement 001-kernel-redesign-around-platform D6.
+	DebugValues cue.Path // "debugValues"
+
 	// Provider.
 	Transformers cue.Path // "#transformers"
 

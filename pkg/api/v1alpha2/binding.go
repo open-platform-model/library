@@ -27,6 +27,8 @@ var paths = api.Paths{
 	Module:         cue.MakePath(cue.Def("module")),
 	ModuleMetadata: cue.MakePath(cue.Def("moduleMetadata")),
 
+	DebugValues: cue.ParsePath("debugValues"),
+
 	Transformers: cue.ParsePath("#transformers"),
 
 	Registry:             cue.ParsePath("#registry"),

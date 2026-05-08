@@ -60,6 +60,29 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `pkg/api.Paths.DebugValues` (`"debugValues"`) — module-internal field
+  path exposing `#Module.debugValues` for frontend reads. The
+  v1alpha2 binding populates it. `#ModuleDebug` is **not** a kernel
+  artifact: the kernel accepts only `Module`, `ModuleRelease`, and
+  `Platform`. Whether `debugValues` participates in the values stack
+  is a frontend policy decision (operator: never in prod; CLI: when
+  `--debug` is set; XR fn: per-composition). Slice 03 of the
+  kernel-redesign-around-platform enhancement; see D6.
+
+  Migration recipe — read debug overlays directly off the Module:
+
+  ```go
+  b, _ := api.Lookup(mod.APIVersion)
+  dbg := mod.Package.LookupPath(b.Paths().DebugValues)
+  // feed dbg into the helper-side values stack at the layer your frontend prefers
+  ```
+
+  No public Go type was removed; no `LoadModuleDebug` ever existed.
+  The retirement is a contract sharpening — the kernel never gains
+  awareness of a debug artifact, and bindings never grow a
+  `Decode*Debug*Metadata` decoder (enforced by unit test in
+  `pkg/api/v1alpha2/binding_test.go`).
+
 - `pkg/helper/platform/` — new helper package shipping
   `Compose(owner, shell, modules) (*Platform, error)` and the kernel
   wrapper `(*Kernel).ComposePlatform(shell, modules)`. Builds a fully

@@ -1,6 +1,16 @@
 // Package module defines the Module and ModuleMetadata types, mirroring the
 // #Module definition in the CUE catalog. A Module represents the parsed module
 // definition before it is built into a release.
+//
+// Debug overlays. The CUE schema includes a `debugValues` field on every
+// `#Module` for author-supplied example values used by build/validation
+// tooling. `debugValues` is a Module field — NOT a separate kernel artifact —
+// and it is read off Module.Package via the binding path
+// api.Paths().DebugValues. Whether a frontend layers debugValues into the
+// values stack is a policy decision that lives in the helper layer; the
+// kernel itself never observes the distinction. The previously contemplated
+// top-level `#ModuleDebug` artifact is retired (see enhancement
+// 001-kernel-redesign-around-platform D6 and the retire-module-debug change).
 package module
 
 import (
@@ -54,12 +64,12 @@ type ModuleMetadata struct {
 	// This is the registry path (e.g., "opmodel.dev/modules"), NOT a filesystem path.
 	ModulePath string `json:"modulePath"`
 
+	// Version is the module version (semver).
+	Version string `json:"version"`
+
 	// FQN is the fully qualified module name (modulePath/name:version).
 	// Example: "opmodel.dev/modules/my-app:1.0.0"
 	FQN string `json:"fqn"`
-
-	// Version is the module version (semver).
-	Version string `json:"version"`
 
 	// UUID is the module identity UUID (from #Module.metadata.identity).
 	UUID string `json:"uuid"`
