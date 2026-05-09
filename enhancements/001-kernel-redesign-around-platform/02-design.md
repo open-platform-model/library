@@ -122,12 +122,12 @@ The kernel reads field paths within `Package` through the version-binding (`pkg/
    5. For each matched (component, transformer):
         - FillPath component + binding-built #context into transformer.
         - Evaluate; decode `output` (cue.ListKind | cue.StructKind).
-        - Emit *core.Rendered with full provenance (release/component/transformer FQN).
+        - Emit *core.Compiled with full provenance (release/component/transformer FQN).
         │
         ▼
    6. Finalize and assemble:
         CompileResult {
-          Rendered    []*core.Rendered
+          Compiled    []*core.Compiled
           Components  []ComponentSummary
           Unmatched   []FQN
           Ambiguous   []FQN

@@ -2,7 +2,7 @@
 
 Adapters are the translation layer between the OPM application model and a concrete target runtime. They describe what a target supports and how Components render into target-specific resources.
 
-Adapters consume [Constructs](constructs.md) and [Primitives](primitives.md), but live outside the composition hierarchy — they do not appear inside a Module's `#components` or as part of a Module's portable definition. They are wired into the runtime (CLI, operator, render pipeline) at deploy time.
+Adapters consume [Constructs](constructs.md) and [Primitives](primitives.md), but live outside the composition hierarchy — they do not appear inside a Module's `#components` or as part of a Module's portable definition. They are wired into the runtime (CLI, operator, compile pipeline) at deploy time.
 
 See [Definition Types](definition-types.md) for the full taxonomy.
 
@@ -12,7 +12,7 @@ See [Definition Types](definition-types.md) for the full taxonomy.
 
 A **ComponentTransformer** converts an OPM Component into a single platform-specific resource (e.g., a Kubernetes Deployment, Service, or PersistentVolumeClaim). Each ComponentTransformer produces exactly one output resource — a Component that needs multiple platform resources is matched by multiple ComponentTransformers.
 
-ComponentTransformers use a multi-dimensional matching system: required labels, required Resources, and required Traits must **all** be present on a Component for the transformer to match. The render pipeline computes matches across all ComponentTransformers in the active registry, then invokes each matched transformer's `#transform` to produce its output.
+ComponentTransformers use a multi-dimensional matching system: required labels, required Resources, and required Traits must **all** be present on a Component for the transformer to match. The compile pipeline computes matches across all ComponentTransformers in the active registry, then invokes each matched transformer's `#transform` to produce its output.
 
 `#ComponentTransformer` is the sole transformer primitive at the Component layer. Module-scope transformation (planned) is handled by a separate `#ModuleTransformer` adapter; both are members of `#TransformerMap`.
 
@@ -106,7 +106,7 @@ A single Component may match multiple ComponentTransformers — each contributes
 
 > **Planned** — not present in `core/v1alpha2` yet.
 
-A **Platform** models a deployment target as a single, composable construct. It carries the target's identity (`metadata`, `type`), platform-level context, and a registry of capabilities — registered Modules, the union of their Resources/Traits, the composed ComponentTransformer set, and a reverse matcher index used by the render pipeline.
+A **Platform** models a deployment target as a single, composable construct. It carries the target's identity (`metadata`, `type`), platform-level context, and a registry of capabilities — registered Modules, the union of their Resources/Traits, the composed ComponentTransformer set, and a reverse matcher index used by the compile pipeline.
 
 `#Platform` retires the older `#Provider` shape: instead of a static `#providers` list, the matcher consumes the Platform's computed `#composedTransformers` and `#matchers` projections directly. A companion `#PlatformMatch` walks a consumer Module's FQN demand against `#matchers` and surfaces `matched` / `unmatched` / `ambiguous` projections per deploy.
 

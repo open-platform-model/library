@@ -39,7 +39,7 @@ The Kernel becomes a substrate that provides shared state but exposes no operati
          │  Compiler { *Kernel }   │         │  Runtime { *Kernel,     │
          │  pure                   │         │            Executor[],  │
          │  CompileResult {        │         │            StateStore } │
-         │    Rendered,            │         │  effectful              │
+         │    Compiled,            │         │  effectful              │
          │    ActionInvocations,   │         │  RunAction              │
          │    Warnings }           │         │  Snapshot()             │
          └─────────────────────────┘         └─────────────────────────┘
@@ -100,7 +100,7 @@ type Compiler struct { /* holds *Kernel */ }
 func NewCompiler(k *kernel.Kernel) *Compiler
 
 type CompileResult struct {
-    Rendered  []*core.Rendered                              // unchanged: K8s/etc resources
+    Compiled  []*core.Compiled                              // unchanged: K8s/etc resources
     Workflows map[string]*core.ActionInvocation             // NEW (slice 08): keyed by Workflow FQN
     Lifecycle map[LifecyclePhase]*core.ActionInvocation     // NEW (slice 09): keyed by phase
     Warnings  []string
@@ -283,7 +283,7 @@ if err != nil { return err }
 if inv, ok := res.Lifecycle[compile.PhasePreInstall]; ok {
     if _, err := rt.RunAction(ctx, inv); err != nil { return err }
 }
-apply(res.Rendered)
+apply(res.Compiled)
 if inv, ok := res.Lifecycle[compile.PhaseInstall]; ok {
     if _, err := rt.RunAction(ctx, inv); err != nil { return err }
 }
@@ -348,8 +348,8 @@ Slices 01–04 ship purely declarative changes (no I/O introduced). Slice 05 int
 ### Today
 
 ```go
-result, err := render.ProcessModuleRelease(ctx, rel, provider, "opm-cli")
-// result.Rendered = K8s resources
+result, err := compile.CompileModuleRelease(ctx, rel, plat, "opm-cli")
+// result.Compiled = K8s resources
 // no Action execution surface
 ```
 
@@ -363,14 +363,14 @@ rt, _ := runtime.New(k, runtime.WithExecutor("exec", local.Exec()))
 snap := rt.Snapshot()
 res, err := cmp.Compile(ctx, rel, provider, "opm-cli",
     compile.WithRuntimeSnapshot(snap))
-// res.Rendered  = K8s resources (unchanged)
+// res.Compiled  = K8s resources (unchanged)
 // res.Workflows = {"opmodel.dev/.../db-migration@v1": <inv>, ...}
 // res.Lifecycle = {PhasePreInstall: <inv>, PhasePostInstall: <inv>, ...}
 
 // CLI install: walk lifecycle phases in canonical order
 for _, phase := range compile.CanonicalOrder()[:3] {  // pre/install/post
     if inv, ok := res.Lifecycle[phase]; ok { rt.RunAction(ctx, inv) }
-    if phase == compile.PhaseInstall { apply(res.Rendered) }
+    if phase == compile.PhaseInstall { apply(res.Compiled) }
 }
 
 // CLI on-demand: user invokes a named workflow

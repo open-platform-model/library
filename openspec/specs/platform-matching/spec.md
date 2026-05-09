@@ -70,7 +70,7 @@ The Execute phase SHALL resolve each matched pair's transformer by looking up th
 
 - **WHEN** Execute processes a matched `(component, transformerFQN)` pair
 - **THEN** it fetches `Platform.#composedTransformers[transformerFQN]` to obtain the transformer's `#transform` body
-- **AND** proceeds with FillPath / decode / emit Rendered as before
+- **AND** proceeds with FillPath / decode / emit Compiled as before
 
 ### Requirement: Provider Package Retired
 

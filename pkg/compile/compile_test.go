@@ -324,12 +324,12 @@ type: "kubernetes"
 	out, err := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated free function
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Len(t, out.Rendered, 1, "expected one rendered item")
+	require.Len(t, out.Compiled, 1, "expected one compiled item")
 
-	got := out.Rendered[0].Value
+	got := out.Compiled[0].Value
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
-	assert.Equal(t, "opm-cli", runtime, "binding-built #runtimeName should reach the rendered output")
+	assert.Equal(t, "opm-cli", runtime, "binding-built #runtimeName should reach the compiled output")
 	release, err := got.LookupPath(cue.ParsePath("release")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "demo", release)

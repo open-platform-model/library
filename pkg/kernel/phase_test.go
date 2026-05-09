@@ -218,7 +218,7 @@ func TestKernel_Plan_NoRendered(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
-	// PlanResult does not expose a Rendered field — verify by reflection on
+	// PlanResult does not expose a Compiled field — verify by reflection on
 	// the public surface that no such slice leaks through.
 	_ = out.MatchPlan
 	require.Len(t, out.Components, 1)
@@ -251,16 +251,16 @@ func TestKernel_Compile_OK(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Len(t, out.Rendered, 1)
+	require.Len(t, out.Compiled, 1)
 
-	got := out.Rendered[0].Value
+	got := out.Compiled[0].Value
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "opm-cli", runtime)
 }
 
 // TestKernel_Compile_MatchesCompileModuleRelease confirms Compile produces
-// the same rendered count and provenance as the deprecated free function
+// the same compiled count and provenance as the deprecated free function
 // compile.CompileModuleRelease on the same fixture.
 func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
 	k := kernel.New()
@@ -274,11 +274,11 @@ func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, len(want.Rendered), len(got.Rendered))
-	for i := range want.Rendered {
-		assert.Equal(t, want.Rendered[i].Component, got.Rendered[i].Component)
-		assert.Equal(t, want.Rendered[i].Transformer, got.Rendered[i].Transformer)
-		assert.Equal(t, want.Rendered[i].Release, got.Rendered[i].Release)
+	require.Equal(t, len(want.Compiled), len(got.Compiled))
+	for i := range want.Compiled {
+		assert.Equal(t, want.Compiled[i].Component, got.Compiled[i].Component)
+		assert.Equal(t, want.Compiled[i].Transformer, got.Compiled[i].Transformer)
+		assert.Equal(t, want.Compiled[i].Release, got.Compiled[i].Release)
 	}
 }
 

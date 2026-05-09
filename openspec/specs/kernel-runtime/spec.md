@@ -103,7 +103,7 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 #### Scenario: Compile phase method
 
 - **WHEN** a caller invokes `k.Compile(ctx, CompileInput{Module, ModuleRelease, Values, Platform, RuntimeName})`
-- **THEN** the kernel runs the full pipeline (Validate + Match + Execute + Finalize) and returns a `*CompileResult` containing `Rendered []*core.Rendered`, component summaries, unmatched FQNs, ambiguous FQNs, and warnings
+- **THEN** the kernel runs the full pipeline (Validate + Match + Execute + Finalize) and returns a `*CompileResult` containing `Compiled []*core.Compiled`, component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 
 ### Requirement: Phase Input Structs
 
@@ -177,12 +177,12 @@ The library SHALL provide `validate.UnifyAndValidate(vs []cue.Value) cue.Value` 
 
 ### Requirement: Compile Rename
 
-The render pipeline's terminal verb SHALL be `Compile`. `pkg/render/process_module.go` SHALL be renamed to `pkg/render/compile_module.go`. `render.ProcessModuleRelease` SHALL be renamed to `render.CompileModuleRelease`.
+The compile pipeline's terminal verb SHALL be `Compile`. `pkg/compile/compile_module.go` carries `compile.CompileModuleRelease`. The earlier `pkg/render/process_module.go` / `render.ProcessModuleRelease` names SHALL NOT reappear.
 
 #### Scenario: New name available
 
 - **WHEN** a caller invokes `compile.CompileModuleRelease(ctx, rel, plat, runtimeName)`
-- **THEN** the call performs the full render pipeline against the supplied `*platform.Platform` and returns a `*CompileResult`
+- **THEN** the call performs the full compile pipeline against the supplied `*platform.Platform` and returns a `*CompileResult`
 
 #### Scenario: ProcessModuleRelease alias removed
 

@@ -4,15 +4,15 @@ import (
 	"cuelang.org/go/cue"
 )
 
-// Rendered is the raw output of the OPM render pipeline before any
-// platform wrapping. The render package emits *Rendered values; adapters
+// Compiled is the raw output of the OPM compile pipeline before any
+// platform wrapping. The compile package emits *Compiled values; adapters
 // translate them to platform-specific Resource implementations that
 // expose Identity().
 //
-// Rendered itself does NOT implement Resource — keeping the two apart
+// Compiled itself does NOT implement Resource — keeping the two apart
 // stops library code from accidentally reading platform-native fields and
 // keeps the kernel platform-neutral.
-type Rendered struct {
+type Compiled struct {
 	// Value is the CUE value produced by the transformer. Concrete and
 	// fully evaluated — safe to encode directly to YAML or JSON.
 	Value cue.Value

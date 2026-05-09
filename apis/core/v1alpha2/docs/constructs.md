@@ -168,7 +168,7 @@ Internally, the release unifies the referenced Module with `{#config: values}`, 
 
 - "This Module is **being deployed** to this namespace with these values"
 - "All configuration is **concrete and validated** against the module's contract"
-- "This is the **input to the render pipeline**"
+- "This is the **input to the compile pipeline**"
 
 #### ModuleRelease Structure
 

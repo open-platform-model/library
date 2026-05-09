@@ -60,18 +60,18 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `pkg/apiversion/` — `Version` type, registered constants, `Detect(cue.Value)`
 - `pkg/api/` — per-schema-version `Binding` interface and registry
 - `pkg/api/<vN>/` — concrete bindings (registered in `init()`)
-- `pkg/core/` — shared domain primitives (resource identity, rendered output)
+- `pkg/core/` — shared domain primitives (resource identity, compiled output)
 - `pkg/errors/` — structured errors and sentinels (alias as `oerrors` in consumers)
 - `pkg/loader/` — load CUE artifacts (modules, providers, releases) into `cue.Value`
 - `pkg/module/` — module and release model, parsing, and helpers
 - `pkg/provider/` — provider model
-- `pkg/render/` — render pipeline (match, process, execute, finalize)
+- `pkg/compile/` — compile pipeline (match, process, execute, finalize)
 - `pkg/validate/` — configuration validation helpers
 
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 
 ```text
-loader -> module/provider -> validate -> render -> core
+loader -> module/provider -> validate -> compile -> core
 ```
 
 ---

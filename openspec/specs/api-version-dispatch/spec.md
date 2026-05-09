@@ -34,9 +34,9 @@ The kernel SHALL expose a `pkg/apiversion.Detect(cue.Value) (Version, error)` he
 - **THEN** it returns the zero `Version` and an error that wraps `apiversion.ErrUnknownAPIVersion`
 
 ### Requirement: Binding contract
-The kernel SHALL expose a `pkg/api.Binding` interface that owns every version-specific fact: CUE path constants, decoded metadata shape, and transformer-context construction. Each schema version MUST contribute exactly one Binding implementation. The Binding interface MUST cover every CUE path the render pipeline reads or writes — including release shape, component shape, transformer registry, and transformer context.
+The kernel SHALL expose a `pkg/api.Binding` interface that owns every version-specific fact: CUE path constants, decoded metadata shape, and transformer-context construction. Each schema version MUST contribute exactly one Binding implementation. The Binding interface MUST cover every CUE path the compile pipeline reads or writes — including release shape, component shape, transformer registry, and transformer context.
 
-#### Scenario: Binding paths cover every render-pipeline lookup
+#### Scenario: Binding paths cover every compile-pipeline lookup
 - **WHEN** the kernel renders a release end-to-end
 - **THEN** every CUE path read from or written to a release, component, provider, or transformer value comes from `binding.Paths()` — no hardcoded path strings remain in `pkg/render`, `pkg/loader/{module,provider,release}.go`, or `pkg/module/parse.go`
 

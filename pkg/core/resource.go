@@ -1,19 +1,19 @@
-// Package core defines the platform-neutral contract for OPM-rendered
+// Package core defines the platform-neutral contract for OPM-compiled
 // artifacts. Each target platform — Kubernetes, docker-compose, Nomad,
 // Terraform, Crossplane, ... — provides its own implementation of Resource
-// that maps a Rendered output to its native identity.
+// that maps a Compiled output to its native identity.
 //
 // The library never depends on a specific platform's vocabulary: it produces
-// *Rendered values and lets adapters wrap them.
+// *Compiled values and lets adapters wrap them.
 package core
 
 import (
 	"cuelang.org/go/cue"
 )
 
-// Resource is a platform-rendered artifact carrying both OPM provenance
+// Resource is a platform-compiled artifact carrying both OPM provenance
 // and platform-native identity. Adapters (k8s, compose, ...) implement
-// this interface by wrapping a Rendered.
+// this interface by wrapping a Compiled.
 type Resource interface {
 	// Release is the name of the ModuleRelease that produced this resource.
 	Release() string

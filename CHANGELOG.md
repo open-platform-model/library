@@ -4,6 +4,31 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Changed (BREAKING) — `core.Rendered` renamed to `core.Compiled`
+
+- `pkg/core.Rendered` (struct) → `pkg/core.Compiled`. File
+  `pkg/core/rendered.go` moved to `pkg/core/compiled.go`. Fields
+  (`Value`, `Release`, `Component`, `Transformer`) unchanged.
+- `pkg/compile.CompileResult.Rendered` field → `Compiled`. The list
+  itself (and per-element shape) is unchanged.
+- Doc-only language sweep: every "render pipeline" / "render package"
+  reference in package docs and specs now reads "compile pipeline" /
+  "compile package" to match the slice-06 package rename.
+
+  Mechanical migration:
+
+  ```diff
+  - var rs []*core.Rendered
+  + var rs []*core.Compiled
+
+  - for _, r := range result.Rendered {
+  + for _, r := range result.Compiled {
+        // r.Value is unchanged
+    }
+  ```
+
+  No alias is provided — the symbol changes in this MAJOR cycle.
+
 ### Changed (BREAKING) — kernel values input is a single cue.Value
 
 - `pkg/validate.Config(schema, values, context, name)` — `values` parameter

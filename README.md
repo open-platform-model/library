@@ -42,7 +42,7 @@ pkg/
   api/                    Per-schema-version Binding interface and registry
   api/v1alpha2/           v1alpha2 binding (registers itself in init())
   apiversion/             apiVersion enum + Detect helper
-  core/                   Platform-neutral primitives — Rendered, Resource, Identity
+  core/                   Platform-neutral primitives — Compiled, Resource, Identity
   errors/                 Sentinels, structured errors, grouped CUE diagnostics
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   loader/                 Deprecated re-export shim of pkg/helper/loader/file (kept for one SemVer cycle)
@@ -70,7 +70,7 @@ kernel.Compile                ->  *kernel.CompileResult    (rendered + provenanc
                 |
                 +-- FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
                 +-- decode `output` (cue.ListKind | cue.StructKind)
-                +-- emit []*core.Rendered carrying Release/Component/Transformer FQN provenance
+                +-- emit []*core.Compiled carrying Release/Component/Transformer FQN provenance
 ```
 
 The kernel exposes four phase-explicit methods that map onto frontend
@@ -79,7 +79,7 @@ subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match),
 `compile.CompileModuleRelease` and `compile.ProcessModuleRelease` (an alias
 for the former) remain as deprecated free-function entry points.
 
-`*core.Rendered` is the kernel's terminal output. Adapters in downstream implementations wrap each `Rendered` with a platform-specific `core.Resource` that fills `core.Identity`.
+`*core.Compiled` is the kernel's terminal output. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
 
 ## Quick start
 
@@ -156,7 +156,7 @@ result, err := k.Compile(ctx, kernel.CompileInput{
     Platform:      plat,
     RuntimeName:   "opm-cli",
 })
-for _, r := range result.Rendered {
+for _, r := range result.Compiled {
     // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
 }
 ```

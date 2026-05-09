@@ -7,7 +7,7 @@ The OPM kernel today is a single deterministic transform pipeline:
 ```
 loader.LoadReleaseFile        ->  cue.Value (release artifact)
 module.ParseModuleRelease     ->  *module.Release          (validated, concrete)
-render.ProcessModuleRelease   ->  *render.ModuleResult     (rendered + provenance)
+compile.CompileModuleRelease  ->  *compile.CompileResult   (compiled + provenance)
 ```
 
 `Kernel` (introduced by enhancement 001, slice 01) owns the shared substrate: `*cue.Context`, `*slog.Logger`, `trace.Tracer`, and a `Clock` interface placeholder. It exposes pure-transform methods only. Every method is a deterministic function of its inputs, and Constitution Principle I requires it stay that way:
@@ -84,7 +84,7 @@ myMigration: db.#DBMigration & {
 
 Today:
 
-- The CLI loads the module → `*module.Module` validates → `render.ProcessModuleRelease` produces `*core.Rendered` for any K8s resources the module declares. The Action declaration sits in the module's CUE but the kernel has no surface that returns it as an executable plan.
+- The CLI loads the module → `*module.Module` validates → `compile.CompileModuleRelease` produces `*core.Compiled` for any K8s resources the module declares. The Action declaration sits in the module's CUE but the kernel has no surface that returns it as an executable plan.
 - The operator does the same on reconcile and reaches the same dead-end.
 - The XR fn does the same and dead-ends identically.
 

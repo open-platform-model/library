@@ -32,15 +32,15 @@ func executeTransforms(
 	rel *module.Release,
 	runtimeName string,
 	binding api.Binding,
-) ([]*core.Rendered, []string, []error) {
-	rendered := make([]*core.Rendered, 0)
+) ([]*core.Compiled, []string, []error) {
+	compiled := make([]*core.Compiled, 0)
 	var warnings []string
 	var errs []error
 
 	for _, pair := range plan.MatchedPairs() {
 		select {
 		case <-ctx.Done():
-			return rendered, warnings, append(errs, ctx.Err())
+			return compiled, warnings, append(errs, ctx.Err())
 		default:
 		}
 
@@ -49,11 +49,11 @@ func executeTransforms(
 			errs = append(errs, err)
 			continue
 		}
-		rendered = append(rendered, res...)
+		compiled = append(compiled, res...)
 		warnings = append(warnings, pairWarnings...)
 	}
 
-	return rendered, warnings, errs
+	return compiled, warnings, errs
 }
 
 // executePair runs the CUE #transform for a single (component, transformer) matched pair.
@@ -74,7 +74,7 @@ func executePair(
 	pair MatchedPair,
 	runtimeName string,
 	binding api.Binding,
-) ([]*core.Rendered, []string, error) {
+) ([]*core.Compiled, []string, error) {
 	compName := pair.ComponentName
 	tfFQN := pair.TransformerFQN
 	paths := binding.Paths()
@@ -125,7 +125,7 @@ func executePair(
 	// Extract the output field.
 	outputVal := unified.LookupPath(paths.Output)
 	if !outputVal.Exists() {
-		return []*core.Rendered{}, warnings, nil
+		return []*core.Compiled{}, warnings, nil
 	}
 	if err := outputVal.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: evaluating output: %w", compName, tfFQN, err)
@@ -144,10 +144,10 @@ func executePair(
 	// terraform resource, ...).
 	switch outputVal.Kind() {
 	case cue.ListKind:
-		res, err := collectRenderedList(outputVal, releaseName, compName, tfFQN)
+		res, err := collectCompiledList(outputVal, releaseName, compName, tfFQN)
 		return res, warnings, err
 	case cue.StructKind:
-		res, err := collectRenderedMap(outputVal, releaseName, compName, tfFQN)
+		res, err := collectCompiledMap(outputVal, releaseName, compName, tfFQN)
 		return res, warnings, err
 	default:
 		return nil, nil, fmt.Errorf(
@@ -157,27 +157,27 @@ func executePair(
 	}
 }
 
-// collectRenderedList wraps each item in a CUE list as a Rendered,
+// collectCompiledList wraps each item in a CUE list as a Compiled,
 // keeping the CUE value intact without any intermediate decoding.
-func collectRenderedList(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Rendered, error) {
-	var rendered []*core.Rendered
+func collectCompiledList(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Compiled, error) {
+	var compiled []*core.Compiled
 	iter, err := v.List()
 	if err != nil {
 		return nil, fmt.Errorf("component %q / transformer %q: iterating output list: %w", compName, tfFQN, err)
 	}
 	for iter.Next() {
-		rendered = append(rendered, &core.Rendered{
+		compiled = append(compiled, &core.Compiled{
 			Value: iter.Value(), Release: releaseName,
 			Component: compName, Transformer: tfFQN,
 		})
 	}
-	return rendered, nil
+	return compiled, nil
 }
 
-// collectRenderedMap wraps each field value in a CUE struct as a Rendered,
+// collectCompiledMap wraps each field value in a CUE struct as a Compiled,
 // keeping the CUE value intact without any intermediate decoding.
-func collectRenderedMap(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Rendered, error) {
-	var rendered []*core.Rendered
+func collectCompiledMap(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Compiled, error) {
+	var compiled []*core.Compiled
 	iter, err := v.Fields()
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -186,10 +186,10 @@ func collectRenderedMap(v cue.Value, releaseName, compName, tfFQN string) ([]*co
 		)
 	}
 	for iter.Next() {
-		rendered = append(rendered, &core.Rendered{
+		compiled = append(compiled, &core.Compiled{
 			Value: iter.Value(), Release: releaseName,
 			Component: compName, Transformer: tfFQN,
 		})
 	}
-	return rendered, nil
+	return compiled, nil
 }

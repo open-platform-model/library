@@ -1,7 +1,7 @@
-// Package compile executes matched transforms and emits rendered values.
+// Package compile executes matched transforms and emits compiled values.
 //
-// The package is platform-neutral: its public output type is *core.Rendered,
-// a CUE value plus provenance. Adapters wrap each Rendered with their
+// The package is platform-neutral: its public output type is *core.Compiled,
+// a CUE value plus provenance. Adapters wrap each Compiled with their
 // platform-specific Resource implementation (see pkg/core).
 package compile
 
@@ -20,7 +20,7 @@ import (
 )
 
 // ComponentSummary contains display-oriented summary data extracted from a component
-// after the render pipeline. It captures the key properties useful for verbose output
+// after the compile pipeline. It captures the key properties useful for verbose output
 // without exposing cue.Value fields.
 type ComponentSummary struct {
 	// Name is the component name.
@@ -41,22 +41,22 @@ type ComponentSummary struct {
 	TraitFQNs []string
 }
 
-// Module drives the OPM render pipeline for a single ModuleRelease.
+// Module drives the OPM compile pipeline for a single ModuleRelease.
 //
 // A Module is constructed once per platform and reused across multiple
 // Execute calls. It is not safe for concurrent use (CUE context is single-threaded).
 type Module struct {
 	platform    *platform.Platform
-	runtimeName string // identity of the runtime executing this render
+	runtimeName string // identity of the runtime executing this compile
 }
 
 // CompileResult holds the output of a successful Execute call.
 type CompileResult struct {
-	// Rendered is the ordered list of rendered values from the pipeline.
+	// Compiled is the ordered list of compiled values from the pipeline.
 	// Each entry carries Component and Transformer provenance for inventory
-	// tracking. Adapters wrap each Rendered with a platform-specific
+	// tracking. Adapters wrap each Compiled with a platform-specific
 	// core.Resource implementation.
-	Rendered []*core.Rendered
+	Compiled []*core.Compiled
 
 	// MatchPlan is the decoded result of matching components against transformers.
 	// Nil if matching was not performed (e.g. no components).
@@ -136,7 +136,7 @@ func (r *Module) Execute(
 	// Phase 2 — execution (CUE #transform per pair).
 	// Passes both schemaComponents (for metadata extraction) and dataComponents
 	// (already finalized, no materialize() needed).
-	rendered, warnings, errs := executeTransforms(
+	compiled, warnings, errs := executeTransforms(
 		ctx, cueCtx, plan, r.platform.Package,
 		schemaComponents, dataComponents, rel,
 		r.runtimeName, binding,
@@ -149,7 +149,7 @@ func (r *Module) Execute(
 	allWarnings = append(allWarnings, warnings...)
 
 	return &CompileResult{
-		Rendered:   nonNilRendered(rendered),
+		Compiled:   nonNilCompiled(compiled),
 		MatchPlan:  plan,
 		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents, binding)),
 		Unmatched:  []string{},
@@ -158,11 +158,11 @@ func (r *Module) Execute(
 	}, nil
 }
 
-func nonNilRendered(rendered []*core.Rendered) []*core.Rendered {
-	if rendered == nil {
-		return []*core.Rendered{}
+func nonNilCompiled(compiled []*core.Compiled) []*core.Compiled {
+	if compiled == nil {
+		return []*core.Compiled{}
 	}
-	return rendered
+	return compiled
 }
 
 func nonNilComponentSummaries(components []ComponentSummary) []ComponentSummary {

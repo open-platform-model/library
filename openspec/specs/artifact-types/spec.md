@@ -93,9 +93,9 @@ These paths SHALL be populated by every concrete binding so that kernel-internal
 
 All kernel-internal call sites that previously read `Module.Spec`, `Module.Config`, `Release.Spec`, `Release.Values`, or `Release.Module` SHALL be migrated to read sub-values from `Package` using `binding.Paths()` from the version binding.
 
-#### Scenario: Render pipeline uses binding paths
+#### Scenario: Compile pipeline uses binding paths
 
-- **WHEN** the render pipeline (`pkg/render/`) reads the components subtree of a Module
+- **WHEN** the compile pipeline (`pkg/compile/`) reads the components subtree of a Module
 - **THEN** the read goes through `mod.Package.LookupPath(binding.Paths().Components)`
 - **AND** there is no direct dereference of a removed field
 
