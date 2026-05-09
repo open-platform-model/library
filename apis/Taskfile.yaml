@@ -10,8 +10,20 @@ tasks:
   generate:index:
     desc: Generate INDEX.md for all CUE API modules
     cmds:
-      - bash .tasks/generate-index.sh core/v1alpha1 > core/v1alpha1/INDEX.md
-      - bash .tasks/generate-index.sh core/v1alpha2 > core/v1alpha2/INDEX.md
+      - |
+        set -euo pipefail
+        FOUND=0
+        while IFS= read -r module_cue; do
+          module_dir="$(dirname "$(dirname "$module_cue")")"
+          echo "Generating $module_dir/INDEX.md"
+          bash .tasks/generate-index.sh "$module_dir" > "$module_dir/INDEX.md"
+          FOUND=$((FOUND + 1))
+        done < <(find . -type f -path '*/cue.mod/module.cue' | sort)
+
+        if [[ "$FOUND" -eq 0 ]]; then
+          echo "No CUE modules found (looked for */cue.mod/module.cue)" >&2
+          exit 1
+        fi
 
   generate:index:check:
     desc: Verify INDEX.md files match generated output (exits non-zero if any differ)
@@ -43,8 +55,17 @@ tasks:
         }
 
         FAILED=0
-        check_module core/v1alpha1 || FAILED=1
-        check_module core/v1alpha2 || FAILED=1
+        FOUND=0
+        while IFS= read -r module_cue; do
+          module_dir="$(dirname "$(dirname "$module_cue")")"
+          check_module "$module_dir" || FAILED=1
+          FOUND=$((FOUND + 1))
+        done < <(find . -type f -path '*/cue.mod/module.cue' | sort)
+
+        if [[ "$FOUND" -eq 0 ]]; then
+          echo "No CUE modules found (looked for */cue.mod/module.cue)" >&2
+          exit 1
+        fi
 
         if [[ "$FAILED" -eq 1 ]]; then
           echo ""

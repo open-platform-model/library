@@ -15,15 +15,16 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 )
 
-// schemaSourceDir resolves the on-disk path of apis/core/v1alpha2 relative to
-// this test file's location. Using runtime.Caller keeps the test working when
-// `go test ./...` is invoked from any directory.
+// schemaSourceDir resolves the on-disk path of apis/core (the CUE module
+// root that holds cue.mod/ and the v1alpha2/ schema package) relative to
+// this test file's location. Using runtime.Caller keeps the test working
+// when `go test ./...` is invoked from any directory.
 func schemaSourceDir(t *testing.T) string {
 	t.Helper()
 	_, here, _, ok := runtime.Caller(0)
 	require.True(t, ok, "runtime.Caller failed")
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(here), "..", "..", ".."))
-	return filepath.Join(repoRoot, "apis", "core", "v1alpha2")
+	return filepath.Join(repoRoot, "apis", "core")
 }
 
 // listEmbeddedFiles returns the sorted list of regular files in the embedded
@@ -46,22 +47,23 @@ func listEmbeddedFiles(t *testing.T, fsys fs.FS) []string {
 }
 
 // listOnDiskSchemaFiles returns the sorted list of files matching the embed
-// pattern (*.cue and cue.mod/module.cue) under the on-disk schema dir.
+// pattern (cue.mod/module.cue and v1alpha2/*.cue) under the on-disk schema
+// module root.
 func listOnDiskSchemaFiles(t *testing.T, dir string) []string {
 	t.Helper()
 	var files []string
 
-	cueGlob, err := filepath.Glob(filepath.Join(dir, "*.cue"))
+	modPath := filepath.Join(dir, "cue.mod", "module.cue")
+	if _, statErr := os.Stat(modPath); statErr == nil {
+		files = append(files, "cue.mod/module.cue")
+	}
+
+	cueGlob, err := filepath.Glob(filepath.Join(dir, "v1alpha2", "*.cue"))
 	require.NoError(t, err)
 	for _, p := range cueGlob {
 		rel, err := filepath.Rel(dir, p)
 		require.NoError(t, err)
 		files = append(files, filepath.ToSlash(rel))
-	}
-
-	modPath := filepath.Join(dir, "cue.mod", "module.cue")
-	if _, statErr := os.Stat(modPath); statErr == nil {
-		files = append(files, "cue.mod/module.cue")
 	}
 
 	sort.Strings(files)

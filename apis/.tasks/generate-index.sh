@@ -4,13 +4,13 @@ set -euo pipefail
 # generate-index.sh — Print INDEX.md to stdout for a CUE module.
 #
 # Usage (run from library/apis/ directory):
-#   bash .tasks/generate-index.sh core/v1alpha1
-#   bash .tasks/generate-index.sh core/v1alpha2
+#   bash .tasks/generate-index.sh core
 #
+# The argument is the directory containing cue.mod/module.cue.
 # The caller redirects stdout to the desired output file:
-#   bash .tasks/generate-index.sh core/v1alpha1 > core/v1alpha1/INDEX.md
+#   bash .tasks/generate-index.sh core > core/INDEX.md
 
-MODULE_RELDIR="${1:?Error: module_dir argument required. Usage: bash .tasks/generate-index.sh core/v1alpha1}"
+MODULE_RELDIR="${1:?Error: module_dir argument required. Usage: bash .tasks/generate-index.sh core}"
 MODULE_DIR="${MODULE_RELDIR%/}"
 
 # ── Fail fast: validate required paths exist ──────────────────────────────────
@@ -27,8 +27,8 @@ MODULE_NAME=$(
     | sed 's/module:[[:space:]]*"\(.*\)"/\1/'
 )
 
-# Version label = trailing path component (e.g. v1alpha1, v1alpha2, v1)
-MODULE_VERSION=$(basename "$MODULE_DIR")
+# Display label = trailing path component of the module directory (e.g. core)
+MODULE_LABEL=$(basename "$MODULE_DIR")
 
 # ── ASCII directory tree (dirs only, no cue.mod/, pure ASCII) ─────────────────
 
@@ -171,7 +171,7 @@ collect_all_definitions "$MODULE_DIR" > "$TMPFILE"
 
 # ── Header ────────────────────────────────────────────────────────────────────
 
-echo "# ${MODULE_VERSION} — Definition Index"
+echo "# ${MODULE_LABEL} — Definition Index"
 echo ""
 echo "CUE module: \`${MODULE_NAME}\`"
 echo ""

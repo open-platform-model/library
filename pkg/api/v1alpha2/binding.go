@@ -8,7 +8,7 @@ import (
 
 	"cuelang.org/go/cue"
 
-	schema "github.com/open-platform-model/library/apis/core/v1alpha2"
+	schema "github.com/open-platform-model/library/apis/core"
 	"github.com/open-platform-model/library/pkg/api"
 	"github.com/open-platform-model/library/pkg/apiversion"
 )
