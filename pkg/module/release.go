@@ -204,14 +204,14 @@ func NewReleaseFromValue(_ CueContextOwner, v cue.Value) (*Release, error) {
 	}
 	return &Release{
 		APIVersion: ver,
-		Metadata:   releaseMetadataFromAPI(apiMeta),
+		Metadata:   ReleaseMetadataFromAPI(apiMeta),
 		Package:    v,
 	}, nil
 }
 
-// releaseMetadataFromAPI converts the binding's canonical api.ReleaseMetadata
+// ReleaseMetadataFromAPI converts the binding's canonical api.ReleaseMetadata
 // into the pkg/module ReleaseMetadata projection.
-func releaseMetadataFromAPI(m *api.ReleaseMetadata) *ReleaseMetadata {
+func ReleaseMetadataFromAPI(m *api.ReleaseMetadata) *ReleaseMetadata {
 	if m == nil {
 		return nil
 	}

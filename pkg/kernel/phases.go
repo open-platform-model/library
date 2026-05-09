@@ -10,7 +10,6 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 	"github.com/open-platform-model/library/pkg/compile"
 	"github.com/open-platform-model/library/pkg/module"
-	"github.com/open-platform-model/library/pkg/validate"
 )
 
 // Validate performs Tier-2 schema validation of [ValidateInput.Values]
@@ -39,7 +38,7 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 		return nil
 	}
 	name := releaseDisplayName(in.ModuleRelease)
-	if _, cfgErr := validate.Config(schema, in.Values, "module", name); cfgErr != nil { //nolint:staticcheck // SA1019: kernel method wraps the deprecated free function
+	if _, cfgErr := runValidate(schema, in.Values, "module", name, true); cfgErr != nil {
 		return cfgErr
 	}
 	return nil
@@ -135,7 +134,7 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 		return nil, err
 	}
 
-	return compile.CompileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName) //nolint:staticcheck // SA1019: compile.CompileModuleRelease is the underlying implementation for this method
+	return compileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName)
 }
 
 // moduleFromRelease synthesizes a transient *module.Module from the embedded
@@ -146,7 +145,7 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 // reference, or when [module.NewModuleFromValue] rejects the embedded value.
 //
 // No defensive fallback: production releases produced by
-// [module.ParseModuleRelease] always embed #module at b.Paths().Module, and
+// [Kernel.ProcessModuleRelease] always embed #module at b.Paths().Module, and
 // hand-built test fixtures must do the same. A missing embedded module is a
 // programming error and is surfaced loudly so it cannot mask a malformed
 // fixture or a regressed parser.

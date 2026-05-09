@@ -19,12 +19,10 @@ import (
 	"github.com/open-platform-model/library/pkg/api"
 	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
 	"github.com/open-platform-model/library/pkg/apiversion"
-	"github.com/open-platform-model/library/pkg/compile"
 	loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 	"github.com/open-platform-model/library/pkg/kernel"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
-	"github.com/open-platform-model/library/pkg/validate"
 )
 
 // fakeClock returns a fixed time. Lets WithClock be observable from tests.
@@ -182,7 +180,7 @@ values: {
 	assert.Equal(t, int64(3), gotReplicas)
 }
 
-func TestKernel_ValidateConfig_Parity(t *testing.T) {
+func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
@@ -190,21 +188,15 @@ func TestKernel_ValidateConfig_Parity(t *testing.T) {
 	require.NoError(t, values.Err())
 
 	gotMerged, gotErr := k.ValidateConfig(schema, values, "module", "demo")
-	wantMerged, wantErr := validate.Config(schema, values, "module", "demo") //nolint:staticcheck // SA1019: parity test against deprecated free function
-
-	assert.Equal(t, wantErr == nil, gotErr == nil)
 	require.Nil(t, gotErr)
 	require.True(t, gotMerged.Exists())
-	require.True(t, wantMerged.Exists())
 
 	gotName, err := gotMerged.LookupPath(cue.ParsePath("name")).String()
 	require.NoError(t, err)
-	wantName, err := wantMerged.LookupPath(cue.ParsePath("name")).String()
-	require.NoError(t, err)
-	assert.Equal(t, wantName, gotName)
+	assert.Equal(t, "demo", gotName)
 }
 
-func TestKernel_ValidateConfig_Parity_Error(t *testing.T) {
+func TestKernel_ValidateConfig_SchemaErrorTagsContext(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
@@ -212,17 +204,15 @@ func TestKernel_ValidateConfig_Parity_Error(t *testing.T) {
 	require.NoError(t, bad.Err())
 
 	_, gotErr := k.ValidateConfig(schema, bad, "module", "demo")
-	_, wantErr := validate.Config(schema, bad, "module", "demo") //nolint:staticcheck // SA1019: parity test against deprecated free function
-
 	require.NotNil(t, gotErr)
-	require.NotNil(t, wantErr)
-	assert.Equal(t, wantErr.Context, gotErr.Context)
-	assert.Equal(t, wantErr.Name, gotErr.Name)
+	assert.Equal(t, "module", gotErr.Context)
+	assert.Equal(t, "demo", gotErr.Name)
 }
 
-// --- ParseModuleRelease parity: build a minimal Module + spec, exercise both
-// the kernel method and the free function and confirm both produce equivalent
-// *module.Release values.
+// --- ProcessModuleRelease: build a minimal Module + spec and confirm the
+// canonical kernel method produces a well-formed *module.Release. The
+// deprecated alias k.ParseModuleRelease MUST return identical results so
+// downstream callers can migrate over one cycle.
 
 func minimalModule() module.Module {
 	return module.Module{
@@ -237,7 +227,7 @@ func minimalModule() module.Module {
 	}
 }
 
-func TestKernel_ParseModuleRelease_Parity(t *testing.T) {
+func TestKernel_ProcessModuleRelease_HappyPath(t *testing.T) {
 	k := kernel.New()
 	spec := k.CueContext().CompileString(`
 apiVersion: "opmodel.dev/v1alpha2"
@@ -250,17 +240,39 @@ metadata: {
 `)
 	require.NoError(t, spec.Err())
 
-	gotRel, gotErr := k.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
-	require.NoError(t, gotErr)
+	rel, err := k.ProcessModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
+	require.NoError(t, err)
+	require.NotNil(t, rel)
+	assert.Equal(t, apiversion.V1alpha2, rel.APIVersion)
+	assert.Equal(t, "demo", rel.Metadata.Name)
+	assert.Equal(t, "ns", rel.Metadata.Namespace)
+}
 
-	wantRel, wantErr := module.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{}) //nolint:staticcheck // SA1019: parity test against deprecated free function
-	require.NoError(t, wantErr)
+// TestKernel_ParseModuleRelease_DeprecatedAliasMatches confirms the
+// deprecated alias delegates verbatim to the canonical method.
+func TestKernel_ParseModuleRelease_DeprecatedAliasMatches(t *testing.T) {
+	k := kernel.New()
+	spec := k.CueContext().CompileString(`
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "ModuleRelease"
+metadata: {
+	name: "demo"
+	namespace: "ns"
+	uuid: "u"
+}
+`)
+	require.NoError(t, spec.Err())
 
-	require.NotNil(t, gotRel)
-	require.NotNil(t, wantRel)
-	assert.Equal(t, wantRel.APIVersion, gotRel.APIVersion)
-	assert.Equal(t, wantRel.Metadata.Name, gotRel.Metadata.Name)
-	assert.Equal(t, wantRel.Metadata.Namespace, gotRel.Metadata.Namespace)
+	canonical, cErr := k.ProcessModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
+	alias, aErr := k.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{}) //nolint:staticcheck // SA1019: exercising the deprecated alias on purpose
+
+	require.NoError(t, cErr)
+	require.NoError(t, aErr)
+	require.NotNil(t, canonical)
+	require.NotNil(t, alias)
+	assert.Equal(t, canonical.APIVersion, alias.APIVersion)
+	assert.Equal(t, canonical.Metadata.Name, alias.Metadata.Name)
+	assert.Equal(t, canonical.Metadata.Namespace, alias.Metadata.Namespace)
 }
 
 // --- Compile parity: minimal release + platform that round-trip through both
@@ -331,12 +343,9 @@ func TestKernel_Compile_Parity_VersionMismatch(t *testing.T) {
 		Platform:      plat,
 		RuntimeName:   "opm-cli",
 	})
-	_, wantErr := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
-	require.Error(t, wantErr)
 	assert.Contains(t, gotErr.Error(), "apiVersion mismatch")
-	assert.Contains(t, wantErr.Error(), "apiVersion mismatch")
 }
 
 func TestKernel_Compile_Parity_UnknownVersion(t *testing.T) {
@@ -352,12 +361,9 @@ func TestKernel_Compile_Parity_UnknownVersion(t *testing.T) {
 		Platform:      plat,
 		RuntimeName:   "opm-cli",
 	})
-	_, wantErr := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity test against deprecated free function
 
 	require.Error(t, gotErr)
-	require.Error(t, wantErr)
 	assert.True(t, errors.Is(gotErr, apiversion.ErrUnknownAPIVersion))
-	assert.True(t, errors.Is(wantErr, apiversion.ErrUnknownAPIVersion))
 }
 
 // Sanity check: the v1alpha2 binding is registered so api.Lookup succeeds.
@@ -403,11 +409,15 @@ kind: "Module"
 
 			rel := minimalReleaseValue(t, k)
 			plat := minimalPlatformValue(t, k)
-			_, perr := compile.CompileModuleRelease(ctx, rel, plat, "opm-cli") //nolint:staticcheck // SA1019: parity guard for the deprecated free function
+			_, perr := k.Compile(ctx, kernel.CompileInput{
+				ModuleRelease: rel,
+				Platform:      plat,
+				RuntimeName:   "opm-cli",
+			})
 			if perr != nil {
-				// CompileModuleRelease may legitimately error on the minimal
-				// fixture (no components/transformers); we only care that the
-				// call returns deterministically without racing.
+				// Compile may legitimately error on the minimal fixture (no
+				// components/transformers); we only care that the call returns
+				// deterministically without racing.
 				_ = perr
 			}
 		}()

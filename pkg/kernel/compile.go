@@ -1,34 +1,28 @@
-package compile
+package kernel
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/open-platform-model/library/pkg/api"
+	"github.com/open-platform-model/library/pkg/compile"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
 )
 
-// CompileModuleRelease compiles a prepared release with the given platform.
-// The release must already be fully prepared via module.ParseModuleRelease.
+// compileModuleRelease is the canonical compile pipeline implementation. It
+// runs the full Match → Finalize → Execute sequence against the supplied
+// release and platform and returns the resulting [*compile.CompileResult].
 //
-// runtimeName identifies the runtime executing this compile (e.g. "opm-cli",
-// "opm-controller", "compose-runtime"). It MUST be non-empty — the catalog
-// declares #context.#runtimeName as mandatory and CUE evaluation fails on
-// empty values.
-//
-// The binding for the release's apiVersion is looked up internally via
-// api.Lookup(rel.APIVersion); callers do not pass a binding. If the release
-// and platform declare different apiVersions, CompileModuleRelease returns
-// an error before invoking any transformer.
-//
-// Deprecated: use Kernel.Compile.
-func CompileModuleRelease(
+// Callers go through [Kernel.Compile] (which adds Tier-2 validation in front
+// of this helper). This function lives on the kernel package so the kernel
+// owns the canonical impl rather than wrapping a deprecated free function.
+func compileModuleRelease(
 	ctx context.Context,
 	rel *module.Release,
 	plat *platform.Platform,
 	runtimeName string,
-) (*CompileResult, error) {
+) (*compile.CompileResult, error) {
 	if runtimeName == "" {
 		return nil, fmt.Errorf("runtimeName must be non-empty")
 	}
@@ -55,15 +49,15 @@ func CompileModuleRelease(
 		return nil, fmt.Errorf("release %q: no components field in release spec", rel.Metadata.Name)
 	}
 
-	dataComponents, err := FinalizeValue(plat.Package.Context(), schemaComponents)
+	dataComponents, err := compile.FinalizeValue(plat.Package.Context(), schemaComponents)
 	if err != nil {
 		return nil, fmt.Errorf("finalizing components: %w", err)
 	}
 
-	plan, err := Match(schemaComponents, plat, binding)
+	plan, err := compile.Match(schemaComponents, plat, binding)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewModule(plat, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan)
+	return compile.NewModule(plat, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule constructor is on its own deprecation arc; replacing it is out of scope for this change.
 }

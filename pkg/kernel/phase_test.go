@@ -279,29 +279,6 @@ func TestKernel_Compile_OK(t *testing.T) {
 	assert.Equal(t, "opm-cli", runtime)
 }
 
-// TestKernel_Compile_MatchesCompileModuleRelease confirms Compile produces
-// the same compiled count and provenance as the deprecated free function
-// compile.CompileModuleRelease on the same fixture.
-func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	want, err := compile.CompileModuleRelease(context.Background(), f.rel, f.plat, "opm-cli") //nolint:staticcheck // SA1019: parity test for the deprecated free function
-	require.NoError(t, err)
-
-	got, err := k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
-	})
-	require.NoError(t, err)
-
-	require.Equal(t, len(want.Compiled), len(got.Compiled))
-	for i := range want.Compiled {
-		assert.Equal(t, want.Compiled[i].Component, got.Compiled[i].Component)
-		assert.Equal(t, want.Compiled[i].Transformer, got.Compiled[i].Transformer)
-		assert.Equal(t, want.Compiled[i].Release, got.Compiled[i].Release)
-	}
-}
-
 // TestKernel_Compile_FromReleaseOnly is a regression test for the slim-input
 // contract: Compile must succeed when given a release whose Package carries an
 // embedded #module reference, with no separate *module.Module supplied.

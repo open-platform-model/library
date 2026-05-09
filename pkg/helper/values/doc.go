@@ -57,15 +57,16 @@
 //	    return err
 //	}
 //	// pass merged to the kernel — Tier-2 runs there
-//	rel, _ := k.ParseModuleRelease(ctx, releaseVal, *mod, merged)
+//	rel, _ := k.ProcessModuleRelease(ctx, releaseVal, *mod, merged)
 //
 // # Kernel anchor
 //
 // [ValidateAndUnify] takes a [KernelOwner] — any type exposing
-// `CueContext() *cue.Context`. [*kernel.Kernel] satisfies this interface,
-// so `values.ValidateAndUnify(k, schema, stack)` is the typical call.
-// The interface lives here so this package does not import pkg/kernel
-// (which would cycle through the kernel's convenience wrapper).
+// `CueContext() *cue.Context` and `ValidateConfigPartial(schema, values,
+// contextLabel, name)`. [*kernel.Kernel] satisfies this interface, so
+// `values.ValidateAndUnify(k, schema, stack)` is the typical call. The
+// interface lives here so this package does not import pkg/kernel (which
+// would cycle through the kernel's convenience wrapper).
 //
 // This is slice 05 of the kernel-redesign-around-platform enhancement.
 // See enhancements/001-kernel-redesign-around-platform/03-decisions.md

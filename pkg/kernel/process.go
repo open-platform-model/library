@@ -1,4 +1,4 @@
-package module
+package kernel
 
 import (
 	"context"
@@ -7,11 +7,13 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/pkg/api"
-	"github.com/open-platform-model/library/pkg/validate"
+	"github.com/open-platform-model/library/pkg/module"
 )
 
-// ParseModuleRelease validates values, fills them into the release spec,
-// ensures the result is concrete, decodes metadata, and constructs Release.
+// ProcessModuleRelease validates the supplied values, fills them into the
+// release spec, asserts the result is fully concrete, decodes release
+// metadata via the version binding, and returns a constructed
+// [*module.Release].
 //
 // The release spec carries its source #Module inside the CUE package; the
 // schema for value validation is read from spec via the binding's Module +
@@ -19,15 +21,12 @@ import (
 // metadata.name is not yet concrete) and is not retained on the returned
 // Release — the source module remains reachable through Release.Package.
 //
-// values is a single, pre-unified cue.Value — layering happens in the
-// frontend / helper before this call. The zero cue.Value{} is treated as
-// "no values supplied".
-//
-// Deprecated: use Kernel.ParseModuleRelease. The Kernel is the public anchor
-// type for all OPM runtime operations.
-func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values cue.Value) (*Release, error) {
-	// Best-effort name for error messages — metadata.name may already be
-	// concrete before values filling (it comes from the module definition).
+// values is a single, pre-unified [cue.Value] — layering happens in the
+// frontend / helper before this call (see [pkg/helper/values.ValidateAndUnify]).
+// The zero [cue.Value] is treated as "no values supplied": validation is
+// skipped, no fill is performed, and the spec must already be concrete on
+// every required field.
+func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod module.Module, values cue.Value) (*module.Release, error) {
 	name := bestEffortReleaseName(spec, mod)
 
 	b, err := api.Lookup(mod.APIVersion)
@@ -36,17 +35,13 @@ func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values cu
 	}
 	paths := b.Paths()
 
-	// The #config schema lives on the source module: read it from the release
-	// spec's #module reference so Package stays the source of truth.
 	schema := spec.LookupPath(paths.Module).LookupPath(paths.Config)
 
-	// Tier-2 schema validation against the module's #config.
-	validated, cfgErr := validate.Config(schema, values, "module", name) //nolint:staticcheck // SA1019: parse.go is itself the deprecated path called by Kernel.ParseModuleRelease
+	validated, cfgErr := runValidate(schema, values, "module", name, true)
 	if cfgErr != nil {
 		return nil, cfgErr
 	}
 
-	// Fill validated values into the release spec.
 	if validated.Exists() {
 		spec = spec.FillPath(paths.Values, validated)
 		if err := spec.Err(); err != nil {
@@ -54,28 +49,35 @@ func ParseModuleRelease(_ context.Context, spec cue.Value, mod Module, values cu
 		}
 	}
 
-	// Validate the filled spec is fully concrete.
 	if err := spec.Validate(cue.Concrete(true)); err != nil {
 		return nil, fmt.Errorf("release %q: not fully concrete: %w", name, err)
 	}
 
-	// Decode release metadata from the concrete spec via the binding so the
-	// release shape stays consistent across versions.
 	apiMeta, err := b.DecodeReleaseMetadata(spec)
 	if err != nil {
 		return nil, fmt.Errorf("release %q: %w", name, err)
 	}
 
-	return &Release{
+	return &module.Release{
 		APIVersion: mod.APIVersion,
-		Metadata:   releaseMetadataFromAPI(apiMeta),
+		Metadata:   module.ReleaseMetadataFromAPI(apiMeta),
 		Package:    spec,
 	}, nil
 }
 
+// ParseModuleRelease is the previous name for [Kernel.ProcessModuleRelease].
+//
+// Deprecated: use [Kernel.ProcessModuleRelease]. The verb "Process" better
+// describes what the method does (validate values, fill spec, check
+// concreteness, decode metadata) than "Parse". This alias will be removed
+// in a future MAJOR release.
+func (k *Kernel) ParseModuleRelease(ctx context.Context, spec cue.Value, mod module.Module, values cue.Value) (*module.Release, error) {
+	return k.ProcessModuleRelease(ctx, spec, mod, values)
+}
+
 // bestEffortReleaseName tries to extract a release name for error messages.
 // Falls back to the module name if the release name is not yet available.
-func bestEffortReleaseName(spec cue.Value, mod Module) string {
+func bestEffortReleaseName(spec cue.Value, mod module.Module) string {
 	nameVal := spec.LookupPath(cue.ParsePath("metadata.name"))
 	if nameVal.Exists() {
 		if s, err := nameVal.String(); err == nil {

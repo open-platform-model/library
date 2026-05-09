@@ -2,7 +2,6 @@ package compile_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -17,26 +16,6 @@ import (
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
 )
-
-// minimalRelease constructs a *module.Release with the given apiVersion. The
-// CUE Spec is a synthesised value sufficient for CompileModuleRelease's early
-// validations (APIVersion check, MatchComponents lookup).
-func minimalRelease(t *testing.T, ver apiversion.Version) *module.Release {
-	t.Helper()
-	ctx := cuecontext.New()
-	spec := ctx.CompileString(`
-apiVersion: "ignored-by-test"
-kind: "ModuleRelease"
-metadata: { name: "demo", namespace: "ns", uuid: "u" }
-components: {}
-`)
-	require.NoError(t, spec.Err())
-	return &module.Release{
-		APIVersion: ver,
-		Metadata:   &module.ReleaseMetadata{Name: "demo", Namespace: "ns"},
-		Package:    spec,
-	}
-}
 
 // minimalPlatform constructs a *platform.Platform with the given apiVersion
 // and an empty registry / matchers / composedTransformers index.
@@ -65,26 +44,10 @@ type: "kubernetes"
 	}
 }
 
-func TestCompileModuleRelease_VersionMismatch(t *testing.T) {
-	rel := minimalRelease(t, apiversion.V1alpha2)
-	plat := minimalPlatform(t, apiversion.Version("opmodel.dev/v1alpha-other"))
-
-	_, err := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated free function
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiVersion mismatch")
-}
-
-func TestCompileModuleRelease_NoBindingRegistered(t *testing.T) {
-	// Both release and platform declare the same unrecognised version. Mismatch
-	// check passes; api.Lookup then fails.
-	unknown := apiversion.Version("opmodel.dev/never-registered")
-	rel := minimalRelease(t, unknown)
-	plat := minimalPlatform(t, unknown)
-
-	_, err := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated free function
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion), "want ErrUnknownAPIVersion in chain, got %v", err)
-}
+// Coverage for the version-mismatch and unknown-binding error paths
+// previously lived here (testing compile.CompileModuleRelease). Those
+// scenarios are now exercised against the canonical Kernel.Compile entry
+// point in pkg/kernel/kernel_test.go (TestKernel_Compile_Parity_*).
 
 func TestMatch_RequiresBinding(t *testing.T) {
 	ctx := cuecontext.New()
@@ -321,7 +284,15 @@ type: "kubernetes"
 		Package:    pv,
 	}
 
-	out, err := compile.CompileModuleRelease(context.Background(), rel, plat, "opm-cli") //nolint:staticcheck // SA1019: testing the deprecated free function
+	binding, err := api.Lookup(rel.APIVersion)
+	require.NoError(t, err)
+	schemaComponents := rel.MatchComponents()
+	require.True(t, schemaComponents.Exists())
+	dataComponents, err := compile.FinalizeValue(plat.Package.Context(), schemaComponents)
+	require.NoError(t, err)
+	plan, err := compile.Match(schemaComponents, plat, binding)
+	require.NoError(t, err)
+	out, err := compile.NewModule(plat, "opm-cli").Execute(context.Background(), rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule is on its own deprecation arc, unrelated to this test
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Compiled, 1, "expected one compiled item")

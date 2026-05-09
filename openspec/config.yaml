@@ -36,8 +36,7 @@ context: |
   - `pkg/module/`: module/release model, parsing, helpers.
   - `pkg/provider/`: provider model.
   - `pkg/render/`: render pipeline (match, process, execute, finalize).
-  - `pkg/validate/`: configuration validation helpers.
-  Domain logic belongs in focused packages, not aggregated into one monolithic API.
+  Domain logic belongs in focused packages, not aggregated into one monolithic API. Configuration validation lives on the `Kernel` (see `pkg/kernel/validate.go`); there is no standalone `pkg/validate/` package.
 
   ### IV. Composability via Stable Contracts
   The library is a kernel; its public API is contractual.
@@ -62,7 +61,7 @@ context: |
   - PATCH: bug fixes, performance improvements, internal refactors.
   - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
   - Types: feat, fix, refactor, docs, test, chore.
-  - Scopes: core, loader, module, provider, render, validate, errors.
+  - Scopes: core, loader, module, provider, render, kernel, errors.
 
   ### VII. Simplicity & YAGNI
   Start with the simplest implementation that satisfies a real downstream need.
@@ -141,7 +140,7 @@ rules:
         **Decision**: [Chosen option]
         **Rationale**: [Why this option was selected]
     - Include Go pseudo-code or CUE snippets where they clarify intent.
-    - Detail the impact across loader / module / render / validate phases.
+    - Detail the impact across loader / module / render / kernel phases.
     - Call out any change to the public surface in `pkg/`.
 
   specs:
@@ -157,6 +156,6 @@ rules:
     - "Updates when: Tasks complete, new tasks discovered, blockers identified"
     - "CRITICAL: Break tasks into TINY chunks (max 1-2 hours)."
     - "CRITICAL: If the task list grows too long (>10 items) or spans multiple distinct packages, suggest splitting into a new OpenSpec change."
-    - Group tasks by package (`core`, `loader`, `module`, `provider`, `render`, `validate`, `errors`).
+    - Group tasks by package (`core`, `loader`, `module`, `provider`, `render`, `kernel`, `errors`).
     - Each task should be independently testable.
     - Include validation gates as final tasks (`task fmt`, `task vet`, `task lint`, `task test`).

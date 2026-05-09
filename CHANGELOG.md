@@ -6,6 +6,63 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added
 
+- `(*kernel.Kernel).ValidateConfigPartial(schema, values, contextLabel, name)` —
+  promotes the previously package-private partial-validation entry point onto
+  the kernel surface. Tier-1 building block used by
+  `pkg/helper/values.ValidateAndUnify` (see the `KernelOwner` interface widening
+  below) so each layer in a Stack validates independently without flagging
+  fields that other layers will fill in.
+- `(*kernel.Kernel).ProcessModuleRelease(ctx, spec, mod, values)` — canonical
+  name for the values-validation + spec-fill + concreteness-check + metadata-
+  decode pipeline. The body is the impl previously living in
+  `module.ParseModuleRelease`; the rename better describes what the method does
+  (it processes the release, not just parses it).
+- `module.ReleaseMetadataFromAPI(*api.ReleaseMetadata) *module.ReleaseMetadata`
+  — the previously unexported `releaseMetadataFromAPI` converter is now
+  exported so callers building a `*module.Release` outside of `pkg/module` (the
+  kernel's `ProcessModuleRelease` impl) can construct it consistently.
+
+### Deprecated
+
+- `(*kernel.Kernel).ParseModuleRelease` — thin alias delegating to
+  `(*kernel.Kernel).ProcessModuleRelease`. Will be removed in a future MAJOR
+  release. Migration is mechanical:
+
+  ```diff
+  - rel, err := k.ParseModuleRelease(ctx, spec, mod, values)
+  + rel, err := k.ProcessModuleRelease(ctx, spec, mod, values)
+  ```
+
+### Removed (BREAKING) — pkg/validate deleted; deprecated free functions folded into Kernel
+
+- `pkg/validate/` package removed in full. Both `validate.Config` and
+  `validate.ConfigPartial` are gone; the canonical implementation now lives on
+  `*kernel.Kernel`.
+- `module.ParseModuleRelease` (free function) removed. The canonical entry
+  point is `(*kernel.Kernel).ProcessModuleRelease`; `(*kernel.Kernel).ParseModuleRelease`
+  remains as a deprecated alias for one cycle.
+- `compile.CompileModuleRelease` (free function) removed. The canonical entry
+  point is `(*kernel.Kernel).Compile`.
+
+  Migration matrix:
+
+  | Old call                               | New call                                  |
+  |----------------------------------------|-------------------------------------------|
+  | `validate.Config(s, v, ctx, name)`     | `k.ValidateConfig(s, v, ctx, name)`       |
+  | `validate.ConfigPartial(s, v, c, n)`   | `k.ValidateConfigPartial(s, v, c, n)`     |
+  | `module.ParseModuleRelease(ctx, ...)`  | `k.ProcessModuleRelease(ctx, ...)`        |
+  | `compile.CompileModuleRelease(ctx,...)`| `k.Compile(ctx, kernel.CompileInput{...})`|
+
+### Changed (BREAKING) — pkg/helper/values.KernelOwner widened
+
+- `KernelOwner` in `pkg/helper/values/` now requires a second method,
+  `ValidateConfigPartial(schema, values, contextLabel, name)`, in addition to
+  `CueContext()`. This is what lets the helper call back into the kernel's
+  partial-validation path without importing `pkg/kernel` (which would close a
+  cycle now that `pkg/validate/` is gone). `*kernel.Kernel` automatically
+  satisfies the wider interface; downstream test fakes that previously
+  implemented `KernelOwner` MUST add the new method.
+
 - `(*module.Release).ConfigSchema() cue.Value` — accessor returning the
   embedded source module's `#config` schema via the binding's `Paths().Module`
   followed by `Paths().Config`. Returns the zero `cue.Value` (not an error)
