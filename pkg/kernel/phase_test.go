@@ -93,8 +93,9 @@ type: "kubernetes"
 #knownTraits: {}
 #composedTransformers: {
 	"example.com/p/echo@v0": {
+		metadata: { fqn: "example.com/p/echo@v0" }
 		requiredLabels: { tier: "web" }
-		requiredResources: {}
+		requiredResources: { "example.com/r/echo@v0": {} }
 		requiredTraits: {}
 		optionalTraits: {}
 		#transform: {
@@ -111,7 +112,7 @@ type: "kubernetes"
 }
 #matchers: {
 	resources: {
-		"example.com/r/echo@v0": ["example.com/p/echo@v0"]
+		"example.com/r/echo@v0": [#composedTransformers["example.com/p/echo@v0"]]
 	}
 	traits: {}
 }

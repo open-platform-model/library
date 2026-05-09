@@ -1,4 +1,4 @@
-package transformer
+package v1alpha2
 
 import (
 	"strings"
@@ -50,25 +50,31 @@ import (
 	// If not provided, defaults from the definition can be used
 	optionalLabels?: #LabelsAnnotationsType
 
-	// Resources required by this transformer - component MUST include these
-	// Map key is the FQN, value is the Resource definition (provides access to #defaults)
-	requiredResources: [string]: #Resource
+	// Resources required by this transformer - component MUST include these.
+	// Map key is the FQN, value is the Resource definition (provides access to #defaults).
+	requiredResources?: [#FQNType]: #Resource
 
-	// Resources optionally used by this transformer - component MAY include these
-	// If not provided, defaults from the definition can be used
-	optionalResources: [string]: #Resource
+	// Resources optionally used by this transformer - component MAY include these.
+	optionalResources?: [#FQNType]: #Resource
 
-	// Traits required by this transformer - component MUST include these
-	// Map key is the FQN, value is the Trait definition (provides access to #defaults)
-	requiredTraits: [string]: #Trait
+	// Traits required by this transformer - component MUST include these.
+	// Map key is the FQN, value is the Trait definition (provides access to #defaults).
+	requiredTraits?: [#FQNType]: #Trait
 
-	// Traits optionally used by this transformer - component MAY include these
-	// If not provided, defaults from the definition can be used
-	optionalTraits: [string]: #Trait
+	// Traits optionally used by this transformer - component MAY include these.
+	optionalTraits?: [#FQNType]: #Trait
 
-	// Transform function
-	// IMPORTANT: output must be a single resource
+	// Catalog hints — purely informational; not used by the matcher.
+	// `readsContext` declares which #ctx paths the transformer reads (e.g. "runtime.cluster.domain").
+	// `producesKinds` declares which output kinds it emits (e.g. "Deployment", "Service").
+	readsContext?: [...string]
+	producesKinds?: [...string]
+
+	// Transform function. The runtime supplies all three inputs concretely (D18).
+	// IMPORTANT: output must be a single resource.
 	#transform: {
+		#moduleRelease: _ // Fully concrete #ModuleRelease (D18)
+
 		#component: _ // Unconstrained; validated by matching, not by the transform signature
 		#context:   #TransformerContext
 

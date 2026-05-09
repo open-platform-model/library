@@ -55,6 +55,7 @@ var paths = api.Paths{
 
 	MetadataLabels:      cue.ParsePath("metadata.labels"),
 	MetadataAnnotations: cue.ParsePath("metadata.annotations"),
+	MetadataFQN:         cue.ParsePath("metadata.fqn"),
 	ComponentResources:  cue.MakePath(cue.Def("resources")),
 	ComponentTraits:     cue.MakePath(cue.Def("traits")),
 }

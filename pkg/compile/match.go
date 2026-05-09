@@ -93,6 +93,8 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 		labels := labelPairs(compVal.LookupPath(paths.MetadataLabels))
 		resources := fieldKeys(compVal.LookupPath(paths.ComponentResources))
 		traits := fieldKeys(compVal.LookupPath(paths.ComponentTraits))
+		resourceSet := stringSet(resources)
+		traitSet := stringSet(traits)
 
 		plan.Matches[compName] = map[string]MatchResult{}
 		matched := map[string]struct{}{}
@@ -100,7 +102,7 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 
 		// Resource demand walk.
 		for _, fqn := range resources {
-			tfFQN, status := lookupCandidate(matchersResources, fqn)
+			tfFQN, status := lookupCandidate(matchersResources, fqn, paths, labels, resourceSet, traitSet)
 			switch status {
 			case candidateAmbiguous:
 				ambiguousSet[fqn] = struct{}{}
@@ -114,7 +116,7 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 
 		// Trait demand walk.
 		for _, fqn := range traits {
-			tfFQN, status := lookupCandidate(matchersTraits, fqn)
+			tfFQN, status := lookupCandidate(matchersTraits, fqn, paths, labels, resourceSet, traitSet)
 			switch status {
 			case candidateAmbiguous:
 				ambiguousSet[fqn] = struct{}{}
@@ -162,10 +164,24 @@ const (
 	candidateAmbiguous
 )
 
-// lookupCandidate reads matchersIndex[FQN] and returns the single
-// transformer FQN. Catalog 014 D13 forbids multi-fulfiller at the platform
-// layer; this defensively flags any list with len>1.
-func lookupCandidate(matchersIndex cue.Value, fqn string) (string, candidateStatus) {
+// lookupCandidate reads matchersIndex[FQN] and filters the candidate list by
+// whether each candidate's full match predicate (requiredLabels ∧
+// requiredResources ∧ requiredTraits) is satisfied by the supplied component
+// context. With the predicate-bucket invariant in apis/core/v1alpha2/platform.cue,
+// a single FQN may legitimately have multiple candidates; the runtime picks the
+// single candidate whose predicate matches the component. Returns:
+//   - candidateFound + transformer FQN when exactly one candidate survives,
+//   - candidateMissing when no candidate's predicate is satisfied,
+//   - candidateAmbiguous when more than one candidate's predicate is satisfied
+//     (genuine collision — the schema invariant should have caught this).
+func lookupCandidate(
+	matchersIndex cue.Value,
+	fqn string,
+	paths api.Paths,
+	compLabels map[string]struct{},
+	compResources map[string]struct{},
+	compTraits map[string]struct{},
+) (string, candidateStatus) {
 	if !matchersIndex.Exists() {
 		return "", candidateMissing
 	}
@@ -179,19 +195,23 @@ func lookupCandidate(matchersIndex cue.Value, fqn string) (string, candidateStat
 		if err != nil {
 			return "", candidateMissing
 		}
-		var got []string
+		var survivors []string
 		for iter.Next() {
-			s, err := iter.Value().String()
+			cand := iter.Value()
+			tfFQN, err := cand.LookupPath(paths.MetadataFQN).String()
 			if err != nil {
-				return "", candidateMissing
+				continue
 			}
-			got = append(got, s)
+			if !candidateSatisfied(cand, paths, compLabels, compResources, compTraits) {
+				continue
+			}
+			survivors = append(survivors, tfFQN)
 		}
-		switch len(got) {
+		switch len(survivors) {
 		case 0:
 			return "", candidateMissing
 		case 1:
-			return got[0], candidateFound
+			return survivors[0], candidateFound
 		default:
 			return "", candidateAmbiguous
 		}
@@ -204,6 +224,58 @@ func lookupCandidate(matchersIndex cue.Value, fqn string) (string, candidateStat
 	default:
 		return "", candidateMissing
 	}
+}
+
+// candidateSatisfied reports whether the supplied component context satisfies
+// every required* clause of cand. requiredLabels: every k=v must be in
+// compLabels. requiredResources / requiredTraits: every FQN must be present in
+// the corresponding set. Missing required* fields are trivially satisfied
+// (transformer doesn't constrain that dimension).
+func candidateSatisfied(
+	cand cue.Value,
+	paths api.Paths,
+	compLabels map[string]struct{},
+	compResources map[string]struct{},
+	compTraits map[string]struct{},
+) bool {
+	if missing := missingMapLabels(cand.LookupPath(paths.TransformerRequiredLabels), compLabels); len(missing) > 0 {
+		return false
+	}
+	if !fqnSubset(cand.LookupPath(paths.TransformerRequiredResources), compResources) {
+		return false
+	}
+	if !fqnSubset(cand.LookupPath(paths.TransformerRequiredTraits), compTraits) {
+		return false
+	}
+	return true
+}
+
+// fqnSubset reports whether every field key in required is present in have.
+// An absent or non-existent required value is trivially a subset.
+func fqnSubset(required cue.Value, have map[string]struct{}) bool {
+	if !required.Exists() {
+		return true
+	}
+	iter, err := required.Fields(cue.Optional(true))
+	if err != nil {
+		return true
+	}
+	for iter.Next() {
+		fqn := iter.Selector().Unquoted()
+		if _, ok := have[fqn]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// stringSet returns a set view over a slice of strings.
+func stringSet(s []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(s))
+	for _, k := range s {
+		out[k] = struct{}{}
+	}
+	return out
 }
 
 // pairTransformer records a (component, transformer) outcome in the plan.

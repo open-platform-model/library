@@ -86,6 +86,7 @@ type Paths struct {
 	// merged. Walking #blueprints separately would double-count.
 	MetadataLabels      cue.Path // "metadata.labels"
 	MetadataAnnotations cue.Path // "metadata.annotations"
+	MetadataFQN         cue.Path // "metadata.fqn"
 	ComponentResources  cue.Path // "#resources"
 	ComponentTraits     cue.Path // "#traits"
 }

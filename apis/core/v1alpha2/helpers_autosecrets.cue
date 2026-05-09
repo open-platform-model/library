@@ -24,32 +24,23 @@ package v1alpha2
 		}
 
 		// #resources provides the FQN key needed for transformer matching.
+		// spec is auto-built by #Component from each resource's spec via _allFields.
 		#resources: {
-			(#SecretsResourceFQN): {
-				spec: {
-					secrets: {
-						for secretName, _data in #secrets {
-							(secretName): #SecretSchema & {
-								name: secretName
-								data: _data
-							}
+			(#SecretsResourceFQN): #Resource & {
+				metadata: {
+					modulePath: "opmodel.dev/opm/resources/config"
+					version:    "v1"
+					name:       "secrets"
+				}
+				spec: secrets: {
+					for secretName, _data in #secrets {
+						(secretName): #SecretSchema & {
+							name: secretName
+							data: _data
 						}
 					}
 				}
 			}
 		}
-
-		// spec mirrors #resources[SecretsResourceFQN].spec for direct access
-		// by transformers (matches the shape of #SecretsResource.spec).
-		spec: close({
-			secrets: {
-				for secretName, _data in #secrets {
-					(secretName): #SecretSchema & {
-						name: secretName
-						data: _data
-					}
-				}
-			}
-		})
 	}
 }

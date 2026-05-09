@@ -88,15 +88,16 @@ type: "kubernetes"
 #knownTraits: {}
 #composedTransformers: {
 	"opmodel.dev/p/k8s/x@v0": {
+		metadata: { fqn: "opmodel.dev/p/k8s/x@v0" }
 		requiredLabels: { tier: "web" }
-		requiredResources: {}
+		requiredResources: { "opmodel.dev/r/echo@v0": {} }
 		requiredTraits: {}
 		optionalTraits: {}
 	}
 }
 #matchers: {
 	resources: {
-		"opmodel.dev/r/echo@v0": ["opmodel.dev/p/k8s/x@v0"]
+		"opmodel.dev/r/echo@v0": [#composedTransformers["opmodel.dev/p/k8s/x@v0"]]
 	}
 	traits: {}
 }
@@ -127,6 +128,84 @@ type: "kubernetes"
 	assert.Equal(t, "opmodel.dev/p/k8s/x@v0", pairs[0].TransformerFQN)
 }
 
+// TestMatch_MultiCandidateDisambiguatedByLabels exercises the predicate-bucket
+// matcher: two transformers compete for the same resource FQN but are gated by
+// different requiredLabels. Each component carries one of those labels and must
+// match exactly one transformer; neither FQN may surface as Ambiguous.
+func TestMatch_MultiCandidateDisambiguatedByLabels(t *testing.T) {
+	ctx := cuecontext.New()
+	pv := ctx.CompileString(`
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#knownResources: {}
+#knownTraits: {}
+#composedTransformers: {
+	"example.com/p/deployment@v0": {
+		metadata: { fqn: "example.com/p/deployment@v0" }
+		requiredLabels: { "workload-type": "stateless" }
+		requiredResources: { "example.com/r/container@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+	"example.com/p/statefulset@v0": {
+		metadata: { fqn: "example.com/p/statefulset@v0" }
+		requiredLabels: { "workload-type": "stateful" }
+		requiredResources: { "example.com/r/container@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"example.com/r/container@v0": [
+			#composedTransformers["example.com/p/deployment@v0"],
+			#composedTransformers["example.com/p/statefulset@v0"],
+		]
+	}
+	traits: {}
+}
+`)
+	require.NoError(t, pv.Err())
+	plat := &platform.Platform{
+		APIVersion: apiversion.V1alpha2,
+		Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:    pv,
+	}
+	components := ctx.CompileString(`
+"web": {
+	metadata: { labels: { "workload-type": "stateless" } }
+	#resources: { "example.com/r/container@v0": {} }
+}
+"db": {
+	metadata: { labels: { "workload-type": "stateful" } }
+	#resources: { "example.com/r/container@v0": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	b, err := api.Lookup(apiversion.V1alpha2)
+	require.NoError(t, err)
+
+	plan, err := compile.Match(components, plat, b)
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+
+	assert.Empty(t, plan.Ambiguous, "predicates fully disambiguate; nothing should land in Ambiguous")
+	assert.Empty(t, plan.Unmatched, "every component should match exactly one transformer")
+
+	pairs := plan.MatchedPairs()
+	require.Len(t, pairs, 2)
+	got := map[string]string{}
+	for _, p := range pairs {
+		got[p.ComponentName] = p.TransformerFQN
+	}
+	assert.Equal(t, "example.com/p/statefulset@v0", got["db"])
+	assert.Equal(t, "example.com/p/deployment@v0", got["web"])
+}
+
 // TestMatch_AmbiguousFQN exercises the defensive multi-fulfiller check.
 // Catalog 014 D13 forbids more than one transformer per FQN at the platform
 // layer; if a hand-built Platform somehow violates that, the matcher must
@@ -143,21 +222,26 @@ type: "kubernetes"
 #knownTraits: {}
 #composedTransformers: {
 	"example.com/p/a@v0": {
+		metadata: { fqn: "example.com/p/a@v0" }
 		requiredLabels: {}
-		requiredResources: {}
+		requiredResources: { "example.com/r/echo@v0": {} }
 		requiredTraits: {}
 		optionalTraits: {}
 	}
 	"example.com/p/b@v0": {
+		metadata: { fqn: "example.com/p/b@v0" }
 		requiredLabels: {}
-		requiredResources: {}
+		requiredResources: { "example.com/r/echo@v0": {} }
 		requiredTraits: {}
 		optionalTraits: {}
 	}
 }
 #matchers: {
 	resources: {
-		"example.com/r/echo@v0": ["example.com/p/a@v0", "example.com/p/b@v0"]
+		"example.com/r/echo@v0": [
+			#composedTransformers["example.com/p/a@v0"],
+			#composedTransformers["example.com/p/b@v0"],
+		]
 	}
 	traits: {}
 }
@@ -254,8 +338,9 @@ type: "kubernetes"
 #knownTraits: {}
 #composedTransformers: {
 	"example.com/p/echo@v0": {
+		metadata: { fqn: "example.com/p/echo@v0" }
 		requiredLabels: { tier: "web" }
-		requiredResources: {}
+		requiredResources: { "example.com/r/echo@v0": {} }
 		requiredTraits: {}
 		optionalTraits: {}
 		#transform: {
@@ -272,7 +357,7 @@ type: "kubernetes"
 }
 #matchers: {
 	resources: {
-		"example.com/r/echo@v0": ["example.com/p/echo@v0"]
+		"example.com/r/echo@v0": [#composedTransformers["example.com/p/echo@v0"]]
 	}
 	traits: {}
 }

@@ -44,6 +44,22 @@ import (
 		}
 	}
 
+	// Publication channel — primitives this module exposes to platforms.
+	// Each FQN-keyed map auto-binds the value's metadata.fqn via CUE unification.
+	// FQN collisions across modules surface as CUE bottoms (D3).
+	// (014 scope: resources, traits, transformers. Claims live in 015 — out of scope here.)
+	#defines?: {
+		resources?: [FQN=#FQNType]: #Resource & {
+			metadata: fqn: FQN
+		}
+		traits?: [FQN=#FQNType]: #Trait & {
+			metadata: fqn: FQN
+		}
+		transformers?: [FQN=#FQNType]: #ComponentTransformer & {
+			metadata: fqn: FQN
+		}
+	}
+
 	// Value schema - constraints and defaults.
 	// Developers define the configuration contract and reference it in their components.
 	// MUST be OpenAPIv3 compliant (no CUE templating - for/if statements)
