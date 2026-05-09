@@ -54,6 +54,21 @@ metadata: {
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+#module: {
+	apiVersion: "opmodel.dev/v1alpha2"
+	kind: "Module"
+	metadata: {
+		name: "demo-mod"
+		modulePath: "example.com/m"
+		version: "1.0.0"
+		fqn: "example.com/m/demo-mod:1.0.0"
+		uuid: "11111111-1111-1111-1111-111111111111"
+	}
+	#config: {
+		replicas: int & >0
+		name: string
+	}
+}
 components: {
 	web: {
 		metadata: {
@@ -186,7 +201,7 @@ func TestKernel_Match_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	plan, err := k.Match(context.Background(), kernel.MatchInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
+		ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, plan)
@@ -202,7 +217,7 @@ func TestKernel_Match_VersionMismatch(t *testing.T) {
 	f.plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
 
 	_, err := k.Match(context.Background(), kernel.MatchInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
+		ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "apiVersion mismatch")
@@ -213,7 +228,7 @@ func TestKernel_Plan_NoRendered(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Plan(context.Background(), kernel.PlanInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -232,12 +247,17 @@ func TestKernel_Plan_RequiresInputs(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	_, err := k.Plan(context.Background(), kernel.PlanInput{
-		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		Platform: f.plat, RuntimeName: "opm-cli",
 	})
-	require.Error(t, err)
+	require.Error(t, err, "ModuleRelease must be required")
 
 	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat,
+		ModuleRelease: f.rel, RuntimeName: "opm-cli",
+	})
+	require.Error(t, err, "Platform must be required")
+
+	_, err = k.Plan(context.Background(), kernel.PlanInput{
+		ModuleRelease: f.rel, Platform: f.plat,
 	})
 	require.Error(t, err, "RuntimeName must be required")
 }
@@ -247,7 +267,7 @@ func TestKernel_Compile_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Compile(context.Background(), kernel.CompileInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -270,7 +290,7 @@ func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
 	require.NoError(t, err)
 
 	got, err := k.Compile(context.Background(), kernel.CompileInput{
-		Module: f.mod, ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 
@@ -280,6 +300,23 @@ func TestKernel_Compile_MatchesCompileModuleRelease(t *testing.T) {
 		assert.Equal(t, want.Compiled[i].Transformer, got.Compiled[i].Transformer)
 		assert.Equal(t, want.Compiled[i].Release, got.Compiled[i].Release)
 	}
+}
+
+// TestKernel_Compile_FromReleaseOnly is a regression test for the slim-input
+// contract: Compile must succeed when given a release whose Package carries an
+// embedded #module reference, with no separate *module.Module supplied.
+func TestKernel_Compile_FromReleaseOnly(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	out, err := k.Compile(context.Background(), kernel.CompileInput{
+		ModuleRelease: f.rel,
+		Platform:      f.plat,
+		RuntimeName:   "opm-cli",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.Len(t, out.Compiled, 1, "embedded #module on the release is sufficient for Compile")
 }
 
 // TestRender_ModuleResult_Aliased verifies *compile.ModuleResult resolves to

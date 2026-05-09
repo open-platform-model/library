@@ -272,6 +272,17 @@ func minimalReleaseValue(t *testing.T, k *kernel.Kernel) *module.Release {
 apiVersion: "ignored-by-test"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns", uuid: "u" }
+#module: {
+	apiVersion: "opmodel.dev/v1alpha2"
+	kind: "Module"
+	metadata: {
+		name: "demo-mod"
+		modulePath: "example.com/m"
+		version: "1.0.0"
+		fqn: "example.com/m/demo-mod:1.0.0"
+		uuid: "11111111-1111-1111-1111-111111111111"
+	}
+}
 components: {}
 `)
 	require.NoError(t, spec.Err())
@@ -316,7 +327,6 @@ func TestKernel_Compile_Parity_VersionMismatch(t *testing.T) {
 	plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
 
 	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
-		Module:        &module.Module{APIVersion: apiversion.V1alpha2, Metadata: &module.ModuleMetadata{Name: "m"}},
 		ModuleRelease: rel,
 		Platform:      plat,
 		RuntimeName:   "opm-cli",
@@ -337,9 +347,7 @@ func TestKernel_Compile_Parity_UnknownVersion(t *testing.T) {
 	plat := minimalPlatformValue(t, k)
 	plat.APIVersion = unknown
 
-	mod := &module.Module{APIVersion: unknown, Metadata: &module.ModuleMetadata{Name: "m"}}
 	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
-		Module:        mod,
 		ModuleRelease: rel,
 		Platform:      plat,
 		RuntimeName:   "opm-cli",

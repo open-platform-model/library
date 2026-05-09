@@ -36,6 +36,7 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 | 08 | `add-platform-construct`                 | Add `Platform` type with the uniform shape; loader for `platform.cue`; kernel input adds `*Platform`   | 02            | medium   |
 | 09 | `rewrite-match-around-platform` ✅       | Replace `pkg/render/match.go` to consume `Platform.#composedTransformers` + `Platform.#matchers`; `pkg/provider/` retired | 08            | high     |
 | 10 | `add-platform-composition-helper`        | `pkg/helper/platform.Compose(shell, modules)` for operator + CLI + XR shared composition               | 08            | low      |
+| 11 | `slim-kernel-inputs`                     | Drop redundant `Module` field from `MatchInput` / `PlanInput` / `CompileInput`; add `(*Release).ConfigSchema()` | 02, 06        | low      |
 
 `apiversion` = the in-flight `add-multi-apiversion-support` change. That lands first; every slice in this enhancement assumes the binding interface (`pkg/api/<v>` + `pkg/apiversion`) is available.
 

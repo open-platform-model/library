@@ -4,6 +4,61 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Added
+
+- `(*module.Release).ConfigSchema() cue.Value` — accessor returning the
+  embedded source module's `#config` schema via the binding's `Paths().Module`
+  followed by `Paths().Config`. Returns the zero `cue.Value` (not an error)
+  on a nil receiver, an unregistered binding for `r.APIVersion`, a missing
+  `#module` reference, or a missing `#config` definition. Mirrors the
+  `MatchComponents()` accessor pattern. Centralizes the `#config` lookup
+  knowledge inside `pkg/module` so kernel callers stop re-walking the path.
+
+### Changed (BREAKING) — kernel input structs lose redundant `Module` field
+
+- `kernel.MatchInput.Module` removed. The release artifact is the sole
+  module-side handle for matching; the source module, when needed, is
+  reachable via `ModuleRelease.Package.LookupPath(b.Paths().Module)`.
+- `kernel.PlanInput.Module` removed. The `#config` schema is reachable via
+  `ModuleRelease.ConfigSchema()`.
+- `kernel.CompileInput.Module` removed. `Compile`'s embedded Tier-2 validation
+  step now sources its `#config` schema from the release's embedded `#module`
+  reference; no parallel `*module.Module` is required.
+- `ValidateInput` is unchanged in this slice; its `Module` field stays.
+
+  Mechanical migration:
+
+  ```diff
+  - plan, err := k.Match(ctx, kernel.MatchInput{
+  -     Module:        mod,
+  -     ModuleRelease: rel,
+  -     Platform:      plat,
+  - })
+  + plan, err := k.Match(ctx, kernel.MatchInput{
+  +     ModuleRelease: rel,
+  +     Platform:      plat,
+  + })
+
+  - out, err := k.Compile(ctx, kernel.CompileInput{
+  -     Module:        mod,
+  -     ModuleRelease: rel,
+  -     Platform:      plat,
+  -     RuntimeName:   "opm-cli",
+  -     Values:        values,
+  - })
+  + out, err := k.Compile(ctx, kernel.CompileInput{
+  +     ModuleRelease: rel,
+  +     Platform:      plat,
+  +     RuntimeName:   "opm-cli",
+  +     Values:        values,
+  + })
+  ```
+
+  Releases produced by `module.ParseModuleRelease` already embed `#module`
+  at the binding's `Paths().Module`, so no additional fixture work is
+  required. Hand-built test releases must embed an `#module` block to
+  exercise the schema-validation path.
+
 ### Changed (BREAKING) — `core.Rendered` renamed to `core.Compiled`
 
 - `pkg/core.Rendered` (struct) → `pkg/core.Compiled`. File

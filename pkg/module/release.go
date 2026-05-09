@@ -52,6 +52,28 @@ func (r *Release) MatchComponents() cue.Value {
 	return r.Package.LookupPath(b.Paths().Components)
 }
 
+// ConfigSchema returns the embedded source module's #config schema reachable
+// via Paths().Module followed by Paths().Config on r.Package.
+//
+// All failure modes return the zero cue.Value (not an error): a nil receiver,
+// an unregistered binding for r.APIVersion, a missing #module reference, or a
+// missing #config definition on the embedded module. Callers detect failure
+// via the returned value's Exists() method, mirroring MatchComponents.
+func (r *Release) ConfigSchema() cue.Value {
+	if r == nil {
+		return cue.Value{}
+	}
+	b, err := api.Lookup(r.APIVersion)
+	if err != nil {
+		return cue.Value{}
+	}
+	mod := r.Package.LookupPath(b.Paths().Module)
+	if !mod.Exists() {
+		return cue.Value{}
+	}
+	return mod.LookupPath(b.Paths().Config)
+}
+
 // The methods below let *Release satisfy api.ReleaseView. They are the surface
 // the per-version Binding uses to assemble a transformer context without
 // dragging the whole module package's types behind it.

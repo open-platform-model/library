@@ -22,11 +22,10 @@ type ValidateInput struct {
 	Values cue.Value
 }
 
-// MatchInput is the input for [Kernel.Match].
+// MatchInput is the input for [Kernel.Match]. The release artifact is the
+// sole module-side handle: the source module, when needed, is reachable via
+// `ModuleRelease.Package` at the binding's `Paths().Module`.
 type MatchInput struct {
-	// Module is the source module. May be nil.
-	Module *module.Module
-
 	// ModuleRelease supplies the components value via
 	// [module.Release.MatchComponents]. Required.
 	ModuleRelease *module.Release
@@ -36,12 +35,11 @@ type MatchInput struct {
 	Platform *platform.Platform
 }
 
-// PlanInput is the input for [Kernel.Plan].
+// PlanInput is the input for [Kernel.Plan]. The release artifact is the sole
+// module-side handle: the `#config` schema and module-level metadata are
+// reachable via `ModuleRelease.ConfigSchema()` and the binding's
+// `Paths().ModuleMetadata`.
 type PlanInput struct {
-	// Module supplies the `#config` schema and module-level metadata.
-	// Required.
-	Module *module.Module
-
 	// ModuleRelease supplies release-level metadata and components.
 	// Required.
 	ModuleRelease *module.Release
@@ -59,12 +57,11 @@ type PlanInput struct {
 	RuntimeName string
 }
 
-// CompileInput is the input for [Kernel.Compile].
+// CompileInput is the input for [Kernel.Compile]. The release artifact is
+// the sole module-side handle: the `#config` schema and module-level metadata
+// are reachable via `ModuleRelease.ConfigSchema()` and the binding's
+// `Paths().ModuleMetadata`.
 type CompileInput struct {
-	// Module supplies the `#config` schema and module-level metadata.
-	// Required.
-	Module *module.Module
-
 	// ModuleRelease supplies release-level metadata and components.
 	// Required.
 	ModuleRelease *module.Release

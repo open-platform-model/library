@@ -81,9 +81,6 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 // succeeds gives the caller strong confidence that a subsequent Compile
 // will also succeed.
 func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
-	if in.Module == nil {
-		return nil, fmt.Errorf("PlanInput.Module is required")
-	}
 	if in.ModuleRelease == nil {
 		return nil, fmt.Errorf("PlanInput.ModuleRelease is required")
 	}
@@ -111,10 +108,11 @@ func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
 // Compile runs the full pipeline (Validate + Match + Execute + Finalize)
 // and returns a [*CompileResult] containing rendered values, component
 // summaries, unmatched FQNs, ambiguous FQNs, and warnings.
+//
+// The Tier-2 #config schema validation is sourced from the embedded #module
+// reference on `in.ModuleRelease.Package` (see [module.Release.ConfigSchema]).
+// No standalone `*module.Module` is required.
 func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, error) {
-	if in.Module == nil {
-		return nil, fmt.Errorf("CompileInput.Module is required")
-	}
 	if in.ModuleRelease == nil {
 		return nil, fmt.Errorf("CompileInput.ModuleRelease is required")
 	}
@@ -125,8 +123,12 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 		return nil, fmt.Errorf("CompileInput.RuntimeName must be non-empty")
 	}
 
+	mod, err := moduleFromRelease(k, in.ModuleRelease)
+	if err != nil {
+		return nil, err
+	}
 	if err := k.Validate(ctx, ValidateInput{
-		Module:        in.Module,
+		Module:        mod,
 		ModuleRelease: in.ModuleRelease,
 		Values:        in.Values,
 	}); err != nil {
@@ -134,6 +136,30 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 	}
 
 	return compile.CompileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName) //nolint:staticcheck // SA1019: compile.CompileModuleRelease is the underlying implementation for this method
+}
+
+// moduleFromRelease synthesizes a transient *module.Module from the embedded
+// #module reference on rel.Package. The transient view is used by Compile to
+// satisfy the [ValidateInput.Module] contract while the slim CompileInput
+// surface drops the parallel field. Returns an error when the binding for
+// rel.APIVersion is unregistered, when the release has no embedded #module
+// reference, or when [module.NewModuleFromValue] rejects the embedded value.
+//
+// No defensive fallback: production releases produced by
+// [module.ParseModuleRelease] always embed #module at b.Paths().Module, and
+// hand-built test fixtures must do the same. A missing embedded module is a
+// programming error and is surfaced loudly so it cannot mask a malformed
+// fixture or a regressed parser.
+func moduleFromRelease(k *Kernel, rel *module.Release) (*module.Module, error) {
+	b, err := api.Lookup(rel.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("resolving binding for %q: %w", rel.APIVersion, err)
+	}
+	embedded := rel.Package.LookupPath(b.Paths().Module)
+	if !embedded.Exists() {
+		return nil, fmt.Errorf("release %q: embedded #module reference not found at %q", releaseDisplayName(rel), b.Paths().Module)
+	}
+	return module.NewModuleFromValue(k, embedded)
 }
 
 // DetectAPIVersion reads the apiVersion literal from the root of v and
