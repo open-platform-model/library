@@ -12,6 +12,17 @@ vars:
   COVERAGE_FILE: coverage.out
   COVERAGE_HTML: coverage.html
 
+  # CUE module discovery globs (relative to library root). Each glob expands
+  # to directories that contain cue.mod/module.cue. Supports both bulk
+  # autodiscovery (modules/*) and pinned single-module entries.
+  CUE_MODULE_GLOBS: |
+    modules/*
+    apis/core
+
+  CUE_VERSION_FILE: cue-versions.yml
+  CUE_DEFAULT_VERSION: v1.0.0
+  CUE_LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+
 tasks:
   default:
     desc: Show available tasks
@@ -122,3 +133,338 @@ tasks:
     desc: Remove coverage artifacts
     cmds:
       - rm -f {{.COVERAGE_FILE}} {{.COVERAGE_HTML}}
+
+  # ============================================================================
+  # CUE module lifecycle
+  #
+  # Auto-discovers CUE modules via CUE_MODULE_GLOBS. Each match must contain
+  # cue.mod/module.cue. Module identity comes from the `module:` field; per-
+  # module version + checksum tracked in cue-versions.yml keyed by relative
+  # path (e.g. modules/opm, apis/core).
+  # ============================================================================
+
+  cue:discover:
+    desc: List all discovered CUE modules
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    cmds:
+      - |
+        set -euo pipefail
+        BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+        printf "${BOLD}%-32s %-50s %s${RESET}\n" "PATH" "MODULE" "DEPS"
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+            path=$(cue export "${dir}/cue.mod/module.cue" --out json | jq -r '.module')
+            deps=$(cue export "${dir}/cue.mod/module.cue" --out json | jq -r '.deps // {} | keys | join(",")')
+            printf "%-32s %-50s ${DIM}%s${RESET}\n" "$dir" "$path" "$deps"
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+  cue:fmt:
+    desc: Format CUE files in all discovered modules
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    cmds:
+      - |
+        set -euo pipefail
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+            echo "Formatting ${dir}..."
+            (cd "$dir" && cue fmt ./...)
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+  cue:vet:
+    desc: Validate all discovered CUE modules
+    vars:
+      CONCRETE: '{{.CONCRETE | default "false"}}'
+      VET_FLAGS: '{{if eq .CONCRETE "true"}}-c{{end}}'
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    cmds:
+      - |
+        set -euo pipefail
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+            echo "Validating ${dir}{{if eq .CONCRETE "true"}} (concrete){{end}}..."
+            (cd "$dir" && cue vet {{.VET_FLAGS}} ./...)
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+  cue:tidy:
+    desc: Tidy dependencies in all discovered CUE modules
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    cmds:
+      - |
+        set -euo pipefail
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+            echo "Tidying ${dir}..."
+            (cd "$dir" && cue mod tidy)
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+  cue:check:
+    desc: Run cue:fmt and cue:vet across all discovered modules
+    cmds:
+      - task: cue:fmt
+      - task: cue:vet
+
+  cue:publish:
+    desc: Publish a single CUE module to local registry (PATH=<dir> [VERSION=vX.Y.Z])
+    summary: |
+      Publish a single discovered module by relative path.
+
+      Usage:
+        task cue:publish PATH=modules/opm
+        task cue:publish PATH=apis/core VERSION=v1.0.1
+    vars:
+      PATH: '{{.PATH | default ""}}'
+      VERSION: '{{.VERSION | default ""}}'
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    preconditions:
+      - sh: '[ -n "{{.PATH}}" ]'
+        msg: "PATH is required. Usage: task cue:publish PATH=<module-dir>"
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        set -euo pipefail
+        DIR="{{.PATH}}"
+        if [ ! -f "${DIR}/cue.mod/module.cue" ]; then
+          echo "Module not found: ${DIR}" >&2
+          exit 1
+        fi
+        if [ -n "{{.VERSION}}" ]; then
+          VERSION="{{.VERSION}}"
+        else
+          VERSION=$(yq ".\"${DIR}\".version // \"\"" "{{.CUE_VERSION_FILE}}")
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            VERSION="{{.CUE_DEFAULT_VERSION}}"
+          fi
+        fi
+        echo "Publishing ${DIR}@${VERSION} to {{.CUE_LOCAL_REGISTRY}}..."
+        (cd "${DIR}" && cue mod publish "${VERSION}")
+        echo "Published ${DIR}@${VERSION}"
+
+  cue:publish:smart:
+    desc: Detect changes per CUE module, bump versions, publish in dependency order
+    summary: |
+      Auto-discovers CUE modules via CUE_MODULE_GLOBS in Taskfile.yml.
+
+      For each module, computes a SHA-256 checksum of .cue files (excluding
+      cue.mod/), compares with the stored checksum in cue-versions.yml, and
+      publishes only modules that changed.
+
+      Module dependencies declared in cue.mod/module.cue are used to topo-
+      sort the publish order — a module that depends on another discovered
+      module publishes after it.
+
+      A patch bump is applied by default. New modules (no entry in
+      cue-versions.yml) publish at v1.0.0.
+
+      Usage:
+        task cue:publish:smart                # detect, bump patch, publish
+        task cue:publish:smart DRY_RUN=true   # preview without executing
+        task cue:publish:smart TYPE=minor     # minor bump
+        task cue:publish:smart TYPE=major     # major bump
+    vars:
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
+      TYPE: '{{.TYPE | default "patch"}}'
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+      - sh: command -v jq >/dev/null 2>&1
+        msg: "jq is required"
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+    cmds:
+      - task: cue:tidy
+      - task: cue:fmt
+      - task: cue:vet
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        VERSION_FILE="{{.CUE_VERSION_FILE}}"
+        DRY_RUN="{{.DRY_RUN}}"
+        BUMP_TYPE="{{.TYPE}}"
+        DEFAULT_VERSION="{{.CUE_DEFAULT_VERSION}}"
+
+        BOLD='\033[1m'; DIM='\033[2m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RESET='\033[0m'
+
+        if [ ! -f "$VERSION_FILE" ]; then
+          echo "{}" > "$VERSION_FILE"
+        fi
+
+        compute_checksum() {
+          local dir="$1"
+          find "$dir" -name '*.cue' -not -path '*/cue.mod/*' | sort | xargs sha256sum | sha256sum | awk '{print $1}'
+        }
+
+        bump_version() {
+          local ver="${1#v}"
+          IFS='.' read -r major minor patch <<< "$ver"
+          case "$2" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+          echo "v${major}.${minor}.${patch}"
+        }
+
+        # ── Discover modules ──────────────────────────────────────────
+        echo -e "${BOLD}Discovering CUE modules...${RESET}"
+
+        MOD_DIRS=()
+        MOD_PATHS=()
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+            path=$(cue export "${dir}/cue.mod/module.cue" --out json | jq -r '.module')
+            MOD_DIRS+=("$dir")
+            MOD_PATHS+=("$path")
+            echo -e "  ${DIM}${dir} → ${path}${RESET}"
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+        if [ ${#MOD_DIRS[@]} -eq 0 ]; then
+          echo -e "${YELLOW}No modules discovered.${RESET}"
+          exit 0
+        fi
+
+        # ── Build dep graph (intra-discovery only) ────────────────────
+        DEPS_OF=()
+        for i in "${!MOD_DIRS[@]}"; do
+          dir="${MOD_DIRS[$i]}"
+          local_deps=""
+          while IFS= read -r dep; do
+            [ -z "$dep" ] && continue
+            for j in "${!MOD_PATHS[@]}"; do
+              if [ "${MOD_PATHS[$j]}" = "$dep" ]; then
+                local_deps="${local_deps} ${j}"
+              fi
+            done
+          done < <(cue export "${dir}/cue.mod/module.cue" --out json | jq -r '.deps // {} | keys[]')
+          DEPS_OF+=("$local_deps")
+        done
+
+        # ── Topological sort ──────────────────────────────────────────
+        ORDER=()
+        VISITED=()
+        VISITING=()
+        for i in "${!MOD_DIRS[@]}"; do
+          VISITED[$i]=0
+          VISITING[$i]=0
+        done
+
+        visit() {
+          local idx="$1"
+          if [ "${VISITING[$idx]}" -eq 1 ]; then
+            echo -e "${RED}Dependency cycle involving ${MOD_DIRS[$idx]}${RESET}" >&2
+            exit 1
+          fi
+          if [ "${VISITED[$idx]}" -eq 1 ]; then
+            return
+          fi
+          VISITING[$idx]=1
+          for d in ${DEPS_OF[$idx]}; do
+            visit "$d"
+          done
+          VISITING[$idx]=0
+          VISITED[$idx]=1
+          ORDER+=("$idx")
+        }
+
+        for i in "${!MOD_DIRS[@]}"; do
+          visit "$i"
+        done
+
+        # ── Phase 1: Detect changes ──────────────────────────────────
+        echo ""
+        echo -e "${BOLD}Phase 1: Detecting changes...${RESET}"
+
+        CHANGED_IDX=()
+        CHANGED_NEW_VER=()
+
+        for idx in "${ORDER[@]}"; do
+          dir="${MOD_DIRS[$idx]}"
+          stored=$(yq ".\"${dir}\".checksum // \"\"" "$VERSION_FILE")
+          current=$(compute_checksum "$dir")
+          version=$(yq ".\"${dir}\".version // \"\"" "$VERSION_FILE")
+
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            new_version="$DEFAULT_VERSION"
+            echo -e "  ${YELLOW}${dir}${RESET}: new module → ${GREEN}${new_version}${RESET}"
+            CHANGED_IDX+=("$idx")
+            CHANGED_NEW_VER+=("$new_version")
+          elif [ -z "$stored" ] || [ "$stored" = "null" ]; then
+            new_version=$(bump_version "$version" "$BUMP_TYPE")
+            echo -e "  ${YELLOW}${dir}${RESET}: changed (no stored checksum) → ${version} → ${GREEN}${new_version}${RESET}"
+            CHANGED_IDX+=("$idx")
+            CHANGED_NEW_VER+=("$new_version")
+          elif [ "$stored" != "$current" ]; then
+            new_version=$(bump_version "$version" "$BUMP_TYPE")
+            echo -e "  ${YELLOW}${dir}${RESET}: changed → ${version} → ${GREEN}${new_version}${RESET}"
+            CHANGED_IDX+=("$idx")
+            CHANGED_NEW_VER+=("$new_version")
+          else
+            echo -e "  ${dir}: unchanged"
+          fi
+        done
+
+        if [ ${#CHANGED_IDX[@]} -eq 0 ]; then
+          echo ""
+          echo -e "${GREEN}No changes detected. Nothing to publish.${RESET}"
+          exit 0
+        fi
+
+        if [ "$DRY_RUN" = "true" ]; then
+          echo ""
+          echo -e "${BOLD}Dry run — no changes made.${RESET}"
+          exit 0
+        fi
+
+        # ── Phase 2: Publish in dep order ────────────────────────────
+        echo ""
+        echo -e "${BOLD}Phase 2: Publishing...${RESET}"
+
+        for k in "${!CHANGED_IDX[@]}"; do
+          idx="${CHANGED_IDX[$k]}"
+          dir="${MOD_DIRS[$idx]}"
+          new_version="${CHANGED_NEW_VER[$k]}"
+
+          echo ""
+          echo -e "${BOLD}${GREEN}[${dir}]${RESET} → ${GREEN}${new_version}${RESET}"
+
+          yq -i ".\"${dir}\".version = \"${new_version}\"" "$VERSION_FILE"
+
+          echo "  Tidying..."
+          (cd "$dir" && cue mod tidy)
+
+          echo "  Publishing ${dir}@${new_version}..."
+          if ! (cd "$dir" && cue mod publish "${new_version}"); then
+            echo -e "  ${RED}Failed to publish ${dir}${RESET}" >&2
+            exit 1
+          fi
+
+          new_checksum=$(compute_checksum "$dir")
+          yq -i ".\"${dir}\".checksum = \"${new_checksum}\"" "$VERSION_FILE"
+          echo -e "  Checksum: ${DIM}${new_checksum:0:12}...${RESET}"
+        done
+
+        echo ""
+        echo -e "${BOLD}${GREEN}Done.${RESET} Published ${#CHANGED_IDX[@]} module(s)."

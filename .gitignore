@@ -33,3 +33,6 @@ go.work.sum
 
 # Claude Code local-only settings
 .claude/settings.local.json
+
+# Dev
+out.cue

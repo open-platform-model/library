@@ -1,0 +1,13 @@
+# OPM Modules Version Registry
+# Format: <module-dir-name>: {version: vMAJOR.MINOR.PATCH, checksum: sha256}
+# Checksum covers .cue files excluding cue.mod/ — used by publish:smart.
+# Modules are auto-discovered from */cue.mod/module.cue under this directory.
+apis/core:
+  version: v1.0.2
+  checksum: 9de4529cd5d62c2e7e002f042fc88846a36a42cba7c52ec9bc5f0cdb534c2be2
+modules/opm:
+  version: v1.0.0
+  checksum: 7b73a36c2bf90fb4445f11de8e0531297076a0b6109c61059cea201be37bfc18
+modules/opm_platform:
+  version: v1.0.0
+  checksum: ef024cda348b6c15aaf17ccf21243a65cb5a3d43db8eb08c50b2b3005b04f978
