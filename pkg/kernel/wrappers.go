@@ -8,7 +8,6 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
 	helperplatform "github.com/open-platform-model/library/pkg/helper/platform"
-	helpervalues "github.com/open-platform-model/library/pkg/helper/values"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
 )
@@ -63,19 +62,4 @@ func (k *Kernel) NewModuleFromValue(v cue.Value) (*module.Module, error) {
 // using the version-aware binding registry. See [module.NewReleaseFromValue].
 func (k *Kernel) NewReleaseFromValue(v cue.Value) (*module.Release, error) {
 	return module.NewReleaseFromValue(k, v)
-}
-
-// ValidateAndUnify performs Tier-1 source-positioned validation on each
-// [helpervalues.Layer] in the [helpervalues.Stack], then unifies in order
-// on success. Per-layer failures aggregate into a
-// [*helpervalues.MultiSourceError] so frontends can render diagnostics
-// with per-source attribution. The kernel's Tier-2 validation (see
-// [Kernel.ValidateConfig]) remains the safety net; pass the unified value
-// returned here to the kernel for Tier-2.
-//
-// Canonical implementation lives in [helpervalues.ValidateAndUnify]; this
-// method is an ergonomic shortcut so readers anchored on [Kernel] discover
-// the helper through the same surface.
-func (k *Kernel) ValidateAndUnify(schema cue.Value, layers helpervalues.Stack) (cue.Value, *helpervalues.MultiSourceError) {
-	return helpervalues.ValidateAndUnify(k, schema, layers)
 }

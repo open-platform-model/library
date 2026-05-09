@@ -21,11 +21,11 @@ import (
 // metadata.name is not yet concrete) and is not retained on the returned
 // Release — the source module remains reachable through Release.Package.
 //
-// values is a single, pre-unified [cue.Value] — layering happens in the
-// frontend / helper before this call (see [pkg/helper/values.ValidateAndUnify]).
-// The zero [cue.Value] is treated as "no values supplied": validation is
-// skipped, no fill is performed, and the spec must already be concrete on
-// every required field.
+// values is a single, pre-unified [cue.Value] — layering is performed by
+// callers via [Kernel.ValidateConfigDetailed] before this call. The zero
+// [cue.Value] is treated as "no values supplied": validation is skipped,
+// no fill is performed, and the spec must already be concrete on every
+// required field.
 func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod module.Module, values cue.Value) (*module.Release, error) {
 	name := bestEffortReleaseName(spec, mod)
 
@@ -37,9 +37,9 @@ func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod mod
 
 	schema := spec.LookupPath(paths.Module).LookupPath(paths.Config)
 
-	validated, cfgErr := runValidate(schema, values, "module", name, true)
-	if cfgErr != nil {
-		return nil, cfgErr
+	validated, vErr := k.ValidateConfig(schema, values)
+	if vErr != nil {
+		return nil, fmt.Errorf("release %q: %w", name, vErr)
 	}
 
 	if validated.Exists() {

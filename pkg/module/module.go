@@ -22,6 +22,26 @@ import (
 	"github.com/open-platform-model/library/pkg/apiversion"
 )
 
+// ConfigSchema returns the module's #config schema reachable via Paths().Config
+// on m.Package.
+//
+// All failure modes return the zero cue.Value (not an error): a nil receiver,
+// an unregistered binding for m.APIVersion, or a missing #config definition on
+// the module package. Callers detect failure via the returned value's Exists()
+// method, mirroring [Release.ConfigSchema] and [Release.MatchComponents].
+//
+//nolint:revive // method receiver name 'm' is consistent with package convention
+func (m *Module) ConfigSchema() cue.Value {
+	if m == nil {
+		return cue.Value{}
+	}
+	b, err := api.Lookup(m.APIVersion)
+	if err != nil {
+		return cue.Value{}
+	}
+	return m.Package.LookupPath(b.Paths().Config)
+}
+
 // Module represents an OPM #Module artifact in the unified artifact shape.
 //
 // Package is the source of truth: it is the loaded CUE value for the module

@@ -4,6 +4,89 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Added — `redesign-config-validation`
+
+- `kernel.Source` struct, `kernel.ValidateOption`, and `kernel.Partial()` —
+  the minimal types the new validation surface needs. `Source.Value` MUST
+  be compiled with `cue.Filename(Origin)` so per-source attribution flows
+  through CUE's native `token.Pos.Filename`.
+- `(*kernel.Kernel).ValidateConfigDetailed(schema, sources, opts...)` —
+  unifies an ordered `[]Source` then validates the merged value. With
+  `kernel.Partial()` the concrete check is skipped (closed-schema
+  disallowed-field reporting still runs).
+- `(*kernel.Kernel).LoadSourceFromFile`, `LoadSourceFromBytes`,
+  `LoadSourceFromString` — bake `cue.Filename(Origin)` into the Source's
+  value so error positions report the originating source.
+- `(*module.Module).ConfigSchema()` accessor (Release already exposed it).
+- `(*kernel.Kernel).ValidateModuleValues` / `ValidateModuleValuesPartial` /
+  `ValidateModuleValuesDetailed` and the three matching
+  `ValidateReleaseValues*` — typed convenience shortcuts that resolve
+  `#config` for the caller and delegate to the primitives.
+
+### Changed — `redesign-config-validation` (BREAKING)
+
+- `(*kernel.Kernel).ValidateConfig` and `ValidateConfigPartial` lose their
+  `contextLabel` and `name` parameters. New signatures:
+
+  ```diff
+  - func (k *Kernel) ValidateConfig(schema, values cue.Value, ctxLabel, name string) (cue.Value, *oerrors.ConfigError)
+  + func (k *Kernel) ValidateConfig(schema, values cue.Value) (cue.Value, error)
+  - func (k *Kernel) ValidateConfigPartial(schema, values cue.Value, ctxLabel, name string) (cue.Value, *oerrors.ConfigError)
+  + func (k *Kernel) ValidateConfigPartial(schema, values cue.Value) (cue.Value, error)
+  ```
+
+  Module-name framing moves to callers via `fmt.Errorf("module %q: %w",
+  name, err)`. The kernel's own `Kernel.Validate(ctx, in)` phase method
+  applies the framing automatically.
+- All validation functions return CUE-native errors
+  (`cuelang.org/go/cue/errors.Error`-walkable). Frontends iterate with
+  `cueerrors.Errors(err)` and `cueerrors.Positions(ce)`; the library no
+  longer projects diagnostics into Go-typed structs.
+
+### Removed — `redesign-config-validation` (BREAKING)
+
+- `pkg/helper/values/` package deleted in full: `Layer`, `Stack`,
+  `MultiSourceError`, `LayerError`, `ValidateAndUnify`, `KernelOwner`
+  interface, all gone. Use `[]kernel.Source` and
+  `(*kernel.Kernel).ValidateConfigDetailed` instead.
+- `(*kernel.Kernel).ValidateAndUnify` wrapper deleted.
+  `Kernel.ValidateConfigDetailed` is the canonical replacement.
+- `pkg/errors/config_error.go` deleted in full: `ConfigError`,
+  `GroupedErrors`, `GroupedErrorsFromError`, `groupCUEErrors`,
+  `normalizeCUEPath`.
+- `pkg/errors` types removed: `ValidationError`, `FieldError`,
+  `ErrorLocation`, `GroupedError`, `DetailError`, `NewValidationError`.
+  `TransformError` and the sentinels (`ErrValidation`, `ErrConnectivity`,
+  `ErrPermission`, `ErrNotFound`) survive.
+
+### Migration recipes — `redesign-config-validation`
+
+```text
+OLD                                                    NEW
+────────────────────────────────────────────────────────────────────────────────────
+k.ValidateConfig(schema, vals, "module", name)         val, err := k.ValidateConfig(schema, vals)
+                                                       if err != nil { return fmt.Errorf("module %q: %w", name, err) }
+
+cfgErr.GroupedErrors()                                 for _, ce := range cueerrors.Errors(err) {
+                                                         for _, pos := range cueerrors.Positions(ce) { … }
+                                                       }
+
+cfgErr.Error()                                         var buf bytes.Buffer
+                                                       cueerrors.Print(&buf, err, nil)
+                                                       // (frontend owns formatting; kernel ships no printer)
+
+helpervalues.Stack{ Layer{Name, Source, Value}, … }    []kernel.Source{ {Value, Name, Origin}, … }
+helpervalues.ValidateAndUnify(k, schema, stack)        k.ValidateConfigDetailed(schema, sources)
+
+multiSrcErr.Errors()                                   for _, ce := range cueerrors.Errors(err) {
+                                                         filename := ce.Position().Filename()
+                                                         // bucket / present as desired
+                                                       }
+
+ctx.CompileBytes(b)                                    src, err := k.LoadSourceFromBytes(origin, name, b)
+                                                       // src.Value carries cue.Filename(origin)
+```
+
 ### Added
 
 - `(*kernel.Kernel).ValidateConfigPartial(schema, values, contextLabel, name)` —

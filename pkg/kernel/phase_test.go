@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
 	"github.com/open-platform-model/library/pkg/apiversion"
 	"github.com/open-platform-model/library/pkg/compile"
-	oerrors "github.com/open-platform-model/library/pkg/errors"
 	"github.com/open-platform-model/library/pkg/kernel"
 	"github.com/open-platform-model/library/pkg/module"
 	"github.com/open-platform-model/library/pkg/platform"
@@ -168,7 +168,7 @@ func TestKernel_Validate_NoValues(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestKernel_Validate_ConfigError(t *testing.T) {
+func TestKernel_Validate_FailureWrapsModuleName(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 
@@ -179,9 +179,11 @@ func TestKernel_Validate_ConfigError(t *testing.T) {
 		Module: f.mod, ModuleRelease: f.rel, Values: bad,
 	})
 	require.Error(t, err)
-	var cfgErr *oerrors.ConfigError
-	require.True(t, errors.As(err, &cfgErr), "want *oerrors.ConfigError, got %T", err)
-	assert.Equal(t, "demo", cfgErr.Name)
+	// Error MUST be framed with the module name and walkable as CUE-native.
+	assert.Contains(t, err.Error(), `module "`+f.rel.Metadata.Name+`":`,
+		"phase method MUST wrap with module-name framing")
+	assert.NotEmpty(t, cueerrors.Errors(err),
+		"wrapped error MUST remain walkable via cueerrors.Errors")
 }
 
 func TestKernel_Validate_RequiresInputs(t *testing.T) {

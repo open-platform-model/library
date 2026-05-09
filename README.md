@@ -102,35 +102,25 @@ k := kernel.New() // optional: kernel.New(kernel.WithLogger(myLogger))
 moduleVal, _, err := k.LoadModulePackage(ctx, "./module/")
 mod, err := k.NewModuleFromValue(moduleVal)
 
-// Tier-1: validate every values source independently and unify on success.
-// Each Layer carries a human-friendly Name and stable Source so error
-// messages cite the file or K8s object that owns each diagnostic.
-//
-// `pkg/helper/values` is opt-in convenience; a frontend MAY merge values
-// itself and pass them straight to the kernel (Tier-2 alone is correct,
-// just less helpful). Use the helper whenever the frontend has more than
-// one source.
-import (
-    "github.com/open-platform-model/library/pkg/helper/values"
-)
+// Layered validation — unify every values source in stack order, then
+// validate the merged value against the module's #config schema.
+// Per-source attribution flows through cue.Filename(Origin) baked at
+// load time, so error positions report the originating file (or
+// stable identifier for non-file sources).
 
-// Resolve the #config schema once; helper/values validates each layer
-// against it before unification.
-b, _ := api.Lookup(mod.APIVersion)
-schema := mod.Package.LookupPath(b.Paths().Config)
+defaults, _ := k.LoadSourceFromString("embedded", "defaults", `replicas: 1`)
+user, _ := k.LoadSourceFromFile("./values.cue")
+overlay, _ := k.LoadSourceFromFile("./overlay.cue")
 
-stack := values.Stack{
-    {Name: "defaults", Source: "embedded",       Value: defaultsVal},
-    {Name: "user",     Source: "values.cue",     Value: userVal},
-    {Name: "overlay",  Source: "-f overlay.cue", Value: overlayVal},
-}
-
-userValues, msErr := k.ValidateAndUnify(schema, stack)
-if msErr != nil {
-    for _, le := range msErr.Errors() {
-        // present le.LayerName + le.Source + le.Err to the user
-    }
-    return msErr
+userValues, vErr := k.ValidateModuleValuesDetailed(mod, []kernel.Source{
+    defaults, user, overlay,
+})
+if vErr != nil {
+    // CUE-native error tree — walk via cueerrors.Errors / Positions, or
+    // print with cueerrors.Print. The kernel ships no formatter; the
+    // frontend owns presentation.
+    cueerrors.Print(os.Stderr, vErr, nil)
+    return vErr
 }
 
 // Load and parse the release. The release's Package embeds the source #module
@@ -209,7 +199,7 @@ The compile pipeline resolves the binding once per release (via `api.Lookup(rel.
 
 Anything under `pkg/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `pkg/helper/` is part of the kernel contract.
 
-Today this layer holds the filesystem loader (`pkg/helper/loader/file`) and a skeleton for the in-memory loader (`pkg/helper/loader/bytes`). Future slices add layered values (`pkg/helper/values`) and Platform composition (`pkg/helper/platform`); see `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+Today this layer holds the filesystem loader (`pkg/helper/loader/file`), a skeleton for the in-memory loader (`pkg/helper/loader/bytes`), and Platform composition (`pkg/helper/platform`). Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `pkg/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
 The old `pkg/loader/` import path remains as a deprecation shim that re-exports `pkg/helper/loader/file/` symbols for one SemVer cycle. New code SHOULD import the new path.
 

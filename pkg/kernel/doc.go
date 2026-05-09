@@ -45,7 +45,9 @@
 // phase-appropriate result:
 //
 //   - [Kernel.Validate] — Tier-2 schema validation of values against
-//     the module's `#config`. Returns nil or *errors.ConfigError.
+//     the module's `#config`. Returns nil or an error wrapped with
+//     `module %q:` framing whose underlying tree is walkable as
+//     [cuelang.org/go/cue/errors.Error].
 //   - [Kernel.Match] — component / transformer pairing. Returns
 //     [*MatchPlan] without executing any transformer.
 //   - [Kernel.Plan] — Validate + Match + summaries. Returns
@@ -58,6 +60,33 @@
 //
 // CLI subcommands map naturally onto these methods (vet → Validate,
 // match → Match, plan → Plan, apply → Compile).
+//
+// # Configuration validation
+//
+// Three primitives form the validation surface:
+//
+//   - [Kernel.ValidateConfig] — concrete check on a single, pre-merged
+//     [cue.Value]. Returns the unified value and a CUE-native error.
+//   - [Kernel.ValidateConfigPartial] — same, without the concreteness
+//     requirement. Used by lint subcommands, IDE/LSP, admission webhooks,
+//     and other callsites that intentionally validate a draft.
+//   - [Kernel.ValidateConfigDetailed] — accepts an ordered slice of
+//     [Source], unifies in stack order, then validates the merged value.
+//     Per-source attribution flows through [token.Pos.Filename] populated
+//     from [cue.Filename](Origin) at compile time. Use
+//     [Kernel.LoadSourceFromFile], [Kernel.LoadSourceFromBytes], or
+//     [Kernel.LoadSourceFromString] to construct sources whose Value
+//     satisfies the filename contract automatically.
+//
+// All three return CUE-native errors. Walk them via
+// [cuelang.org/go/cue/errors.Errors] / [cuelang.org/go/cue/errors.Positions],
+// or print via [cuelang.org/go/cue/errors.Print]. Presentation belongs to
+// the frontend — the kernel does not ship a formatter.
+//
+// Typed convenience methods on the kernel resolve `#config` for the
+// caller: [Kernel.ValidateModuleValues] / [Kernel.ValidateReleaseValues]
+// (plus their `Partial` and `Detailed` counterparts) take a *module.Module
+// or *module.Release and delegate to the corresponding primitive.
 //
 // # Advanced: CueContext accessor
 //

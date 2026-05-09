@@ -16,9 +16,10 @@ import (
 // against the module's `#config` schema. It does NOT perform matching,
 // execution, or finalization.
 //
-// Returns nil on success. On failure the returned error is a
-// [*oerrors.ConfigError] carrying grouped CUE diagnostics; callers can use
-// [errors.As] to extract it.
+// Returns nil on success. On failure the returned error wraps the raw CUE
+// error tree with the module name as a `module %q:` prefix; callers can
+// reach the underlying [cuelang.org/go/cue/errors.Error] tree via
+// [errors.As] / [cuelang.org/go/cue/errors.Errors] for structured access.
 func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 	if in.Module == nil {
 		return fmt.Errorf("ValidateInput.Module is required")
@@ -38,8 +39,8 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 		return nil
 	}
 	name := releaseDisplayName(in.ModuleRelease)
-	if _, cfgErr := runValidate(schema, in.Values, "module", name, true); cfgErr != nil {
-		return cfgErr
+	if _, vErr := k.ValidateConfig(schema, in.Values); vErr != nil {
+		return fmt.Errorf("module %q: %w", name, vErr)
 	}
 	return nil
 }

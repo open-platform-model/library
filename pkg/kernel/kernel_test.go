@@ -187,8 +187,8 @@ func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
 	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
 	require.NoError(t, values.Err())
 
-	gotMerged, gotErr := k.ValidateConfig(schema, values, "module", "demo")
-	require.Nil(t, gotErr)
+	gotMerged, gotErr := k.ValidateConfig(schema, values)
+	require.NoError(t, gotErr)
 	require.True(t, gotMerged.Exists())
 
 	gotName, err := gotMerged.LookupPath(cue.ParsePath("name")).String()
@@ -196,17 +196,17 @@ func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
 	assert.Equal(t, "demo", gotName)
 }
 
-func TestKernel_ValidateConfig_SchemaErrorTagsContext(t *testing.T) {
+func TestKernel_ValidateConfig_SchemaErrorReturnsCueNativeError(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 	bad := k.CueContext().CompileString(`{ replicas: -1 }`)
 	require.NoError(t, bad.Err())
 
-	_, gotErr := k.ValidateConfig(schema, bad, "module", "demo")
-	require.NotNil(t, gotErr)
-	assert.Equal(t, "module", gotErr.Context)
-	assert.Equal(t, "demo", gotErr.Name)
+	_, gotErr := k.ValidateConfig(schema, bad)
+	require.Error(t, gotErr)
+	// Module-name framing is the caller's responsibility — primitive
+	// returns the raw CUE error tree only.
 }
 
 // --- ProcessModuleRelease: build a minimal Module + spec and confirm the
