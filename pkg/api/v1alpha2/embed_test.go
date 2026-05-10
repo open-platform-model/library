@@ -86,6 +86,21 @@ func TestEmbeddedSchema_FileSetMatchesDisk(t *testing.T) {
 	assert.Equal(t, wantFiles, gotFiles, "embedded file list must match the on-disk schema source")
 }
 
+// TestEmbeddedSchema_ExcludesTestdata guards the schema-testing fixtures from
+// silently shipping to consumers if `apis/core/embed.go`'s //go:embed pattern is
+// later broadened (e.g. to v1alpha2/**/*.cue). Fixtures live under
+// apis/core/v1alpha2/testdata/ and rely on `@if(test)` gating; their content
+// MUST stay out of `Schema embed.FS`.
+func TestEmbeddedSchema_ExcludesTestdata(t *testing.T) {
+	fsys, err := api.EmbeddedSchema(apiversion.V1alpha2)
+	require.NoError(t, err)
+
+	for _, p := range listEmbeddedFiles(t, fsys) {
+		assert.NotContains(t, p, "testdata/",
+			"embed pattern in apis/core/embed.go must not match anything under v1alpha2/testdata/ — fixtures gated by @if(test) would otherwise reach consumers via Schema embed.FS")
+	}
+}
+
 func TestEmbeddedSchema_BytesMatchDisk(t *testing.T) {
 	fsys, err := api.EmbeddedSchema(apiversion.V1alpha2)
 	require.NoError(t, err)
