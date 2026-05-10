@@ -18,6 +18,7 @@ vars:
   CUE_MODULE_GLOBS: |
     modules/*
     apis/core
+    testdata/modules/*
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
@@ -213,6 +214,78 @@ tasks:
           done
         done <<< '{{.CUE_MODULE_GLOBS}}'
 
+  cue:deps:update:
+    desc: Update CUE deps to latest across all discovered modules
+    summary: |
+      For each module discovered via CUE_MODULE_GLOBS, snapshots current
+      dep versions, runs `cue mod get <dep>` for every direct dep (which
+      resolves to the latest version in the registry), then `cue mod tidy`
+      to reconcile. Prints a colored old → new diff per dep.
+
+      Usage:
+        task cue:deps:update
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    preconditions:
+      - sh: command -v jq >/dev/null 2>&1
+        msg: "jq is required"
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        BOLD='\033[1m'; DIM='\033[2m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; CYAN='\033[1;36m'; RESET='\033[0m'
+
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ -f "${dir}/cue.mod/module.cue" ] || continue
+
+            printf "==> ${CYAN}%s${RESET}\n" "$dir"
+
+            mod_json=$(cue export "${dir}/cue.mod/module.cue" --out json)
+            deps=$(echo "$mod_json" | jq -r '.deps // {} | keys[]')
+
+            if [ -z "$deps" ]; then
+              printf "    ${DIM}(no deps)${RESET}\n"
+              continue
+            fi
+
+            declare -A OLD
+            while IFS= read -r dep; do
+              [ -z "$dep" ] && continue
+              OLD["$dep"]=$(echo "$mod_json" | jq -r --arg d "$dep" '.deps[$d].v // ""')
+            done <<< "$deps"
+
+            (
+              cd "$dir"
+              while IFS= read -r dep; do
+                [ -z "$dep" ] && continue
+                cue mod get "$dep" >/dev/null 2>&1 || true
+              done <<< "$deps"
+              cue mod tidy >/dev/null 2>&1 || true
+            )
+
+            new_json=$(cue export "${dir}/cue.mod/module.cue" --out json)
+            while IFS= read -r dep; do
+              [ -z "$dep" ] && continue
+              new_ver=$(echo "$new_json" | jq -r --arg d "$dep" '.deps[$d].v // ""')
+              old_ver="${OLD[$dep]:-}"
+              if [ -n "$new_ver" ] && [ "$old_ver" != "$new_ver" ]; then
+                printf "    %s: ${YELLOW}%s${RESET} -> ${GREEN}%s${RESET}\n" "$dep" "$old_ver" "$new_ver"
+              else
+                printf "    %s: ${DIM}%s (unchanged)${RESET}\n" "$dep" "$old_ver"
+              fi
+            done <<< "$deps"
+
+            unset OLD
+          done
+        done <<< '{{.CUE_MODULE_GLOBS}}'
+
+        printf "${BOLD}Done.${RESET}\n"
+
   cue:check:
     desc: Run cue:fmt and cue:vet across all discovered modules
     cmds:
@@ -254,6 +327,29 @@ tasks:
         msg: "CASE is required. Usage: task cue:test:run CASE=<schemaCase.name>"
     cmds:
       - go test -v ./pkg/api/v1alpha2/... -run "TestSchemaFixtures/{{.CASE}}"
+
+  cue:test:flow:
+    desc: Run the plan/match/compile flow integration test against the on-disk web_app + opm_platform fixtures
+    summary: |
+      Drives `TestFlow_WebApp_OnOpmPlatform` in pkg/kernel/flow_integration_test.go.
+
+      The test loads:
+        - testdata/modules/web_app/   (consumer #Module using opm primitives)
+        - modules/opm_platform/        (canonical Kubernetes #Platform)
+      and runs Match → Plan → Compile end-to-end. CUE imports are resolved
+      against the local registry (opmodel.dev=localhost:5000); the test skips
+      with a clear message if the registry is unreachable.
+
+      Force-run (turn the skip into a hard failure) by setting
+      OPM_FLOW_TEST_FORCE=1.
+
+      Usage:
+        task cue:test:flow                       # honour the registry-skip
+        OPM_FLOW_TEST_FORCE=1 task cue:test:flow # require the registry
+    env:
+      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+    cmds:
+      - go test -v ./pkg/kernel/... -run TestFlow_WebApp_OnOpmPlatform
 
   cue:test:eval:
     desc: Evaluate a single fixture with `cue eval -t test` (FIXTURE=<filename>)
@@ -350,9 +446,6 @@ tasks:
       - sh: command -v cue >/dev/null 2>&1
         msg: "cue is required"
     cmds:
-      - task: cue:tidy
-      - task: cue:fmt
-      - task: cue:vet
       - |
         #!/usr/bin/env bash
         set -euo pipefail
@@ -527,3 +620,6 @@ tasks:
 
         echo ""
         echo -e "${BOLD}${GREEN}Done.${RESET} Published ${#CHANGED_IDX[@]} module(s)."
+      - task: cue:tidy
+      - task: cue:fmt
+      - task: cue:vet
