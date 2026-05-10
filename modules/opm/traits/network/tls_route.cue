@@ -21,3 +21,7 @@ import (
 
 	spec: tlsRoute: schemas.#TlsRouteSchema
 }
+
+#TlsRoute: c.#Component & {
+	#traits: (#TlsRouteTrait.metadata.fqn): #TlsRouteTrait
+}

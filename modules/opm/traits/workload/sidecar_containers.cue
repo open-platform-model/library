@@ -21,3 +21,7 @@ import (
 
 	spec: sidecarContainers: [...schemas.#ContainerSchema]
 }
+
+#SidecarContainers: c.#Component & {
+	#traits: (#SidecarContainersTrait.metadata.fqn): #SidecarContainersTrait
+}

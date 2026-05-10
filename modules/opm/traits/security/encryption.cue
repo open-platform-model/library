@@ -21,3 +21,7 @@ import (
 
 	spec: encryption: schemas.#EncryptionConfigSchema
 }
+
+#EncryptionConfig: c.#Component & {
+	#traits: (#EncryptionConfigTrait.metadata.fqn): #EncryptionConfigTrait
+}

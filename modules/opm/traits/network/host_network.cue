@@ -23,3 +23,7 @@ import (
 
 	spec: hostNetwork: bool
 }
+
+#HostNetwork: c.#Component & {
+	#traits: (#HostNetworkTrait.metadata.fqn): #HostNetworkTrait
+}

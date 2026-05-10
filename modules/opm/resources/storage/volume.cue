@@ -18,3 +18,7 @@ import (
 
 	spec: volumes: [volumeName=string]: schemas.#VolumeSchema & {name: string | *volumeName}
 }
+
+#Volumes: c.#Component & {
+	#resources: (#VolumesResource.metadata.fqn): #VolumesResource
+}

@@ -21,3 +21,7 @@ import (
 
 	spec: securityContext: schemas.#SecurityContextSchema
 }
+
+#SecurityContext: c.#Component & {
+	#traits: (#SecurityContextTrait.metadata.fqn): #SecurityContextTrait
+}

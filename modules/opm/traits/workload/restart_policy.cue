@@ -21,3 +21,7 @@ import (
 
 	spec: restartPolicy: schemas.#RestartPolicySchema
 }
+
+#RestartPolicy: c.#Component & {
+	#traits: (#RestartPolicyTrait.metadata.fqn): #RestartPolicyTrait
+}

@@ -22,3 +22,7 @@ import (
 
 	spec: hostPid: bool
 }
+
+#HostPID: c.#Component & {
+	#traits: (#HostPIDTrait.metadata.fqn): #HostPIDTrait
+}

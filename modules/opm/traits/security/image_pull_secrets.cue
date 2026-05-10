@@ -24,3 +24,7 @@ import (
 
 	spec: imagePullSecrets: schemas.#ImagePullSecretsSchema
 }
+
+#ImagePullSecrets: c.#Component & {
+	#traits: (#ImagePullSecretsTrait.metadata.fqn): #ImagePullSecretsTrait
+}

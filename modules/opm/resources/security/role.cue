@@ -18,3 +18,7 @@ import (
 
 	spec: role: schemas.#RoleSchema
 }
+
+#Role: c.#Component & {
+	#resources: (#RoleResource.metadata.fqn): #RoleResource
+}

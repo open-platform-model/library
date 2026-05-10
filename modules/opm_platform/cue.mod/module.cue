@@ -11,7 +11,7 @@ deps: {
 		default: true
 	}
 	"opmodel.dev/core@v1": {
-		v: "v1.0.2"
+		v: "v1.0.3"
 	}
 	"opmodel.dev/modules/opm@v1": {
 		v: "v1.0.1"

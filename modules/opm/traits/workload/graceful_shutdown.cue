@@ -21,3 +21,7 @@ import (
 
 	spec: gracefulShutdown: schemas.#GracefulShutdownSchema
 }
+
+#GracefulShutdown: c.#Component & {
+	#traits: (#GracefulShutdownTrait.metadata.fqn): #GracefulShutdownTrait
+}

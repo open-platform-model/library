@@ -18,3 +18,7 @@ import (
 
 	spec: configMaps: [cmName=string]: schemas.#ConfigMapSchema & {name: string | *cmName}
 }
+
+#ConfigMaps: c.#Component & {
+	#resources: (#ConfigMapsResource.metadata.fqn): #ConfigMapsResource
+}

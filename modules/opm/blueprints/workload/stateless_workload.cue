@@ -7,6 +7,18 @@ import (
 	tr_workload "opmodel.dev/modules/opm/traits/workload"
 )
 
+#StatelessWorkloadSchema: {
+	container:       schemas.#ContainerSchema
+	scaling?:        schemas.#ScalingSchema
+	restartPolicy?:  schemas.#RestartPolicySchema
+	updateStrategy?: schemas.#UpdateStrategySchema
+	sidecarContainers?: [...schemas.#SidecarContainersSchema]
+	initContainers?: [...schemas.#InitContainersSchema]
+	securityContext?: schemas.#SecurityContextSchema
+	hostPid?:         bool
+	hostIpc?:         bool
+}
+
 #StatelessWorkloadBlueprint: c.#Blueprint & {
 	metadata: {
 		modulePath:  "opmodel.dev/modules/opm/blueprints/workload"
@@ -27,5 +39,41 @@ import (
 		tr_workload.#InitContainersTrait,
 	]
 
-	spec: statelessWorkload: schemas.#StatelessWorkloadSchema
+	spec: statelessWorkload: #StatelessWorkloadSchema
+}
+
+#StatelessWorkload: c.#Component & {
+	metadata: labels: {
+		"core.opmodel.dev/workload-type": "stateless"
+	}
+
+	#blueprints: (#StatelessWorkloadBlueprint.metadata.fqn): #StatelessWorkloadBlueprint
+
+	res_workload.#Container
+	tr_workload.#Scaling
+	tr_workload.#RestartPolicy
+	tr_workload.#UpdateStrategy
+	tr_workload.#SidecarContainers
+	tr_workload.#InitContainers
+
+	// Override spec to propagate values from statelessWorkload
+	spec: {
+		statelessWorkload: #StatelessWorkloadSchema
+		container:         spec.statelessWorkload.container
+		if spec.statelessWorkload.scaling != _|_ {
+			scaling: spec.statelessWorkload.scaling
+		}
+		if spec.statelessWorkload.restartPolicy != _|_ {
+			restartPolicy: spec.statelessWorkload.restartPolicy
+		}
+		if spec.statelessWorkload.updateStrategy != _|_ {
+			updateStrategy: spec.statelessWorkload.updateStrategy
+		}
+		if spec.statelessWorkload.sidecarContainers != _|_ {
+			sidecarContainers: spec.statelessWorkload.sidecarContainers
+		}
+		if spec.statelessWorkload.initContainers != _|_ {
+			initContainers: spec.statelessWorkload.initContainers
+		}
+	}
 }

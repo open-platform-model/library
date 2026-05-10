@@ -23,3 +23,7 @@ import (
 
 	spec: hostIpc: bool
 }
+
+#HostIPC: c.#Component & {
+	#traits: (#HostIPCTrait.metadata.fqn): #HostIPCTrait
+}

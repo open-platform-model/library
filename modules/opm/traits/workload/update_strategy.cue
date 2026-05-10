@@ -21,3 +21,7 @@ import (
 
 	spec: updateStrategy: schemas.#UpdateStrategySchema
 }
+
+#UpdateStrategy: c.#Component & {
+	#traits: (#UpdateStrategyTrait.metadata.fqn): #UpdateStrategyTrait
+}

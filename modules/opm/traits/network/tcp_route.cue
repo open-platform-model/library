@@ -21,3 +21,7 @@ import (
 
 	spec: tcpRoute: schemas.#TcpRouteSchema
 }
+
+#TcpRoute: c.#Component & {
+	#traits: (#TcpRouteTrait.metadata.fqn): #TcpRouteTrait
+}

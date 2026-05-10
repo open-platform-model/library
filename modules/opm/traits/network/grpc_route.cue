@@ -21,3 +21,7 @@ import (
 
 	spec: grpcRoute: schemas.#GrpcRouteSchema
 }
+
+#GrpcRoute: c.#Component & {
+	#traits: (#GrpcRouteTrait.metadata.fqn): #GrpcRouteTrait
+}

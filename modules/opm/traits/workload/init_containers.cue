@@ -21,3 +21,7 @@ import (
 
 	spec: initContainers: [...schemas.#ContainerSchema]
 }
+
+#InitContainers: c.#Component & {
+	#traits: (#InitContainersTrait.metadata.fqn): #InitContainersTrait
+}

@@ -21,3 +21,7 @@ import (
 
 	spec: scaling: schemas.#ScalingSchema
 }
+
+#Scaling: c.#Component & {
+	#traits: (#ScalingTrait.metadata.fqn): #ScalingTrait
+}

@@ -21,3 +21,7 @@ import (
 
 	spec: expose: schemas.#ExposeSchema
 }
+
+#Expose: c.#Component & {
+	#traits: (#ExposeTrait.metadata.fqn): #ExposeTrait
+}

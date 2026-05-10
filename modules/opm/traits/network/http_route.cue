@@ -21,3 +21,7 @@ import (
 
 	spec: httpRoute: schemas.#HttpRouteSchema
 }
+
+#HttpRoute: c.#Component & {
+	#traits: (#HttpRouteTrait.metadata.fqn): #HttpRouteTrait
+}

@@ -21,3 +21,7 @@ import (
 
 	spec: cronJobConfig: schemas.#CronJobConfigSchema
 }
+
+#CronJobConfig: c.#Component & {
+	#traits: (#CronJobConfigTrait.metadata.fqn): #CronJobConfigTrait
+}

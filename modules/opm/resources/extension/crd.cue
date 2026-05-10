@@ -18,3 +18,7 @@ import (
 
 	spec: crds: [name=string]: schemas.#CRDSchema
 }
+
+#CRDs: c.#Component & {
+	#resources: (#CRDsResource.metadata.fqn): #CRDsResource
+}

@@ -21,3 +21,7 @@ import (
 
 	spec: jobConfig: schemas.#JobConfigSchema
 }
+
+#JobConfig: c.#Component & {
+	#traits: (#JobConfigTrait.metadata.fqn): #JobConfigTrait
+}

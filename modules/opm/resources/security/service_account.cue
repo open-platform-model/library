@@ -18,3 +18,7 @@ import (
 
 	spec: serviceAccount: schemas.#ServiceAccountSchema
 }
+
+#ServiceAccount: c.#Component & {
+	#resources: (#ServiceAccountResource.metadata.fqn): #ServiceAccountResource
+}

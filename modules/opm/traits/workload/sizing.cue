@@ -21,3 +21,7 @@ import (
 
 	spec: sizing: schemas.#SizingSchema
 }
+
+#Sizing: c.#Component & {
+	#traits: (#SizingTrait.metadata.fqn): #SizingTrait
+}

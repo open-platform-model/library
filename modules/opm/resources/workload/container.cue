@@ -18,3 +18,11 @@ import (
 
 	spec: container: schemas.#ContainerSchema
 }
+
+#Container: c.#Component & {
+	metadata: labels: {
+		"core.opmodel.dev/workload-type"!: "stateless" | "stateful" | "daemon" | "task" | "scheduled-task"
+	}
+
+	#resources: (#ContainerResource.metadata.fqn): #ContainerResource
+}

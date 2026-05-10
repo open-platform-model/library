@@ -21,3 +21,7 @@ import (
 
 	spec: disruptionBudget: schemas.#DisruptionBudgetSchema
 }
+
+#DisruptionBudget: c.#Component & {
+	#traits: (#DisruptionBudgetTrait.metadata.fqn): #DisruptionBudgetTrait
+}

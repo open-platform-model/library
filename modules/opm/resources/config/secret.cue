@@ -18,3 +18,7 @@ import (
 
 	spec: secrets: [secretName=string]: schemas.#SecretSchema & {name: string | *secretName}
 }
+
+#Secrets: c.#Component & {
+	#resources: (#SecretsResource.metadata.fqn): #SecretsResource
+}

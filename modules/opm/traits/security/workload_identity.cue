@@ -21,3 +21,7 @@ import (
 
 	spec: workloadIdentity: schemas.#WorkloadIdentitySchema
 }
+
+#WorkloadIdentity: c.#Component & {
+	#traits: (#WorkloadIdentityTrait.metadata.fqn): #WorkloadIdentityTrait
+}

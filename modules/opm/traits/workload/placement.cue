@@ -21,3 +21,7 @@ import (
 
 	spec: placement: schemas.#PlacementSchema
 }
+
+#Placement: c.#Component & {
+	#traits: (#PlacementTrait.metadata.fqn): #PlacementTrait
+}

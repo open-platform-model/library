@@ -297,22 +297,6 @@ import (
 }
 
 //////////////////////////////////////////////////////////////////
-//// Stateless Workload Schema
-//////////////////////////////////////////////////////////////////
-
-#StatelessWorkloadSchema: {
-	container:       #ContainerSchema
-	scaling?:        #ScalingSchema
-	restartPolicy?:  #RestartPolicySchema
-	updateStrategy?: #UpdateStrategySchema
-	sidecarContainers?: [...#SidecarContainersSchema]
-	initContainers?: [...#InitContainersSchema]
-	securityContext?: #SecurityContextSchema
-	hostPid?:         bool
-	hostIpc?:         bool
-}
-
-//////////////////////////////////////////////////////////////////
 //// DisruptionBudget Schema
 //////////////////////////////////////////////////////////////////
 
