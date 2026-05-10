@@ -6,14 +6,8 @@ package opm
 
 import (
 	m "opmodel.dev/core/v1alpha2@v1"
-	resource_config "opmodel.dev/modules/opm/resources/config"
-	resource_extension "opmodel.dev/modules/opm/resources/extension"
-	resource_security "opmodel.dev/modules/opm/resources/security"
-	resource_storage "opmodel.dev/modules/opm/resources/storage"
-	resource_workload "opmodel.dev/modules/opm/resources/workload"
-	trait_network "opmodel.dev/modules/opm/traits/network"
-	trait_security "opmodel.dev/modules/opm/traits/security"
-	trait_workload "opmodel.dev/modules/opm/traits/workload"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 	opm_transformers "opmodel.dev/modules/opm/transformers"
 )
 
@@ -35,46 +29,46 @@ debugValues: {}
 #defines: {
 	resources: {
 		// config
-		"opmodel.dev/modules/opm/resources/config/config-maps@v1": resource_config.#ConfigMapsResource
-		"opmodel.dev/modules/opm/resources/config/secrets@v1":     resource_config.#SecretsResource
+		"opmodel.dev/modules/opm/resources/config-maps@v1": res.#ConfigMapsResource
+		"opmodel.dev/modules/opm/resources/secrets@v1":     res.#SecretsResource
 		// extension
-		"opmodel.dev/modules/opm/resources/extension/crds@v1": resource_extension.#CRDsResource
+		"opmodel.dev/modules/opm/resources/crds@v1": res.#CRDsResource
 		// security
-		"opmodel.dev/modules/opm/resources/security/role@v1":            resource_security.#RoleResource
-		"opmodel.dev/modules/opm/resources/security/service-account@v1": resource_security.#ServiceAccountResource
+		"opmodel.dev/modules/opm/resources/role@v1":            res.#RoleResource
+		"opmodel.dev/modules/opm/resources/service-account@v1": res.#ServiceAccountResource
 		// storage
-		"opmodel.dev/modules/opm/resources/storage/volumes@v1": resource_storage.#VolumesResource
+		"opmodel.dev/modules/opm/resources/volumes@v1": res.#VolumesResource
 		// workload
-		"opmodel.dev/modules/opm/resources/workload/container@v1": resource_workload.#ContainerResource
+		"opmodel.dev/modules/opm/resources/container@v1": res.#ContainerResource
 	}
 
 	traits: {
 		// network
-		"opmodel.dev/modules/opm/traits/network/expose@v1":       trait_network.#ExposeTrait
-		"opmodel.dev/modules/opm/traits/network/grpc-route@v1":   trait_network.#GrpcRouteTrait
-		"opmodel.dev/modules/opm/traits/network/http-route@v1":   trait_network.#HttpRouteTrait
-		"opmodel.dev/modules/opm/traits/network/tcp-route@v1":    trait_network.#TcpRouteTrait
-		"opmodel.dev/modules/opm/traits/network/tls-route@v1":    trait_network.#TlsRouteTrait
-		"opmodel.dev/modules/opm/traits/network/host-network@v1": trait_network.#HostNetworkTrait
+		"opmodel.dev/modules/opm/traits/expose@v1":       tr.#ExposeTrait
+		"opmodel.dev/modules/opm/traits/grpc-route@v1":   tr.#GrpcRouteTrait
+		"opmodel.dev/modules/opm/traits/http-route@v1":   tr.#HttpRouteTrait
+		"opmodel.dev/modules/opm/traits/tcp-route@v1":    tr.#TcpRouteTrait
+		"opmodel.dev/modules/opm/traits/tls-route@v1":    tr.#TlsRouteTrait
+		"opmodel.dev/modules/opm/traits/host-network@v1": tr.#HostNetworkTrait
 		// security
-		"opmodel.dev/modules/opm/traits/security/encryption@v1":         trait_security.#EncryptionConfigTrait
-		"opmodel.dev/modules/opm/traits/security/host-ipc@v1":           trait_security.#HostIPCTrait
-		"opmodel.dev/modules/opm/traits/security/host-pid@v1":           trait_security.#HostPIDTrait
-		"opmodel.dev/modules/opm/traits/security/image-pull-secrets@v1": trait_security.#ImagePullSecretsTrait
-		"opmodel.dev/modules/opm/traits/security/security-context@v1":   trait_security.#SecurityContextTrait
-		"opmodel.dev/modules/opm/traits/security/workload-identity@v1":  trait_security.#WorkloadIdentityTrait
+		"opmodel.dev/modules/opm/traits/encryption@v1":         tr.#EncryptionConfigTrait
+		"opmodel.dev/modules/opm/traits/host-ipc@v1":           tr.#HostIPCTrait
+		"opmodel.dev/modules/opm/traits/host-pid@v1":           tr.#HostPIDTrait
+		"opmodel.dev/modules/opm/traits/image-pull-secrets@v1": tr.#ImagePullSecretsTrait
+		"opmodel.dev/modules/opm/traits/security-context@v1":   tr.#SecurityContextTrait
+		"opmodel.dev/modules/opm/traits/workload-identity@v1":  tr.#WorkloadIdentityTrait
 		// workload
-		"opmodel.dev/modules/opm/traits/workload/scaling@v1":            trait_workload.#ScalingTrait
-		"opmodel.dev/modules/opm/traits/workload/cron-job-config@v1":    trait_workload.#CronJobConfigTrait
-		"opmodel.dev/modules/opm/traits/workload/job-config@v1":         trait_workload.#JobConfigTrait
-		"opmodel.dev/modules/opm/traits/workload/disruption-budget@v1":  trait_workload.#DisruptionBudgetTrait
-		"opmodel.dev/modules/opm/traits/workload/graceful-shutdown@v1":  trait_workload.#GracefulShutdownTrait
-		"opmodel.dev/modules/opm/traits/workload/init-containers@v1":    trait_workload.#InitContainersTrait
-		"opmodel.dev/modules/opm/traits/workload/placement@v1":          trait_workload.#PlacementTrait
-		"opmodel.dev/modules/opm/traits/workload/restart-policy@v1":     trait_workload.#RestartPolicyTrait
-		"opmodel.dev/modules/opm/traits/workload/sidecar-containers@v1": trait_workload.#SidecarContainersTrait
-		"opmodel.dev/modules/opm/traits/workload/sizing@v1":             trait_workload.#SizingTrait
-		"opmodel.dev/modules/opm/traits/workload/update-strategy@v1":    trait_workload.#UpdateStrategyTrait
+		"opmodel.dev/modules/opm/traits/scaling@v1":            tr.#ScalingTrait
+		"opmodel.dev/modules/opm/traits/cron-job-config@v1":    tr.#CronJobConfigTrait
+		"opmodel.dev/modules/opm/traits/job-config@v1":         tr.#JobConfigTrait
+		"opmodel.dev/modules/opm/traits/disruption-budget@v1":  tr.#DisruptionBudgetTrait
+		"opmodel.dev/modules/opm/traits/graceful-shutdown@v1":  tr.#GracefulShutdownTrait
+		"opmodel.dev/modules/opm/traits/init-containers@v1":    tr.#InitContainersTrait
+		"opmodel.dev/modules/opm/traits/placement@v1":          tr.#PlacementTrait
+		"opmodel.dev/modules/opm/traits/restart-policy@v1":     tr.#RestartPolicyTrait
+		"opmodel.dev/modules/opm/traits/sidecar-containers@v1": tr.#SidecarContainersTrait
+		"opmodel.dev/modules/opm/traits/sizing@v1":             tr.#SizingTrait
+		"opmodel.dev/modules/opm/traits/update-strategy@v1":    tr.#UpdateStrategyTrait
 	}
 
 	transformers: {

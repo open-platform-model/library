@@ -4,11 +4,8 @@ import (
 	"list"
 	k8sappsv1 "opmodel.dev/modules/opm/schemas/kubernetes/apps/v1@v1"
 	c "opmodel.dev/core/v1alpha2@v1"
-	workload_resources "opmodel.dev/modules/opm/resources/workload@v1"
-	workload_traits "opmodel.dev/modules/opm/traits/workload@v1"
-	security_traits "opmodel.dev/modules/opm/traits/security@v1"
-	network_traits "opmodel.dev/modules/opm/traits/network@v1"
-	storage_resources "opmodel.dev/modules/opm/resources/storage@v1"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 )
 
 // DaemonSetTransformer converts daemon workload components to Kubernetes DaemonSets
@@ -32,12 +29,12 @@ import (
 
 	// Required resources - Container MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/workload/container@v1": workload_resources.#ContainerResource
+		"opmodel.dev/modules/opm/resources/container@v1": res.#ContainerResource
 	}
 
 	// Optional resources
 	optionalResources: {
-		"opmodel.dev/modules/opm/resources/storage/volumes@v1": storage_resources.#VolumesResource
+		"opmodel.dev/modules/opm/resources/volumes@v1": res.#VolumesResource
 	}
 
 	// No required traits
@@ -46,17 +43,17 @@ import (
 	// Optional traits that enhance daemonset behavior
 	// Note: NO Scaling trait - DaemonSets run one pod per node
 	optionalTraits: {
-		"opmodel.dev/modules/opm/traits/workload/restart-policy@v1":     workload_traits.#RestartPolicyTrait
-		"opmodel.dev/modules/opm/traits/workload/update-strategy@v1":    workload_traits.#UpdateStrategyTrait
-		"opmodel.dev/modules/opm/traits/workload/sidecar-containers@v1": workload_traits.#SidecarContainersTrait
-		"opmodel.dev/modules/opm/traits/workload/init-containers@v1":    workload_traits.#InitContainersTrait
-		"opmodel.dev/modules/opm/traits/security/security-context@v1":   security_traits.#SecurityContextTrait
-		"opmodel.dev/modules/opm/traits/security/workload-identity@v1":  security_traits.#WorkloadIdentityTrait
-		"opmodel.dev/modules/opm/traits/security/image-pull-secrets@v1": security_traits.#ImagePullSecretsTrait
-		"opmodel.dev/modules/opm/traits/security/host-pid@v1":           security_traits.#HostPIDTrait
-		"opmodel.dev/modules/opm/traits/security/host-ipc@v1":           security_traits.#HostIPCTrait
-		"opmodel.dev/modules/opm/traits/network/host-network@v1":        network_traits.#HostNetworkTrait
-		"opmodel.dev/modules/opm/traits/workload/graceful-shutdown@v1":  workload_traits.#GracefulShutdownTrait
+		"opmodel.dev/modules/opm/traits/restart-policy@v1":     tr.#RestartPolicyTrait
+		"opmodel.dev/modules/opm/traits/update-strategy@v1":    tr.#UpdateStrategyTrait
+		"opmodel.dev/modules/opm/traits/sidecar-containers@v1": tr.#SidecarContainersTrait
+		"opmodel.dev/modules/opm/traits/init-containers@v1":    tr.#InitContainersTrait
+		"opmodel.dev/modules/opm/traits/security-context@v1":   tr.#SecurityContextTrait
+		"opmodel.dev/modules/opm/traits/workload-identity@v1":  tr.#WorkloadIdentityTrait
+		"opmodel.dev/modules/opm/traits/image-pull-secrets@v1": tr.#ImagePullSecretsTrait
+		"opmodel.dev/modules/opm/traits/host-pid@v1":           tr.#HostPIDTrait
+		"opmodel.dev/modules/opm/traits/host-ipc@v1":           tr.#HostIPCTrait
+		"opmodel.dev/modules/opm/traits/host-network@v1":       tr.#HostNetworkTrait
+		"opmodel.dev/modules/opm/traits/graceful-shutdown@v1":  tr.#GracefulShutdownTrait
 	}
 
 	#transform: {

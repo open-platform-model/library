@@ -2,7 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	security_resources "opmodel.dev/modules/opm/resources/security@v1"
+	res "opmodel.dev/modules/opm/resources"
 )
 
 // RoleTransformer converts OPM Role resources to Kubernetes RBAC objects.
@@ -26,7 +26,7 @@ import (
 
 	// Required resources - Role resource MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/security/role@v1": security_resources.#RoleResource
+		"opmodel.dev/modules/opm/resources/role@v1": res.#RoleResource
 	}
 
 	optionalResources: {}
@@ -136,7 +136,7 @@ import (
 /////////////////////////////////////////////////////////////////
 
 // Test: namespace-scoped role
-_testNsRoleComponent: security_resources.#Role & {
+_testNsRoleComponent: res.#Role & {
 	spec: role: {
 		name:  "pod-reader"
 		scope: "namespace"
@@ -162,7 +162,7 @@ _testNsRoleTransformer: (#RoleTransformer.#transform & {
 }).output
 
 // Test: cluster-scoped role
-_testClusterRoleComponent: security_resources.#Role & {
+_testClusterRoleComponent: res.#Role & {
 	spec: role: {
 		name:  "cluster-reader"
 		scope: "cluster"

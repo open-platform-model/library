@@ -2,17 +2,16 @@ package workload
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	res_workload "opmodel.dev/modules/opm/resources/workload"
-	tr_workload "opmodel.dev/modules/opm/traits/workload"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 )
 
 #DaemonWorkloadSchema: {
-	container:       schemas.#ContainerSchema
-	restartPolicy?:  schemas.#RestartPolicySchema
-	updateStrategy?: schemas.#UpdateStrategySchema
-	sidecarContainers?: [...schemas.#SidecarContainersSchema]
-	initContainers?: [...schemas.#InitContainersSchema]
+	container:       res.#ContainerSchema
+	restartPolicy?:  tr.#RestartPolicySchema
+	updateStrategy?: tr.#UpdateStrategySchema
+	sidecarContainers?: [...tr.#SidecarContainersSchema]
+	initContainers?: [...tr.#InitContainersSchema]
 }
 
 #DaemonWorkloadBlueprint: c.#Blueprint & {
@@ -24,14 +23,14 @@ import (
 	}
 
 	composedResources: [
-		res_workload.#ContainerResource,
+		res.#ContainerResource,
 	]
 
 	composedTraits: [
-		tr_workload.#RestartPolicyTrait,
-		tr_workload.#UpdateStrategyTrait,
-		tr_workload.#SidecarContainersTrait,
-		tr_workload.#InitContainersTrait,
+		tr.#RestartPolicyTrait,
+		tr.#UpdateStrategyTrait,
+		tr.#SidecarContainersTrait,
+		tr.#InitContainersTrait,
 	]
 
 	spec: daemonWorkload: #DaemonWorkloadSchema
@@ -44,11 +43,11 @@ import (
 
 	#blueprints: (#DaemonWorkloadBlueprint.metadata.fqn): #DaemonWorkloadBlueprint
 
-	res_workload.#Container
-	tr_workload.#RestartPolicy
-	tr_workload.#UpdateStrategy
-	tr_workload.#SidecarContainers
-	tr_workload.#InitContainers
+	res.#Container
+	tr.#RestartPolicy
+	tr.#UpdateStrategy
+	tr.#SidecarContainers
+	tr.#InitContainers
 
 	// Override spec to propagate values from daemonWorkload
 	spec: {

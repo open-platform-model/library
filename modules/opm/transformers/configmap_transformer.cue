@@ -2,8 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	config_resources "opmodel.dev/modules/opm/resources/config@v1"
+	res "opmodel.dev/modules/opm/resources"
 	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
 )
 
@@ -26,7 +25,7 @@ import (
 
 	// Required resources - ConfigMaps MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/config/config-maps@v1": config_resources.#ConfigMapsResource
+		"opmodel.dev/modules/opm/resources/config-maps@v1": res.#ConfigMapsResource
 	}
 
 	optionalResources: {}
@@ -51,7 +50,7 @@ import (
 				// Compute the deterministic K8s resource name:
 				//   {releaseName}-{componentName}-{cm.name}[-{contenthash}]
 				let _baseName = "\(_relName)-\(_compName)-\(cm.name)"
-				let _k8sName = (schemas.#ImmutableName & {
+				let _k8sName = (res.#ImmutableName & {
 					baseName:  _baseName
 					data:      cm.data
 					immutable: cm.immutable

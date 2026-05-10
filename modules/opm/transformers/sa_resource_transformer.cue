@@ -2,7 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	security_resources "opmodel.dev/modules/opm/resources/security@v1"
+	res "opmodel.dev/modules/opm/resources"
 )
 
 // ServiceAccountResourceTransformer converts standalone ServiceAccount resources
@@ -25,7 +25,7 @@ import (
 
 	// Required resources - ServiceAccount resource MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/security/service-account@v1": security_resources.#ServiceAccountResource
+		"opmodel.dev/modules/opm/resources/service-account@v1": res.#ServiceAccountResource
 	}
 
 	optionalResources: {}
@@ -49,7 +49,7 @@ import (
 //// Test Data
 /////////////////////////////////////////////////////////////////
 
-_testSAResourceComponent: security_resources.#ServiceAccount & {
+_testSAResourceComponent: res.#ServiceAccount & {
 	spec: serviceAccount: {
 		name:           "ci-bot"
 		automountToken: false

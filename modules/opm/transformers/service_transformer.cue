@@ -2,8 +2,8 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	workload_resources "opmodel.dev/modules/opm/resources/workload@v1"
-	network_traits "opmodel.dev/modules/opm/traits/network@v1"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
 )
 
@@ -25,7 +25,7 @@ import (
 
 	// Required resources - Container MUST be present to know which ports to expose
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/workload/container@v1": workload_resources.#ContainerResource
+		"opmodel.dev/modules/opm/resources/container@v1": res.#ContainerResource
 	}
 
 	// No optional resources
@@ -33,7 +33,7 @@ import (
 
 	// Required traits - Expose is mandatory for Service creation
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/network/expose@v1": network_traits.#ExposeTrait
+		"opmodel.dev/modules/opm/traits/expose@v1": tr.#ExposeTrait
 	}
 
 	// No optional traits

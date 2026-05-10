@@ -2,19 +2,18 @@ package workload
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	res_workload "opmodel.dev/modules/opm/resources/workload"
-	tr_workload "opmodel.dev/modules/opm/traits/workload"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 )
 
 #StatelessWorkloadSchema: {
-	container:       schemas.#ContainerSchema
-	scaling?:        schemas.#ScalingSchema
-	restartPolicy?:  schemas.#RestartPolicySchema
-	updateStrategy?: schemas.#UpdateStrategySchema
-	sidecarContainers?: [...schemas.#SidecarContainersSchema]
-	initContainers?: [...schemas.#InitContainersSchema]
-	securityContext?: schemas.#SecurityContextSchema
+	container:       res.#ContainerSchema
+	scaling?:        tr.#ScalingSchema
+	restartPolicy?:  tr.#RestartPolicySchema
+	updateStrategy?: tr.#UpdateStrategySchema
+	sidecarContainers?: [...tr.#SidecarContainersSchema]
+	initContainers?: [...tr.#InitContainersSchema]
+	securityContext?: res.#SecurityContextSchema
 	hostPid?:         bool
 	hostIpc?:         bool
 }
@@ -28,15 +27,15 @@ import (
 	}
 
 	composedResources: [
-		res_workload.#ContainerResource,
+		res.#ContainerResource,
 	]
 
 	composedTraits: [
-		tr_workload.#ScalingTrait,
-		tr_workload.#RestartPolicyTrait,
-		tr_workload.#UpdateStrategyTrait,
-		tr_workload.#SidecarContainersTrait,
-		tr_workload.#InitContainersTrait,
+		tr.#ScalingTrait,
+		tr.#RestartPolicyTrait,
+		tr.#UpdateStrategyTrait,
+		tr.#SidecarContainersTrait,
+		tr.#InitContainersTrait,
 	]
 
 	spec: statelessWorkload: #StatelessWorkloadSchema
@@ -49,12 +48,12 @@ import (
 
 	#blueprints: (#StatelessWorkloadBlueprint.metadata.fqn): #StatelessWorkloadBlueprint
 
-	res_workload.#Container
-	tr_workload.#Scaling
-	tr_workload.#RestartPolicy
-	tr_workload.#UpdateStrategy
-	tr_workload.#SidecarContainers
-	tr_workload.#InitContainers
+	res.#Container
+	tr.#Scaling
+	tr.#RestartPolicy
+	tr.#UpdateStrategy
+	tr.#SidecarContainers
+	tr.#InitContainers
 
 	// Override spec to propagate values from statelessWorkload
 	spec: {

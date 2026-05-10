@@ -5,6 +5,7 @@ import (
 
 	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
 	schemas "opmodel.dev/modules/opm/schemas"
+	res "opmodel.dev/modules/opm/resources"
 )
 
 // #ToK8sContainer converts an OPM #ContainerSchema to a Kubernetes #Container.
@@ -23,7 +24,7 @@ import (
 // Usage:
 //   (#ToK8sContainer & {"in": _container, #releasePrefix: "my-release"}).out
 #ToK8sContainer: {
-	X="in":          schemas.#ContainerSchema
+	X="in":          res.#ContainerSchema
 	#releasePrefix?: string
 
 	out: k8scorev1.#Container & {
@@ -215,7 +216,7 @@ import (
 // Usage:
 //   (#ToK8sContainers & {"in": _initContainers, #releasePrefix: "my-release"}).out
 #ToK8sContainers: {
-	X="in": [...schemas.#ContainerSchema]
+	X="in": [...res.#ContainerSchema]
 	_prefix=#releasePrefix?: string
 	out: [for c in X {
 		(#ToK8sContainer & {"in": c, #releasePrefix: _prefix}).out
@@ -233,7 +234,7 @@ import (
 // Usage:
 //   (#ToK8sVolumes & {"in": _component.spec.volumes, #releasePrefix: "my-release"}).out
 #ToK8sVolumes: {
-	X="in": [string]: schemas.#VolumeSchema
+	X="in": [string]: res.#VolumeSchema
 	_prefix=#releasePrefix?: string
 
 	out: [for vName, vol in X {
@@ -262,7 +263,7 @@ import (
 			// internally. Without this, CUE loses concrete entries through the
 			// open [string]: string pattern.
 			let _cmData = vol.configMap.data
-			let _k8sName = (schemas.#ImmutableName & {
+			let _k8sName = (res.#ImmutableName & {
 				baseName:  "\(_prefix)-\(vol.configMap.name)"
 				data:      _cmData
 				immutable: vol.configMap.immutable
@@ -275,7 +276,7 @@ import (
 				//   {releasePrefix}-{secret.name}[-{contenthash}]
 				// #SecretImmutableName handles both mutable (stable name) and
 				// immutable (content-hash suffix) secrets transparently.
-				let _k8sName = (schemas.#SecretImmutableName & {
+				let _k8sName = (res.#SecretImmutableName & {
 					baseName:  "\(_prefix)-\(vol.secret.from.name)"
 					data:      vol.secret.from.data
 					immutable: vol.secret.from.immutable
@@ -386,7 +387,7 @@ _testToK8sVolumesSecretImmutable: {
 	out: [{
 		name: "config"
 		secret: {
-			secretName: (schemas.#SecretImmutableName & {
+			secretName: (res.#SecretImmutableName & {
 				baseName: "myapp-mycomponent-my-config"
 				data: {"config.json": "hello"}
 				immutable: true
@@ -418,7 +419,7 @@ _testToK8sVolumesConfigMapImmutable: {
 
 	out: [{
 		name: "config"
-		configMap: name: (schemas.#ImmutableName & {
+		configMap: name: (res.#ImmutableName & {
 			baseName: "wolf-release-wolf-wolf-config-toml"
 			data: {"wolf.toml": "[wolf]\nenabled = true"}
 			immutable: true

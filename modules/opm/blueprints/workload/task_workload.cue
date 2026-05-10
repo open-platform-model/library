@@ -2,17 +2,16 @@ package workload
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	res_workload "opmodel.dev/modules/opm/resources/workload"
-	tr_workload "opmodel.dev/modules/opm/traits/workload"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 )
 
 #TaskWorkloadSchema: {
-	container:      schemas.#ContainerSchema
-	jobConfig?:     schemas.#JobConfigSchema
-	restartPolicy?: schemas.#RestartPolicySchema
-	sidecarContainers?: [...schemas.#SidecarContainersSchema]
-	initContainers?: [...schemas.#InitContainersSchema]
+	container:      res.#ContainerSchema
+	jobConfig?:     tr.#JobConfigSchema
+	restartPolicy?: tr.#RestartPolicySchema
+	sidecarContainers?: [...tr.#SidecarContainersSchema]
+	initContainers?: [...tr.#InitContainersSchema]
 }
 
 #TaskWorkloadBlueprint: c.#Blueprint & {
@@ -24,14 +23,14 @@ import (
 	}
 
 	composedResources: [
-		res_workload.#ContainerResource,
+		res.#ContainerResource,
 	]
 
 	composedTraits: [
-		tr_workload.#JobConfigTrait,
-		tr_workload.#RestartPolicyTrait,
-		tr_workload.#SidecarContainersTrait,
-		tr_workload.#InitContainersTrait,
+		tr.#JobConfigTrait,
+		tr.#RestartPolicyTrait,
+		tr.#SidecarContainersTrait,
+		tr.#InitContainersTrait,
 	]
 
 	spec: taskWorkload: #TaskWorkloadSchema
@@ -44,11 +43,11 @@ import (
 
 	#blueprints: (#TaskWorkloadBlueprint.metadata.fqn): #TaskWorkloadBlueprint
 
-	res_workload.#Container
-	tr_workload.#JobConfig
-	tr_workload.#RestartPolicy
-	tr_workload.#SidecarContainers
-	tr_workload.#InitContainers
+	res.#Container
+	tr.#JobConfig
+	tr.#RestartPolicy
+	tr.#SidecarContainers
+	tr.#InitContainers
 
 	// Override spec to propagate values from taskWorkload
 	spec: {

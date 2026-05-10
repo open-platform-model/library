@@ -2,7 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	extension_resources "opmodel.dev/modules/opm/resources/extension@v1"
+	res "opmodel.dev/modules/opm/resources"
 	k8sapiextv1 "opmodel.dev/modules/opm/schemas/kubernetes/apiextensions/v1@v1"
 )
 
@@ -24,7 +24,7 @@ import (
 
 	// Required resources - CRDs MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/extension/crds@v1": extension_resources.#CRDsResource
+		"opmodel.dev/modules/opm/resources/crds@v1": res.#CRDsResource
 	}
 
 	optionalResources: {}

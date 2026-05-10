@@ -2,20 +2,18 @@ package workload
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	res_workload "opmodel.dev/modules/opm/resources/workload"
-	res_storage "opmodel.dev/modules/opm/resources/storage"
-	tr_workload "opmodel.dev/modules/opm/traits/workload"
+	res "opmodel.dev/modules/opm/resources"
+	tr "opmodel.dev/modules/opm/traits"
 )
 
 #StatefulWorkloadSchema: {
-	container: schemas.#ContainerSchema
-	volumes?: [string]: schemas.#VolumeSchema
-	scaling?:        schemas.#ScalingSchema
-	restartPolicy?:  schemas.#RestartPolicySchema
-	updateStrategy?: schemas.#UpdateStrategySchema
-	sidecarContainers?: [...schemas.#SidecarContainersSchema]
-	initContainers?: [...schemas.#InitContainersSchema]
+	container: res.#ContainerSchema
+	volumes?: [string]: res.#VolumeSchema
+	scaling?:        tr.#ScalingSchema
+	restartPolicy?:  tr.#RestartPolicySchema
+	updateStrategy?: tr.#UpdateStrategySchema
+	sidecarContainers?: [...tr.#SidecarContainersSchema]
+	initContainers?: [...tr.#InitContainersSchema]
 }
 
 #StatefulWorkloadBlueprint: c.#Blueprint & {
@@ -27,16 +25,16 @@ import (
 	}
 
 	composedResources: [
-		res_workload.#ContainerResource,
-		res_storage.#VolumesResource,
+		res.#ContainerResource,
+		res.#VolumesResource,
 	]
 
 	composedTraits: [
-		tr_workload.#ScalingTrait,
-		tr_workload.#RestartPolicyTrait,
-		tr_workload.#UpdateStrategyTrait,
-		tr_workload.#SidecarContainersTrait,
-		tr_workload.#InitContainersTrait,
+		tr.#ScalingTrait,
+		tr.#RestartPolicyTrait,
+		tr.#UpdateStrategyTrait,
+		tr.#SidecarContainersTrait,
+		tr.#InitContainersTrait,
 	]
 
 	spec: statefulWorkload: #StatefulWorkloadSchema
@@ -49,13 +47,13 @@ import (
 
 	#blueprints: (#StatefulWorkloadBlueprint.metadata.fqn): #StatefulWorkloadBlueprint
 
-	res_workload.#Container
-	res_storage.#Volumes
-	tr_workload.#Scaling
-	tr_workload.#RestartPolicy
-	tr_workload.#UpdateStrategy
-	tr_workload.#SidecarContainers
-	tr_workload.#InitContainers
+	res.#Container
+	res.#Volumes
+	tr.#Scaling
+	tr.#RestartPolicy
+	tr.#UpdateStrategy
+	tr.#SidecarContainers
+	tr.#InitContainers
 
 	// Override spec to propagate values from statefulWorkload
 	spec: {

@@ -2,8 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	config_resources "opmodel.dev/modules/opm/resources/config@v1"
+	res "opmodel.dev/modules/opm/resources"
 	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
 )
 
@@ -32,7 +31,7 @@ import (
 
 	// Required resources - Secrets MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/config/secrets@v1": config_resources.#SecretsResource
+		"opmodel.dev/modules/opm/resources/secrets@v1": res.#SecretsResource
 	}
 
 	optionalResources: {}
@@ -72,7 +71,7 @@ import (
 					if _compName != "opm-secrets" {out: "\(_relName)-\(_compName)-\(secret.name)"}
 				}.out
 
-				let _k8sName = (schemas.#SecretImmutableName & {
+				let _k8sName = (res.#SecretImmutableName & {
 					baseName:  _baseName
 					data:      secret.data
 					immutable: secret.immutable

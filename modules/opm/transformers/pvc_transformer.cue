@@ -2,7 +2,7 @@ package transformers
 
 import (
 	c "opmodel.dev/core/v1alpha2@v1"
-	storage_resources "opmodel.dev/modules/opm/resources/storage@v1"
+	res "opmodel.dev/modules/opm/resources"
 	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
 )
 
@@ -24,7 +24,7 @@ import (
 
 	// Required resources - Volumes MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/storage/volumes@v1": storage_resources.#VolumesResource
+		"opmodel.dev/modules/opm/resources/volumes@v1": res.#VolumesResource
 	}
 
 	// No optional resources
