@@ -29,8 +29,7 @@ CUE module: `opmodel.dev/core@v1`
 | `#ModuleRelease` | `v1alpha2/module_release.cue` | #ModuleRelease: The concrete deployment instance Contains: Reference to Module, values, target namespace Users/deployment systems create this to deploy a specific version |
 | `#ModuleReleaseMap` | `v1alpha2/module_release.cue` |  |
 | `#ModuleRegistration` | `v1alpha2/platform.cue` | #ModuleRegistration — single entry in #Platform |
-| `#Platform` | `v1alpha2/platform.cue` | #Platform — strict form |
-| `#PlatformBase` | `v1alpha2/platform.cue` | #PlatformBase — every projection except the multi-fulfiller hard-fail constraint (D13) |
+| `#Platform` | `v1alpha2/platform.cue` | #Platform — registry of registered Modules and their computed projections |
 | `#Resource` | `v1alpha2/resource.cue` | #Resource: Defines a resource of deployment within the system |
 | `#ResourceMap` | `v1alpha2/resource.cue` |  |
 | `#AutoSecrets` | `v1alpha2/schemas.cue` | #AutoSecrets discovers all #Secret instances from a resolved config and groups them by $secretName/$dataKey in one step |

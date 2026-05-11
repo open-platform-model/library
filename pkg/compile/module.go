@@ -69,11 +69,6 @@ type CompileResult struct {
 	// transformer.
 	Unmatched []string
 
-	// Ambiguous is the list of FQNs that resolved to more than one
-	// transformer at the platform-matchers layer (catalog 014 D13 forbids
-	// this; reported defensively).
-	Ambiguous []string
-
 	// Warnings is a list of human-readable advisory messages (e.g. unhandled traits).
 	// A non-empty Warnings slice does NOT indicate failure.
 	Warnings []string
@@ -153,7 +148,6 @@ func (r *Module) Execute(
 		MatchPlan:  plan,
 		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents, binding)),
 		Unmatched:  []string{},
-		Ambiguous:  nonNilStrings(plan.Ambiguous),
 		Warnings:   allWarnings,
 	}, nil
 }
@@ -177,13 +171,6 @@ func nonNilWarnings(warnings []string) []string {
 		return []string{}
 	}
 	return warnings
-}
-
-func nonNilStrings(s []string) []string {
-	if s == nil {
-		return []string{}
-	}
-	return s
 }
 
 // extractComponentSummaries iterates the schemaComponents CUE value and builds

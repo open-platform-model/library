@@ -131,65 +131,43 @@ func executePair(
 		return nil, nil, fmt.Errorf("component %q / transformer %q: evaluating output: %w", compName, tfFQN, err)
 	}
 
+	// #ComponentTransformer.#transform.output is either a single resource
+	// (struct) or a list of resources (list). Dispatch on cue.Kind:
+	//   StructKind → one Compiled, Value = the whole struct verbatim
+	//   ListKind   → one Compiled per item, Value = the list element verbatim
+	// The renderer never inspects fields inside Value — apply-layer code
+	// (binding-specific) is responsible for interpreting the resource shape.
 	releaseName := rel.Metadata.Name
-
-	// Decode the output into rendered items. Two supported forms:
-	//   1. List of items   — cue.ListKind
-	//   2. Map of items    — cue.StructKind keyed by stable id
-	//
-	// Singleton outputs MUST wrap themselves in a one-element list. The
-	// pipeline does not auto-detect singletons because the heuristic
-	// ("apiVersion + kind at root") is k8s-shape-specific and would
-	// misclassify outputs of other platforms (compose service, nomad job,
-	// terraform resource, ...).
 	switch outputVal.Kind() {
-	case cue.ListKind:
-		res, err := collectCompiledList(outputVal, releaseName, compName, tfFQN)
-		return res, warnings, err
 	case cue.StructKind:
-		res, err := collectCompiledMap(outputVal, releaseName, compName, tfFQN)
-		return res, warnings, err
+		return []*core.Compiled{{
+			Value:       outputVal,
+			Release:     releaseName,
+			Component:   compName,
+			Transformer: tfFQN,
+		}}, warnings, nil
+	case cue.ListKind:
+		iter, err := outputVal.List()
+		if err != nil {
+			return nil, nil, fmt.Errorf(
+				"component %q / transformer %q: iterating output list: %w",
+				compName, tfFQN, err,
+			)
+		}
+		var compiled []*core.Compiled
+		for iter.Next() {
+			compiled = append(compiled, &core.Compiled{
+				Value:       iter.Value(),
+				Release:     releaseName,
+				Component:   compName,
+				Transformer: tfFQN,
+			})
+		}
+		return compiled, warnings, nil
 	default:
 		return nil, nil, fmt.Errorf(
-			"component %q / transformer %q: unexpected output kind %s (must be list or struct)",
+			"component %q / transformer %q: unexpected output kind %s (must be struct for a single resource or list for multiple)",
 			compName, tfFQN, outputVal.Kind(),
 		)
 	}
-}
-
-// collectCompiledList wraps each item in a CUE list as a Compiled,
-// keeping the CUE value intact without any intermediate decoding.
-func collectCompiledList(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Compiled, error) {
-	var compiled []*core.Compiled
-	iter, err := v.List()
-	if err != nil {
-		return nil, fmt.Errorf("component %q / transformer %q: iterating output list: %w", compName, tfFQN, err)
-	}
-	for iter.Next() {
-		compiled = append(compiled, &core.Compiled{
-			Value: iter.Value(), Release: releaseName,
-			Component: compName, Transformer: tfFQN,
-		})
-	}
-	return compiled, nil
-}
-
-// collectCompiledMap wraps each field value in a CUE struct as a Compiled,
-// keeping the CUE value intact without any intermediate decoding.
-func collectCompiledMap(v cue.Value, releaseName, compName, tfFQN string) ([]*core.Compiled, error) {
-	var compiled []*core.Compiled
-	iter, err := v.Fields()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"component %q / transformer %q: iterating output map: %w",
-			compName, tfFQN, err,
-		)
-	}
-	for iter.Next() {
-		compiled = append(compiled, &core.Compiled{
-			Value: iter.Value(), Release: releaseName,
-			Component: compName, Transformer: tfFQN,
-		})
-	}
-	return compiled, nil
 }

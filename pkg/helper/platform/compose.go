@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"strings"
 
 	"cuelang.org/go/cue"
 
@@ -31,12 +30,9 @@ type CueContextOwner interface {
 // Inputs are not mutated. Calling Compose twice with the same inputs is
 // idempotent: the returned Platforms are semantically identical.
 //
-// If the composed value violates the multi-fulfiller constraint
-// (catalog 014 D13 — at most one transformer may fulfil any given
-// primitive FQN at the platform layer), Compose returns
-// [*MultiFulfillerError]. The error carries parsed FQN/module/transformer
-// attribution when available; otherwise it wraps the raw CUE diagnostic so
-// callers can still surface it.
+// Transformer-FQN collisions across registered Modules unify naturally at
+// the #composedTransformers map: identical bodies are no-ops, divergent
+// bodies surface as a CUE evaluation error that Compose returns verbatim.
 //
 // The shell Platform's APIVersion field selects the binding used to
 // resolve the registry path; bindings missing the v1alpha2-equivalent
@@ -73,9 +69,6 @@ func Compose(owner CueContextOwner, shell *pkgplatform.Platform, modules []*modu
 	}
 
 	if err := composed.Validate(cue.Concrete(false)); err != nil {
-		if mf := classifyMultiFulfiller(err); mf != nil {
-			return nil, mf
-		}
 		return nil, fmt.Errorf("composing platform: %w", err)
 	}
 
@@ -91,26 +84,4 @@ func Compose(owner CueContextOwner, shell *pkgplatform.Platform, modules []*modu
 func buildRegistration(ctx *cue.Context, modVal cue.Value) cue.Value {
 	base := ctx.CompileString(`enabled: true`)
 	return base.FillPath(cue.MakePath(cue.Def("module")), modVal)
-}
-
-// classifyMultiFulfiller inspects a CUE evaluation error for the signature
-// of catalog 014's _noMultiFulfiller hard-fail constraint. A positive match
-// returns a [*MultiFulfillerError] wrapping the raw error; structured
-// attribution (FQN, modules, transformers) is left empty when the diagnostic
-// does not carry enough surface to extract them safely. Returns nil when
-// the error is not a multi-fulfiller violation.
-//
-// The detection is intentionally conservative: catalog 014 names the
-// constraint _noMultiFulfiller and the resulting diagnostic includes that
-// field name in the failure path. Frontends that need richer attribution
-// can re-evaluate against #PlatformBase (which exposes #matchers._invalid
-// without the constraint short-circuit), but that is out of scope here.
-func classifyMultiFulfiller(err error) *MultiFulfillerError {
-	if err == nil {
-		return nil
-	}
-	if !strings.Contains(err.Error(), "_noMultiFulfiller") {
-		return nil
-	}
-	return &MultiFulfillerError{rawErr: err}
 }

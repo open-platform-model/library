@@ -43,36 +43,35 @@ import (
 		// Extract required Volumes resource (will be bottom if not present)
 		_volumes: #component.spec.volumes
 
-		// Generate PVC for each volume that has a persistentClaim defined
-		output: {
+		// Emit one PVC per volume that declares a persistentClaim. Output is
+		// a list of resources; the renderer dispatches on cue.Kind and
+		// produces one Compiled per list element.
+		output: [
 			for volumeName, volume in _volumes if volume.persistentClaim != _|_ {
-				"\(volumeName)": k8scorev1.#PersistentVolumeClaim & {
+				k8scorev1.#PersistentVolumeClaim & {
 					apiVersion: "v1"
 					kind:       "PersistentVolumeClaim"
 					metadata: {
 						name:      "\(#context.#moduleReleaseMetadata.name)-\(#context.#componentMetadata.name)-\(volumeName)"
 						namespace: #context.#moduleReleaseMetadata.namespace
 						labels:    #context.labels
-						// Include component annotations if present
 						if len(#context.componentAnnotations) > 0 {
 							annotations: #context.componentAnnotations
 						}
 					}
 					spec: {
-						// accessMode is singular in schema, K8s expects accessModes array
 						accessModes: [volume.persistentClaim.accessMode | *"ReadWriteOnce"]
 						resources: {
 							requests: {
 								storage: volume.persistentClaim.size
 							}
 						}
-
 						if volume.persistentClaim.storageClass != _|_ {
 							storageClassName: volume.persistentClaim.storageClass
 						}
 					}
 				}
-			}
-		}
+			},
+		]
 	}
 }

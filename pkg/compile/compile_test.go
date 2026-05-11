@@ -131,7 +131,7 @@ type: "kubernetes"
 // TestMatch_MultiCandidateDisambiguatedByLabels exercises the predicate-bucket
 // matcher: two transformers compete for the same resource FQN but are gated by
 // different requiredLabels. Each component carries one of those labels and must
-// match exactly one transformer; neither FQN may surface as Ambiguous.
+// match exactly one transformer.
 func TestMatch_MultiCandidateDisambiguatedByLabels(t *testing.T) {
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
@@ -193,7 +193,6 @@ type: "kubernetes"
 	require.NoError(t, err)
 	require.NotNil(t, plan)
 
-	assert.Empty(t, plan.Ambiguous, "predicates fully disambiguate; nothing should land in Ambiguous")
 	assert.Empty(t, plan.Unmatched, "every component should match exactly one transformer")
 
 	pairs := plan.MatchedPairs()
@@ -206,11 +205,12 @@ type: "kubernetes"
 	assert.Equal(t, "example.com/p/deployment@v0", got["web"])
 }
 
-// TestMatch_AmbiguousFQN exercises the defensive multi-fulfiller check.
-// Catalog 014 D13 forbids more than one transformer per FQN at the platform
-// layer; if a hand-built Platform somehow violates that, the matcher must
-// flag the FQN as ambiguous and not pair the component with any candidate.
-func TestMatch_AmbiguousFQN(t *testing.T) {
+// TestMatch_TwoTransformersPairBoth verifies that when two transformers
+// share a required resource FQN and the component satisfies both predicates,
+// the matcher pairs both. (Same-transformer-FQN collisions are caught
+// upstream by CUE map unification on #composedTransformers; this test
+// covers the legitimate multi-candidate case the schema now allows.)
+func TestMatch_TwoTransformersPairBoth(t *testing.T) {
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
 apiVersion: "opmodel.dev/v1alpha2"
@@ -266,12 +266,19 @@ type: "kubernetes"
 	plan, err := compile.Match(components, plat, b)
 	require.NoError(t, err)
 	require.NotNil(t, plan)
-	assert.Contains(t, plan.Ambiguous, "example.com/r/echo@v0",
-		"ambiguous FQN must surface in MatchPlan.Ambiguous")
-	assert.Empty(t, plan.MatchedPairs(),
-		"ambiguous FQN must not produce a matched pair")
-	assert.Contains(t, plan.Unmatched, "web",
-		"component with only ambiguous demand resolves to no matched transformer")
+
+	assert.Empty(t, plan.Unmatched, "component matched at least one transformer")
+
+	got := map[string]struct{}{}
+	for _, p := range plan.MatchedPairs() {
+		if p.ComponentName == "web" {
+			got[p.TransformerFQN] = struct{}{}
+		}
+	}
+	assert.Contains(t, got, "example.com/p/a@v0",
+		"transformer a should pair with web")
+	assert.Contains(t, got, "example.com/p/b@v0",
+		"transformer b should pair with web")
 }
 
 // keep a reference to cue.Value to silence unused-import warnings in builds
@@ -346,12 +353,12 @@ type: "kubernetes"
 		#transform: {
 			#component: _
 			#context:   _
-			output: [{
+			output: {
 				kind: "echo"
 				runtime: #context.#runtimeName
 				release: #context.#moduleReleaseMetadata.name
 				component: #context.#componentMetadata.name
-			}]
+			}
 		}
 	}
 }

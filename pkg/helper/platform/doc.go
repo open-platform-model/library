@@ -16,13 +16,10 @@
 // composing the same (shell, modules) twice yields semantically identical
 // Platforms.
 //
-// Multi-fulfiller violations (catalog 014 D13: at most one transformer
-// per primitive FQN) surface as *MultiFulfillerError. Frontends format
-// this for users (CLI prose, operator status conditions, XR composition
-// status). When the underlying CUE diagnostic carries enough structure
-// to pinpoint the offending FQN and contributing Modules, those fields
-// are populated; otherwise the raw CUE error is preserved via Unwrap so
-// callers can still display it.
+// Transformer-FQN collisions across registered Modules unify naturally
+// at #composedTransformers (the map is keyed by transformer FQN; identical
+// bodies are no-ops, divergent bodies fail unification). Compose returns
+// the underlying CUE diagnostic when this happens.
 //
 // ID scheme: per catalog 014 D16, registry keys are kebab-case
 // (#NameType). Compose uses each Module's metadata.name as the registry

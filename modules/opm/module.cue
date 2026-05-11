@@ -16,7 +16,7 @@ m.#Module
 metadata: {
 	modulePath:  "opmodel.dev/modules"
 	name:        "opm"
-	version:     "1.0.0"
+	version:     "1.0.4"
 	description: "OPM core catalog — Resources, Traits, Blueprints, and ComponentTransformers published via #defines"
 }
 

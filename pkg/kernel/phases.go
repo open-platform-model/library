@@ -100,14 +100,13 @@ func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
 		MatchPlan:  out.MatchPlan,
 		Components: nonNilComponentSummaries(out.Components),
 		Unmatched:  nonNilStrings(out.Unmatched),
-		Ambiguous:  nonNilStrings(out.Ambiguous),
 		Warnings:   nonNilStrings(out.Warnings),
 	}, nil
 }
 
 // Compile runs the full pipeline (Validate + Match + Execute + Finalize)
 // and returns a [*CompileResult] containing rendered values, component
-// summaries, unmatched FQNs, ambiguous FQNs, and warnings.
+// summaries, unmatched FQNs, and warnings.
 //
 // The Tier-2 #config schema validation is sourced from the embedded #module
 // reference on `in.ModuleRelease.Package` (see [module.Release.ConfigSchema]).

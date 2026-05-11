@@ -1,7 +1,6 @@
 package platform_test
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -43,25 +42,11 @@ type: "kubernetes"
 
 // makeComputingShell returns a Platform whose #composedTransformers and
 // #matchers are CUE comprehensions reading from registered Modules'
-// #defines.transformers map. Mirrors catalog 014's #PlatformBase enough
-// to exercise view recomputation after FillPath.
+// #defines.transformers map. Mirrors the schema's #Platform enough to
+// exercise view recomputation after FillPath.
 func makeComputingShell(t *testing.T, k *kernel.Kernel) *pkgplatform.Platform {
 	t.Helper()
 	v := k.CueContext().CompileString(computingShellSrc)
-	require.NoError(t, v.Err())
-	p, err := pkgplatform.NewPlatformFromValue(k, v)
-	require.NoError(t, err)
-	return p
-}
-
-// makeStrictShell extends makeComputingShell with the catalog 014
-// _noMultiFulfiller hard-fail constraint so multi-fulfiller violations
-// surface as CUE errors classifyMultiFulfiller can detect.
-func makeStrictShell(t *testing.T, k *kernel.Kernel) *pkgplatform.Platform {
-	t.Helper()
-	v := k.CueContext().CompileString(computingShellSrc + `
-#matchers: _noMultiFulfiller: 0 & len(#matchers._invalid.resources)
-`)
 	require.NoError(t, v.Err())
 	p, err := pkgplatform.NewPlatformFromValue(k, v)
 	require.NoError(t, err)
@@ -114,9 +99,6 @@ type: "kubernetes"
 	}
 	resources: _resourceCandidates
 	traits: {}
-	_invalid: {
-		resources: [for fqn, ts in _resourceCandidates if len(ts) > 1 {fqn}]
-	}
 }
 `
 
@@ -227,12 +209,13 @@ func TestCompose_TwoDisjointModules(t *testing.T) {
 	}
 }
 
-// TestCompose_MultiFulfillerError asserts that two modules claiming the
-// same primitive FQN trigger a *MultiFulfillerError under the strict
-// shell's _noMultiFulfiller constraint.
-func TestCompose_MultiFulfillerError(t *testing.T) {
+// TestCompose_TwoModulesSharingResourceFQN_Compose asserts that two
+// modules whose transformers both require the same resource FQN compose
+// successfully. The runtime matcher resolves which transformers actually
+// fire by predicate at match time; the helper does not pre-empt that.
+func TestCompose_TwoModulesSharingResourceFQN_Compose(t *testing.T) {
 	k := kernel.New()
-	shell := makeStrictShell(t, k)
+	shell := makeComputingShell(t, k)
 	a := makeModule(t, k, "mod-a", map[string][]string{
 		"example.com/p/a@v0": {"example.com/r/echo@v0"},
 	})
@@ -241,21 +224,15 @@ func TestCompose_MultiFulfillerError(t *testing.T) {
 	})
 
 	got, err := helperplatform.Compose(k, shell, []*module.Module{a, b})
-	require.Error(t, err)
-	assert.Nil(t, got, "no partial Platform on multi-fulfiller failure")
+	require.NoError(t, err)
+	require.NotNil(t, got)
 
-	var mf *helperplatform.MultiFulfillerError
-	require.True(t, errors.As(err, &mf),
-		"want *MultiFulfillerError in chain, got %T (%v)", err, err)
-
-	// Structured attribution fields MAY be empty per the spec — classification
-	// falls back to wrapping the raw CUE diagnostic when extraction is not
-	// safely possible. Unwrap exposes that diagnostic so frontends can still
-	// surface it.
-	wrapped := errors.Unwrap(mf)
-	require.NotNil(t, wrapped, "wrapped CUE diagnostic must be reachable via Unwrap")
-	assert.Contains(t, wrapped.Error(), "_noMultiFulfiller",
-		"raw CUE diagnostic should mention the multi-fulfiller constraint")
+	composed := got.Package.LookupPath(cue.ParsePath("#composedTransformers"))
+	require.True(t, composed.Exists())
+	for _, tfqn := range []string{"example.com/p/a@v0", "example.com/p/b@v0"} {
+		assert.True(t, composed.LookupPath(cue.MakePath(cue.Str(tfqn))).Exists(),
+			"transformer %q must appear in #composedTransformers", tfqn)
+	}
 }
 
 // TestCompose_Idempotency confirms two Compose calls with the same inputs

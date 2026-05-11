@@ -46,11 +46,6 @@ var schemaCases = []schemaCase{
 		fixture: "platform_matchers_fixture.cue",
 	},
 	{
-		name:        "multi_fulfiller_violates_no_multi_fulfiller",
-		fixture:     "multi_fulfiller_fixture.cue",
-		expectError: `_noMultiFulfiller`,
-	},
-	{
 		name:        "fqn_collision_across_modules_bottoms",
 		fixture:     "fqn_collision_fixture.cue",
 		expectError: `conflicting values`,
@@ -58,7 +53,7 @@ var schemaCases = []schemaCase{
 
 	// ── Tier 1 (add-cue-schema-test-coverage) ────────────────────────────
 	{
-		name:    "predicate_distinct_labels_keeps_invalid_empty",
+		name:    "distinct_predicates_share_resource_fqn_as_separate_candidates",
 		fixture: "predicate_distinct_labels_fixture.cue",
 	},
 	{
@@ -90,11 +85,6 @@ var schemaCases = []schemaCase{
 	{
 		name:    "trait_matchers_projects_single_candidate",
 		fixture: "trait_matchers_fixture.cue",
-	},
-	{
-		name:        "multi_fulfiller_traits_violates_no_multi_fulfiller",
-		fixture:     "multi_fulfiller_traits_fixture.cue",
-		expectError: `_noMultiFulfiller`,
 	},
 	{
 		name:        "type_regex_rejects_uppercase_name",

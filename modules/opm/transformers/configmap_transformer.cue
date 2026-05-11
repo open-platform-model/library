@@ -44,19 +44,19 @@ import (
 		let _relName = #context.#moduleReleaseMetadata.name
 		let _compName = #context.#componentMetadata.name
 
-		// Generate a K8s ConfigMap for each entry in the map
-		output: {
-			for _cmName, cm in _configMaps {
-				// Compute the deterministic K8s resource name:
-				//   {releaseName}-{componentName}-{cm.name}[-{contenthash}]
-				let _baseName = "\(_relName)-\(_compName)-\(cm.name)"
-				let _k8sName = (res.#ImmutableName & {
-					baseName:  _baseName
-					data:      cm.data
-					immutable: cm.immutable
-				}).out
-
-				"\(_k8sName)": k8scorev1.#ConfigMap & {
+		// Emit one K8s ConfigMap per entry in the component's configMaps map.
+		// Output is a list of resources; the renderer dispatches on cue.Kind
+		// (see apis/core/v1alpha2/transformer.cue) and produces one Compiled
+		// per list element.
+		output: [
+			for _, cm in _configMaps
+			let _baseName = "\(_relName)-\(_compName)-\(cm.name)"
+			let _k8sName = (res.#ImmutableName & {
+				baseName:  _baseName
+				data:      cm.data
+				immutable: cm.immutable
+			}).out {
+				k8scorev1.#ConfigMap & {
 					apiVersion: "v1"
 					kind:       "ConfigMap"
 					metadata: {
@@ -72,7 +72,7 @@ import (
 					}
 					data: cm.data
 				}
-			}
-		}
+			},
+		]
 	}
 }

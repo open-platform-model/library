@@ -101,12 +101,12 @@ type: "kubernetes"
 		#transform: {
 			#component: _
 			#context:   _
-			output: [{
+			output: {
 				kind: "echo"
 				runtime: #context.#runtimeName
 				release: #context.#moduleReleaseMetadata.name
 				component: #context.#componentMetadata.name
-			}]
+			}
 		}
 	}
 }
@@ -242,7 +242,6 @@ func TestKernel_Plan_NoRendered(t *testing.T) {
 	require.Len(t, out.Components, 1)
 	assert.Equal(t, "web", out.Components[0].Name)
 	assert.Empty(t, out.Unmatched)
-	assert.NotNil(t, out.Ambiguous)
 }
 
 func TestKernel_Plan_RequiresInputs(t *testing.T) {

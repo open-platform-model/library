@@ -3,17 +3,17 @@
 // Positive case: a #ModuleRegistration whose `enabled: false` MUST suppress
 // every projection of its primitives — none of its #defines surface in
 // #knownResources, #knownTraits, or #composedTransformers (guards at
-// platform.cue:62, 73, 84). To prove the suppression really fires, the
-// disabled module carries the multi-fulfiller payload that would otherwise
-// trigger _noMultiFulfiller. A second, enabled module supplies a benign
-// transformer so the resulting platform is non-trivial.
+// platform.cue:62, 73, 84). The disabled module carries a small payload
+// (two transformers + a resource) to make the suppression observable; a
+// second, enabled module supplies a benign transformer so the resulting
+// platform is non-trivial.
 package fixtures
 
 import (
 	core "opmodel.dev/core/v1alpha2@v1"
 )
 
-// ── Disabled module: would fail _noMultiFulfiller if enabled ─────────────
+// ── Disabled module: suppressed payload ──────────────────────────────────
 _disabledResource: {
 	core.#Resource
 	metadata: {
@@ -45,7 +45,7 @@ _disabledTransformerB: {
 		name:        "ghost-beta"
 		modulePath:  "example.com/t"
 		version:     "v0"
-		description: "identical predicate signature to ghost-alpha"
+		description: "second transformer in the disabled module"
 	}
 	requiredResources: "example.com/r/ghost@v1": _disabledResource
 	#transform: {
@@ -124,16 +124,10 @@ input: {
 
 // The disabled module's ghost resource and ghost-{alpha,beta} transformers
 // MUST NOT appear in any projection. Only the enabled module's primitives
-// surface. _noMultiFulfiller is 0 because the multi-fulfiller transformers
-// were filtered out at the projection guard, never reaching _predicateSignature.
+// surface.
 expect: {
 	#matchers: {
 		resources: "example.com/r/visible@v1": [_]
 		traits: {}
-		_invalid: {
-			resources: []
-			traits: []
-		}
-		_noMultiFulfiller: 0
 	}
 }

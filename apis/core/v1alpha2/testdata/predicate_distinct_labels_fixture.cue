@@ -1,12 +1,10 @@
 @if(test)
 
 // Positive case: two #ComponentTransformers require the SAME resource FQN but
-// differ in `requiredLabels` ({tier: "prod"} vs {tier: "dev"}). Per
-// _predicateSignature in apis/core/v1alpha2/platform.cue:142-160, distinct
-// labelParts produce distinct signatures, so #matchers._invalid stays empty
-// even though both transformers appear in #matchers.resources for the same
-// FQN. This proves the design claim at platform.cue:163-166: "Shared FQNs
-// across candidates with *different* predicates are fine."
+// differ in `requiredLabels` ({tier: "prod"} vs {tier: "dev"}). Both appear in
+// #matchers.resources as candidates for the shared FQN — the runtime matcher
+// is responsible for evaluating each candidate's predicate against the
+// component at match time.
 package fixtures
 
 import (
@@ -78,17 +76,10 @@ input: {
 	#registry: "distinct-predicate-module": #module: _module
 }
 
-// Both transformers appear as candidates for the shared FQN; _invalid stays
-// empty because their predicate signatures differ ("tier=prod;" vs "tier=dev;");
-// _noMultiFulfiller therefore evaluates to 0 and unifies cleanly.
+// Both transformers appear as candidates for the shared FQN.
 expect: {
 	#matchers: {
 		resources: "example.com/r/thing@v1": [_, _]
 		traits: {}
-		_invalid: {
-			resources: []
-			traits: []
-		}
-		_noMultiFulfiller: 0
 	}
 }

@@ -1,11 +1,10 @@
 @if(test)
 
 // Positive case: symmetric to platform_matchers_fixture.cue but exercises
-// the TRAITS branch of #PlatformBase.#matchers. A single #ComponentTransformer
+// the TRAITS branch of #Platform.#matchers. A single #ComponentTransformer
 // requires one #Trait FQN. #matchers.traits["…@v1"] should contain one
-// candidate; resources side stays empty; _invalid is empty; _noMultiFulfiller
-// evaluates to 0. Catches edits to the resource projection (platform.cue:60-69)
-// that forget the trait twin (platform.cue:71-80).
+// candidate; resources side stays empty. Catches edits to the resource
+// projection that forget the trait twin.
 package fixtures
 
 import (
@@ -72,10 +71,5 @@ expect: {
 	#matchers: {
 		resources: {}
 		traits: "example.com/tr/scaling@v1": [_]
-		_invalid: {
-			resources: []
-			traits: []
-		}
-		_noMultiFulfiller: 0
 	}
 }

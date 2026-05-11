@@ -71,14 +71,24 @@ import (
 	producesKinds?: [...string]
 
 	// Transform function. The runtime supplies all three inputs concretely (D18).
-	// IMPORTANT: output must be a single resource.
+	//
+	// output is either a single resource (struct) or a list of resources
+	// (list). The renderer dispatches on cue.Kind:
+	//   StructKind → one Compiled per (component, transformer) pair; the
+	//                whole struct is the resource.
+	//   ListKind   → one Compiled per list item; each item is one resource.
+	// The renderer never inspects fields inside the value — apply-layer code
+	// interprets the resource shape. Transformers that emit a fixed number
+	// of resources should use a struct; transformers that emit N resources
+	// derived from a component-side map (e.g. ConfigMaps, Secrets, PVCs)
+	// should use a list comprehension.
 	#transform: {
 		#moduleRelease: _ // Fully concrete #ModuleRelease (D18)
 
 		#component: _ // Unconstrained; validated by matching, not by the transform signature
 		#context:   #TransformerContext
 
-		output: {...} // Must be a single provider-specific resource
+		output: {...} | [...{...}]
 	}
 }
 

@@ -36,3 +36,4 @@ go.work.sum
 
 # Dev
 out.cue
+./flow-inspect

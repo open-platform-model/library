@@ -3,11 +3,15 @@
 // Match walks each consumer Module component, collects the union of resource
 // and trait FQNs the component declares (component.#resources keys ∪
 // component.#traits keys), and looks each demanded FQN up in
-// Platform.#matchers.{resources, traits}. The lookup is reverse-indexed by
-// catalog enhancement 014's #PlatformMatch construct: matchers[FQN] yields
-// the (single) transformer FQN that publishes that primitive on the platform.
-// Catalog 014 D13 forbids multi-fulfiller at the platform layer; this matcher
-// keeps a defensive ambiguity check anyway.
+// Platform.#matchers.{resources, traits}. The reverse index is built by the
+// schema at apis/core/v1alpha2/platform.cue: matchers[FQN] yields the list
+// of transformers that require that primitive FQN.
+//
+// Multiple candidates per FQN are normal. The matcher evaluates each
+// candidate's predicate (requiredLabels ∧ requiredResources ∧ requiredTraits)
+// against the component context and pairs every survivor. Same-FQN
+// transformer collisions are caught upstream by CUE map unification on
+// #composedTransformers.
 //
 // Located transformer bodies live in Platform.#composedTransformers[tfFQN];
 // requiredLabels matching against component metadata.labels still applies
@@ -41,7 +45,6 @@ type MatchResult struct {
 type MatchPlan struct {
 	Matches         map[string]map[string]MatchResult
 	Unmatched       []string
-	Ambiguous       []string
 	UnhandledTraits map[string][]string
 }
 
@@ -85,7 +88,6 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 	if err != nil {
 		return nil, fmt.Errorf("iterating components: %w", err)
 	}
-	ambiguousSet := map[string]struct{}{}
 
 	for compIter.Next() {
 		compName := compIter.Selector().Unquoted()
@@ -100,32 +102,31 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 		matched := map[string]struct{}{}
 		traitHandled := map[string]struct{}{}
 
-		// Resource demand walk.
+		// Resource demand walk. Every transformer whose predicate is satisfied
+		// by the component pairs; matched is keyed by transformer FQN so the
+		// trait walk below idempotently dedupes.
 		for _, fqn := range resources {
-			tfFQN, status := lookupCandidate(matchersResources, fqn, paths, labels, resourceSet, traitSet)
-			switch status {
-			case candidateAmbiguous:
-				ambiguousSet[fqn] = struct{}{}
-			case candidateMissing:
-				// Record component-level missing-resource diagnostic keyed by FQN.
+			survivors := lookupCandidates(matchersResources, fqn, paths, labels, resourceSet, traitSet)
+			if len(survivors) == 0 {
 				plan.Matches[compName][fqn] = MatchResult{MissingResources: []string{fqn}}
-			case candidateFound:
+				continue
+			}
+			for _, tfFQN := range survivors {
 				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
 			}
 		}
 
 		// Trait demand walk.
 		for _, fqn := range traits {
-			tfFQN, status := lookupCandidate(matchersTraits, fqn, paths, labels, resourceSet, traitSet)
-			switch status {
-			case candidateAmbiguous:
-				ambiguousSet[fqn] = struct{}{}
-			case candidateMissing:
+			survivors := lookupCandidates(matchersTraits, fqn, paths, labels, resourceSet, traitSet)
+			if len(survivors) == 0 {
 				plan.Matches[compName][fqn] = MatchResult{MissingTraits: []string{fqn}}
-			case candidateFound:
-				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
-				traitHandled[fqn] = struct{}{}
+				continue
 			}
+			for _, tfFQN := range survivors {
+				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
+			}
+			traitHandled[fqn] = struct{}{}
 		}
 
 		if len(matched) == 0 {
@@ -147,53 +148,38 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 		sort.Strings(plan.UnhandledTraits[compName])
 	}
 
-	for fqn := range ambiguousSet {
-		plan.Ambiguous = append(plan.Ambiguous, fqn)
-	}
-	sort.Strings(plan.Ambiguous)
 	sort.Strings(plan.Unmatched)
 	return plan, nil
 }
 
-// candidateStatus encodes the three outcomes of matchers[FQN] lookup.
-type candidateStatus int
-
-const (
-	candidateMissing candidateStatus = iota
-	candidateFound
-	candidateAmbiguous
-)
-
-// lookupCandidate reads matchersIndex[FQN] and filters the candidate list by
-// whether each candidate's full match predicate (requiredLabels ∧
+// lookupCandidates reads matchersIndex[FQN] and returns the FQNs of every
+// transformer in the bucket whose predicate (requiredLabels ∧
 // requiredResources ∧ requiredTraits) is satisfied by the supplied component
-// context. With the predicate-bucket invariant in apis/core/v1alpha2/platform.cue,
-// a single FQN may legitimately have multiple candidates; the runtime picks the
-// single candidate whose predicate matches the component. Returns:
-//   - candidateFound + transformer FQN when exactly one candidate survives,
-//   - candidateMissing when no candidate's predicate is satisfied,
-//   - candidateAmbiguous when more than one candidate's predicate is satisfied
-//     (genuine collision — the schema invariant should have caught this).
-func lookupCandidate(
+// context. Multiple satisfied candidates are legitimate — they describe
+// independent transformers that all fire for the component.
+//
+// Empty result means no candidate's predicate fits; the caller treats that
+// as a missing-resource / missing-trait diagnostic.
+func lookupCandidates(
 	matchersIndex cue.Value,
 	fqn string,
 	paths api.Paths,
 	compLabels map[string]struct{},
 	compResources map[string]struct{},
 	compTraits map[string]struct{},
-) (string, candidateStatus) {
+) []string {
 	if !matchersIndex.Exists() {
-		return "", candidateMissing
+		return nil
 	}
 	entry := matchersIndex.LookupPath(cue.MakePath(cue.Str(fqn)))
 	if !entry.Exists() {
-		return "", candidateMissing
+		return nil
 	}
 	switch entry.Kind() {
 	case cue.ListKind:
 		iter, err := entry.List()
 		if err != nil {
-			return "", candidateMissing
+			return nil
 		}
 		var survivors []string
 		for iter.Next() {
@@ -207,22 +193,15 @@ func lookupCandidate(
 			}
 			survivors = append(survivors, tfFQN)
 		}
-		switch len(survivors) {
-		case 0:
-			return "", candidateMissing
-		case 1:
-			return survivors[0], candidateFound
-		default:
-			return "", candidateAmbiguous
-		}
+		return survivors
 	case cue.StringKind:
 		s, err := entry.String()
 		if err != nil {
-			return "", candidateMissing
+			return nil
 		}
-		return s, candidateFound
+		return []string{s}
 	default:
-		return "", candidateMissing
+		return nil
 	}
 }
 

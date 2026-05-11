@@ -22,10 +22,6 @@ type PlanResult struct {
 	// Unmatched is the list of component FQNs with no matching transformer.
 	Unmatched []string
 
-	// Ambiguous is the list of component FQNs that matched more than one
-	// transformer in a way that requires caller resolution.
-	Ambiguous []string
-
 	// Warnings is a list of human-readable advisory messages (e.g.
 	// unhandled traits). A non-empty Warnings slice does NOT indicate
 	// failure.

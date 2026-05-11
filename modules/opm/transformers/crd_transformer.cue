@@ -37,10 +37,12 @@ import (
 
 		_crds: #component.spec.crds
 
-		// Generate a K8s CustomResourceDefinition for each entry in the map
-		output: {
+		// Emit one K8s CustomResourceDefinition per entry in the component's
+		// crds map. Output is a list of resources; the renderer dispatches
+		// on cue.Kind and produces one Compiled per list element.
+		output: [
 			for crdName, crd in _crds {
-				"\(crdName)": k8sapiextv1.#CustomResourceDefinition & {
+				k8sapiextv1.#CustomResourceDefinition & {
 					apiVersion: "apiextensions.k8s.io/v1"
 					kind:       "CustomResourceDefinition"
 					metadata: {
@@ -66,7 +68,7 @@ import (
 						versions: crd.versions
 					}
 				}
-			}
-		}
+			},
+		]
 	}
 }

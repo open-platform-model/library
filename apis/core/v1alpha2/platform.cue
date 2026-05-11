@@ -1,10 +1,5 @@
 package v1alpha2
 
-import (
-	"list"
-	"strings"
-)
-
 // #ModuleRegistration — single entry in #Platform.#registry.
 // Pure projection of "this Module's primitives are visible on this platform".
 // Carries no install metadata (014 D11). enabled: false hides every projection
@@ -30,11 +25,15 @@ import (
 	}
 }
 
-// #PlatformBase — every projection except the multi-fulfiller hard-fail
-// constraint (D13). Used by tests that need to inspect #matchers._invalid as
-// a diagnostic surface (the strict #Platform definition would short-circuit
-// to _|_ before a test could read _invalid). Production callers use #Platform.
-#PlatformBase: {
+// #Platform — registry of registered Modules and their computed projections.
+//
+// Collisions on transformer FQN are caught by CUE map unification at
+// #composedTransformers (the map is keyed by FQN; two definitions at the
+// same key unify, identical bodies are no-ops, divergent bodies fail
+// evaluation). Multiple transformers legitimately requiring the same
+// resource/trait FQN is allowed and resolved by the runtime matcher's
+// predicate evaluation.
+#Platform: {
 	apiVersion: #ApiVersion
 	kind:       "Platform"
 
@@ -89,13 +88,12 @@ import (
 		}
 	}
 
-	// ---- Match index (D12) ----
+	// ---- Match index ----
 	//
-	// Pre-compute candidate maps as `let` bindings so the _invalid projection
-	// can iterate them directly. Iterating the published fields (resources,
-	// traits) fails with "incomplete type list" because the field type is
-	// `[FQN]: [...#ComponentTransformer]` — an open value-list — which CUE
-	// refuses to range over.
+	// Reverse index from primitive FQN → list of transformers that require
+	// that FQN. Multiple candidates per FQN is normal — the runtime matcher
+	// evaluates each candidate's predicate against the component and pairs
+	// every survivor.
 	#matchers: {
 		let _resourceFqns = {
 			for _, t in #composedTransformers
@@ -133,60 +131,5 @@ import (
 
 		resources: {[FQN=string]: [...#ComponentTransformer]} & _resourceCandidates
 		traits: {[FQN=string]: [...#ComponentTransformer]} & _traitCandidates
-
-		// Per-transformer match-predicate signature. Two transformers with the
-		// same signature have indistinguishable match domains — a Component
-		// matching one would match the other. Sorted "k=v" label pairs and
-		// sorted required-trait FQNs make the signature deterministic and
-		// equality-comparable as a plain string.
-		let _predicateSignature = {
-			for _, t in #composedTransformers {
-				(t.metadata.fqn): {
-					labelPart: strings.Join([
-						if t.requiredLabels != _|_
-						for k in list.Sort([for k, _ in t.requiredLabels {k}], list.Ascending) {
-							"\(k)=\(t.requiredLabels[k])"
-						},
-					], ",")
-					traitPart: strings.Join([
-						if t.requiredTraits != _|_
-						for fqn in list.Sort([for fqn, _ in t.requiredTraits {fqn}], list.Ascending) {
-							fqn
-						},
-					], ",")
-					sig: "\(labelPart);\(traitPart)"
-				}
-			}
-		}
-
-		// Diagnostic surface — flags FQNs where two candidate transformers
-		// share an identical match predicate. Shared FQNs across candidates
-		// with *different* predicates are fine (e.g. all workload transformers
-		// require container@v1 but each is gated by a unique workload-type
-		// label, so no Component can match more than one).
-		_invalid: {
-			resources: [
-				for fqn, ts in _resourceCandidates if len(ts) > 1
-				let _sigs = [for t in ts {_predicateSignature[t.metadata.fqn].sig}]
-				if len([for i, a in _sigs for j, b in _sigs if j > i if a == b {1}]) > 0 {
-					fqn
-				},
-			]
-			traits: [
-				for fqn, ts in _traitCandidates if len(ts) > 1
-				let _sigs = [for t in ts {_predicateSignature[t.metadata.fqn].sig}]
-				if len([for i, a in _sigs for j, b in _sigs if j > i if a == b {1}]) > 0 {
-					fqn
-				},
-			]
-		}
 	}
-}
-
-// #Platform — strict form. Adds the multi-fulfiller hard-fail constraint (D13).
-// Use this for production schemas; use #PlatformBase only when a test needs to
-// inspect _invalid before the constraint short-circuits.
-#Platform: #PlatformBase & {
-	#matchers: _noMultiFulfiller: 0 & (len(#matchers._invalid.resources) +
-		len(#matchers._invalid.traits))
 }

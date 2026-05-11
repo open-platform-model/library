@@ -61,73 +61,71 @@ import (
 			}
 		}
 
-		output: {
+		// Emit the (Role|ClusterRole) + (RoleBinding|ClusterRoleBinding) pair
+		// based on scope. Output is a list of resources; the renderer
+		// dispatches on cue.Kind and produces one Compiled per list element.
+		output: [
 			if _role.scope == "namespace" {
-				"Role/\(_role.name)": {
-					apiVersion: "rbac.authorization.k8s.io/v1"
-					kind:       "Role"
-					metadata: {
-						name:      _role.name
-						namespace: #context.#moduleReleaseMetadata.namespace
-						labels:    _commonLabels
-						if len(_commonAnnotations) > 0 {
-							annotations: _commonAnnotations
-						}
+				apiVersion: "rbac.authorization.k8s.io/v1"
+				kind:       "Role"
+				metadata: {
+					name:      _role.name
+					namespace: #context.#moduleReleaseMetadata.namespace
+					labels:    _commonLabels
+					if len(_commonAnnotations) > 0 {
+						annotations: _commonAnnotations
 					}
-					rules: _k8sRules
 				}
-				"RoleBinding/\(_role.name)": {
-					apiVersion: "rbac.authorization.k8s.io/v1"
-					kind:       "RoleBinding"
-					metadata: {
-						name:      _role.name
-						namespace: #context.#moduleReleaseMetadata.namespace
-						labels:    _commonLabels
-						if len(_commonAnnotations) > 0 {
-							annotations: _commonAnnotations
-						}
+				rules: _k8sRules
+			},
+			if _role.scope == "namespace" {
+				apiVersion: "rbac.authorization.k8s.io/v1"
+				kind:       "RoleBinding"
+				metadata: {
+					name:      _role.name
+					namespace: #context.#moduleReleaseMetadata.namespace
+					labels:    _commonLabels
+					if len(_commonAnnotations) > 0 {
+						annotations: _commonAnnotations
 					}
-					roleRef: {
-						apiGroup: "rbac.authorization.k8s.io"
-						kind:     "Role"
-						name:     _role.name
-					}
-					subjects: _k8sSubjects
 				}
-			}
-
+				roleRef: {
+					apiGroup: "rbac.authorization.k8s.io"
+					kind:     "Role"
+					name:     _role.name
+				}
+				subjects: _k8sSubjects
+			},
 			if _role.scope == "cluster" {
-				"ClusterRole/\(_role.name)": {
-					apiVersion: "rbac.authorization.k8s.io/v1"
-					kind:       "ClusterRole"
-					metadata: {
-						name:   _role.name
-						labels: _commonLabels
-						if len(_commonAnnotations) > 0 {
-							annotations: _commonAnnotations
-						}
+				apiVersion: "rbac.authorization.k8s.io/v1"
+				kind:       "ClusterRole"
+				metadata: {
+					name:   _role.name
+					labels: _commonLabels
+					if len(_commonAnnotations) > 0 {
+						annotations: _commonAnnotations
 					}
-					rules: _k8sRules
 				}
-				"ClusterRoleBinding/\(_role.name)": {
-					apiVersion: "rbac.authorization.k8s.io/v1"
-					kind:       "ClusterRoleBinding"
-					metadata: {
-						name:   _role.name
-						labels: _commonLabels
-						if len(_commonAnnotations) > 0 {
-							annotations: _commonAnnotations
-						}
+				rules: _k8sRules
+			},
+			if _role.scope == "cluster" {
+				apiVersion: "rbac.authorization.k8s.io/v1"
+				kind:       "ClusterRoleBinding"
+				metadata: {
+					name:   _role.name
+					labels: _commonLabels
+					if len(_commonAnnotations) > 0 {
+						annotations: _commonAnnotations
 					}
-					roleRef: {
-						apiGroup: "rbac.authorization.k8s.io"
-						kind:     "ClusterRole"
-						name:     _role.name
-					}
-					subjects: _k8sSubjects
 				}
-			}
-		}
+				roleRef: {
+					apiGroup: "rbac.authorization.k8s.io"
+					kind:     "ClusterRole"
+					name:     _role.name
+				}
+				subjects: _k8sSubjects
+			},
+		]
 	}
 }
 
