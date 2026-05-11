@@ -65,16 +65,6 @@ func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod mod
 	}, nil
 }
 
-// ParseModuleRelease is the previous name for [Kernel.ProcessModuleRelease].
-//
-// Deprecated: use [Kernel.ProcessModuleRelease]. The verb "Process" better
-// describes what the method does (validate values, fill spec, check
-// concreteness, decode metadata) than "Parse". This alias will be removed
-// in a future MAJOR release.
-func (k *Kernel) ParseModuleRelease(ctx context.Context, spec cue.Value, mod module.Module, values cue.Value) (*module.Release, error) {
-	return k.ProcessModuleRelease(ctx, spec, mod, values)
-}
-
 // bestEffortReleaseName tries to extract a release name for error messages.
 // Falls back to the module name if the release name is not yet available.
 func bestEffortReleaseName(spec cue.Value, mod module.Module) string {

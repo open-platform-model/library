@@ -210,9 +210,7 @@ func TestKernel_ValidateConfig_SchemaErrorReturnsCueNativeError(t *testing.T) {
 }
 
 // --- ProcessModuleRelease: build a minimal Module + spec and confirm the
-// canonical kernel method produces a well-formed *module.Release. The
-// deprecated alias k.ParseModuleRelease MUST return identical results so
-// downstream callers can migrate over one cycle.
+// canonical kernel method produces a well-formed *module.Release.
 
 func minimalModule() module.Module {
 	return module.Module{
@@ -246,33 +244,6 @@ metadata: {
 	assert.Equal(t, apiversion.V1alpha2, rel.APIVersion)
 	assert.Equal(t, "demo", rel.Metadata.Name)
 	assert.Equal(t, "ns", rel.Metadata.Namespace)
-}
-
-// TestKernel_ParseModuleRelease_DeprecatedAliasMatches confirms the
-// deprecated alias delegates verbatim to the canonical method.
-func TestKernel_ParseModuleRelease_DeprecatedAliasMatches(t *testing.T) {
-	k := kernel.New()
-	spec := k.CueContext().CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
-kind: "ModuleRelease"
-metadata: {
-	name: "demo"
-	namespace: "ns"
-	uuid: "u"
-}
-`)
-	require.NoError(t, spec.Err())
-
-	canonical, cErr := k.ProcessModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
-	alias, aErr := k.ParseModuleRelease(context.Background(), spec, minimalModule(), cue.Value{}) //nolint:staticcheck // SA1019: exercising the deprecated alias on purpose
-
-	require.NoError(t, cErr)
-	require.NoError(t, aErr)
-	require.NotNil(t, canonical)
-	require.NotNil(t, alias)
-	assert.Equal(t, canonical.APIVersion, alias.APIVersion)
-	assert.Equal(t, canonical.Metadata.Name, alias.Metadata.Name)
-	assert.Equal(t, canonical.Metadata.Namespace, alias.Metadata.Namespace)
 }
 
 // --- Compile parity: minimal release + platform that round-trip through both

@@ -105,25 +105,19 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   exported so callers building a `*module.Release` outside of `pkg/module` (the
   kernel's `ProcessModuleRelease` impl) can construct it consistently.
 
-### Deprecated
-
-- `(*kernel.Kernel).ParseModuleRelease` — thin alias delegating to
-  `(*kernel.Kernel).ProcessModuleRelease`. Will be removed in a future MAJOR
-  release. Migration is mechanical:
-
-  ```diff
-  - rel, err := k.ParseModuleRelease(ctx, spec, mod, values)
-  + rel, err := k.ProcessModuleRelease(ctx, spec, mod, values)
-  ```
-
 ### Removed (BREAKING) — pkg/validate deleted; deprecated free functions folded into Kernel
 
 - `pkg/validate/` package removed in full. Both `validate.Config` and
   `validate.ConfigPartial` are gone; the canonical implementation now lives on
   `*kernel.Kernel`.
 - `module.ParseModuleRelease` (free function) removed. The canonical entry
-  point is `(*kernel.Kernel).ProcessModuleRelease`; `(*kernel.Kernel).ParseModuleRelease`
-  remains as a deprecated alias for one cycle.
+  point is `(*kernel.Kernel).ProcessModuleRelease`.
+- `(*kernel.Kernel).ParseModuleRelease` removed. Migration is mechanical:
+
+  ```diff
+  - rel, err := k.ParseModuleRelease(ctx, spec, mod, values)
+  + rel, err := k.ProcessModuleRelease(ctx, spec, mod, values)
+  ```
 - `compile.CompileModuleRelease` (free function) removed. The canonical entry
   point is `(*kernel.Kernel).Compile`.
 

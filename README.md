@@ -123,11 +123,11 @@ if vErr != nil {
     return vErr
 }
 
-// Load and parse the release. The release's Package embeds the source #module
-// reference; ParseModuleRelease uses it to validate user values against
+// Load and process the release. The release's Package embeds the source #module
+// reference; ProcessModuleRelease uses it to validate user values against
 // #module.#config without a separate schema argument (Tier-2 safety net).
 releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
-rel, err := k.ParseModuleRelease(ctx, releaseVal, *mod, userValues)
+rel, err := k.ProcessModuleRelease(ctx, releaseVal, *mod, userValues)
 
 // Load the Platform — the kernel's matching and execution input. The
 // shell is a Platform whose #registry is empty (or partial); Compose
