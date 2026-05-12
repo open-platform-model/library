@@ -86,7 +86,7 @@ func run(libraryRoot string, want map[stage]bool) error {
 
 	// ── Load module ─────────────────────────────────────────────────
 	moduleDir := filepath.Join(libraryRoot, "testdata", "modules", "web_app")
-	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir)
+	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir, loaderfile.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("loading module from %s: %w", moduleDir, err)
 	}

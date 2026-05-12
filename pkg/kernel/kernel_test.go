@@ -95,20 +95,11 @@ func writeTempModuleDir(t *testing.T, content string) string {
 	return dir
 }
 
-func writeTempReleaseFile(t *testing.T, content string) string {
+func writeTempReleaseDir(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "release.cue")
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
-	return path
-}
-
-func writeTempValuesFile(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "values.cue")
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
-	return path
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.cue"), []byte(content), 0o644))
+	return dir
 }
 
 func TestKernel_LoadModulePackage_Parity(t *testing.T) {
@@ -119,10 +110,10 @@ kind: "Module"
 `)
 
 	k := kernel.New()
-	gotVal, gotVer, gotErr := k.LoadModulePackage(context.Background(), dir)
+	gotVal, gotVer, gotErr := k.LoadModulePackage(context.Background(), dir, loader.LoadOptions{})
 	require.NoError(t, gotErr)
 
-	wantVal, wantVer, wantErr := loader.LoadModulePackage(k.CueContext(), dir)
+	wantVal, wantVer, wantErr := loader.LoadModulePackage(k.CueContext(), dir, loader.LoadOptions{})
 	require.NoError(t, wantErr)
 
 	assert.Equal(t, wantVer, gotVer)
@@ -131,8 +122,8 @@ kind: "Module"
 	assert.True(t, wantVal.Exists())
 }
 
-func TestKernel_LoadReleaseFile_Parity(t *testing.T) {
-	path := writeTempReleaseFile(t, `
+func TestKernel_LoadReleasePackage_Parity(t *testing.T) {
+	dir := writeTempReleaseDir(t, `
 package release
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
@@ -143,41 +134,16 @@ metadata: {
 `)
 
 	k := kernel.New()
-	gotVal, gotDir, gotVer, gotErr := k.LoadReleaseFile(context.Background(), path, loader.LoadOptions{})
+	gotVal, gotVer, gotErr := k.LoadReleasePackage(context.Background(), dir, loader.LoadOptions{})
 	require.NoError(t, gotErr)
 
-	wantVal, wantDir, wantVer, wantErr := loader.LoadReleaseFile(k.CueContext(), path, loader.LoadOptions{})
+	wantVal, wantVer, wantErr := loader.LoadReleasePackage(k.CueContext(), dir, loader.LoadOptions{})
 	require.NoError(t, wantErr)
 
-	assert.Equal(t, wantDir, gotDir)
 	assert.Equal(t, wantVer, gotVer)
 	assert.Equal(t, apiversion.V1alpha2, gotVer)
 	assert.True(t, gotVal.Exists())
 	assert.True(t, wantVal.Exists())
-}
-
-func TestKernel_LoadValuesFile_Parity(t *testing.T) {
-	path := writeTempValuesFile(t, `
-package values
-values: {
-	replicas: 3
-	name: "demo"
-}
-`)
-
-	k := kernel.New()
-	gotVal, gotErr := k.LoadValuesFile(context.Background(), path)
-	require.NoError(t, gotErr)
-
-	wantVal, wantErr := loader.LoadValuesFile(k.CueContext(), path)
-	require.NoError(t, wantErr)
-
-	gotReplicas, err := gotVal.LookupPath(cue.ParsePath("replicas")).Int64()
-	require.NoError(t, err)
-	wantReplicas, err := wantVal.LookupPath(cue.ParsePath("replicas")).Int64()
-	require.NoError(t, err)
-	assert.Equal(t, wantReplicas, gotReplicas)
-	assert.Equal(t, int64(3), gotReplicas)
 }
 
 func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
@@ -364,7 +330,7 @@ kind: "Module"
 			k := kernel.New() // one Kernel per goroutine
 			ctx := context.Background()
 
-			val, ver, err := k.LoadModulePackage(ctx, dir)
+			val, ver, err := k.LoadModulePackage(ctx, dir, loader.LoadOptions{})
 			if err != nil {
 				errCh <- err
 				return

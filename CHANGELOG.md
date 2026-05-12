@@ -4,6 +4,67 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Added — `unify-loaders-as-packages`
+
+- `pkg/helper/loader/file.LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
+  package-loader counterpart to `LoadModulePackage`. Loads every `.cue`
+  file in `dirPath` that shares the CUE package into a single instance,
+  detects the apiVersion, and returns the unified `cue.Value`. Authors
+  can now split a release across `release.cue`, `values.cue`, and
+  overlay files that declare the same package.
+- `(*kernel.Kernel).LoadReleasePackage(ctx, dirPath, opts)` — kernel
+  wrapper mirroring `LoadModulePackage`.
+
+### Changed — `unify-loaders-as-packages` (BREAKING)
+
+- `loaderfile.LoadModulePackage` and `(*kernel.Kernel).LoadModulePackage`
+  gained a third `loaderfile.LoadOptions` parameter. The option's
+  `Registry` field is now plumbed into `load.Config.Env` so modules
+  whose imports (transformers, traits, sub-modules) live on a registry
+  load with the same override surface as releases.
+- `(*kernel.Kernel).LoadSourceFromFile` owns the values-field
+  auto-unwrap directly instead of delegating to the deleted
+  `loaderfile.LoadValuesFile`. Behavior is unchanged for existing
+  callers: if the loaded file contains a top-level `values:` field
+  whose `Exists()` is true and `Err()` is nil, that field is returned;
+  otherwise the whole evaluated value is returned.
+
+### Removed — `unify-loaders-as-packages` (BREAKING)
+
+- `loaderfile.LoadReleaseFile` and `(*kernel.Kernel).LoadReleaseFile`
+  deleted. Migration: pass the release **directory** to
+  `LoadReleasePackage` instead of the single `.cue` file. A directory
+  containing one `release.cue` is still a valid CUE package, so the
+  fixture layout that worked before continues to work.
+- `loaderfile.LoadValuesFile` and `(*kernel.Kernel).LoadValuesFile`
+  deleted. Migration: callers that want the auto-unwrap convention move
+  to `(*kernel.Kernel).LoadSourceFromFile`, which now hosts the
+  auto-unwrap branch directly. Callers that explicitly want the raw
+  loaded value (no auto-unwrap) call `cue/load.Instances` themselves.
+
+### Migration recipes — `unify-loaders-as-packages`
+
+```text
+OLD                                                    NEW
+────────────────────────────────────────────────────────────────────────────────────
+k.LoadModulePackage(ctx, dir)                          k.LoadModulePackage(ctx, dir, loaderfile.LoadOptions{})
+
+loaderfile.LoadModulePackage(cueCtx, dir)              loaderfile.LoadModulePackage(cueCtx, dir, loaderfile.LoadOptions{})
+
+k.LoadReleaseFile(ctx, "release.cue", opts)            k.LoadReleasePackage(ctx, ".", opts)
+                                                       // pass the directory containing release.cue;
+                                                       // multi-file release packages now work too
+
+loaderfile.LoadReleaseFile(cueCtx, file, opts)         loaderfile.LoadReleasePackage(cueCtx, dir, opts)
+
+k.LoadValuesFile(ctx, path)                            src, err := k.LoadSourceFromFile(path)
+                                                       // src.Value carries the auto-unwrapped value
+
+loaderfile.LoadValuesFile(cueCtx, path)                // No direct replacement — kernel-side LoadSourceFromFile
+                                                       // is the canonical caller. Callers that need a raw
+                                                       // free-function load use cue/load.Instances directly.
+```
+
 ### Added — `add-release-synth-helper`
 
 - `pkg/api.Binding.SchemaValue(ctx *cue.Context) (cue.Value, error)` — new
@@ -37,7 +98,7 @@ All notable changes to this library are documented here. The library follows [Se
   recommended in-memory entry point. Chains `synth.Release` into
   `Kernel.ProcessModuleRelease` so callers holding a Module obtain a fully
   validated `*module.Release` in one call. Mirrors how
-  `Kernel.LoadReleaseFile` is the recommended entry point for the
+  `Kernel.LoadReleasePackage` is the recommended entry point for the
   file-driven path.
 
 ### Changed — `add-release-synth-helper` (BREAKING)

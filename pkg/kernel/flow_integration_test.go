@@ -65,9 +65,6 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	moduleDir := filepath.Join(libraryRoot, "testdata", "modules", "web_app")
 
 	registry := "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
-	// LoadModulePackage does not accept a Registry override — point it at the
-	// local registry through the process env. t.Setenv reverts on test exit.
-	t.Setenv("CUE_REGISTRY", registry)
 
 	k := kernel.New()
 	ctx := context.Background()
@@ -83,7 +80,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	require.Equal(t, "kubernetes", plat.Metadata.Type)
 
 	// ── Load the consumer Module ─────────────────────────────────────
-	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir)
+	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir, loader.LoadOptions{Registry: registry})
 	require.NoErrorf(t, err, "loading module package from %s", moduleDir)
 	require.Equal(t, apiversion.V1alpha2, modVer)
 

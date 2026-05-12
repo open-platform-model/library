@@ -23,7 +23,7 @@
 //	        go func(path string) {
 //	            defer wg.Done()
 //	            k := kernel.New() // one Kernel per goroutine
-//	            if _, _, err := k.LoadModulePackage(ctx, path); err != nil {
+//	            if _, _, err := k.LoadModulePackage(ctx, path, loaderfile.LoadOptions{}); err != nil {
 //	                errs <- err
 //	            }
 //	        }(p)

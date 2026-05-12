@@ -10,7 +10,7 @@ import (
 
 // SynthesizeRelease builds a *module.Release from typed in-memory inputs.
 // This is the recommended entry point for callers that hold a Module and
-// need a fully validated release — it mirrors how [Kernel.LoadReleaseFile]
+// need a fully validated release — it mirrors how [Kernel.LoadReleasePackage]
 // is the recommended entry point for the file-driven path.
 //
 // SynthesizeRelease chains [synth.Release] (which unifies inputs against the

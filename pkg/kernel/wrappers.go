@@ -14,20 +14,14 @@ import (
 
 // LoadModulePackage loads a module CUE package from a directory using the
 // kernel's [*cue.Context]. See [loaderfile.LoadModulePackage].
-func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string) (cue.Value, apiversion.Version, error) {
-	return loaderfile.LoadModulePackage(k.cueCtx, dirPath)
+func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, apiversion.Version, error) {
+	return loaderfile.LoadModulePackage(k.cueCtx, dirPath, opts)
 }
 
-// LoadReleaseFile loads a #ModuleRelease from a standalone .cue file using
-// the kernel's [*cue.Context]. See [loaderfile.LoadReleaseFile].
-func (k *Kernel) LoadReleaseFile(_ context.Context, filePath string, opts loaderfile.LoadOptions) (cue.Value, string, apiversion.Version, error) {
-	return loaderfile.LoadReleaseFile(k.cueCtx, filePath, opts)
-}
-
-// LoadValuesFile loads a standalone CUE values file using the kernel's
-// [*cue.Context]. See [loaderfile.LoadValuesFile].
-func (k *Kernel) LoadValuesFile(_ context.Context, path string) (cue.Value, error) {
-	return loaderfile.LoadValuesFile(k.cueCtx, path)
+// LoadReleasePackage loads a #ModuleRelease CUE package from a directory
+// using the kernel's [*cue.Context]. See [loaderfile.LoadReleasePackage].
+func (k *Kernel) LoadReleasePackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, apiversion.Version, error) {
+	return loaderfile.LoadReleasePackage(k.cueCtx, dirPath, opts)
 }
 
 // LoadPlatformFile loads a #Platform from a standalone .cue file (or from a

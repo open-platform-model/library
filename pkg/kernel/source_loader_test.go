@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"cuelang.org/go/cue"
 	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -96,4 +97,62 @@ func TestKernel_LoadSourceFromFile_FilenameMatchesAbsolutePath(t *testing.T) {
 		}
 	}
 	assert.True(t, gotPath, "error positions MUST cite the absolute file path")
+}
+
+// TestKernel_LoadSourceFromFile_AutoUnwrapsValuesField pins the OPM
+// convention that a file shaped as `values: { ... }` unwraps to the inner
+// object. Replaces the previous TestKernel_LoadValuesFile_Parity coverage
+// after the standalone helper was deleted.
+func TestKernel_LoadSourceFromFile_AutoUnwrapsValuesField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "values.cue")
+	require.NoError(t, os.WriteFile(path, []byte(`
+package values
+
+values: {
+	replicas: 3
+	name:     "demo"
+}
+`), 0o644))
+
+	k := kernel.New()
+	src, err := k.LoadSourceFromFile(path)
+	require.NoError(t, err)
+
+	// Auto-unwrap: the returned Source.Value is the inner object, not the
+	// wrapping `values:` field.
+	replicas, err := src.Value.LookupPath(cue.ParsePath("replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), replicas)
+
+	name, err := src.Value.LookupPath(cue.ParsePath("name")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "demo", name)
+
+	// The outer "values" field MUST NOT be reachable on the returned value
+	// — auto-unwrap returned the inner object.
+	outer := src.Value.LookupPath(cue.ParsePath("values"))
+	assert.False(t, outer.Exists(), "values field must have been unwrapped")
+}
+
+// TestKernel_LoadSourceFromFile_PassesThroughWithoutValuesField pins the
+// fallback path: a file with no top-level `values:` field is returned as-is.
+func TestKernel_LoadSourceFromFile_PassesThroughWithoutValuesField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "flat.cue")
+	require.NoError(t, os.WriteFile(path, []byte(`replicas: 5
+name: "flat"
+`), 0o644))
+
+	k := kernel.New()
+	src, err := k.LoadSourceFromFile(path)
+	require.NoError(t, err)
+
+	replicas, err := src.Value.LookupPath(cue.ParsePath("replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), replicas)
+
+	name, err := src.Value.LookupPath(cue.ParsePath("name")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "flat", name)
 }

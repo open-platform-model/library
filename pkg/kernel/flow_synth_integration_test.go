@@ -53,7 +53,7 @@ func TestFlow_WebApp_SynthPath_OnOpmPlatform(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, apiversion.V1alpha2, plat.APIVersion)
 
-	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir)
+	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir, loader.LoadOptions{Registry: registry})
 	require.NoErrorf(t, err, "loading module package from %s", moduleDir)
 	require.Equal(t, apiversion.V1alpha2, modVer)
 

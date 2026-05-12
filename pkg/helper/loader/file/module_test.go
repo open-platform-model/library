@@ -31,7 +31,7 @@ apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
 `)
 
-	val, ver, err := loader.LoadModulePackage(cuecontext.New(), dir)
+	val, ver, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.NoError(t, err)
 	assert.True(t, val.Exists())
 	assert.Equal(t, apiversion.V1alpha2, ver)
@@ -43,7 +43,7 @@ package mod
 kind: "Module"
 `)
 
-	_, _, err := loader.LoadModulePackage(cuecontext.New(), dir)
+	_, _, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion))
 }

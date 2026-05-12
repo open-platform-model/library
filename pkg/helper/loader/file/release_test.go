@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,19 +15,17 @@ import (
 	loader "github.com/open-platform-model/library/pkg/helper/loader/file"
 )
 
-// writeTempCUEFile writes content to a fresh temp dir as release.cue and
-// returns the dir path. Used so LoadReleaseFile sees a real on-disk artifact
-// without depending on the workspace catalog.
-func writeTempCUEFile(t *testing.T, content string) string {
+// writeTempReleaseDir writes content to a fresh temp dir as release.cue and
+// returns the dir path. LoadReleasePackage operates on the directory itself.
+func writeTempReleaseDir(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "release.cue")
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
-	return path
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.cue"), []byte(content), 0o644))
+	return dir
 }
 
-func TestLoadReleaseFile_DetectsV1alpha2(t *testing.T) {
-	path := writeTempCUEFile(t, `
+func TestLoadReleasePackage_DetectsV1alpha2(t *testing.T) {
+	dir := writeTempReleaseDir(t, `
 package release
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
@@ -36,34 +35,92 @@ metadata: {
 }
 `)
 
-	val, dir, ver, err := loader.LoadReleaseFile(cuecontext.New(), path, loader.LoadOptions{})
+	val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.NoError(t, err)
 	assert.True(t, val.Exists())
-	assert.NotEmpty(t, dir)
 	assert.Equal(t, apiversion.V1alpha2, ver)
 }
 
-func TestLoadReleaseFile_RejectsMissingAPIVersion(t *testing.T) {
-	path := writeTempCUEFile(t, `
+func TestLoadReleasePackage_RejectsMissingAPIVersion(t *testing.T) {
+	dir := writeTempReleaseDir(t, `
 package release
 kind: "ModuleRelease"
 metadata: name: "demo"
 `)
 
-	_, _, _, err := loader.LoadReleaseFile(cuecontext.New(), path, loader.LoadOptions{})
+	_, _, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion), "want ErrUnknownAPIVersion, got %v", err)
 }
 
-func TestLoadReleaseFile_RejectsUnknownLiteral(t *testing.T) {
-	path := writeTempCUEFile(t, `
+func TestLoadReleasePackage_RejectsUnknownLiteral(t *testing.T) {
+	dir := writeTempReleaseDir(t, `
 package release
 apiVersion: "opmodel.dev/v9beta42"
 kind: "ModuleRelease"
 metadata: name: "demo"
 `)
 
-	_, _, _, err := loader.LoadReleaseFile(cuecontext.New(), path, loader.LoadOptions{})
+	_, _, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion))
+}
+
+// TestLoadReleasePackage_MultiFile pins the multi-file release-package
+// behavior that motivates the package-loader unification: release.cue and
+// values.cue share a package declaration; LoadReleasePackage MUST unify
+// them into one cue.Value and detect the apiVersion from the union.
+func TestLoadReleasePackage_MultiFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.cue"), []byte(`
+package release
+
+apiVersion: "opmodel.dev/v1alpha2"
+kind:       "ModuleRelease"
+metadata: {
+	name:      "demo"
+	namespace: "ns"
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "values.cue"), []byte(`
+package release
+
+values: { replicas: 3 }
+`), 0o644))
+
+	val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
+	require.NoError(t, err)
+	assert.True(t, val.Exists())
+	assert.Equal(t, apiversion.V1alpha2, ver)
+
+	// The unified value carries both fields.
+	name, err := val.LookupPath(cue.ParsePath("metadata.name")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "demo", name)
+
+	replicas, err := val.LookupPath(cue.ParsePath("values.replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), replicas)
+}
+
+// TestLoadReleasePackage_RegistryOptionAccepted confirms that a non-empty
+// LoadOptions.Registry is plumbed through to load.Config without aborting
+// the load on a release that does not import any registry-backed modules.
+// A fully-online round trip — actually resolving an import via the
+// override registry — lives in pkg/kernel/flow_integration_test.go, which
+// is gated on the local registry being reachable.
+func TestLoadReleasePackage_RegistryOptionAccepted(t *testing.T) {
+	dir := writeTempReleaseDir(t, `
+package release
+apiVersion: "opmodel.dev/v1alpha2"
+kind: "ModuleRelease"
+metadata: { name: "demo", namespace: "ns" }
+`)
+
+	val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{
+		Registry: "testing.opmodel.dev=localhost:5000+insecure",
+	})
+	require.NoError(t, err, "registry override must be accepted even when no imports use it")
+	assert.True(t, val.Exists())
+	assert.Equal(t, apiversion.V1alpha2, ver)
 }

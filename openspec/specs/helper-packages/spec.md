@@ -17,35 +17,41 @@ The library SHALL maintain a `pkg/helper/` subdirectory whose subpackages are op
 
 ### Requirement: Loader Reorganization Under Helper
 
-The filesystem-coupled loader SHALL live at `pkg/helper/loader/file/`. The package SHALL retain the public API of the prior `pkg/loader/` package: `LoadModulePackage`, `LoadReleaseFile`, `LoadValuesFile`, `LoadProvider`, and any associated types (`LoadOptions`).
+The filesystem-coupled loader SHALL live at `pkg/helper/loader/file/`. The package SHALL expose the following public API:
 
-#### Scenario: New loader path callable
+- `LoadModulePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#Module`, with registry override via `opts.Registry`.
+- `LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#ModuleRelease`, with registry override via `opts.Registry`.
+- `LoadPlatformFile(ctx, path, opts) (cue.Value, string, error)` — loads a `#Platform` from a single `.cue` file (or `platform.cue` from a directory).
+- `LoadProvider` and any associated types unchanged.
 
-- **WHEN** a caller invokes `loaderfile.LoadReleaseFile(ctx, path, opts)` (where `loaderfile` is the alias for `pkg/helper/loader/file`)
-- **THEN** the function performs filesystem-based release loading exactly as the previous `pkg/loader/` package did
-- **AND** the symbol identity, return shape, and error semantics are unchanged from the prior package
+`LoadOptions` SHALL carry the registry override applied to `load.Config.Env`. Both package loaders SHALL accept the same `LoadOptions` value so that a caller can pass identical options through to module and release loads.
+
+#### Scenario: Release package load
+
+- **WHEN** a caller invokes `loaderfile.LoadReleasePackage(ctx, "./release-dir", loaderfile.LoadOptions{Registry: "..."})`
+- **THEN** the function loads every `.cue` file in `./release-dir` that shares the package as a single CUE package
+- **AND** detects the apiVersion via `apiversion.Detect`
+- **AND** returns the evaluated `cue.Value` and detected `apiversion.Version`
+- **AND** an unrecognised or missing apiVersion wraps `apiversion.ErrUnknownAPIVersion`
+
+#### Scenario: Module package load with registry override
+
+- **WHEN** a caller invokes `loaderfile.LoadModulePackage(ctx, "./module", loaderfile.LoadOptions{Registry: "..."})`
+- **THEN** the function loads the module's CUE package using the supplied registry override
+- **AND** module imports resolved from the registry succeed when the registry serves the required dependencies
+
+#### Scenario: Multi-file release package
+
+- **WHEN** a release directory contains both `release.cue` and `values.cue` declaring the same package name
+- **AND** the caller invokes `loaderfile.LoadReleasePackage(ctx, dir, opts)`
+- **THEN** the returned `cue.Value` reflects the unification of both files
+- **AND** apiVersion detection succeeds against the unified value
 
 #### Scenario: Bytes loader skeleton present
 
 - **WHEN** a developer reads `pkg/helper/loader/bytes/`
 - **THEN** the package has a doc-only file describing intent (in-memory loading for Crossplane fn / tests / fuzzing)
 - **AND** the package exposes no functions yet
-
-### Requirement: Deprecation Shim at pkg/loader/
-
-The old `pkg/loader/` import path SHALL retain a thin re-export package. Each function SHALL be a deprecated alias that delegates to its `pkg/helper/loader/file/` counterpart.
-
-#### Scenario: Old import path still compiles
-
-- **WHEN** existing downstream code imports `pkg/loader` and calls `loader.LoadReleaseFile(ctx, path, opts)`
-- **THEN** the call succeeds with behavior identical to `loaderfile.LoadReleaseFile(...)`
-- **AND** the function carries a `// Deprecated:` doc comment pointing to `pkg/helper/loader/file`
-
-#### Scenario: Shim removal scheduled
-
-- **WHEN** the next MAJOR release after this slice is planned
-- **THEN** the shim is scheduled for removal
-- **AND** CHANGELOG and documentation note the removal cycle
 
 ### Requirement: Helper Layout for Future Subpackages
 

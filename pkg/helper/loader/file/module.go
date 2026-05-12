@@ -15,6 +15,10 @@ import (
 // the raw cue.Value plus the detected apiVersion. Used by callers (e.g. opm
 // module vet) to load a module for validation or rendering.
 //
+// LoadOptions.Registry, when non-empty, is applied via load.Config.Env so
+// the module's transitive imports (transformers, traits, sub-modules)
+// resolve from the override registry without mutating process state.
+//
 // An unrecognised or missing apiVersion produces an error wrapping
 // apiversion.ErrUnknownAPIVersion.
 //
@@ -22,7 +26,7 @@ import (
 // [*cue.Context] and threads cross-cutting dependencies through every
 // operation. Call this function directly only if you are not using a
 // Kernel.
-func LoadModulePackage(ctx *cue.Context, dirPath string) (cue.Value, apiversion.Version, error) {
+func LoadModulePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, apiversion.Version, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
 		return cue.Value{}, "", fmt.Errorf("resolving module directory: %w", err)
@@ -38,6 +42,7 @@ func LoadModulePackage(ctx *cue.Context, dirPath string) (cue.Value, apiversion.
 
 	cfg := &load.Config{
 		Dir: absDir,
+		Env: registryEnv(opts.Registry),
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) == 0 {
