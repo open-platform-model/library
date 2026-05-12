@@ -21,6 +21,13 @@
 //   - platform     — Platform composition (Compose(shell, modules) →
 //     *Platform with #registry filled). Implemented by slice 10
 //     (add-platform-composition-helper).
+//   - synth        — artifact synthesis from in-memory typed inputs.
+//     synth.Release composes a #ModuleRelease CUE value by unifying
+//     (Module, name, namespace, values, labels, annotations) against the
+//     embedded #ModuleRelease schema. Peer of loader/ (loading parses
+//     bytes; synth creates from typed inputs). Recommended entry point is
+//     (*Kernel).SynthesizeRelease, which chains synth.Release into
+//     ProcessModuleRelease for a fully validated *module.Release.
 //
 // Layered values validation now lives on the kernel itself: see
 // Kernel.ValidateConfigDetailed and the Source / ValidateOption types in

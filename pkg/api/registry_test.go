@@ -39,6 +39,13 @@ func (s *stubBinding) BuildTransformerContext(
 	panic("unused in registry tests")
 }
 func (s *stubBinding) EmbeddedSchema() fs.FS { return nil }
+func (s *stubBinding) SchemaValue(*cue.Context) (cue.Value, error) {
+	panic("unused in registry tests")
+}
+
+// Compile-time assertion: stubBinding satisfies the Binding interface,
+// including the SchemaValue method added by add-release-synth-helper.
+var _ Binding = (*stubBinding)(nil)
 
 // withCleanRegistry runs fn against a freshly cleared registry and restores
 // the prior state on return. Lets tests register/unregister without leaking

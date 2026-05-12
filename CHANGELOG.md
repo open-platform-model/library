@@ -4,6 +4,49 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Added — `add-release-synth-helper`
+
+- `pkg/api.Binding.SchemaValue(ctx *cue.Context) (cue.Value, error)` — new
+  interface method exposing the binding's embedded schema as a fully built
+  `cue.Value`. Bindings cache the loaded package via `sync.Once` against the
+  first `*cue.Context` they see (the documented "one Kernel per process"
+  pattern); schema-load failures are wrapped and cached. The v1alpha2
+  binding implements it over its existing `go:embed` filesystem with no
+  `CUE_REGISTRY` round-trip.
+- `pkg/helper/synth/` — new helper package shipping
+  `synth.Release(ctx, ReleaseInput) (cue.Value, error)`. Builds a
+  `#ModuleRelease` artifact value by composing the caller's `(Module, name,
+  namespace, values, labels, annotations)` against the embedded
+  `#ModuleRelease` definition reached via `Binding.SchemaValue`. Caller
+  inputs flow through a `cue.Scope`-driven compilation — the binding's
+  schema package is extended with a `userModule` field, the caller's module
+  is bound into it via `FillPath`, and a small `{ #ModuleRelease, ... }`
+  source compiled against that scope drives every schema-derived field in a
+  single CUE evaluation (`metadata.uuid`, `components` fan-out from
+  `#module.#components`, auto-injected `opm-secrets` component, standard
+  `module-release.opmodel.dev/{name,uuid}` labels). Direct
+  `releaseDef.FillPath(paths.Module, …)` is *not* used: CUE's Go API
+  rejects it because `#Module.metadata.modulePath` is a self-referential
+  constraint, and caller `Values` are pre-merged into the module's
+  `#config` before scope binding to avoid a cross-load closure conflict
+  with registry-loaded resource definitions like `res.#Image` — see
+  `pkg/helper/synth/release.go` for the full comment. `synth.Release`
+  never falls back to `Module.debugValues`; the zero `cue.Value{}` means
+  "no values supplied" and concreteness is enforced downstream.
+- `(*kernel.Kernel).SynthesizeRelease(ctx, synth.ReleaseInput) (*module.Release, error)` —
+  recommended in-memory entry point. Chains `synth.Release` into
+  `Kernel.ProcessModuleRelease` so callers holding a Module obtain a fully
+  validated `*module.Release` in one call. Mirrors how
+  `Kernel.LoadReleaseFile` is the recommended entry point for the
+  file-driven path.
+
+### Changed — `add-release-synth-helper` (BREAKING)
+
+- `pkg/api.Binding` interface gained a `SchemaValue(*cue.Context) (cue.Value, error)`
+  method. Out-of-tree implementations of `Binding` MUST add the new method;
+  in-tree there is only the v1alpha2 binding, which is updated. The library
+  bumps MAJOR for this interface extension per Principle VI.
+
 ### Added — `redesign-config-validation`
 
 - `kernel.Source` struct, `kernel.ValidateOption`, and `kernel.Partial()` —

@@ -209,4 +209,26 @@ type Binding interface {
 	// Returns nil when no embedded schema is wired (treated as a soft failure
 	// by callers that prefer an embed but can fall back to registry resolution).
 	EmbeddedSchema() fs.FS
+
+	// SchemaValue loads the binding's embedded schema package and returns it as
+	// a fully built cue.Value. The returned value's definitions (#ModuleRelease,
+	// #Module, etc.) are reachable via LookupPath; callers unify against them to
+	// produce schema-derived artifact values without a CUE_REGISTRY round-trip.
+	//
+	// Caching contract: implementations MUST cache the loaded cue.Value so
+	// repeated calls amortise the cost of cue/load.Instances. The cache is keyed
+	// implicitly on the first cue.Context passed in — implementations MAY assume
+	// every subsequent call uses the same context (the documented
+	// "one Kernel (one *cue.Context) per process" pattern). Passing a different
+	// context after the first call has implementation-defined behavior.
+	//
+	// Concurrency: SchemaValue MUST be safe for concurrent use even on the very
+	// first invocation — typical implementation is sync.Once. Cached errors are
+	// returned unchanged on every subsequent call; the load is never retried.
+	//
+	// Fatal-on-error guidance: the embedded filesystem is fixed at build time,
+	// so a load failure indicates a programming error (broken embed pattern,
+	// missing manifest, malformed package). Callers MAY treat the returned
+	// error as fatal — there is no recovery short of rebuilding the binary.
+	SchemaValue(ctx *cue.Context) (cue.Value, error)
 }
