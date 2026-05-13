@@ -12,7 +12,7 @@ This is slice 06 of the kernel-redesign umbrella ([001-kernel-redesign-around-pl
   - `Plan(ctx, PlanInput) (*PlanResult, error)` — full pipeline up to "what would compile produce" without finalization commitments.
   - `Compile(ctx, CompileInput) (*CompileResult, error)` — full pipeline; the terminal output.
 - Rename internal `Render` / `ProcessModuleRelease` flow to `Compile` end-to-end:
-  - `pkg/render/process_module.go` → `pkg/render/compile_module.go`.
+  - `opm/render/process_module.go` → `opm/render/compile_module.go`.
   - `render.ProcessModuleRelease` → `render.CompileModuleRelease`. The old name remains as a `// Deprecated:` alias delegating to the new name.
   - `render.NewModule` and `render.Module` (the runtime helper struct) keep their names for now — they describe a per-module render context, not the pipeline verb.
   - `*ModuleResult` → `*CompileResult`. Old name remains as a type alias.
@@ -32,8 +32,8 @@ None.
 
 ## Impact
 
-- **`pkg/kernel/`** — adds phase methods and input/output types.
-- **`pkg/render/`** — `ProcessModuleRelease` renamed to `CompileModuleRelease`; old name retained as deprecated alias. Internal file rename. `*ModuleResult` aliased to `*CompileResult`.
+- **`opm/kernel/`** — adds phase methods and input/output types.
+- **`opm/render/`** — `ProcessModuleRelease` renamed to `CompileModuleRelease`; old name retained as deprecated alias. Internal file rename. `*ModuleResult` aliased to `*CompileResult`.
 - **Downstream consumers** — no breaking change. They MAY migrate from `loader/module/render` free-function composition to the new phase methods; the rename keeps old names callable.
 - **Documentation** — `library/README.md` and the umbrella enhancement adopt "Compile" terminology. The terminology change is the most visible part of this slice.
 - **Constitution Principle IV (Composability via Stable Contracts)** — adds new public surface; preserves old. Eligible for a future MAJOR-version cleanup.

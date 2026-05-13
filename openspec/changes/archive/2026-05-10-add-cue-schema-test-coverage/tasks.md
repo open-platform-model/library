@@ -13,7 +13,7 @@
 
 ## 3. Harness extension
 
-- [x] 3.1 Add optional `inputPath string` field to `schemaCase` in `pkg/api/v1alpha2/schema_fixture_test.go:30-36`
+- [x] 3.1 Add optional `inputPath string` field to `schemaCase` in `opm/api/v1alpha2/schema_fixture_test.go:30-36`
 - [x] 3.2 Replace literal `cue.ParsePath("input")` and `cue.ParsePath("expect")` with derived paths: `inputPath` defaults to `"input"`; `expectPath` is `"<inputPath>_expect"` unless `inputPath == "input"` in which case it stays `"expect"` (preserves seed-fixture contract)
 - [x] 3.3 Update doc comment on `schemaCase` to document the new field, the `<inputPath>_expect` derivation, and when to use the override
 
@@ -33,6 +33,6 @@
 - [x] 6.1 `task fmt` — exit 0
 - [x] 6.2 `task vet` — exit 0
 - [x] 6.3 `task lint` — `0 issues.` exit 0
-- [x] 6.4 `task cue:test` — `pkg/api/v1alpha2 0.102s ok`; 15 subtests pass
+- [x] 6.4 `task cue:test` — `opm/api/v1alpha2 0.102s ok`; 15 subtests pass
 - [x] 6.5 `task test` — full suite green (no regression in existing tests)
 - [x] 6.6 `cue vet ./...` from `apis/core/v1alpha2/` — exit 0, no fixture file paths in output

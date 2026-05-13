@@ -7,7 +7,7 @@ Catalog 014 says a Platform's `#registry` is filled by either:
 
 Both paths produce the same end state: a Platform whose `#registry` is populated, whose computed views (`#composedTransformers`, `#matchers.{resources,traits}`, `#knownResources`, `#knownTraits`) are resolved.
 
-`pkg/helper/platform/Compose` implements the runtime path generically. It accepts:
+`opm/helper/platform/Compose` implements the runtime path generically. It accepts:
 
 - `shell *Platform` — a base Platform value with metadata, type, ctx, and possibly a partial `#registry`.
 - `modules []*Module` — Modules to register.

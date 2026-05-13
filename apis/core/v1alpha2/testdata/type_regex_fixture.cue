@@ -3,7 +3,7 @@
 // Negative bundle: each top-level `bad_<reason>` field violates exactly one
 // type-regex from apis/core/v1alpha2/types.cue. The harness drives one
 // schemaCase per field via the `inputPath` override (see
-// pkg/api/v1alpha2/schema_fixture_test.go). All cases share the same
+// opm/api/v1alpha2/schema_fixture_test.go). All cases share the same
 // fixture file because the regex assertions are tiny and live next to
 // each other for readability.
 //

@@ -295,27 +295,27 @@ tasks:
   cue:test:
     desc: Run the v1alpha2 schema fixture harness (apis/core/v1alpha2/testdata/)
     summary: |
-      Drives the table-driven harness in pkg/api/v1alpha2/schema_fixture_test.go,
+      Drives the table-driven harness in opm/api/v1alpha2/schema_fixture_test.go,
       which loads each fixture under apis/core/v1alpha2/testdata/ with the
       `test` build tag (see @if(test) at the top of every fixture) and asserts
       its positive / negative contract.
 
       Faster than `task test` when iterating on a fixture; equivalent coverage
-      to running `go test ./pkg/api/v1alpha2/... -run TestSchemaFixtures`.
+      to running `go test ./opm/api/v1alpha2/... -run TestSchemaFixtures`.
     cmds:
-      - go test ./pkg/api/v1alpha2/... -run TestSchemaFixtures
+      - go test ./opm/api/v1alpha2/... -run TestSchemaFixtures
 
   cue:test:verbose:
     desc: Run the schema fixture harness with verbose per-subtest output
     cmds:
-      - go test -v ./pkg/api/v1alpha2/... -run TestSchemaFixtures
+      - go test -v ./opm/api/v1alpha2/... -run TestSchemaFixtures
 
   cue:test:run:
     desc: Run a single fixture case by name (CASE=<schemaCase.name>)
     summary: |
       Filters TestSchemaFixtures down to a single subtest. The CASE value
       matches the `name` field of an entry in `schemaCases` in
-      pkg/api/v1alpha2/schema_fixture_test.go.
+      opm/api/v1alpha2/schema_fixture_test.go.
 
       Usage:
         task cue:test:run CASE=platform_matchers_projects_single_candidate
@@ -326,12 +326,12 @@ tasks:
       - sh: '[ -n "{{.CASE}}" ]'
         msg: "CASE is required. Usage: task cue:test:run CASE=<schemaCase.name>"
     cmds:
-      - go test -v ./pkg/api/v1alpha2/... -run "TestSchemaFixtures/{{.CASE}}"
+      - go test -v ./opm/api/v1alpha2/... -run "TestSchemaFixtures/{{.CASE}}"
 
   cue:test:flow:
     desc: Run the plan/match/compile flow integration test against the on-disk web_app + opm_platform fixtures
     summary: |
-      Drives `TestFlow_WebApp_OnOpmPlatform` in pkg/kernel/flow_integration_test.go.
+      Drives `TestFlow_WebApp_OnOpmPlatform` in opm/kernel/flow_integration_test.go.
 
       The test loads:
         - testdata/modules/web_app/   (consumer #Module using opm primitives)
@@ -349,7 +349,7 @@ tasks:
     env:
       CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
     cmds:
-      - go test -v ./pkg/kernel/... -run TestFlow_WebApp_OnOpmPlatform
+      - go test -v ./opm/kernel/... -run TestFlow_WebApp_OnOpmPlatform
 
   cue:test:flow:inspect:
     desc: Pretty-print every plan/match/compile stage via cmd/flow-inspect

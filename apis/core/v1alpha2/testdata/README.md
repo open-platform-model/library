@@ -1,8 +1,8 @@
 # `apis/core/v1alpha2/testdata/`
 
-CUE fixtures exercising the v1alpha2 schemas (`#Platform`, `#PlatformBase`, `#Module`, `#ComponentTransformer`, `#TransformerContext`, `#Resource`, `#Trait`, …). Loaded by the Go harness in `pkg/api/v1alpha2/schema_fixture_test.go`.
+CUE fixtures exercising the v1alpha2 schemas (`#Platform`, `#PlatformBase`, `#Module`, `#ComponentTransformer`, `#TransformerContext`, `#Resource`, `#Trait`, …). Loaded by the Go harness in `opm/api/v1alpha2/schema_fixture_test.go`.
 
-This directory does **not** ship to consumers. The `//go:embed` pattern in `apis/core/embed.go` (`v1alpha2/*.cue`) is non-recursive and excludes `testdata/`. `pkg/api/v1alpha2/embed_test.go` enforces this.
+This directory does **not** ship to consumers. The `//go:embed` pattern in `apis/core/embed.go` (`v1alpha2/*.cue`) is non-recursive and excludes `testdata/`. `opm/api/v1alpha2/embed_test.go` enforces this.
 
 ## Why a separate convention
 
@@ -50,11 +50,11 @@ The `&` form (`core.#Module & {metadata: {...}}`) is rejected by the schema's `m
    cue eval ./testdata/<topic>_fixture.cue                # should error: "@if(test) did not match"
    cue vet ./...                                           # should ignore the fixture
    ```
-3. Add a row to the `schemaCases` table in `pkg/api/v1alpha2/schema_fixture_test.go`. For:
+3. Add a row to the `schemaCases` table in `opm/api/v1alpha2/schema_fixture_test.go`. For:
    - **Positive equality** (`input` unifies with `expect`): leave `expectError` empty. The harness asserts `Validate(cue.Concrete(true))` succeeds on the unified value.
    - **Positive value extraction**: set `assertField` to a CUE path (e.g. `"input.metadata.uuid"`) and `assertValue` to the expected Go-decoded value.
    - **Negative**: set `expectError` to a regex matching the expected `error.Error()` substring.
-4. Run `go test ./pkg/api/v1alpha2/... -run TestSchemaFixtures`.
+4. Run `go test ./opm/api/v1alpha2/... -run TestSchemaFixtures`.
 
 ## Bundling multiple cases per fixture (`inputPath` override)
 

@@ -10,7 +10,7 @@ Different frontends layer values differently:
 
 Forcing each frontend through the kernel's slice merge means each one fights the kernel's order. Source-attribution (which layer caused this validation error?) is also lost — the kernel sees only `[]cue.Value`, not `[]LabeledLayer`.
 
-This slice narrows the kernel's contract: the kernel takes one `values cue.Value`, already unified. Layering is a frontend / helper concern. Slice 05 (`introduce-tiered-validation`) introduces `pkg/helper/values/` to standardize the layering implementation across frontends and add source-positioned Tier-1 validation.
+This slice narrows the kernel's contract: the kernel takes one `values cue.Value`, already unified. Layering is a frontend / helper concern. Slice 05 (`introduce-tiered-validation`) introduces `opm/helper/values/` to standardize the layering implementation across frontends and add source-positioned Tier-1 validation.
 
 ## Goals / Non-Goals
 
@@ -28,7 +28,7 @@ This slice narrows the kernel's contract: the kernel takes one `values cue.Value
 
 **Single signature change, not a deprecation pair.** Change `validate.Config` and `module.ParseModuleRelease` outright (MAJOR bump). Reason: the slice signature was always a leaky abstraction; keeping a deprecated `[]cue.Value` form alongside the new `cue.Value` form doubles the surface and confuses migrations.
 
-**Temporary `validate.UnifyAndValidate` helper.** A single function that takes `[]cue.Value`, unifies via the same loop the kernel used to do, then calls the new single-value `Config`. Marked `// Deprecated: use pkg/helper/values for layering and call validate.Config with the unified result` from day one. Removed when slice 05 ships.
+**Temporary `validate.UnifyAndValidate` helper.** A single function that takes `[]cue.Value`, unifies via the same loop the kernel used to do, then calls the new single-value `Config`. Marked `// Deprecated: use opm/helper/values for layering and call validate.Config with the unified result` from day one. Removed when slice 05 ships.
 
 **Empty values: zero-value `cue.Value` vs. nil.** The new signature accepts `cue.Value`. An "absent" values is the zero value (`cue.Value{}`); the validator already handles this case (returns success when no values to check). Document explicitly.
 

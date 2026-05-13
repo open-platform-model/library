@@ -26,9 +26,9 @@ A fixture MAY bundle multiple independent cases. When the harness drives a case 
 - **WHEN** a fixture declares `case_a: ...` and `case_a_expect: ...` and the harness drives a case with `inputPath: "case_a"` and no `expectError`
 - **THEN** the harness evaluates `case_a & case_a_expect` under `Validate(cue.Concrete(true))` and applies the same concrete-equality contract as the default `input & expect` pairing
 
-### Requirement: Table-driven Go harness in `pkg/api/v1alpha2/`
+### Requirement: Table-driven Go harness in `opm/api/v1alpha2/`
 
-The library SHALL provide a single test file `pkg/api/v1alpha2/schema_fixture_test.go` containing a function `TestSchemaFixtures` that table-drives a slice of cases over the fixtures in `apis/core/v1alpha2/testdata/`. Each case SHALL specify: a fixture filename, an optional `inputPath` overriding the default `"input"` lookup, an optional CUE path plus Go decode target for positive value-equality, and an optional regex for negative error matching. The harness SHALL load fixtures via `cuelang.org/go/cue/load` with `Config.Tags: []string{"test"}` and `Config.Dir` resolved to the on-disk `apis/core` module root.
+The library SHALL provide a single test file `opm/api/v1alpha2/schema_fixture_test.go` containing a function `TestSchemaFixtures` that table-drives a slice of cases over the fixtures in `apis/core/v1alpha2/testdata/`. Each case SHALL specify: a fixture filename, an optional `inputPath` overriding the default `"input"` lookup, an optional CUE path plus Go decode target for positive value-equality, and an optional regex for negative error matching. The harness SHALL load fixtures via `cuelang.org/go/cue/load` with `Config.Tags: []string{"test"}` and `Config.Dir` resolved to the on-disk `apis/core` module root.
 
 #### Scenario: Positive case asserts decoded value
 
@@ -62,7 +62,7 @@ The library SHALL include `apis/core/v1alpha2/testdata/README.md` documenting: t
 #### Scenario: README explains add-fixture workflow
 
 - **WHEN** a contributor reads `apis/core/v1alpha2/testdata/README.md`
-- **THEN** they can add a new fixture file and table row without reading the harness implementation, knowing only the location of the table in `pkg/api/v1alpha2/schema_fixture_test.go`
+- **THEN** they can add a new fixture file and table row without reading the harness implementation, knowing only the location of the table in `opm/api/v1alpha2/schema_fixture_test.go`
 
 #### Scenario: README documents bundled-fixture usage
 

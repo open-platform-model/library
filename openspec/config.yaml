@@ -30,19 +30,19 @@ context: |
 
   ### III. Separation of Concerns
   The library MUST preserve clear package boundaries:
-  - `pkg/core/`: shared domain primitives (resource identity, rendered output).
-  - `pkg/errors/`: structured errors and sentinels (alias as `oerrors`).
-  - `pkg/loader/`: CUE artifact loading (modules, providers, releases).
-  - `pkg/module/`: module/release model, parsing, helpers.
-  - `pkg/provider/`: provider model.
-  - `pkg/render/`: render pipeline (match, process, execute, finalize).
-  Domain logic belongs in focused packages, not aggregated into one monolithic API. Configuration validation lives on the `Kernel` (see `pkg/kernel/validate.go`); there is no standalone `pkg/validate/` package.
+  - `opm/core/`: shared domain primitives (resource identity, rendered output).
+  - `opm/errors/`: structured errors and sentinels (alias as `oerrors`).
+  - `opm/loader/`: CUE artifact loading (modules, providers, releases).
+  - `opm/module/`: module/release model, parsing, helpers.
+  - `opm/provider/`: provider model.
+  - `opm/render/`: render pipeline (match, process, execute, finalize).
+  Domain logic belongs in focused packages, not aggregated into one monolithic API. Configuration validation lives on the `Kernel` (see `opm/kernel/validate.go`); there is no standalone `opm/validate/` package.
 
   ### IV. Composability via Stable Contracts
   The library is a kernel; its public API is contractual.
   - Accept interfaces, return concrete structs.
-  - Public surface lives in `pkg/`; non-public helpers live in `internal/`.
-  - `pkg/` packages MUST NOT import command, controller, or runtime-specific concerns.
+  - Public surface lives in `opm/`; non-public helpers live in `internal/`.
+  - `opm/` packages MUST NOT import command, controller, or runtime-specific concerns.
   - Output formatting and presentation MUST stay outside the library.
   - Functions accept `context.Context` for any I/O, longer workflows, or cancellation.
 
@@ -56,7 +56,7 @@ context: |
   ### VI. Semantic Versioning & Public API Discipline
   The library MUST follow SemVer 2.0.0. Public API stability is contractual because
   multiple downstream implementations depend on it.
-  - MAJOR: any breaking change to `pkg/` types, signatures, or behavior.
+  - MAJOR: any breaking change to `opm/` types, signatures, or behavior.
   - MINOR: additive changes that preserve existing behavior.
   - PATCH: bug fixes, performance improvements, internal refactors.
   - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
@@ -94,7 +94,7 @@ context: |
   - Accept interfaces, return structs.
   - Context propagation for I/O, CUE evaluation, and longer workflows.
   - Wrap errors with context: `fmt.Errorf("loading module: %w", err)`.
-  - Reuse `pkg/errors` types and sentinels where applicable.
+  - Reuse `opm/errors` types and sentinels where applicable.
   - Prefer concrete types over `map[string]any`.
   - No package-level mutable state; build fresh CUE contexts at the boundary.
 
@@ -120,9 +120,9 @@ rules:
   proposal:
     - "Focus: WHY we're doing this, WHAT's in/out of scope"
     - "Updates when: Scope changes, intent clarifies, approach fundamentally shifts"
-    - Identify affected `pkg/` packages and any downstream consumers (CLI, controller).
+    - Identify affected `opm/` packages and any downstream consumers (CLI, controller).
     - State whether this is MAJOR/MINOR/PATCH per SemVer (Principle VI).
-    - Breaking changes to `pkg/` MUST be called out explicitly with downstream migration cost.
+    - Breaking changes to `opm/` MUST be called out explicitly with downstream migration cost.
     - Complexity additions MUST include justification (Principle VII).
     - Scope MUST be small enough to implement in a short session (Principle VIII).
 
@@ -141,7 +141,7 @@ rules:
         **Rationale**: [Why this option was selected]
     - Include Go pseudo-code or CUE snippets where they clarify intent.
     - Detail the impact across loader / module / render / kernel phases.
-    - Call out any change to the public surface in `pkg/`.
+    - Call out any change to the public surface in `opm/`.
 
   specs:
     - "Focus: WHAT behavior is changing (not HOW it's implemented)"

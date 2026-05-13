@@ -2,7 +2,7 @@
 
 ### Requirement: Platform Type Shape
 
-The library SHALL expose `Platform` in `pkg/platform/` with the uniform artifact shape: `{ APIVersion apiversion.Version; Metadata *PlatformMetadata; Package cue.Value }`.
+The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact shape: `{ APIVersion apiversion.Version; Metadata *PlatformMetadata; Package cue.Value }`.
 
 #### Scenario: Platform struct fields
 
@@ -31,7 +31,7 @@ The library SHALL expose `func NewPlatformFromValue(k *kernel.Kernel, v cue.Valu
 
 ### Requirement: Platform Loader
 
-The library SHALL expose `LoadPlatformFile(ctx *cue.Context, path string, opts loader.LoadOptions) (cue.Value, string, error)` in `pkg/helper/loader/file/`. The function SHALL mirror `LoadReleaseFile` in signature shape and behavior, loading a `.cue` file (or directory containing `platform.cue`) into a `cue.Value`.
+The library SHALL expose `LoadPlatformFile(ctx *cue.Context, path string, opts loader.LoadOptions) (cue.Value, string, error)` in `opm/helper/loader/file/`. The function SHALL mirror `LoadReleaseFile` in signature shape and behavior, loading a `.cue` file (or directory containing `platform.cue`) into a `cue.Value`.
 
 #### Scenario: Direct file path
 
@@ -50,7 +50,7 @@ The library SHALL expose `LoadPlatformFile(ctx *cue.Context, path string, opts l
 
 ### Requirement: Binding Path Constants for Platform Views
 
-Each version binding (`pkg/api/<version>/`) SHALL expose path constants for navigating a Platform package: `Paths().Registry`, `Paths().KnownResources`, `Paths().KnownTraits`, `Paths().ComposedTransformers`, `Paths().Matchers`. The binding SHALL also expose `DecodePlatformMetadata(v cue.Value) (*platform.PlatformMetadata, error)`.
+Each version binding (`opm/api/<version>/`) SHALL expose path constants for navigating a Platform package: `Paths().Registry`, `Paths().KnownResources`, `Paths().KnownTraits`, `Paths().ComposedTransformers`, `Paths().Matchers`. The binding SHALL also expose `DecodePlatformMetadata(v cue.Value) (*platform.PlatformMetadata, error)`.
 
 #### Scenario: Registry path on v1alpha2
 

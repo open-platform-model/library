@@ -2,13 +2,13 @@
 
 ### Requirement: Canonical Implementations Live on Kernel
 
-The canonical Go implementation of values validation (full and partial) and module-release processing SHALL live on the `*Kernel` receiver in `pkg/kernel/`. No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleRelease` free functions SHALL remain in the library; the `pkg/validate/` package SHALL NOT exist after this change.
+The canonical Go implementation of values validation (full and partial) and module-release processing SHALL live on the `*Kernel` receiver in `opm/kernel/`. No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleRelease` free functions SHALL remain in the library; the `opm/validate/` package SHALL NOT exist after this change.
 
 #### Scenario: ValidateConfig is a kernel method
 
 - **WHEN** a caller invokes `k.ValidateConfig(schema, values, contextLabel, name)`
-- **THEN** the method runs the full Tier-2 schema validation directly (no delegation to a `pkg/validate` free function) and returns the validated `cue.Value` on success or a `*oerrors.ConfigError` on failure
-- **AND** no `pkg/validate/` import is required by callers
+- **THEN** the method runs the full Tier-2 schema validation directly (no delegation to a `opm/validate` free function) and returns the validated `cue.Value` on success or a `*oerrors.ConfigError` on failure
+- **AND** no `opm/validate/` import is required by callers
 
 #### Scenario: ValidateConfigPartial is a kernel method
 
@@ -21,20 +21,20 @@ The canonical Go implementation of values validation (full and partial) and modu
 - **THEN** the method validates `values` via the kernel's own validation impl, fills the validated value into `spec`, asserts concreteness, decodes release metadata via the binding, and returns a `*module.Release`
 - **AND** the method does not delegate to any deprecated free function
 
-#### Scenario: pkg/validate package is gone
+#### Scenario: opm/validate package is gone
 
-- **WHEN** a developer runs `ls pkg/validate/` after this change ships
+- **WHEN** a developer runs `ls opm/validate/` after this change ships
 - **THEN** the directory does not exist
 
 #### Scenario: module.ParseModuleRelease free function is gone
 
-- **WHEN** a developer searches `pkg/module/` for `ParseModuleRelease`
+- **WHEN** a developer searches `opm/module/` for `ParseModuleRelease`
 - **THEN** no free function with that name exists
 - **AND** the only `ParseModuleRelease` symbol in the library is the deprecated method on `*Kernel` (see the deprecation requirement below)
 
 #### Scenario: compile.CompileModuleRelease free function is gone
 
-- **WHEN** a developer searches `pkg/compile/` for `CompileModuleRelease`
+- **WHEN** a developer searches `opm/compile/` for `CompileModuleRelease`
 - **THEN** no free function with that name exists
 - **AND** the canonical compile entry point is `(*Kernel).Compile`
 
@@ -56,7 +56,7 @@ The canonical Go implementation of values validation (full and partial) and modu
 
 ### Requirement: Backward-Compatible Method Wrappers
 
-For every existing exported function in `pkg/helper/loader/file/`, `pkg/helper/platform/`, `pkg/helper/values/`, and the `*FromValue` constructors in `pkg/module/` and `pkg/platform/` that takes a `*cue.Context` (directly or via a `CueContextOwner` / `KernelOwner` interface), the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself. The Kernel SHALL NOT wrap functions whose canonical implementation now lives on the Kernel itself (validation and module-release processing); those are direct kernel methods, not wrappers.
+For every existing exported function in `opm/helper/loader/file/`, `opm/helper/platform/`, `opm/helper/values/`, and the `*FromValue` constructors in `opm/module/` and `opm/platform/` that takes a `*cue.Context` (directly or via a `CueContextOwner` / `KernelOwner` interface), the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself. The Kernel SHALL NOT wrap functions whose canonical implementation now lives on the Kernel itself (validation and module-release processing); those are direct kernel methods, not wrappers.
 
 #### Scenario: Loader method wrapper
 
@@ -68,11 +68,11 @@ For every existing exported function in `pkg/helper/loader/file/`, `pkg/helper/p
 
 - **WHEN** existing downstream code calls `helper/loader/file.LoadModulePackage(cueCtx, dir)` directly
 - **THEN** the call succeeds with the same behavior as before
-- **AND** the helper signature continues to accept `*cue.Context` so non-kernel consumers can use it without importing `pkg/kernel`
+- **AND** the helper signature continues to accept `*cue.Context` so non-kernel consumers can use it without importing `opm/kernel`
 
 #### Scenario: Validation methods are not wrappers
 
-- **WHEN** a developer reads `pkg/kernel/validate.go`
+- **WHEN** a developer reads `opm/kernel/validate.go`
 - **THEN** the file contains the canonical implementation of `ValidateConfig` and `ValidateConfigPartial` directly, with no `//nolint:staticcheck // SA1019: ... wraps the deprecated free function` exemption
 
 ### Requirement: Single Pre-Unified Values Input
@@ -103,7 +103,7 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 #### Scenario: Kernel re-validates after Tier-1
 
-- **WHEN** a frontend that uses `pkg/helper/values` (slice 05) supplies a unified value to `k.ValidateConfig`
+- **WHEN** a frontend that uses `opm/helper/values` (slice 05) supplies a unified value to `k.ValidateConfig`
 - **THEN** the kernel performs full schema validation on the unified value
 - **AND** any schema violation produces a `*oerrors.ConfigError`
 
@@ -115,7 +115,7 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 ### Requirement: Compile Rename
 
-The compile pipeline's terminal verb SHALL be `Compile`. The canonical entry point is `(*Kernel).Compile`. The free function `compile.CompileModuleRelease` SHALL NOT exist after this change. The earlier `pkg/render/process_module.go` / `render.ProcessModuleRelease` names SHALL NOT reappear inside `pkg/compile/`.
+The compile pipeline's terminal verb SHALL be `Compile`. The canonical entry point is `(*Kernel).Compile`. The free function `compile.CompileModuleRelease` SHALL NOT exist after this change. The earlier `opm/render/process_module.go` / `render.ProcessModuleRelease` names SHALL NOT reappear inside `opm/compile/`.
 
 Note: `(*Kernel).ProcessModuleRelease` (added by this change) names a different operation — module-release validation, value-filling, and metadata decoding — distinct from the compile pipeline. The two names occupy different concepts and do not conflict.
 
@@ -126,7 +126,7 @@ Note: `(*Kernel).ProcessModuleRelease` (added by this change) names a different 
 
 #### Scenario: compile.CompileModuleRelease symbol gone
 
-- **WHEN** a developer searches for `CompileModuleRelease` in `pkg/compile/`
+- **WHEN** a developer searches for `CompileModuleRelease` in `opm/compile/`
 - **THEN** the symbol does not exist
 - **AND** callers MUST use `(*Kernel).Compile`
 
@@ -139,6 +139,6 @@ Note: `(*Kernel).ProcessModuleRelease` (added by this change) names a different 
 
 ### Requirement: Temporary Migration Helper
 
-**Reason**: Already removed in slice 05 (`introduce-tiered-validation`); the requirement only existed because `validate.UnifyAndValidate` was a transitional helper inside `pkg/validate/`. With `pkg/validate/` deleted in this change, the requirement is moot.
+**Reason**: Already removed in slice 05 (`introduce-tiered-validation`); the requirement only existed because `validate.UnifyAndValidate` was a transitional helper inside `opm/validate/`. With `opm/validate/` deleted in this change, the requirement is moot.
 
-**Migration**: Use `pkg/helper/values.ValidateAndUnify` (or the `(*Kernel).ValidateAndUnify` ergonomic shortcut) for layered values handling.
+**Migration**: Use `opm/helper/values.ValidateAndUnify` (or the `(*Kernel).ValidateAndUnify` ergonomic shortcut) for layered values handling.

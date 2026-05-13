@@ -74,18 +74,18 @@ The Execute phase SHALL resolve each matched pair's transformer by looking up th
 
 ### Requirement: Provider Package Retired
 
-The `pkg/provider/` package SHALL be removed in this slice. The `LoadProvider` loader (in `pkg/helper/loader/file/provider.go`) and its deprecation shim at `pkg/loader/LoadProvider` SHALL also be removed.
+The `opm/provider/` package SHALL be removed in this slice. The `LoadProvider` loader (in `opm/helper/loader/file/provider.go`) and its deprecation shim at `opm/loader/LoadProvider` SHALL also be removed.
 
-#### Scenario: pkg/provider absent
+#### Scenario: opm/provider absent
 
-- **WHEN** a developer searches the repository for `pkg/provider`
+- **WHEN** a developer searches the repository for `opm/provider`
 - **THEN** no directory or package exists at that path
 
 #### Scenario: LoadProvider absent
 
 - **WHEN** a developer searches for `LoadProvider`
-- **THEN** the symbol exists in no `pkg/` package
-- **AND** the deprecation shim previously at `pkg/loader/` is removed
+- **THEN** the symbol exists in no `opm/` package
+- **AND** the deprecation shim previously at `opm/loader/` is removed
 
 ### Requirement: render.Module Runtime Helper Updated
 

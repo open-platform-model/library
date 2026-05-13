@@ -13,7 +13,7 @@ The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.
 ## Construct a kernel
 
 ```go
-import "github.com/open-platform-model/library/pkg/kernel"
+import "github.com/open-platform-model/library/opm/kernel"
 
 k := kernel.New()
 // or:
@@ -27,7 +27,7 @@ k := kernel.New(kernel.WithLogger(myLogger))
 `LoadModulePackage` reads a CUE package directory, builds a `cue.Value`, and returns the detected `apiVersion`. `NewModuleFromValue` wraps it into a typed `*module.Module`.
 
 ```go
-import loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
+import loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 
 moduleVal, _, err := k.LoadModulePackage(ctx, "./module/", loaderfile.LoadOptions{})
 if err != nil {
@@ -46,10 +46,10 @@ Layered validation unifies every values source in stack order, then validates th
 ```go
 defaults, _ := k.LoadSourceFromString("embedded", "defaults", `replicas: 1`)
 user, _    := k.LoadSourceFromFile("./values.cue")
-overlay, _ := k.LoadSourceFromFile("./overlay.cue")
+prod, _    := k.LoadSourceFromFile("./prod.cue")
 
 userValues, vErr := k.ValidateModuleValuesDetailed(mod, []kernel.Source{
-    defaults, user, overlay,
+    defaults, user, prod,
 })
 if vErr != nil {
     // CUE-native error tree — walk via cueerrors.Errors / Positions, or
@@ -77,7 +77,7 @@ if err != nil {
 }
 ```
 
-If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeRelease` (from `pkg/helper/synth`) instead. It unifies the typed inputs against the embedded `#ModuleRelease` schema and chains into `ProcessModuleRelease` in one call.
+If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeRelease` (from `opm/helper/synth`) instead. It unifies the typed inputs against the embedded `#ModuleRelease` schema and chains into `ProcessModuleRelease` in one call.
 
 ## Load and compose a Platform
 
@@ -143,7 +143,7 @@ The previous free-function entry points have all been removed. If you have old c
 | `compile.ProcessModuleRelease`  | `(*Kernel).ProcessModuleRelease`             |
 | `module.ParseModuleRelease`     | `(*Kernel).ProcessModuleRelease`             |
 | `loaderfile.LoadReleaseFile`    | `loaderfile.LoadReleasePackage` (now a pkg)  |
-| `pkg/loader/` shim              | `pkg/helper/loader/file`                     |
+| `opm/loader/` shim              | `opm/helper/loader/file`                     |
 
 ## Further reading
 

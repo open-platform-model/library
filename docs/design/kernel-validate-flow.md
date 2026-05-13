@@ -12,14 +12,14 @@ All three return CUE-native errors (`cuelang.org/go/cue/errors.Error`-walkable).
 
 Source files:
 
-- `pkg/kernel/phases.go:23` — `Kernel.Validate` phase entry point
-- `pkg/kernel/validate.go` — `ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, the internal `runValidate` + `walkDisallowed` + `fieldNotAllowedError`
-- `pkg/kernel/source.go` — `Source`, `ValidateOption`, `Partial()`
-- `pkg/kernel/source_loader.go` — `LoadSourceFromFile`, `LoadSourceFromBytes`, `LoadSourceFromString`
-- `pkg/kernel/validate_typed.go` — `ValidateModuleValues*` / `ValidateReleaseValues*` typed shortcuts
-- `pkg/kernel/inputs.go:11` — `ValidateInput`
-- `pkg/module/module.go`, `pkg/module/release.go` — artifact types and `ConfigSchema()` accessors
-- `pkg/api/api.go`, `pkg/api/registry.go` — version binding
+- `opm/kernel/phases.go:23` — `Kernel.Validate` phase entry point
+- `opm/kernel/validate.go` — `ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, the internal `runValidate` + `walkDisallowed` + `fieldNotAllowedError`
+- `opm/kernel/source.go` — `Source`, `ValidateOption`, `Partial()`
+- `opm/kernel/source_loader.go` — `LoadSourceFromFile`, `LoadSourceFromBytes`, `LoadSourceFromString`
+- `opm/kernel/validate_typed.go` — `ValidateModuleValues*` / `ValidateReleaseValues*` typed shortcuts
+- `opm/kernel/inputs.go:11` — `ValidateInput`
+- `opm/module/module.go`, `opm/module/release.go` — artifact types and `ConfigSchema()` accessors
+- `opm/api/api.go`, `opm/api/registry.go` — version binding
 
 ## Class Diagram
 
@@ -201,7 +201,7 @@ sequenceDiagram
 
 ## Step-by-Step
 
-`Kernel.Validate` (`pkg/kernel/phases.go:23`) is a thin orchestrator. Five phases:
+`Kernel.Validate` (`opm/kernel/phases.go:23`) is a thin orchestrator. Five phases:
 
 ### 1. Input guards
 
@@ -211,7 +211,7 @@ sequenceDiagram
 
 ### 2. Resolve per-version binding
 
-`api.Lookup(in.Module.APIVersion)` (`pkg/api/registry.go:48`) returns a `Binding` from the process-wide registry. Bindings self-register from `init()` in `pkg/api/v1alpha2/`. Lookup miss wraps `apiversion.ErrUnknownAPIVersion`.
+`api.Lookup(in.Module.APIVersion)` (`opm/api/registry.go:48`) returns a `Binding` from the process-wide registry. Bindings self-register from `init()` in `opm/api/v1alpha2/`. Lookup miss wraps `apiversion.ErrUnknownAPIVersion`.
 
 ### 3. Extract `#config` schema
 
@@ -236,11 +236,11 @@ The phase method itself never produces a custom error type — the wrap is `fmt.
 
 ## Inside `ValidateConfig` / `runValidate` / `appendSchemaErrors`
 
-`pkg/kernel/validate.go`. Call chain: `ValidateConfig` (or `ValidateConfigPartial`) → `runValidate(schema, values, requireConcrete)` → `appendSchemaErrors(schema, value, acc, requireConcrete)`. `runValidate` short-circuits on a zero schema or zero values, then delegates to `appendSchemaErrors` which performs the two checks below and folds them into one error tree.
+`opm/kernel/validate.go`. Call chain: `ValidateConfig` (or `ValidateConfigPartial`) → `runValidate(schema, values, requireConcrete)` → `appendSchemaErrors(schema, value, acc, requireConcrete)`. `runValidate` short-circuits on a zero schema or zero values, then delegates to `appendSchemaErrors` which performs the two checks below and folds them into one error tree.
 
 ### 5a. `walkDisallowed` (inside `appendSchemaErrors`)
 
-Recursive descent over the value tree (`pkg/kernel/validate.go`). For each field:
+Recursive descent over the value tree (`opm/kernel/validate.go`). For each field:
 
 - `schema.Allows(selector)` — if false, append `fieldNotAllowedError{pos, path}` to the accumulator.
 - Otherwise, if the field is a struct, recurse with the corresponding child schema.
@@ -280,7 +280,7 @@ The detailed branch is what frontends with multiple values sources reach for: CL
 
 ## What `Validate` Does NOT Do
 
-- Does not fill `values` into the release `Package` — that happens in `Kernel.ProcessModuleRelease` (`pkg/kernel/process.go:29`).
+- Does not fill `values` into the release `Package` — that happens in `Kernel.ProcessModuleRelease` (`opm/kernel/process.go:29`).
 - Does not decode release metadata — also `ProcessModuleRelease`.
 - Does not match components against platform transformers — that is `Kernel.Match`.
 - Does not produce rendered output — that is `Kernel.Compile` / `Kernel.Plan`.

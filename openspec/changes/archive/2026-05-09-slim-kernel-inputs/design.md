@@ -11,38 +11,38 @@ Today's call graph reveals the redundancy:
 Carrying the redundant field invites two real failure modes:
 
 1. **Drift.** A caller can construct a `*module.Release` from one `#module` and pass an unrelated `*module.Module` in the same input struct. The kernel mixes them silently — `Validate` reads schema from the supplied `Module`, while `Compile` reads components and module metadata from the release.
-2. **Fixture cheating.** `pkg/kernel/phase_test.go` builds release packages without an embedded `#module` and passes `mod` separately. Tests stay green only because the kernel currently reaches for `in.Module` instead of the release's embedded reference. Any future caller that constructs a release the production way (via `module.ParseModuleRelease`) carries an embedded module and never needs the parallel `Module`.
+2. **Fixture cheating.** `opm/kernel/phase_test.go` builds release packages without an embedded `#module` and passes `mod` separately. Tests stay green only because the kernel currently reaches for `in.Module` instead of the release's embedded reference. Any future caller that constructs a release the production way (via `module.ParseModuleRelease`) carries an embedded module and never needs the parallel `Module`.
 
-This slice removes the redundancy and centralizes the `#config` schema lookup behind a small `(*Release).ConfigSchema()` accessor on `pkg/module`. `ValidateInput` is intentionally untouched — it owns the post-slice-04 contract, and tightening that surface here would conflate two design moves.
+This slice removes the redundancy and centralizes the `#config` schema lookup behind a small `(*Release).ConfigSchema()` accessor on `opm/module`. `ValidateInput` is intentionally untouched — it owns the post-slice-04 contract, and tightening that surface here would conflate two design moves.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Remove `Module *module.Module` from `kernel.MatchInput`, `kernel.PlanInput`, and `kernel.CompileInput`.
-- Add `(*Release).ConfigSchema() cue.Value` accessor on `pkg/module/release.go`, returning the embedded module's `#config` schema via the binding's `Paths().Module` + `Paths().Config`.
+- Add `(*Release).ConfigSchema() cue.Value` accessor on `opm/module/release.go`, returning the embedded module's `#config` schema via the binding's `Paths().Module` + `Paths().Config`.
 - Migrate `kernel.Compile`'s internal call to `Validate` so the embedded `Module` it currently forwards is sourced from `in.ModuleRelease.Package` rather than from a now-absent input field.
-- Update `pkg/kernel/phase_test.go` and `pkg/kernel/kernel_test.go` fixtures to embed `#module` (with `apiVersion`, `metadata`, `#config`) into the release literal, removing the parallel `mod` artifact previously passed alongside.
+- Update `opm/kernel/phase_test.go` and `opm/kernel/kernel_test.go` fixtures to embed `#module` (with `apiVersion`, `metadata`, `#config`) into the release literal, removing the parallel `mod` artifact previously passed alongside.
 
 **Non-Goals:**
 
 - Modifying `ValidateInput`. Its `Module` field is the one place schema lookup happens and removing it conflates with slice 04's signature change. A follow-up slice can retire `ValidateInput` once both 04 and this slice have landed.
 - Modifying `validate.Config`'s signature. Slice 04 owns that move.
-- Introducing a kernel-side `ValidateConfigDetailed` or any Tier-1 validation method. Slice 05's `pkg/helper/values` is the home for source-positioned diagnostics; the kernel keeps only its Tier-2 safety net.
+- Introducing a kernel-side `ValidateConfigDetailed` or any Tier-1 validation method. Slice 05's `opm/helper/values` is the home for source-positioned diagnostics; the kernel keeps only its Tier-2 safety net.
 - Retiring `module.NewModuleFromValue`. The standalone `*module.Module` artifact survives for load-time / inspection workflows; this slice only narrows three kernel input structs.
 - Adding deprecation aliases. Input structs are direct value-types; carrying a deprecated parallel `Module` field for one slice doubles the surface for no realized migration value (no in-repo external consumer today).
 
 ## Decisions
 
-**`(*Release).ConfigSchema()` lives on `*module.Release`, not on `*kernel.Kernel`.** Reason: path knowledge (`Paths().Module` + `Paths().Config`) is a property of the release artifact and the binding registry, both already imported by `pkg/module`. Hosting the accessor on the kernel would force `pkg/kernel` to re-implement what the binding already exposes and would split the artifact's own surface across two packages. The accessor is a one-line follow-on to the existing `MatchComponents()` accessor pattern in `pkg/module/release.go`.
+**`(*Release).ConfigSchema()` lives on `*module.Release`, not on `*kernel.Kernel`.** Reason: path knowledge (`Paths().Module` + `Paths().Config`) is a property of the release artifact and the binding registry, both already imported by `opm/module`. Hosting the accessor on the kernel would force `opm/kernel` to re-implement what the binding already exposes and would split the artifact's own surface across two packages. The accessor is a one-line follow-on to the existing `MatchComponents()` accessor pattern in `opm/module/release.go`.
 
 **Zero-value return on lookup failure, not error.** Reason: `MatchComponents()` (the existing peer accessor) returns the zero `cue.Value` when the binding is unregistered or the path is missing. The internal Tier-2 caller already short-circuits on `!schema.Exists()` returning nil. An error return would force every call site to handle a case that callers cannot reasonably recover from at runtime — the binding is registered or the artifact is malformed, both load-time concerns.
 
-**`Compile` synthesizes the `Module` it forwards into `Validate`.** Reason: `kernel.Validate` accepts a `ValidateInput{Module, ModuleRelease, Values}` and reads `Module.Package` for `#config`. With `CompileInput.Module` removed, `Compile` must either (a) build a transient `*module.Module` from `in.ModuleRelease.Package.LookupPath(b.Paths().Module)` and pass it forward, or (b) bypass `kernel.Validate` and call `validate.Config` directly with the schema obtained via `Release.ConfigSchema()`. Option (b) is cleaner but couples this slice to slice 04's signature timing. Option (a) keeps the slice independent: a tiny private helper `moduleFromRelease(rel)` in `pkg/kernel/phases.go` constructs the transient view by re-using `module.NewModuleFromValue` against the embedded `#module` value. When slices 04 and 05 land, a follow-up can collapse the indirection.
+**`Compile` synthesizes the `Module` it forwards into `Validate`.** Reason: `kernel.Validate` accepts a `ValidateInput{Module, ModuleRelease, Values}` and reads `Module.Package` for `#config`. With `CompileInput.Module` removed, `Compile` must either (a) build a transient `*module.Module` from `in.ModuleRelease.Package.LookupPath(b.Paths().Module)` and pass it forward, or (b) bypass `kernel.Validate` and call `validate.Config` directly with the schema obtained via `Release.ConfigSchema()`. Option (b) is cleaner but couples this slice to slice 04's signature timing. Option (a) keeps the slice independent: a tiny private helper `moduleFromRelease(rel)` in `opm/kernel/phases.go` constructs the transient view by re-using `module.NewModuleFromValue` against the embedded `#module` value. When slices 04 and 05 land, a follow-up can collapse the indirection.
 
 **Test fixtures embed `#module` literally rather than going through `module.ParseModuleRelease`.** Reason: kernel tests are unit-scoped. Threading them through the loader/parser brings the parser's invariants under test alongside the kernel's, slowing diagnostics when one breaks. Embedding `#module` as a CUE literal in `relPkg` keeps the test laser-focused on the kernel surface and forces the production-shape invariant ("releases carry an embedded `#module`") to be visible in fixtures.
 
-**No deprecation alias for the removed `Module` field.** Reason: input structs are constructed inline at call sites. Today no in-repo consumer constructs `MatchInput`, `PlanInput`, or `CompileInput` outside of `pkg/kernel/` itself. Keeping a deprecated parallel field for one slice is dead weight. Downstream consumers (CLI, operator, Crossplane fn) do not embed the kernel yet; their migration is a single line removal once they do.
+**No deprecation alias for the removed `Module` field.** Reason: input structs are constructed inline at call sites. Today no in-repo consumer constructs `MatchInput`, `PlanInput`, or `CompileInput` outside of `opm/kernel/` itself. Keeping a deprecated parallel field for one slice is dead weight. Downstream consumers (CLI, operator, Crossplane fn) do not embed the kernel yet; their migration is a single line removal once they do.
 
 ## Risks / Trade-offs
 

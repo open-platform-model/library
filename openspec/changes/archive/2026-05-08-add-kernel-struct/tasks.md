@@ -1,6 +1,6 @@
 ## 1. Package Skeleton
 
-- [x] 1.1 Create `pkg/kernel/` directory and `kernel.go` with package doc comment that states the goroutine-safety contract and shows a one-Kernel-per-goroutine example
+- [x] 1.1 Create `opm/kernel/` directory and `kernel.go` with package doc comment that states the goroutine-safety contract and shows a one-Kernel-per-goroutine example
 - [x] 1.2 Define the unexported `Kernel` struct fields: `cueCtx *cue.Context`, `logger *slog.Logger`, `tracer trace.Tracer`, `clock Clock`
 - [x] 1.3 Define the `Option` type as `type Option func(*Kernel)`
 - [x] 1.4 Define the `Clock` interface as `type Clock interface { Now() time.Time }`; provide an unexported `systemClock` default
@@ -32,15 +32,15 @@
 
 ## 5. Tests
 
-- [x] 5.1 Add `pkg/kernel/kernel_test.go` covering: default construction, construction with each option, identity of `k.CueContext()` across calls
+- [x] 5.1 Add `opm/kernel/kernel_test.go` covering: default construction, construction with each option, identity of `k.CueContext()` across calls
 - [x] 5.2 Add a parity test for each wrapper method confirming results identical to the underlying free function
 - [x] 5.3 Add a goroutine-safety regression test that constructs N kernels (one per goroutine), runs each through a basic Load + Process cycle, and asserts no race detector complaints
-- [x] 5.4 Confirm existing test suites in `pkg/loader/`, `pkg/module/`, `pkg/render/`, `pkg/validate/` continue to pass without modification
+- [x] 5.4 Confirm existing test suites in `opm/loader/`, `opm/module/`, `opm/render/`, `opm/validate/` continue to pass without modification
 
 ## 6. Documentation
 
 - [x] 6.1 Update `library/README.md` Quick Start section to show the Kernel construction form alongside the existing free-function form
-- [x] 6.2 Add a `pkg/kernel/doc.go` (or top-of-file package doc) covering: purpose, goroutine-safety, one-per-goroutine pattern, advanced `CueContext()` accessor
+- [x] 6.2 Add a `opm/kernel/doc.go` (or top-of-file package doc) covering: purpose, goroutine-safety, one-per-goroutine pattern, advanced `CueContext()` accessor
 
 ## 7. Validation
 

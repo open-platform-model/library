@@ -4,7 +4,7 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 
 ## D1 — Kernel keeps validation; helpers do source-positioned validation on top
 
-**Decision.** The kernel always validates the unified values value against `Module.Package`'s `#config` schema (Tier 2). A helper package (`pkg/helper/values`, slice 05) optionally validates each individual source layer with source-positioned diagnostics (Tier 1) before unification. Tier 1 is the user-facing diagnostic surface; Tier 2 is a correctness safety net.
+**Decision.** The kernel always validates the unified values value against `Module.Package`'s `#config` schema (Tier 2). A helper package (`opm/helper/values`, slice 05) optionally validates each individual source layer with source-positioned diagnostics (Tier 1) before unification. Tier 1 is the user-facing diagnostic surface; Tier 2 is a correctness safety net.
 
 **Rationale.** Validation is part of correctness — bad input must be rejected before the kernel proceeds. Skipping validation must not be silently easy. Validation is also tied to the schema version the kernel dispatches on; putting it in a helper would force the helper to do version dispatch too. Layering, by contrast, is policy — different frontends layer values differently, and baking one merge order into the kernel forces every consumer to fight it.
 
@@ -37,9 +37,9 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 
 ## D4 — Kernel detects `apiVersion` from input; closed binding registry
 
-**Decision.** The kernel inspects each input artifact's `apiVersion` field, looks up the corresponding binding from a closed registry (populated by `init()` in each `pkg/api/<version>` package), and dispatches all path lookups and decoders through that binding. Frontends do not declare or pass version information.
+**Decision.** The kernel inspects each input artifact's `apiVersion` field, looks up the corresponding binding from a closed registry (populated by `init()` in each `opm/api/<version>` package), and dispatches all path lookups and decoders through that binding. Frontends do not declare or pass version information.
 
-**Rationale.** Centralizes version policy. The kernel is the only thing that knows the full set of supported versions. Frontends pass artifacts; the kernel routes. Adding a new version is a new sibling package under `pkg/api/`; no kernel edits.
+**Rationale.** Centralizes version policy. The kernel is the only thing that knows the full set of supported versions. Frontends pass artifacts; the kernel routes. Adding a new version is a new sibling package under `opm/api/`; no kernel edits.
 
 **Alternatives considered.**
 
@@ -86,15 +86,15 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 - *Caller passes `*cue.Context` per call.* Rejected: leaks plumbing into every frontend.
 - *Kernel constructs a fresh `cue.Context` per `Compile` call.* Rejected: incompatible with helper-built values, since CUE values are context-bound.
 
-## D9 — Layout A: `pkg/kernel/` subpackage; helpers nested under `pkg/helper/`
+## D9 — Layout A: `opm/kernel/` subpackage; helpers nested under `opm/helper/`
 
-**Decision.** The repo will be renamed from `library` to `kernel`. Within the repo, the `Kernel` struct lives at `pkg/kernel/`. Optional helpers live under `pkg/helper/{loader,values,platform,embed}/`. Other internal packages (`pkg/core`, `pkg/errors`, `pkg/apiversion`, `pkg/api/<v>`, `pkg/module`, `pkg/render`, `pkg/validate`) keep their flat layout.
+**Decision.** The repo will be renamed from `library` to `kernel`. Within the repo, the `Kernel` struct lives at `opm/kernel/`. Optional helpers live under `opm/helper/{loader,values,platform,embed}/`. Other internal packages (`opm/core`, `opm/errors`, `opm/apiversion`, `opm/api/<v>`, `opm/module`, `opm/render`, `opm/validate`) keep their flat layout.
 
-**Rationale.** Symmetric with the existing flat layout (no disruption from a layout-flattening or package-promoting refactor on top of everything else this enhancement does). The `pkg/helper/` subdirectory makes the "optional, opinionated" boundary visible in the directory tree. Once the repo is renamed to `kernel`, the import path `github.com/open-platform-model/kernel/pkg/kernel` is verbose but accurate; aliasing on import (`import kernel "github.com/open-platform-model/kernel/pkg/kernel"`) is straightforward.
+**Rationale.** Symmetric with the existing flat layout (no disruption from a layout-flattening or package-promoting refactor on top of everything else this enhancement does). The `opm/helper/` subdirectory makes the "optional, opinionated" boundary visible in the directory tree. Once the repo is renamed to `kernel`, the import path `github.com/open-platform-model/kernel/opm/kernel` is verbose but accurate; aliasing on import (`import kernel "github.com/open-platform-model/kernel/opm/kernel"`) is straightforward.
 
 **Alternatives considered.**
 
-- *Layout B — `Kernel` struct at module root, no `pkg/kernel/` subpackage.* Rejected for now: would require flattening `pkg/` simultaneously with the kernel redesign. Defer; could be a follow-up enhancement once the design has settled.
+- *Layout B — `Kernel` struct at module root, no `opm/kernel/` subpackage.* Rejected for now: would require flattening `opm/` simultaneously with the kernel redesign. Defer; could be a follow-up enhancement once the design has settled.
 
 ## D10 — Uniform `(APIVersion, Metadata, Package)` shape across all OPM artifacts
 

@@ -25,12 +25,12 @@ Coordination: `add-multi-apiversion-support` (the prerequisite) provides the bin
 **Non-Goals:**
 - Implementing `#PlatformMatch` walking. Slice 09.
 - Removing `*provider.Provider`. Slice 09.
-- Composing a Platform from a list of Modules in Go. That is `pkg/helper/platform/Compose` in slice 10.
+- Composing a Platform from a list of Modules in Go. That is `opm/helper/platform/Compose` in slice 10.
 - Claim-related paths or decoders (`#knownClaims`, claim-side matchers, `#ModuleTransformer` extension, `#resolution` writeback). Deferred per umbrella scope.
 
 ## Decisions
 
-**`pkg/platform/`, not `pkg/module/platform.go`.** Reason: Platform is a distinct artifact type (catalog 014 retires Provider). A separate package is consistent with `pkg/provider/`. Future tests, helpers, and types specific to Platform have a clear home.
+**`opm/platform/`, not `opm/module/platform.go`.** Reason: Platform is a distinct artifact type (catalog 014 retires Provider). A separate package is consistent with `opm/provider/`. Future tests, helpers, and types specific to Platform have a clear home.
 
 **`PlatformMetadata.Type`.** Catalog 014 has a top-level `type` field on `#Platform` (e.g. `"kubernetes"`, `"crossplane"`). Decoded into `Metadata.Type`. Per-binding decoder owns the field; today's decoder treats it as a free string (matching catalog 014's "informational for now" note).
 

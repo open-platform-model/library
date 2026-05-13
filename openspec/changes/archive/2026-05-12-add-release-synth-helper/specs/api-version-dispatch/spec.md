@@ -2,7 +2,7 @@
 
 ### Requirement: Binding exposes its loaded schema as a cue.Value
 
-The `pkg/api.Binding` interface SHALL include a method `SchemaValue(ctx *cue.Context) (cue.Value, error)` that returns the binding's schema package as a fully built `cue.Value`. Implementations SHALL load their `EmbeddedSchema() fs.FS` via `cuelang.org/go/cue/load.Instances` with the embedded filesystem as overlay, build the resulting instance with the supplied `*cue.Context`, and return the package root value.
+The `opm/api.Binding` interface SHALL include a method `SchemaValue(ctx *cue.Context) (cue.Value, error)` that returns the binding's schema package as a fully built `cue.Value`. Implementations SHALL load their `EmbeddedSchema() fs.FS` via `cuelang.org/go/cue/load.Instances` with the embedded filesystem as overlay, build the resulting instance with the supplied `*cue.Context`, and return the package root value.
 
 Implementations SHALL cache the loaded `cue.Value` so repeated calls amortise the load cost. Caching SHALL be safe for the documented "one Kernel (one `*cue.Context`) per process" usage pattern; concurrent calls from multiple goroutines SHALL be safe even on the first invocation. Implementations MAY assume that all calls during the binding's lifetime use the same `*cue.Context` — passing a different context after the first call has implementation-defined behavior.
 

@@ -1,6 +1,6 @@
 ## 1. Package Skeleton
 
-- [x] 1.1 Create `pkg/helper/values/` directory with package doc comment explaining the Tier-1 / Tier-2 split and pointing at the umbrella enhancement
+- [x] 1.1 Create `opm/helper/values/` directory with package doc comment explaining the Tier-1 / Tier-2 split and pointing at the umbrella enhancement
 - [x] 1.2 Define `Layer` struct: `Name string; Source string; Value cue.Value`
 - [x] 1.3 Define `Stack []Layer`
 
@@ -27,7 +27,7 @@
 ## 5. Remove validate.UnifyAndValidate
 
 - [x] 5.1 Delete `validate.UnifyAndValidate` and its tests
-- [x] 5.2 Confirm no remaining references in kernel internals (`grep -rn "UnifyAndValidate" pkg/`)
+- [x] 5.2 Confirm no remaining references in kernel internals (`grep -rn "UnifyAndValidate" opm/`)
 - [x] 5.3 Confirm no remaining references in fixtures or examples
 
 ## 6. Tests
@@ -42,9 +42,9 @@
 
 ## 7. Documentation
 
-- [x] 7.1 CHANGELOG entry: "Removed `validate.UnifyAndValidate`; use `pkg/helper/values.ValidateAndUnify`"; show before/after migration recipe
+- [x] 7.1 CHANGELOG entry: "Removed `validate.UnifyAndValidate`; use `opm/helper/values.ValidateAndUnify`"; show before/after migration recipe
 - [x] 7.2 Update `library/README.md` to demonstrate the helper in the Quick Start
-- [x] 7.3 `pkg/helper/values/doc.go` package doc covering: tier split, layer ordering, when to use, example with three layers
+- [x] 7.3 `opm/helper/values/doc.go` package doc covering: tier split, layer ordering, when to use, example with three layers
 - [x] 7.4 Cross-reference umbrella D1 / D5 in package doc
 
 ## 8. Validation

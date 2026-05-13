@@ -1,6 +1,6 @@
 ## Context
 
-`pkg/helper/loader/file/` currently exposes three loaders with three different shapes:
+`opm/helper/loader/file/` currently exposes three loaders with three different shapes:
 
 ```
 LoadModulePackage(ctx, dir)                                  → (val, ver, err)
@@ -11,7 +11,7 @@ LoadValuesFile(ctx, file)                                    → (val, err)
 
 `LoadModulePackage` uses `load.Instances([]string{"."}, cfg)` — a CUE package load. `LoadReleaseFile` uses `load.Instances([]string{<basename>}, cfg)` — a single-file load. The two paths cannot share fixtures: a module is a directory of `.cue` files, a release is one `.cue` file. Yet a release is just as much a CUE artifact, with a schema-bound apiVersion and registry-resolved imports. The split is historical, not principled.
 
-`LoadValuesFile` is even more of an anomaly. It loads a single file and, if the result has a top-level `values:` field, returns that field instead of the whole value. The only kernel-side consumer is `Kernel.LoadSourceFromFile` (`pkg/kernel/source_loader.go:49`), which delegates straight into it. The standalone helper exists because the kernel `Source` type was introduced later as a wrapper; the underlying file-load logic was never folded in.
+`LoadValuesFile` is even more of an anomaly. It loads a single file and, if the result has a top-level `values:` field, returns that field instead of the whole value. The only kernel-side consumer is `Kernel.LoadSourceFromFile` (`opm/kernel/source_loader.go:49`), which delegates straight into it. The standalone helper exists because the kernel `Source` type was introduced later as a wrapper; the underlying file-load logic was never folded in.
 
 The change unifies module and release loading around the package semantics, and inlines the values-file logic where it actually belongs.
 
@@ -28,7 +28,7 @@ The change unifies module and release loading around the package semantics, and 
 - Touching `LoadPlatformFile`. Platforms today are single-file top-level artifacts. Symmetry with `LoadPlatformPackage` is YAGNI.
 - Touching `LoadProvider`. Not part of the user-requested scope.
 - Reshaping the `LoadOptions` struct beyond the existing `Registry string` field. Future option-bag growth is a separate decision.
-- Bytes loader (`pkg/helper/loader/bytes/`) implementation.
+- Bytes loader (`opm/helper/loader/bytes/`) implementation.
 - CLI / operator migration. Library is currently the only in-tree consumer; downstream repos update on their own cadence.
 
 ## Decisions
@@ -44,7 +44,7 @@ func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue
 
 `LoadOptions` carries the registry override (already used by `LoadReleaseFile` and `LoadPlatformFile` today). Neither loader returns a `parentDir`: the directory passed in is already the parent. The file-based `LoadPlatformFile` returns `parentDir` because it accepts a file path that may resolve to a non-`platform.cue` filename in some parent directory; that ambiguity does not exist for package loaders.
 
-**Alternative considered**: Keep `LoadModulePackage` unchanged (no `LoadOptions`) and only add it to `LoadReleasePackage`. Rejected — modules can also import other modules (transformers, traits) from a registry, and the lack of `LoadOptions` is a latent gap (commented in `pkg/kernel/flow_integration_test.go:68`). Symmetric shape is worth a one-time breaking-signature cost.
+**Alternative considered**: Keep `LoadModulePackage` unchanged (no `LoadOptions`) and only add it to `LoadReleasePackage`. Rejected — modules can also import other modules (transformers, traits) from a registry, and the lack of `LoadOptions` is a latent gap (commented in `opm/kernel/flow_integration_test.go:68`). Symmetric shape is worth a one-time breaking-signature cost.
 
 **Alternative considered**: Variadic options (`opts ...LoadOption`). Rejected per Principle VII — the options struct has one field today; adding fields can happen additively without an option-bag refactor.
 
@@ -93,7 +93,7 @@ Release tests today materialize a single `release.cue` file in a temp dir. After
 
 Concrete sites:
 
-1. `pkg/kernel/synth.go` — `Kernel.SynthesizeRelease` godoc says *"it mirrors how [Kernel.LoadReleaseFile] is the recommended entry point for the file-driven path."*
+1. `opm/kernel/synth.go` — `Kernel.SynthesizeRelease` godoc says *"it mirrors how [Kernel.LoadReleaseFile] is the recommended entry point for the file-driven path."*
 2. `CHANGELOG.md` — the Unreleased `add-release-synth-helper` entry says *"Mirrors how `Kernel.LoadReleaseFile` is the recommended entry point for the file-driven path."*
 3. `openspec/specs/kernel-runtime/spec.md` after synth archives — Requirement *"SynthesizeRelease is documented as the recommended in-memory entry point"* and its scenarios name `LoadReleaseFile` as the mirror.
 
@@ -110,5 +110,5 @@ Rollback strategy: revert the library commit. CLI / operator stay on the previou
 
 ## Open Questions
 
-- Should `LoadOptions` grow a `Stdin io.Reader` or `Files map[string][]byte` field at some point to support in-memory packages? Defer — that is the territory of `pkg/helper/loader/bytes/`, which is still a skeleton.
+- Should `LoadOptions` grow a `Stdin io.Reader` or `Files map[string][]byte` field at some point to support in-memory packages? Defer — that is the territory of `opm/helper/loader/bytes/`, which is still a skeleton.
 - Should `LoadReleasePackage` validate the package contains exactly one `#ModuleRelease` (vs. zero or more)? Defer to the apiVersion detection step; an empty package fails `apiversion.Detect`, a multi-release package becomes an `apiversion.Detect` ambiguity. Both are caller errors with informative messages today.

@@ -28,7 +28,7 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 #### Scenario: Kernel re-validates after Tier-1
 
-- **WHEN** a frontend that uses `pkg/helper/values` (slice 05) supplies a unified value to `validate.Config`
+- **WHEN** a frontend that uses `opm/helper/values` (slice 05) supplies a unified value to `validate.Config`
 - **THEN** the kernel performs full schema validation on the unified value
 - **AND** any schema violation produces a `*ConfigError`
 
@@ -40,16 +40,16 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 ### Requirement: Temporary Migration Helper
 
-The library SHALL provide `validate.UnifyAndValidate(vs []cue.Value) cue.Value` (or equivalent name) as a temporary helper that performs the previous slice-merge behavior, returning a single `cue.Value` callers can pass to the new signature. This helper SHALL be marked `// Deprecated:` from introduction and SHALL be removed when `pkg/helper/values` (slice 05) lands.
+The library SHALL provide `validate.UnifyAndValidate(vs []cue.Value) cue.Value` (or equivalent name) as a temporary helper that performs the previous slice-merge behavior, returning a single `cue.Value` callers can pass to the new signature. This helper SHALL be marked `// Deprecated:` from introduction and SHALL be removed when `opm/helper/values` (slice 05) lands.
 
 #### Scenario: Migration helper exists
 
 - **WHEN** a caller invokes `validate.UnifyAndValidate(vs)` with the same slice they previously passed to `Config`
 - **THEN** the helper returns a single unified `cue.Value` ready to pass to the new `Config` signature
-- **AND** the helper carries a `// Deprecated:` doc comment pointing to `pkg/helper/values`
+- **AND** the helper carries a `// Deprecated:` doc comment pointing to `opm/helper/values`
 
 #### Scenario: Migration helper retired in slice 05
 
 - **WHEN** slice 05 (`introduce-tiered-validation`) merges
 - **THEN** the next change cycle removes `validate.UnifyAndValidate`
-- **AND** consumers migrate to `pkg/helper/values` for layering
+- **AND** consumers migrate to `opm/helper/values` for layering

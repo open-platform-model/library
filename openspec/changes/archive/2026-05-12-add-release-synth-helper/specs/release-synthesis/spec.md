@@ -2,17 +2,17 @@
 
 ### Requirement: Synth Helper Package Location
 
-The library SHALL expose a `pkg/helper/synth/` subpackage that produces OPM artifact CUE values from in-memory typed inputs. The package SHALL be a peer of `pkg/helper/loader/` (not nested under it) because synthesis is creation from typed inputs rather than parsing from byte streams. The package SHALL document the boundary in its `doc.go`.
+The library SHALL expose a `opm/helper/synth/` subpackage that produces OPM artifact CUE values from in-memory typed inputs. The package SHALL be a peer of `opm/helper/loader/` (not nested under it) because synthesis is creation from typed inputs rather than parsing from byte streams. The package SHALL document the boundary in its `doc.go`.
 
 #### Scenario: Synth package present at canonical path
 
-- **WHEN** a developer reads `pkg/helper/synth/doc.go`
+- **WHEN** a developer reads `opm/helper/synth/doc.go`
 - **THEN** the file documents that the package builds artifact CUE values from typed inputs
-- **AND** documents that the package is a peer of `pkg/helper/loader/`, not nested under it
+- **AND** documents that the package is a peer of `opm/helper/loader/`, not nested under it
 
 ### Requirement: synth.Release function signature
 
-The `pkg/helper/synth/` package SHALL expose a function `Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error)` that returns a `#ModuleRelease` artifact CUE value built by unifying the input fields against the embedded `#ModuleRelease` schema definition for the input module's API version.
+The `opm/helper/synth/` package SHALL expose a function `Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error)` that returns a `#ModuleRelease` artifact CUE value built by unifying the input fields against the embedded `#ModuleRelease` schema definition for the input module's API version.
 
 The `ReleaseInput` struct SHALL carry: `Module *module.Module` (required), `Name string` (required), `Namespace string` (required), `Values cue.Value` (optional; zero value means "no values supplied"), `Labels map[string]string` (optional), `Annotations map[string]string` (optional).
 

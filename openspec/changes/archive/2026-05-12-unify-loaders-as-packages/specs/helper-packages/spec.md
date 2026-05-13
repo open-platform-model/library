@@ -2,7 +2,7 @@
 
 ### Requirement: Loader Reorganization Under Helper
 
-The filesystem-coupled loader SHALL live at `pkg/helper/loader/file/`. The package SHALL expose the following public API:
+The filesystem-coupled loader SHALL live at `opm/helper/loader/file/`. The package SHALL expose the following public API:
 
 - `LoadModulePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#Module`, with registry override via `opts.Registry`.
 - `LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#ModuleRelease`, with registry override via `opts.Registry`.
@@ -46,6 +46,6 @@ The filesystem-coupled loader SHALL live at `pkg/helper/loader/file/`. The packa
 
 **Migration**: Callers of `loaderfile.LoadValuesFile` move to `Kernel.LoadSourceFromFile`, which preserves the auto-unwrap semantics. Callers that do not want auto-unwrap can call `load.Instances` directly with their preferred `LoadOptions`.
 
-### Requirement: Deprecation Shim at pkg/loader/
+### Requirement: Deprecation Shim at opm/loader/
 
-**Reason**: The shim was already scheduled for removal in a prior change and the `pkg/loader/` directory has been deleted. This requirement is retired as part of normalising the loader spec; it no longer describes any code.
+**Reason**: The shim was already scheduled for removal in a prior change and the `opm/loader/` directory has been deleted. This requirement is retired as part of normalising the loader spec; it no longer describes any code.

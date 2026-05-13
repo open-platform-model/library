@@ -32,6 +32,6 @@
 
 ### Requirement: KernelOwner Interface Surfaces Tier-1 Validation Method
 
-**Reason**: With `ValidateConfigDetailed` living on `*Kernel` directly, no helper package needs to call back into the kernel through an interface. The `KernelOwner` interface and the `pkg/helper/values/` package are deleted entirely.
+**Reason**: With `ValidateConfigDetailed` living on `*Kernel` directly, no helper package needs to call back into the kernel through an interface. The `KernelOwner` interface and the `opm/helper/values/` package are deleted entirely.
 
-**Migration**: Remove all imports of `pkg/helper/values`. References to `values.KernelOwner` are unsatisfiable; replace any code that depended on the indirection with a direct dependency on `*kernel.Kernel`.
+**Migration**: Remove all imports of `opm/helper/values`. References to `values.KernelOwner` are unsatisfiable; replace any code that depended on the indirection with a direct dependency on `*kernel.Kernel`.

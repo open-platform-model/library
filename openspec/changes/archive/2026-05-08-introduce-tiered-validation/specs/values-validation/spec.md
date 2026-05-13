@@ -2,7 +2,7 @@
 
 ### Requirement: Layer and Stack Types
 
-The library SHALL expose `Layer` and `Stack` types in `pkg/helper/values/` describing an ordered sequence of values sources.
+The library SHALL expose `Layer` and `Stack` types in `opm/helper/values/` describing an ordered sequence of values sources.
 
 #### Scenario: Layer carries name, source, value
 
@@ -17,7 +17,7 @@ The library SHALL expose `Layer` and `Stack` types in `pkg/helper/values/` descr
 
 ### Requirement: ValidateAndUnify Tier-1 Validation
 
-`pkg/helper/values/` SHALL expose `ValidateAndUnify(k *kernel.Kernel, schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` that performs Tier-1 source-positioned validation per layer, then unifies in order.
+`opm/helper/values/` SHALL expose `ValidateAndUnify(k *kernel.Kernel, schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` that performs Tier-1 source-positioned validation per layer, then unifies in order.
 
 #### Scenario: All layers valid
 
@@ -52,7 +52,7 @@ The library SHALL expose `Layer` and `Stack` types in `pkg/helper/values/` descr
 
 ### Requirement: Kernel Convenience Method
 
-The `Kernel` struct SHALL expose `(k *Kernel) ValidateAndUnify(schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` delegating to `pkg/helper/values.ValidateAndUnify`.
+The `Kernel` struct SHALL expose `(k *Kernel) ValidateAndUnify(schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` delegating to `opm/helper/values.ValidateAndUnify`.
 
 #### Scenario: Kernel method matches helper
 
@@ -61,14 +61,14 @@ The `Kernel` struct SHALL expose `(k *Kernel) ValidateAndUnify(schema cue.Value,
 
 ### Requirement: Removal of validate.UnifyAndValidate
 
-The temporary helper `validate.UnifyAndValidate` introduced by slice 04 SHALL be removed in this slice. Frontends migrate to `pkg/helper/values.ValidateAndUnify`.
+The temporary helper `validate.UnifyAndValidate` introduced by slice 04 SHALL be removed in this slice. Frontends migrate to `opm/helper/values.ValidateAndUnify`.
 
 #### Scenario: validate.UnifyAndValidate no longer exists
 
-- **WHEN** a developer searches `pkg/validate/` for `UnifyAndValidate`
+- **WHEN** a developer searches `opm/validate/` for `UnifyAndValidate`
 - **THEN** no symbol with that name is exported
 
 #### Scenario: CHANGELOG documents the migration
 
 - **WHEN** a downstream consumer reads the CHANGELOG for this release
-- **THEN** the entry shows the before/after for migrating from `validate.UnifyAndValidate` to `pkg/helper/values.ValidateAndUnify`
+- **THEN** the entry shows the before/after for migrating from `validate.UnifyAndValidate` to `opm/helper/values.ValidateAndUnify`

@@ -8,18 +8,18 @@ This document captures the observed behaviour, the source-line evidence, and the
 
 Sources cited throughout:
 
-- `pkg/compile/match.go` — runtime matcher
-- `pkg/compile/execute.go` — render dispatch
+- `opm/compile/match.go` — runtime matcher
+- `opm/compile/execute.go` — render dispatch
 - `apis/core/v1alpha2/platform.cue` — `#PlatformBase` schema (computed views, `#matchers`, `_predicateSignature`, `_invalid`)
 - `modules/opm/transformers/*.cue` — opm `#ComponentTransformer` bodies
 - `cmd/flow-inspect/main.go` — manual inspection harness
-- `pkg/kernel/flow_integration_test.go` — passing integration test that pins the working subset of behaviour
+- `opm/kernel/flow_integration_test.go` — passing integration test that pins the working subset of behaviour
 
 ---
 
 ## Finding 1 — Matcher reports `candidateAmbiguous` when distinct-predicate transformers share a required resource FQN (RESOLVED)
 
-**Status:** Fixed. The matcher no longer treats multi-candidate lookups as a failure mode. `pkg/compile/match.go`'s `lookupCandidate` was replaced by `lookupCandidates` returning `[]string`; the resource and trait demand walks iterate the slice and pair every transformer whose predicate is satisfied. `MatchPlan.Ambiguous`, `CompileResult.Ambiguous`, `PlanResult.Ambiguous`, and the `candidateAmbiguous` enum value were removed. The schema's `_predicateSignature`, `_invalid`, and `_noMultiFulfiller` projections were deleted from `apis/core/v1alpha2/platform.cue`, and `#PlatformBase`/strict `#Platform` collapsed into a single `#Platform` definition. Genuine collisions (two transformer definitions claiming the same transformer FQN with divergent bodies) are caught upstream by CUE map unification on `#composedTransformers`. The two negative fixtures (`multi_fulfiller_fixture.cue`, `multi_fulfiller_traits_fixture.cue`) were deleted; the positive fixtures (`predicate_distinct_labels_fixture.cue`, `platform_matchers_fixture.cue`, `trait_matchers_fixture.cue`, `enabled_false_suppresses_fixture.cue`) had their `_invalid` / `_noMultiFulfiller` expectations dropped. The `pkg/helper/platform` package lost `*MultiFulfillerError` and `classifyMultiFulfiller`; `Compose` now returns raw CUE diagnostics for genuine collisions. Test `compile.TestMatch_TwoTransformersPairBoth` (formerly `TestMatch_AmbiguousFQN`) pins the new behaviour: two transformers requiring the same resource FQN, both satisfying their predicate, both surface as `MatchedPairs`. The historical analysis below is preserved for context; the framing "distinct predicates ⇒ disjoint match domains" was wrong (distinct signatures can both be satisfied by the same component), but the user's clarification — that the schema's `_invalid` check is solving the wrong problem and CUE map unification handles the genuine collision — closed the issue cleanly.
+**Status:** Fixed. The matcher no longer treats multi-candidate lookups as a failure mode. `opm/compile/match.go`'s `lookupCandidate` was replaced by `lookupCandidates` returning `[]string`; the resource and trait demand walks iterate the slice and pair every transformer whose predicate is satisfied. `MatchPlan.Ambiguous`, `CompileResult.Ambiguous`, `PlanResult.Ambiguous`, and the `candidateAmbiguous` enum value were removed. The schema's `_predicateSignature`, `_invalid`, and `_noMultiFulfiller` projections were deleted from `apis/core/v1alpha2/platform.cue`, and `#PlatformBase`/strict `#Platform` collapsed into a single `#Platform` definition. Genuine collisions (two transformer definitions claiming the same transformer FQN with divergent bodies) are caught upstream by CUE map unification on `#composedTransformers`. The two negative fixtures (`multi_fulfiller_fixture.cue`, `multi_fulfiller_traits_fixture.cue`) were deleted; the positive fixtures (`predicate_distinct_labels_fixture.cue`, `platform_matchers_fixture.cue`, `trait_matchers_fixture.cue`, `enabled_false_suppresses_fixture.cue`) had their `_invalid` / `_noMultiFulfiller` expectations dropped. The `opm/helper/platform` package lost `*MultiFulfillerError` and `classifyMultiFulfiller`; `Compose` now returns raw CUE diagnostics for genuine collisions. Test `compile.TestMatch_TwoTransformersPairBoth` (formerly `TestMatch_AmbiguousFQN`) pins the new behaviour: two transformers requiring the same resource FQN, both satisfying their predicate, both surface as `MatchedPairs`. The historical analysis below is preserved for context; the framing "distinct predicates ⇒ disjoint match domains" was wrong (distinct signatures can both be satisfied by the same component), but the user's clarification — that the schema's `_invalid` check is solving the wrong problem and CUE map unification handles the genuine collision — closed the issue cleanly.
 
 ### Symptom
 
@@ -29,7 +29,7 @@ The opm catalog deliberately overlaps `requiredResources["…/container@v1"]` ac
 
 ### Source
 
-`pkg/compile/match.go:177-227` — `lookupCandidate` filters the bucket by `candidateSatisfied` (per-transformer predicate evaluation) and then collapses by `len(survivors)`:
+`opm/compile/match.go:177-227` — `lookupCandidate` filters the bucket by `candidateSatisfied` (per-transformer predicate evaluation) and then collapses by `len(survivors)`:
 
 ```go
 switch len(survivors) {
@@ -95,7 +95,7 @@ Either path needs a regression fixture pinning the dual-transformer case (web co
 
 The first pass treated every `#transform.output` as a single resource, citing the schema text at `apis/core/v1alpha2/transformer.cue:74,81` ("IMPORTANT: output must be a single resource"). That fixed the singleton transformers (Deployment, Service, …) but broke the five plural transformers in the opm catalog that legitimately emit N resources — `configmap_transformer.cue`, `secret_transformer.cue`, `pvc_transformer.cue`, `crd_transformer.cue`, `role_transformer.cue`. Each formerly used a map-keyed-by-name output (`output: { "<name>": k8s.#Foo & {...} }`) which under the singleton-only renderer collapsed into one `Compiled` whose value was a struct of K8s resources, indistinguishable to the apply layer.
 
-The second pass introduced kind-based dispatch in `pkg/compile/execute.go`:
+The second pass introduced kind-based dispatch in `opm/compile/execute.go`:
 - `cue.StructKind` → one `Compiled` per (component, transformer) pair; `Compiled.Value` is the whole struct.
 - `cue.ListKind` → one `Compiled` per list item; each item is one resource.
 
@@ -122,7 +122,7 @@ output: k8sappsv1.#Deployment & {
 
 `output` is a struct whose root *is* the Deployment — no list, no named-key wrapper. Every transformer in `modules/opm/transformers/` follows this shape: `service_transformer.cue:71`, `statefulset`, `daemonset`, `job`, `cronjob`, `configmap_transformer.cue`, etc.
 
-The dispatch side (`pkg/compile/execute.go:136-157`):
+The dispatch side (`opm/compile/execute.go:136-157`):
 
 ```go
 // Decode the output into rendered items. Two supported forms:
@@ -171,7 +171,7 @@ The contract `execute.go:140-144` documents — "Singleton outputs MUST wrap the
 
 Four `Compiled` per transformer call, one per field of the Deployment. A consumer that calls `kubectl apply -f` on each value individually deploys nothing — the apiVersion string is not a manifest, the metadata struct is not a manifest, and so on.
 
-The integration test at `pkg/kernel/flow_integration_test.go` passes because its assertions check `Compiled` *provenance* (Component + Transformer fields are populated) rather than `Compiled.Value` shape. The test author flagged this gap explicitly — see the comment at `flow_integration_test.go:217-221`:
+The integration test at `opm/kernel/flow_integration_test.go` passes because its assertions check `Compiled` *provenance* (Component + Transformer fields are populated) rather than `Compiled.Value` shape. The test author flagged this gap explicitly — see the comment at `flow_integration_test.go:217-221`:
 
 > the renderer's exact output shape is governed by the transformers under test (see execute.go's StructKind branch).
 
@@ -183,7 +183,7 @@ Two viable fixes; they are not equivalent.
 
 **Option B — auto-wrap on the dispatch side.** `executePair` adds a third branch: when `outputVal.Kind() == cue.StructKind` and the value carries `apiVersion` + `kind` at the root, treat it as a single resource and emit one Compiled. The contract comment at `execute.go:141-144` rejects this exact heuristic ("would misclassify outputs of other platforms (compose service, nomad job, terraform resource, ...)"), so adopting it requires either accepting that misclassification cost or extending the heuristic into a binding-supplied predicate (`api.Binding.IsSingletonOutput(cue.Value) bool`). Cost: one branch in `executePair` plus a per-binding hook; zero transformer-side churn. Trade-off: the "what counts as a single resource" decision migrates from the schema into Go, distributed across binding implementations.
 
-Both options need a Compile-side regression fixture that pins the expected `Compiled` shape (one per K8s manifest, with `apiVersion + kind` reachable at `Compiled.Value`'s root). The current `pkg/kernel/flow_integration_test.go` only checks provenance.
+Both options need a Compile-side regression fixture that pins the expected `Compiled` shape (one per K8s manifest, with `apiVersion + kind` reachable at `Compiled.Value`'s root). The current `opm/kernel/flow_integration_test.go` only checks provenance.
 
 Option A is the cleaner fix because the catalog of opm transformers is small (12 files) and the contract was explicit before the implementation drifted. Option B preserves drift while adding plumbing that future binding authors must reproduce.
 
@@ -192,7 +192,7 @@ Option A is the cleaner fix because the catalog of opm transformers is small (12
 ## Cross-references
 
 - `cmd/flow-inspect/main.go` — manual inspection harness; Stage 2's `#matchers.resources` dump materialises Finding 1's bucket layout, Stage 4's `CompileResult.Compiled` dump materialises Finding 2's per-field Compiled shape.
-- `pkg/kernel/flow_integration_test.go` — passing integration test; the working subset (single-transformer flow with provenance-only Compiled assertions) is exactly the slice that dodges both findings.
+- `opm/kernel/flow_integration_test.go` — passing integration test; the working subset (single-transformer flow with provenance-only Compiled assertions) is exactly the slice that dodges both findings.
 - `testdata/modules/web_app/components.cue:19-25` — comment recording why Expose was removed from the fixture (Finding 1 workaround).
 - `apis/core/v1alpha2/testdata/predicate_distinct_labels_fixture.cue` — schema-side fixture proving `_invalid` accepts distinct-predicate buckets; the runtime matcher needs to honour the same invariant.
 - `apis/core/v1alpha2/testdata/multi_fulfiller_fixture.cue` — schema enforcement of D13 (multi-fulfiller forbidden when *predicates match*); Finding 1's fix should preserve this guard while accepting the distinct-predicate case.

@@ -21,7 +21,7 @@ This change closes those gaps with seven new fixtures + twelve new harness rows 
   - `trait_matchers_fixture.cue` (positive) — symmetric to `platform_matchers_fixture.cue` but exercises `#matchers.traits`.
   - `multi_fulfiller_traits_fixture.cue` (negative) — symmetric to `multi_fulfiller_fixture.cue` but on `requiredTraits`.
   - `type_regex_fixture.cue` (negative bundle, five harness rows) — single fixture file with multiple `bad_<reason>:` fields, each violating one regex; harness drives via `inputPath` override.
-- Extend the harness in `pkg/api/v1alpha2/schema_fixture_test.go`:
+- Extend the harness in `opm/api/v1alpha2/schema_fixture_test.go`:
   - Add optional `inputPath string` field to `schemaCase`. Defaults to `"input"`. The paired positive-equality field is `"<inputPath>_expect"` (or stays `"expect"` when `inputPath == "input"`).
   - Replace the literal `cue.ParsePath("input")` / `cue.ParsePath("expect")` with derived paths so bundled fixtures can carry several cases without renaming the seed contract.
   - 12 new rows in `schemaCases` (2 from `module_uuid_fixture`, 5 from `type_regex_fixture`, 1 each from the rest).
@@ -45,7 +45,7 @@ This change closes those gaps with seven new fixtures + twelve new harness rows 
 **Affected library packages**
 
 - `apis/core/v1alpha2/testdata/`: seven new fixture files + README update.
-- `pkg/api/v1alpha2/schema_fixture_test.go`: one struct field added, derivation logic replaces two literal path constants, twelve table rows appended. No new test functions.
+- `opm/api/v1alpha2/schema_fixture_test.go`: one struct field added, derivation logic replaces two literal path constants, twelve table rows appended. No new test functions.
 
 **Affected downstream consumers**
 
@@ -53,7 +53,7 @@ None. Test-only addition.
 
 **SemVer**
 
-PATCH. Test infrastructure only; no `pkg/` surface change, no schema change.
+PATCH. Test infrastructure only; no `opm/` surface change, no schema change.
 
 **Dependencies**
 

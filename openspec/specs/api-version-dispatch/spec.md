@@ -15,7 +15,7 @@ Each OPM CUE schema under `apis/core/<version>/` MUST define `#ApiVersion` as a 
 - **THEN** CUE unification with `#Module.apiVersion: #ApiVersion` fills the literal automatically and validation succeeds
 
 ### Requirement: Version detection from a CUE artifact
-The kernel SHALL expose a `pkg/apiversion.Detect(cue.Value) (Version, error)` helper that reads the `apiVersion` field from any OPM artifact root and returns the matching `Version` constant. The helper MUST NOT mutate the input value and MUST be safe to call concurrently.
+The kernel SHALL expose a `opm/apiversion.Detect(cue.Value) (Version, error)` helper that reads the `apiVersion` field from any OPM artifact root and returns the matching `Version` constant. The helper MUST NOT mutate the input value and MUST be safe to call concurrently.
 
 #### Scenario: Recognised version
 - **WHEN** `Detect` is called with a CUE value whose root has `apiVersion: "opmodel.dev/v1alpha2"`
@@ -34,11 +34,11 @@ The kernel SHALL expose a `pkg/apiversion.Detect(cue.Value) (Version, error)` he
 - **THEN** it returns the zero `Version` and an error that wraps `apiversion.ErrUnknownAPIVersion`
 
 ### Requirement: Binding contract
-The kernel SHALL expose a `pkg/api.Binding` interface that owns every version-specific fact: CUE path constants, decoded metadata shape, and transformer-context construction. Each schema version MUST contribute exactly one Binding implementation. The Binding interface MUST cover every CUE path the compile pipeline reads or writes — including release shape, component shape, transformer registry, and transformer context.
+The kernel SHALL expose a `opm/api.Binding` interface that owns every version-specific fact: CUE path constants, decoded metadata shape, and transformer-context construction. Each schema version MUST contribute exactly one Binding implementation. The Binding interface MUST cover every CUE path the compile pipeline reads or writes — including release shape, component shape, transformer registry, and transformer context.
 
 #### Scenario: Binding paths cover every compile-pipeline lookup
 - **WHEN** the kernel renders a release end-to-end
-- **THEN** every CUE path read from or written to a release, component, provider, or transformer value comes from `binding.Paths()` — no hardcoded path strings remain in `pkg/render`, `pkg/loader/{module,provider,release}.go`, or `pkg/module/parse.go`
+- **THEN** every CUE path read from or written to a release, component, provider, or transformer value comes from `binding.Paths()` — no hardcoded path strings remain in `opm/render`, `opm/loader/{module,provider,release}.go`, or `opm/module/parse.go`
 
 #### Scenario: Binding owns transformer-context shape
 - **WHEN** the renderer needs to fill `#context` on a transformer for a `(release, component)` pair
@@ -46,13 +46,13 @@ The kernel SHALL expose a `pkg/api.Binding` interface that owns every version-sp
 
 #### Scenario: Binding owns metadata decoding
 - **WHEN** the loader or `module.ParseModuleRelease` needs to extract module, release, or provider metadata
-- **THEN** the decode goes through `binding.DecodeModuleMetadata`, `binding.DecodeReleaseMetadata`, or `binding.DecodeProviderMetadata` — no version-specific JSON tags are inlined in `pkg/module` or `pkg/provider`
+- **THEN** the decode goes through `binding.DecodeModuleMetadata`, `binding.DecodeReleaseMetadata`, or `binding.DecodeProviderMetadata` — no version-specific JSON tags are inlined in `opm/module` or `opm/provider`
 
 ### Requirement: Binding registry
-The kernel SHALL expose a process-wide `pkg/api` registry mapping `apiversion.Version` to `Binding`. Bindings MUST self-register from `init()` of their package. The registry MUST be read-only after process start: no public mutation API beyond `Register` is permitted.
+The kernel SHALL expose a process-wide `opm/api` registry mapping `apiversion.Version` to `Binding`. Bindings MUST self-register from `init()` of their package. The registry MUST be read-only after process start: no public mutation API beyond `Register` is permitted.
 
 #### Scenario: Lookup of a registered version
-- **WHEN** `api.Lookup(apiversion.V1alpha2)` is called after `pkg/api/v1alpha2` has been imported
+- **WHEN** `api.Lookup(apiversion.V1alpha2)` is called after `opm/api/v1alpha2` has been imported
 - **THEN** it returns the v1alpha2 binding and a nil error
 
 #### Scenario: Lookup of an unregistered version
@@ -68,7 +68,7 @@ The kernel SHALL expose a process-wide `pkg/api` registry mapping `apiversion.Ve
 - **THEN** it returns the binding registered for the artifact's detected version, or an error wrapping `apiversion.ErrUnknownAPIVersion` if detection fails or no binding is registered
 
 ### Requirement: Loader surfaces detected version
-The loader functions in `pkg/loader` (`LoadModulePackage`, `LoadReleaseFile`, `LoadProvider`) MUST detect the schema version of every successfully loaded artifact and surface it to callers. The `module.Module`, `module.Release`, and `provider.Provider` types MUST carry an `APIVersion apiversion.Version` field populated at load time.
+The loader functions in `opm/loader` (`LoadModulePackage`, `LoadReleaseFile`, `LoadProvider`) MUST detect the schema version of every successfully loaded artifact and surface it to callers. The `module.Module`, `module.Release`, and `provider.Provider` types MUST carry an `APIVersion apiversion.Version` field populated at load time.
 
 #### Scenario: Loaded release carries its apiVersion
 - **WHEN** `LoadReleaseFile` returns successfully
@@ -111,22 +111,22 @@ Each `apis/core/<version>/` directory MUST expose its CUE source files via a `go
 ### Requirement: New schema version is added without kernel edits
 A new OPM schema version `<vN>` MUST be addable by:
 1. Creating `apis/core/<vN>/` with the CUE schema and a pinned `#ApiVersion` literal.
-2. Creating `pkg/api/<vN>/` implementing `api.Binding` and registering itself in `init()`.
-3. Adding a constant `apiversion.V<N>` to `pkg/apiversion`.
+2. Creating `opm/api/<vN>/` implementing `api.Binding` and registering itself in `init()`.
+3. Adding a constant `apiversion.V<N>` to `opm/apiversion`.
 
-No edits SHALL be required in `pkg/render`, `pkg/loader/{module,provider,release}.go`, `pkg/module/parse.go`, `pkg/validate`, `pkg/core`, or `pkg/errors` to support the new version.
+No edits SHALL be required in `opm/render`, `opm/loader/{module,provider,release}.go`, `opm/module/parse.go`, `opm/validate`, `opm/core`, or `opm/errors` to support the new version.
 
 #### Scenario: Adding a new version touches only version-scoped packages
 - **WHEN** a hypothetical `v1beta1` is added following the three steps above
-- **THEN** `git diff` for the change shows modifications only under `apis/core/v1beta1/` and `pkg/api/v1beta1/` plus one constant in `pkg/apiversion`
+- **THEN** `git diff` for the change shows modifications only under `apis/core/v1beta1/` and `opm/api/v1beta1/` plus one constant in `opm/apiversion`
 
 #### Scenario: Two versions coexist at runtime
-- **WHEN** a single kernel build imports both `pkg/api/v1alpha2` and a hypothetical `pkg/api/v1alpha1`
+- **WHEN** a single kernel build imports both `opm/api/v1alpha2` and a hypothetical `opm/api/v1alpha1`
 - **THEN** loading and rendering an artifact of either version succeeds within the same process without rebuild
 
 ### Requirement: Binding exposes its loaded schema as a cue.Value
 
-The `pkg/api.Binding` interface SHALL include a method `SchemaValue(ctx *cue.Context) (cue.Value, error)` that returns the binding's schema package as a fully built `cue.Value`. Implementations SHALL load their `EmbeddedSchema() fs.FS` via `cuelang.org/go/cue/load.Instances` with the embedded filesystem as overlay, build the resulting instance with the supplied `*cue.Context`, and return the package root value.
+The `opm/api.Binding` interface SHALL include a method `SchemaValue(ctx *cue.Context) (cue.Value, error)` that returns the binding's schema package as a fully built `cue.Value`. Implementations SHALL load their `EmbeddedSchema() fs.FS` via `cuelang.org/go/cue/load.Instances` with the embedded filesystem as overlay, build the resulting instance with the supplied `*cue.Context`, and return the package root value.
 
 Implementations SHALL cache the loaded `cue.Value` so repeated calls amortise the load cost. Caching SHALL be safe for the documented "one Kernel (one `*cue.Context`) per process" usage pattern; concurrent calls from multiple goroutines SHALL be safe even on the first invocation. Implementations MAY assume that all calls during the binding's lifetime use the same `*cue.Context` — passing a different context after the first call has implementation-defined behavior.
 

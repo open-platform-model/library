@@ -2,7 +2,7 @@
 
 ### Requirement: Compose Function
 
-The library SHALL expose `func Compose(k *kernel.Kernel, shell *platform.Platform, modules []*module.Module) (*platform.Platform, error)` in `pkg/helper/platform/`. The function SHALL produce a fully-composed Platform by FillPath-injecting each Module into `shell.Package` at `binding.Paths().Registry[<id>]`, evaluating the result, and returning a new `*Platform`.
+The library SHALL expose `func Compose(k *kernel.Kernel, shell *platform.Platform, modules []*module.Module) (*platform.Platform, error)` in `opm/helper/platform/`. The function SHALL produce a fully-composed Platform by FillPath-injecting each Module into `shell.Package` at `binding.Paths().Registry[<id>]`, evaluating the result, and returning a new `*Platform`.
 
 #### Scenario: Successful composition
 
@@ -39,7 +39,7 @@ When two registered Modules' transformers claim the same primitive FQN (violatin
 
 ### Requirement: Kernel Convenience Method
 
-The Kernel SHALL expose `(k *Kernel) ComposePlatform(shell *Platform, modules []*Module) (*Platform, error)` delegating to `pkg/helper/platform.Compose`.
+The Kernel SHALL expose `(k *Kernel) ComposePlatform(shell *Platform, modules []*Module) (*Platform, error)` delegating to `opm/helper/platform.Compose`.
 
 #### Scenario: Kernel method matches helper
 

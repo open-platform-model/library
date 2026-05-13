@@ -90,11 +90,11 @@ All kernel-internal call sites that previously read `Module.Spec`, `Module.Confi
 
 #### Scenario: Render pipeline uses binding paths
 
-- **WHEN** the render pipeline (`pkg/render/`) reads the components subtree of a Module
+- **WHEN** the render pipeline (`opm/render/`) reads the components subtree of a Module
 - **THEN** the read goes through `mod.Package.LookupPath(binding.Paths().Components)`
 - **AND** there is no direct dereference of a removed field
 
 #### Scenario: Validate pipeline uses binding paths
 
-- **WHEN** the validate pipeline (`pkg/validate/`) reads the `#config` schema of a Module
+- **WHEN** the validate pipeline (`opm/validate/`) reads the `#config` schema of a Module
 - **THEN** the read goes through `mod.Package.LookupPath(binding.Paths().Config)`

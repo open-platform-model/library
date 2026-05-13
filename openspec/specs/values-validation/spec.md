@@ -2,7 +2,7 @@
 
 ## Purpose
 
-**This capability has been retired.** The `pkg/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError`/`KernelOwner` types have been removed. The replacement lives in the `config-validation` capability, which exposes `Kernel.ValidateConfig`, `Kernel.ValidateConfigPartial`, and `Kernel.ValidateConfigDetailed` directly on `*Kernel` in `pkg/kernel/`.
+**This capability has been retired.** The `opm/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError`/`KernelOwner` types have been removed. The replacement lives in the `config-validation` capability, which exposes `Kernel.ValidateConfig`, `Kernel.ValidateConfigPartial`, and `Kernel.ValidateConfigDetailed` directly on `*Kernel` in `opm/kernel/`.
 
 Migration summary:
 

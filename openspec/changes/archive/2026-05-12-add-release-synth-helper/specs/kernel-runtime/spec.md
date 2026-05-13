@@ -36,6 +36,6 @@ The package documentation and the `Kernel.SynthesizeRelease` godoc SHALL state t
 
 #### Scenario: Documentation directs callers to the kernel method
 
-- **WHEN** a developer reads the godoc on `pkg/helper/synth/`
+- **WHEN** a developer reads the godoc on `opm/helper/synth/`
 - **THEN** the documentation states that `Kernel.SynthesizeRelease` is the recommended entry point
 - **AND** notes that direct use of `synth.Release` is appropriate when the caller does not hold a `*Kernel`

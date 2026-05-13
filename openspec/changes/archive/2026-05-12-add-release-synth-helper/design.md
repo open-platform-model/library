@@ -3,7 +3,7 @@
 The library today produces a `*module.Release` along two code paths:
 
 1. **File-driven** — `Kernel.LoadReleaseFile` parses a hand-authored `release.cue`, then `module.NewReleaseFromValue` constructs the typed struct. This is what the CLI's `opm module test` and `opm module compile` flows use.
-2. **In-memory** — `Kernel.ProcessModuleRelease` accepts a pre-built spec `cue.Value` plus a `module.Module` and `values`, validates, fills, and returns a `*module.Release`. This is used by integration tests today, but the "pre-built spec" half is hand-rolled per call site via `CompileString` + `FillPath`, bypassing the schema and forcing the test author to hardcode the UUID (see `pkg/kernel/flow_integration_test.go:112-150`).
+2. **In-memory** — `Kernel.ProcessModuleRelease` accepts a pre-built spec `cue.Value` plus a `module.Module` and `values`, validates, fills, and returns a `*module.Release`. This is used by integration tests today, but the "pre-built spec" half is hand-rolled per call site via `CompileString` + `FillPath`, bypassing the schema and forcing the test author to hardcode the UUID (see `opm/kernel/flow_integration_test.go:112-150`).
 
 Two future consumers force a real synthesis path:
 
@@ -12,7 +12,7 @@ Two future consumers force a real synthesis path:
 
 The CUE schema is the system of record: `apis/core/v1alpha2/module_release.cue:19` derives the release UUID via `cue_uuid.SHA1(OPMNamespace, "<module.uuid>:<name>:<namespace>")`, the `components` field is fanned by a CUE comprehension over the unified module, and the standard `module-release.opmodel.dev/{name,uuid}` labels are stamped by the schema. Any synthesis path that bypasses unification with `#ModuleRelease` must reimplement all of these in Go — which guarantees drift the moment the schema evolves.
 
-The version binding (`pkg/api/v1alpha2/binding.go`) already exposes the embedded CUE filesystem via `EmbeddedSchema() fs.FS` per the `api-version-dispatch` capability, but no production code consumes it. This slice gives that filesystem its first runtime consumer.
+The version binding (`opm/api/v1alpha2/binding.go`) already exposes the embedded CUE filesystem via `EmbeddedSchema() fs.FS` per the `api-version-dispatch` capability, but no production code consumes it. This slice gives that filesystem its first runtime consumer.
 
 ## Goals / Non-Goals
 
@@ -20,7 +20,7 @@ The version binding (`pkg/api/v1alpha2/binding.go`) already exposes the embedded
 
 - Make synthesis from `(Module, name, namespace, values, labels, annotations)` a first-class library operation reachable through a single `Kernel` method.
 - Keep CUE the source of truth for derived fields (UUID, components, schema-stamped labels) by unifying inputs against the embedded `#ModuleRelease` definition.
-- Establish a small, version-agnostic helper boundary at `pkg/helper/synth/` that future synthesis helpers (e.g. synthesising `#Provider` or `#Platform` artifacts) can extend.
+- Establish a small, version-agnostic helper boundary at `opm/helper/synth/` that future synthesis helpers (e.g. synthesising `#Provider` or `#Platform` artifacts) can extend.
 - Surface the loaded schema package as a reusable primitive on the `Binding` interface so future helpers (validation, dry-run renderers) do not each re-implement `load.Instances` over the embed FS.
 
 **Non-Goals:**
@@ -28,17 +28,17 @@ The version binding (`pkg/api/v1alpha2/binding.go`) already exposes the embedded
 - Implementing the CLI command or operator reconciler — both are downstream slices that consume this helper.
 - Replacing the file-driven loader. `Kernel.LoadReleaseFile` stays unchanged; synthesis is an additional path, not a replacement.
 - Synthesis of `#ModuleReleaseMap` (multi-release bundles).
-- Bytes loader (`pkg/helper/loader/bytes/`) — still a doc-only skeleton.
+- Bytes loader (`opm/helper/loader/bytes/`) — still a doc-only skeleton.
 - Adding values-overlay convenience (debug values, file-based overlays). Values is caller-supplied; layering is a separate concern.
 - v1alpha3 binding work. The slice ships the v1alpha2 implementation and the interface extension.
 
 ## Decisions
 
-### D1. Package location: `pkg/helper/synth/` peer to `pkg/helper/loader/`
+### D1. Package location: `opm/helper/synth/` peer to `opm/helper/loader/`
 
-The `pkg/helper/loader/` tree is named for *loading* — reading existing artifact bytes from a source (filesystem, byte buffer). Synthesis is creation from typed inputs, not parsing. Co-locating under `loader/` would conflate verbs and force the package doc to apologise for the location. A peer directory keeps each helper's purpose legible.
+The `opm/helper/loader/` tree is named for *loading* — reading existing artifact bytes from a source (filesystem, byte buffer). Synthesis is creation from typed inputs, not parsing. Co-locating under `loader/` would conflate verbs and force the package doc to apologise for the location. A peer directory keeps each helper's purpose legible.
 
-**Alternative considered:** `pkg/helper/loader/synth/`. Rejected because the loader-package doc (`pkg/helper/loader/file/release.go:25`) explicitly says "Load... a #ModuleRelease from a standalone .cue file." Synthesis doesn't fit that contract.
+**Alternative considered:** `opm/helper/loader/synth/`. Rejected because the loader-package doc (`opm/helper/loader/file/release.go:25`) explicitly says "Load... a #ModuleRelease from a standalone .cue file." Synthesis doesn't fit that contract.
 
 **Alternative considered:** Put the function on `Kernel` only, with no helper package. Rejected because the helper-package convention (`helper-packages` spec) is the documented landing zone for "opinionated frontend conveniences that wrap kernel primitives" — synthesis fits that exact description, and keeping it as a free function makes it reusable without a `Kernel` instance (e.g. for unit-testing transformer behavior in tight loops).
 
@@ -48,7 +48,7 @@ Adding the method to the existing `Binding` interface centralises schema loading
 
 **Alternative considered (Q1.A):** Have the synth helper consume `binding.EmbeddedSchema() fs.FS` directly and call `load.Instances` itself. Rejected — it duplicates schema-load logic in every consumer of the embed FS, and the load arguments (overlay path, package name) are version-specific knowledge that should live on the binding.
 
-**Alternative considered:** A new top-level helper like `pkg/helper/schema/` exposing `LoadSchemaPackage(binding) (cue.Value, error)`. Rejected — it would not eliminate the per-binding knowledge of overlay paths; it just moves it to a switch on `binding.Version()`.
+**Alternative considered:** A new top-level helper like `opm/helper/schema/` exposing `LoadSchemaPackage(binding) (cue.Value, error)`. Rejected — it would not eliminate the per-binding knowledge of overlay paths; it just moves it to a switch on `binding.Version()`.
 
 **Caching strategy:** `sync.Once` per binding instance, keyed implicitly on the first `*cue.Context` passed in. The library's "one Kernel per process" guidance (`kernel-runtime` spec, Goroutine Safety Contract) makes this safe in practice. Documented in the method docstring as "first-context-wins; pass the same `*cue.Context` for the binding's lifetime."
 
@@ -56,7 +56,7 @@ Adding the method to the existing `Binding` interface centralises schema loading
 
 ### D3. Values is caller-supplied; no debug-values fallback
 
-Earlier discussion considered defaulting `ReleaseInput.Values` to `Module.debugValues` when caller passed the zero `cue.Value`. Rejected because `debugValues` is documented as "author-supplied example values used by build/validation tooling" (`pkg/module/module.go:5-13`). Treating it as a production default would let a controller silently deploy a CR with no values into the dev-test overlay the module author wrote — a class of surprise we should not bake into the kernel.
+Earlier discussion considered defaulting `ReleaseInput.Values` to `Module.debugValues` when caller passed the zero `cue.Value`. Rejected because `debugValues` is documented as "author-supplied example values used by build/validation tooling" (`opm/module/module.go:5-13`). Treating it as a production default would let a controller silently deploy a CR with no values into the dev-test overlay the module author wrote — a class of surprise we should not bake into the kernel.
 
 Instead: `ReleaseInput.Values` is a `cue.Value` field. When the zero value is passed, the synth helper does not fill `paths.Values`; the spec then flows to `ProcessModuleRelease`, which fails the concreteness check when `#config` has no defaults. Frontends that *want* debug-values behavior (e.g. CLI `--use-debug-values` flag) layer it explicitly on the caller side before constructing `ReleaseInput`.
 
@@ -104,7 +104,7 @@ To sidestep that, `synth.Release` pre-merges `in.Values` into `mod.Package` at `
 ## Migration Plan
 
 1. Land the interface change (`Binding.SchemaValue`) and the v1alpha2 implementation in one commit. Both must move together to keep the binding registry valid.
-2. Land `pkg/helper/synth/` in a follow-up commit so the helper builds against the new method without merge-window race conditions.
+2. Land `opm/helper/synth/` in a follow-up commit so the helper builds against the new method without merge-window race conditions.
 3. Land the `Kernel.SynthesizeRelease` wrapper last; it depends on the helper.
 4. CHANGELOG entry under the next MAJOR. No downstream migration code needed because no consumer in-tree calls `Binding` methods directly outside the registered v1alpha2 binding.
 

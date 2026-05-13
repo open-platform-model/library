@@ -14,7 +14,7 @@
 ## 3. Migration Helper
 
 - [x] 3.1 Add `validate.UnifyAndValidate(values []cue.Value) cue.Value` performing the previous slice-merge loop
-- [x] 3.2 Mark the helper `// Deprecated: use pkg/helper/values for layering and pass the unified result to validate.Config`
+- [x] 3.2 Mark the helper `// Deprecated: use opm/helper/values for layering and pass the unified result to validate.Config`
 - [x] 3.3 Add a unit test that confirms `UnifyAndValidate` produces the same unified value the previous `Config` slice form would have produced
 
 ## 4. Kernel Wrapper Updates
@@ -25,8 +25,8 @@
 
 ## 5. Test Migration
 
-- [x] 5.1 Update `pkg/validate/` tests that previously built `[]cue.Value` literals to build a single unified `cue.Value` (via `UnifyAndValidate` for parity, or directly)
-- [x] 5.2 Update `pkg/module/` tests for `ParseModuleRelease` accordingly
+- [x] 5.1 Update `opm/validate/` tests that previously built `[]cue.Value` literals to build a single unified `cue.Value` (via `UnifyAndValidate` for parity, or directly)
+- [x] 5.2 Update `opm/module/` tests for `ParseModuleRelease` accordingly
 - [x] 5.3 Add a regression test that confirms zero-value `cue.Value{}` is accepted as "no values"
 - [x] 5.4 Add a parity test confirming new single-value `Config` produces equivalent output to old slice form (using `UnifyAndValidate` to bridge)
 

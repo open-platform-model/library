@@ -8,7 +8,7 @@ The kernel matcher's job becomes simpler:
 2. For each demanded FQN, look it up in `Platform.#matchers.resources[FQN]` (or `.traits[FQN]`). If present, the lookup yields a one-element transformer list (multi-fulfiller forbidden at platform layer).
 3. Pair the component with the located transformer. Surface unmatched FQNs (no fulfiller) and the legacy "ambiguous" diagnostic (which should always be empty given platform-layer enforcement; retained as a safety net).
 
-Per umbrella decision (Q1), the matcher implements this walk in Go rather than instantiating catalog 014's `#PlatformMatch` CUE construct. The Go implementation mirrors `#PlatformMatch`'s semantics. Reasoning: keeps the existing `pkg/render/match.go` testing approach; avoids a CUE evaluation per match; allows the matcher to surface diagnostics in Go-native shape.
+Per umbrella decision (Q1), the matcher implements this walk in Go rather than instantiating catalog 014's `#PlatformMatch` CUE construct. The Go implementation mirrors `#PlatformMatch`'s semantics. Reasoning: keeps the existing `opm/render/match.go` testing approach; avoids a CUE evaluation per match; allows the matcher to surface diagnostics in Go-native shape.
 
 This is the only slice that changes runtime behavior. By the time it lands:
 
@@ -21,7 +21,7 @@ This is the only slice that changes runtime behavior. By the time it lands:
 ## Goals / Non-Goals
 
 **Goals:**
-- Matcher consumes `*Platform` exclusively. `*Provider` removed from kernel inputs and from `pkg/`.
+- Matcher consumes `*Platform` exclusively. `*Provider` removed from kernel inputs and from `opm/`.
 - Match algorithm walks consumer Module's `#components` for Resource/Trait FQN demand.
 - Match algorithm looks up demand in `Platform.#matchers` via the binding paths.
 - `*MatchPlan` API surface preserved (callers see the same structure shape, slightly different internals).
@@ -56,9 +56,9 @@ for each FQN in demand.resources:
 
 **`render.Module` runtime helper takes `*Platform`.** Old: `NewModule(p *provider.Provider, runtimeName string) *Module`. New: `NewModule(plat *platform.Platform, runtimeName string) *Module`. Behavior preserved otherwise.
 
-**`*provider.Provider` package deleted.** Reason: no remaining consumer in the kernel after this slice. Downstream consumers migrate to `*platform.Platform`. Provided that slice 10 ships `pkg/helper/platform/Compose`, the migration is a one-line constructor change.
+**`*provider.Provider` package deleted.** Reason: no remaining consumer in the kernel after this slice. Downstream consumers migrate to `*platform.Platform`. Provided that slice 10 ships `opm/helper/platform/Compose`, the migration is a one-line constructor change.
 
-**`requiredLabels` continues to use the existing label-matching code.** That code is at `pkg/render/match.go` already; relocating it during slice 09 is unnecessary. Reason: keeps the slice focused on Provider→Platform substitution.
+**`requiredLabels` continues to use the existing label-matching code.** That code is at `opm/render/match.go` already; relocating it during slice 09 is unnecessary. Reason: keeps the slice focused on Provider→Platform substitution.
 
 **Test fixtures rewrite to Platform.** Existing fixtures construct `Provider` literals or load `provider.cue` files. They become `Platform` literals or `platform.cue` files with a `#registry` containing the previously-implicit Module. Behavior is preserved for the single-fulfiller case (which is every existing fixture).
 
@@ -68,7 +68,7 @@ for each FQN in demand.resources:
 
 ## Risks / Trade-offs
 
-**Risk — large blast radius.** This slice touches `pkg/render/match.go`, `pkg/render/execute.go`, `pkg/render/module.go`, deletes `pkg/provider/`, deletes provider loader. Mitigation: every prior slice landed first; this slice is purely the substitution. Diff is mechanical for the most part.
+**Risk — large blast radius.** This slice touches `opm/render/match.go`, `opm/render/execute.go`, `opm/render/module.go`, deletes `opm/provider/`, deletes provider loader. Mitigation: every prior slice landed first; this slice is purely the substitution. Diff is mechanical for the most part.
 
 **Risk — fixture migration drift.** Test fixtures are central to the kernel's correctness story. If a fixture's behavior changes during the migration, hard to tell whether it's a regression or expected. Mitigation: snapshot every fixture's pre-slice-09 output; assert post-slice-09 output is byte-equal; investigate every diff.
 

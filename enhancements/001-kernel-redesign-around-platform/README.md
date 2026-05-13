@@ -8,7 +8,7 @@
 
 ## Summary
 
-Restructures the OPM kernel into a self-contained reference runtime that the CLI, `opm-operator`, and the planned Crossplane composition function can all embed without divergence. The kernel becomes a `Kernel` struct that owns its `cue.Context`, exposes phase-explicit methods (`Validate`, `Match`, `Plan`, `Compile`), accepts a uniform `(APIVersion, Metadata, Package)` shape across every OPM artifact type, takes a single pre-unified values `cue.Value` instead of a slice, and matches against the new `#Platform` construct (enhancement 003) instead of the retired `#Provider`. Loading, layering, and composition move into opt-in helper packages under `pkg/helper/`. Tier-1 source-positioned validation lives in helpers; the kernel keeps a Tier-2 correctness safety net.
+Restructures the OPM kernel into a self-contained reference runtime that the CLI, `opm-operator`, and the planned Crossplane composition function can all embed without divergence. The kernel becomes a `Kernel` struct that owns its `cue.Context`, exposes phase-explicit methods (`Validate`, `Match`, `Plan`, `Compile`), accepts a uniform `(APIVersion, Metadata, Package)` shape across every OPM artifact type, takes a single pre-unified values `cue.Value` instead of a slice, and matches against the new `#Platform` construct (enhancement 003) instead of the retired `#Provider`. Loading, layering, and composition move into opt-in helper packages under `opm/helper/`. Tier-1 source-positioned validation lives in helpers; the kernel keeps a Tier-2 correctness safety net.
 
 `#Claim` (enhancement 005) is intentionally deferred — the matcher rewrite covers Resources/Traits only in this design package; Claims fold in once 005 stabilizes.
 
@@ -32,13 +32,13 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 | 04 | `accept-single-values-input`             | Kernel signatures take one `cue.Value` for values, not `[]cue.Value`                                   | —             | low      |
 | 05 | `introduce-tiered-validation`            | Add `helper/values` for Tier-1 source-positioned validation; kernel becomes Tier-2 safety net          | 04            | medium   |
 | 06 | `add-phase-methods-and-rename-compile`   | Expose `Validate` / `Match` / `Plan` / `Compile` as Kernel methods; rename Render → Compile end-to-end | 01            | low      |
-| 07 | `reorganize-helpers-under-helper`        | Move `pkg/loader/*` → `pkg/helper/loader/{file,bytes}`; flatten optional code under `pkg/helper/`      | 01, 06        | low      |
+| 07 | `reorganize-helpers-under-helper`        | Move `opm/loader/*` → `opm/helper/loader/{file,bytes}`; flatten optional code under `opm/helper/`      | 01, 06        | low      |
 | 08 | `add-platform-construct`                 | Add `Platform` type with the uniform shape; loader for `platform.cue`; kernel input adds `*Platform`   | 02            | medium   |
-| 09 | `rewrite-match-around-platform` ✅       | Replace `pkg/render/match.go` to consume `Platform.#composedTransformers` + `Platform.#matchers`; `pkg/provider/` retired | 08            | high     |
-| 10 | `add-platform-composition-helper`        | `pkg/helper/platform.Compose(shell, modules)` for operator + CLI + XR shared composition               | 08            | low      |
+| 09 | `rewrite-match-around-platform` ✅       | Replace `opm/render/match.go` to consume `Platform.#composedTransformers` + `Platform.#matchers`; `opm/provider/` retired | 08            | high     |
+| 10 | `add-platform-composition-helper`        | `opm/helper/platform.Compose(shell, modules)` for operator + CLI + XR shared composition               | 08            | low      |
 | 11 | `slim-kernel-inputs`                     | Drop redundant `Module` field from `MatchInput` / `PlanInput` / `CompileInput`; add `(*Release).ConfigSchema()` | 02, 06        | low      |
 
-`apiversion` = the in-flight `add-multi-apiversion-support` change. That lands first; every slice in this enhancement assumes the binding interface (`pkg/api/<v>` + `pkg/apiversion`) is available.
+`apiversion` = the in-flight `add-multi-apiversion-support` change. That lands first; every slice in this enhancement assumes the binding interface (`opm/api/<v>` + `opm/apiversion`) is available.
 
 ## Applicability Checklist
 

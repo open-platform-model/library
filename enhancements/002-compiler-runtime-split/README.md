@@ -8,7 +8,7 @@
 
 ## Summary
 
-Splits the OPM kernel into two distinct concerns: a **Compiler** that performs the existing deterministic transform from `*ModuleRelease + *Provider/*Platform + values → CompileResult`, and a **Runtime** that executes the operational primitives (`#Op`, `#Action`) declared by catalog enhancement 010. The two share a common `Kernel` substrate (`cue.Context`, `pkg/api` binding registry, logger, tracer) but live in separate packages with separate import surfaces, so the Crossplane composition function can embed the Compiler without ever pulling Runtime symbols.
+Splits the OPM kernel into two distinct concerns: a **Compiler** that performs the existing deterministic transform from `*ModuleRelease + *Provider/*Platform + values → CompileResult`, and a **Runtime** that executes the operational primitives (`#Op`, `#Action`) declared by catalog enhancement 010. The two share a common `Kernel` substrate (`cue.Context`, `opm/api` binding registry, logger, tracer) but live in separate packages with separate import surfaces, so the Crossplane composition function can embed the Compiler without ever pulling Runtime symbols.
 
 The Compiler emits a deterministic plan of `ActionInvocation`s as part of its result. The frontend orchestrates Runtime execution against that plan. The Runtime publishes a `RuntimeSnapshot` (a `cue.Value`) that the next Compile may read. Determinism in the Compiler is preserved by construction — the wall is enforced at the package boundary, not by docstring.
 
@@ -27,14 +27,14 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 | #  | Slice (kebab-case)                       | Scope                                                                                          | Depends on             | Risk    |
 | -- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------- | ------- |
 | 01 | `drop-unused-kernel-clock`               | Remove `Kernel.Clock`, the `Clock` interface, and `WithClock` (YAGNI — currently no consumer)  | —                      | trivial |
-| 02 | `add-action-decoder-paths`               | `pkg/api/v1alpha2` gains `Paths.Steps` / `Paths.After` / `Paths.OpType` and `DecodeAction`     | catalog 010 publish    | low     |
+| 02 | `add-action-decoder-paths`               | `opm/api/v1alpha2` gains `Paths.Steps` / `Paths.After` / `Paths.OpType` and `DecodeAction`     | catalog 010 publish    | low     |
 | 03 | `add-action-invocation-core-type`        | `core.ActionInvocation` Go type + `core.StepNode` + `core.ActionDAG`                           | 02                     | low     |
 | 04 | `emit-action-invocations-from-compile`   | Internal Action walker — descends a Release, finds Action declarations, emits `[]*ActionInvocation`. No `CompileResult` field change yet (consumers add typed fields in slices 08/09); shipped as `compile.WalkActions` for slices 08/09 to call. | 03, 001 slice 06       | medium  |
-| 05 | `add-runtime-package-skeleton`           | `pkg/runtime` — `Runtime` struct, `Executor` interface, in-memory `StateStore`, `$after` walker | 03                     | medium  |
-| 06 | `add-local-op-executors`                 | `pkg/runtime/local` — reference executors for `@op("exec")`, `@op("http.*")`, `@op("wait")`    | 05                     | low     |
+| 05 | `add-runtime-package-skeleton`           | `opm/runtime` — `Runtime` struct, `Executor` interface, in-memory `StateStore`, `$after` walker | 03                     | medium  |
+| 06 | `add-local-op-executors`                 | `opm/runtime/local` — reference executors for `@op("exec")`, `@op("http.*")`, `@op("wait")`    | 05                     | low     |
 | 07 | `add-runtime-snapshot-feedback`          | `RuntimeSnapshot` type; Compiler accepts it via option; `Runtime.Snapshot()` produces it       | 05                     | medium  |
-| 08 | `add-workflow-decoder`                   | `pkg/api/v1alpha2.DecodeWorkflow`; `CompileResult.Workflows map[string]*ActionInvocation` keyed by Workflow FQN; on-demand invocation pattern (CLI: `opm workflow run <name>`; operator: CRD-triggered) | 04, catalog Workflow   | low     |
-| 09 | `add-lifecycle-decoder`                  | `pkg/api/v1alpha2.DecodeLifecycle`; `compile.LifecyclePhase` enum (preInstall/install/postInstall/preUpgrade/upgrade/postUpgrade/preUninstall/uninstall/postUninstall, optional downgrade triplet); `CompileResult.Lifecycle map[LifecyclePhase]*ActionInvocation`; `compile.CanonicalOrder()` helper | 04, catalog Lifecycle  | low     |
+| 08 | `add-workflow-decoder`                   | `opm/api/v1alpha2.DecodeWorkflow`; `CompileResult.Workflows map[string]*ActionInvocation` keyed by Workflow FQN; on-demand invocation pattern (CLI: `opm workflow run <name>`; operator: CRD-triggered) | 04, catalog Workflow   | low     |
+| 09 | `add-lifecycle-decoder`                  | `opm/api/v1alpha2.DecodeLifecycle`; `compile.LifecyclePhase` enum (preInstall/install/postInstall/preUpgrade/upgrade/postUpgrade/preUninstall/uninstall/postUninstall, optional downgrade triplet); `CompileResult.Lifecycle map[LifecyclePhase]*ActionInvocation`; `compile.CanonicalOrder()` helper | 04, catalog Lifecycle  | low     |
 
 `001 slice 06` = `add-phase-methods-and-rename-compile` from `001-kernel-redesign-around-platform/`. That slice renames `Render → Compile` end-to-end. Slices in this enhancement use the new naming throughout. If a slice here lands before 001's slice 06, it must reconcile with the older naming explicitly in its proposal.
 

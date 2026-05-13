@@ -38,7 +38,7 @@ See `CONSTITUTION.md` for the full set of principles.
 apis/                     Versioned OPM schema (CUE)
   core/                   CUE module rooted here (cue.mod/module.cue) + embed.go for all versions
     v1alpha2/             Schema for v1alpha2 — single source of truth for that version
-pkg/
+opm/
   api/                    Per-schema-version Binding interface, process-wide registry, embed plumbing
   api/v1alpha2/           v1alpha2 binding (registers itself in init())
   apiversion/             apiVersion enum + Detect helper
@@ -63,7 +63,7 @@ testdata/                 CUE module fixtures consumed by package tests
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
 
-The `pkg/loader/` deprecation shim has been removed; the canonical import path is `pkg/helper/loader/file`. A standalone `pkg/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus the typed shortcuts in `pkg/kernel/validate_typed.go`.
+The `opm/loader/` deprecation shim has been removed; the canonical import path is `opm/helper/loader/file`. A standalone `opm/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus the typed shortcuts in `opm/kernel/validate_typed.go`.
 
 ## Compile pipeline
 
@@ -91,7 +91,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkt
 
 ## API stability
 
-The library follows SemVer 2.0.0. The public surface is everything under `pkg/`. Two distinct compatibility tracks coexist and must not be confused:
+The library follows SemVer 2.0.0. The public surface is everything under `opm/`. Two distinct compatibility tracks coexist and must not be confused:
 
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
 - **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
@@ -100,31 +100,31 @@ The two tracks are independent: a kernel `v1.4.0` may simultaneously support mul
 
 ## Multi-version OPM schema support
 
-The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` (and add it to the `//go:embed` pattern in `apis/core/embed.go`), then add a sibling Go package under `pkg/api/<vN>/` that registers a `Binding` in its `init()`. The new version coexists at runtime with every other registered binding. `pkg/compile`, `pkg/helper/loader/file`, and `pkg/module` need no edits.
+The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` (and add it to the `//go:embed` pattern in `apis/core/embed.go`), then add a sibling Go package under `opm/api/<vN>/` that registers a `Binding` in its `init()`. The new version coexists at runtime with every other registered binding. `opm/compile`, `opm/helper/loader/file`, and `opm/module` need no edits.
 
 Key pieces:
 
-- `pkg/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
-- `pkg/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`, `SchemaValue`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
-- `pkg/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
+- `opm/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
+- `opm/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`, `SchemaValue`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
+- `opm/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
 - `apis/core/embed.go` — single `//go:embed` directive at the core CUE module root that pulls in `cue.mod/module.cue` plus every versioned schema package below it, so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
 
 The compile pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
 
-## Helper boundary (`pkg/helper/`)
+## Helper boundary (`opm/helper/`)
 
-Anything under `pkg/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `pkg/helper/` is part of the kernel contract.
+Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `opm/helper/` is part of the kernel contract.
 
 Today this layer holds:
 
-- `pkg/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadReleasePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
-- `pkg/helper/loader/bytes` — in-memory loader. **Skeleton only**, no exported functions yet. The full implementation lands when a concrete consumer (Crossplane composition fn, fuzzing harness) pulls on the design.
-- `pkg/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
-- `pkg/helper/synth` — Release synthesis (`Release`): build a `ModuleRelease` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeRelease`, which chains synth + validate in one call.
+- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadReleasePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
+- `opm/helper/loader/bytes` — in-memory loader. **Skeleton only**, no exported functions yet. The full implementation lands when a concrete consumer (Crossplane composition fn, fuzzing harness) pulls on the design.
+- `opm/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
+- `opm/helper/synth` — Release synthesis (`Release`): build a `ModuleRelease` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeRelease`, which chains synth + validate in one call.
 
-Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `pkg/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
-The previous `pkg/loader/` deprecation shim has been removed (commit `3a9a9bd`); the canonical import path is `pkg/helper/loader/file`.
+The previous `opm/loader/` deprecation shim has been removed (commit `3a9a9bd`); the canonical import path is `opm/helper/loader/file`.
 
 ## Quality gates
 

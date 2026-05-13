@@ -33,10 +33,10 @@ import (
 	"cuelang.org/go/cue/ast/astutil"
 	"cuelang.org/go/cue/format"
 
-	"github.com/open-platform-model/library/pkg/api"
-	_ "github.com/open-platform-model/library/pkg/api/v1alpha2"
-	loaderfile "github.com/open-platform-model/library/pkg/helper/loader/file"
-	"github.com/open-platform-model/library/pkg/kernel"
+	"github.com/open-platform-model/library/opm/api"
+	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
+	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	"github.com/open-platform-model/library/opm/kernel"
 )
 
 const localRegistry = "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"

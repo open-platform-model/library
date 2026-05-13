@@ -1,6 +1,6 @@
 ## Context
 
-The library's configuration validation has grown three layers thick over successive slices. `pkg/kernel/validate.go` holds the Tier-2 primitive (`runValidate` + `walkDisallowed` + `appendSchemaErrors`); `pkg/helper/values/` adds Tier-1 per-layer validation with source attribution (`Layer`/`Stack`/`MultiSourceError`); `pkg/errors/` defines a custom Go-typed error language (`ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`) that translates CUE diagnostics into projection structs with `groupCUEErrors` doing message+path collation. Each layer was added to solve a real problem — but together they form a Go-typed dialect of information CUE's `cuelang.org/go/cue/errors` package already exposes natively (`Error.Path()`, `Position()`, `InputPositions()`, `Msg()`, `errors.Errors`, `errors.Print`, `errors.Sanitize`).
+The library's configuration validation has grown three layers thick over successive slices. `opm/kernel/validate.go` holds the Tier-2 primitive (`runValidate` + `walkDisallowed` + `appendSchemaErrors`); `opm/helper/values/` adds Tier-1 per-layer validation with source attribution (`Layer`/`Stack`/`MultiSourceError`); `opm/errors/` defines a custom Go-typed error language (`ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`) that translates CUE diagnostics into projection structs with `groupCUEErrors` doing message+path collation. Each layer was added to solve a real problem — but together they form a Go-typed dialect of information CUE's `cuelang.org/go/cue/errors` package already exposes natively (`Error.Path()`, `Position()`, `InputPositions()`, `Msg()`, `errors.Errors`, `errors.Print`, `errors.Sanitize`).
 
 The CLI has shipped without leveraging any of the typed projection. opm-operator and future XR composition functions face the same situation: they import the library, get back `*ConfigError` / `*MultiSourceError`, and then re-translate to whatever shape their consumer needs (CLI prose, `metav1.Condition`, XR composition status). The Go-typed error surface increases the library's public API without buying clarity.
 
@@ -75,7 +75,7 @@ The `cue.Filename` mechanism IS CUE's per-source attribution surface. Ducking it
 
 ### D4 — `walkDisallowed` and `fieldNotAllowedError` stay internal, implement `cueerrors.Error`
 
-When a closed schema rejects an unknown field, CUE's native `Validate` reports "field not allowed" but loses the source position of the offending field (the position points to the schema's closure declaration, not the user's stray field). The library has compensated for this with `walkDisallowed` since the Tier-2 slice; `fieldNotAllowedError` is the position-aware diagnostic it emits. Both remain in the new design as private internals of `pkg/kernel/validate.go`. `fieldNotAllowedError` already implements `cueerrors.Error`, so it walks alongside CUE-native errors transparently.
+When a closed schema rejects an unknown field, CUE's native `Validate` reports "field not allowed" but loses the source position of the offending field (the position points to the schema's closure declaration, not the user's stray field). The library has compensated for this with `walkDisallowed` since the Tier-2 slice; `fieldNotAllowedError` is the position-aware diagnostic it emits. Both remain in the new design as private internals of `opm/kernel/validate.go`. `fieldNotAllowedError` already implements `cueerrors.Error`, so it walks alongside CUE-native errors transparently.
 
 **Alternatives considered:**
 
@@ -110,7 +110,7 @@ Practical consequences: the error tree carries paths of the form `["#module", "#
 
 - **Risk: downstream consumers (CLI, opm-operator) broken until they migrate.** → Mitigation: this is a MAJOR version bump per Principle VI; consumers pin the previous tag until they migrate. Migration recipes are captured here so the work is mechanical.
 
-- **Risk: `walkDisallowed` becomes stale relative to CUE's evolving closedness semantics.** → Mitigation: existing test coverage stays in `pkg/kernel/validate_test.go`. Future CUE upgrades exercise the workaround through those tests; if CUE fixes positions for closed-schema rejections natively, the workaround is removable cleanly.
+- **Risk: `walkDisallowed` becomes stale relative to CUE's evolving closedness semantics.** → Mitigation: existing test coverage stays in `opm/kernel/validate_test.go`. Future CUE upgrades exercise the workaround through those tests; if CUE fixes positions for closed-schema rejections natively, the workaround is removable cleanly.
 
 - **Trade-off: frontends now write 5–10 lines to bucket errors by source instead of consuming `*MultiSourceError.Errors()`.** Worth it: each frontend bucketing differently (file basename vs full path vs Source.Name) is a real divergence the library shouldn't impose a single shape on. CUE's own Position metadata is the substrate; bucket how you want.
 
@@ -127,8 +127,8 @@ Sequencing (each step its own commit, each step keeps the codebase green):
 5. **Migrate tests** to assert on CUE-native errors (`cueerrors.Errors`, `pos.Filename()`, etc.) instead of `*ConfigError`/`*MultiSourceError` shape.
 6. **Delete `Kernel.ValidateAndUnify` wrapper** in `wrappers.go` (no callers remain after step 4–5).
 7. **Delete old kernel validation primitives** (`runValidate`, old `ValidateConfig`, old `ValidateConfigPartial`, `appendSchemaErrors` if not reused).
-8. **Delete `pkg/helper/values/` package** (now unreferenced).
-9. **Delete custom error types** in `pkg/errors/` (`ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, related helpers).
+8. **Delete `opm/helper/values/` package** (now unreferenced).
+9. **Delete custom error types** in `opm/errors/` (`ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, related helpers).
 10. **Update godoc and CHANGELOG**; tag the MAJOR version.
 
 Migration recipes for downstream consumers (captured for `cli/` and `opm-operator/` to consume):
@@ -162,5 +162,5 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 ## Open Questions
 
 - Should `ValidateConfigDetailed` reject a `Source` whose `Value` has `pos.Filename() == ""` at entry, or trust the loader contract? Lean trust+document; revisit if footguns surface in practice.
-- Should `Kernel.LoadSourceFromFile` reuse `pkg/helper/loader/file.LoadValuesFile` (which already does the filename baking via `cue/load.Instances`) or be a thin wrapper that calls into it? Lean wrap+delegate to avoid duplicating the load.Config dance; resolve in tasks.md.
+- Should `Kernel.LoadSourceFromFile` reuse `opm/helper/loader/file.LoadValuesFile` (which already does the filename baking via `cue/load.Instances`) or be a thin wrapper that calls into it? Lean wrap+delegate to avoid duplicating the load.Config dance; resolve in tasks.md.
 - Do we add a `SourceForPos(sources []Source, pos token.Pos) *Source` helper for frontends that want friendly Name lookup from a position's filename? Defer until a frontend actually needs it; the 3-line map-build is fine in the meantime.

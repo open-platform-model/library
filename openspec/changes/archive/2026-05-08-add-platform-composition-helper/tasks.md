@@ -1,6 +1,6 @@
 ## 1. Package Skeleton
 
-- [x] 1.1 Create `pkg/helper/platform/` with `compose.go` and `errors.go`
+- [x] 1.1 Create `opm/helper/platform/` with `compose.go` and `errors.go`
 - [x] 1.2 Add package doc comment explaining the helper's role and pointing at slice 09's matcher contract
 
 ## 2. MultiFulfillerError Type
@@ -43,7 +43,7 @@
 
 - [x] 7.1 CHANGELOG entry: `helper/platform.Compose` available; one-line Platform composition; multi-fulfiller errors surface as `*MultiFulfillerError`
 - [x] 7.2 Update `library/README.md` Quick Start with a Compose example
-- [x] 7.3 `pkg/helper/platform/doc.go` package doc covering: purpose, ID scheme, multi-fulfiller behavior, idempotency
+- [x] 7.3 `opm/helper/platform/doc.go` package doc covering: purpose, ID scheme, multi-fulfiller behavior, idempotency
 - [x] 7.4 Update umbrella enhancement `02-design.md` to confirm slice 10 is shipped
 
 ## 8. Validation

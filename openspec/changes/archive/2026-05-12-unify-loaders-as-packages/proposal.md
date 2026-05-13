@@ -13,7 +13,7 @@ The filesystem loader surface treats modules and releases inconsistently. `LoadM
 - **MODIFIED**: `Kernel.LoadModulePackage` wrapper picks up the new `LoadOptions` parameter.
 - **ADDED**: `Kernel.LoadReleasePackage` wrapper mirroring `Kernel.LoadModulePackage`.
 - **MODIFIED**: `Kernel.LoadSourceFromFile` absorbs the auto-extract-`values`-field behavior. Existing callers see no behavior change.
-- **BREAKING (`pkg/helper/loader/file`, `pkg/kernel`)**: removal of `LoadReleaseFile`, `LoadValuesFile`, and the change to `LoadModulePackage`'s signature are all source-incompatible. MAJOR per Principle VI.
+- **BREAKING (`opm/helper/loader/file`, `opm/kernel`)**: removal of `LoadReleaseFile`, `LoadValuesFile`, and the change to `LoadModulePackage`'s signature are all source-incompatible. MAJOR per Principle VI.
 
 ## Capabilities
 
@@ -26,8 +26,8 @@ The filesystem loader surface treats modules and releases inconsistently. `LoadM
 
 **Affected packages**
 
-- `pkg/helper/loader/file/` — `release.go` rewritten (release-package loader, no values helper). `module.go` signature changes for `LoadOptions`.
-- `pkg/kernel/` — `wrappers.go` loses two wrappers, gains one; `source_loader.go` absorbs the values-unwrap logic.
+- `opm/helper/loader/file/` — `release.go` rewritten (release-package loader, no values helper). `module.go` signature changes for `LoadOptions`.
+- `opm/kernel/` — `wrappers.go` loses two wrappers, gains one; `source_loader.go` absorbs the values-unwrap logic.
 - Tests under both packages updated; existing `release.cue` fixtures become `release/` package fixtures (a `release.cue` file in a dir still works because a dir is still a package).
 
 **Affected downstream consumers**
@@ -36,23 +36,23 @@ The library has no other in-tree consumers at this time (per user direction). Th
 
 **SemVer classification**
 
-- MAJOR. Three source-incompatible changes in `pkg/`: two removed functions, one modified signature.
+- MAJOR. Three source-incompatible changes in `opm/`: two removed functions, one modified signature.
 
 **Ordering**
 
 - This change lands **after** `add-release-synth-helper`, which is now implemented. Synth shipped without depending on the file-loader path, but four landed artefacts reference `Kernel.LoadReleaseFile` by name and become stale once the wrapper is removed:
-  1. `pkg/kernel/synth.go` godoc on `Kernel.SynthesizeRelease`.
+  1. `opm/kernel/synth.go` godoc on `Kernel.SynthesizeRelease`.
   2. The Unreleased CHANGELOG entry for `add-release-synth-helper`.
   3. The `add-release-synth-helper` kernel-runtime delta requirement "SynthesizeRelease is documented as the recommended in-memory entry point" — folds into the main `kernel-runtime` spec when synth archives.
   4. Synth's `proposal.md` / `design.md` — historical artefacts, left as-is.
 
   This refactor includes mechanical updates to (1)–(3) so the `LoadReleasePackage` mirror anchor lands coherent.
 
-- Synth's other landed surface (`Binding.SchemaValue`, v1alpha2 pointer-receiver switch, `pkg/helper/synth/`, `Kernel.SynthesizeRelease`) is orthogonal to file loaders and unaffected.
+- Synth's other landed surface (`Binding.SchemaValue`, v1alpha2 pointer-receiver switch, `opm/helper/synth/`, `Kernel.SynthesizeRelease`) is orthogonal to file loaders and unaffected.
 
 **Out of scope**
 
 - `LoadPlatformFile` — left untouched. Platforms are typically single-file artifacts; symmetry there is YAGNI until a consumer needs it.
 - `LoadProvider` — unchanged.
-- Bytes loader (`pkg/helper/loader/bytes/`) — still a doc-only skeleton.
+- Bytes loader (`opm/helper/loader/bytes/`) — still a doc-only skeleton.
 - CLI / operator migration — happens in their own repos.

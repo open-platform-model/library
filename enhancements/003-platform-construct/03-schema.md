@@ -228,7 +228,7 @@ package v1alpha2
 
 ## `#PlatformMatch`
 
-> **Status — design only, not in v1alpha2 CUE.** The per-deploy walker (demand collection, `matched` / `unmatched` / `ambiguous` projections) was not landed as a CUE construct. The equivalent logic is implemented in Go in `pkg/compile/` and `pkg/platform/`, which iterate the consumer `#Module` against `#Platform.#matchers` at compile time. The CUE block below is preserved as the design reference; treat it as documentation of intent, not a definition in the v1alpha2 schema.
+> **Status — design only, not in v1alpha2 CUE.** The per-deploy walker (demand collection, `matched` / `unmatched` / `ambiguous` projections) was not landed as a CUE construct. The equivalent logic is implemented in Go in `opm/compile/` and `opm/platform/`, which iterate the consumer `#Module` against `#Platform.#matchers` at compile time. The CUE block below is preserved as the design reference; treat it as documentation of intent, not a definition in the v1alpha2 schema.
 
 Per-deploy match construct. The Go pipeline (or `opm-operator`) instantiates one `#PlatformMatch` per consumer `#Module` being deployed, walks the consumer's FQN demand against the platform's `#matchers`, and emits a render plan plus diagnostics.
 
@@ -425,7 +425,7 @@ package v1alpha2
 
 ### `#PlatformMatch`
 
-> **Design-only — not in v1alpha2 CUE schema.** The walker is implemented in Go (`pkg/compile/`, `pkg/platform/`). Table below describes the original CUE design.
+> **Design-only — not in v1alpha2 CUE schema.** The walker is implemented in Go (`opm/compile/`, `opm/platform/`). Table below describes the original CUE design.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

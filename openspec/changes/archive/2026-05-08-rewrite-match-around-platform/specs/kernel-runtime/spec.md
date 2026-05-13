@@ -46,7 +46,7 @@ Each phase method SHALL accept a phase-specific input struct rather than positio
 
 ### Requirement: Compile Rename
 
-The render pipeline's terminal verb SHALL be `Compile`. `pkg/render/process_module.go` SHALL be renamed to `pkg/render/compile_module.go`. `render.ProcessModuleRelease` SHALL be renamed to `render.CompileModuleRelease`.
+The render pipeline's terminal verb SHALL be `Compile`. `opm/render/process_module.go` SHALL be renamed to `opm/render/compile_module.go`. `render.ProcessModuleRelease` SHALL be renamed to `render.CompileModuleRelease`.
 
 #### Scenario: New name available
 
@@ -55,6 +55,6 @@ The render pipeline's terminal verb SHALL be `Compile`. `pkg/render/process_modu
 
 #### Scenario: ProcessModuleRelease alias removed
 
-- **WHEN** a developer searches for `ProcessModuleRelease` in `pkg/compile/` or `pkg/kernel/`
+- **WHEN** a developer searches for `ProcessModuleRelease` in `opm/compile/` or `opm/kernel/`
 - **THEN** the symbol does not exist
 - **AND** callers MUST use `CompileModuleRelease` (free function) or `(*Kernel).Compile` (method)

@@ -16,7 +16,7 @@ This document captures the cross-cutting kernel design and how the slices fit to
    └─────────────────────────────────┬────────────────────────────────┘
                                      │
    ┌─────────────────────────────────▼────────────────────────────────┐
-   │  pkg/helper/  (kernel-shipped, opt-in)                           │
+   │  opm/helper/  (kernel-shipped, opt-in)                           │
    │                                                                  │
    │   loader/file/   [shipped, slice 07]   Build cue.Value from FS.  │
    │   loader/bytes/  [skeleton, slice 07]  In-memory loading; full   │
@@ -86,7 +86,7 @@ type Platform struct {
 
 `Metadata` is an ergonomic projection — useful for log fields, UI display, and routing. `Package` is the source of truth. When the two disagree, **`Package` wins**: `Metadata` is a cache, not an authority. This protects the "everything in CUE" property from drifting as the Go API evolves.
 
-The kernel reads field paths within `Package` through the version-binding (`pkg/api/<version>`). No path string is hardcoded in render or match logic.
+The kernel reads field paths within `Package` through the version-binding (`opm/api/<version>`). No path string is hardcoded in render or match logic.
 
 ## Compile pipeline
 
@@ -101,7 +101,7 @@ The kernel reads field paths within `Package` through the version-binding (`pkg/
         │
         ▼
    1. Detect & verify APIVersion across all artifacts;
-      look up the binding (pkg/api/<version>).
+      look up the binding (opm/api/<version>).
         │
         ▼
    2. Tier-2 Validate Values vs Module's #config (via binding paths).
@@ -143,7 +143,7 @@ The kernel reads field paths within `Package` through the version-binding (`pkg/
                 │
                 ▼
    ┌─────────────────────────────────────┐
-   │  pkg/helper/values — TIER 1          │
+   │  opm/helper/values — TIER 1          │
    │                                      │
    │  - Validate each source individually │
    │  - Source-attributed errors:         │
@@ -181,8 +181,8 @@ A `Kernel` is **not goroutine-safe across compile calls**. Each goroutine constr
 
 `add-multi-apiversion-support` is an in-flight prerequisite. It introduces:
 
-- `pkg/apiversion` — typed version enum + detection from a `cue.Value`.
-- `pkg/api/<version>` — per-version binding (paths, decoders, context shape).
+- `opm/apiversion` — typed version enum + detection from a `cue.Value`.
+- `opm/api/<version>` — per-version binding (paths, decoders, context shape).
 - A closed registry populated by `init()` in each binding package.
 
 Every slice in this enhancement uses the binding interface. The kernel never hardcodes a path string after that change lands.
@@ -220,7 +220,7 @@ Slices 03 and 04 can land at any time. Slices 01 and 02 are the foundation for e
 ## Why this slicing
 
 - **Each slice is independently shippable.** No slice leaves the kernel in a broken state. Existing fixtures and tests pass at every commit.
-- **Each slice is independently reviewable.** The largest slice (09) touches `pkg/render/match.go` and the matching contract; the smallest (03) deletes a single construct. Reviewers can engage at the depth a slice deserves.
+- **Each slice is independently reviewable.** The largest slice (09) touches `opm/render/match.go` and the matching contract; the smallest (03) deletes a single construct. Reviewers can engage at the depth a slice deserves.
 - **Cross-slice dependencies are explicit, not implicit.** The graph above lets us land slices in parallel where possible. 03 and 04 do not block 01 or 02.
 - **The risky slice is gated.** Slice 09 is the matcher rewrite. By the time it lands, 02 and 08 have already established the artifact shape and the Platform type, so 09 is purely about matching logic — not types.
 - **`#Claim` does not appear in any slice.** Until enhancement 005 stabilizes, the kernel matches Resources/Traits only. When 005 lands, a follow-up enhancement (`006-claims-in-kernel` or similar) adds Claim demand walking, `#ModuleTransformer` execution, and `#resolution` writeback.

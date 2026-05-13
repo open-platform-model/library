@@ -13,7 +13,7 @@ The library is the **kernel** of OPM. It provides the generic, reusable building
 | **I** | [Kernel Neutrality & Determinism](#i-kernel-neutrality--determinism) | The library makes no runtime assumptions and behaves deterministically given its inputs |
 | **II** | [Type Safety First](#ii-type-safety-first) | Inputs are validated at load time; strong Go and CUE types over open-ended data |
 | **III** | [Separation of Concerns](#iii-separation-of-concerns) | Loader, module, provider, render, validate, errors, and core stay clearly split |
-| **IV** | [Composability via Stable Contracts](#iv-composability-via-stable-contracts) | `pkg/` exposes a stable public API consumed by every OPM implementation |
+| **IV** | [Composability via Stable Contracts](#iv-composability-via-stable-contracts) | `opm/` exposes a stable public API consumed by every OPM implementation |
 | **V** | [CUE-Native Module Resolution](#v-cue-native-module-resolution) | The library owns CUE module and OCI plumbing on behalf of all downstream implementations |
 | **VI** | [Semantic Versioning & Public API Discipline](#vi-semantic-versioning--public-api-discipline) | SemVer is contractual; downstream consumers depend on it |
 | **VII** | [Simplicity & YAGNI](#vii-simplicity--yagni) | New abstractions must be justified by a real downstream need |
@@ -57,16 +57,16 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
-- `pkg/apiversion/` — `Version` type, registered constants, `Detect(cue.Value)`
-- `pkg/api/` — per-schema-version `Binding` interface and registry
-- `pkg/api/<vN>/` — concrete bindings (registered in `init()`)
-- `pkg/core/` — shared domain primitives (resource identity, compiled output)
-- `pkg/errors/` — structured errors and sentinels (alias as `oerrors` in consumers)
-- `pkg/loader/` — load CUE artifacts (modules, providers, releases) into `cue.Value`
-- `pkg/module/` — module and release model, parsing, and helpers
-- `pkg/provider/` — provider model
-- `pkg/compile/` — compile pipeline (match, process, execute, finalize)
-- `pkg/validate/` — configuration validation helpers
+- `opm/apiversion/` — `Version` type, registered constants, `Detect(cue.Value)`
+- `opm/api/` — per-schema-version `Binding` interface and registry
+- `opm/api/<vN>/` — concrete bindings (registered in `init()`)
+- `opm/core/` — shared domain primitives (resource identity, compiled output)
+- `opm/errors/` — structured errors and sentinels (alias as `oerrors` in consumers)
+- `opm/loader/` — load CUE artifacts (modules, providers, releases) into `cue.Value`
+- `opm/module/` — module and release model, parsing, and helpers
+- `opm/provider/` — provider model
+- `opm/compile/` — compile pipeline (match, process, execute, finalize)
+- `opm/validate/` — configuration validation helpers
 
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 
@@ -81,8 +81,8 @@ loader -> module/provider -> validate -> compile -> core
 The library is a kernel. Its public API is the contract that every downstream implementation depends on.
 
 - Accept interfaces, return concrete structs (Go convention)
-- Public surface lives in `pkg/`; non-public helpers live in `internal/`
-- `pkg/` packages MUST NOT import command, controller, or runtime-specific concerns
+- Public surface lives in `opm/`; non-public helpers live in `internal/`
+- `opm/` packages MUST NOT import command, controller, or runtime-specific concerns
 - Output formatting and presentation MUST stay outside the library
 - Functions accept `context.Context` for any I/O, longer workflows, or cancellation
 
@@ -107,7 +107,7 @@ Centralizing CUE-native resolution in the library guarantees that every OPM impl
 
 The library MUST follow SemVer 2.0.0. Because multiple downstream implementations consume the library, public API stability is contractual.
 
-- MAJOR: any breaking change to `pkg/` types, signatures, or behavior
+- MAJOR: any breaking change to `opm/` types, signatures, or behavior
 - MINOR: additive changes that preserve existing behavior
 - PATCH: bug fixes, performance improvements, internal refactors
 - Commits SHOULD follow Conventional Commits v1: `type(scope): description`
@@ -123,7 +123,7 @@ Recommended commit types:
 
 Recommended scopes match the package layout: `core`, `loader`, `module`, `provider`, `render`, `validate`, `errors`.
 
-When a breaking change to `pkg/` is unavoidable, the change MUST call it out in the proposal and consider downstream migration cost explicitly.
+When a breaking change to `opm/` is unavoidable, the change MUST call it out in the proposal and consider downstream migration cost explicitly.
 
 ---
 
@@ -177,7 +177,7 @@ The library code SHOULD follow these defaults:
 - Accept interfaces where useful, return concrete structs when practical
 - Propagate `context.Context` through I/O, CUE evaluation, and longer workflows
 - Wrap errors with context: `fmt.Errorf("loading module: %w", err)`
-- Reuse `pkg/errors` types and sentinels where applicable
+- Reuse `opm/errors` types and sentinels where applicable
 - Prefer concrete types over `map[string]any`
 - No package-level mutable state; build fresh CUE contexts at the boundary
 
@@ -218,7 +218,7 @@ These principles also shape how OpenSpec artifacts should be written for the lib
 
 - Focus on WHY the change is needed and WHAT is in or out of scope
 - Update the proposal when scope changes, intent clarifies, or the approach fundamentally shifts
-- Identify affected `pkg/` packages and any downstream consumers (CLI, controller)
+- Identify affected `opm/` packages and any downstream consumers (CLI, controller)
 - State whether the change is MAJOR, MINOR, or PATCH under SemVer
 - Any added complexity MUST include explicit justification
 - Scope MUST remain small enough for a short implementation session
@@ -231,7 +231,7 @@ These principles also shape how OpenSpec artifacts should be written for the lib
 - Include a `Research & Decisions` section whenever exploration was required
 - Include Go pseudocode or CUE snippets where they clarify intent
 - Explain the impact across loader / module / render / validate phases
-- Call out any change to the public surface in `pkg/`
+- Call out any change to the public surface in `opm/`
 
 Recommended `Research & Decisions` shape:
 

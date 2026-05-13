@@ -1,10 +1,10 @@
 ## Context
 
-The `apis/core/v1alpha2/` schemas mix pure types with non-trivial computation: `#PlatformBase` projects `#registry` into `#knownResources` / `#knownTraits` / `#composedTransformers`, builds the per-FQN candidate index in `#matchers`, and computes `_invalid` from sorted predicate signatures; `#Platform` then forces a hard fail through `_noMultiFulfiller`. `#TransformerContext` merges three label/annotation scopes deterministically; `#Module.metadata` derives `fqn` and the UUIDv5 `uuid` from authored fields. None of this is currently exercised by tests. `pkg/api/v1alpha2/platform_test.go` covers Go binding paths, not CUE-side computation. Today the only place a regression would fire is during downstream consumption (CLI, controller, opm-operator), which is far too late.
+The `apis/core/v1alpha2/` schemas mix pure types with non-trivial computation: `#PlatformBase` projects `#registry` into `#knownResources` / `#knownTraits` / `#composedTransformers`, builds the per-FQN candidate index in `#matchers`, and computes `_invalid` from sorted predicate signatures; `#Platform` then forces a hard fail through `_noMultiFulfiller`. `#TransformerContext` merges three label/annotation scopes deterministically; `#Module.metadata` derives `fqn` and the UUIDv5 `uuid` from authored fields. None of this is currently exercised by tests. `opm/api/v1alpha2/platform_test.go` covers Go binding paths, not CUE-side computation. Today the only place a regression would fire is during downstream consumption (CLI, controller, opm-operator), which is far too late.
 
 CUE itself does not yet have native test support. `research/cue/cli/inputs.md:26` states `*_test.cue` files are reserved and currently ignored by the loader; combined with the general rule that files starting with `_` are skipped, the name is doubly disqualified. The supported mechanism today is `@if(<tag>)` (`research/cue/cli/injection.md:43`) — a file-level attribute placed before `package` that includes the file only when the named tag is present. The Go SDK driver is `load.Config.Tags` (`research/cue/sdk/load.md:97-114`). This is the same mechanism CUE itself uses internally to keep environment-specific files out of default builds, and it is forward-compatible: when CUE eventually ships native testing, we can rename / reshape the layer without paying for the migration twice.
 
-The existing `apis/core/embed.go` ships the schemas to Go consumers via `//go:embed cue.mod/module.cue v1alpha2/*.cue`. `pkg/api/v1alpha2/embed_test.go` (lines 79–87) asserts the embedded list equals the on-disk list under `v1alpha2/*.cue`. Anything we add into `v1alpha2/` therefore either (a) ships to consumers in `Schema embed.FS`, bloating their binary, or (b) breaks the embed assertion. Both are unacceptable. Test fixtures must live somewhere the embed pattern does not match.
+The existing `apis/core/embed.go` ships the schemas to Go consumers via `//go:embed cue.mod/module.cue v1alpha2/*.cue`. `opm/api/v1alpha2/embed_test.go` (lines 79–87) asserts the embedded list equals the on-disk list under `v1alpha2/*.cue`. Anything we add into `v1alpha2/` therefore either (a) ships to consumers in `Schema embed.FS`, bloating their binary, or (b) breaks the embed assertion. Both are unacceptable. Test fixtures must live somewhere the embed pattern does not match.
 
 ## Goals / Non-Goals
 
@@ -46,7 +46,7 @@ The existing `apis/core/embed.go` ships the schemas to Go consumers via `//go:em
 **Alternatives considered:**
 
 - **`apis/core/v1alpha2-tests/`** as a sibling package. Rejected: forces a separate `cue.mod` or duplicates module setup; cross-package imports work but feel heavyweight for what amounts to a fixture cupboard.
-- **`pkg/api/v1alpha2/testdata/`** next to the harness. Rejected: places CUE fixtures away from the schemas they exercise, and forces the harness to walk back to `apis/core` for the module root.
+- **`opm/api/v1alpha2/testdata/`** next to the harness. Rejected: places CUE fixtures away from the schemas they exercise, and forces the harness to walk back to `apis/core` for the module root.
 
 ### Decision 3: Fixture file shape
 
@@ -66,9 +66,9 @@ For negative cases the harness ignores `expect:` and relies on `Validate(cue.Con
 
 ### Decision 4: Go harness shape — table-driven, single test function
 
-**Choice:** One file `pkg/api/v1alpha2/schema_fixture_test.go`. A single `TestSchemaFixtures` runs through a `[]schemaCase` table. Each case names: a fixture file, an optional CUE path + decode target for positive equality, and an optional regex for negative error matching. The harness uses `cuelang.org/go/cue/load` with `Config.Dir = apis/core` and `Tags = []string{"test"}`. Compilation goes through `cuecontext.New().BuildInstance(insts[0])`, evaluation via `Validate(cue.Concrete(true))`.
+**Choice:** One file `opm/api/v1alpha2/schema_fixture_test.go`. A single `TestSchemaFixtures` runs through a `[]schemaCase` table. Each case names: a fixture file, an optional CUE path + decode target for positive equality, and an optional regex for negative error matching. The harness uses `cuelang.org/go/cue/load` with `Config.Dir = apis/core` and `Tags = []string{"test"}`. Compilation goes through `cuecontext.New().BuildInstance(insts[0])`, evaluation via `Validate(cue.Concrete(true))`.
 
-**Rationale:** Mirrors the existing style in `pkg/api/v1alpha2/platform_test.go` — same `cuecontext` / `cue.Path` plumbing the team already reads fluently. A single table keeps the schema-test inventory in one scrollable place. The test file lives in `pkg/api/v1alpha2/` (not `apis/core/...`) because Go test files must sit in a Go package; `pkg/api/v1alpha2/` is the natural neighbor.
+**Rationale:** Mirrors the existing style in `opm/api/v1alpha2/platform_test.go` — same `cuecontext` / `cue.Path` plumbing the team already reads fluently. A single table keeps the schema-test inventory in one scrollable place. The test file lives in `opm/api/v1alpha2/` (not `apis/core/...`) because Go test files must sit in a Go package; `opm/api/v1alpha2/` is the natural neighbor.
 
 **Alternatives considered:**
 
@@ -78,7 +78,7 @@ For negative cases the harness ignores `expect:` and relies on `Validate(cue.Con
 
 ### Decision 5: Embed-exclusion regression assertion
 
-**Choice:** Extend `pkg/api/v1alpha2/embed_test.go` (specifically `TestEmbeddedSchema_FileSetMatchesDisk`) to assert no path under `testdata/` appears in the embedded FS, even after a future broadening of the embed pattern.
+**Choice:** Extend `opm/api/v1alpha2/embed_test.go` (specifically `TestEmbeddedSchema_FileSetMatchesDisk`) to assert no path under `testdata/` appears in the embedded FS, even after a future broadening of the embed pattern.
 
 **Rationale:** The whole `@if(test)` story relies on fixtures *not* shipping to consumers. If `apis/core/embed.go` is later changed (well-intentioned: "embed all `.cue` files"), the test fixtures would silently bloat every consumer binary and surface in their CUE evaluation. A loud test failure is the cheap insurance.
 
@@ -89,9 +89,9 @@ For negative cases the harness ignores `expect:` and relies on `Validate(cue.Con
 
 ## Risks / Trade-offs
 
-- **`@if(test)` predicate edge cases** → Mitigation: seed three fixtures (one positive, two negative) up front. Run both `cue vet ./...` (must ignore them) and `go test ./pkg/api/v1alpha2/...` (must execute them) before merging. If a corner case bites, we contain it before scaling.
+- **`@if(test)` predicate edge cases** → Mitigation: seed three fixtures (one positive, two negative) up front. Run both `cue vet ./...` (must ignore them) and `go test ./opm/api/v1alpha2/...` (must execute them) before merging. If a corner case bites, we contain it before scaling.
 - **Fixture drift from production schemas** → Mitigation: fixtures are typed against the live schema definitions (`core.#Platform`, `core.#Module`). Schema-breaking refactors will fail the fixture build, surfacing the impact at the same time as the change.
-- **Asymmetry between positive (CUE) and negative (regex) assertions** → Accepted. Pure-CUE negative testing requires either `_|_`-as-value gymnastics or `tool/exec` with shell-side exit-code inversion; both are worse than a regex. Negative tests are rarer than positive, and a regex against `error.Error()` is the same shape used elsewhere in the codebase (e.g. `pkg/kernel/validate_test.go`).
+- **Asymmetry between positive (CUE) and negative (regex) assertions** → Accepted. Pure-CUE negative testing requires either `_|_`-as-value gymnastics or `tool/exec` with shell-side exit-code inversion; both are worse than a regex. Negative tests are rarer than positive, and a regex against `error.Error()` is the same shape used elsewhere in the codebase (e.g. `opm/kernel/validate_test.go`).
 - **Harness invisible to non-Go contributors** → Mitigation: `apis/core/v1alpha2/testdata/README.md` documents how to add a fixture and how to add a corresponding row to the Go table. The README is the contract for non-Go contributors — they author CUE, ping a reviewer to add the table row, and the harness picks it up.
 
 ## Migration Plan

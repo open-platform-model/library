@@ -2,11 +2,11 @@
 
 ### Requirement: KernelOwner Interface Surfaces Tier-1 Validation Method
 
-The `KernelOwner` interface in `pkg/helper/values/` SHALL expose a `ValidateConfigPartial` method matching the Kernel's signature, so the helper can perform per-layer Tier-1 validation by calling back through the interface without importing `pkg/kernel` (which would create the cycle `helper/values → kernel → helper/values`).
+The `KernelOwner` interface in `opm/helper/values/` SHALL expose a `ValidateConfigPartial` method matching the Kernel's signature, so the helper can perform per-layer Tier-1 validation by calling back through the interface without importing `opm/kernel` (which would create the cycle `helper/values → kernel → helper/values`).
 
 #### Scenario: Interface includes ValidateConfigPartial
 
-- **WHEN** a developer reads the `KernelOwner` interface in `pkg/helper/values/values.go`
+- **WHEN** a developer reads the `KernelOwner` interface in `opm/helper/values/values.go`
 - **THEN** the interface lists at minimum two methods: `CueContext() *cue.Context` and `ValidateConfigPartial(schema cue.Value, values cue.Value, contextLabel, name string) (cue.Value, *oerrors.ConfigError)`
 
 #### Scenario: *kernel.Kernel satisfies the interface
@@ -14,17 +14,17 @@ The `KernelOwner` interface in `pkg/helper/values/` SHALL expose a `ValidateConf
 - **WHEN** a frontend passes a `*kernel.Kernel` where a `helper/values.KernelOwner` is expected
 - **THEN** the Go compiler accepts the value because `*kernel.Kernel` exposes both required methods
 
-#### Scenario: Helper does not import pkg/kernel
+#### Scenario: Helper does not import opm/kernel
 
-- **WHEN** a developer reads the imports of `pkg/helper/values/values.go`
-- **THEN** `github.com/open-platform-model/library/pkg/kernel` is not present
-- **AND** `github.com/open-platform-model/library/pkg/validate` is not present (the package no longer exists)
+- **WHEN** a developer reads the imports of `opm/helper/values/values.go`
+- **THEN** `github.com/open-platform-model/library/opm/kernel` is not present
+- **AND** `github.com/open-platform-model/library/opm/validate` is not present (the package no longer exists)
 
 ## MODIFIED Requirements
 
 ### Requirement: ValidateAndUnify Tier-1 Validation
 
-`pkg/helper/values/` SHALL expose `ValidateAndUnify(owner KernelOwner, schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` that performs Tier-1 source-positioned validation per layer by invoking `owner.ValidateConfigPartial` on each layer, then unifies in order on success.
+`opm/helper/values/` SHALL expose `ValidateAndUnify(owner KernelOwner, schema cue.Value, layers Stack) (cue.Value, *MultiSourceError)` that performs Tier-1 source-positioned validation per layer by invoking `owner.ValidateConfigPartial` on each layer, then unifies in order on success.
 
 #### Scenario: All layers valid
 
@@ -47,15 +47,15 @@ The `KernelOwner` interface in `pkg/helper/values/` SHALL expose a `ValidateConf
 
 - **WHEN** the helper validates a layer
 - **THEN** the call is `owner.ValidateConfigPartial(schema, l.Value, "values", l.Name)`
-- **AND** the helper does not call any function in `pkg/validate/` (the package no longer exists)
+- **AND** the helper does not call any function in `opm/validate/` (the package no longer exists)
 
 ### Requirement: Removal of validate.UnifyAndValidate
 
-The temporary helper `validate.UnifyAndValidate` was removed in slice 05 (`introduce-tiered-validation`). With this change the entire `pkg/validate/` package SHALL be removed; no symbol previously exported from that package SHALL remain in the library.
+The temporary helper `validate.UnifyAndValidate` was removed in slice 05 (`introduce-tiered-validation`). With this change the entire `opm/validate/` package SHALL be removed; no symbol previously exported from that package SHALL remain in the library.
 
-#### Scenario: pkg/validate package no longer exists
+#### Scenario: opm/validate package no longer exists
 
-- **WHEN** a developer searches the repository for `pkg/validate/`
+- **WHEN** a developer searches the repository for `opm/validate/`
 - **THEN** the directory does not exist
 
 #### Scenario: CHANGELOG documents the migration

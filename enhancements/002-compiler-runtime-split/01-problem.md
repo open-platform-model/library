@@ -21,7 +21,7 @@ Catalog enhancement 010 (`#Op` & `#Action` Primitives) introduces atomic operati
 
 ## Gap 1: Op/Action Have No Executor
 
-The catalog can publish `#DBMigration` as an Action. A module author can fill in concrete values. The kernel can validate the declaration against the Action's schema. But nothing in `pkg/` walks `#steps`, dispatches on `@op("...")`, captures `#out`, or honors `$after`. The schema is dead without a runtime.
+The catalog can publish `#DBMigration` as an Action. A module author can fill in concrete values. The kernel can validate the declaration against the Action's schema. But nothing in `opm/` walks `#steps`, dispatches on `@op("...")`, captures `#out`, or honors `$after`. The schema is dead without a runtime.
 
 The 010 design explicitly notes this:
 

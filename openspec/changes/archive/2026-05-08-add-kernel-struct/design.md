@@ -20,7 +20,7 @@ Coordination: `add-multi-apiversion-support` lands first. Slice 06 (`add-phase-m
 
 - Removing existing free functions. Defer to a future MAJOR release.
 - Adding phase methods (`Compile`, `Validate`, `Match`, `Plan`). That is slice 06.
-- Reorganizing packages under `pkg/helper/`. That is slice 07.
+- Reorganizing packages under `opm/helper/`. That is slice 07.
 - Changing input/output shapes. Those are slices 02, 04, 08.
 
 ## Decisions

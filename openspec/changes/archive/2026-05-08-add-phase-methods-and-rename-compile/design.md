@@ -21,7 +21,7 @@ This slice depends on slice 01 (Kernel struct exists). It does NOT yet require s
 
 **Non-Goals:**
 - Replacing `*provider.Provider` with `*Platform`. That is slice 08 + 09. Phase methods accept `*provider.Provider` in this slice; the substitution happens transparently when slice 08 ships.
-- Implementing the rewritten match algorithm. That is slice 09. Match in this slice still uses the existing `pkg/render/match.go`.
+- Implementing the rewritten match algorithm. That is slice 09. Match in this slice still uses the existing `opm/render/match.go`.
 - Deleting deprecated names. Defer to a future MAJOR.
 
 ## Decisions

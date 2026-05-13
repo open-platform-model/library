@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The convention and tooling for testing the v1alpha2 CUE schemas in `apis/core/v1alpha2/`. CUE fixtures live under `apis/core/v1alpha2/testdata/` behind file-level `@if(test)` gates so they are excluded from `cue vet ./...`, `cue eval`, and the `//go:embed` filesystem shipped to Go consumers. A single Go-side table-driven harness in `pkg/api/v1alpha2/schema_fixture_test.go` loads each fixture with `cuelang.org/go/cue/load` (`Config.Tags: []string{"test"}`) and asserts positive equality (via `input & expect` unification under `Validate(cue.Concrete(true))`), positive value extraction (via Go decode), or negative error-regex matching against build- or validate-time failures. The convention is documented in `apis/core/v1alpha2/testdata/README.md` for non-Go contributors.
+The convention and tooling for testing the v1alpha2 CUE schemas in `apis/core/v1alpha2/`. CUE fixtures live under `apis/core/v1alpha2/testdata/` behind file-level `@if(test)` gates so they are excluded from `cue vet ./...`, `cue eval`, and the `//go:embed` filesystem shipped to Go consumers. A single Go-side table-driven harness in `opm/api/v1alpha2/schema_fixture_test.go` loads each fixture with `cuelang.org/go/cue/load` (`Config.Tags: []string{"test"}`) and asserts positive equality (via `input & expect` unification under `Validate(cue.Concrete(true))`), positive value extraction (via Go decode), or negative error-regex matching against build- or validate-time failures. The convention is documented in `apis/core/v1alpha2/testdata/README.md` for non-Go contributors.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ The library SHALL place all CUE schema test fixtures under `apis/core/v1alpha2/t
 
 #### Scenario: Embed pattern excludes testdata
 
-- **WHEN** `pkg/api/v1alpha2/embed_test.go` walks the embedded `Schema` filesystem returned by `api.EmbeddedSchema(apiversion.V1alpha2)`
+- **WHEN** `opm/api/v1alpha2/embed_test.go` walks the embedded `Schema` filesystem returned by `api.EmbeddedSchema(apiversion.V1alpha2)`
 - **THEN** no path under `testdata/` appears in the result
 
 #### Scenario: Disk schema set matches embed regardless of testdata contents
@@ -65,9 +65,9 @@ A fixture MAY bundle multiple independent cases. When the harness drives a case 
 - **WHEN** a fixture declares `case_a: ...` and `case_a_expect: ...` and the harness drives a case with `inputPath: "case_a"` and no `expectError`
 - **THEN** the harness evaluates `case_a & case_a_expect` under `Validate(cue.Concrete(true))` and applies the same concrete-equality contract as the default `input & expect` pairing
 
-### Requirement: Table-driven Go harness in `pkg/api/v1alpha2/`
+### Requirement: Table-driven Go harness in `opm/api/v1alpha2/`
 
-The library SHALL provide a single test file `pkg/api/v1alpha2/schema_fixture_test.go` containing a function `TestSchemaFixtures` that table-drives a slice of cases over the fixtures in `apis/core/v1alpha2/testdata/`. Each case SHALL specify: a fixture filename, an optional `inputPath` overriding the default `"input"` lookup, an optional CUE path plus Go decode target for positive value-equality, and an optional regex for negative error matching. The harness SHALL load fixtures via `cuelang.org/go/cue/load` with `Config.Tags: []string{"test"}` and `Config.Dir` resolved to the on-disk `apis/core` module root.
+The library SHALL provide a single test file `opm/api/v1alpha2/schema_fixture_test.go` containing a function `TestSchemaFixtures` that table-drives a slice of cases over the fixtures in `apis/core/v1alpha2/testdata/`. Each case SHALL specify: a fixture filename, an optional `inputPath` overriding the default `"input"` lookup, an optional CUE path plus Go decode target for positive value-equality, and an optional regex for negative error matching. The harness SHALL load fixtures via `cuelang.org/go/cue/load` with `Config.Tags: []string{"test"}` and `Config.Dir` resolved to the on-disk `apis/core` module root.
 
 #### Scenario: Positive case asserts decoded value
 
@@ -120,7 +120,7 @@ The library SHALL include `apis/core/v1alpha2/testdata/README.md` documenting: t
 #### Scenario: README explains add-fixture workflow
 
 - **WHEN** a contributor reads `apis/core/v1alpha2/testdata/README.md`
-- **THEN** they can add a new fixture file and table row without reading the harness implementation, knowing only the location of the table in `pkg/api/v1alpha2/schema_fixture_test.go`
+- **THEN** they can add a new fixture file and table row without reading the harness implementation, knowing only the location of the table in `opm/api/v1alpha2/schema_fixture_test.go`
 
 #### Scenario: README documents bundled-fixture usage
 

@@ -6,7 +6,7 @@ All notable changes to this library are documented here. The library follows [Se
 
 ### Added — `unify-loaders-as-packages`
 
-- `pkg/helper/loader/file.LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
+- `opm/helper/loader/file.LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
   package-loader counterpart to `LoadModulePackage`. Loads every `.cue`
   file in `dirPath` that shares the CUE package into a single instance,
   detects the apiVersion, and returns the unified `cue.Value`. Authors
@@ -67,14 +67,14 @@ loaderfile.LoadValuesFile(cueCtx, path)                // No direct replacement 
 
 ### Added — `add-release-synth-helper`
 
-- `pkg/api.Binding.SchemaValue(ctx *cue.Context) (cue.Value, error)` — new
+- `opm/api.Binding.SchemaValue(ctx *cue.Context) (cue.Value, error)` — new
   interface method exposing the binding's embedded schema as a fully built
   `cue.Value`. Bindings cache the loaded package via `sync.Once` against the
   first `*cue.Context` they see (the documented "one Kernel per process"
   pattern); schema-load failures are wrapped and cached. The v1alpha2
   binding implements it over its existing `go:embed` filesystem with no
   `CUE_REGISTRY` round-trip.
-- `pkg/helper/synth/` — new helper package shipping
+- `opm/helper/synth/` — new helper package shipping
   `synth.Release(ctx, ReleaseInput) (cue.Value, error)`. Builds a
   `#ModuleRelease` artifact value by composing the caller's `(Module, name,
   namespace, values, labels, annotations)` against the embedded
@@ -91,7 +91,7 @@ loaderfile.LoadValuesFile(cueCtx, path)                // No direct replacement 
   constraint, and caller `Values` are pre-merged into the module's
   `#config` before scope binding to avoid a cross-load closure conflict
   with registry-loaded resource definitions like `res.#Image` — see
-  `pkg/helper/synth/release.go` for the full comment. `synth.Release`
+  `opm/helper/synth/release.go` for the full comment. `synth.Release`
   never falls back to `Module.debugValues`; the zero `cue.Value{}` means
   "no values supplied" and concreteness is enforced downstream.
 - `(*kernel.Kernel).SynthesizeRelease(ctx, synth.ReleaseInput) (*module.Release, error)` —
@@ -103,7 +103,7 @@ loaderfile.LoadValuesFile(cueCtx, path)                // No direct replacement 
 
 ### Changed — `add-release-synth-helper` (BREAKING)
 
-- `pkg/api.Binding` interface gained a `SchemaValue(*cue.Context) (cue.Value, error)`
+- `opm/api.Binding` interface gained a `SchemaValue(*cue.Context) (cue.Value, error)`
   method. Out-of-tree implementations of `Binding` MUST add the new method;
   in-tree there is only the v1alpha2 binding, which is updated. The library
   bumps MAJOR for this interface extension per Principle VI.
@@ -149,16 +149,16 @@ loaderfile.LoadValuesFile(cueCtx, path)                // No direct replacement 
 
 ### Removed — `redesign-config-validation` (BREAKING)
 
-- `pkg/helper/values/` package deleted in full: `Layer`, `Stack`,
+- `opm/helper/values/` package deleted in full: `Layer`, `Stack`,
   `MultiSourceError`, `LayerError`, `ValidateAndUnify`, `KernelOwner`
   interface, all gone. Use `[]kernel.Source` and
   `(*kernel.Kernel).ValidateConfigDetailed` instead.
 - `(*kernel.Kernel).ValidateAndUnify` wrapper deleted.
   `Kernel.ValidateConfigDetailed` is the canonical replacement.
-- `pkg/errors/config_error.go` deleted in full: `ConfigError`,
+- `opm/errors/config_error.go` deleted in full: `ConfigError`,
   `GroupedErrors`, `GroupedErrorsFromError`, `groupCUEErrors`,
   `normalizeCUEPath`.
-- `pkg/errors` types removed: `ValidationError`, `FieldError`,
+- `opm/errors` types removed: `ValidationError`, `FieldError`,
   `ErrorLocation`, `GroupedError`, `DetailError`, `NewValidationError`.
   `TransformError` and the sentinels (`ErrValidation`, `ErrConnectivity`,
   `ErrPermission`, `ErrNotFound`) survive.
@@ -196,7 +196,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 - `(*kernel.Kernel).ValidateConfigPartial(schema, values, contextLabel, name)` —
   promotes the previously package-private partial-validation entry point onto
   the kernel surface. Tier-1 building block used by
-  `pkg/helper/values.ValidateAndUnify` (see the `KernelOwner` interface widening
+  `opm/helper/values.ValidateAndUnify` (see the `KernelOwner` interface widening
   below) so each layer in a Stack validates independently without flagging
   fields that other layers will fill in.
 - `(*kernel.Kernel).ProcessModuleRelease(ctx, spec, mod, values)` — canonical
@@ -206,12 +206,12 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   (it processes the release, not just parses it).
 - `module.ReleaseMetadataFromAPI(*api.ReleaseMetadata) *module.ReleaseMetadata`
   — the previously unexported `releaseMetadataFromAPI` converter is now
-  exported so callers building a `*module.Release` outside of `pkg/module` (the
+  exported so callers building a `*module.Release` outside of `opm/module` (the
   kernel's `ProcessModuleRelease` impl) can construct it consistently.
 
-### Removed (BREAKING) — pkg/validate deleted; deprecated free functions folded into Kernel
+### Removed (BREAKING) — opm/validate deleted; deprecated free functions folded into Kernel
 
-- `pkg/validate/` package removed in full. Both `validate.Config` and
+- `opm/validate/` package removed in full. Both `validate.Config` and
   `validate.ConfigPartial` are gone; the canonical implementation now lives on
   `*kernel.Kernel`.
 - `module.ParseModuleRelease` (free function) removed. The canonical entry
@@ -234,13 +234,13 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   | `module.ParseModuleRelease(ctx, ...)`  | `k.ProcessModuleRelease(ctx, ...)`        |
   | `compile.CompileModuleRelease(ctx,...)`| `k.Compile(ctx, kernel.CompileInput{...})`|
 
-### Changed (BREAKING) — pkg/helper/values.KernelOwner widened
+### Changed (BREAKING) — opm/helper/values.KernelOwner widened
 
-- `KernelOwner` in `pkg/helper/values/` now requires a second method,
+- `KernelOwner` in `opm/helper/values/` now requires a second method,
   `ValidateConfigPartial(schema, values, contextLabel, name)`, in addition to
   `CueContext()`. This is what lets the helper call back into the kernel's
-  partial-validation path without importing `pkg/kernel` (which would close a
-  cycle now that `pkg/validate/` is gone). `*kernel.Kernel` automatically
+  partial-validation path without importing `opm/kernel` (which would close a
+  cycle now that `opm/validate/` is gone). `*kernel.Kernel` automatically
   satisfies the wider interface; downstream test fakes that previously
   implemented `KernelOwner` MUST add the new method.
 
@@ -250,7 +250,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   on a nil receiver, an unregistered binding for `r.APIVersion`, a missing
   `#module` reference, or a missing `#config` definition. Mirrors the
   `MatchComponents()` accessor pattern. Centralizes the `#config` lookup
-  knowledge inside `pkg/module` so kernel callers stop re-walking the path.
+  knowledge inside `opm/module` so kernel callers stop re-walking the path.
 
 ### Changed (BREAKING) — kernel input structs lose redundant `Module` field
 
@@ -299,10 +299,10 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Changed (BREAKING) — `core.Rendered` renamed to `core.Compiled`
 
-- `pkg/core.Rendered` (struct) → `pkg/core.Compiled`. File
-  `pkg/core/rendered.go` moved to `pkg/core/compiled.go`. Fields
+- `opm/core.Rendered` (struct) → `opm/core.Compiled`. File
+  `opm/core/rendered.go` moved to `opm/core/compiled.go`. Fields
   (`Value`, `Release`, `Component`, `Transformer`) unchanged.
-- `pkg/compile.CompileResult.Rendered` field → `Compiled`. The list
+- `opm/compile.CompileResult.Rendered` field → `Compiled`. The list
   itself (and per-element shape) is unchanged.
 - Doc-only language sweep: every "render pipeline" / "render package"
   reference in package docs and specs now reads "compile pipeline" /
@@ -324,18 +324,18 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Changed (BREAKING) — kernel values input is a single cue.Value
 
-- `pkg/validate.Config(schema, values, context, name)` — `values` parameter
+- `opm/validate.Config(schema, values, context, name)` — `values` parameter
   changes from `[]cue.Value` to a single `cue.Value`. The kernel no longer
   unifies internally; callers pre-merge. The zero `cue.Value{}` is treated as
   "no values supplied".
-- `pkg/module.ParseModuleRelease(ctx, spec, mod, values)` — `values`
+- `opm/module.ParseModuleRelease(ctx, spec, mod, values)` — `values`
   parameter changes from `[]cue.Value` to a single `cue.Value` for the same
   reason.
 - `(*Kernel).ValidateConfig` and `(*Kernel).ParseModuleRelease` wrapper
   methods follow suit.
 - Layering policy (CLI `-f` stack, operator ConfigMap → Secret → CR overlay,
   XR fn composition input) now lives outside the kernel. Slice 05
-  (`introduce-tiered-validation`) ships `pkg/helper/values/` as the
+  (`introduce-tiered-validation`) ships `opm/helper/values/` as the
   recommended source-positioned Tier-1 helper.
 
 #### Migration
@@ -359,9 +359,9 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Removed (BREAKING)
 
-- `pkg/validate.UnifyAndValidate` — the slice-04 transitional shim is
+- `opm/validate.UnifyAndValidate` — the slice-04 transitional shim is
   removed. Slice 05 (`introduce-tiered-validation`) ships
-  `pkg/helper/values.ValidateAndUnify` as the recommended Tier-1 helper;
+  `opm/helper/values.ValidateAndUnify` as the recommended Tier-1 helper;
   consumers that just need to merge without source-positioned diagnostics
   inline the two-line loop.
 
@@ -382,12 +382,12 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   + got, cfgErr := k.ValidateConfig(schema, merged, "module", name) // Tier-2 safety net
   ```
 
-- `pkg/provider/` — package deleted. Catalog enhancement 014's `#Platform`
+- `opm/provider/` — package deleted. Catalog enhancement 014's `#Platform`
   replaces `#Provider` end-to-end; `*provider.Provider` no longer appears
   on any kernel input. Construct `*platform.Platform` instead — slice 10
-  ships `pkg/helper/platform.Compose` to make this a one-line migration
+  ships `opm/helper/platform.Compose` to make this a one-line migration
   from a Module registry.
-- `pkg/helper/loader/file.LoadProvider` (and its `pkg/loader/` shim
+- `opm/helper/loader/file.LoadProvider` (and its `opm/loader/` shim
   re-export) — removed alongside the provider package.
 - `(*Kernel).LoadProvider` and `(*Kernel).NewRenderModule` wrappers —
   removed; both delegated to provider-only paths.
@@ -399,20 +399,20 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Changed (BREAKING)
 
-- `pkg/compile.Match(components, plat *platform.Platform, b api.Binding)` —
+- `opm/compile.Match(components, plat *platform.Platform, b api.Binding)` —
   the matcher now consumes `Platform.#composedTransformers` and walks
   each component's `#resources`/`#traits` keys against
   `Platform.#matchers.{resources, traits}` via the binding paths.
   `requiredLabels` matching is preserved verbatim. Multi-fulfiller is
   forbidden at the platform layer (catalog 014 D13); the matcher keeps
   a defensive ambiguity check that surfaces in `MatchPlan.Ambiguous`.
-- `pkg/compile.NewModule(plat *platform.Platform, runtimeName string)` —
+- `opm/compile.NewModule(plat *platform.Platform, runtimeName string)` —
   signature changed; `*provider.Provider` parameter retired.
-- `pkg/compile.CompileModuleRelease(ctx, rel, plat, runtimeName)` —
+- `opm/compile.CompileModuleRelease(ctx, rel, plat, runtimeName)` —
   signature changed; takes `*platform.Platform` instead of
   `*provider.Provider`. APIVersion mismatch error now reads
   `release "X" has "..." but platform "Y" has "..."`.
-- `pkg/compile.MatchPlan` — gained an `Ambiguous []string` field for FQNs
+- `opm/compile.MatchPlan` — gained an `Ambiguous []string` field for FQNs
   that resolved to more than one transformer at the platform-matchers
   layer.
 
@@ -424,7 +424,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 -     Module: mod, ModuleRelease: rel, Provider: p, RuntimeName: "opm-cli",
 - })
 + // Compose a Platform from your Module registry. Slice 10 will ship
-+ // pkg/helper/platform.Compose; until then build it inline:
++ // opm/helper/platform.Compose; until then build it inline:
 + platVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
 + plat, err := k.NewPlatformFromValue(platVal)
 + result, err := k.Compile(ctx, kernel.CompileInput{
@@ -436,7 +436,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Added
 
-- `pkg/helper/values/` — new helper package shipping the Tier-1 layered
+- `opm/helper/values/` — new helper package shipping the Tier-1 layered
   values validator. `Layer{Name, Source, Value}` labels a single values
   source; `Stack []Layer` is ordered later-overrides-earlier; and
   `ValidateAndUnify(k, schema, stack) (cue.Value, *MultiSourceError)`
@@ -451,14 +451,14 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   (`(*Kernel).ValidateConfig`, or downstream methods like
   `(*Kernel).ParseModuleRelease`) so both tiers run. Slice 05 of the
   kernel-redesign-around-platform enhancement; see decisions D1 and D5.
-- `pkg/validate.ConfigPartial(schema, values, context, name)` — Tier-1
-  building block used by `pkg/helper/values`. Same signature and error
+- `opm/validate.ConfigPartial(schema, values, context, name)` — Tier-1
+  building block used by `opm/helper/values`. Same signature and error
   shape as `validate.Config` but without `cue.Concrete(true)`, so partial
   layers (overlays that intentionally leave fields unset) validate without
   noise. The merged result is still re-validated by `Config`/`ValidateConfig`
   (Tier-2) with full concreteness.
 
-- `pkg/api.Paths.DebugValues` (`"debugValues"`) — module-internal field
+- `opm/api.Paths.DebugValues` (`"debugValues"`) — module-internal field
   path exposing `#Module.debugValues` for frontend reads. The
   v1alpha2 binding populates it. `#ModuleDebug` is **not** a kernel
   artifact: the kernel accepts only `Module`, `ModuleRelease`, and
@@ -479,9 +479,9 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   The retirement is a contract sharpening — the kernel never gains
   awareness of a debug artifact, and bindings never grow a
   `Decode*Debug*Metadata` decoder (enforced by unit test in
-  `pkg/api/v1alpha2/binding_test.go`).
+  `opm/api/v1alpha2/binding_test.go`).
 
-- `pkg/helper/platform/` — new helper package shipping
+- `opm/helper/platform/` — new helper package shipping
   `Compose(owner, shell, modules) (*Platform, error)` and the kernel
   wrapper `(*Kernel).ComposePlatform(shell, modules)`. Builds a fully
   registered Platform by FillPath-injecting each `*module.Module` into
@@ -495,7 +495,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   when extractable and otherwise wraps the raw CUE diagnostic via
   `Unwrap`. Slice 10 of the kernel-redesign-around-platform enhancement.
 
-- `pkg/platform/` — new package introducing the `Platform` Go type that
+- `opm/platform/` — new package introducing the `Platform` Go type that
   mirrors catalog enhancement
   [014-platform-construct](../catalog/enhancements/014-platform-construct/)'s
   `#Platform`. `Platform` follows the unified
@@ -503,28 +503,28 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
   `platform.NewPlatformFromValue(k, v)` or the kernel wrapper
   `(*Kernel).NewPlatformFromValue`. The constructor's first parameter is
   typed as the small `platform.CueContextOwner` interface (a single
-  `CueContext() *cue.Context` method) so `pkg/platform` does not import
-  `pkg/kernel`; `*kernel.Kernel` satisfies the interface, so call sites
+  `CueContext() *cue.Context` method) so `opm/platform` does not import
+  `opm/kernel`; `*kernel.Kernel` satisfies the interface, so call sites
   are unchanged. Mirrors the `module.NewModuleFromValue` shape. The four
   CUE-computed views
   (`#knownResources`, `#knownTraits`, `#composedTransformers`,
   `#matchers`) remain accessible only via `Package.LookupPath` using the
   new binding paths — they are intentionally not eagerly decoded into Go.
-- `pkg/helper/loader/file.LoadPlatformFile(ctx, path, opts)` and
+- `opm/helper/loader/file.LoadPlatformFile(ctx, path, opts)` and
   `(*Kernel).LoadPlatformFile(ctx, path, opts)` — load a `#Platform`
   from a standalone `.cue` file or from a directory containing
   `platform.cue`. Mirrors `LoadReleaseFile` in shape, return type, and
   `LoadOptions`.
-- `pkg/api.PlatformMetadata` — canonical decoded platform-level
+- `opm/api.PlatformMetadata` — canonical decoded platform-level
   metadata (`Name`, `Type`, `Description`, `Labels`, `Annotations`).
   `Type` is hoisted from the top-level `#Platform.type` field into the
   metadata projection per catalog 014.
-- `pkg/api.Binding.DecodePlatformMetadata(v)` and `pkg/api.Paths`
+- `opm/api.Binding.DecodePlatformMetadata(v)` and `opm/api.Paths`
   extensions: `Registry` (`#registry`), `KnownResources`
   (`#knownResources`), `KnownTraits` (`#knownTraits`),
   `ComposedTransformers` (`#composedTransformers`), `Matchers`
   (`#matchers`). The v1alpha2 binding implements them all.
-- `pkg/kernel.MatchInput.Platform`, `PlanInput.Platform`, and
+- `opm/kernel.MatchInput.Platform`, `PlanInput.Platform`, and
   `CompileInput.Platform` — optional `*platform.Platform` fields. Today
   the phase methods continue to drive matching off `Provider` and ignore
   `Platform`. Slice 09 (`rewrite-match-around-platform`) makes
@@ -532,75 +532,75 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 - `library/testdata/platform/v1alpha2/platform.cue` — minimal Platform
   fixture for the new tests.
 
-- `pkg/helper/` — opt-in convenience boundary. Subpackages under
-  `pkg/helper/` are opinionated frontend helpers that a frontend MAY
-  skip; everything outside `pkg/helper/` is part of the kernel
-  contract. Boundary documented in `pkg/helper/doc.go`. See slice 07
+- `opm/helper/` — opt-in convenience boundary. Subpackages under
+  `opm/helper/` are opinionated frontend helpers that a frontend MAY
+  skip; everything outside `opm/helper/` is part of the kernel
+  contract. Boundary documented in `opm/helper/doc.go`. See slice 07
   (`reorganize-helpers-under-helper`) of the kernel-redesign
   enhancement.
-- `pkg/helper/loader/file/` — new home of the filesystem-coupled
+- `opm/helper/loader/file/` — new home of the filesystem-coupled
   loader (`LoadModulePackage`, `LoadReleaseFile`, `LoadValuesFile`,
   `LoadProvider`, `LoadOptions`). Symbols, return types, and error
-  semantics are unchanged from the prior `pkg/loader/` package.
-- `pkg/helper/loader/bytes/` — skeleton for in-memory loading.
+  semantics are unchanged from the prior `opm/loader/` package.
+- `opm/helper/loader/bytes/` — skeleton for in-memory loading.
   Doc-only package; no functions yet. Full implementation deferred
   until a Crossplane composition fn, fuzzing harness, or in-memory
   test consumer pulls on the design.
 
 ### Changed
 
-- **BREAKING (`pkg/loader` → `pkg/helper/loader/file`)** — the
+- **BREAKING (`opm/loader` → `opm/helper/loader/file`)** — the
   filesystem loader moved under the helper boundary. The old
-  `pkg/loader/` import path is preserved for one SemVer cycle as a
+  `opm/loader/` import path is preserved for one SemVer cycle as a
   thin re-export shim with `// Deprecated:` notices on every symbol.
   Migration is mechanical: replace the import path and the symbols
   resolve identically. The shim is scheduled for removal in the next
   MAJOR release.
 
   ```diff
-  - import "github.com/open-platform-model/library/pkg/loader"
-  + import loader "github.com/open-platform-model/library/pkg/helper/loader/file"
+  - import "github.com/open-platform-model/library/opm/loader"
+  + import loader "github.com/open-platform-model/library/opm/helper/loader/file"
   ```
 
   `LoadOptions` is a Go type alias (`type LoadOptions = file.LoadOptions`),
   so values constructed against either identifier are interchangeable
   during the migration window.
 
-- `pkg/kernel` wrapper methods (`LoadModulePackage`, `LoadReleaseFile`,
+- `opm/kernel` wrapper methods (`LoadModulePackage`, `LoadReleaseFile`,
   `LoadValuesFile`, `LoadProvider`) now delegate directly to
-  `pkg/helper/loader/file` instead of going through the deprecated
+  `opm/helper/loader/file` instead of going through the deprecated
   shim. Wrapper signatures and behaviour are unchanged.
 
-- `pkg/kernel` phase methods — `Validate`, `Match`, `Plan`, `Compile` on `*Kernel`, each accepting a phase-specific input struct (`ValidateInput`, `MatchInput`, `PlanInput`, `CompileInput`). `Plan` returns a `*PlanResult` with component summaries, unmatched FQNs, ambiguous FQNs, and warnings — no rendered values. `Compile` returns a `*CompileResult` (re-exported from `pkg/compile`) with rendered values plus the same summary fields. The phase methods map onto frontend subcommands: vet → Validate, match → Match, plan → Plan, apply → Compile.
-- `pkg/kernel.DetectAPIVersion(v cue.Value)` and `pkg/kernel.Finalize(v cue.Value)` utility methods.
-- `pkg/compile.CompileResult` with `Unmatched` and `Ambiguous` fields. `pkg/compile.ModuleResult` is a `// Deprecated:` Go type alias for `CompileResult`.
-- `pkg/compile.CompileModuleRelease` (file: `pkg/compile/compile_module.go`). `pkg/compile.ProcessModuleRelease` and `Kernel.ProcessModuleRelease` are `// Deprecated:` aliases for `CompileModuleRelease` and `Kernel.Compile` respectively.
-- `pkg/apiversion` — `Version` type, `V1alpha2` constant, `ErrUnknownAPIVersion` sentinel, and `Detect(cue.Value) (Version, error)` helper.
-- `pkg/api` — `Binding` interface, `Paths` inventory, `ModuleMetadata`/`ReleaseMetadata`/`ProviderMetadata` LCD structs, `ReleaseView` interface, registry (`Register`, `Lookup`, `For`), and `EmbeddedSchema(version) (fs.FS, error)`.
-- `pkg/api/v1alpha2` — first concrete binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema via `go:embed`.
+- `opm/kernel` phase methods — `Validate`, `Match`, `Plan`, `Compile` on `*Kernel`, each accepting a phase-specific input struct (`ValidateInput`, `MatchInput`, `PlanInput`, `CompileInput`). `Plan` returns a `*PlanResult` with component summaries, unmatched FQNs, ambiguous FQNs, and warnings — no rendered values. `Compile` returns a `*CompileResult` (re-exported from `opm/compile`) with rendered values plus the same summary fields. The phase methods map onto frontend subcommands: vet → Validate, match → Match, plan → Plan, apply → Compile.
+- `opm/kernel.DetectAPIVersion(v cue.Value)` and `opm/kernel.Finalize(v cue.Value)` utility methods.
+- `opm/compile.CompileResult` with `Unmatched` and `Ambiguous` fields. `opm/compile.ModuleResult` is a `// Deprecated:` Go type alias for `CompileResult`.
+- `opm/compile.CompileModuleRelease` (file: `opm/compile/compile_module.go`). `opm/compile.ProcessModuleRelease` and `Kernel.ProcessModuleRelease` are `// Deprecated:` aliases for `CompileModuleRelease` and `Kernel.Compile` respectively.
+- `opm/apiversion` — `Version` type, `V1alpha2` constant, `ErrUnknownAPIVersion` sentinel, and `Detect(cue.Value) (Version, error)` helper.
+- `opm/api` — `Binding` interface, `Paths` inventory, `ModuleMetadata`/`ReleaseMetadata`/`ProviderMetadata` LCD structs, `ReleaseView` interface, registry (`Register`, `Lookup`, `For`), and `EmbeddedSchema(version) (fs.FS, error)`.
+- `opm/api/v1alpha2` — first concrete binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema via `go:embed`.
 - `apis/core/v1alpha2/embed.go` — embedded CUE source filesystem for offline schema validation.
 - `module.Module.APIVersion`, `module.Release.APIVersion`, `provider.Provider.APIVersion` — populated by the loader at load time.
 - `*module.Release` accessor methods (`ReleaseName`, `Namespace`, `ReleaseUUID`, `ModuleFQN`, `ModuleVersion`, `Labels`, `Annotations`) — make `*Release` satisfy `api.ReleaseView` for binding-driven context injection.
-- `pkg/api/v1alpha2.AnnotationDefaultNamespace` constant (`"module.opmodel.dev/defaultNamespace"`) — discoverable key for the v1alpha2 default-namespace annotation. See ADR-001.
+- `opm/api/v1alpha2.AnnotationDefaultNamespace` constant (`"module.opmodel.dev/defaultNamespace"`) — discoverable key for the v1alpha2 default-namespace annotation. See ADR-001.
 
 ### Changed
 
-- **BREAKING (`pkg/render` → `pkg/compile`)** — package directory renamed; import path is now `github.com/open-platform-model/library/pkg/compile`. Identifiers (`Match`, `MatchPlan`, `Module`, `NewModule`, `CompileResult`, `ModuleResult`, `CompileModuleRelease`, `ProcessModuleRelease`, `FinalizeValue`, `UnmatchedComponentsError`) are unchanged; mechanical import rewrite for downstream consumers.
-- **BREAKING (`pkg/render`)** — `render.Match(components, p) → render.Match(components, p, b api.Binding)`. The renderer no longer reads hardcoded CUE path strings; every lookup goes through the binding. Downstream code today calls `render.ProcessModuleRelease`, which keeps its signature, so the practical migration cost is zero.
-- **BREAKING (`pkg/loader`)** — `LoadReleaseFile` now returns `(cue.Value, string, apiversion.Version, error)` and `LoadModulePackage` now returns `(cue.Value, apiversion.Version, error)`. Both reject artifacts whose `apiVersion` is missing or unrecognised with an error that wraps `apiversion.ErrUnknownAPIVersion`.
+- **BREAKING (`opm/render` → `opm/compile`)** — package directory renamed; import path is now `github.com/open-platform-model/library/opm/compile`. Identifiers (`Match`, `MatchPlan`, `Module`, `NewModule`, `CompileResult`, `ModuleResult`, `CompileModuleRelease`, `ProcessModuleRelease`, `FinalizeValue`, `UnmatchedComponentsError`) are unchanged; mechanical import rewrite for downstream consumers.
+- **BREAKING (`opm/render`)** — `render.Match(components, p) → render.Match(components, p, b api.Binding)`. The renderer no longer reads hardcoded CUE path strings; every lookup goes through the binding. Downstream code today calls `render.ProcessModuleRelease`, which keeps its signature, so the practical migration cost is zero.
+- **BREAKING (`opm/loader`)** — `LoadReleaseFile` now returns `(cue.Value, string, apiversion.Version, error)` and `LoadModulePackage` now returns `(cue.Value, apiversion.Version, error)`. Both reject artifacts whose `apiVersion` is missing or unrecognised with an error that wraps `apiversion.ErrUnknownAPIVersion`.
 - `apis/core/v1alpha2/types.cue` — `#ApiVersion` is now the literal `"opmodel.dev/v1alpha2"` (was a self-reference). User-authored artifacts evaluate to the literal automatically once they re-resolve against the new schema.
 - `render.ProcessModuleRelease` — now resolves the binding via `api.Lookup(rel.APIVersion)` and rejects release/provider apiVersion mismatches before invoking any transformer.
 - **BREAKING (`apis/core/v1alpha2`)** — `#Transformer` renamed to `#ComponentTransformer`; `kind: "Transformer"` → `kind: "ComponentTransformer"`. Aligns the schema file with the canonical naming used in `apis/core/v1alpha2/docs/adapters.md` and catalog enhancement 014. `#TransformerMap` and `#TransformerContext` keep their names (they describe the union and the context, not the transformer type).
-- **BREAKING (`pkg/api`, `pkg/module`, `pkg/provider`)** — Go field renamed `ApiVersion` → `APIVersion` on `module.Module`, `module.Release`, `provider.Provider`. The `apiversion` *package* and `apiversion.Version` *type* keep lowercase casing. Mechanical migration for downstream consumers.
+- **BREAKING (`opm/api`, `opm/module`, `opm/provider`)** — Go field renamed `ApiVersion` → `APIVersion` on `module.Module`, `module.Release`, `provider.Provider`. The `apiversion` *package* and `apiversion.Version` *type* keep lowercase casing. Mechanical migration for downstream consumers.
 
 ### Unified Artifact Shape
 
-- **BREAKING (`pkg/module`)** — `module.Module` and `module.Release` collapse to the unified artifact shape `{ APIVersion, Metadata, Package cue.Value }`. The `Package` field carries the loaded CUE value and is the source of truth for every kernel-internal read; `Metadata` is a decoded ergonomic cache.
-- **BREAKING (`pkg/module`)** — Removed `Module.Config`, `Module.Raw`, `Module.ModulePath`. Read these via `mod.Package.LookupPath(binding.Paths().Config)` (and equivalents) using the binding from `api.Lookup(mod.APIVersion)`.
-- **BREAKING (`pkg/module`)** — Removed `Release.Module`, `Release.Spec`, `Release.Values`. Read these via `rel.Package.LookupPath(binding.Paths().Module)`, `binding.Paths().Components`, `binding.Paths().Values`. The release's `Package` already embeds the source `#module` reference.
+- **BREAKING (`opm/module`)** — `module.Module` and `module.Release` collapse to the unified artifact shape `{ APIVersion, Metadata, Package cue.Value }`. The `Package` field carries the loaded CUE value and is the source of truth for every kernel-internal read; `Metadata` is a decoded ergonomic cache.
+- **BREAKING (`opm/module`)** — Removed `Module.Config`, `Module.Raw`, `Module.ModulePath`. Read these via `mod.Package.LookupPath(binding.Paths().Config)` (and equivalents) using the binding from `api.Lookup(mod.APIVersion)`.
+- **BREAKING (`opm/module`)** — Removed `Release.Module`, `Release.Spec`, `Release.Values`. Read these via `rel.Package.LookupPath(binding.Paths().Module)`, `binding.Paths().Components`, `binding.Paths().Values`. The release's `Package` already embeds the source `#module` reference.
 - Added `module.NewModuleFromValue(k, v)` and `module.NewReleaseFromValue(k, v)` constructor helpers. Each detects `apiVersion` via `apiversion.Detect`, looks up the binding, decodes typed metadata, and stamps `APIVersion` on the returned struct. `Package` is set unmodified from the input.
-- Added `(k *Kernel) NewModuleFromValue` / `NewReleaseFromValue` thin wrappers on `pkg/kernel/` for consumer ergonomics.
-- Added `Paths.Module` (`"#module"`) and `Paths.ModuleMetadata` (`"#moduleMetadata"`) to `pkg/api` for release-side lookup of the embedded source module.
+- Added `(k *Kernel) NewModuleFromValue` / `NewReleaseFromValue` thin wrappers on `opm/kernel/` for consumer ergonomics.
+- Added `Paths.Module` (`"#module"`) and `Paths.ModuleMetadata` (`"#moduleMetadata"`) to `opm/api` for release-side lookup of the embedded source module.
 
 #### Migration recipe
 
@@ -621,7 +621,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 
 ### Removed
 
-- The unexported `moduleReleaseContextData` and `componentContextData` structs in `pkg/render/execute.go`. Equivalent exported types now live in `pkg/api/v1alpha2/context.go`.
-- The unexported `injectContext` helper in `pkg/render/execute.go`. Replaced by a one-line delegation to `binding.BuildTransformerContext`.
-- **BREAKING (`pkg/api`, `pkg/module`)** — `ModuleMetadata.DefaultNamespace` field. The value lives only as the optional `module.opmodel.dev/defaultNamespace` annotation per `apis/core/v1alpha2/module.cue:35`; `Decode()` could never populate the typed field. Implements ADR-001 (now Accepted). Read via `Module.Metadata.Annotations[v1alpha2.AnnotationDefaultNamespace]`.
-- **BREAKING (`pkg/api`, `pkg/api/v1alpha2`)** — `Paths.ComponentBlueprints`. Dead code — Blueprints unify into a Component's `spec` at CUE-evaluation time per `apis/core/v1alpha2/component.cue:_allFields`; the renderer never walks them. The path was unread.
+- The unexported `moduleReleaseContextData` and `componentContextData` structs in `opm/render/execute.go`. Equivalent exported types now live in `opm/api/v1alpha2/context.go`.
+- The unexported `injectContext` helper in `opm/render/execute.go`. Replaced by a one-line delegation to `binding.BuildTransformerContext`.
+- **BREAKING (`opm/api`, `opm/module`)** — `ModuleMetadata.DefaultNamespace` field. The value lives only as the optional `module.opmodel.dev/defaultNamespace` annotation per `apis/core/v1alpha2/module.cue:35`; `Decode()` could never populate the typed field. Implements ADR-001 (now Accepted). Read via `Module.Metadata.Annotations[v1alpha2.AnnotationDefaultNamespace]`.
+- **BREAKING (`opm/api`, `opm/api/v1alpha2`)** — `Paths.ComponentBlueprints`. Dead code — Blueprints unify into a Component's `spec` at CUE-evaluation time per `apis/core/v1alpha2/component.cue:_allFields`; the renderer never walks them. The path was unread.

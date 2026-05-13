@@ -7,7 +7,7 @@ This is slice 03. It removes the `#ModuleDebug` artifact concept from the kernel
 ## What Changes
 
 - Remove any kernel code that loaded, parsed, or rendered `#ModuleDebug` as a standalone artifact. (Note: the kernel does not currently expose a `ModuleDebug` Go type — this slice is largely codebase-search and docs cleanup, plus removal of any debug-specific paths from loaders and the binding.)
-- Update kernel documentation (`library/README.md`, `pkg/module/` godoc, the umbrella enhancement) to clarify that `debugValues` is a Module field, not a separate artifact, and that layering it is a frontend concern.
+- Update kernel documentation (`library/README.md`, `opm/module/` godoc, the umbrella enhancement) to clarify that `debugValues` is a Module field, not a separate artifact, and that layering it is a frontend concern.
 - Confirm via grep that no kernel-internal call site special-cases debug.
 - Confirm version binding (from `add-multi-apiversion-support`) does NOT carry a `Debug` path or decoder; if it does, remove it.
 - This is a **PATCH** change for code (no Go API surface removed), but doc-level it sharpens the kernel's contract. If a `ModuleDebug` Go type does exist in some intermediate state and is removed here, treat as MINOR.
@@ -24,9 +24,9 @@ None.
 
 ## Impact
 
-- **`pkg/module/`** — confirm no `ModuleDebug` type exists; if it does, remove it.
-- **`pkg/loader/`** — confirm no `LoadModuleDebug` or equivalent; remove if present.
-- **`pkg/api/v1alpha2/`** (from `add-multi-apiversion-support`) — confirm binding does not expose a debug path or decoder; remove if it does.
+- **`opm/module/`** — confirm no `ModuleDebug` type exists; if it does, remove it.
+- **`opm/loader/`** — confirm no `LoadModuleDebug` or equivalent; remove if present.
+- **`opm/api/v1alpha2/`** (from `add-multi-apiversion-support`) — confirm binding does not expose a debug path or decoder; remove if it does.
 - **`library/README.md`** — clarify `debugValues` is a Module field; layering is helper-side.
 - **`enhancements/001-kernel-redesign-around-platform/02-design.md`** — already aligned; verify.
 - **Downstream consumers** — `cli` and `opm-operator` that read `debugValues` continue to do so via `Module.Package.LookupPath(binding.Paths().DebugValues)` once that path is added (or via direct CUE lookup). No removal of an existing public type is expected.

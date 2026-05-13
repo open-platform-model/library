@@ -6,12 +6,12 @@ This is slice 08 of the kernel-redesign umbrella ([001-kernel-redesign-around-pl
 
 ## What Changes
 
-- Introduce `pkg/platform/` package with:
+- Introduce `opm/platform/` package with:
   - `Platform` struct: `{ APIVersion apiversion.Version; Metadata *PlatformMetadata; Package cue.Value }`.
   - `PlatformMetadata` struct: name, type, description, labels, annotations (mirroring catalog 014's `metadata` block plus the `type` field).
-  - `NewPlatformFromValue(k *kernel.Kernel, v cue.Value) (*Platform, error)` constructor analogous to `NewModuleFromValue` from slice 02. (Implementation note: the first parameter is typed as a small `CueContextOwner` interface rather than `*kernel.Kernel` directly so `pkg/platform` does not import `pkg/kernel`. `*kernel.Kernel` satisfies the interface, so call sites are unchanged. This mirrors `module.NewModuleFromValue`.)
-- Extend the version binding interface (from `add-multi-apiversion-support`) to expose paths within a Platform package: `Registry`, `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`. Each binding (`pkg/api/v1alpha2/`) implements these.
-- Add `pkg/helper/loader/file/platform.go` with `LoadPlatformFile(ctx, path, opts)` mirroring `LoadReleaseFile` for platform.cue artifacts.
+  - `NewPlatformFromValue(k *kernel.Kernel, v cue.Value) (*Platform, error)` constructor analogous to `NewModuleFromValue` from slice 02. (Implementation note: the first parameter is typed as a small `CueContextOwner` interface rather than `*kernel.Kernel` directly so `opm/platform` does not import `opm/kernel`. `*kernel.Kernel` satisfies the interface, so call sites are unchanged. This mirrors `module.NewModuleFromValue`.)
+- Extend the version binding interface (from `add-multi-apiversion-support`) to expose paths within a Platform package: `Registry`, `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`. Each binding (`opm/api/v1alpha2/`) implements these.
+- Add `opm/helper/loader/file/platform.go` with `LoadPlatformFile(ctx, path, opts)` mirroring `LoadReleaseFile` for platform.cue artifacts.
 - Add an `(k *Kernel) LoadPlatformFile(...)` wrapper.
 - Extend phase input structs (from slice 06) with an optional `Platform *Platform` field. Slice 09 will make it required and remove `Provider`.
 - This is a MINOR change. Provider remains; Platform is additive. The `Platform` field on inputs is initially optional and ignored if `Provider` is set.
@@ -28,11 +28,11 @@ This is slice 08 of the kernel-redesign umbrella ([001-kernel-redesign-around-pl
 
 ## Impact
 
-- **`pkg/platform/` (new)** — `Platform` type, `PlatformMetadata`, `NewPlatformFromValue`.
-- **`pkg/api/v1alpha2/`** — adds `Paths().Registry`, `Paths().KnownResources`, `Paths().KnownTraits`, `Paths().ComposedTransformers`, `Paths().Matchers`. Adds `DecodePlatformMetadata`.
-- **`pkg/helper/loader/file/`** — adds `LoadPlatformFile`. Mirrors `LoadReleaseFile` shape and behavior.
-- **`pkg/kernel/`** — adds `LoadPlatformFile` wrapper; extends `MatchInput`, `PlanInput`, `CompileInput` with optional `Platform *Platform` field; documents that the field becomes required after slice 09.
-- **`pkg/provider/`** — unchanged. Provider remains the matcher's input until slice 09.
+- **`opm/platform/` (new)** — `Platform` type, `PlatformMetadata`, `NewPlatformFromValue`.
+- **`opm/api/v1alpha2/`** — adds `Paths().Registry`, `Paths().KnownResources`, `Paths().KnownTraits`, `Paths().ComposedTransformers`, `Paths().Matchers`. Adds `DecodePlatformMetadata`.
+- **`opm/helper/loader/file/`** — adds `LoadPlatformFile`. Mirrors `LoadReleaseFile` shape and behavior.
+- **`opm/kernel/`** — adds `LoadPlatformFile` wrapper; extends `MatchInput`, `PlanInput`, `CompileInput` with optional `Platform *Platform` field; documents that the field becomes required after slice 09.
+- **`opm/provider/`** — unchanged. Provider remains the matcher's input until slice 09.
 - **Downstream consumers** — `cli` and `opm-operator` MAY start constructing `Platform` artifacts; the kernel does not yet require it.
 - **Constitution Principle II (Type Safety)** — uniform shape upheld; new artifact follows the contract.
 - **Constitution Principle V (CUE-Native Module Resolution)** — Platform is composed via CUE registration; binding paths point at CUE-computed views.

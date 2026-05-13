@@ -1,10 +1,10 @@
 ## Context
 
-The kernel today renders OPM `#ModuleRelease` artifacts assuming a single CUE schema shape — `v1alpha2`. Path strings (`metadata`, `components`, `#transformers`, `#transform`, `#component`, `#context.{moduleReleaseMetadata,componentMetadata,runtimeName}`, `#config`, `values`, `#resources`, `#traits`, `#blueprints`, `requiredLabels`, `requiredResources`, `requiredTraits`, `optionalTraits`, `output`) and Go decode struct shapes (`module.ModuleMetadata`, `module.ReleaseMetadata`, `provider.ProviderMetadata`, the unexported `moduleReleaseContextData` and `componentContextData` in `pkg/render/execute.go`) are inlined at every call site.
+The kernel today renders OPM `#ModuleRelease` artifacts assuming a single CUE schema shape — `v1alpha2`. Path strings (`metadata`, `components`, `#transformers`, `#transform`, `#component`, `#context.{moduleReleaseMetadata,componentMetadata,runtimeName}`, `#config`, `values`, `#resources`, `#traits`, `#blueprints`, `requiredLabels`, `requiredResources`, `requiredTraits`, `optionalTraits`, `output`) and Go decode struct shapes (`module.ModuleMetadata`, `module.ReleaseMetadata`, `provider.ProviderMetadata`, the unexported `moduleReleaseContextData` and `componentContextData` in `opm/render/execute.go`) are inlined at every call site.
 
 `apis/core/v1alpha2/types.cue` declares `#ApiVersion: #ApiVersion` — a self-reference that never resolves to a literal. The loader never reads `apiVersion`. Multi-version dispatch is therefore impossible in the current shape.
 
-Stakeholders that consume `pkg/`:
+Stakeholders that consume `opm/`:
 
 - `cli/` — calls `loader.LoadReleaseFile`, `module.ParseModuleRelease`, `render.ProcessModuleRelease`.
 - `opm-operator/` — same render-call site as the CLI, plus a Kubebuilder reconciler around it.
@@ -18,7 +18,7 @@ The Constitution principle VIII (small batches) constrains the scope: every step
 
 - The kernel SHALL detect the OPM schema version of every loaded artifact via its `apiVersion` field.
 - The kernel SHALL dispatch all version-specific behaviour (CUE path constants, metadata decoding, transformer-context shape) through a single `Binding` interface.
-- A new schema version (`v1alpha3`, `v1beta1`, `v1`) SHALL be addable by dropping a new `pkg/api/<version>/` package and `apis/core/<version>/` schema directory — without edits to `pkg/render`, `pkg/loader/{module,provider,release}.go`, or `pkg/module/parse.go`.
+- A new schema version (`v1alpha3`, `v1beta1`, `v1`) SHALL be addable by dropping a new `opm/api/<version>/` package and `apis/core/<version>/` schema directory — without edits to `opm/render`, `opm/loader/{module,provider,release}.go`, or `opm/module/parse.go`.
 - The render pipeline MUST keep its public entry point (`render.ProcessModuleRelease`) signature stable; downstream call sites in CLI / operator MUST NOT need to change to pick up multi-version support.
 - Embedded schemas (`go:embed apis/core/<version>/**/*.cue`) SHALL ship with the kernel so artifact validation is deterministic and offline-capable.
 
@@ -27,21 +27,21 @@ The Constitution principle VIII (small batches) constrains the scope: every step
 - Cross-version conversion (`Convert(from, to apiversion.Version, v cue.Value)`) — deferred until a real consumer requires it.
 - Migration tooling for module authors — belongs in the CLI, not the kernel.
 - Adding a `v1alpha1` binding now — the foundation must land first; the binding lands as a follow-up change once the legacy schema lives under `apis/core/v1alpha1/`.
-- Refactoring `pkg/validate/`, `pkg/core/`, or `pkg/errors/` — these have no version-specific behaviour today.
+- Refactoring `opm/validate/`, `opm/core/`, or `opm/errors/` — these have no version-specific behaviour today.
 - Hot-swap or runtime registration of bindings beyond `init()` — Constitution principle I forbids package-level singletons whose behaviour changes after init.
 
 ## Decisions
 
-### Decision 1 — Two new packages: `pkg/apiversion` and `pkg/api`
+### Decision 1 — Two new packages: `opm/apiversion` and `opm/api`
 
-**Choice:** split version detection (`pkg/apiversion`) from the binding contract (`pkg/api`).
+**Choice:** split version detection (`opm/apiversion`) from the binding contract (`opm/api`).
 
 **Alternatives considered:**
 
-- Single `pkg/api` package containing both. Rejected because version detection is a pure helper any caller may want without dragging the full `Binding` interface (e.g. validation tooling that just wants to refuse unknown versions).
-- Putting detection inside `pkg/loader`. Rejected because non-loader callers (a controller that already has a `cue.Value`) must also be able to detect version without re-loading.
+- Single `opm/api` package containing both. Rejected because version detection is a pure helper any caller may want without dragging the full `Binding` interface (e.g. validation tooling that just wants to refuse unknown versions).
+- Putting detection inside `opm/loader`. Rejected because non-loader callers (a controller that already has a `cue.Value`) must also be able to detect version without re-loading.
 
-**Rationale:** clean separation. `apiversion.Version` is a leaf type with no dependencies beyond `cuelang.org/go/cue`. `pkg/api` depends on `pkg/apiversion` but adds the registry, the `Binding` interface, and the lowest-common-denominator decoded structs. Per-version packages depend on `pkg/api`. No import cycles.
+**Rationale:** clean separation. `apiversion.Version` is a leaf type with no dependencies beyond `cuelang.org/go/cue`. `opm/api` depends on `opm/apiversion` but adds the registry, the `Binding` interface, and the lowest-common-denominator decoded structs. Per-version packages depend on `opm/api`. No import cycles.
 
 ### Decision 2 — `Paths` struct, not method-per-path
 
@@ -56,7 +56,7 @@ The Constitution principle VIII (small batches) constrains the scope: every step
 
 ### Decision 3 — `init()`-based registration
 
-**Choice:** each `pkg/api/<version>/` package calls `api.Register(&binding{})` from `init()`.
+**Choice:** each `opm/api/<version>/` package calls `api.Register(&binding{})` from `init()`.
 
 **Alternatives considered:**
 
@@ -75,9 +75,9 @@ The Constitution principle VIII (small batches) constrains the scope: every step
 
 **Rationale:** the binding owns *shape*, the renderer owns *plumbing*. The split keeps the renderer trivially mockable for future testing.
 
-### Decision 5 — Lowest-common-denominator metadata structs in `pkg/api`
+### Decision 5 — Lowest-common-denominator metadata structs in `opm/api`
 
-**Choice:** `pkg/api` declares `ModuleMetadata`, `ReleaseMetadata`, `ProviderMetadata` as the canonical decoded shape every binding returns. Per-version richer data, if any, stays internal to that version's package.
+**Choice:** `opm/api` declares `ModuleMetadata`, `ReleaseMetadata`, `ProviderMetadata` as the canonical decoded shape every binding returns. Per-version richer data, if any, stays internal to that version's package.
 
 **Alternatives considered:**
 
@@ -132,7 +132,7 @@ The Constitution principle VIII (small batches) constrains the scope: every step
 ## Risks / Trade-offs
 
 - [`render.Match` signature break] → No downstream code currently calls `Match` directly; CHANGELOG flags it; CLI and operator only depend on `ProcessModuleRelease` which keeps its signature.
-- [`init()`-based registration is "magic"] → Documented in `pkg/api/doc.go`; the registry panics on duplicate registration so misuse fails loud at process start, not silently at runtime.
+- [`init()`-based registration is "magic"] → Documented in `opm/api/doc.go`; the registry panics on duplicate registration so misuse fails loud at process start, not silently at runtime.
 - [Embedding schemas pins them to library version] → Acceptable: the library's SemVer is already the authoritative pin for what schema versions a kernel build supports. Catalog publishing remains the canonical distribution; embed is a determinism convenience.
 - [Test coverage gap in renderer is exposed by the refactor] → The change adds regression tests for `Match`, `executeTransforms`, and `ProcessModuleRelease` against the new binding shape before the breaking signature ships.
 - [Two prospective versions today have identical metadata shape — abstraction may be over-engineered] → Constitution VII (YAGNI) tension. Decision 5 is the YAGNI-aligned compromise: build the dispatch infrastructure now (because we have the request), but don't introduce per-version Go shapes until a version actually diverges.
@@ -144,17 +144,17 @@ The change is implemented across a sequence of independently mergeable PRs, each
 
 1. **PR 1 — schema literal pin.** Replace `#ApiVersion: #ApiVersion` with `#ApiVersion: "opmodel.dev/v1alpha2"` in `apis/core/v1alpha2/types.cue`. Re-run `task check`. Catalog dependents (`modules/`, `releases/`) re-publish on next routine update; old artifacts continue to validate because the CUE constraint is still `apiVersion: #ApiVersion`.
 
-2. **PR 2 — `pkg/apiversion`.** New package only; no edits to existing code. Tests cover: present + recognised, present + unknown, absent.
+2. **PR 2 — `opm/apiversion`.** New package only; no edits to existing code. Tests cover: present + recognised, present + unknown, absent.
 
-3. **PR 3 — `pkg/api` interface + registry.** New package only; no edits to existing code. Tests cover: register, lookup, duplicate-register panic, unknown-version error.
+3. **PR 3 — `opm/api` interface + registry.** New package only; no edits to existing code. Tests cover: register, lookup, duplicate-register panic, unknown-version error.
 
-4. **PR 4 — `pkg/api/v1alpha2` binding.** Implements `Binding` with paths and decoders mirroring today's hardcoded values. Self-registers in `init()`. The transformer-context structs (`moduleReleaseContextData`, `componentContextData`) move out of `pkg/render/execute.go` into this package; `execute.go` keeps a temporary local definition in this PR so it still compiles.
+4. **PR 4 — `opm/api/v1alpha2` binding.** Implements `Binding` with paths and decoders mirroring today's hardcoded values. Self-registers in `init()`. The transformer-context structs (`moduleReleaseContextData`, `componentContextData`) move out of `opm/render/execute.go` into this package; `execute.go` keeps a temporary local definition in this PR so it still compiles.
 
-5. **PR 5 — wire loader.** `pkg/loader/{module,release,provider}.go` calls `apiversion.Detect` after `BuildInstance`. Loader output additively gains a `Version` field; existing callers ignore it. New regression tests assert detected version on a v1alpha2 fixture.
+5. **PR 5 — wire loader.** `opm/loader/{module,release,provider}.go` calls `apiversion.Detect` after `BuildInstance`. Loader output additively gains a `Version` field; existing callers ignore it. New regression tests assert detected version on a v1alpha2 fixture.
 
-6. **PR 6 — wire render path lookups.** `pkg/render/match.go` accepts `binding api.Binding` (BREAKING). `pkg/render/process_module.go` resolves the binding via `api.Lookup(rel.APIVersion)` and passes it through. Hardcoded `cue.ParsePath` strings become `binding.Paths().X`. Existing render tests adjusted to construct a binding-aware test fixture.
+6. **PR 6 — wire render path lookups.** `opm/render/match.go` accepts `binding api.Binding` (BREAKING). `opm/render/process_module.go` resolves the binding via `api.Lookup(rel.APIVersion)` and passes it through. Hardcoded `cue.ParsePath` strings become `binding.Paths().X`. Existing render tests adjusted to construct a binding-aware test fixture.
 
-7. **PR 7 — wire context injection.** `injectContext` in `pkg/render/execute.go` becomes a one-line delegation to `binding.BuildTransformerContext`. The temporary local context structs from PR 4 are deleted. Snapshot tests assert rendered output is byte-identical before vs after the refactor.
+7. **PR 7 — wire context injection.** `injectContext` in `opm/render/execute.go` becomes a one-line delegation to `binding.BuildTransformerContext`. The temporary local context structs from PR 4 are deleted. Snapshot tests assert rendered output is byte-identical before vs after the refactor.
 
 8. **PR 8 — embed schemas.** `apis/core/v1alpha2/embed.go` exposes the embed.FS. Loader exposes a `LoadEmbeddedSchema(version)` helper. Used initially only by self-tests; downstream wiring follows in subsequent changes.
 

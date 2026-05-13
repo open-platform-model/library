@@ -9,7 +9,7 @@ kind:       "Platform"
 
 metadata: {
 	name:        "test-platform"
-	description: "Fixture used by pkg/platform and pkg/helper/loader/file tests"
+	description: "Fixture used by opm/platform and opm/helper/loader/file tests"
 	labels: env:   "dev"
 	annotations: owner: "library-tests"
 }

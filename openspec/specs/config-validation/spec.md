@@ -2,13 +2,13 @@
 
 ## Purpose
 
-The OPM kernel's CUE-native validation surface. The library exposes three validation primitives on `*Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus typed Module/Release wrappers and Source loader helpers, all returning errors that implement `cuelang.org/go/cue/errors.Error`. The library does not project CUE errors into custom Go types and does not expose presentation-layer formatters; frontends own their own display by walking `cueerrors.Errors(err)` directly. This capability supersedes the prior `values-validation` capability (the `pkg/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError` types), collapsing per-layer-partial-then-unify into unify-then-validate while preserving per-source attribution through `cue.Filename` set at compile time.
+The OPM kernel's CUE-native validation surface. The library exposes three validation primitives on `*Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus typed Module/Release wrappers and Source loader helpers, all returning errors that implement `cuelang.org/go/cue/errors.Error`. The library does not project CUE errors into custom Go types and does not expose presentation-layer formatters; frontends own their own display by walking `cueerrors.Errors(err)` directly. This capability supersedes the prior `values-validation` capability (the `opm/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError` types), collapsing per-layer-partial-then-unify into unify-then-validate while preserving per-source attribution through `cue.Filename` set at compile time.
 
 ## Requirements
 
 ### Requirement: Three Kernel Validation Primitives
 
-The library SHALL expose three validation methods on `*Kernel` in `pkg/kernel/`: `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`. All three SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors.
+The library SHALL expose three validation methods on `*Kernel` in `opm/kernel/`: `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`. All three SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors.
 
 #### Scenario: ValidateConfig signature and behavior
 
@@ -49,7 +49,7 @@ The library SHALL expose three validation methods on `*Kernel` in `pkg/kernel/`:
 
 ### Requirement: Source Type and Layered Input
 
-The library SHALL expose a `Source` struct in `pkg/kernel/` describing one labeled values input, plus a `ValidateOption` type with a `Partial()` constructor for `ValidateConfigDetailed`. The option type is named `ValidateOption` (not `Option`) to avoid colliding with the existing kernel-construction `Option` already exported from `pkg/kernel/kernel.go`.
+The library SHALL expose a `Source` struct in `opm/kernel/` describing one labeled values input, plus a `ValidateOption` type with a `Partial()` constructor for `ValidateConfigDetailed`. The option type is named `ValidateOption` (not `Option`) to avoid colliding with the existing kernel-construction `Option` already exported from `opm/kernel/kernel.go`.
 
 #### Scenario: Source struct shape
 
@@ -73,7 +73,7 @@ The library SHALL expose a `Source` struct in `pkg/kernel/` describing one label
 
 `*Module` SHALL expose a `ConfigSchema()` accessor (`*Release` already exposes one). The Kernel SHALL expose typed convenience methods `ValidateModuleValues`, `ValidateModuleValuesPartial`, `ValidateModuleValuesDetailed`, `ValidateReleaseValues`, `ValidateReleaseValuesPartial`, `ValidateReleaseValuesDetailed` — each a 1-line schema-lookup wrapper that delegates to the corresponding primitive.
 
-The convenience methods live on `*Kernel` rather than on `*Module`/`*Release` because `pkg/kernel` already imports `pkg/module`; placing methods that take a `*kernel.Kernel` on `*Module`/`*Release` would close the import cycle.
+The convenience methods live on `*Kernel` rather than on `*Module`/`*Release` because `opm/kernel` already imports `opm/module`; placing methods that take a `*kernel.Kernel` on `*Module`/`*Release` would close the import cycle.
 
 #### Scenario: Module.ConfigSchema accessor
 
@@ -127,9 +127,9 @@ The library SHALL expose three loader helpers on `*Kernel` that produce `Source`
 
 The library SHALL NOT expose a print helper, formatter, or any other presentation-layer function for validation errors. Constitution principles I (Kernel Neutrality) and IV (Composability via Stable Contracts) place output formatting and presentation outside the library's contract; frontends own their own display.
 
-#### Scenario: No PrintErrors symbol in pkg/kernel
+#### Scenario: No PrintErrors symbol in opm/kernel
 
-- **WHEN** a developer searches `pkg/kernel/` for `PrintErrors`, `FormatErrors`, or any similar formatter
+- **WHEN** a developer searches `opm/kernel/` for `PrintErrors`, `FormatErrors`, or any similar formatter
 - **THEN** no exported symbol with that purpose exists
 - **AND** the library does not import a presentation-only sink (no `io.Writer`-taking validation helper)
 
@@ -160,7 +160,7 @@ The library SHALL NOT expose a print helper, formatter, or any other presentatio
 
 ### Requirement: Internal Closed-Schema Workaround
 
-The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private internals of `pkg/kernel/validate.go`. The error type SHALL implement `cuelang.org/go/cue/errors.Error` so that disallowed-field diagnostics flow alongside CUE-native errors transparently.
+The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private internals of `opm/kernel/validate.go`. The error type SHALL implement `cuelang.org/go/cue/errors.Error` so that disallowed-field diagnostics flow alongside CUE-native errors transparently.
 
 #### Scenario: Disallowed field in closed schema produces positioned error
 
@@ -170,7 +170,7 @@ The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private 
 
 #### Scenario: Internal types not exported
 
-- **WHEN** a developer searches `pkg/kernel/` for `WalkDisallowed` or `FieldNotAllowedError`
+- **WHEN** a developer searches `opm/kernel/` for `WalkDisallowed` or `FieldNotAllowedError`
 - **THEN** no exported symbol with that name exists
 - **AND** the unexported helpers are documented in the package's internal godoc only
 
@@ -178,9 +178,9 @@ The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private 
 
 The library SHALL NOT define custom Go-typed wrappers around CUE validation errors. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
 
-#### Scenario: pkg/errors carries no validation projections
+#### Scenario: opm/errors carries no validation projections
 
-- **WHEN** a developer reads `pkg/errors/`
+- **WHEN** a developer reads `opm/errors/`
 - **THEN** the package contains `TransformError` and unrelated sentinels only
 - **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
 

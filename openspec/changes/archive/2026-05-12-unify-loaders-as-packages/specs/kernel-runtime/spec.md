@@ -6,7 +6,7 @@ The package documentation and the `Kernel.SynthesizeRelease` godoc SHALL state t
 
 #### Scenario: Documentation directs callers to the kernel method
 
-- **WHEN** a developer reads the godoc on `pkg/helper/synth/`
+- **WHEN** a developer reads the godoc on `opm/helper/synth/`
 - **THEN** the documentation states that `Kernel.SynthesizeRelease` is the recommended entry point
 - **AND** notes that direct use of `synth.Release` is appropriate when the caller does not hold a `*Kernel`
 
@@ -18,7 +18,7 @@ The package documentation and the `Kernel.SynthesizeRelease` godoc SHALL state t
 
 ### Requirement: Backward-Compatible Method Wrappers
 
-For every existing exported function in `pkg/helper/loader/file/` and `pkg/helper/platform/`, and the `*FromValue` constructors in `pkg/module/` and `pkg/platform/` that takes a `*cue.Context` (directly or via a `CueContextOwner` interface), the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself. The Kernel SHALL NOT wrap functions whose canonical implementation now lives on the Kernel itself (validation, layered values, module-release processing, and the values-file source loader); those are direct kernel methods, not wrappers. The Kernel SHALL NOT expose a `ValidateAndUnify` wrapper — the canonical replacement is `Kernel.ValidateConfigDetailed`.
+For every existing exported function in `opm/helper/loader/file/` and `opm/helper/platform/`, and the `*FromValue` constructors in `opm/module/` and `opm/platform/` that takes a `*cue.Context` (directly or via a `CueContextOwner` interface), the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself. The Kernel SHALL NOT wrap functions whose canonical implementation now lives on the Kernel itself (validation, layered values, module-release processing, and the values-file source loader); those are direct kernel methods, not wrappers. The Kernel SHALL NOT expose a `ValidateAndUnify` wrapper — the canonical replacement is `Kernel.ValidateConfigDetailed`.
 
 #### Scenario: Loader method wrapper for module packages
 
@@ -36,16 +36,16 @@ For every existing exported function in `pkg/helper/loader/file/` and `pkg/helpe
 
 - **WHEN** existing downstream code calls `helper/loader/file.LoadModulePackage(cueCtx, dir, opts)` or `helper/loader/file.LoadReleasePackage(cueCtx, dir, opts)` directly
 - **THEN** the call succeeds with the documented behavior
-- **AND** the helper signatures continue to accept `*cue.Context` so non-kernel consumers can use them without importing `pkg/kernel`
+- **AND** the helper signatures continue to accept `*cue.Context` so non-kernel consumers can use them without importing `opm/kernel`
 
 #### Scenario: Validation methods are not wrappers
 
-- **WHEN** a developer reads `pkg/kernel/validate.go`
+- **WHEN** a developer reads `opm/kernel/validate.go`
 - **THEN** the file contains the canonical implementation of `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed` directly, with no `//nolint:staticcheck // SA1019:` exemptions for delegating to deleted helper packages
 
 #### Scenario: ValidateAndUnify wrapper is gone
 
-- **WHEN** a developer searches `pkg/kernel/wrappers.go` (or the entire `pkg/kernel/`) for `ValidateAndUnify`
+- **WHEN** a developer searches `opm/kernel/wrappers.go` (or the entire `opm/kernel/`) for `ValidateAndUnify`
 - **THEN** no exported method or function with that name exists
 - **AND** callers MUST use `k.ValidateConfigDetailed`
 

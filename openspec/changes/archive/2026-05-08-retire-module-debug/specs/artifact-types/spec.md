@@ -7,8 +7,8 @@ The kernel SHALL accept exactly three artifact types: `Module`, `ModuleRelease`,
 #### Scenario: No top-level ModuleDebug type
 
 - **WHEN** a developer searches the kernel public API for `ModuleDebug`
-- **THEN** no exported Go type with that name exists in any `pkg/` package
-- **AND** the version binding (`pkg/api/<version>/`) exposes no `DecodeModuleDebugMetadata` or equivalent
+- **THEN** no exported Go type with that name exists in any `opm/` package
+- **AND** the version binding (`opm/api/<version>/`) exposes no `DecodeModuleDebugMetadata` or equivalent
 
 #### Scenario: debugValues accessible via Module.Package
 
@@ -18,5 +18,5 @@ The kernel SHALL accept exactly three artifact types: `Module`, `ModuleRelease`,
 
 #### Scenario: Documentation explicitly retires the construct
 
-- **WHEN** a developer reads `library/README.md` or `pkg/module/` godoc
+- **WHEN** a developer reads `library/README.md` or `opm/module/` godoc
 - **THEN** at least one prose section states that `#ModuleDebug` is not a kernel artifact and that debug overlays are a frontend layering concern

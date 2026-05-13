@@ -12,7 +12,7 @@ This slice ensures the kernel codebase reflects the new model. In practice the w
 - Make explicit that frontend code (CLI, operator, XR) decides whether to layer `debugValues` into the values stack — this is policy, not kernel concern.
 
 **Non-Goals:**
-- Implementing the layering helper. That is part of slice 05 (`introduce-tiered-validation`), which adds `pkg/helper/values/` and may include a layer-set convention covering `debugValues`.
+- Implementing the layering helper. That is part of slice 05 (`introduce-tiered-validation`), which adds `opm/helper/values/` and may include a layer-set convention covering `debugValues`.
 - Forbidding all use of debug values at runtime. The kernel renders whatever values it receives; whether `debugValues` was layered in is invisible to the kernel.
 - Modifying CUE schemas in `apis/v1alpha2/`. Schema-side changes live in catalog 015.
 

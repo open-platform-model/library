@@ -4,9 +4,9 @@
 
 - The Compiler stays a pure function from `*ModuleRelease + *Provider/*Platform + values → CompileResult`. Same determinism contract as today's `render.ProcessModuleRelease`, with `CompileResult` extended to include `[]*ActionInvocation`.
 - A new Runtime executes Op/Action declarations against a pluggable `Executor` map. Effects (process exec, HTTP, time) live exclusively here.
-- The two share the existing `Kernel` substrate (`cue.Context`, `pkg/api` binding registry, logger, tracer) without sharing methods or state.
-- Frontends opt in: a Compiler is always available; a Runtime is constructed only when the embedding can host execution. The Crossplane composition function can build the Kernel without importing `pkg/runtime`.
-- The determinism wall is enforced at the package boundary: `pkg/compile` does not import `pkg/runtime`. CI lint catches violations at build time.
+- The two share the existing `Kernel` substrate (`cue.Context`, `opm/api` binding registry, logger, tracer) without sharing methods or state.
+- Frontends opt in: a Compiler is always available; a Runtime is constructed only when the embedding can host execution. The Crossplane composition function can build the Kernel without importing `opm/runtime`.
+- The determinism wall is enforced at the package boundary: `opm/compile` does not import `opm/runtime`. CI lint catches violations at build time.
 - The Runtime's progress is observable to the Compiler only through an immutable `RuntimeSnapshot` (a `cue.Value`). The Compiler never calls into the Runtime; the Runtime never calls into the Compiler. The frontend is the conductor of the loop.
 - The `Kernel.Clock` field is removed before the Runtime ships. Time concerns relocate to the Runtime, where retries and timeouts justify them.
 - Workflow and Lifecycle constructs (catalog enhancements following 010) consume the same Op/Action substrate but emit invocations through distinct surfaces: Workflow as on-demand named graphs (parallel to CUE's `cmd`), Lifecycle as a phase-keyed map of graphs (parallel to Helm hooks but with strict types). The Compiler emits both shapes from the same walker; the Runtime executes both with the same DAG mechanics; the frontend selects which to drive.
@@ -22,11 +22,11 @@
 
 ## High-Level Approach
 
-The Kernel becomes a substrate that provides shared state but exposes no operational methods. Two sibling packages, `pkg/compile` and `pkg/runtime`, host the two halves. Both consume `*Kernel` as a dependency. Neither imports the other.
+The Kernel becomes a substrate that provides shared state but exposes no operational methods. Two sibling packages, `opm/compile` and `opm/runtime`, host the two halves. Both consume `*Kernel` as a dependency. Neither imports the other.
 
 ```
                           ┌──────────────────────────────┐
-                          │        pkg/kernel            │
+                          │        opm/kernel            │
                           │  Kernel { cueCtx, logger,    │
                           │           tracer }           │
                           │  + accessors                 │
@@ -35,7 +35,7 @@ The Kernel becomes a substrate that provides shared state but exposes no operati
                        ┌─────────────────┴─────────────────┐
                        │                                   │
          ┌─────────────▼───────────┐         ┌─────────────▼───────────┐
-         │    pkg/compile          │         │     pkg/runtime         │
+         │    opm/compile          │         │     opm/runtime         │
          │  Compiler { *Kernel }   │         │  Runtime { *Kernel,     │
          │  pure                   │         │            Executor[],  │
          │  CompileResult {        │         │            StateStore } │
@@ -60,11 +60,11 @@ The Kernel becomes a substrate that provides shared state but exposes no operati
                            └─────────────────────┘
 ```
 
-Convenience constructors `Kernel.Compiler()` and `Kernel.Runtime(opts ...RuntimeOption)` may live in `pkg/kernel` for ergonomics, but they re-export the sibling packages. Frontends that want strict import discipline (XR fn) construct `compile.NewCompiler(k)` directly without naming `pkg/runtime`.
+Convenience constructors `Kernel.Compiler()` and `Kernel.Runtime(opts ...RuntimeOption)` may live in `opm/kernel` for ergonomics, but they re-export the sibling packages. Frontends that want strict import discipline (XR fn) construct `compile.NewCompiler(k)` directly without naming `opm/runtime`.
 
 ## Type Layout
 
-### `pkg/kernel`
+### `opm/kernel`
 
 Substrate. Drops `Clock` in slice 01.
 
@@ -88,7 +88,7 @@ func (k *Kernel) Logger() *slog.Logger
 func (k *Kernel) Tracer() trace.Tracer
 ```
 
-### `pkg/compile` (current `pkg/render` after 001 slice 06)
+### `opm/compile` (current `opm/render` after 001 slice 06)
 
 Pure transform. Same shape as today's pipeline; one new field on the result, one new option.
 
@@ -141,7 +141,7 @@ func (c *Compiler) Compile(
 ) (*CompileResult, error)
 ```
 
-`ActionInvocation` is added to `pkg/core` (slice 03):
+`ActionInvocation` is added to `opm/core` (slice 03):
 
 ```go
 package core
@@ -169,7 +169,7 @@ type ActionDAG struct {
 }
 ```
 
-### `pkg/runtime` (new)
+### `opm/runtime` (new)
 
 Effectful orchestration. Consumes `*Kernel` for shared state; consumes its own `Executor` map for op dispatch.
 
@@ -219,7 +219,7 @@ type StepResult  struct { /* single-step outcome */ }
 type ActionResult struct { /* terminal Action outcome */ }
 ```
 
-### `pkg/runtime/local`, `pkg/runtime/k8s`, `pkg/runtime/grpc`
+### `opm/runtime/local`, `opm/runtime/k8s`, `opm/runtime/grpc`
 
 Reference Executor implementations. Slice 06 ships `local`. The other two land when their consumers (operator, XR fn) actively need them — YAGNI.
 
@@ -229,16 +229,16 @@ Enforced by package import discipline, not by docstring.
 
 | Boundary                          | Where it lives                       |
 | --------------------------------- | ------------------------------------ |
-| CUE evaluation                    | `pkg/kernel.Kernel.CueContext` — both sides use it |
-| Reading `@op("...")` attribute    | `pkg/runtime` only                   |
-| `Executor.Run` side effects       | `pkg/runtime` Executors only         |
-| Time / retry scheduling           | `pkg/runtime.Clock` only             |
-| Step state mutation               | `pkg/runtime.StateStore` only        |
-| `RuntimeSnapshot` as Compile input| `pkg/compile.WithRuntimeSnapshot`    |
+| CUE evaluation                    | `opm/kernel.Kernel.CueContext` — both sides use it |
+| Reading `@op("...")` attribute    | `opm/runtime` only                   |
+| `Executor.Run` side effects       | `opm/runtime` Executors only         |
+| Time / retry scheduling           | `opm/runtime.Clock` only             |
+| Step state mutation               | `opm/runtime.StateStore` only        |
+| `RuntimeSnapshot` as Compile input| `opm/compile.WithRuntimeSnapshot`    |
 | Compiler may call Runtime         | NO                                   |
 | Runtime may call Compiler         | NO                                   |
 
-`pkg/compile` MUST NOT import `pkg/runtime`. CI lint enforces this with a single `go list -deps` rule. Any future refactor that proposes importing `pkg/runtime` from `pkg/compile` is rejected at the import layer, not at code review.
+`opm/compile` MUST NOT import `opm/runtime`. CI lint enforces this with a single `go list -deps` rule. Any future refactor that proposes importing `opm/runtime` from `opm/compile` is rejected at the import layer, not at code review.
 
 ## Consumer Surfaces: Workflow and Lifecycle
 
@@ -314,7 +314,7 @@ rt.RunAction(ctx, inv)
 | `opm-operator` | Yes              | Yes             | CRD-triggered (optional surface)       | Reconcile state machine picks phase per cycle                  | `k8s.Job` for exec, `local.HttpGet/Post`, `k8s.Wait` for conditions |
 | Crossplane fn  | Yes              | NO              | Surfaced as deferred-action signal     | Surfaced as deferred-action signal                             | n/a — Compiler-only deployment, no Action execution             |
 
-XR fn imports only `pkg/kernel` and `pkg/compile`. `pkg/runtime` is not in its module graph. Any Workflow or Lifecycle invocation declared by a module is visible to the XR fn through `CompileResult.Workflows` / `CompileResult.Lifecycle`, but the XR fn does not execute them; it surfaces them in its composition response so a downstream operator or workflow consumer drives execution.
+XR fn imports only `opm/kernel` and `opm/compile`. `opm/runtime` is not in its module graph. Any Workflow or Lifecycle invocation declared by a module is visible to the XR fn through `CompileResult.Workflows` / `CompileResult.Lifecycle`, but the XR fn does not execute them; it surfaces them in its composition response so a downstream operator or workflow consumer drives execution.
 
 ## Slice Dependency Graph
 
@@ -384,9 +384,9 @@ rt.RunAction(ctx, inv)
 ## File Layout
 
 ```
-pkg/
+opm/
   kernel/         Kernel struct, accessors. No Clock after slice 01.
-  compile/        (renamed from pkg/render in 001 slice 06)
+  compile/        (renamed from opm/render in 001 slice 06)
                   Compiler, CompileResult, WithRuntimeSnapshot.
   core/           ActionInvocation, StepNode, ActionDAG (added in slice 03)
   runtime/        (NEW)
@@ -394,7 +394,7 @@ pkg/
     executor.go   Executor interface
     state.go      StateStore interface, in-memory impl
     dag.go        $after DAG walker
-    clock.go      Clock interface (relocated from pkg/kernel)
+    clock.go      Clock interface (relocated from opm/kernel)
   runtime/local/  Reference executors — exec, http, wait
   runtime/k8s/    (deferred) Reference executors for in-cluster exec
   runtime/grpc/   (deferred) Reference executors for delegated exec

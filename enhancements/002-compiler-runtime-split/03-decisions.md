@@ -8,14 +8,14 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D1: Two parts in one Kernel substrate, with strict package separation
 
-**Decision:** The Kernel becomes a substrate type holding shared dependencies (`cue.Context`, `pkg/api` binding registry, logger, tracer) and exposes accessors only. Two sibling packages — `pkg/compile` and `pkg/runtime` — host the operational methods. Convenience constructors on `Kernel` may exist (e.g., `Kernel.Compiler()`, `Kernel.Runtime(opts)`) but only re-export the sibling packages. Frontends with strict import discipline construct from the sibling packages directly.
+**Decision:** The Kernel becomes a substrate type holding shared dependencies (`cue.Context`, `opm/api` binding registry, logger, tracer) and exposes accessors only. Two sibling packages — `opm/compile` and `opm/runtime` — host the operational methods. Convenience constructors on `Kernel` may exist (e.g., `Kernel.Compiler()`, `Kernel.Runtime(opts)`) but only re-export the sibling packages. Frontends with strict import discipline construct from the sibling packages directly.
 
 **Alternatives considered:**
 
 - One monolithic Kernel with both surfaces as methods. Rejected — determinism wall is implicit, XR fn cannot avoid Runtime symbols, SemVer churn shared between unrelated concerns.
 - Kernel and Runtime as fully unrelated types in unrelated packages, no convenience constructors. Rejected for ergonomics — three constructors at every embedding, no shared substrate sugar.
 
-**Rationale:** The two parts share genuine substrate (cue.Context, binding registry) and would duplicate it if fully separated. A shared substrate with separate operational types preserves both ergonomics (one Kernel construction) and isolation (XR fn imports only `pkg/compile`). The convenience methods are sugar; the package boundary is the load-bearing structure.
+**Rationale:** The two parts share genuine substrate (cue.Context, binding registry) and would duplicate it if fully separated. A shared substrate with separate operational types preserves both ergonomics (one Kernel construction) and isolation (XR fn imports only `opm/compile`). The convenience methods are sugar; the package boundary is the load-bearing structure.
 
 **Source:** Design discussion 2026-05-08, user selected this option after side-by-side comparison of all three candidate layouts.
 
@@ -23,14 +23,14 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D2: Compiler is pure; Runtime is effectful; the wall lives at the package boundary
 
-**Decision:** `pkg/compile` MUST NOT import `pkg/runtime`. CI lint enforces this with `go list -deps`. The Compiler has no method that may invoke I/O or read system state. The Runtime has no method that participates in deterministic compile output.
+**Decision:** `opm/compile` MUST NOT import `opm/runtime`. CI lint enforces this with `go list -deps`. The Compiler has no method that may invoke I/O or read system state. The Runtime has no method that participates in deterministic compile output.
 
 **Alternatives considered:**
 
 - Document the wall in a constitution clause but allow imports. Rejected — past evidence shows docstring-enforced walls drift across contributors.
 - Define separate interfaces (PureKernel vs EffectfulKernel) on the same struct. Rejected — type assertions wash out the wall at the call site, and the build cannot detect violations.
 
-**Rationale:** Constitution Principle I is normative; the package boundary is the only mechanism that mechanically enforces it. A reviewer who proposes importing `pkg/runtime` from `pkg/compile` is rejected by the build, not by a code review heuristic.
+**Rationale:** Constitution Principle I is normative; the package boundary is the only mechanism that mechanically enforces it. A reviewer who proposes importing `opm/runtime` from `opm/compile` is rejected by the build, not by a code review heuristic.
 
 **Source:** User decision 2026-05-08. Constitution Principle I (Kernel Neutrality & Determinism).
 
@@ -38,14 +38,14 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D3: Runtime opts in via construction; XR fn never imports it
 
-**Decision:** Runtime is constructed via `runtime.New(k, opts...)`. Construction returns an error if no Executors are registered for op types the Runtime is asked to handle (validated lazily on first `RunAction`). Frontends that cannot host execution (Crossplane composition function) do not import `pkg/runtime` at all.
+**Decision:** Runtime is constructed via `runtime.New(k, opts...)`. Construction returns an error if no Executors are registered for op types the Runtime is asked to handle (validated lazily on first `RunAction`). Frontends that cannot host execution (Crossplane composition function) do not import `opm/runtime` at all.
 
 **Alternatives considered:**
 
 - Always-available Runtime that no-ops when executors are missing. Rejected — silent no-op hides bugs; explicit construction makes the embedding decision visible at startup.
 - Single executor registration on `Kernel` itself. Rejected — `Kernel` is the substrate; pushing executor config onto it leaks Runtime concerns into the shared surface.
 
-**Rationale:** Constructor-time validation surfaces capability mismatches at startup, when they are easiest to diagnose. The XR fn's `pkg/runtime` exclusion is enforceable by the module graph, not by runtime checks.
+**Rationale:** Constructor-time validation surfaces capability mismatches at startup, when they are easiest to diagnose. The XR fn's `opm/runtime` exclusion is enforceable by the module graph, not by runtime checks.
 
 **Source:** Design discussion 2026-05-08.
 
@@ -53,7 +53,7 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D4: Drop `Kernel.Clock` (YAGNI)
 
-**Decision:** Slice 01 removes the `Kernel.Clock` field, the `Clock` interface, the `systemClock` struct, and the `WithClock` option from `pkg/kernel`. When the Runtime ships in slice 05, it adds its own `runtime.Clock` interface and `runtime.WithClock` option. The Compiler never consults a clock.
+**Decision:** Slice 01 removes the `Kernel.Clock` field, the `Clock` interface, the `systemClock` struct, and the `WithClock` option from `opm/kernel`. When the Runtime ships in slice 05, it adds its own `runtime.Clock` interface and `runtime.WithClock` option. The Compiler never consults a clock.
 
 **Alternatives considered:**
 
@@ -87,7 +87,7 @@ Decision log for all architectural and design choices made during this enhanceme
 
 **Alternatives considered:**
 
-- A `Drive(ctx, rel, provider) error` orchestrator in `pkg/kernel` that runs the full loop. Rejected — the loop's termination, retry policy, and parallelism choices differ per frontend. CLI runs to completion synchronously; operator runs partial steps per reconcile cycle; XR fn does not run actions at all.
+- A `Drive(ctx, rel, provider) error` orchestrator in `opm/kernel` that runs the full loop. Rejected — the loop's termination, retry policy, and parallelism choices differ per frontend. CLI runs to completion synchronously; operator runs partial steps per reconcile cycle; XR fn does not run actions at all.
 - Runtime polls a Compiler-provided plan iterator. Rejected — couples the two via a shared iterator type and reintroduces an implicit dependency.
 
 **Rationale:** The two halves serve different lifecycles. Forcing one orchestrator on all three frontends makes the library opinionated about reconciliation timing in ways that conflict with Kubernetes operators and stateless function handlers.
@@ -98,7 +98,7 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D7: Library imports Op/Action schema from catalog 010; defines no schema itself
 
-**Decision:** This enhancement adds no CUE definitions. The library decodes `#Op`, `#Action`, and `#Step` from `apis/core/v1alpha2/` after catalog 010 publishes them there. `pkg/api/v1alpha2` adds `Paths.Steps`, `Paths.After`, `Paths.OpType`, and `DecodeAction` per the existing Binding pattern.
+**Decision:** This enhancement adds no CUE definitions. The library decodes `#Op`, `#Action`, and `#Step` from `apis/core/v1alpha2/` after catalog 010 publishes them there. `opm/api/v1alpha2` adds `Paths.Steps`, `Paths.After`, `Paths.OpType`, and `DecodeAction` per the existing Binding pattern.
 
 **Alternatives considered:**
 
@@ -128,7 +128,7 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ### D9: Per-frontend Executor maps; library ships only the interface and reference implementations
 
-**Decision:** `pkg/runtime` defines the `Executor` interface and the DAG walker. Reference implementations live in `pkg/runtime/local`, `pkg/runtime/k8s`, and `pkg/runtime/grpc`. Frontends register the executors they need at construction time. The library does not auto-register any executor; an empty Runtime errors on first `RunAction`.
+**Decision:** `opm/runtime` defines the `Executor` interface and the DAG walker. Reference implementations live in `opm/runtime/local`, `opm/runtime/k8s`, and `opm/runtime/grpc`. Frontends register the executors they need at construction time. The library does not auto-register any executor; an empty Runtime errors on first `RunAction`.
 
 **Alternatives considered:**
 
@@ -137,7 +137,7 @@ Decision log for all architectural and design choices made during this enhanceme
 
 **Rationale:** Reference implementations exist to bootstrap consumers; explicit registration keeps the embedding decision visible. The shipped reference set covers the catalog 010 well-known ops; future ops add new executors without breaking existing registrations.
 
-**Source:** Design discussion 2026-05-08. Follows the existing pattern in `pkg/api/v1alpha2` where the binding is opt-in via `init()`.
+**Source:** Design discussion 2026-05-08. Follows the existing pattern in `opm/api/v1alpha2` where the binding is opt-in via `init()`.
 
 ---
 
@@ -156,14 +156,14 @@ Decision log for all architectural and design choices made during this enhanceme
 
 ---
 
-### D11: Lifecycle phases are a typed enum in `pkg/compile`; canonical order shipped as a constant; downgrade gated on catalog
+### D11: Lifecycle phases are a typed enum in `opm/compile`; canonical order shipped as a constant; downgrade gated on catalog
 
 **Decision:** Slice 09 introduces `compile.LifecyclePhase` as a typed string enum with constants for `PhasePreInstall`, `PhaseInstall`, `PhasePostInstall`, `PhasePreUpgrade`, `PhaseUpgrade`, `PhasePostUpgrade`, `PhasePreUninstall`, `PhaseUninstall`, `PhasePostUninstall`. A `compile.CanonicalOrder() []LifecyclePhase` helper returns the install→upgrade→uninstall trajectory ordering. Downgrade phases (`PhasePreDowngrade`, `PhaseDowngrade`, `PhasePostDowngrade`) are added only if and when catalog `#Lifecycle` includes them.
 
 **Alternatives considered:**
 
 - Plain string keys without an enum. Rejected — frontends would scatter string literals across reconcile state machines and CLI command wiring; typos surface as silent map-misses at runtime instead of build errors.
-- Phase enum in `pkg/api/v1alpha2`. Rejected — phase names are kernel-runtime concepts that frontends use directly; placing them under a versioned binding adds an indirection without value. The binding still carries `Paths.LifecyclePhase` for CUE-level path lookup, but the Go enum is shared kernel surface.
+- Phase enum in `opm/api/v1alpha2`. Rejected — phase names are kernel-runtime concepts that frontends use directly; placing them under a versioned binding adds an indirection without value. The binding still carries `Paths.LifecyclePhase` for CUE-level path lookup, but the Go enum is shared kernel surface.
 - Hardcode all phases including downgrade up-front. Rejected — catalog 010's downstream consumer enhancements have not committed to downgrade as in-scope; library defines what catalog publishes, not what catalog might publish.
 
 **Rationale:** Type safety at the frontend integration boundary catches misnamed phases at build time. Canonical order belongs in the library because it is the same for every embedding; per-frontend re-derivation would diverge. Downgrade exclusion respects catalog leadership of schema design.

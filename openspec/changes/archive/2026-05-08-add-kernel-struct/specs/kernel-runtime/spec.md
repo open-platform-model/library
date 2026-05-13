@@ -2,7 +2,7 @@
 
 ### Requirement: Kernel Type and Construction
 
-The library SHALL expose a `Kernel` struct in `pkg/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function.
+The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function.
 
 #### Scenario: Default construction
 
@@ -58,7 +58,7 @@ The Kernel SHALL be documented as not goroutine-safe across method calls. The pa
 
 ### Requirement: Backward-Compatible Method Wrappers
 
-For every existing exported function in `pkg/loader/`, `pkg/module/`, `pkg/render/`, and `pkg/validate/` that takes a `*cue.Context`, the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself.
+For every existing exported function in `opm/loader/`, `opm/module/`, `opm/render/`, and `opm/validate/` that takes a `*cue.Context`, the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself.
 
 #### Scenario: Loader method wrapper
 
