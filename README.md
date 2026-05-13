@@ -36,142 +36,58 @@ See `CONSTITUTION.md` for the full set of principles.
 
 ```
 apis/                     Versioned OPM schema (CUE)
-  core/v1alpha1/          Schema for v1alpha1 — single source of truth for that version
-  core/v1alpha2/          Schema for v1alpha2 — single source of truth for that version
+  core/                   CUE module rooted here (cue.mod/module.cue) + embed.go for all versions
+    v1alpha2/             Schema for v1alpha2 — single source of truth for that version
 pkg/
-  api/                    Per-schema-version Binding interface and registry
+  api/                    Per-schema-version Binding interface, process-wide registry, embed plumbing
   api/v1alpha2/           v1alpha2 binding (registers itself in init())
   apiversion/             apiVersion enum + Detect helper
   core/                   Platform-neutral primitives — Compiled, Resource, Identity
   errors/                 Sentinels, structured errors, grouped CUE diagnostics
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
-  loader/                 Deprecated re-export shim of pkg/helper/loader/file (kept for one SemVer cycle)
-  module/                 Module / Release model, parsing, value validation entry point
+  module/                 Module / Release model and value-validation accessors
   platform/               Platform artifact model — kernel's sole input for matching and execution
   compile/                Match -> finalize -> execute -> emit pipeline
-  validate/               #config validation against supplied values
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
-    loader/file/          Filesystem-coupled loading (modules, providers, releases)
+    loader/file/          Filesystem-coupled loading (modules, releases, platforms)
     loader/bytes/         In-memory loading (skeleton; deferred implementation)
+    platform/             Platform composition (shell + modules -> composed Platform)
+    synth/                Release synthesis from typed inputs (no file / no bytes)
+cmd/
+  flow-inspect/           Internal diagnostic CLI for the compile pipeline
+adr/                      Architecture decision records
+enhancements/             Long-form design proposals (umbrella + slices)
 openspec/                 OpenSpec proposals, specs, archives
+modules/                  Test-only OPM modules used by integration tests
+testdata/                 CUE module fixtures consumed by package tests
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
+
+The `pkg/loader/` deprecation shim has been removed; the canonical import path is `pkg/helper/loader/file`. A standalone `pkg/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus the typed shortcuts in `pkg/kernel/validate_typed.go`.
 
 ## Compile pipeline
 
 ```
-loader.LoadReleaseFile        ->  cue.Value (release artifact)
-module.ParseModuleRelease     ->  *module.Release          (validated, concrete)
-kernel.Compile                ->  *kernel.CompileResult    (rendered + provenance)
+loaderfile.LoadReleasePackage  ->  cue.Value (release artifact)
+Kernel.ProcessModuleRelease    ->  *module.Release          (validated, concrete)
+Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenance)
         |
         +-- compile.FinalizeValue   strip schema constraints from components
-        +-- compile.Match           component <-> transformer pairing
-        +-- compile.executeTransforms
+        +-- compile.Match           component <-> transformer pairing (paired output)
+        +-- compile.Module.Execute  per-pair transformer execution
                 |
                 +-- FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
-                +-- decode `output` (cue.ListKind | cue.StructKind)
+                +-- decode `output` (kind-based dispatch: ListKind | StructKind)
                 +-- emit []*core.Compiled carrying Release/Component/Transformer FQN provenance
 ```
 
-The kernel exposes four phase-explicit methods that map onto frontend
-subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match),
-`Kernel.Plan` (plan / preview), and `Kernel.Compile` (apply / render).
-`compile.CompileModuleRelease` and `compile.ProcessModuleRelease` (an alias
-for the former) remain as deprecated free-function entry points.
+The kernel exposes four phase-explicit methods that map onto frontend subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match), `Kernel.Plan` (plan / preview), and `Kernel.Compile` (apply / render). The old free-function entry points (`compile.CompileModuleRelease`, `compile.ProcessModuleRelease`, `module.ParseModuleRelease`) have been removed — construct a `Kernel` and call its methods directly.
 
 `*core.Compiled` is the kernel's terminal output. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
 
 ## Quick start
 
-The recommended entry point is the `kernel.Kernel` struct, which owns its
-`*cue.Context` and threads cross-cutting dependencies (logger, tracer, clock)
-through every operation. Construct one Kernel per goroutine.
-
-```go
-import (
-    "context"
-
-    "github.com/open-platform-model/library/pkg/kernel"
-    "github.com/open-platform-model/library/pkg/module"
-    loader "github.com/open-platform-model/library/pkg/helper/loader/file"
-)
-
-k := kernel.New() // optional: kernel.New(kernel.WithLogger(myLogger))
-
-// Load the module CUE package and build a typed *module.Module.
-moduleVal, _, err := k.LoadModulePackage(ctx, "./module/")
-mod, err := k.NewModuleFromValue(moduleVal)
-
-// Layered validation — unify every values source in stack order, then
-// validate the merged value against the module's #config schema.
-// Per-source attribution flows through cue.Filename(Origin) baked at
-// load time, so error positions report the originating file (or
-// stable identifier for non-file sources).
-
-defaults, _ := k.LoadSourceFromString("embedded", "defaults", `replicas: 1`)
-user, _ := k.LoadSourceFromFile("./values.cue")
-overlay, _ := k.LoadSourceFromFile("./overlay.cue")
-
-userValues, vErr := k.ValidateModuleValuesDetailed(mod, []kernel.Source{
-    defaults, user, overlay,
-})
-if vErr != nil {
-    // CUE-native error tree — walk via cueerrors.Errors / Positions, or
-    // print with cueerrors.Print. The kernel ships no formatter; the
-    // frontend owns presentation.
-    cueerrors.Print(os.Stderr, vErr, nil)
-    return vErr
-}
-
-// Load and process the release. The release's Package embeds the source #module
-// reference; ProcessModuleRelease uses it to validate user values against
-// #module.#config without a separate schema argument (Tier-2 safety net).
-releaseVal, _, _, err := k.LoadReleaseFile(ctx, "./release.cue", loader.LoadOptions{})
-rel, err := k.ProcessModuleRelease(ctx, releaseVal, *mod, userValues)
-
-// Load the Platform — the kernel's matching and execution input. The
-// shell is a Platform whose #registry is empty (or partial); Compose
-// FillPath-injects each registered Module so the schema's computed views
-// (#composedTransformers, #matchers, #knownResources, #knownTraits)
-// resolve. Frontends that load a fully-authored platform.cue can skip
-// Compose and use NewPlatformFromValue directly.
-shellVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loader.LoadOptions{})
-shell, err := k.NewPlatformFromValue(shellVal)
-plat, err := k.ComposePlatform(shell, []*module.Module{mod /* + others */})
-
-result, err := k.Compile(ctx, kernel.CompileInput{
-    Module:        mod,
-    ModuleRelease: rel,
-    Values:        userValues,
-    Platform:      plat,
-    RuntimeName:   "opm-cli",
-})
-for _, r := range result.Compiled {
-    // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
-}
-```
-
-The free-function form is `// Deprecated:`-marked. New consumers should
-construct a `Kernel` and call `Compile`.
-
-```go
-import (
-    "cuelang.org/go/cue/cuecontext"
-
-    loader "github.com/open-platform-model/library/pkg/helper/loader/file"
-    "github.com/open-platform-model/library/pkg/compile"
-    "github.com/open-platform-model/library/pkg/module"
-    "github.com/open-platform-model/library/pkg/platform"
-)
-
-cueCtx := cuecontext.New()
-releaseVal, _, ver, err := loader.LoadReleaseFile(cueCtx, "./release.cue", loader.LoadOptions{})
-rel, err := module.ParseModuleRelease(ctx, releaseVal, mod, userValues)
-
-platformVal, _, err := loader.LoadPlatformFile(cueCtx, "./platform.cue", loader.LoadOptions{})
-plat, err := platform.NewPlatformFromValue(nil, platformVal)
-result, err := compile.CompileModuleRelease(ctx, rel, plat, "opm-cli")
-```
+See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, Platform composition, and compiling a Release into rendered `*core.Compiled` values.
 
 ## API stability
 
@@ -180,18 +96,18 @@ The library follows SemVer 2.0.0. The public surface is everything under `pkg/`.
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
 - **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
-The two tracks are independent: a kernel `v1.4.0` may simultaneously support OPM schema versions `v1alpha1` and `v1alpha2`.
+The two tracks are independent: a kernel `v1.4.0` may simultaneously support multiple OPM schema versions. Today only `v1alpha2` is shipped — `v1alpha1` was retired in commit `3a9a9bd` — but the multi-version machinery remains in place for the next version cut.
 
 ## Multi-version OPM schema support
 
-The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` and a sibling Go package under `pkg/api/<vN>/`, and the new version coexists at runtime with every other registered binding. `pkg/compile`, `pkg/loader`, and `pkg/module` need no edits.
+The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` (and add it to the `//go:embed` pattern in `apis/core/embed.go`), then add a sibling Go package under `pkg/api/<vN>/` that registers a `Binding` in its `init()`. The new version coexists at runtime with every other registered binding. `pkg/compile`, `pkg/helper/loader/file`, and `pkg/module` need no edits.
 
 Key pieces:
 
 - `pkg/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
-- `pkg/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
+- `pkg/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`, `SchemaValue`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
 - `pkg/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
-- `apis/core/<vN>/embed.go` — embeds that version's CUE source so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
+- `apis/core/embed.go` — single `//go:embed` directive at the core CUE module root that pulls in `cue.mod/module.cue` plus every versioned schema package below it, so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
 
 The compile pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. See `CHANGELOG.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
 
@@ -199,9 +115,16 @@ The compile pipeline resolves the binding once per release (via `api.Lookup(rel.
 
 Anything under `pkg/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `pkg/helper/` is part of the kernel contract.
 
-Today this layer holds the filesystem loader (`pkg/helper/loader/file`), a skeleton for the in-memory loader (`pkg/helper/loader/bytes`), and Platform composition (`pkg/helper/platform`). Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `pkg/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+Today this layer holds:
 
-The old `pkg/loader/` import path remains as a deprecation shim that re-exports `pkg/helper/loader/file/` symbols for one SemVer cycle. New code SHOULD import the new path.
+- `pkg/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadReleasePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
+- `pkg/helper/loader/bytes` — in-memory loader. **Skeleton only**, no exported functions yet. The full implementation lands when a concrete consumer (Crossplane composition fn, fuzzing harness) pulls on the design.
+- `pkg/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
+- `pkg/helper/synth` — Release synthesis (`Release`): build a `ModuleRelease` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeRelease`, which chains synth + validate in one call.
+
+Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `pkg/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+
+The previous `pkg/loader/` deprecation shim has been removed (commit `3a9a9bd`); the canonical import path is `pkg/helper/loader/file`.
 
 ## Quality gates
 
@@ -218,4 +141,9 @@ task check
 
 - `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
 - `openspec/config.yaml` — normative constitution source.
-- `apis/v1alpha2/core/` — current OPM schema definitions in CUE.
+- `apis/core/v1alpha2/` — current OPM schema definitions in CUE.
+- `docs/getting-started.md` — end-to-end embedding walkthrough.
+- `docs/design/` — flow diagrams and pipeline notes (`kernel-validate-flow.md`, `compile-pipeline-known-gaps.md`).
+- `enhancements/` — long-form design proposals (kernel redesign, compiler/runtime split, platform construct, module context, claims).
+- `adr/` — architecture decision records.
+- `CHANGELOG.md` — version-by-version history.
