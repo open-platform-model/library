@@ -56,7 +56,7 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 
 **Decision.** Top-level `#ModuleDebug` is removed from the v1alpha2 schema (already in flight via catalog enhancements). The kernel never accepts a debug artifact as input. `Module.debugValues` is a field within the Module's CUE package; the frontend reads it and decides whether to layer it into the values stack via `helper/values`.
 
-**Rationale.** Debug overlays are policy. Operator: never in production. CLI: always when `--debug` is set. XR fn: depends on the composition. Centralizing in the kernel forces one policy; making it a Module field + helper layer lets each frontend express its own policy. Also aligns with catalog 015's eight-slot Module shape.
+**Rationale.** Debug overlays are policy. Operator: never in production. CLI: always when `--debug` is set. XR fn: depends on the composition. Centralizing in the kernel forces one policy; making it a Module field + helper layer lets each frontend express its own policy. Also aligns with enhancement 005's eight-slot Module shape.
 
 **Alternatives considered.**
 

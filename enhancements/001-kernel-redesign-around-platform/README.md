@@ -8,9 +8,9 @@
 
 ## Summary
 
-Restructures the OPM kernel into a self-contained reference runtime that the CLI, `opm-operator`, and the planned Crossplane composition function can all embed without divergence. The kernel becomes a `Kernel` struct that owns its `cue.Context`, exposes phase-explicit methods (`Validate`, `Match`, `Plan`, `Compile`), accepts a uniform `(APIVersion, Metadata, Package)` shape across every OPM artifact type, takes a single pre-unified values `cue.Value` instead of a slice, and matches against the new `#Platform` construct (catalog enhancement 014) instead of the retired `#Provider`. Loading, layering, and composition move into opt-in helper packages under `pkg/helper/`. Tier-1 source-positioned validation lives in helpers; the kernel keeps a Tier-2 correctness safety net.
+Restructures the OPM kernel into a self-contained reference runtime that the CLI, `opm-operator`, and the planned Crossplane composition function can all embed without divergence. The kernel becomes a `Kernel` struct that owns its `cue.Context`, exposes phase-explicit methods (`Validate`, `Match`, `Plan`, `Compile`), accepts a uniform `(APIVersion, Metadata, Package)` shape across every OPM artifact type, takes a single pre-unified values `cue.Value` instead of a slice, and matches against the new `#Platform` construct (enhancement 003) instead of the retired `#Provider`. Loading, layering, and composition move into opt-in helper packages under `pkg/helper/`. Tier-1 source-positioned validation lives in helpers; the kernel keeps a Tier-2 correctness safety net.
 
-`#Claim` (catalog enhancement 015) is intentionally deferred — the matcher rewrite covers Resources/Traits only in this design package; Claims fold in once 015 lands in the catalog.
+`#Claim` (enhancement 005) is intentionally deferred — the matcher rewrite covers Resources/Traits only in this design package; Claims fold in once 005 stabilizes.
 
 This enhancement does not itself land code. It is the umbrella reference for a sequence of small, independently shippable OpenSpec changes (slices). Each slice has its own proposal, design, and tasks under `openspec/changes/`. This document lists them and tracks dependencies so the work stays coherent.
 
@@ -45,13 +45,13 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 - [x] `01-problem.md` — Multi-frontend embedding requirements; failure modes of current shape
 - [x] `02-design.md` — Cross-cutting design + slice dependency graph
 - [x] `03-decisions.md` — Numbered decisions D1–D10
-- [ ] `NN-schema.md` — Deferred. No CUE schema changes in the kernel repo; schema work is in `catalog/enhancements/014-platform-construct/` and `015-claims/`
+- [ ] `NN-schema.md` — Deferred. No CUE schema changes in the kernel repo; schema work is in `library/enhancements/003-platform-construct/` and `005-claims/`
 - [ ] `NN-pipeline-changes.md` — Deferred. Per-slice `design.md` files capture pipeline changes for that slice
 - [ ] `NN-notes.md` — Deferred. Open questions captured per-slice or in this README's open-questions footer
 
 ## Open Questions
 
-- **OQ1 — `Resolve` collision.** 015 introduces a `#resolution` writeback channel for Claims. The Kernel public method `Resolve` (if introduced later) would collide. Once Claim support lands in the kernel, choose a different verb for the writeback surface (current candidate: leave it as a `Resolution map[string]cue.Value` field on `CompileResult`, no method named Resolve).
+- **OQ1 — `Resolve` collision.** Enhancement 005 introduces a `#resolution` writeback channel for Claims. The Kernel public method `Resolve` (if introduced later) would collide. Once Claim support lands in the kernel, choose a different verb for the writeback surface (current candidate: leave it as a `Resolution map[string]cue.Value` field on `CompileResult`, no method named Resolve).
 - **OQ2 — `Plan` semantics.** Resolved in slice 06 as "Compile with the rendered slice dropped." Plan delegates to Compile internally and copies `MatchPlan`, `Components`, `Unmatched`, `Ambiguous`, and `Warnings` into a `*PlanResult` — no separate execution path. This pins Plan and Compile to one pipeline, so any error a future Compile would surface (transformer evaluation, finalization) also surfaces at Plan time. The cost is that Plan is no cheaper than Compile; if a frontend later needs a faster preview, Plan can grow a stop-after-match flag without changing its return type.
 - **OQ3 — Concurrent `Kernel` reuse.** The `Kernel` struct holds a `cue.Context` and is documented as goroutine-unsafe across compile calls. Operator workers should construct one Kernel per goroutine. If real-world operator throughput proves this expensive, consider a `KernelPool` helper later — not in scope for any current slice.
 
@@ -61,9 +61,9 @@ Each slice is an independent OpenSpec change at `openspec/changes/<slice-name>/`
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `library/CONSTITUTION.md`                                                               | Kernel constitutional principles (Kernel Neutrality, Type Safety, Separation of Concerns, Stable Contracts, CUE-Native Resolution, SemVer, YAGNI, Small Batch) |
 | `library/openspec/changes/add-multi-apiversion-support/`                                | In-flight prerequisite — version binding interface every slice assumes                                                                                         |
-| `catalog/enhancements/014-platform-construct/`                                          | Source-of-truth design for `#Platform`, `#PlatformMatch`, `#ComponentTransformer`, `#TransformerMap`, `#registry`, `#matchers`                                 |
-| `catalog/enhancements/015-claims/`                                                      | Source-of-truth design for `#Claim`, `#ModuleTransformer`, `#defines.claims`, `#resolution` writeback (deferred in kernel until catalog lands)                 |
-| `catalog/enhancements/016-module-context/`                                              | `#ctx` / `#PlatformContext` / `#ModuleContext` / `#ContextBuilder` — relevant when slice 09 wires per-deploy context injection                                 |
+| `library/enhancements/003-platform-construct/`                                          | Source-of-truth design for `#Platform`, `#PlatformMatch`, `#ComponentTransformer`, `#TransformerMap`, `#registry`, `#matchers`                                 |
+| `library/enhancements/005-claims/`                                                      | Source-of-truth design for `#Claim`, `#ModuleTransformer`, `#defines.claims`, `#resolution` writeback (deferred in kernel until schema lands)                  |
+| `library/enhancements/004-module-context/`                                              | `#ctx` / `#PlatformContext` / `#ModuleContext` / `#ContextBuilder` — relevant when slice 09 wires per-deploy context injection                                 |
 | `cli/`                                                                                  | Downstream consumer — one-shot CLI embedding the kernel                                                                                                        |
 | `opm-operator/`                                                                         | Downstream consumer — Kubernetes controller embedding the kernel                                                                                               |
 

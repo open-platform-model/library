@@ -116,7 +116,7 @@ The kernel reads field paths within `Package` through the version-binding (`pkg/
         - Surface unmatched / ambiguous; matched produces (component, transformer)
           pairs.
       (Slice 09 implements this in Go, mirroring the CUE shape from
-       catalog 014's #PlatformMatch. Claim demand deferred to a later slice.)
+       enhancement 003's #PlatformMatch. Claim demand deferred to a later slice.)
         │
         ▼
    5. For each matched (component, transformer):
@@ -223,7 +223,7 @@ Slices 03 and 04 can land at any time. Slices 01 and 02 are the foundation for e
 - **Each slice is independently reviewable.** The largest slice (09) touches `pkg/render/match.go` and the matching contract; the smallest (03) deletes a single construct. Reviewers can engage at the depth a slice deserves.
 - **Cross-slice dependencies are explicit, not implicit.** The graph above lets us land slices in parallel where possible. 03 and 04 do not block 01 or 02.
 - **The risky slice is gated.** Slice 09 is the matcher rewrite. By the time it lands, 02 and 08 have already established the artifact shape and the Platform type, so 09 is purely about matching logic — not types.
-- **`#Claim` does not appear in any slice.** Until catalog 015 stabilizes, the kernel matches Resources/Traits only. When 015 lands, a follow-up enhancement (`002-claims-in-kernel` or similar) adds Claim demand walking, `#ModuleTransformer` execution, and `#resolution` writeback.
+- **`#Claim` does not appear in any slice.** Until enhancement 005 stabilizes, the kernel matches Resources/Traits only. When 005 lands, a follow-up enhancement (`006-claims-in-kernel` or similar) adds Claim demand walking, `#ModuleTransformer` execution, and `#resolution` writeback.
 
 ## Open design questions deferred to slice authoring
 
