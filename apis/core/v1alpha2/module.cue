@@ -32,7 +32,7 @@ import (
 		}
 		annotations: {
 			// Standard annotations for module metadata
-			"module.opmodel.dev/defaultNamespace"?: string
+			"module.opmodel.dev/default-namespace"?: string
 		}
 	}
 

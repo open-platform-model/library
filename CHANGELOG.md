@@ -615,7 +615,7 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 - `apis/core/v1alpha2/embed.go` — embedded CUE source filesystem for offline schema validation.
 - `module.Module.APIVersion`, `module.Release.APIVersion`, `provider.Provider.APIVersion` — populated by the loader at load time.
 - `*module.Release` accessor methods (`ReleaseName`, `Namespace`, `ReleaseUUID`, `ModuleFQN`, `ModuleVersion`, `Labels`, `Annotations`) — make `*Release` satisfy `api.ReleaseView` for binding-driven context injection.
-- `opm/api/v1alpha2.AnnotationDefaultNamespace` constant (`"module.opmodel.dev/defaultNamespace"`) — discoverable key for the v1alpha2 default-namespace annotation. See ADR-001.
+- `opm/api/v1alpha2.AnnotationDefaultNamespace` constant (`"module.opmodel.dev/default-namespace"`) — discoverable key for the v1alpha2 default-namespace annotation. See ADR-001.
 
 ### Changed
 

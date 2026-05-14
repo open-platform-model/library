@@ -83,7 +83,7 @@
 
 - [x] 11.1 Remove `DefaultNamespace` field from `opm/api/api.go` `ModuleMetadata`.
 - [x] 11.2 Remove `DefaultNamespace` field from `opm/module/module.go` `ModuleMetadata`.
-- [x] 11.3 Add `opm/api/v1alpha2/consts.go` exporting `AnnotationDefaultNamespace = "module.opmodel.dev/defaultNamespace"` per ADR-001.
+- [x] 11.3 Add `opm/api/v1alpha2/consts.go` exporting `AnnotationDefaultNamespace = "module.opmodel.dev/default-namespace"` per ADR-001.
 - [x] 11.4 Flip `adr/001-module-default-namespace-as-annotation.md` status `Proposed` → `Accepted`.
 
 ### 12. Drop `ComponentBlueprints` path
