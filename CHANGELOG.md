@@ -4,6 +4,40 @@ All notable changes to this library are documented here. The library follows [Se
 
 ## Unreleased — next MAJOR
 
+### Added — `replace-load-platform-file-with-package`
+
+- `opm/helper/loader/file.LoadPlatformPackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
+  package-loader counterpart to `LoadModulePackage` and
+  `LoadReleasePackage`. Loads every `.cue` file in `dirPath` that shares
+  the CUE package into a single instance, detects the apiVersion, and
+  returns the unified `cue.Value`. The platform is identified by its CUE
+  package clause, not a `platform.cue` filename, so a platform may now
+  span multiple files.
+- `(*kernel.Kernel).LoadPlatformPackage(ctx, dirPath, opts)` — kernel
+  wrapper mirroring `LoadModulePackage` and `LoadReleasePackage`.
+
+### Removed — `replace-load-platform-file-with-package` (BREAKING)
+
+- `loaderfile.LoadPlatformFile` and `(*kernel.Kernel).LoadPlatformFile`
+  deleted, along with the file-path / `platform.cue`-filename affordance.
+  Migration: pass the platform **directory** to `LoadPlatformPackage`
+  instead of a single `.cue` file; the second return value is now the
+  detected `apiversion.Version` instead of the resolution directory
+  string. A directory containing one `platform.cue` is still a valid CUE
+  package, so the fixture layout that worked before continues to work.
+
+### Migration recipes — `replace-load-platform-file-with-package`
+
+```text
+OLD                                                    NEW
+────────────────────────────────────────────────────────────────────────────────────
+k.LoadPlatformFile(ctx, "platform.cue", opts)          k.LoadPlatformPackage(ctx, dir, opts)
+                                                       // pass the directory; 2nd return is now
+                                                       // apiversion.Version, not the parent dir
+
+loaderfile.LoadPlatformFile(cueCtx, path, opts)        loaderfile.LoadPlatformPackage(cueCtx, dir, opts)
+```
+
 ### Added — `unify-loaders-as-packages`
 
 - `opm/helper/loader/file.LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —

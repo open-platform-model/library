@@ -46,7 +46,7 @@ func TestFlow_WebApp_SynthPath_OnOpmPlatform(t *testing.T) {
 	k := synthKernel
 	ctx := context.Background()
 
-	platVal, _, err := k.LoadPlatformFile(ctx, platformDir, loader.LoadOptions{Registry: registry})
+	platVal, _, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
 	require.NoErrorf(t, err, "loading platform from %s", platformDir)
 
 	plat, err := k.NewPlatformFromValue(platVal)

@@ -70,7 +70,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	ctx := context.Background()
 
 	// ── Load the platform ────────────────────────────────────────────
-	platVal, _, err := k.LoadPlatformFile(ctx, platformDir, loader.LoadOptions{Registry: registry})
+	platVal, _, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
 	require.NoErrorf(t, err, "loading platform from %s", platformDir)
 
 	plat, err := k.NewPlatformFromValue(platVal)

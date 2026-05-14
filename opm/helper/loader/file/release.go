@@ -12,7 +12,7 @@ import (
 )
 
 // LoadOptions configures package-loader behavior shared by LoadModulePackage,
-// LoadReleasePackage, and LoadPlatformFile.
+// LoadReleasePackage, and LoadPlatformPackage.
 type LoadOptions struct {
 	// Registry overrides the CUE_REGISTRY value used while loading. Empty
 	// means use the current process environment.

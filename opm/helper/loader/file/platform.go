@@ -7,75 +7,62 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
+
+	"github.com/open-platform-model/library/opm/apiversion"
 )
 
-// LoadPlatformFile loads a #Platform from a standalone .cue file (or from a
-// directory containing platform.cue). CUE imports are resolved via
-// load.Instances() using the file's parent directory for cue.mod resolution.
+// LoadPlatformPackage loads a #Platform CUE package from a directory and
+// returns the raw cue.Value plus the detected apiVersion. Mirrors
+// LoadModulePackage and LoadReleasePackage: every .cue file in dirPath that
+// shares the package is unified into a single instance, so the platform is
+// identified by its CUE package clause rather than a platform.cue filename.
 //
-// Returns the evaluated CUE value and the directory used for CUE resolution.
-// apiVersion validation and binding resolution happen in
-// platform.NewPlatformFromValue; this function is the I/O substrate only.
+// LoadOptions.Registry, when non-empty, is applied via load.Config.Env so
+// the platform's transitive imports resolve from the override registry
+// without mutating process state.
 //
-// The recommended entry point is Kernel.LoadPlatformFile, which owns its
+// An unrecognised or missing apiVersion produces an error wrapping
+// apiversion.ErrUnknownAPIVersion.
+//
+// The recommended entry point is Kernel.LoadPlatformPackage, which owns its
 // [*cue.Context] and threads cross-cutting dependencies through every
 // operation. Call this function directly only if you are not using a
 // Kernel.
-func LoadPlatformFile(ctx *cue.Context, path string, opts LoadOptions) (cue.Value, string, error) {
-	resolved, err := resolvePlatformFile(path)
+func LoadPlatformPackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, apiversion.Version, error) {
+	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
-		return cue.Value{}, "", err
+		return cue.Value{}, "", fmt.Errorf("resolving platform directory: %w", err)
 	}
 
-	absPath, err := filepath.Abs(resolved)
+	info, err := os.Stat(absDir)
 	if err != nil {
-		return cue.Value{}, "", fmt.Errorf("resolving platform file path: %w", err)
+		return cue.Value{}, "", fmt.Errorf("accessing platform directory %q: %w", absDir, err)
 	}
-
-	parentDir := filepath.Dir(absPath)
+	if !info.IsDir() {
+		return cue.Value{}, "", fmt.Errorf("platform path %q is not a directory", absDir)
+	}
 
 	cfg := &load.Config{
-		Dir: parentDir,
+		Dir: absDir,
 		Env: registryEnv(opts.Registry),
 	}
-	instances := load.Instances([]string{filepath.Base(absPath)}, cfg)
+	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) == 0 {
-		return cue.Value{}, "", fmt.Errorf("no CUE instances found for %s", absPath)
+		return cue.Value{}, "", fmt.Errorf("no CUE instances found in %s", absDir)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, "", fmt.Errorf("loading platform file: %w", instances[0].Err)
+		return cue.Value{}, "", fmt.Errorf("loading platform package from %s: %w", absDir, instances[0].Err)
 	}
 
 	val := ctx.BuildInstance(instances[0])
 	if err := val.Err(); err != nil {
-		return cue.Value{}, "", fmt.Errorf("building platform file: %w", err)
+		return cue.Value{}, "", fmt.Errorf("building platform package from %s: %w", absDir, err)
 	}
 
-	return val, parentDir, nil
-}
-
-// resolvePlatformFile resolves either a platform directory (containing
-// platform.cue) or a direct file path. Mirrors resolveReleaseFile.
-func resolvePlatformFile(path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("platform path must not be empty")
-	}
-	info, err := os.Stat(path)
+	ver, err := apiversion.Detect(val)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("platform path %q not found", path)
-		}
-		return "", fmt.Errorf("stat platform path: %w", err)
+		return cue.Value{}, "", fmt.Errorf("detecting apiVersion in %s: %w", absDir, err)
 	}
-	if info.IsDir() {
-		platformPath := filepath.Join(path, "platform.cue")
-		if _, err := os.Stat(platformPath); err != nil {
-			if os.IsNotExist(err) {
-				return "", fmt.Errorf("platform path %q does not contain platform.cue", path)
-			}
-			return "", fmt.Errorf("stat platform file: %w", err)
-		}
-		return platformPath, nil
-	}
-	return path, nil
+
+	return val, ver, nil
 }

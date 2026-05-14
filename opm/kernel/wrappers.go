@@ -24,11 +24,10 @@ func (k *Kernel) LoadReleasePackage(_ context.Context, dirPath string, opts load
 	return loaderfile.LoadReleasePackage(k.cueCtx, dirPath, opts)
 }
 
-// LoadPlatformFile loads a #Platform from a standalone .cue file (or from a
-// directory containing platform.cue) using the kernel's [*cue.Context].
-// See [loaderfile.LoadPlatformFile].
-func (k *Kernel) LoadPlatformFile(_ context.Context, path string, opts loaderfile.LoadOptions) (cue.Value, string, error) {
-	return loaderfile.LoadPlatformFile(k.cueCtx, path, opts)
+// LoadPlatformPackage loads a #Platform CUE package from a directory using
+// the kernel's [*cue.Context]. See [loaderfile.LoadPlatformPackage].
+func (k *Kernel) LoadPlatformPackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, apiversion.Version, error) {
+	return loaderfile.LoadPlatformPackage(k.cueCtx, dirPath, opts)
 }
 
 // NewPlatformFromValue builds a typed [*platform.Platform] from a raw

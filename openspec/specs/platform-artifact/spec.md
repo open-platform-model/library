@@ -36,22 +36,32 @@ The library SHALL expose `func NewPlatformFromValue(k *kernel.Kernel, v cue.Valu
 
 ### Requirement: Platform Loader
 
-The library SHALL expose `LoadPlatformFile(ctx *cue.Context, path string, opts loader.LoadOptions) (cue.Value, string, error)` in `opm/helper/loader/file/`. The function SHALL mirror `LoadReleaseFile` in signature shape and behavior, loading a `.cue` file (or directory containing `platform.cue`) into a `cue.Value`.
+The library SHALL expose `LoadPlatformPackage(ctx *cue.Context, dirPath string, opts loader.LoadOptions) (cue.Value, apiversion.Version, error)` in `opm/helper/loader/file/`. The function SHALL mirror `LoadModulePackage` and `LoadReleasePackage` in signature shape and behavior, resolving `dirPath` as a single CUE package via `cuelang.org/go/cue/load` and returning the built `cue.Value` together with the detected `apiVersion`. The function SHALL NOT accept a single-file path and SHALL NOT depend on a `platform.cue` filename convention; the platform is identified by the CUE `package` clause shared across the directory's files.
 
-#### Scenario: Direct file path
+#### Scenario: Directory loaded as a CUE package
 
-- **WHEN** `LoadPlatformFile(ctx, "/path/to/platform.cue", opts)` is invoked
-- **THEN** the function loads the file via `cuelang.org/go/cue/load`, builds the instance, and returns the `cue.Value`
+- **WHEN** `LoadPlatformPackage(ctx, "/path/to/platform-dir", opts)` is invoked and the directory contains one or more `.cue` files sharing a package that declares a `#Platform`
+- **THEN** the function loads the directory via `load.Instances([]string{"."}, cfg)`, builds the instance, and returns the `cue.Value` and the detected `apiversion.Version`
 
-#### Scenario: Directory containing platform.cue
+#### Scenario: Registry override applied
 
-- **WHEN** the path is a directory
-- **THEN** the function looks for `platform.cue` in that directory and loads it
+- **WHEN** `LoadPlatformPackage(ctx, dir, loader.LoadOptions{Registry: "..."})` is invoked
+- **THEN** the supplied registry override is applied via `load.Config.Env` so the platform's transitive imports resolve from the override registry without mutating process state
+
+#### Scenario: Path is not a directory
+
+- **WHEN** `dirPath` does not exist or is not a directory
+- **THEN** the function returns a non-nil error and an empty `cue.Value`
+
+#### Scenario: Unknown or missing apiVersion
+
+- **WHEN** the loaded platform package has a missing or unrecognised `apiVersion` field
+- **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
 
 #### Scenario: Kernel wrapper exists
 
-- **WHEN** a caller invokes `(k *Kernel) LoadPlatformFile(ctx, path, opts)`
-- **THEN** the result is identical to calling the helper function with `k.CueContext()`
+- **WHEN** a caller invokes `(k *Kernel) LoadPlatformPackage(ctx, dirPath, opts)`
+- **THEN** the result is identical to calling `loaderfile.LoadPlatformPackage` with `k.CueContext()`
 
 ### Requirement: Binding Path Constants for Platform Views
 

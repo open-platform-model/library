@@ -102,7 +102,7 @@ func run(libraryRoot string, want map[stage]bool) error {
 
 	// ── Load platform ───────────────────────────────────────────────
 	platformDir := filepath.Join(libraryRoot, "modules", "opm_platform")
-	platVal, _, err := k.LoadPlatformFile(ctx, platformDir, loaderfile.LoadOptions{Registry: localRegistry})
+	platVal, _, err := k.LoadPlatformPackage(ctx, platformDir, loaderfile.LoadOptions{Registry: localRegistry})
 	if err != nil {
 		return fmt.Errorf("loading platform from %s: %w", platformDir, err)
 	}

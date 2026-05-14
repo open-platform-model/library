@@ -21,10 +21,10 @@ The filesystem-coupled loader SHALL live at `opm/helper/loader/file/`. The packa
 
 - `LoadModulePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#Module`, with registry override via `opts.Registry`.
 - `LoadReleasePackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#ModuleRelease`, with registry override via `opts.Registry`.
-- `LoadPlatformFile(ctx, path, opts) (cue.Value, string, error)` — loads a `#Platform` from a single `.cue` file (or `platform.cue` from a directory).
+- `LoadPlatformPackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` — loads a CUE package from a directory as a `#Platform`, with registry override via `opts.Registry`.
 - `LoadProvider` and any associated types unchanged.
 
-`LoadOptions` SHALL carry the registry override applied to `load.Config.Env`. Both package loaders SHALL accept the same `LoadOptions` value so that a caller can pass identical options through to module and release loads.
+`LoadOptions` SHALL carry the registry override applied to `load.Config.Env`. All three package loaders SHALL accept the same `LoadOptions` value and share the same signature shape so that a caller can pass identical options through to module, release, and platform loads.
 
 #### Scenario: Release package load
 
@@ -33,6 +33,11 @@ The filesystem-coupled loader SHALL live at `opm/helper/loader/file/`. The packa
 - **AND** detects the apiVersion via `apiversion.Detect`
 - **AND** returns the evaluated `cue.Value` and detected `apiversion.Version`
 - **AND** an unrecognised or missing apiVersion wraps `apiversion.ErrUnknownAPIVersion`
+
+#### Scenario: Platform package load
+
+- **WHEN** a caller invokes `loaderfile.LoadPlatformPackage(ctx, "./platform-dir", loaderfile.LoadOptions{Registry: "..."})`
+- **THEN** the function loads every `.cue` file in `./platform-dir` that shares the package as a single CUE package and returns the detected `apiversion.Version`
 
 #### Scenario: Module package load with registry override
 
