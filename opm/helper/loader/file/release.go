@@ -59,8 +59,8 @@ func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue
 		Env: registryEnv(opts.Registry),
 	}
 	instances := load.Instances([]string{"."}, cfg)
-	if len(instances) == 0 {
-		return cue.Value{}, "", fmt.Errorf("no CUE instances found in %s", absDir)
+	if len(instances) != 1 {
+		return cue.Value{}, "", fmt.Errorf("expected exactly one CUE package in %s, found %d: %w", absDir, len(instances), ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
 		return cue.Value{}, "", fmt.Errorf("loading release package from %s: %w", absDir, instances[0].Err)
@@ -74,6 +74,10 @@ func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue
 	ver, err := apiversion.Detect(val)
 	if err != nil {
 		return cue.Value{}, "", fmt.Errorf("detecting apiVersion in %s: %w", absDir, err)
+	}
+
+	if err := shapeGate(val, releaseSpec); err != nil {
+		return cue.Value{}, "", fmt.Errorf("validating release package in %s: %w", absDir, err)
 	}
 
 	return val, ver, nil

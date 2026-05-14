@@ -29,6 +29,11 @@ func TestLoadModulePackage_DetectsV1alpha2(t *testing.T) {
 package mod
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
+metadata: {
+	name:       "demo"
+	modulePath: "example.com/modules"
+	version:    "0.1.0"
+}
 `)
 
 	val, ver, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})

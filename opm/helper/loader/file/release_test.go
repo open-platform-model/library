@@ -33,6 +33,7 @@ metadata: {
 	name: "demo"
 	namespace: "ns"
 }
+#module: {kind: "Module"}
 `)
 
 	val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
@@ -81,6 +82,7 @@ metadata: {
 	name:      "demo"
 	namespace: "ns"
 }
+#module: {kind: "Module"}
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "values.cue"), []byte(`
 package release
@@ -115,6 +117,7 @@ package release
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns" }
+#module: {kind: "Module"}
 `)
 
 	val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{

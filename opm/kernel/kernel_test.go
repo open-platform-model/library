@@ -107,6 +107,11 @@ func TestKernel_LoadModulePackage_Parity(t *testing.T) {
 package mod
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
+metadata: {
+	name:       "demo"
+	modulePath: "example.com/modules"
+	version:    "0.1.0"
+}
 `)
 
 	k := kernel.New()
@@ -131,6 +136,7 @@ metadata: {
 	name: "demo"
 	namespace: "ns"
 }
+#module: {kind: "Module"}
 `)
 
 	k := kernel.New()
@@ -319,6 +325,11 @@ func TestKernel_GoroutineIsolation(t *testing.T) {
 package mod
 apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
+metadata: {
+	name:       "demo"
+	modulePath: "example.com/modules"
+	version:    "0.1.0"
+}
 `)
 
 	var wg sync.WaitGroup
