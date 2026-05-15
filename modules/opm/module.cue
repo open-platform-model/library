@@ -84,5 +84,9 @@ debugValues: {}
 		"opmodel.dev/modules/opm/transformers/serviceaccount-resource-transformer@v1": opm_transformers.#ServiceAccountResourceTransformer
 		"opmodel.dev/modules/opm/transformers/pvc-transformer@v1":                     opm_transformers.#PVCTransformer
 		"opmodel.dev/modules/opm/transformers/crd-transformer@v1":                     opm_transformers.#CRDTransformer
+		"opmodel.dev/modules/opm/transformers/http-route-transformer@v1":              opm_transformers.#HttpRouteTransformer
+		"opmodel.dev/modules/opm/transformers/grpc-route-transformer@v1":              opm_transformers.#GrpcRouteTransformer
+		"opmodel.dev/modules/opm/transformers/tcp-route-transformer@v1":               opm_transformers.#TcpRouteTransformer
+		"opmodel.dev/modules/opm/transformers/tls-route-transformer@v1":               opm_transformers.#TlsRouteTransformer
 	}
 }

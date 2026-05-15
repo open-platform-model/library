@@ -9,6 +9,7 @@ CUE module: `opmodel.dev/core@v1`
 ```
 +-- v1alpha2/
     +-- docs/
+    +-- testdata/
 ```
 
 ---
