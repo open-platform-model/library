@@ -3,11 +3,11 @@
 # Checksum covers .cue files excluding cue.mod/ — used by publish:smart.
 # Modules are auto-discovered from */cue.mod/module.cue under this directory.
 apis/core:
-  version: v1.0.5
-  checksum: 995a876eaede33080014d3d487c7a3ad9289ac0ab7e07385ea8fc367e1119e68
-modules/opm:
   version: v1.0.6
-  checksum: e21738b67e466da0f4fbf81ed7f539c4471ad5b3646c4e60db7ce0d9e5b87f3c
+  checksum: 77e8f79f2fe9ee6b60df9cd1779a7d9bf7c71d19012ab1a038bb670f20d35043
+modules/opm:
+  version: v1.0.7
+  checksum: d0e120ab5fbefc110a0f4322fb1dfed64a9a9222c7bf471aed6c3e7a9d347ffe
 modules/opm_platform:
   version: v1.0.0
   checksum: ef024cda348b6c15aaf17ccf21243a65cb5a3d43db8eb08c50b2b3005b04f978

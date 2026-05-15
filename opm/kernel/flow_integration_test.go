@@ -178,6 +178,9 @@ metadata: {
 		assertContainsFQN(t, webMatched,
 			"opmodel.dev/modules/opm/transformers/service-transformer@v1",
 			"web should also match service-transformer (Expose trait)")
+		assertContainsFQN(t, webMatched,
+			"opmodel.dev/modules/opm/transformers/http-route-transformer@v1",
+			"web should also match http-route-transformer (HttpRoute trait)")
 
 		// config component carries a ConfigMaps resource → pairs with the
 		// configmap-transformer. Exercises the list-output renderer path
@@ -188,14 +191,11 @@ metadata: {
 			"opmodel.dev/modules/opm/transformers/configmap-transformer@v1",
 			"config should match configmap-transformer (ConfigMaps resource)")
 
-		// http-route trait has no transformer registered in opm — should
-		// surface as an unhandled-trait warning. Keeps the unhandled path
-		// covered by the integration suite.
-		unhandled := plan.UnhandledTraits["web"]
-		assert.Contains(t, unhandled,
+		// Every trait on the web_app fixture has a registered transformer; no
+		// unhandled-trait advisories expected.
+		assert.NotContains(t, plan.UnhandledTraits["web"],
 			"opmodel.dev/modules/opm/traits/http-route@v1",
-			"http-route should be reported as unhandled (no registered transformer)")
-
+			"http-route should match http-route-transformer (not unhandled)")
 	})
 
 	// ── Phase 2: Plan ────────────────────────────────────────────────
@@ -234,10 +234,11 @@ metadata: {
 		assert.Contains(t, configSummary.ResourceFQNs,
 			"opmodel.dev/modules/opm/resources/config-maps@v1")
 
-		// At least one warning — the http-route unhandled-trait advisory.
+		// No http-route advisory expected — the http-route-transformer
+		// handles the trait, so it should not appear in plan warnings.
 		joinedWarnings := strings.Join(planResult.Warnings, "\n")
-		assert.Contains(t, joinedWarnings, "http-route@v1",
-			"plan warnings should mention the unhandled http-route trait")
+		assert.NotContains(t, joinedWarnings, "http-route@v1",
+			"plan warnings should not mention http-route — it is now handled")
 	})
 
 	// ── Phase 3: Compile ─────────────────────────────────────────────

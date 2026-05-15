@@ -86,6 +86,8 @@ This enhancement is the successor to 004's `#ctx.platform` extension layer; 004 
 
 **Source:** Design discussion 2026-05-15; 004 D7, D14.
 
+**Experimental revision (2026-05-15, [exp 02 F1](../006-platform-capabilities/experiments/02-read-portability-fillpath/README.md#f1--contextbuilder-cannot-be-invoked-inside-modulerelease-revises-d5)):** the matching *algorithm* lives in `#ContextBuilder` CUE-side, as decided. What changes: the CB call **cannot be invoked from inside `#ModuleRelease`** — `_builderOut = CB(#module.#consumes)` plus `#module.#consumes = _builderOut.consumes` is a fixed-point cycle that CUE 0.16.1 does not solve (both default and `CUE_EXPERIMENT=evalv3=1`). The viable shape is: the kernel/runtime invokes `#ContextBuilder` at **top level** (one-shot call with concrete `#module.#consumes` and `#Platform.#provides` inputs) and `FillPath`s the matched entries into `#module.#consumes` before evaluating the release. The "no Go pipeline change" claim is therefore wrong — there is a small Go-side orchestration (load → top-level CB → FillPath matched entries + FillPath `#platform` → evaluate). Experiment 01 confirms the matcher's *logic* is correct (outcome matrix passes); experiment 02 shows the *placement* must move out of `#ModuleRelease`'s body.
+
 ---
 
 ### D6: Missing required capability surfaces as an incomplete `spec!`
@@ -103,6 +105,8 @@ This enhancement is the successor to 004's `#ctx.platform` extension layer; 004 
 
 **Source:** Design discussion 2026-05-14.
 
+**Experimental confirmation (2026-05-15, [exp 01](../006-platform-capabilities/experiments/01-matcher-mechanics/README.md)):** the matcher in isolation produces exactly this diagnostic — `out.consumes.required."opmodel.dev/.../route@v1".spec.domain: incomplete value =~"…"`. Precise, FQN-named, actionable. **End-to-end caveat ([exp 02 F4](../006-platform-capabilities/experiments/02-read-portability-fillpath/README.md#f4--unbound-release-diagnostic-is-actionable-but-suboptimal)):** under the kernel-orchestrated writeback model (see D5 experimental revision), the unbound-release diagnostic surfaces at the *component-body interpolation site* rather than at the `#consumes.required[fqn].spec` path — still actionable but pointing at the symptom (a non-concrete interpolation) instead of the cause (the missing provider). A clean release-time diagnostic ("platform X does not satisfy module Y's required capability Z") would come from a kernel-side pre-check before CUE evaluation.
+
 ---
 
 ### D7: `#consumes` is both declaration and resolved read surface
@@ -119,6 +123,8 @@ This enhancement is the successor to 004's `#ctx.platform` extension layer; 004 
 **Supersedes:** an earlier draft of D7 that kept `#consumes` as pure declaration with `#ctx.capabilities` as the read surface (since reversed).
 
 **Source:** User decision 2026-05-15 (drop `#ctx.capabilities`); precedent `#Component.#resources`.
+
+**Experimental revision (2026-05-15, [exp 02 F1](../006-platform-capabilities/experiments/02-read-portability-fillpath/README.md#f1--contextbuilder-cannot-be-invoked-inside-modulerelease-revises-d5)):** the read-surface pattern works (claim 1 in exp 02 confirms `value: "jellyfin.apps.example.com"` resolves through the lexical `#consumes.required[fqn].spec.domain` reference). What was wrong in the original D7 framing: "`#ContextBuilder` unifies provider specs back into `#consumes`" via an inline CB call inside `#ModuleRelease`. The actual writeback path is kernel-driven `FillPath` from outside, not an in-CUE unify-back from inside the release. The end result for the module author is identical (read straight from `#consumes`); the mechanism filling the values differs. The `#Component.#resources` precedent still holds — that pattern works because resource specs are supplied *directly* by the author, not derived from a self-referential function call. `#consumes` works the same way once we accept that the kernel is the supplier.
 
 ---
 
@@ -150,6 +156,8 @@ This enhancement is the successor to 004's `#ctx.platform` extension layer; 004 
 **Rationale:** Non-optional pattern fields default to empty structs, which iterate to nothing — no guard needed in the builder. This matches how `#Module.#components` (`module.cue:40`) is declared. The cost is that the fields always appear; since they are all `#`-prefixed definition fields, they are excluded from `cue export` output anyway.
 
 **Source:** Design discussion 2026-05-14; 004 D33.
+
+**Experimental confirmation (2026-05-15, [exp 01](../006-platform-capabilities/experiments/01-matcher-mechanics/README.md)):** cases 02-required-missing and 05-optional-missing both pass through the `_matched` comprehension with `#provides: {}` and no guard is needed. The non-optional empty-`{}` pattern iterates cleanly under CUE 0.16.1.
 
 ---
 
@@ -216,6 +224,12 @@ This enhancement is the successor to 004's `#ctx.platform` extension layer; 004 
 
 **Source:** User decision 2026-05-15 (kernel-populated `#platform` field; drop `#Environment`).
 
+**Experimental confirmation + revision (2026-05-15, [exp 02 F1+F2+F3](../006-platform-capabilities/experiments/02-read-portability-fillpath/README.md)):**
+
+- **Confirmed (F2):** `#`-prefix exclusion works. `cue export` on a bound release emits only `apiVersion`, `kind`, `metadata`, `values`, `components`. No `#platform`, no `#module`, no `#consumes` leak.
+- **Confirmed (F3):** `cue.Value.FillPath` against `#`-prefixed paths (`cue.MakePath(cue.Def("#platform"))`, `cue.MakePath(cue.Def("#module"), cue.Def("#consumes"), cue.Str("required"), cue.Str(fqn))`) works as specified. The Go harness `cmd/fillpath/main.go` ships ~50 LoC that does the full FillPath dance and resolves the component-body interpolation to the expected concrete value.
+- **Revised (F1):** the kernel's responsibility expands modestly from "fill `#platform`" to "(a) invoke `#ContextBuilder` at top level to compute matched `#consumes`, (b) FillPath each matched entry into `#module.#consumes`, (c) FillPath `#platform` onto the release". The "one builder call, one unify-back step" framing in D13's rationale needs rewriting — the builder call moves out of `#ModuleRelease`'s body and into the kernel's orchestration. The release schema itself carries no CB invocation. Inline-CB-in-release plus unify-back is a self-referential evaluation cycle CUE does not solve.
+
 ---
 
 ## Open Questions
@@ -256,3 +270,5 @@ D4 establishes a single `#Platform.#provides` source. Per-platform variation is 
 ```
 
 This works today, no construct needed. The OQ is whether to **formalize** it: a `#extends: #Platform` metadata field so tooling can show "kind-dev inherits from kind-base" without reverse-engineering the unification chain; a `#PlatformInheritance` helper that documents and validates the pattern; registry-level inheritance discovery. **Why this matters:** as ecosystems grow many environment-specialized platforms, the implicit unification chain becomes hard to audit and the structural relationship is invisible to docs/tooling. **Revisit trigger:** first concrete case where a platform team has more than ~3 environment-specialized platforms and wants tooling to surface the inheritance graph; or when a second mechanism for "platform variation" is proposed (at which point the formalized inheritance is the obvious comparison point).
+
+**Experimental confirmation (2026-05-15, [exp 01 case 06](../006-platform-capabilities/experiments/01-matcher-mechanics/README.md)):** `#KindDev: #KindBase & {#provides: {…}}` works as plain CUE unification. Base provisions are inherited, dev provisions extend or override. One caveat to document if `#extends` is formalized: derived platforms cannot override a base-pinned literal — base must use `*default | _` for any field the derived platform may set (the example: `metadata: name: *"kind-base" | _`). Idiomatic CUE; no design change needed, just a small piece of guidance.

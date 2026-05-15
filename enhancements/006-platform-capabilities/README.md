@@ -60,5 +60,6 @@ The `#Environment` construct is **not** reintroduced in this enhancement (it was
 ## Applicability Checklist
 
 - [x] `03-schema.md` — New CUE definitions for `#Capability`, `#consumes`, `#provides`, kernel-populated `#platform`, and the `#ContextBuilder` extension
-- [ ] `NN-pipeline-changes.md` — Go pipeline modifications (none anticipated; matching is CUE-side; runtime fills `#ModuleRelease.#platform` at apply via `FillPath`)
+- [ ] `NN-pipeline-changes.md` — Go pipeline modifications. **Status revised by [experiments/02 finding F1](experiments/02-read-portability-fillpath/README.md#f1--contextbuilder-cannot-be-invoked-inside-modulerelease-revises-d5):** the runtime must orchestrate the `#ContextBuilder` call at top level and `FillPath` the matched `#consumes` entries (not just `#platform`). Small Go surface, but no longer "none anticipated".
 - [ ] `NN-module-integration.md` — Module-author migration of `#ctx.platform`-style reads onto `#consumes` (deferred to a follow-up)
+- [x] `experiments/` — Two experiments concluded 2026-05-15. [01-matcher-mechanics](experiments/01-matcher-mechanics/README.md) validates the outcome matrix and OQ6 inheritance. [02-read-portability-fillpath](experiments/02-read-portability-fillpath/README.md) validates D7 read surface, D13 `#`-prefix exclusion + FillPath, and surfaces F1 (the in-CUE inline-CB-then-unify-back chain cannot be evaluated due to a fixed-point cycle).
