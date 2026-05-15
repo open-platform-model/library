@@ -464,6 +464,34 @@ When inlining a `#Module & {...}` or `#Component & {...}` **literal** outside it
 
 ---
 
+### D36: 004 slimmed to identity-only `#ctx.runtime`; `#Environment`, layering, and the platform layer all extracted to enhancement 006
+
+**Decision:** 004 is slimmed to an identity-only context system. `#ctx` has one layer, `#ctx.runtime`, carrying exactly three groups of fields: `release` identity, `module` identity, and per-component `components: [name]: #ComponentNames`. Every field is derived from the release and the module alone — `#ContextBuilder` takes only `#release`, `#module`, and `#components`, with no platform or environment inputs.
+
+Removed from 004 and re-designed in enhancement 006 (Platform Capabilities):
+
+- The `#ctx.platform` extension layer (the open struct platform teams populated with storage classes, backup backends, TLS issuers, gateways, app domains) → 006's typed `#Capability` model (`#Capability`, `#Platform.#provides`, `#Module.#consumes`). Module bodies read matched capability values straight from `#consumes` itself; 006 does **not** introduce a `#ctx.capabilities` layer (006 D7/D8). `#ModuleContext` therefore stays single-layer — 006 does not touch `context.cue`.
+- `#RuntimeContext.cluster` and `#RuntimeContext.route` → 006 OQ1 (deferred). `dns.fqdn` still needs a cluster domain; 004 self-defaults `_clusterDomain` to `"cluster.local"` inside `#ComponentNames` with no override path.
+- The `#Environment` construct, `#PlatformContext`, `#EnvironmentContext`, and the layered Platform → Environment → Release hierarchy. **006 does not reintroduce `#Environment`.** Per-platform variation is handled by CUE unification of `#Platform` values (`#KindDev: #KindBase & {#provides: {...}}`); whether to formalize the inheritance pattern is 006 OQ6.
+
+`#ModuleRelease` does not gain an `#env` field. 006 adds a single `#`-prefixed `#platform: #Platform` field — kernel-populated, not author-set, mirroring `#TransformerContext.#runtimeName!` (006 D13).
+
+**Supersedes:** D3 (two-layer `runtime` + `platform` structure — 004 is single-layer; 006 keeps it that way), D4 (`platform` flat open struct), D8 (default `clusterDomain` located at `#PlatformContext.runtime.cluster.domain` — the default now lives inside `#ComponentNames`; `#PlatformContext` is gone from 004), D9 (`route?` optionality — `route` is removed from 004 entirely), D19 (`#PlatformContext` shares the `#ctx` two-layer shape — `#PlatformContext` is gone from 004), D21 (`#Environment` is a new construct — neither 004 nor 006 owns one), D24 (Platform → Environment → Release layered hierarchy — there is no layering in 004 *or* in 006, where `#Platform.#provides` is the single source), D27 (`#Environment` included in 004 — it is not), D28 (`#ctx.platform` extensions unconstrained), D33 (`#ContextBuilder` cluster-domain conditional-struct resolution — there is no cluster-domain resolution in 004). Resolves OQ3 (platform-extension namespacing — 006 makes it structural via FQNs).
+
+**Still in force:** D32 (per-component `#names` injection), D34 (`#config: values` unified before the builder reads `#components`), D35 (authoring-time lexical scope for `#ctx` / `#names`) — all unaffected by the slim; the `#ComponentNames` cascade, the `#names` injection, and the three-step `#ModuleRelease` flow are 004's surviving core.
+
+**Alternatives considered:**
+
+- Keep `cluster`, `route`, and `#Environment` in 004; extract only the `#ctx.platform` open struct. Rejected: the `cluster.domain` override and `route` both require environment input, and the `#Environment` construct is their natural home — leaving them in 004 keeps a half-built layered hierarchy in an enhancement whose point is now identity-only. Moving the whole environment-shaped surface out lets 004 be a clean, self-contained base.
+- Have 006 reintroduce `#Environment` as the capability-provider node. Considered (was the plan in an earlier iteration of 006), then rejected (006 D13 alternatives) in favour of a kernel-populated `#platform: #Platform` field on `#ModuleRelease` — one fewer construct, same wiring, per-platform variation handled via CUE unification of `#Platform` values.
+- Fold the capability model into 004. Rejected: 004 is deliberately small-batch (Constitution IX); the capability mechanism is a construct-sized addition with its own reviewers and landing window. Splitting mirrors D26's reasoning for the 003/004/005 split.
+
+**Rationale:** Slimming 004 to identity-only gives the catalog a minimal, independently landable base — "compute per-component names and surface release/module identity, with zero external inputs." Everything that needs a platform input (capability values, future cluster-domain override, future route domain) lands in 006, which routes the platform binding through a kernel-populated field on `#ModuleRelease` and matches `#consumes` against `#Platform.#provides` in the existing `#ContextBuilder`. The capability model resolves the exact tension D28 was stuck on — schema, validation, and discovery for platform extensions *without* a monolithic central schema, because each capability is independently FQN-versioned (the `#Resource` / `#Trait` pattern).
+
+**Source:** User decisions 2026-05-14 (slim 004 to `#RuntimeContext` = release/module/components; remove `#PlatformContext`, `#EnvironmentContext`, `#Environment`) and 2026-05-15 (006 drops `#Environment`; kernel-populated `#platform` on `#ModuleRelease`; no `#ctx.capabilities`).
+
+---
+
 ## Open Questions
 
 ### OQ1 — `#TransformerContext` and `#ctx` overlap
@@ -477,6 +505,8 @@ D20 defers cross-module references. **Why this matters:** platform teams composi
 ### OQ3 — `platform` extension namespacing
 
 D4 leaves the `platform` open struct flat. As more platform teams adopt `#ctx.platform`, uncoordinated key growth may require a namespacing convention (e.g. `platform: { myorg: { ... } }`) or a typed extension registry. **Revisit trigger:** first concrete collision between two platform teams' extensions.
+
+**Resolved (2026-05-15):** Superseded by D36. The `platform` open struct is extracted to enhancement 006 (Platform Capabilities); FQN-identified `#Capability` definitions make namespacing structural rather than conventional. (Discovery — "what does this platform provide?" — reads `#Platform.#provides` directly; an explicit `#knownCapabilities` view was considered but dropped with `#Environment` itself.)
 
 ### OQ4 — Reintroducing the content-hash channel
 
