@@ -306,6 +306,54 @@ if !ok { return errors.New("workflow not declared by module") }
 rt.RunAction(ctx, inv)
 ```
 
+## Driving Lifecycle Phases
+
+`CompileResult.Lifecycle` is a phase-keyed map: it answers *what is declared*, deterministically. `compile.CanonicalOrder()` (slice 09) answers *in what order* — but only as a flat `[]LifecyclePhase`. Between those two and a working `opm install` / reconcile loop sits a layer this enhancement has not yet specified: the **driver**.
+
+The driver answers three questions `CanonicalOrder()` does not:
+
+- **Trajectory.** An install walks `preInstall → install → postInstall`; an upgrade walks the upgrade triplet; an uninstall walks the uninstall triplet. `CanonicalOrder()` concatenates all nine — it does not say which subset a given operation runs.
+- **Interleaving.** `Compiled` resources are applied *between* phases, not before or after the whole sequence — the CLI example above applies after `PhaseInstall`'s actions and before `PhasePostInstall`. The apply step is part of the trajectory, not separate from it.
+- **Failure handling.** A failed `preInstall` halts the install; a failed `postInstall` may be recoverable. This overlaps OQ5 — per-phase failure-mode hints (`halt` / `continueOnFailure` / `retry`) likely originate in catalog `#Lifecycle`, but the driver is what *acts* on them.
+
+If this enhancement ships only the bare `CanonicalOrder()` constant, the CLI and the operator each write their own driver — same trajectory logic, same interleaving, same halt rules, duplicated. That is the Constitution III separation-of-concerns failure the compiler/runtime split exists to prevent, relocated from the kernel to the frontends.
+
+### Candidate: a hermetic trajectory helper
+
+The driving *itself* is genuinely per-frontend and must stay there (D6): the CLI runs the trajectory synchronously to completion; the operator runs one phase per reconcile cycle and persists its position in CRD status; the XR fn never drives at all. What is *not* per-frontend is the sequencing knowledge. That can move into `opm/compile` as pure data — no `opm/runtime` import, no execution, fully inside the determinism wall:
+
+```go
+package compile
+
+type LifecycleOp string
+
+const (
+    OpInstall   LifecycleOp = "install"
+    OpUpgrade   LifecycleOp = "upgrade"
+    OpUninstall LifecycleOp = "uninstall"
+)
+
+// LifecycleTrajectory returns the ordered phase sequence for one operation.
+// Hermetic: it reads no state, executes nothing, imports no runtime symbol.
+func LifecycleTrajectory(op LifecycleOp) []LifecyclePhase
+```
+
+With it, the frontend driver collapses to a thin, *identical* loop across CLI and operator:
+
+```go
+for _, phase := range compile.LifecycleTrajectory(compile.OpUpgrade) {
+    inv, ok := res.Lifecycle[phase]
+    if !ok { continue }                       // phase not declared by this module
+    if _, err := rt.RunAction(ctx, inv); err != nil {
+        // halt vs. continue driven by the phase's failure-mode hint (OQ5)
+    }
+}
+```
+
+The operator slices the trajectory: it stores the last completed phase in CRD status and resumes from the next one on the following reconcile. The sequencing *knowledge* is centralized; the *driving* — `RunAction` calls, requeue cadence, state persistence, apply interleaving — stays per-frontend.
+
+Open before this is more than a sketch: where the apply-`Compiled` step sits in the trajectory (a pseudo-phase, or frontend-interleaved?), how downgrade trajectories compose if catalog publishes the downgrade triplet (OQ6), and whether failure-mode hints belong on the catalog `#Lifecycle` schema or are a frontend policy input. Tracked as OQ8.
+
 ## Embedding Stories
 
 | Frontend       | Builds Compiler? | Builds Runtime? | Workflow trigger                       | Lifecycle trigger                                              | Executors                                                       |
