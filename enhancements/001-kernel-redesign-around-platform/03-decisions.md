@@ -48,9 +48,13 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 
 ## D5 — Two-tier validation pattern (formalizes D1)
 
-**Decision.** Tier 1 (helper, source-positioned) and Tier 2 (kernel, unified-value correctness) are separate, well-named layers. Tier 2 always runs; Tier 1 is opt-in but recommended.
+**Decision.** Tier 1 (source-positioned, per-source) and Tier 2 (unified-value correctness) are separate, well-named layers. Tier 1 is opt-in but recommended; Tier 2 runs whenever values are supplied.
 
-**Rationale.** Captures D1 as a named pattern so slice 05 has a clear contract to implement and frontends have a clear path: "always call helper Tier-1; kernel handles the rest."
+**Rationale.** Captures D1 as a named pattern so slice 05 has a clear contract to implement and frontends have a clear path: "always call Tier-1; kernel handles the rest."
+
+**Amendment (post-implementation, follow-up `2026-05-09-redesign-config-validation`).** Tier 1 moved off `opm/helper/values` and onto the kernel itself. The helper package was deleted. Today's Tier-1 surface is `Kernel.ValidateConfigDetailed(schema, []Source, ...ValidateOption)` with `Partial()` as the documented opt-out for incomplete drafts; typed shortcuts `ValidateModuleValues*` / `ValidateReleaseValues*` resolve `#config` for the caller. Per-source attribution flows through `token.Pos.Filename` populated from `Source.Origin` at compile time, and helper-provided `Kernel.LoadSourceFromFile`/`-FromBytes`/`-FromString` constructors stamp the filename automatically.
+
+Why the change: the helper-layer split forced every frontend to import a second package for what is structurally a kernel concern (schema-driven validation against `#config`). With the move, `ValidateConfig` (single-value), `ValidateConfigPartial` (single-value, draft), and `ValidateConfigDetailed` (layered) form one coherent primitive surface on the kernel anchor. Tier 2 also became conditional on `Values.Exists()` — the zero `cue.Value` is treated as "no values supplied" and short-circuits to success. This is documented at every input field on the phase methods.
 
 ## D6 — `#ModuleDebug` is retired; `Module.debugValues` is the only debug surface
 
@@ -88,9 +92,14 @@ Numbered design decisions, each with rationale and alternatives considered. Deci
 
 ## D9 — Layout A: `opm/kernel/` subpackage; helpers nested under `opm/helper/`
 
-**Decision.** The repo will be renamed from `library` to `kernel`. Within the repo, the `Kernel` struct lives at `opm/kernel/`. Optional helpers live under `opm/helper/{loader,values,platform,embed}/`. Other internal packages (`opm/core`, `opm/errors`, `opm/apiversion`, `opm/api/<v>`, `opm/module`, `opm/render`, `opm/validate`) keep their flat layout.
+**Decision.** Within the repo, the `Kernel` struct lives at `opm/kernel/`. Optional helpers live under `opm/helper/{loader,platform,synth,embed}/`. Other internal packages (`opm/core`, `opm/errors`, `opm/apiversion`, `opm/api/<v>`, `opm/module`, `opm/compile`, `opm/platform`) keep their flat layout.
 
-**Rationale.** Symmetric with the existing flat layout (no disruption from a layout-flattening or package-promoting refactor on top of everything else this enhancement does). The `opm/helper/` subdirectory makes the "optional, opinionated" boundary visible in the directory tree. Once the repo is renamed to `kernel`, the import path `github.com/open-platform-model/kernel/opm/kernel` is verbose but accurate; aliasing on import (`import kernel "github.com/open-platform-model/kernel/opm/kernel"`) is straightforward.
+**Rationale.** Symmetric with the existing flat layout (no disruption from a layout-flattening or package-promoting refactor on top of everything else this enhancement does). The `opm/helper/` subdirectory makes the "optional, opinionated" boundary visible in the directory tree.
+
+**Amendment (post-implementation).** Two adjustments to the original decision:
+
+1. *Repo rename deferred.* The original D9 text said "the repo will be renamed from `library` to `kernel`." That rename did not happen alongside this enhancement and is now tracked separately. Import path remains `github.com/open-platform-model/library/opm/...`. The rename will happen when downstream consumers (cli, opm-operator, the planned Crossplane fn) are ready to update their import paths in lockstep.
+2. *Helper layout drifted.* Originally listed `helper/{loader,values,platform,embed}/`. The shipped layout is `helper/{loader/{file,bytes},platform,synth}/`. `helper/values` was removed (see D5 amendment). `helper/synth` was added by the follow-up `add-release-synth-helper` change for typed-input release synthesis (peer of `loader/`). `helper/embed` remains deferred per YAGNI.
 
 **Alternatives considered.**
 

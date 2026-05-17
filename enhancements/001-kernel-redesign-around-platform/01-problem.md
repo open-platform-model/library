@@ -1,6 +1,6 @@
 # Problem
 
-The OPM kernel is intended to be the single reference runtime that every OPM implementation embeds — `cli`, `opm-operator`, the planned Crossplane composition function, and any future runtime. Today's shape is structured for a single embedding pattern (CLI / file-driven) and forces non-CLI consumers to fight the API rather than inherit it.
+The OPM kernel is intended to be the single reference runtime that every OPM implementation embeds — `cli`, `opm-operator`, the planned Crossplane composition function, and any future runtime. Before this enhancement, its shape was structured for a single embedding pattern (CLI / file-driven) and forced non-CLI consumers to fight the API rather than inherit it. This document records the pre-enhancement state so future readers can see what the redesign was aimed at; the present-day shape is described in [02-design.md](02-design.md) and reflected in `opm/kernel/`, `opm/compile/`, `opm/module/`, `opm/platform/`, `opm/api/`, and `opm/helper/`.
 
 ## What "kernel as reference runtime" requires
 
@@ -14,7 +14,7 @@ Three downstream embeddings, each with a different process model and a different
 
 A reference runtime must satisfy all three without each frontend reinventing matching, validation, or rendering. Today's kernel is structured around the CLI's needs.
 
-## Why today's shape blocks two of the three
+## Why the pre-enhancement shape blocked two of the three
 
 1. **Loader is filesystem-coupled.** `loader.LoadReleaseFile` resolves paths via `os.Stat`, walks parent directories for `cue.mod`, and reads `CUE_REGISTRY` from process environment. The Crossplane function has no filesystem and may receive artifacts as raw bytes or pre-built CUE values; the operator may receive them as Kubernetes object payloads. Both have to bypass the loader entirely or fake a filesystem to use it.
 
@@ -24,9 +24,9 @@ A reference runtime must satisfy all three without each frontend reinventing mat
 
 4. **Values input is a slice with implicit merge semantics.** `validate.Config(schema, values []cue.Value, ...)` and `module.ParseModuleRelease(_, spec, mod, values []cue.Value)` accept a slice and unify internally. The kernel bakes in one merge order; different frontends layer values differently (CLI: `-f` stack; operator: ConfigMap → Secret → CR overlay; XR: composition input). No frontend gets to express its policy cleanly.
 
-5. **Provider concept is being retired.** Library enhancements 003 (`#Platform`) and 005 (`#Claim`) replace the flat `#Provider` artifact with a `#Platform` register that holds `#Module` registrations and computes `#composedTransformers` / `#matchers` from them. Today's `opm/render/match.go` walks a Provider's transformer list directly; that walk is structurally incompatible with the new design.
+5. **Provider concept is being retired.** Library enhancements 003 (`#Platform`) and 005 (`#Claim`) replace the flat `#Provider` artifact with a `#Platform` register that holds `#Module` registrations and computes `#composedTransformers` / `#matchers` from them. The pre-enhancement `opm/render/match.go` walked a Provider's transformer list directly; that walk was structurally incompatible with the new design. (Now lives at `opm/compile/match.go` and consumes `Platform.#matchers` directly — see slice 09.)
 
-6. **Multi-version dispatch is hardcoded.** Every CUE path constant in `opm/render/match.go`, `opm/render/execute.go`, `opm/module/parse.go`, `opm/loader/*.go` — `metadata`, `components`, `#transformers`, `#component`, `#context`, `#config`, etc. — hardcodes v1alpha2 layout. Adding `v1alpha3` or supporting `v1alpha1` for compatibility requires touching every file. The `add-multi-apiversion-support` change addresses this; this enhancement assumes the binding interface lands first, then builds on it.
+6. **Multi-version dispatch is hardcoded.** Every CUE path constant in `opm/render/match.go`, `opm/render/execute.go`, `opm/module/parse.go`, `opm/loader/*.go` — `metadata`, `components`, `#transformers`, `#component`, `#context`, `#config`, etc. — hardcoded v1alpha2 layout. Adding `v1alpha3` or supporting `v1alpha1` for compatibility required touching every file. The `add-multi-apiversion-support` change addressed this; this enhancement assumes the binding interface lands first, then builds on it.
 
 7. **Loader / render / module / provider / validate are not unified by a single entry-point type.** A consumer wants "give me a thing that is the kernel and lets me drive it." Today the consumer must learn the layout of the library, not the contract of a kernel.
 

@@ -1,6 +1,6 @@
 # Design
 
-This document captures the cross-cutting kernel design and how the slices fit together. Each slice has its own `design.md` under `openspec/changes/<slice>/` covering pipeline-level details. This file is the umbrella — read it once, then read individual slice designs for implementation specifics.
+This document captures the cross-cutting kernel design and how the slices fit together. Each slice has its own `design.md` under `library/openspec/changes/archive/2026-05-08-<slice>/` (planned slices) or under the matching dated archive directory for follow-ups. This file is the umbrella — read it once, then open individual slice designs for implementation specifics.
 
 ## Architectural shape
 
@@ -22,15 +22,19 @@ This document captures the cross-cutting kernel design and how the slices fit to
    │   loader/bytes/  [skeleton, slice 07]  In-memory loading; full   │
    │                                        impl deferred until a    │
    │                                        consumer asks.           │
-   │   values/        [slice 05]            Stack & unify values;    │
-   │                                        Tier-1 source-positioned │
-   │                                        validation.              │
    │   platform/      [shipped, slice 10]   Compose(shell, modules) →│
    │                                        *Platform with #registry │
    │                                        filled.                  │
+   │   synth/         [follow-up]           Synthesise a release CUE │
+   │                                        value from typed inputs. │
+   │                                        Peer of loader/.         │
    │   embed/         [deferred]            One-call wrapper for the │
    │                                        most common embedding    │
    │                                        patterns.                │
+   │                                                                  │
+   │  Tier-1 layered validation USED to live here as helper/values    │
+   │  (slice 05). It was moved onto the kernel itself by the follow-up │
+   │  redesign-config-validation; see D5 amendment.                   │
    └─────────────────────────────────┬────────────────────────────────┘
                                      │ canonical pre-unified inputs
                                      ▼
@@ -136,21 +140,25 @@ The kernel reads field paths within `Package` through the version-binding (`opm/
         }
 ```
 
-## Two-tier validation
+## Two-tier validation (post-amendment)
+
+The original design placed Tier 1 in `opm/helper/values`. The follow-up `redesign-config-validation` change moved both tiers onto the kernel — Tier 1 is now `Kernel.ValidateConfigDetailed` with `Source` values and the optional `Partial()` option; Tier 2 is the existing `Kernel.ValidateConfig`. See D5 amendment for the rationale.
 
 ```
    Per-source values (defaults, user --values flags, env overlay, debugValues)
                 │
                 ▼
    ┌─────────────────────────────────────┐
-   │  opm/helper/values — TIER 1          │
+   │  KERNEL — TIER 1                     │
+   │                                      │
+   │  Kernel.ValidateConfigDetailed       │
+   │  Source{Value, Name, Origin}          │
+   │  Optional: Partial()                  │
    │                                      │
    │  - Validate each source individually │
-   │  - Source-attributed errors:         │
-   │      "in user-values.cue line 14:    │
-   │       memory must match GiB regex"   │
-   │  - This is what the user sees.       │
-   │  - Optional but recommended for      │
+   │  - Source-attributed errors via      │
+   │    token.Pos.Filename = Origin       │
+   │  - Optional but recommended for     │
    │    quality frontend UX.              │
    └────────────────┬─────────────────────┘
                     │ unified cue.Value
@@ -158,16 +166,20 @@ The kernel reads field paths within `Package` through the version-binding (`opm/
    ┌─────────────────────────────────────┐
    │  KERNEL — TIER 2                     │
    │                                      │
+   │  Kernel.ValidateConfig               │
+   │                                      │
    │  - Re-validates unified value        │
    │  - Errors: "values do not satisfy    │
    │     #config: <CUE error tree>"       │
    │  - Correctness safety net;           │
    │    should not fire in practice if    │
-   │    Tier 1 ran. Always runs.          │
+   │    Tier 1 ran.                        │
+   │  - Runs only when Values is set;     │
+   │    zero cue.Value skips validation.  │
    └─────────────────────────────────────┘
 ```
 
-The kernel never trusts that Tier 1 ran. Tier 2 is unconditional. Frontends that skip Tier 1 still get correct output, just with worse error messages.
+The kernel never trusts that Tier 1 ran. Tier 2 still runs when `Values` is supplied. Frontends that skip Tier 1 get correct output, just with worse error messages.
 
 ## `cue.Context` ownership
 
@@ -187,35 +199,46 @@ A `Kernel` is **not goroutine-safe across compile calls**. Each goroutine constr
 
 Every slice in this enhancement uses the binding interface. The kernel never hardcodes a path string after that change lands.
 
-## Slice dependency graph
+## Slice dependency graph (as shipped)
 
 ```
-   apiversion (prerequisite, lands first)
+   apiversion (prerequisite — shipped 2026-05-08)
         │
-        ├──► 01 add-kernel-struct
+        ├──► 01 add-kernel-struct ✅
         │         │
-        │         ├──► 06 add-phase-methods-and-rename-compile
+        │         ├──► 06 add-phase-methods-and-rename-compile ✅
         │         │         │
-        │         │         └──► 07 reorganize-helpers-under-helper
+        │         │         └──► 07 reorganize-helpers-under-helper ✅
         │         │
         │         └──► (07 also depends on 01)
         │
-        ├──► 02 unify-artifact-shape
+        ├──► 02 unify-artifact-shape ✅
         │         │
-        │         └──► 08 add-platform-construct
+        │         └──► 08 add-platform-construct ✅
         │                   │
-        │                   ├──► 09 rewrite-match-around-platform
+        │                   ├──► 09 rewrite-match-around-platform ✅
         │                   │
-        │                   └──► 10 add-platform-composition-helper
+        │                   └──► 10 add-platform-composition-helper ✅
         │
-        ├──► 03 retire-module-debug   (independent)
+        ├──► 03 retire-module-debug ✅   (independent)
         │
-        └──► 04 accept-single-values-input
+        └──► 04 accept-single-values-input ✅
                   │
-                  └──► 05 introduce-tiered-validation
+                  └──► 05 introduce-tiered-validation ✅ (amended)
+                            │
+                            └──► redesign-config-validation ✅ (follow-up; removed helper/values)
+
+   Independent follow-ups (no graph relation, ordered by ship date):
+     2026-05-09 fold-deprecated-functions-into-kernel
+     2026-05-09 slim-kernel-inputs (= original slice 11)
+     2026-05-10 add-cue-schema-test-harness / -coverage
+     2026-05-12 add-release-synth-helper
+     2026-05-12 unify-loaders-as-packages
+     2026-05-14 add-loader-shape-gates
+     2026-05-14 replace-load-platform-file-with-package
 ```
 
-Slices 03 and 04 can land at any time. Slices 01 and 02 are the foundation for everything else. Slice 09 is the highest-risk slice — it is the only one that materially changes runtime behavior — and lands last.
+Slices 03 and 04 landed independently as planned. Slices 01 and 02 are the foundation for everything else. Slice 09 — the matcher rewrite — was the highest-risk slice and landed in the same batch as its prerequisites (08, 10) once `#Platform` was stable.
 
 ## Why this slicing
 
@@ -225,11 +248,9 @@ Slices 03 and 04 can land at any time. Slices 01 and 02 are the foundation for e
 - **The risky slice is gated.** Slice 09 is the matcher rewrite. By the time it lands, 02 and 08 have already established the artifact shape and the Platform type, so 09 is purely about matching logic — not types.
 - **`#Claim` does not appear in any slice.** Until enhancement 005 stabilizes, the kernel matches Resources/Traits only. When 005 lands, a follow-up enhancement (`006-claims-in-kernel` or similar) adds Claim demand walking, `#ModuleTransformer` execution, and `#resolution` writeback.
 
-## Open design questions deferred to slice authoring
+## Open design questions — resolutions
 
-These are not blocking; each gets resolved when its slice's `design.md` is written.
-
-- The exact shape of `helper/values` layering — whether layers are named (`{defaults, user, env, debug}`) or ordered (`[]Layer`).
-- Whether `helper/embed` ships in this enhancement or waits for a real consumer to pull on it (YAGNI).
-- Whether `Plan` returns a distinct `PlanResult` type or reuses `CompileResult` with a flag — answered while implementing slice 06.
-- Whether `Kernel.New` takes functional options (`kernel.WithLogger(...)`) or a single `Options` struct — answered while implementing slice 01.
+- **Layering shape.** Moot. `helper/values` was removed; the kernel exposes ordered `[]Source` via `Kernel.ValidateConfigDetailed`. No named-layer abstraction shipped.
+- **`helper/embed`.** Deferred indefinitely. YAGNI held — no consumer asked.
+- **`PlanResult` vs `CompileResult` reuse.** Distinct `PlanResult` type. See `opm/kernel/results.go`. Fields: `MatchPlan`, `Components`, `Unmatched`, `Warnings`. Note: original sketch listed an `Ambiguous` field; ambiguity is instead surfaced via `MatchPlan.UnhandledTraits` and `MatchPlan.Warnings()`.
+- **`Kernel.New` options style.** Functional options (`WithLogger`, `WithTracer`, `WithClock`). See `opm/kernel/kernel.go`.
