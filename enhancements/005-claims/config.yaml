@@ -1,0 +1,29 @@
+id: "005"
+slug: claims
+title: "`#Claim` and Module Extension Surface"
+
+status: draft
+
+created: 2026-04-28
+updated: 2026-05-17
+
+# Note: 005 and 006 are competing approaches to a similar problem
+# (ecosystem-supplied needs flowing typed values back to a module).
+# They are intentionally NOT cross-linked via `related`.
+
+authors:
+  - OPM Contributors
+
+implementation:
+  status: partial
+  date: 2026-05-13
+  notes: >-
+    Only the #defines slot ships in v1alpha2 (resources, traits, transformers; claims deferred).
+    Five of the eight #Module slots present; #claims, #lifecycles, #workflows not yet wired.
+
+related:
+  - "003"
+  - "004"
+
+supersedes: []
+superseded_by: null

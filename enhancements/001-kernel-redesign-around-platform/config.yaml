@@ -1,0 +1,22 @@
+id: "001"
+slug: kernel-redesign-around-platform
+title: Kernel Redesign Around `#Platform`
+
+status: implemented
+
+created: 2026-05-07
+updated: 2026-05-17
+
+authors:
+  - OPM Contributors
+
+implementation:
+  status: complete
+  date: 2026-05-14
+  notes: All 11 planned slices archived under openspec/changes/archive; seven follow-up slices also landed (config-validation redesign, deprecated-function fold-in, synth helper, loader unification, schema-test harness).
+
+related:
+  - "003"
+
+supersedes: []
+superseded_by: null

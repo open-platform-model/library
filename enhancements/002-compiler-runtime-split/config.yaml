@@ -1,0 +1,19 @@
+id: "002"
+slug: compiler-runtime-split
+title: Compiler / Runtime Kernel Split
+
+status: draft
+
+created: 2026-05-08
+updated: 2026-05-17
+
+authors:
+  - OPM Contributors
+
+implementation:
+  status: not-started
+
+related: []
+
+supersedes: []
+superseded_by: null

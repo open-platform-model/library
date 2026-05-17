@@ -1,0 +1,26 @@
+id: "004"
+slug: module-context
+title: "`#ctx` — Module Runtime Context"
+
+status: draft
+
+created: 2026-04-30
+updated: 2026-05-14
+
+authors:
+  - OPM Contributors
+
+implementation:
+  status: not-started
+  date: 2026-05-14
+  notes: >-
+    No piece of this enhancement is in v1alpha2 yet beyond the Step-1 config
+    unification at apis/core/v1alpha2/module_release.cue:38.
+
+related:
+  - "003"
+  - "005"
+  - "006"
+
+supersedes: []
+superseded_by: null

@@ -1,0 +1,28 @@
+id: "003"
+slug: platform-construct
+title: "`#Platform` Construct"
+
+status: implemented
+
+created: 2026-04-30
+updated: 2026-05-17
+
+authors:
+  - OPM Contributors
+
+implementation:
+  status: complete
+  date: 2026-05-17
+  notes: >-
+    All core constructs landed in apis/core/v1alpha2/{platform,transformer}.cue.
+    Two deliberate deviations from original design: (1) D13 revised — multi-fulfiller
+    allowed, disambiguated by Go runtime matcher via predicate evaluation;
+    (2) #PlatformMatch implemented in Go (opm/compile, opm/platform), not CUE.
+    Experiments harness skipped — schema went direct. #ctx still deferred to 004.
+
+related:
+  - "004"
+  - "005"
+
+supersedes: []
+superseded_by: null
