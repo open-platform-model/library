@@ -2,15 +2,13 @@
 
 ## Summary
 
-> **Implementation status (2026-05-14).** None of this enhancement is in v1alpha2 yet. `apis/core/v1alpha2/` carries no `#ModuleContext`, `#RuntimeContext`, `#ComponentNames`, or `#ContextBuilder`; `#Module` has no `#ctx` field; `#Component` has no `metadata.resourceName` or `#names`. A related but distinct surface — `#TransformerContext` in `apis/core/v1alpha2/transformer.cue:99-198` — exists for transformer-internal use; unification with `#ctx` is deferred (D15). The Step-1 config unification (`let unifiedModule = #module & {#config: values}` at `apis/core/v1alpha2/module_release.cue:38`) is the only piece of the builder flow that has landed.
-
 Defines `#ctx` as the runtime-context channel injected into every `#Module` at release time. `#ctx` carries deployment identity (release name, namespace, UUID; module name, version, FQN, UUID) and the per-component computed names (`resourceName`, DNS variants). Every field is derived from the release, the module, and the component set — `#ctx` takes no platform or environment inputs.
 
 `#ctx` is **not** authored by module developers. It is computed by `#ContextBuilder` and unified into the module by `#ModuleRelease` during evaluation. Components reference it inside their specs (e.g. `#ctx.runtime.components.foo.dns.fqdn`) without any operator input.
 
 `#ContextBuilder` takes the release identity, the module identity, and the component map, and produces `#ModuleContext` — the value `#Module.#ctx` resolves to. There are no layered inputs: 004 is self-contained.
 
-This enhancement lands `#ctx` as a standalone schema so that 003 (Platform construct) and 005 (Module schema) can both reference a single context-system source. 003 owns Platform composition; 005 owns the Module shape; 004 owns the `#ctx` identity schemas and `#ContextBuilder` only.
+This enhancement lands `#ctx` as a standalone schema so that 003 (Platform construct) and 005 (Module schema) can both reference a single context-system source.
 
 Two surfaces from earlier drafts of 004 have been moved out. The `#ctx.platform` extension layer and the `#Environment` construct — together with `#PlatformContext` / `#EnvironmentContext`, the layered Platform → Environment hierarchy, the cluster-domain override, and the `route` domain — are all enhancement 006 (Platform Capabilities), which adds a typed `#Capability` model and a kernel-populated `#platform: #Platform` field on `#ModuleRelease`. 006 does **not** reintroduce `#Environment` — per-platform variation uses CUE unification of `#Platform` values (006 OQ6). 004 covers identity-only `#ctx.runtime`. See [04-decisions.md](04-decisions.md) D36.
 
@@ -48,9 +46,6 @@ Two surfaces from earlier drafts of 004 have been moved out. The `#ctx.platform`
 | Document | Purpose |
 | -------- | ------- |
 | `CONSTITUTION.md` (repo root) | Core design principles |
-| `enhancements/003-platform-construct/` | Sibling — owns `#Platform` composition; `#Platform`'s capability surface is added by 006, not 004 |
-| `enhancements/005-claims/` | Sibling — `#Module.#ctx` references `#ModuleContext` defined here |
-| `enhancements/006-platform-capabilities/` | Successor — adds the typed `#Capability` model with `#Module.#consumes` / `#Platform.#provides`; extends `#ContextBuilder` with capability matching; adds a kernel-populated `#platform: #Platform` field on `#ModuleRelease`. Absorbs 004's earlier `#ctx.platform` and cluster/route surfaces. Does not reintroduce `#Environment` (uses CUE unification of `#Platform` values). |
 | `experiments/` | In-tree experiments validating the post-slim design. See [experiments/README.md](experiments/README.md) for the index; the per-experiment READMEs carry the detail. |
 | `catalog/experiments/001-module-context/` *(sibling repo)* | Self-contained CUE sandbox built against the **pre-slim** 004 design. Finding 1 (cluster-domain resolution / D33) and the layered Platform → Environment fixtures are superseded by D36. Findings 2–3 (config-first ordering D34, lexical scope D35) are re-grounded in the in-tree `experiments/02-release-flow-ordering/`. Retained as historical provenance. |
 | `apis/core/v1alpha2/module.cue` | Gains `#ctx: #ModuleContext` field |

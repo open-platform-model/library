@@ -44,8 +44,6 @@ The `#Environment` construct is **not** reintroduced in this enhancement (it was
 | Document | Purpose |
 | -------- | ------- |
 | `CONSTITUTION.md` (repo root) | Core design principles |
-| `enhancements/004-module-context/` | Parent — owns identity-only `#ctx.runtime`, `#ComponentNames`, the `#ContextBuilder` core, and the `#ModuleRelease` 3-step flow. 006 extends `#ContextBuilder` (adds `#platform` + `#consumes` inputs) and adds the kernel-populated `#platform` field on `#ModuleRelease`. 004 D36 records the slim that made room for both. |
-| `enhancements/003-platform-construct/` | `#Platform` gains a `#provides` map |
 | `apis/core/v1alpha2/resource.cue`, `trait.cue` | Prior art — the FQN-identified, schema-bearing primitive pattern that `#Capability` mirrors |
 | `apis/core/v1alpha2/component.cue` | Prior art — `#resources` as both declaration and read surface; the pattern `#consumes` follows |
 | `apis/core/v1alpha2/transformer.cue` | Prior art — `#TransformerContext.#runtimeName!` as the kernel-populated-field pattern |

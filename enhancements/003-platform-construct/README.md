@@ -10,8 +10,6 @@ Defines `#Platform` as the catalog construct that models a deployment target. `#
 
 Multi-fulfiller is allowed at the `#matchers` layer (D13 revised) — overlapping `requiredResources` / `requiredTraits` FQNs across registered transformers list every candidate, and the runtime matcher in the Go pipeline resolves per consumer component via predicate evaluation. `#ModuleRegistration.enabled: false` hides every projection of an entry (D14). Concurrent static + runtime writes to the same Id unify; concrete-value disagreement is surfaced by the `opm-operator` reconciler in `ModuleRelease.status.conditions` (D15). Id keys are kebab-case (`#NameType`, D16). The CUE harness originally planned at `experiments/002-platform-construct/` was skipped — schema landed direct.
 
-This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism for `#registry`, self-service catalog runtime, `#PolicyTransformer` integration, topo-sort algorithm for `#status` writeback ordering, and migration of existing provider packages are deferred to follow-up enhancements. `#Claim`, `#ModuleTransformer`, status writeback, and the Claim halves of every `#Platform` view are introduced as extensions in sibling enhancement [005](../005-claims/) — see Cross-References.
-
 > **Implementation status (2026-05-17).** Complete. `#Platform`, `#ModuleRegistration`, `#knownResources` / `#knownTraits` / `#composedTransformers`, the `#matchers.{resources,traits}` reverse index, and `#ComponentTransformer` / `#TransformerMap` are landed in `apis/core/v1alpha2/platform.cue` and `apis/core/v1alpha2/transformer.cue`. See `## Deviations from Design` below for the two deliberate divergences. `#Platform.#ctx: #PlatformContext` remains deferred to enhancement 004.
 
 ## Documents
@@ -70,8 +68,6 @@ The planned `experiments/002-platform-construct/` harness was also skipped — t
 | Document | Purpose |
 | -------- | ------- |
 | `CONSTITUTION.md` (repo root) | Core design principles governing all changes in this repository |
-| `enhancements/004-module-context/` | Sibling — defines `#PlatformContext`, `#EnvironmentContext`, `#ModuleContext`, `#ContextBuilder`, `#Environment`. `#Platform.#ctx` is typed by 004's `#PlatformContext`. |
-| `enhancements/005-claims/` | Sibling — extends this enhancement with `#Claim` primitive, `#ModuleTransformer`, status writeback, and `#defines.claims` |
 | `enhancements/012-policy-redesign/` | Open exploration that will inform policy-layer integration |
 | `apis/core/v1alpha2/provider.cue` | `#Provider` — **retired in this enhancement** (D12). File deleted; matcher migrates to `#composedTransformers` + `#matchers`. |
 | `apis/core/v1alpha2/transformer.cue` | `#ComponentTransformer`, `#TransformerMap` — introduced in this enhancement (D17). 005 extends with `#ModuleTransformer` and widens `#TransformerMap` to the union. |

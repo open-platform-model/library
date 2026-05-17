@@ -8,17 +8,17 @@ Restructures the OPM kernel into a self-contained reference runtime that the CLI
 
 `#Claim` (enhancement 005) is intentionally deferred — the matcher rewrite covers Resources/Traits only; Claims fold in once 005 stabilizes.
 
-This enhancement did not itself land code. It is the umbrella reference for a sequence of small, independently shippable OpenSpec changes (slices). Every slice in the original plan has been archived; seven follow-up slices were added during implementation and are listed below for completeness.
+This enhancement did not itself land code. It is the umbrella reference for a sequence of small, independently shippable OpenSpec changes (slices); the slice list is in `config.yaml.slices`.
 
-> **Implementation status (2026-05-14).** Complete. All 11 planned slices archived under `library/openspec/changes/archive/2026-05-08-*/` and `2026-05-09-slim-kernel-inputs/`; seven follow-up slices also landed (`2026-05-09-fold-deprecated-functions-into-kernel`, `2026-05-09-redesign-config-validation`, `2026-05-10-add-cue-schema-test-{harness,coverage}`, `2026-05-12-add-release-synth-helper`, `2026-05-12-unify-loaders-as-packages`, `2026-05-14-add-loader-shape-gates`, `2026-05-14-replace-load-platform-file-with-package`). See the Slicing Plan and Follow-Up Slices tables below, the `## Known Deviations Between Design and Code` section for deliberate divergences, and `## Open Questions — Resolution` for OQ outcomes.
+> **Implementation status (2026-05-14).** Complete. 20 OpenSpec change slices archived under `library/openspec/changes/archive/` (see `config.yaml.slices` for the list, and `## Slice Implementation Notes` below for per-slice notable choices). `## Known Deviations Between Design and Code` records deliberate divergences; `## Open Questions — Resolution` records OQ outcomes.
 
 ## Scope
 
-This is an umbrella enhancement; concrete scope is carried by the archived OpenSpec slices listed under `## Slicing Plan — Status` and `## Follow-Up Slices Added During Implementation` below. Each slice has its own proposal, design, specs, and tasks.
+This is an umbrella enhancement; concrete scope is carried by the 20 archived OpenSpec slices listed in `config.yaml.slices` (each under `library/openspec/changes/archive/`). Each slice has its own proposal, design, specs, and tasks.
 
 ### In scope
 
-- Kernel API surface rewrite covered by slices 01–11 plus the seven follow-up slices.
+- Kernel API surface rewrite covered by the 20 archived slices.
 - Retirement of `#Provider` and migration of matcher to `#composedTransformers` + `#matchers` (jointly with enhancement 003).
 - Two-tier validation surface on the kernel itself (see D5 amendment).
 - Helper boundary under `opm/helper/{loader,platform,synth}/`.
@@ -36,40 +36,30 @@ This is an umbrella enhancement; concrete scope is carried by the archived OpenS
 2. [02-design.md](02-design.md) — Cross-cutting design — Kernel struct, uniform artifact shape, two-tier validation, helper layout, Platform integration, slice dependency graph
 3. [03-decisions.md](03-decisions.md) — Settled decisions (D1–D10) with rationale, alternatives considered, and post-implementation amendments
 
-## Slicing Plan — Status
+## Slice Implementation Notes
 
-Every slice in the original plan is archived at `library/openspec/changes/archive/2026-05-08-<slug>/`. The "Shipped as" column shows the dated archive directory.
+Per-slice choices worth preserving. The slice list itself is in `config.yaml.slices`; each is archived under `library/openspec/changes/archive/`. The original plan ran 01–11; eight follow-up slices (everything dated `2026-05-09` onward beyond `slim-kernel-inputs`) shipped as the design met the codebase.
 
-| #  | Slice                                    | Shipped as                                          | Status | Notes |
-| -- | ---------------------------------------- | --------------------------------------------------- | ------ | ----- |
-| 01 | `add-kernel-struct`                      | `2026-05-08-add-kernel-struct`                      | ✅     | Functional options (`WithLogger`/`WithTracer`/`WithClock`) chosen over an `Options` struct. |
-| 02 | `unify-artifact-shape`                   | `2026-05-08-unify-artifact-shape`                   | ✅     | `Module`, `Release`, `Platform` all carry `(APIVersion, *Metadata, Package cue.Value)`. |
-| 03 | `retire-module-debug`                    | `2026-05-08-retire-module-debug`                    | ✅     | `Module.debugValues` exposed via `api.Paths().DebugValues`. |
-| 04 | `accept-single-values-input`             | `2026-05-08-accept-single-values-input`             | ✅     | All phase inputs take one `cue.Value`. |
-| 05 | `introduce-tiered-validation`            | `2026-05-08-introduce-tiered-validation`            | ✅ (amended) | Originally landed `opm/helper/values`. Follow-up `redesign-config-validation` replaced it with kernel-level `Source`, `ValidateOption`, `Partial()`, `ValidateConfigDetailed`, `ValidateModuleValues*`, `ValidateReleaseValues*`. See D5 amendment. |
-| 06 | `add-phase-methods-and-rename-compile`   | `2026-05-08-add-phase-methods-and-rename-compile`   | ✅     | `Render` → `Compile` end-to-end; package renamed `opm/render` → `opm/compile`. |
-| 07 | `reorganize-helpers-under-helper`        | `2026-05-08-reorganize-helpers-under-helper`        | ✅     | `opm/loader/*` → `opm/helper/loader/{file,bytes}`. `loader/bytes` ships as a skeleton (`doc.go` only) until a consumer pulls. |
-| 08 | `add-platform-construct`                 | `2026-05-08-add-platform-construct`                 | ✅     | `*platform.Platform` mirrors `*module.Module`. |
-| 09 | `rewrite-match-around-platform`          | `2026-05-08-rewrite-match-around-platform`          | ✅     | `opm/compile/match.go` consumes `Platform.#composedTransformers` + `Platform.#matchers`. `opm/provider/` deleted. |
-| 10 | `add-platform-composition-helper`        | `2026-05-08-add-platform-composition-helper`        | ✅     | `helper/platform.Compose(shell, modules)`; surfaced as `(*Kernel).ComposePlatform`. |
-| 11 | `slim-kernel-inputs`                     | `2026-05-09-slim-kernel-inputs`                     | ✅     | `Module` field dropped from `MatchInput`, `PlanInput`, `CompileInput`. `ValidateInput.Module` retained (see "Known deviations" below). |
-
-`add-multi-apiversion-support` (prerequisite) landed as `2026-05-08-add-multi-apiversion-support` before slice 01.
-
-## Follow-Up Slices Added During Implementation
-
-These were not in the original slicing plan; they shipped as the design met the codebase. Each is archived under `library/openspec/changes/archive/`.
-
-| Shipped as                                            | Scope |
-| ----------------------------------------------------- | ----- |
-| `2026-05-09-fold-deprecated-functions-into-kernel`    | Move surviving free-function entry points onto `*Kernel` so the struct is the single anchor. |
-| `2026-05-09-redesign-config-validation`               | Replace `opm/helper/values` with kernel-level `Source` / `ValidateConfigDetailed` / `Partial`. Amends D5. |
-| `2026-05-10-add-cue-schema-test-harness`              | Shared in-process schema-loading harness for `opm/api/<v>` tests. |
-| `2026-05-10-add-cue-schema-test-coverage`             | Coverage sweep using the harness. |
-| `2026-05-12-add-release-synth-helper`                 | New `opm/helper/synth/` (peer of `loader/`) for typed-input release synthesis; surfaced as `(*Kernel).SynthesizeRelease`. |
-| `2026-05-12-unify-loaders-as-packages`                | Collapse the four loader entry points into the `LoadModulePackage`/`LoadReleasePackage`/`LoadPlatformPackage` triad. |
-| `2026-05-14-add-loader-shape-gates`                   | Shape-gate every loader before returning the value to the kernel. |
-| `2026-05-14-replace-load-platform-file-with-package`  | Drop the file-based platform loader in favour of the package loader. |
+- **add-multi-apiversion-support** *(prerequisite)* — Version binding interface every slice assumes; landed before slice 01.
+- **add-kernel-struct** — Functional options (`WithLogger`/`WithTracer`/`WithClock`) chosen over an `Options` struct.
+- **unify-artifact-shape** — `Module`, `Release`, `Platform` all carry `(APIVersion, *Metadata, Package cue.Value)`.
+- **retire-module-debug** — `Module.debugValues` exposed via `api.Paths().DebugValues`.
+- **accept-single-values-input** — All phase inputs take one `cue.Value`.
+- **introduce-tiered-validation** *(amended)* — Originally landed `opm/helper/values`. Follow-up `redesign-config-validation` replaced it with kernel-level `Source`, `ValidateOption`, `Partial()`, `ValidateConfigDetailed`, `ValidateModuleValues*`, `ValidateReleaseValues*`. See D5 amendment.
+- **add-phase-methods-and-rename-compile** — `Render` → `Compile` end-to-end; package renamed `opm/render` → `opm/compile`.
+- **reorganize-helpers-under-helper** — `opm/loader/*` → `opm/helper/loader/{file,bytes}`. `loader/bytes` ships as a skeleton (`doc.go` only) until a consumer pulls.
+- **add-platform-construct** — `*platform.Platform` mirrors `*module.Module`.
+- **rewrite-match-around-platform** — `opm/compile/match.go` consumes `Platform.#composedTransformers` + `Platform.#matchers`. `opm/provider/` deleted.
+- **add-platform-composition-helper** — `helper/platform.Compose(shell, modules)`; surfaced as `(*Kernel).ComposePlatform`.
+- **slim-kernel-inputs** — `Module` field dropped from `MatchInput`, `PlanInput`, `CompileInput`. `ValidateInput.Module` retained (see "Known Deviations" below).
+- **fold-deprecated-functions-into-kernel** — Move surviving free-function entry points onto `*Kernel` so the struct is the single anchor.
+- **redesign-config-validation** — Replace `opm/helper/values` with kernel-level `Source` / `ValidateConfigDetailed` / `Partial`. Amends D5.
+- **add-cue-schema-test-harness** — Shared in-process schema-loading harness for `opm/api/<v>` tests.
+- **add-cue-schema-test-coverage** — Coverage sweep using the harness.
+- **add-release-synth-helper** — New `opm/helper/synth/` (peer of `loader/`) for typed-input release synthesis; surfaced as `(*Kernel).SynthesizeRelease`.
+- **unify-loaders-as-packages** — Collapse the four loader entry points into the `LoadModulePackage` / `LoadReleasePackage` / `LoadPlatformPackage` triad.
+- **add-loader-shape-gates** — Shape-gate every loader before returning the value to the kernel.
+- **replace-load-platform-file-with-package** — Drop the file-based platform loader in favour of the package loader.
 
 ## Known Deviations Between Design and Code
 
@@ -91,10 +81,6 @@ These survived implementation deliberately or by drift. Not blockers for accepta
 | Document                                                              | Purpose |
 | --------------------------------------------------------------------- | ------- |
 | `library/CONSTITUTION.md`                                             | Kernel constitutional principles (Kernel Neutrality, Type Safety, Separation of Concerns, Stable Contracts, CUE-Native Resolution, SemVer, YAGNI, Small Batch) |
-| `library/openspec/changes/archive/2026-05-08-add-multi-apiversion-support/` | Prerequisite — version binding interface every slice assumes |
-| `library/openspec/changes/archive/2026-05-08-*/`                      | The 11 planned slices, all archived |
-| `library/openspec/changes/archive/2026-05-09-*/`, `2026-05-10-*/`, `2026-05-12-*/`, `2026-05-14-*/` | Seven follow-up slices |
-| `library/enhancements/003-platform-construct/`                        | Source-of-truth design for `#Platform`, `#PlatformMatch`, `#ComponentTransformer`, `#TransformerMap`, `#registry`, `#matchers` |
 | `library/enhancements/005-claims/`                                    | Source-of-truth design for `#Claim`, `#ModuleTransformer`, `#defines.claims`, `#resolution` writeback (deferred in kernel until schema lands) |
 | `library/enhancements/004-module-context/`                            | `#ctx` / `#PlatformContext` / `#ModuleContext` / `#ContextBuilder` — relevant where context injection is wired |
 | `library/opm/kernel/`                                                 | The implemented `Kernel` struct, phase methods, validation surface, source-loader wrappers |
