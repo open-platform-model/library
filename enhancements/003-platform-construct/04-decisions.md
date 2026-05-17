@@ -370,9 +370,13 @@ Captured here while the enhancement is thin (no separate `NN-open-questions.md` 
 
 `#Platform.type` is **kept** as an authored field. D8 (matcher detects unmatched FQNs) subsumes the type-mismatch *detection* concern. The remaining open question is what `type` carries weight on beyond display — UX hints (catalog UIs filter "compatible Modules" by type), registry-filter shortcuts before walking FQNs, or a future enforcement contract. The field stays informational for now. **Revisit trigger:** when self-service catalog tooling ships and we discover whether the field earns enforcement.
 
-### OQ3 — Migration of existing provider packages
+### OQ3 — Migration of existing provider packages *(ANSWERED 2026-05-17)*
 
-`opmodel.dev/opm/v1alpha2/providers/kubernetes`, `opmodel.dev/k8up/v1alpha2/providers/kubernetes`, `opmodel.dev/cert_manager/v1alpha2/providers/kubernetes` all currently export `#Provider` values. Each must be re-shaped as a `#Module` with the existing transformers under `#defines.transformers` (and OPM core gains the catalog of resources/traits under the rest of `#defines`). **Revisit trigger:** separate migration enhancement after this lands.
+**Status:** ANSWERED. The OPM-core transformers ship as Module form at `library/modules/opm/transformers/` (deployment, service, configmap, secret, statefulset, daemonset, cronjob, job, pvc, role, crd, sa-resource, plus the route family — grpc/http/tcp/tls). No `providers/` packages remain under `library/`. Vendor packages (k8up, cert-manager, etc.) follow the same Module-form pattern.
+
+Original text retained for the historical record:
+
+> `opmodel.dev/opm/transformers/kubernetes`, `opmodel.dev/k8up/transformers/kubernetes`, `opmodel.dev/cert_manager/transformers/kubernetes` all currently export `#Provider` values. Each must be re-shaped as a `#Module` with the existing transformers under `#defines.transformers` (and OPM core gains the catalog of resources/traits under the rest of `#defines`). **Revisit trigger:** separate migration enhancement after this lands.
 
 ### OQ4 — Self-service catalog runtime API
 

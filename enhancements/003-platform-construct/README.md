@@ -1,11 +1,5 @@
 # Design Package: `#Platform` Construct
 
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | 2026-04-30       |
-| **Authors** | OPM Contributors |
-
 ## Summary
 
 Defines `#Platform` as the catalog construct that models a deployment target. `#Platform` carries platform identity (`metadata`, `type`), platform-level context (`#ctx`, typed `#PlatformContext` from enhancement 004), and a single dynamic ingress — `#registry` — that holds registered `#Module` values. Outward platform-level views at this layer (known resources, known traits, composed transformers, matcher index) are computed projections over `#registry`.
@@ -14,11 +8,11 @@ Defines `#Platform` as the catalog construct that models a deployment target. `#
 
 `#ModuleRegistration` is a pure projection of `#defines` — no install or deploy metadata (D11). Installation is owned by `ModuleRelease` + `opm-operator`: a release CR triggers component install *and* FillPath into `#registry`, registering the Module's primitives automatically.
 
-Multi-fulfiller is allowed at the `#matchers` layer (D13 revised) — overlapping `requiredResources` / `requiredTraits` FQNs across registered transformers list every candidate, and the runtime matcher in the Go pipeline resolves per consumer component via predicate evaluation. `#ModuleRegistration.enabled: false` hides every projection of an entry (D14). Concurrent static + runtime writes to the same Id unify; concrete-value disagreement is surfaced by the `opm-operator` reconciler in `ModuleRelease.status.conditions` (D15). Id keys are kebab-case (`#NameType`, D16). Schema is validated by the self-contained CUE harness at `experiments/002-platform-construct/`.
+Multi-fulfiller is allowed at the `#matchers` layer (D13 revised) — overlapping `requiredResources` / `requiredTraits` FQNs across registered transformers list every candidate, and the runtime matcher in the Go pipeline resolves per consumer component via predicate evaluation. `#ModuleRegistration.enabled: false` hides every projection of an entry (D14). Concurrent static + runtime writes to the same Id unify; concrete-value disagreement is surfaced by the `opm-operator` reconciler in `ModuleRelease.status.conditions` (D15). Id keys are kebab-case (`#NameType`, D16). The CUE harness originally planned at `experiments/002-platform-construct/` was skipped — schema landed direct.
 
 This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism for `#registry`, self-service catalog runtime, `#PolicyTransformer` integration, topo-sort algorithm for `#status` writeback ordering, and migration of existing provider packages are deferred to follow-up enhancements. `#Claim`, `#ModuleTransformer`, status writeback, and the Claim halves of every `#Platform` view are introduced as extensions in sibling enhancement [005](../005-claims/) — see Cross-References.
 
-> **Implementation status (2026-05-13).** `#Platform`, `#ModuleRegistration`, `#knownResources` / `#knownTraits` / `#composedTransformers`, the `#matchers.{resources,traits}` reverse index, and `#ComponentTransformer` / `#TransformerMap` are landed in `apis/core/v1alpha2/platform.cue` and `apis/core/v1alpha2/transformer.cue`. Two deliberate deviations from the original design: (1) D13 was revised — multi-fulfiller is allowed, not forbidden, and the Go runtime matcher disambiguates via predicate evaluation; (2) `#PlatformMatch` was not landed as a CUE construct — the per-deploy walker is implemented in Go (`opm/compile/`, `opm/platform/`). `#Platform.#ctx: #PlatformContext` is deferred to enhancement 004.
+> **Implementation status (2026-05-17).** Complete. `#Platform`, `#ModuleRegistration`, `#knownResources` / `#knownTraits` / `#composedTransformers`, the `#matchers.{resources,traits}` reverse index, and `#ComponentTransformer` / `#TransformerMap` are landed in `apis/core/v1alpha2/platform.cue` and `apis/core/v1alpha2/transformer.cue`. Two deliberate deviations from the original design: (1) D13 was revised — multi-fulfiller is allowed, not forbidden, and the Go runtime matcher disambiguates via predicate evaluation; (2) `#PlatformMatch` was not landed as a CUE construct — the per-deploy walker is implemented in Go (`opm/compile/`, `opm/platform/`). The planned `experiments/002-platform-construct/` harness was skipped; the schema went direct. `#Platform.#ctx: #PlatformContext` remains deferred to enhancement 004.
 
 ## Documents
 
@@ -33,7 +27,7 @@ This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism f
 - [x] `03-schema.md` — CUE definitions for `#Platform`, `#ModuleRegistration`, `#PlatformMatch`, `#ComponentTransformer` (D1–D18 incorporated)
 - [x] `04-decisions.md` — Decision log including D13–D18 (multi-fulfiller allowed — D13 revised, enabled-hides, concurrent-write conflict, kebab Id, `#ComponentTransformer` redesign, runtime guarantee)
 - [x] `05-component-transformer-and-matcher.md` — Transformer schema + matcher algorithm in one place
-- [x] `experiments/002-platform-construct/` — Self-contained CUE harness validating every projection and constraint in `03-schema.md`
+- [ ] `experiments/002-platform-construct/` — skipped; schema landed direct in `apis/core/v1alpha2/` without a staging harness
 - [ ] `NN-pipeline-changes.md` — Go pipeline modifications (deferred — covered by follow-up runtime-fill enhancement; topo-sort algorithm is OQ6)
 - [ ] `NN-module-integration.md` — Migration of existing provider packages (deferred — separate enhancement, OQ3)
 
@@ -58,7 +52,7 @@ This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism f
 - Runtime-fill mechanism (Strategy B–style Go injection) — declared in schema, mechanism in follow-up.
 - Self-service catalog runtime API (`opm catalog list`, web UI, etc.).
 - `#PolicyTransformer` registration (deferred — pending policy redesign).
-- Migration of existing `opmodel.dev/opm/v1alpha2/providers/kubernetes` and other provider packages into `#Module` form.
+- Migration of existing `opmodel.dev/opm/v1alpha2/providers/kubernetes` and other provider packages into `#Module` form (subsequently ANSWERED — the OPM-core transformers now ship as Module form at `library/modules/opm/transformers/`; no `providers/` packages remain).
 - Multi-fulfiller resolution policy beyond predicate evaluation. Today: D13 (revised) allows multi-fulfiller and lets the Go runtime matcher disambiguate by per-candidate predicate evaluation. Predicate-insufficient cases (two transformers fulfil the same FQN and pass identical predicates against the same component) are a future-enhancement concern.
 - Topological-sort algorithm for `#status` writeback ordering — delegated to Go pipeline (OQ6).
 

@@ -385,12 +385,21 @@ package v1alpha2
         #component:     _
         #context:       #TransformerContext
 
-        output: {...}
+        // Output is either a single resource (struct) or a list of resources
+        // (list). The renderer dispatches on `cue.Kind`: struct → one Compiled
+        // per (component, transformer); list → one Compiled per item.
+        output: {...} | [...{...}]
     }
 }
 
 // 005 widens this to `#ComponentTransformer | #ModuleTransformer`.
 #TransformerMap: [#FQNType]: #ComponentTransformer
+
+// #TransformerContext is defined in `apis/core/v1alpha2/transformer.cue`. It
+// carries `#runtimeName!` (mandatory; stamped as `app.kubernetes.io/managed-by`
+// on every rendered resource) and the label/annotation aggregation pipeline
+// (module / component / controller layers → final `labels` and `annotations`).
+// The full shape is implementation plumbing and is not re-documented here.
 ```
 
 ## Field Documentation
@@ -442,7 +451,7 @@ package v1alpha2
 |-------|------|----------|-------------|
 | `apiVersion` | `"opmodel.dev/core/v1alpha2"` | fixed | OPM core |
 | `kind` | `"ComponentTransformer"` | fixed | Always `"ComponentTransformer"` |
-| `metadata.modulePath` | `#ModulePathType` | yes | Module path (e.g. `"opmodel.dev/opm/v1alpha2/providers/kubernetes"`) |
+| `metadata.modulePath` | `#ModulePathType` | yes | Module path (e.g. `"opmodel.dev/opm/transformers/kubernetes"`) |
 | `metadata.version` | `#MajorVersionType` | yes | Major version |
 | `metadata.name` | `#NameType` | yes | Transformer name (kebab-case) |
 | `metadata.fqn` | `#FQNType` | computed | `\(modulePath)/\(name)@\(version)` — used as `#defines.transformers` map key |
@@ -452,7 +461,7 @@ package v1alpha2
 | `requiredTraits` / `optionalTraits` | `[#FQNType]: #Trait` | no | Component `#traits` FQN match keys. Map values reference concrete `#Trait` definitions. 005 adds `requiredClaims` / `optionalClaims`. |
 | `readsContext` | `[...string]` | no | Declarative `#ctx` paths the body reads (catalog-UI hint) |
 | `producesKinds` | `[...string]` | no | Output Kubernetes kinds (catalog-UI hint) |
-| `#transform` | `{ #moduleRelease, #component, #context, output }` | yes | Render function. Runtime supplies all three inputs concretely (D18). |
+| `#transform` | `{ #moduleRelease, #component, #context, output: {...} \| [...{...}] }` | yes | Render function. Runtime supplies all three inputs concretely (D18). Output is either a single resource (struct) or a list of resources; the renderer dispatches on `cue.Kind` (struct → one Compiled per match; list → one per item). |
 
 ## File Locations
 
@@ -460,9 +469,8 @@ package v1alpha2
 
 | Path | Purpose |
 |------|---------|
-| `apis/core/v1alpha2/platform.cue` | `#Platform`, `#ModuleRegistration`, `#PlatformMatch` |
-| `apis/core/v1alpha2/transformer.cue` | `#ComponentTransformer`, `#TransformerMap`. 005 extends with `#ModuleTransformer` and widens `#TransformerMap` to the union. |
-| `experiments/002-platform-construct/` | Self-contained CUE harness exercising every schema in this doc — mirrors `experiments/001-module-context/`. Validates D3 (FQN collision), D14 (enabled hides), D15 (concurrent-write conflict), D16 (kebab Id), the `#PlatformMatch.unmatched` walker (design-only), and basic `#known*` / `#composedTransformers` / `#matchers` projections. (D13 revised: multi-fulfiller allowed; no CUE-side guard to validate.) |
+| `apis/core/v1alpha2/platform.cue` | `#Platform`, `#ModuleRegistration` (`#PlatformMatch` lives in Go — see status block above) |
+| `apis/core/v1alpha2/transformer.cue` | `#ComponentTransformer`, `#TransformerMap`, `#TransformerContext`. 005 extends with `#ModuleTransformer` and widens `#TransformerMap` to the union. |
 
 ### Removed / superseded
 

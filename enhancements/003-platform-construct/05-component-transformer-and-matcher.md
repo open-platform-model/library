@@ -41,7 +41,7 @@ package v1alpha2
     kind:       "ComponentTransformer"
 
     metadata: {
-        modulePath!: #ModulePathType   // "opmodel.dev/opm/v1alpha2/providers/kubernetes"
+        modulePath!: #ModulePathType   // "opmodel.dev/opm/transformers/kubernetes"
         version!:    #MajorVersionType
         name!:       #NameType
         #definitionName: (#KebabToPascal & {"in": name}).out
@@ -69,7 +69,9 @@ package v1alpha2
         #component:     _              // the matched #Component (singular)
         #context:       #TransformerContext
 
-        output: {...}
+        // Single resource (struct) or list of resources (list). The renderer
+        // dispatches on `cue.Kind` and never inspects fields.
+        output: {...} | [...{...}]
     }
 }
 
@@ -158,8 +160,8 @@ When the well-known catalog is rebuilt under v1alpha2:
 
 | Source | Change |
 |---|---|
-| Existing component-scope transformers (Deployment, Service, ConfigMap, ...) | Wrap as `#ComponentTransformer`; the v1alpha1 `#transform.#component` field is already singular; replace v1alpha1 imports |
-| Module-scope transformers (Hostname, ExternalDNS, K8up backup, cert-manager, Gateway-API routing) | Wait for 005's `#ModuleTransformer` — those depend on the `#Claim` primitive that 005 introduces |
+| Existing component-scope transformers (Deployment, Service, ConfigMap, ...) | **Landed.** Wrapped as `#ComponentTransformer` under `library/modules/opm/transformers/` (see OQ3 ANSWERED in `04-decisions.md`). |
+| Module-scope transformers (Hostname, ExternalDNS, K8up backup, cert-manager, Gateway-API routing) | Pending 005's `#ModuleTransformer` — those depend on the `#Claim` primitive that 005 introduces. |
 
 `cue vet` will flag any transformer in the v1alpha2 catalog that does not match `#ComponentTransformer` (or, after 005 lands, the union).
 

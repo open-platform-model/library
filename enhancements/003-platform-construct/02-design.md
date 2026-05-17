@@ -21,7 +21,7 @@
 - Runtime-fill mechanism for `#registry` — schema declared here; mechanism (Strategy B–style Go injection) deferred to a follow-up enhancement.
 - Self-service catalog runtime API surface (`opm catalog list`, web UI, deploy-time match resolver) — declarative shape only; runtime is the platform's choice (consistent with 005 design).
 - `#PolicyTransformer` registration — deferred until policy redesign converges (`enhancements/012`).
-- Migration of `opmodel.dev/opm/v1alpha2/providers/kubernetes` and other provider packages into `#Module` form — separate enhancement.
+- Migration of `opmodel.dev/opm/transformers/kubernetes` and other provider packages into `#Module` form — ANSWERED post-landing; the OPM-core transformers now ship as Module form at `library/modules/opm/transformers/` (see OQ3).
 - `#Claim` primitive, `#ModuleTransformer`, status writeback (`#resolution`), `#defines.claims`, `#knownClaims`, `#matchers.claims`, and the Claim halves of `_demand` / `matched` / `unmatched` / `ambiguous` on `#PlatformMatch` — all introduced as extensions in [005](../005-claims/).
 - Multi-fulfiller resolution policy beyond predicate evaluation. Today: D13 (revised) allows multi-fulfiller; the Go runtime matcher disambiguates per consumer component via predicate evaluation. Edge cases where predicates do not disambiguate (two transformers with identical predicates fulfil the same FQN for the same component) are deferred to a future enhancement.
 - Policy for unmatched FQNs (Resource / Trait types used by a deployed module with no renderer registered, plus 005's Claim extension). Detection is deterministic (D8); the response — fail / warn / drop — is a platform-team policy concern deferred until the catalog `#Policy` redesign (012) converges.
