@@ -7,6 +7,8 @@ includes:
   apis:
     taskfile: ./apis/Taskfile.yaml
     dir: ./apis
+  enhancements:
+    taskfile: ./.tasks/enhancements.yaml
 
 vars:
   COVERAGE_FILE: coverage.out

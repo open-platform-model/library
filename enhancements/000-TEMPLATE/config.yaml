@@ -1,0 +1,26 @@
+id: "NNN"
+slug: kebab-case-title
+title: Enhancement Title
+
+# Lifecycle: draft | accepted | implemented | superseded
+status: draft
+
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+
+authors:
+  - OPM Contributors
+
+# Implementation tracking. status: not-started | in-progress | partial | complete.
+# Omit `date` and `notes` while status is not-started.
+implementation:
+  status: not-started
+  # date: YYYY-MM-DD
+  # notes: One-line summary; longer prose lives in README.
+
+# Peer enhancements this one builds on or interacts with (IDs as strings).
+related: []
+
+# Lifecycle relationships. IDs as strings.
+supersedes: []
+superseded_by: null

@@ -1,0 +1,478 @@
+# Tasks for working with library/enhancements/ — list, validate, etc.
+# Wired into the root Taskfile via includes.enhancements (auto-namespaces
+# every task here under `enhancements:`).
+version: "3"
+
+silent: true
+
+tasks:
+  list:
+    desc: List enhancements with status and metadata (reads each config.yaml)
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        set -euo pipefail
+        BOLD='\033[1m'; RESET='\033[0m'
+        printf "${BOLD}%-5s %-10s %-12s %-12s %-12s %s${RESET}\n" \
+          "ID" "STATUS" "CREATED" "IMPL" "IMPL-DATE" "TITLE"
+        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+          [ -f "$cfg" ] || continue
+          id=$(yq -r '.id' "$cfg")
+          # Skip 000-TEMPLATE (placeholder id)
+          [ "$id" = "NNN" ] && continue
+          status=$(yq -r '.status' "$cfg")
+          created=$(yq -r '.created' "$cfg")
+          impl=$(yq -r '.implementation.status // "n/a"' "$cfg")
+          impl_date=$(yq -r '.implementation.date // "-"' "$cfg")
+          title=$(yq -r '.title' "$cfg")
+          printf "%-5s %-10s %-12s %-12s %-12s %s\n" \
+            "$id" "$status" "$created" "$impl" "$impl_date" "$title"
+        done
+
+  vet:
+    desc: Validate each enhancement config.yaml against schema.cue + consistency checks
+    preconditions:
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        RED='\033[0;31m'; GREEN='\033[0;32m'; RESET='\033[0m'
+        FAIL=0
+
+        # Build set of existing IDs once (for cross-ref checks).
+        EXISTING_IDS=""
+        for d in enhancements/[0-9][0-9][0-9]-*/; do
+          EXISTING_IDS="${EXISTING_IDS} $(basename "$d" | cut -c1-3)"
+        done
+
+        check() {
+          local cfg="$1"
+          local dir; dir=$(dirname "$cfg")
+          local dirbase; dirbase=$(basename "$dir")
+          local dir_id="${dirbase%%-*}"
+          local dir_slug="${dirbase#*-}"
+          local errors=""
+
+          local id slug created updated impl_date
+          id=$(yq -r '.id' "$cfg")
+          slug=$(yq -r '.slug' "$cfg")
+          created=$(yq -r '.created' "$cfg")
+          updated=$(yq -r '.updated' "$cfg")
+          impl_date=$(yq -r '.implementation.date // ""' "$cfg")
+
+          # 1. id matches dir prefix
+          [ "$id" = "$dir_id" ] || errors="${errors}\n    id '$id' != dir prefix '$dir_id'"
+          # 2. slug matches dir suffix
+          [ "$slug" = "$dir_slug" ] || errors="${errors}\n    slug '$slug' != dir suffix '$dir_slug'"
+          # 3. updated >= implementation.date (if set). created/updated checked by CUE.
+          if [ -n "$impl_date" ] && [[ "$impl_date" > "$updated" ]]; then
+            errors="${errors}\n    implementation.date '$impl_date' > updated '$updated'"
+          fi
+          # 4. cross-ref IDs exist
+          for field in related supersedes; do
+            while IFS= read -r ref; do
+              [ -z "$ref" ] && continue
+              case " $EXISTING_IDS " in
+                *" $ref "*) ;;
+                *) errors="${errors}\n    $field contains unknown id '$ref'" ;;
+              esac
+            done < <(yq -r ".$field[]?" "$cfg")
+          done
+          local sup_by; sup_by=$(yq -r '.superseded_by // ""' "$cfg")
+          if [ -n "$sup_by" ] && [ "$sup_by" != "null" ]; then
+            case " $EXISTING_IDS " in
+              *" $sup_by "*) ;;
+              *) errors="${errors}\n    superseded_by '$sup_by' is unknown id" ;;
+            esac
+          fi
+
+          # 5. CUE schema vet
+          local cue_out
+          if ! cue_out=$(cue vet -d '#EnhancementConfig' enhancements/schema.cue "$cfg" 2>&1); then
+            errors="${errors}\n    cue vet:\n$(echo "$cue_out" | sed 's/^/      /')"
+          fi
+
+          if [ -n "$errors" ]; then
+            printf "${RED}FAIL${RESET} %s%b\n" "$cfg" "$errors"
+            return 1
+          fi
+          printf "${GREEN}ok${RESET}   %s\n" "$cfg"
+        }
+
+        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+          [ -f "$cfg" ] || continue
+          id=$(yq -r '.id' "$cfg")
+          [ "$id" = "NNN" ] && continue   # skip 000-TEMPLATE
+          check "$cfg" || FAIL=1
+        done
+
+        exit $FAIL
+
+  new:
+    desc: Scaffold a new enhancement from 000-TEMPLATE (auto-numbers id; fills config.yaml + doc titles)
+    summary: |
+      Usage:
+        task enhancements:new SLUG=route-rendering TITLE="Route Rendering"
+        task enhancements:new SLUG=foo TITLE="Foo Bar" AUTHOR="Jane Doe"
+
+      SLUG must match ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ (kebab-case).
+      Computes the next 3-digit id from the highest existing enhancement.
+      Today's date is used for `created` and `updated`.
+      AUTHOR defaults to "OPM Contributors".
+    vars:
+      SLUG: '{{.SLUG | default ""}}'
+      TITLE: '{{.TITLE | default ""}}'
+      AUTHOR: '{{.AUTHOR | default "OPM Contributors"}}'
+    preconditions:
+      - sh: '[ -n "{{.SLUG}}" ]'
+        msg: 'SLUG is required. Usage: task enhancements:new SLUG=<slug> TITLE="<title>"'
+      - sh: '[ -n "{{.TITLE}}" ]'
+        msg: 'TITLE is required. Usage: task enhancements:new SLUG=<slug> TITLE="<title>"'
+      - sh: 'printf %s "{{.SLUG}}" | grep -Eq "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"'
+        msg: 'SLUG must match ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ (kebab-case)'
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        SLUG="{{.SLUG}}"
+        TITLE="{{.TITLE}}"
+        AUTHOR="{{.AUTHOR}}"
+        TEMPLATE_DIR="enhancements/000-TEMPLATE"
+
+        # Compute next id from the highest existing NNN-* dir. awk handles
+        # leading-zero strings as decimal (POSIX $((10#$n)) is unreliable
+        # under task's embedded shell).
+        HIGHEST=$(find enhancements -maxdepth 1 -type d -regex '.*/[0-9][0-9][0-9]-.*' -printf '%f\n' 2>/dev/null | cut -c1-3 | sort -n | tail -1)
+        HIGHEST="${HIGHEST:-0}"
+        NEW_ID=$(awk -v n="$HIGHEST" 'BEGIN { printf "%03d", n + 1 }')
+        NEW_DIR="enhancements/${NEW_ID}-${SLUG}"
+
+        if [ -e "$NEW_DIR" ]; then
+          echo "Target already exists: $NEW_DIR" >&2
+          exit 1
+        fi
+
+        cp -r "$TEMPLATE_DIR" "$NEW_DIR"
+
+        TODAY=$(date +%Y-%m-%d)
+        ID="$NEW_ID" SLUG_V="$SLUG" TITLE_V="$TITLE" \
+        CREATED="$TODAY" UPDATED="$TODAY" AUTHOR_V="$AUTHOR" \
+        yq -i '
+          .id = strenv(ID) |
+          .slug = strenv(SLUG_V) |
+          .title = strenv(TITLE_V) |
+          .created = strenv(CREATED) |
+          .updated = strenv(UPDATED) |
+          .authors = [strenv(AUTHOR_V)]
+        ' "$NEW_DIR/config.yaml"
+
+        # Replace {Enhancement Title} placeholder in README + 01/02/03.
+        # Escape `\` and `&` for sed safety.
+        ESCAPED_TITLE=$(printf '%s' "$TITLE" | sed -e 's/[\\&]/\\&/g')
+        for f in README.md 01-problem.md 02-design.md 03-decisions.md; do
+          sed -i "s#{Enhancement Title}#${ESCAPED_TITLE}#g" "$NEW_DIR/$f"
+        done
+
+        echo "Created $NEW_DIR  (id=$NEW_ID, slug=$SLUG)"
+        echo
+        echo "Next steps:"
+        echo "  1. Fill in $NEW_DIR/01-problem.md"
+        echo "  2. Fill in $NEW_DIR/02-design.md"
+        echo "  3. Fill in $NEW_DIR/03-decisions.md"
+        echo "  4. Update README placeholders ({Summary}, Documents descriptions, Cross-References)"
+        echo "  5. Validate: task enhancements:vet"
+
+  vet:one:
+    desc: Validate a single enhancement (ID=NNN or ID=slug)
+    summary: |
+      Usage:
+        task enhancements:vet:one ID=006
+        task enhancements:vet:one ID=platform-capabilities
+
+      ID accepts either the 3-digit id (e.g., 006) or the slug
+      (e.g., platform-capabilities). Runs the same checks as
+      `enhancements:vet` against the single matched config.yaml.
+    vars:
+      ID: '{{.ID | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.ID}}" ]'
+        msg: 'ID is required. Usage: task enhancements:vet:one ID=<3-digit-id-or-slug>'
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        RED='\033[0;31m'; GREEN='\033[0;32m'; RESET='\033[0m'
+        ID_OR_SLUG="{{.ID}}"
+
+        # Resolve to a directory.
+        case "$ID_OR_SLUG" in
+          [0-9][0-9][0-9])
+            DIR=$(find enhancements -maxdepth 1 -type d -name "${ID_OR_SLUG}-*" 2>/dev/null | head -1)
+            ;;
+          *)
+            DIR=$(find enhancements -maxdepth 1 -type d -name "[0-9][0-9][0-9]-${ID_OR_SLUG}" 2>/dev/null | head -1)
+            ;;
+        esac
+        if [ -z "$DIR" ]; then
+          echo "No enhancement found matching '$ID_OR_SLUG'" >&2
+          exit 1
+        fi
+        cfg="$DIR/config.yaml"
+        if [ ! -f "$cfg" ]; then
+          echo "Missing config.yaml in $DIR" >&2
+          exit 1
+        fi
+
+        # Build set of existing IDs for cross-ref checks.
+        EXISTING_IDS=""
+        for d in enhancements/[0-9][0-9][0-9]-*/; do
+          EXISTING_IDS="${EXISTING_IDS} $(basename "$d" | cut -c1-3)"
+        done
+
+        dir=$(dirname "$cfg")
+        dirbase=$(basename "$dir")
+        dir_id="${dirbase%%-*}"
+        dir_slug="${dirbase#*-}"
+        errors=""
+
+        id=$(yq -r '.id' "$cfg")
+        slug=$(yq -r '.slug' "$cfg")
+        updated=$(yq -r '.updated' "$cfg")
+        impl_date=$(yq -r '.implementation.date // ""' "$cfg")
+
+        [ "$id" = "$dir_id" ] || errors="${errors}\n    id '$id' != dir prefix '$dir_id'"
+        [ "$slug" = "$dir_slug" ] || errors="${errors}\n    slug '$slug' != dir suffix '$dir_slug'"
+        if [ -n "$impl_date" ] && [[ "$impl_date" > "$updated" ]]; then
+          errors="${errors}\n    implementation.date '$impl_date' > updated '$updated'"
+        fi
+        for field in related supersedes; do
+          while IFS= read -r ref; do
+            [ -z "$ref" ] && continue
+            case " $EXISTING_IDS " in
+              *" $ref "*) ;;
+              *) errors="${errors}\n    $field contains unknown id '$ref'" ;;
+            esac
+          done < <(yq -r ".$field[]?" "$cfg")
+        done
+        sup_by=$(yq -r '.superseded_by // ""' "$cfg")
+        if [ -n "$sup_by" ] && [ "$sup_by" != "null" ]; then
+          case " $EXISTING_IDS " in
+            *" $sup_by "*) ;;
+            *) errors="${errors}\n    superseded_by '$sup_by' is unknown id" ;;
+          esac
+        fi
+
+        if ! cue_out=$(cue vet -d '#EnhancementConfig' enhancements/schema.cue "$cfg" 2>&1); then
+          errors="${errors}\n    cue vet:\n$(echo "$cue_out" | sed 's/^/      /')"
+        fi
+
+        if [ -n "$errors" ]; then
+          printf "${RED}FAIL${RESET} %s%b\n" "$cfg" "$errors"
+          exit 1
+        fi
+        printf "${GREEN}ok${RESET}   %s\n" "$cfg"
+
+  show:
+    desc: Show full metadata for a single enhancement (ID=NNN or ID=slug)
+    summary: |
+      Usage:
+        task enhancements:show ID=006
+        task enhancements:show ID=platform-capabilities
+
+      Prints the resolved directory, every config.yaml field, and the
+      list of documents present in that enhancement.
+    vars:
+      ID: '{{.ID | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.ID}}" ]'
+        msg: 'ID is required. Usage: task enhancements:show ID=<3-digit-id-or-slug>'
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+        ID_OR_SLUG="{{.ID}}"
+
+        case "$ID_OR_SLUG" in
+          [0-9][0-9][0-9])
+            DIR=$(find enhancements -maxdepth 1 -type d -name "${ID_OR_SLUG}-*" 2>/dev/null | head -1)
+            ;;
+          *)
+            DIR=$(find enhancements -maxdepth 1 -type d -name "[0-9][0-9][0-9]-${ID_OR_SLUG}" 2>/dev/null | head -1)
+            ;;
+        esac
+        if [ -z "$DIR" ]; then
+          echo "No enhancement found matching '$ID_OR_SLUG'" >&2
+          exit 1
+        fi
+        cfg="$DIR/config.yaml"
+        if [ ! -f "$cfg" ]; then
+          echo "Missing config.yaml in $DIR" >&2
+          exit 1
+        fi
+
+        printf "${BOLD}%s${RESET}\n" "$DIR"
+        printf "  %-16s %s\n" "id:"            "$(yq -r '.id' "$cfg")"
+        printf "  %-16s %s\n" "slug:"          "$(yq -r '.slug' "$cfg")"
+        printf "  %-16s %s\n" "title:"         "$(yq -r '.title' "$cfg")"
+        printf "  %-16s %s\n" "status:"        "$(yq -r '.status' "$cfg")"
+        printf "  %-16s %s\n" "created:"       "$(yq -r '.created' "$cfg")"
+        printf "  %-16s %s\n" "updated:"       "$(yq -r '.updated' "$cfg")"
+        printf "  %-16s %s\n" "authors:"       "$(yq -r '.authors | join(", ")' "$cfg")"
+        printf "  %-16s %s\n" "impl status:"   "$(yq -r '.implementation.status' "$cfg")"
+        impl_date=$(yq -r '.implementation.date // "-"' "$cfg")
+        printf "  %-16s %s\n" "impl date:"     "$impl_date"
+        impl_notes=$(yq -r '.implementation.notes // ""' "$cfg")
+        [ -n "$impl_notes" ] && printf "  %-16s %s\n" "impl notes:"    "$impl_notes"
+        related=$(yq -r '.related | join(", ")' "$cfg")
+        printf "  %-16s %s\n" "related:"       "${related:--}"
+        supersedes=$(yq -r '.supersedes | join(", ")' "$cfg")
+        printf "  %-16s %s\n" "supersedes:"    "${supersedes:--}"
+        sup_by=$(yq -r '.superseded_by // "-"' "$cfg")
+        printf "  %-16s %s\n" "superseded_by:" "$sup_by"
+
+        echo
+        printf "${BOLD}Documents:${RESET}\n"
+        for f in "$DIR"/*.md; do
+          [ -f "$f" ] || continue
+          printf "  %s\n" "$(basename "$f")"
+        done
+        if [ -d "$DIR/experiments" ]; then
+          printf "  experiments/\n"
+        fi
+
+  graph:
+    desc: Generate enhancements/GRAPH.md with a Mermaid relationship diagram
+    summary: |
+      Walks every enhancements/NNN-*/config.yaml and (over)writes
+      enhancements/GRAPH.md with a Mermaid relationship graph:
+        - related[]     → undirected edges (deduped: emitted once per pair)
+        - supersedes[]  → directed edges (newer --supersedes--> older)
+        - superseded_by → ignored (validator enforces both sides; would dup)
+      Nodes are colored by status (draft/accepted/implemented/superseded).
+
+      GRAPH.md is fully generated — regenerate after editing any
+      config.yaml; do not hand-edit it.
+
+      Usage:
+        task enhancements:graph
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        OUT="enhancements/GRAPH.md"
+
+        {
+        echo '# Enhancement Relationship Graph'
+        echo
+        echo '<!-- Generated by `task enhancements:graph` — do not edit by hand. -->'
+        echo
+        echo '```mermaid'
+        echo 'graph LR'
+        echo '  classDef draft       fill:#fef3c7,stroke:#b45309,color:#000'
+        echo '  classDef accepted    fill:#dbeafe,stroke:#1d4ed8,color:#000'
+        echo '  classDef implemented fill:#dcfce7,stroke:#15803d,color:#000'
+        echo '  classDef superseded  fill:#e5e7eb,stroke:#6b7280,color:#6b7280'
+        echo
+
+        # Pass 1: nodes. Title is sanitized for Mermaid quoted-label syntax —
+        # backticks stripped, double quotes downgraded to single quotes —
+        # and truncated to ~50 chars to keep nodes readable.
+        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+          [ -f "$cfg" ] || continue
+          id=$(yq -r '.id' "$cfg")
+          [ "$id" = "NNN" ] && continue
+          status=$(yq -r '.status' "$cfg")
+          title=$(yq -r '.title' "$cfg" | tr -d '`' | tr '"' "'")
+          if [ "${#title}" -gt 50 ]; then
+            title="${title:0:49}…"
+          fi
+          printf '  N%s["%s: %s"]:::%s\n' "$id" "$id" "$title" "$status"
+        done
+
+        echo
+
+        # Pass 2a: related edges. Undirected. The validator only checks that
+        # referenced ids exist, not that A.related and B.related mirror each
+        # other — so an edge may be stored on one side only. Normalize each
+        # (id, ref) pair to (min, max) and dedupe via sort -u so the edge
+        # appears exactly once regardless of which side(s) declared it.
+        {
+          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+            [ -f "$cfg" ] || continue
+            id=$(yq -r '.id' "$cfg")
+            [ "$id" = "NNN" ] && continue
+            while IFS= read -r ref; do
+              [ -z "$ref" ] && continue
+              if [[ "$id" < "$ref" ]]; then
+                echo "$id $ref"
+              else
+                echo "$ref $id"
+              fi
+            done < <(yq -r '.related[]?' "$cfg")
+          done
+        } | sort -u | while read -r a b; do
+          printf '  N%s ---|related| N%s\n' "$a" "$b"
+        done
+
+        # Pass 2b: supersedes edges. Directed (newer -> older). Read only
+        # from .supersedes; skip .superseded_by since the validator enforces
+        # both sides exist and emitting both would duplicate the edge.
+        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+          [ -f "$cfg" ] || continue
+          id=$(yq -r '.id' "$cfg")
+          [ "$id" = "NNN" ] && continue
+          while IFS= read -r ref; do
+            [ -z "$ref" ] && continue
+            printf '  N%s -->|supersedes| N%s\n' "$id" "$ref"
+          done < <(yq -r '.supersedes[]?' "$cfg")
+        done
+
+        echo '```'
+
+        # Legend — standalone reference diagram with status colors AND edge
+        # types, grouped via subgraphs. classDefs are re-declared because
+        # each Mermaid block has its own scope.
+        echo
+        echo '## Legend'
+        echo
+        echo '```mermaid'
+        echo 'graph LR'
+        echo '  classDef draft       fill:#fef3c7,stroke:#b45309,color:#000'
+        echo '  classDef accepted    fill:#dbeafe,stroke:#1d4ed8,color:#000'
+        echo '  classDef implemented fill:#dcfce7,stroke:#15803d,color:#000'
+        echo '  classDef superseded  fill:#e5e7eb,stroke:#6b7280,color:#6b7280'
+        echo
+        echo '  subgraph statuses ["Node statuses"]'
+        echo '    Ldraft["draft"]:::draft'
+        echo '    Laccepted["accepted"]:::accepted'
+        echo '    Limplemented["implemented"]:::implemented'
+        echo '    Lsuperseded["superseded"]:::superseded'
+        echo '  end'
+        echo
+        echo '  subgraph edges ["Edge types"]'
+        echo '    Erel_a["A"] ---|related| Erel_b["B"]'
+        echo '    Esup_new["newer"] -->|supersedes| Esup_old["older"]'
+        echo '  end'
+        echo '```'
+        } > "$OUT"
+
+        printf 'Wrote %s\n' "$OUT"

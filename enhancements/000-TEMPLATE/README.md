@@ -1,10 +1,6 @@
 # Design Package: {Enhancement Title}
 
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | {YYYY-MM-DD}     |
-| **Authors** | OPM Contributors |
+See [config.yaml](config.yaml) for metadata.
 
 ## Summary
 
