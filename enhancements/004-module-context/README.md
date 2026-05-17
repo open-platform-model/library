@@ -1,11 +1,5 @@
 # Design Package: `#ctx` — Module Runtime Context
 
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | 2026-04-30       |
-| **Authors** | OPM Contributors |
-
 ## Summary
 
 > **Implementation status (2026-05-14).** None of this enhancement is in v1alpha2 yet. `apis/core/v1alpha2/` carries no `#ModuleContext`, `#RuntimeContext`, `#ComponentNames`, or `#ContextBuilder`; `#Module` has no `#ctx` field; `#Component` has no `metadata.resourceName` or `#names`. A related but distinct surface — `#TransformerContext` in `apis/core/v1alpha2/transformer.cue:99-198` — exists for transformer-internal use; unification with `#ctx` is deferred (D15). The Step-1 config unification (`let unifiedModule = #module & {#config: values}` at `apis/core/v1alpha2/module_release.cue:38`) is the only piece of the builder flow that has landed.
@@ -57,7 +51,8 @@ Two surfaces from earlier drafts of 004 have been moved out. The `#ctx.platform`
 | `enhancements/003-platform-construct/` | Sibling — owns `#Platform` composition; `#Platform`'s capability surface is added by 006, not 004 |
 | `enhancements/005-claims/` | Sibling — `#Module.#ctx` references `#ModuleContext` defined here |
 | `enhancements/006-platform-capabilities/` | Successor — adds the typed `#Capability` model with `#Module.#consumes` / `#Platform.#provides`; extends `#ContextBuilder` with capability matching; adds a kernel-populated `#platform: #Platform` field on `#ModuleRelease`. Absorbs 004's earlier `#ctx.platform` and cluster/route surfaces. Does not reintroduce `#Environment` (uses CUE unification of `#Platform` values). |
-| `experiments/001-module-context/` | Self-contained CUE sandbox built against the **pre-slim** 004 design. Finding 1 (cluster-domain resolution / D33) and the layered Platform → Environment fixtures are superseded by D36; Findings 2–3 (config-first ordering D34, lexical scope D35) still hold. Run: `cue vet -c -t test ./...` from the experiment dir. |
+| `experiments/` | In-tree experiments validating the post-slim design. See [experiments/README.md](experiments/README.md) for the index; the per-experiment READMEs carry the detail. |
+| `catalog/experiments/001-module-context/` *(sibling repo)* | Self-contained CUE sandbox built against the **pre-slim** 004 design. Finding 1 (cluster-domain resolution / D33) and the layered Platform → Environment fixtures are superseded by D36. Findings 2–3 (config-first ordering D34, lexical scope D35) are re-grounded in the in-tree `experiments/02-release-flow-ordering/`. Retained as historical provenance. |
 | `apis/core/v1alpha2/module.cue` | Gains `#ctx: #ModuleContext` field |
 | `apis/core/v1alpha2/component.cue` | Gains optional `metadata.resourceName` override and a `#names: #ComponentNames` definition field |
 | `apis/core/v1alpha2/module_release.cue` | Modified to invoke `#ContextBuilder` and unify both `ctx` and per-component `#names` injections into the module |
@@ -68,3 +63,4 @@ Two surfaces from earlier drafts of 004 have been moved out. The `#ctx.platform`
 - [ ] `NN-pipeline-changes.md` — Go pipeline modifications (deferred — content-hash injection, etc.)
 - [ ] `NN-module-integration.md` — Module-author migration of `#config`-borne identities into `#ctx` references (deferred to a follow-up)
 - [ ] `NN-context-flow.md` — Visual flow diagram (folded into 02-design.md while thin)
+- [x] `experiments/` — Two experiments concluded 2026-05-15. [01-names-cascade-and-injection](experiments/01-names-cascade-and-injection/README.md) validates the `#ComponentNames` cascade, the `metadata.resourceName` override, the `_clusterDomain` self-default, and the D32 lock-step. [02-release-flow-ordering](experiments/02-release-flow-ordering/README.md) validates D11 identity propagation, the D34 config-first ordering (including the silent-failure counter-fixture), and the D35 inline-literal scope requirement.
