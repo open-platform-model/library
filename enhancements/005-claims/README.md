@@ -1,10 +1,4 @@
-# Design Package: `#Claim` Primitive, `#ModuleTransformer`, and Module Extension Surface
-
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | 2026-04-28       |
-| **Authors** | OPM Contributors |
+# Design Package: `#Claim` and Module Extension Surface
 
 ## Summary
 

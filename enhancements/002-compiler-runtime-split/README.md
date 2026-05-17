@@ -1,10 +1,4 @@
-# Design Package: Compiler / Runtime Kernel Split for Op & Action Execution
-
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | 2026-05-08       |
-| **Authors** | OPM Contributors |
+# Design Package: Compiler / Runtime Kernel Split
 
 ## Summary
 
