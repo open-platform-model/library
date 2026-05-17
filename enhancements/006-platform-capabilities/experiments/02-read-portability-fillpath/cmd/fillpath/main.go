@@ -4,11 +4,11 @@
 // The end-user-authored artifact is `cases/jellyfin/release-unbound.cue` — it
 // has neither #platform set nor any matched #consumes values. The kernel's
 // job at apply time is to:
-//   1. Compute matched #consumes by walking the module's declared FQNs
-//      against the platform's #provides map.
-//   2. FillPath every matched entry into the module's #consumes.
-//   3. FillPath the chosen #platform onto the release.
-//   4. Evaluate the release.
+//  1. Compute matched #consumes by walking the module's declared FQNs
+//     against the platform's #provides map.
+//  2. FillPath every matched entry into the module's #consumes.
+//  3. FillPath the chosen #platform onto the release.
+//  4. Evaluate the release.
 //
 // This program performs steps 1–4 against the unbound fixture, prints the
 // resolved component value, and exits non-zero if the value does not match

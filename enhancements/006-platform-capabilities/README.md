@@ -1,11 +1,5 @@
 # Design Package: Platform Capabilities
 
-| Field       | Value            |
-| ----------- | ---------------- |
-| **Status**  | Draft            |
-| **Created** | 2026-05-14       |
-| **Authors** | OPM Contributors |
-
 ## Summary
 
 Introduces `#Capability` — an FQN-identified, schema-bearing construct for platform-supplied context, a sibling to `#Resource` and `#Trait`. A `#Platform` `#provides` concrete capability instances; a `#Module` declares which capabilities it `#consumes`; the matched provider value is unified back into `#consumes` so module bodies read `#consumes.required[fqn].spec.X` directly. This replaces the untyped `#ctx.platform` open struct that earlier drafts of 004 carried (extracted by 004 D36). Capabilities get schema, validation, collision detection, and discovery **without** a monolithic central schema — each capability is independently FQN-versioned, exactly as `#Resource` and `#Trait` are today.
@@ -28,7 +22,7 @@ The `#Environment` construct is **not** reintroduced in this enhancement (it was
 ### In scope
 
 - `#Capability` construct (FQN identity, OpenAPIv3 `spec`) — new file `apis/core/v1alpha2/capability.cue`.
-- `#Module.#consumes` — `required` / `optional` capability declarations; doubles as the read surface once matched (touches 005's `#Module`).
+- `#Module.#consumes` — `required` / `optional` capability declarations; doubles as the read surface once matched.
 - `#Platform.#provides` — concrete capability instances (touches 003's `#Platform`).
 - `#ModuleRelease.#platform: #Platform` — kernel-populated; end-users do not author it (touches 004's `#ModuleRelease`).
 - `#ContextBuilder` capability-matching step — extends 004's slimmed builder with `#platform` + `#consumes` inputs and an `out.consumes` output that `#ModuleRelease` unifies back into `#module.#consumes`.
@@ -52,7 +46,6 @@ The `#Environment` construct is **not** reintroduced in this enhancement (it was
 | `CONSTITUTION.md` (repo root) | Core design principles |
 | `enhancements/004-module-context/` | Parent — owns identity-only `#ctx.runtime`, `#ComponentNames`, the `#ContextBuilder` core, and the `#ModuleRelease` 3-step flow. 006 extends `#ContextBuilder` (adds `#platform` + `#consumes` inputs) and adds the kernel-populated `#platform` field on `#ModuleRelease`. 004 D36 records the slim that made room for both. |
 | `enhancements/003-platform-construct/` | `#Platform` gains a `#provides` map |
-| `enhancements/005-claims/` | `#Module` gains `#consumes`; relationship to Claim `#status` as the cross-runtime portability surface |
 | `apis/core/v1alpha2/resource.cue`, `trait.cue` | Prior art — the FQN-identified, schema-bearing primitive pattern that `#Capability` mirrors |
 | `apis/core/v1alpha2/component.cue` | Prior art — `#resources` as both declaration and read surface; the pattern `#consumes` follows |
 | `apis/core/v1alpha2/transformer.cue` | Prior art — `#TransformerContext.#runtimeName!` as the kernel-populated-field pattern |
