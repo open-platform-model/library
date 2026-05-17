@@ -10,6 +10,26 @@ Restructures the OPM kernel into a self-contained reference runtime that the CLI
 
 This enhancement did not itself land code. It is the umbrella reference for a sequence of small, independently shippable OpenSpec changes (slices). Every slice in the original plan has been archived; seven follow-up slices were added during implementation and are listed below for completeness.
 
+> **Implementation status (2026-05-14).** Complete. All 11 planned slices archived under `library/openspec/changes/archive/2026-05-08-*/` and `2026-05-09-slim-kernel-inputs/`; seven follow-up slices also landed (`2026-05-09-fold-deprecated-functions-into-kernel`, `2026-05-09-redesign-config-validation`, `2026-05-10-add-cue-schema-test-{harness,coverage}`, `2026-05-12-add-release-synth-helper`, `2026-05-12-unify-loaders-as-packages`, `2026-05-14-add-loader-shape-gates`, `2026-05-14-replace-load-platform-file-with-package`). See the Slicing Plan and Follow-Up Slices tables below, the `## Known Deviations Between Design and Code` section for deliberate divergences, and `## Open Questions — Resolution` for OQ outcomes.
+
+## Scope
+
+This is an umbrella enhancement; concrete scope is carried by the archived OpenSpec slices listed under `## Slicing Plan — Status` and `## Follow-Up Slices Added During Implementation` below. Each slice has its own proposal, design, specs, and tasks.
+
+### In scope
+
+- Kernel API surface rewrite covered by slices 01–11 plus the seven follow-up slices.
+- Retirement of `#Provider` and migration of matcher to `#composedTransformers` + `#matchers` (jointly with enhancement 003).
+- Two-tier validation surface on the kernel itself (see D5 amendment).
+- Helper boundary under `opm/helper/{loader,platform,synth}/`.
+
+### Out of scope
+
+- `#Claim` integration into the kernel (deferred to enhancement 005).
+- `#ctx` / `#PlatformContext` injection (deferred to enhancement 004).
+- Repo rename from `library` to `kernel` (D9 deferred — see Known Deviations).
+- `ValidateInput.Module` alignment with the slim shape (deferred — see Known Deviations).
+
 ## Documents
 
 1. [01-problem.md](01-problem.md) — Why the previous kernel shape blocked multi-frontend embedding; what each frontend (CLI, operator, XR fn) actually needs

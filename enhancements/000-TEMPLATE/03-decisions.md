@@ -21,6 +21,14 @@ Decision log for all architectural and design choices made during this enhanceme
 
 **Source:** {Where the decision originated — user decision with date, design discussion, external reference, or prior art.}
 
+---
+
+## Open Questions
+
+Track unresolved questions surfaced during design. `task enhancements:check` requires this block (with or without entries) starting at `status: accepted`, in either this file or `README.md`. Each entry SHOULD carry a `Status:` line once the enhancement reaches `implemented`.
+
+- **OQ1: {Short question}.** Status: open. {Context — what is unclear, what is blocked, what would resolve it. Update Status to `resolved-by-D##` / `deferred-to-NNN` / `answered` when the question closes.}
+
 <!--
 ## Agent Instructions
 

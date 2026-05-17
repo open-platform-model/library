@@ -17,12 +17,16 @@ implementation:
     Experiments 01 (matcher mechanics) and 02 (read portability + FillPath) concluded;
     D5 revised per F1 (#ContextBuilder must be invoked at top level, not inside #ModuleRelease).
 
-# Note: 005 and 006 are competing approaches to a similar problem
-# (ecosystem-supplied needs flowing typed values back to a module).
-# They are intentionally NOT cross-linked via `related`.
+# 005 and 006 are competing approaches to the same problem (ecosystem-supplied
+# needs flowing typed values back to a module). They are NOT cross-linked via
+# `related`; the relationship is captured via `competes_with` below, which
+# `task enhancements:graph` renders as a dashed-red edge.
 related:
   - "003"
   - "004"
+
+competes_with:
+  - "005"
 
 supersedes: []
 superseded_by: null

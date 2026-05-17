@@ -22,6 +22,9 @@ graph LR
   N003 ---|related| N006
   N004 ---|related| N005
   N004 ---|related| N006
+  N005 -.-|competes| N006
+
+  linkStyle 6 stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5
 ```
 
 ## Legend
@@ -43,5 +46,7 @@ graph LR
   subgraph edges ["Edge types"]
     Erel_a["A"] ---|related| Erel_b["B"]
     Esup_new["newer"] -->|supersedes| Esup_old["older"]
+    Ecom_a["A"] -.-|competes| Ecom_b["B"]
   end
+  linkStyle 2 stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5
 ```

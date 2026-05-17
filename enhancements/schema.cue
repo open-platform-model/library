@@ -16,8 +16,14 @@ import "strings"
 // Slug captures the long form; README/01/02/… docs carry full prose.
 #TitleStr: string & strings.MinRunes(1) & strings.MaxRunes(50)
 
-#Status:     "draft" | "accepted" | "implemented" | "superseded"
-#ImplStatus: "not-started" | "in-progress" | "partial" | "complete"
+#Status:       "draft" | "accepted" | "implemented" | "superseded"
+#ImplStatus:   "not-started" | "in-progress" | "partial" | "complete"
+#SemverImpact: "major" | "minor" | "none"
+
+// OpenSpec change slug — dated kebab prefix, e.g. "2026-05-08-add-kernel-struct".
+// `task enhancements:vet` separately checks each listed slice exists under
+// openspec/changes/archive/.
+#SliceStr: =~"^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
 
 #EnhancementConfig: {
 	id!:      #IDStr
@@ -32,6 +38,38 @@ import "strings"
 	related!:        [...#IDStr]
 	supersedes!:     [...#IDStr]
 	superseded_by!:  null | #IDStr
+
+	// Optional metadata. Status-conditional constraints below tighten them.
+	semver?:        #SemverImpact
+	slices?:        [...#SliceStr]
+	competes_with?: [...#IDStr]
+
+	// Cross-field rules. status (design lifecycle) and implementation.status
+	// (code lifecycle) are independent axes; these constraints couple them
+	// only where the combination would be incoherent.
+
+	// semver becomes required once design impact is known (anything past draft).
+	if status != "draft" {
+		semver!: #SemverImpact
+	}
+
+	// accepted = design frozen, code in flight. Cannot be `complete` (that's
+	// what `implemented` is for).
+	if status == "accepted" {
+		implementation: status: "not-started" | "in-progress" | "partial"
+	}
+
+	// implemented = all design intent shipped. `partial`/`in-progress` here
+	// would mean we lied about the status; carve remaining work into a new
+	// enhancement instead.
+	if status == "implemented" {
+		implementation: status: "complete"
+	}
+
+	// Tighten null|#IDStr to non-null when the entry is actually superseded.
+	if status == "superseded" {
+		superseded_by: #IDStr
+	}
 }
 
 #ImplementationStatus: {

@@ -12,7 +12,7 @@ Multi-fulfiller is allowed at the `#matchers` layer (D13 revised) — overlappin
 
 This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism for `#registry`, self-service catalog runtime, `#PolicyTransformer` integration, topo-sort algorithm for `#status` writeback ordering, and migration of existing provider packages are deferred to follow-up enhancements. `#Claim`, `#ModuleTransformer`, status writeback, and the Claim halves of every `#Platform` view are introduced as extensions in sibling enhancement [005](../005-claims/) — see Cross-References.
 
-> **Implementation status (2026-05-17).** Complete. `#Platform`, `#ModuleRegistration`, `#knownResources` / `#knownTraits` / `#composedTransformers`, the `#matchers.{resources,traits}` reverse index, and `#ComponentTransformer` / `#TransformerMap` are landed in `apis/core/v1alpha2/platform.cue` and `apis/core/v1alpha2/transformer.cue`. Two deliberate deviations from the original design: (1) D13 was revised — multi-fulfiller is allowed, not forbidden, and the Go runtime matcher disambiguates via predicate evaluation; (2) `#PlatformMatch` was not landed as a CUE construct — the per-deploy walker is implemented in Go (`opm/compile/`, `opm/platform/`). The planned `experiments/002-platform-construct/` harness was skipped; the schema went direct. `#Platform.#ctx: #PlatformContext` remains deferred to enhancement 004.
+> **Implementation status (2026-05-17).** Complete. `#Platform`, `#ModuleRegistration`, `#knownResources` / `#knownTraits` / `#composedTransformers`, the `#matchers.{resources,traits}` reverse index, and `#ComponentTransformer` / `#TransformerMap` are landed in `apis/core/v1alpha2/platform.cue` and `apis/core/v1alpha2/transformer.cue`. See `## Deviations from Design` below for the two deliberate divergences. `#Platform.#ctx: #PlatformContext` remains deferred to enhancement 004.
 
 ## Documents
 
@@ -55,6 +55,15 @@ This enhancement is intentionally thin. `#Environment`, runtime-fill mechanism f
 - Migration of existing `opmodel.dev/opm/v1alpha2/providers/kubernetes` and other provider packages into `#Module` form (subsequently ANSWERED — the OPM-core transformers now ship as Module form at `library/modules/opm/transformers/`; no `providers/` packages remain).
 - Multi-fulfiller resolution policy beyond predicate evaluation. Today: D13 (revised) allows multi-fulfiller and lets the Go runtime matcher disambiguate by per-candidate predicate evaluation. Predicate-insufficient cases (two transformers fulfil the same FQN and pass identical predicates against the same component) are a future-enhancement concern.
 - Topological-sort algorithm for `#status` writeback ordering — delegated to Go pipeline (OQ6).
+
+## Deviations from Design
+
+Two deliberate divergences from the original design landed at implementation time:
+
+- **D13 was revised — multi-fulfiller is allowed.** The original D13 forbade multi-fulfiller; the revised decision allows overlapping `requiredResources` / `requiredTraits` FQNs across registered transformers, with the Go runtime matcher disambiguating per consumer component via predicate evaluation.
+- **`#PlatformMatch` is implemented in Go, not CUE.** The original design defined `#PlatformMatch` as a CUE construct that walked the registry per deploy. Implementation landed the per-deploy walker in Go (`opm/compile/`, `opm/platform/`) instead. The CUE block in `03-schema.md` is retained for reference but not part of the shipped schema.
+
+The planned `experiments/002-platform-construct/` harness was also skipped — the schema went direct rather than via a staging harness. Not a design deviation per se, but worth flagging for future enhancements that might want a similar harness pattern.
 
 ## Cross-References
 

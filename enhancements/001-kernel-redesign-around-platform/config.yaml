@@ -3,6 +3,7 @@ slug: kernel-redesign-around-platform
 title: Kernel Redesign Around `#Platform`
 
 status: implemented
+semver: major
 
 created: 2026-05-07
 updated: 2026-05-17
@@ -14,6 +15,28 @@ implementation:
   status: complete
   date: 2026-05-14
   notes: All 11 planned slices archived under openspec/changes/archive; seven follow-up slices also landed (config-validation redesign, deprecated-function fold-in, synth helper, loader unification, schema-test harness).
+
+slices:
+  - "2026-05-08-add-multi-apiversion-support"
+  - "2026-05-08-add-kernel-struct"
+  - "2026-05-08-unify-artifact-shape"
+  - "2026-05-08-retire-module-debug"
+  - "2026-05-08-accept-single-values-input"
+  - "2026-05-08-introduce-tiered-validation"
+  - "2026-05-08-add-phase-methods-and-rename-compile"
+  - "2026-05-08-reorganize-helpers-under-helper"
+  - "2026-05-08-add-platform-construct"
+  - "2026-05-08-rewrite-match-around-platform"
+  - "2026-05-08-add-platform-composition-helper"
+  - "2026-05-09-slim-kernel-inputs"
+  - "2026-05-09-fold-deprecated-functions-into-kernel"
+  - "2026-05-09-redesign-config-validation"
+  - "2026-05-10-add-cue-schema-test-harness"
+  - "2026-05-10-add-cue-schema-test-coverage"
+  - "2026-05-12-add-release-synth-helper"
+  - "2026-05-12-unify-loaders-as-packages"
+  - "2026-05-14-add-loader-shape-gates"
+  - "2026-05-14-replace-load-platform-file-with-package"
 
 related:
   - "003"

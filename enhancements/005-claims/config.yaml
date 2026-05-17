@@ -7,9 +7,10 @@ status: draft
 created: 2026-04-28
 updated: 2026-05-17
 
-# Note: 005 and 006 are competing approaches to a similar problem
-# (ecosystem-supplied needs flowing typed values back to a module).
-# They are intentionally NOT cross-linked via `related`.
+# 005 and 006 are competing approaches to the same problem (ecosystem-supplied
+# needs flowing typed values back to a module). They are NOT cross-linked via
+# `related`; the relationship is captured via `competes_with` below, which
+# `task enhancements:graph` renders as a dashed-red edge.
 
 authors:
   - OPM Contributors
@@ -24,6 +25,9 @@ implementation:
 related:
   - "003"
   - "004"
+
+competes_with:
+  - "006"
 
 supersedes: []
 superseded_by: null

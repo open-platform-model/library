@@ -12,7 +12,6 @@ authors:
 
 implementation:
   status: not-started
-  date: 2026-05-14
   notes: >-
     No piece of this enhancement is in v1alpha2 yet beyond the Step-1 config
     unification at apis/core/v1alpha2/module_release.cue:38.

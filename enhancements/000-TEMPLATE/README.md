@@ -6,6 +6,18 @@ See [config.yaml](config.yaml) for metadata.
 
 {One to three sentences describing what this enhancement introduces and why it matters.}
 
+<!--
+When implementation lands (status → implemented, or implementation.status → partial+),
+add an Implementation Status quote block here. Format:
+
+  > **Implementation status (YYYY-MM-DD).** {One-paragraph summary of what shipped,
+  > with file paths to landed code. If there are deliberate deviations from the
+  > original design, point readers to the `## Deviations from Design` section below.}
+
+The date in the block MUST match `config.yaml.implementation.date`.
+`task enhancements:check` enforces presence for `status: implemented`.
+-->
+
 ## Documents
 
 1. [01-problem.md](01-problem.md) — {One-line description of the problem being solved}
@@ -25,6 +37,18 @@ Check each box that applies to this enhancement. When checked, create the corres
 - [ ] `experiments/` — Self-contained proofs-of-concept validating ideas in this enhancement (see Experiments below)
 
 Replace `NN` with the next available number in the sequence (starting from `04`).
+
+## Scope
+
+Concrete boundary of this enhancement. `task enhancements:check` requires this section starting at `status: accepted`. For design-time aspirations (what the solution must achieve), see `02-design.md` `## Design Goals`.
+
+### In scope
+
+- {Bulleted boundary of what this enhancement covers.}
+
+### Out of scope
+
+- {Items deliberately deferred, owned by other enhancements, or out of scope by intent.}
 
 ## Experiments
 
@@ -67,6 +91,10 @@ Each experiment's README must answer:
 4. **Outcome** — What was observed; whether the hypothesis held.
 
 Update the per-experiment README in place as the experiment evolves. Once concluded, record the outcome and link the result back into `02-design.md` or `03-decisions.md` so the enhancement carries the evidence.
+
+## Deviations from Design
+
+None at this stage. Update this section when implementation lands and any deliberate divergences from the design need to be documented. `task enhancements:check` enforces presence for `status: implemented` (the section may say "None"; it just has to exist).
 
 ## Cross-References
 

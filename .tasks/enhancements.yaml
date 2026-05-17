@@ -13,23 +13,51 @@ tasks:
         msg: "yq is required"
     cmds:
       - |
+        #!/usr/bin/env bash
         set -euo pipefail
-        BOLD='\033[1m'; RESET='\033[0m'
-        printf "${BOLD}%-5s %-10s %-12s %-12s %-12s %s${RESET}\n" \
-          "ID" "STATUS" "CREATED" "IMPL" "IMPL-DATE" "TITLE"
-        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
-          [ -f "$cfg" ] || continue
-          id=$(yq -r '.id' "$cfg")
-          # Skip 000-TEMPLATE (placeholder id)
-          [ "$id" = "NNN" ] && continue
-          status=$(yq -r '.status' "$cfg")
-          created=$(yq -r '.created' "$cfg")
-          impl=$(yq -r '.implementation.status // "n/a"' "$cfg")
-          impl_date=$(yq -r '.implementation.date // "-"' "$cfg")
-          title=$(yq -r '.title' "$cfg")
-          printf "%-5s %-10s %-12s %-12s %-12s %s\n" \
-            "$id" "$status" "$created" "$impl" "$impl_date" "$title"
-        done
+
+        # Emit tab-separated rows (header first), then let awk compute per-
+        # column widths in a two-pass-in-memory render. Avoids `column -t`
+        # because that tool counts ANSI escapes as visible chars and breaks
+        # header bolding.
+        {
+          printf 'ID\tSTATUS\tSEMVER\tCREATED\tIMPL\tIMPL-DATE\tTITLE\n'
+          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+            [ -f "$cfg" ] || continue
+            id=$(yq -r '.id' "$cfg")
+            # Skip 000-TEMPLATE (placeholder id)
+            [ "$id" = "NNN" ] && continue
+            status=$(yq -r '.status' "$cfg")
+            semver=$(yq -r '.semver // "-"' "$cfg")
+            created=$(yq -r '.created' "$cfg")
+            impl=$(yq -r '.implementation.status // "n/a"' "$cfg")
+            impl_date=$(yq -r '.implementation.date // "-"' "$cfg")
+            title=$(yq -r '.title' "$cfg")
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$id" "$status" "$semver" "$created" "$impl" "$impl_date" "$title"
+          done
+        } | awk -F'\t' '
+          {
+            rows[NR] = $0
+            ncols = NF > ncols ? NF : ncols
+            for (i = 1; i <= NF; i++) {
+              if (length($i) > w[i]) w[i] = length($i)
+            }
+          }
+          END {
+            BOLD = "\033[1m"; RESET = "\033[0m"
+            for (n = 1; n <= NR; n++) {
+              split(rows[n], cols, "\t")
+              line = ""
+              for (i = 1; i <= ncols; i++) {
+                if (i == ncols) line = line cols[i]
+                else line = line sprintf("%-*s  ", w[i], cols[i])
+              }
+              if (n == 1) printf "%s%s%s\n", BOLD, line, RESET
+              else print line
+            }
+          }
+        '
 
   vet:
     desc: Validate each enhancement config.yaml against schema.cue + consistency checks
@@ -51,6 +79,32 @@ tasks:
           EXISTING_IDS="${EXISTING_IDS} $(basename "$d" | cut -c1-3)"
         done
 
+        # Build set of archived OpenSpec slice slugs (for slices[] existence checks).
+        # Empty if openspec/changes/archive/ doesn't exist yet.
+        ARCHIVED_SLICES=""
+        if [ -d openspec/changes/archive ]; then
+          for d in openspec/changes/archive/*/; do
+            [ -d "$d" ] || continue
+            ARCHIVED_SLICES="${ARCHIVED_SLICES} $(basename "$d")"
+          done
+        fi
+
+        # Placeholder grep: catches `{Capital...}` template strings left in
+        # mandatory docs. Code fences excluded (ASCII diagrams and CUE-ish
+        # snippets there legitimately use `{X}` shapes).
+        placeholders_in_file() {
+          local f="$1"
+          awk '
+            /^```/ { in_code = !in_code; next }
+            !in_code {
+              while (match($0, /\{[A-Z][^}]*\}/)) {
+                printf "      line %d: %s\n", NR, substr($0, RSTART, RLENGTH)
+                $0 = substr($0, RSTART + RLENGTH)
+              }
+            }
+          ' "$f"
+        }
+
         check() {
           local cfg="$1"
           local dir; dir=$(dirname "$cfg")
@@ -59,12 +113,13 @@ tasks:
           local dir_slug="${dirbase#*-}"
           local errors=""
 
-          local id slug created updated impl_date
+          local id slug created updated impl_date status
           id=$(yq -r '.id' "$cfg")
           slug=$(yq -r '.slug' "$cfg")
           created=$(yq -r '.created' "$cfg")
           updated=$(yq -r '.updated' "$cfg")
           impl_date=$(yq -r '.implementation.date // ""' "$cfg")
+          status=$(yq -r '.status' "$cfg")
 
           # 1. id matches dir prefix
           [ "$id" = "$dir_id" ] || errors="${errors}\n    id '$id' != dir prefix '$dir_id'"
@@ -75,7 +130,7 @@ tasks:
             errors="${errors}\n    implementation.date '$impl_date' > updated '$updated'"
           fi
           # 4. cross-ref IDs exist
-          for field in related supersedes; do
+          for field in related supersedes competes_with; do
             while IFS= read -r ref; do
               [ -z "$ref" ] && continue
               case " $EXISTING_IDS " in
@@ -92,7 +147,38 @@ tasks:
             esac
           fi
 
-          # 5. CUE schema vet
+          # 5. competes_with symmetry. If A lists B, B must list A.
+          while IFS= read -r ref; do
+            [ -z "$ref" ] && continue
+            local peer_cfg
+            peer_cfg=$(find enhancements -maxdepth 2 -name config.yaml -path "*/${ref}-*" 2>/dev/null | head -1)
+            if [ -n "$peer_cfg" ]; then
+              local back; back=$(yq -r ".competes_with[]? // \"\"" "$peer_cfg" | grep -Fx "$id" || true)
+              [ -n "$back" ] || errors="${errors}\n    competes_with '$ref' not mirrored (peer $ref does not list $id)"
+            fi
+          done < <(yq -r '.competes_with[]?' "$cfg")
+
+          # 6. slices[] existence — each must be an archived OpenSpec change directory.
+          while IFS= read -r slice; do
+            [ -z "$slice" ] && continue
+            case " $ARCHIVED_SLICES " in
+              *" $slice "*) ;;
+              *) errors="${errors}\n    slices contains unknown slug '$slice' (not under openspec/changes/archive/)" ;;
+            esac
+          done < <(yq -r '.slices[]?' "$cfg")
+
+          # 7. Placeholder strings in mandatory docs.
+          for doc in README.md 01-problem.md 02-design.md 03-decisions.md; do
+            local path="$dir/$doc"
+            [ -f "$path" ] || continue
+            local hits; hits=$(placeholders_in_file "$path")
+            if [ -n "$hits" ]; then
+              errors="${errors}\n    $doc has unfilled {Placeholder} strings:\n$hits"
+            fi
+          done
+
+          # 8. CUE schema vet (covers required fields, status-conditional
+          #    constraints, and the design↔implementation status coupling).
           local cue_out
           if ! cue_out=$(cue vet -d '#EnhancementConfig' enhancements/schema.cue "$cfg" 2>&1); then
             errors="${errors}\n    cue vet:\n$(echo "$cue_out" | sed 's/^/      /')"
@@ -185,10 +271,11 @@ tasks:
         echo
         echo "Next steps:"
         echo "  1. Fill in $NEW_DIR/01-problem.md"
-        echo "  2. Fill in $NEW_DIR/02-design.md"
-        echo "  3. Fill in $NEW_DIR/03-decisions.md"
-        echo "  4. Update README placeholders ({Summary}, Documents descriptions, Cross-References)"
-        echo "  5. Validate: task enhancements:vet"
+        echo "  2. Fill in $NEW_DIR/02-design.md (Design Goals + Non-Goals)"
+        echo "  3. Fill in $NEW_DIR/03-decisions.md (D1, and Open Questions block)"
+        echo "  4. Update README placeholders ({Summary}, Documents descriptions, Scope In/Out, Cross-References)"
+        echo "  5. Validate:           task enhancements:vet"
+        echo "  6. Pre-PR soft audit:  task enhancements:check ID=$NEW_ID"
 
   vet:one:
     desc: Validate a single enhancement (ID=NNN or ID=slug)
@@ -235,11 +322,31 @@ tasks:
           exit 1
         fi
 
-        # Build set of existing IDs for cross-ref checks.
+        # Build sets for cross-ref checks.
         EXISTING_IDS=""
         for d in enhancements/[0-9][0-9][0-9]-*/; do
           EXISTING_IDS="${EXISTING_IDS} $(basename "$d" | cut -c1-3)"
         done
+        ARCHIVED_SLICES=""
+        if [ -d openspec/changes/archive ]; then
+          for d in openspec/changes/archive/*/; do
+            [ -d "$d" ] || continue
+            ARCHIVED_SLICES="${ARCHIVED_SLICES} $(basename "$d")"
+          done
+        fi
+
+        placeholders_in_file() {
+          local f="$1"
+          awk '
+            /^```/ { in_code = !in_code; next }
+            !in_code {
+              while (match($0, /\{[A-Z][^}]*\}/)) {
+                printf "      line %d: %s\n", NR, substr($0, RSTART, RLENGTH)
+                $0 = substr($0, RSTART + RLENGTH)
+              }
+            }
+          ' "$f"
+        }
 
         dir=$(dirname "$cfg")
         dirbase=$(basename "$dir")
@@ -257,7 +364,7 @@ tasks:
         if [ -n "$impl_date" ] && [[ "$impl_date" > "$updated" ]]; then
           errors="${errors}\n    implementation.date '$impl_date' > updated '$updated'"
         fi
-        for field in related supersedes; do
+        for field in related supersedes competes_with; do
           while IFS= read -r ref; do
             [ -z "$ref" ] && continue
             case " $EXISTING_IDS " in
@@ -274,6 +381,35 @@ tasks:
           esac
         fi
 
+        # competes_with symmetry
+        while IFS= read -r ref; do
+          [ -z "$ref" ] && continue
+          peer_cfg=$(find enhancements -maxdepth 2 -name config.yaml -path "*/${ref}-*" 2>/dev/null | head -1)
+          if [ -n "$peer_cfg" ]; then
+            back=$(yq -r ".competes_with[]? // \"\"" "$peer_cfg" | grep -Fx "$id" || true)
+            [ -n "$back" ] || errors="${errors}\n    competes_with '$ref' not mirrored (peer $ref does not list $id)"
+          fi
+        done < <(yq -r '.competes_with[]?' "$cfg")
+
+        # slices[] existence
+        while IFS= read -r slice; do
+          [ -z "$slice" ] && continue
+          case " $ARCHIVED_SLICES " in
+            *" $slice "*) ;;
+            *) errors="${errors}\n    slices contains unknown slug '$slice' (not under openspec/changes/archive/)" ;;
+          esac
+        done < <(yq -r '.slices[]?' "$cfg")
+
+        # Placeholder strings in mandatory docs
+        for doc in README.md 01-problem.md 02-design.md 03-decisions.md; do
+          path="$dir/$doc"
+          [ -f "$path" ] || continue
+          hits=$(placeholders_in_file "$path")
+          if [ -n "$hits" ]; then
+            errors="${errors}\n    $doc has unfilled {Placeholder} strings:\n$hits"
+          fi
+        done
+
         if ! cue_out=$(cue vet -d '#EnhancementConfig' enhancements/schema.cue "$cfg" 2>&1); then
           errors="${errors}\n    cue vet:\n$(echo "$cue_out" | sed 's/^/      /')"
         fi
@@ -283,6 +419,123 @@ tasks:
           exit 1
         fi
         printf "${GREEN}ok${RESET}   %s\n" "$cfg"
+
+  check:
+    desc: Soft per-status checklist (scope, decisions, OQ, deviations, impl block)
+    summary: |
+      Complements `enhancements:vet`. Where vet enforces the machine-readable
+      contract (schema, cross-refs, dates, placeholders, slices, competes
+      symmetry), check audits the prose conventions that don't fit a schema:
+
+        - accepted+ → README has `## Scope` with In/Out scope subsections
+        - accepted+ → 0N-decisions.md has at least one `### DN:` heading
+        - accepted+ → 0N-decisions.md has an `## Open Questions` block
+        - implemented → README has `> **Implementation status (YYYY-MM-DD).**`
+                        quote block, date matching implementation.date
+        - implemented → README has a `## ...Deviation...` section
+        - superseded → README has `> **Superseded by NNN ...**` quote block
+
+      vet is the CI gate (always must pass). check is the pre-PR aid — run it
+      before opening a PR that changes `status`. Exits non-zero if any soft
+      check fails so it can be wired into pre-commit if desired.
+
+      Usage:
+        task enhancements:check          # all enhancements
+        task enhancements:check ID=003   # single enhancement (3-digit id or slug)
+    vars:
+      ID: '{{.ID | default ""}}'
+    preconditions:
+      - sh: command -v yq >/dev/null 2>&1
+        msg: "yq is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        RED='\033[0;31m'; YELLOW='\033[0;33m'; GREEN='\033[0;32m'; RESET='\033[0m'
+        TARGET="{{.ID}}"
+        FAIL=0
+
+        # Resolve target → list of config.yaml paths.
+        CFGS=()
+        if [ -n "$TARGET" ]; then
+          case "$TARGET" in
+            [0-9][0-9][0-9])
+              d=$(find enhancements -maxdepth 1 -type d -name "${TARGET}-*" 2>/dev/null | head -1) ;;
+            *)
+              d=$(find enhancements -maxdepth 1 -type d -name "[0-9][0-9][0-9]-${TARGET}" 2>/dev/null | head -1) ;;
+          esac
+          [ -n "$d" ] || { echo "No enhancement found matching '$TARGET'" >&2; exit 1; }
+          CFGS=("$d/config.yaml")
+        else
+          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+            [ -f "$cfg" ] || continue
+            id=$(yq -r '.id' "$cfg")
+            [ "$id" = "NNN" ] && continue
+            CFGS+=("$cfg")
+          done
+        fi
+
+        check_one() {
+          local cfg="$1"
+          local dir; dir=$(dirname "$cfg")
+          local id status impl_date
+          id=$(yq -r '.id' "$cfg")
+          status=$(yq -r '.status' "$cfg")
+          impl_date=$(yq -r '.implementation.date // ""' "$cfg")
+          local warnings=""
+
+          # Decisions file. Most enhancements use 03-decisions.md, but ones
+          # with an inserted 03-schema.md push decisions to 04-decisions.md.
+          local dec; dec=$(ls "$dir"/0[0-9]-decisions.md 2>/dev/null | head -1)
+
+          # accepted+ gates
+          if [ "$status" = "accepted" ] || [ "$status" = "implemented" ] || [ "$status" = "superseded" ]; then
+            grep -qE '^## Scope' "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '## Scope' section"
+            grep -qE '^### In scope' "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '### In scope' subsection"
+            grep -qE '^### Out of scope' "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '### Out of scope' subsection"
+            if [ -n "$dec" ]; then
+              # Accept h2+ (`## DN —` or `### DN:`). Corpus has both styles.
+              grep -qE '^##+ D[0-9]+' "$dec" 2>/dev/null \
+                || warnings="${warnings}\n    $(basename "$dec"): no '## DN:' or '### DN:' decision heading found"
+              # Open Questions block may live in either the decisions file or
+              # the README. Look in both before warning.
+              if ! grep -qE '^## Open Questions' "$dec" "$dir/README.md" 2>/dev/null; then
+                warnings="${warnings}\n    missing '## Open Questions' block (looked in $(basename "$dec") and README.md)"
+              fi
+            else
+              warnings="${warnings}\n    no 0N-decisions.md file found"
+            fi
+          fi
+
+          # implemented gates
+          if [ "$status" = "implemented" ]; then
+            local impl_re='^> \*\*Implementation status \('"${impl_date}"'\)\.\*\*'
+            grep -qE "$impl_re" "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '> **Implementation status (${impl_date}).**' quote block"
+            grep -qE '^## .*[Dd]eviation' "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '## ...Deviation...' section (may say 'None')"
+          fi
+
+          # superseded gates
+          if [ "$status" = "superseded" ]; then
+            grep -qE '^> \*\*Superseded by [0-9]{3}' "$dir/README.md" 2>/dev/null \
+              || warnings="${warnings}\n    README.md: missing '> **Superseded by NNN ...**' quote block"
+          fi
+
+          if [ -n "$warnings" ]; then
+            printf "${YELLOW}WARN${RESET} %s (status=%s)%b\n" "$cfg" "$status" "$warnings"
+            return 1
+          fi
+          printf "${GREEN}ok${RESET}   %s (status=%s)\n" "$cfg" "$status"
+        }
+
+        for cfg in "${CFGS[@]}"; do
+          check_one "$cfg" || FAIL=1
+        done
+        exit $FAIL
 
   show:
     desc: Show full metadata for a single enhancement (ID=NNN or ID=slug)
@@ -330,6 +583,7 @@ tasks:
         printf "  %-16s %s\n" "slug:"          "$(yq -r '.slug' "$cfg")"
         printf "  %-16s %s\n" "title:"         "$(yq -r '.title' "$cfg")"
         printf "  %-16s %s\n" "status:"        "$(yq -r '.status' "$cfg")"
+        printf "  %-16s %s\n" "semver:"        "$(yq -r '.semver // "-"' "$cfg")"
         printf "  %-16s %s\n" "created:"       "$(yq -r '.created' "$cfg")"
         printf "  %-16s %s\n" "updated:"       "$(yq -r '.updated' "$cfg")"
         printf "  %-16s %s\n" "authors:"       "$(yq -r '.authors | join(", ")' "$cfg")"
@@ -340,10 +594,19 @@ tasks:
         [ -n "$impl_notes" ] && printf "  %-16s %s\n" "impl notes:"    "$impl_notes"
         related=$(yq -r '.related | join(", ")' "$cfg")
         printf "  %-16s %s\n" "related:"       "${related:--}"
+        competes=$(yq -r '.competes_with // [] | join(", ")' "$cfg")
+        printf "  %-16s %s\n" "competes_with:" "${competes:--}"
         supersedes=$(yq -r '.supersedes | join(", ")' "$cfg")
         printf "  %-16s %s\n" "supersedes:"    "${supersedes:--}"
         sup_by=$(yq -r '.superseded_by // "-"' "$cfg")
         printf "  %-16s %s\n" "superseded_by:" "$sup_by"
+        slices_count=$(yq -r '.slices // [] | length' "$cfg")
+        if [ "$slices_count" -gt 0 ]; then
+          printf "  %-16s %s slice(s)\n" "slices:" "$slices_count"
+          yq -r '.slices[]?' "$cfg" | sed 's/^/    - /'
+        else
+          printf "  %-16s %s\n" "slices:" "-"
+        fi
 
         echo
         printf "${BOLD}Documents:${RESET}\n"
@@ -360,10 +623,13 @@ tasks:
     summary: |
       Walks every enhancements/NNN-*/config.yaml and (over)writes
       enhancements/GRAPH.md with a Mermaid relationship graph:
-        - related[]     → undirected edges (deduped: emitted once per pair)
-        - supersedes[]  → directed edges (newer --supersedes--> older)
-        - superseded_by → ignored (validator enforces both sides; would dup)
+        - related[]       → undirected solid edges (deduped: once per pair)
+        - supersedes[]    → directed solid edges (newer --supersedes--> older)
+        - competes_with[] → undirected dotted red edges (deduped via symmetry)
+        - superseded_by   → ignored (validator enforces both sides; would dup)
       Nodes are colored by status (draft/accepted/implemented/superseded).
+      Competes edges are styled red+dashed via `linkStyle` indices computed
+      from the order edges are emitted (related → supersedes → competes).
 
       GRAPH.md is fully generated — regenerate after editing any
       config.yaml; do not hand-edit it.
@@ -379,6 +645,63 @@ tasks:
         set -euo pipefail
 
         OUT="enhancements/GRAPH.md"
+        TMPDIR=$(mktemp -d)
+        trap 'rm -rf "$TMPDIR"' EXIT
+
+        # Pre-compute edge lists into temp files so we can both count them
+        # (for linkStyle indices) and emit them in fixed order.
+        related_edges="$TMPDIR/related"
+        super_edges="$TMPDIR/super"
+        competes_edges="$TMPDIR/competes"
+
+        # related edges: dedupe (min, max) per pair.
+        {
+          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+            [ -f "$cfg" ] || continue
+            id=$(yq -r '.id' "$cfg")
+            [ "$id" = "NNN" ] && continue
+            while IFS= read -r ref; do
+              [ -z "$ref" ] && continue
+              if [[ "$id" < "$ref" ]]; then
+                echo "$id $ref"
+              else
+                echo "$ref $id"
+              fi
+            done < <(yq -r '.related[]?' "$cfg")
+          done
+        } | sort -u > "$related_edges"
+
+        # supersedes: directed, no dedupe needed (validator forbids cycles).
+        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+          [ -f "$cfg" ] || continue
+          id=$(yq -r '.id' "$cfg")
+          [ "$id" = "NNN" ] && continue
+          while IFS= read -r ref; do
+            [ -z "$ref" ] && continue
+            echo "$id $ref"
+          done < <(yq -r '.supersedes[]?' "$cfg")
+        done > "$super_edges"
+
+        # competes_with: undirected (validator enforces symmetry), dedupe.
+        {
+          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
+            [ -f "$cfg" ] || continue
+            id=$(yq -r '.id' "$cfg")
+            [ "$id" = "NNN" ] && continue
+            while IFS= read -r ref; do
+              [ -z "$ref" ] && continue
+              if [[ "$id" < "$ref" ]]; then
+                echo "$id $ref"
+              else
+                echo "$ref $id"
+              fi
+            done < <(yq -r '.competes_with[]?' "$cfg")
+          done
+        } | sort -u > "$competes_edges"
+
+        n_related=$(wc -l < "$related_edges")
+        n_super=$(wc -l < "$super_edges")
+        n_competes=$(wc -l < "$competes_edges")
 
         {
         echo '# Enhancement Relationship Graph'
@@ -393,7 +716,7 @@ tasks:
         echo '  classDef superseded  fill:#e5e7eb,stroke:#6b7280,color:#6b7280'
         echo
 
-        # Pass 1: nodes. Title is sanitized for Mermaid quoted-label syntax —
+        # Pass 1: nodes. Title sanitized for Mermaid quoted-label syntax —
         # backticks stripped, double quotes downgraded to single quotes —
         # and truncated to ~50 chars to keep nodes readable.
         for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
@@ -410,41 +733,33 @@ tasks:
 
         echo
 
-        # Pass 2a: related edges. Undirected. The validator only checks that
-        # referenced ids exist, not that A.related and B.related mirror each
-        # other — so an edge may be stored on one side only. Normalize each
-        # (id, ref) pair to (min, max) and dedupe via sort -u so the edge
-        # appears exactly once regardless of which side(s) declared it.
-        {
-          for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
-            [ -f "$cfg" ] || continue
-            id=$(yq -r '.id' "$cfg")
-            [ "$id" = "NNN" ] && continue
-            while IFS= read -r ref; do
-              [ -z "$ref" ] && continue
-              if [[ "$id" < "$ref" ]]; then
-                echo "$id $ref"
-              else
-                echo "$ref $id"
-              fi
-            done < <(yq -r '.related[]?' "$cfg")
-          done
-        } | sort -u | while read -r a b; do
+        # Edge order matters for linkStyle indices: related (0..n_related-1),
+        # supersedes (n_related..n_related+n_super-1),
+        # competes_with (n_related+n_super..total-1).
+        while read -r a b; do
+          [ -z "$a" ] && continue
           printf '  N%s ---|related| N%s\n' "$a" "$b"
-        done
+        done < "$related_edges"
 
-        # Pass 2b: supersedes edges. Directed (newer -> older). Read only
-        # from .supersedes; skip .superseded_by since the validator enforces
-        # both sides exist and emitting both would duplicate the edge.
-        for cfg in enhancements/[0-9][0-9][0-9]-*/config.yaml; do
-          [ -f "$cfg" ] || continue
-          id=$(yq -r '.id' "$cfg")
-          [ "$id" = "NNN" ] && continue
-          while IFS= read -r ref; do
-            [ -z "$ref" ] && continue
-            printf '  N%s -->|supersedes| N%s\n' "$id" "$ref"
-          done < <(yq -r '.supersedes[]?' "$cfg")
-        done
+        while read -r a b; do
+          [ -z "$a" ] && continue
+          printf '  N%s -->|supersedes| N%s\n' "$a" "$b"
+        done < "$super_edges"
+
+        while read -r a b; do
+          [ -z "$a" ] && continue
+          printf '  N%s -.-|competes| N%s\n' "$a" "$b"
+        done < "$competes_edges"
+
+        # linkStyle directives: only emit when there's at least one competes
+        # edge to style. Indices are zero-based across the combined edge list.
+        if [ "$n_competes" -gt 0 ]; then
+          start=$((n_related + n_super))
+          end=$((start + n_competes - 1))
+          indices=$(seq "$start" "$end" | paste -sd, -)
+          echo
+          printf '  linkStyle %s stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5\n' "$indices"
+        fi
 
         echo '```'
 
@@ -471,7 +786,9 @@ tasks:
         echo '  subgraph edges ["Edge types"]'
         echo '    Erel_a["A"] ---|related| Erel_b["B"]'
         echo '    Esup_new["newer"] -->|supersedes| Esup_old["older"]'
+        echo '    Ecom_a["A"] -.-|competes| Ecom_b["B"]'
         echo '  end'
+        echo '  linkStyle 2 stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5'
         echo '```'
         } > "$OUT"
 
