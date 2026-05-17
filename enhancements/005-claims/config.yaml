@@ -3,6 +3,7 @@ slug: claims
 title: "`#Claim` and Module Extension Surface"
 
 status: draft
+semver: minor
 
 created: 2026-04-28
 updated: 2026-05-17
@@ -17,7 +18,6 @@ authors:
 
 implementation:
   status: partial
-  date: 2026-05-13
   notes: >-
     Only the #defines slot ships in v1alpha2 (resources, traits, transformers; claims deferred).
     Five of the eight #Module slots present; #claims, #lifecycles, #workflows not yet wired.

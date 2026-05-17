@@ -512,9 +512,19 @@ tasks:
 
           # implemented gates
           if [ "$status" = "implemented" ]; then
-            local impl_re='^> \*\*Implementation status \('"${impl_date}"'\)\.\*\*'
-            grep -qE "$impl_re" "$dir/README.md" 2>/dev/null \
-              || warnings="${warnings}\n    README.md: missing '> **Implementation status (${impl_date}).**' quote block"
+            # When implementation.date is set, the README quote block date
+            # MUST match. When it's not set (allowed at `complete` —
+            # umbrella enhancements that finished via slices may not have a
+            # single canonical date in metadata), accept any YYYY-MM-DD in
+            # the block — just verify the block itself exists.
+            if [ -n "$impl_date" ]; then
+              local impl_re='^> \*\*Implementation status \('"${impl_date}"'\)\.\*\*'
+              grep -qE "$impl_re" "$dir/README.md" 2>/dev/null \
+                || warnings="${warnings}\n    README.md: missing '> **Implementation status (${impl_date}).**' quote block (date must match implementation.date)"
+            else
+              grep -qE '^> \*\*Implementation status \([0-9]{4}-[0-9]{2}-[0-9]{2}\)\.\*\*' "$dir/README.md" 2>/dev/null \
+                || warnings="${warnings}\n    README.md: missing '> **Implementation status (YYYY-MM-DD).**' quote block"
+            fi
             grep -qE '^## .*[Dd]eviation' "$dir/README.md" 2>/dev/null \
               || warnings="${warnings}\n    README.md: missing '## ...Deviation...' section (may say 'None')"
           fi

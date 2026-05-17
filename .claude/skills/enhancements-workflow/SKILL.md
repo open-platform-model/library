@@ -65,7 +65,7 @@ Experiments are *optional* and usually appear part-way through an enhancement's 
 | `supersedes`     | list of 3-digit ID strings                                             | Enhancements this one fully replaces. Usually empty.       |
 | `superseded_by`  | 3-digit ID string or `null`                                            | Set when a newer enhancement replaces this one. **Required non-null** at `status: superseded`. |
 
-`implementation.status ∈ { not-started, in-progress, partial, complete }`. `implementation.date` is the date of the latest implementation snapshot (omit while `not-started`). `implementation.notes` is a single-line summary; longer prose belongs in the README as a `> **Implementation status (YYYY-MM-DD).** …` quote block.
+`implementation.status ∈ { not-started, in-progress, partial, complete }`. `implementation.date` is the canonical completion date — **required when `implementation.status == complete`, forbidden otherwise**. Snapshot dates on `partial`/`in-progress`/`not-started` go stale immediately; keep them out of structured metadata and put the date inline in `notes` if it matters. `implementation.notes` is a single-line summary; longer prose belongs in the README as a `> **Implementation status (YYYY-MM-DD).** …` quote block.
 
 The full machine-readable contract lives in `enhancements/schema.cue` (`#EnhancementConfig`). Modify the schema only when the metadata contract genuinely changes; bumping `updated` does not touch the schema.
 
@@ -85,7 +85,7 @@ Distinction `partial` vs `complete`: `partial` means explicit design slots are d
 ## RULES — MUST follow
 
 - **Update `updated` on every meaningful edit.** Any change to `01-problem.md`, `02-design.md`, `03-decisions.md`, the schema doc, an experiment, or the README body bumps `config.yaml.updated` to today's date. Skip only for typo fixes that do not change meaning.
-- **Implementation status reflects reality.** When code lands or an experiment concludes, update `implementation.status` and set `implementation.date` to today. The structured fields are the short summary; the multi-sentence prose lives as a `> **Implementation status (YYYY-MM-DD).** …` quote block at the top of the README. Keep prose and structured fields in sync — same date in both.
+- **Implementation status reflects reality.** When code lands, update `implementation.status` (and `implementation.notes`) to match. `implementation.date` is set the day `implementation.status` reaches `complete` — required at that point, forbidden before. The structured fields are the short summary; the multi-sentence prose lives as a `> **Implementation status (YYYY-MM-DD).** …` quote block at the top of the README, with the same date.
 - **`id` matches directory prefix, `slug` matches directory suffix.** Always. After a copy-from-template, this is the most common drift; the validator catches it.
 - **Cross-refs (`related`, `supersedes`, `superseded_by`, `competes_with`) point to existing enhancement IDs.** No dangling references. If you supersede an enhancement, set both sides — the newer one's `supersedes` AND the older one's `superseded_by`. If two enhancements compete, both MUST list each other in `competes_with`.
 - **`updated >= created` and `updated >= implementation.date`.** ISO 8601 strings sort correctly. The validator catches dates that go backwards.

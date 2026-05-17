@@ -74,6 +74,21 @@ import "strings"
 
 #ImplementationStatus: {
 	status!: #ImplStatus
-	date?:   #DateStr
 	notes?:  string
+
+	// `date` is the canonical completion date. It is only meaningful — and
+	// only allowed — when status reaches `complete`. Snapshot dates on
+	// `partial`/`in-progress`/`not-started` go stale immediately and just
+	// add noise; keep them out of structured metadata. Even at `complete`,
+	// `date` is optional: some enhancements (especially umbrellas) reach
+	// completion through a sequence of slices and the meaningful date lives
+	// in the impl-status quote block in README.md.
+	if status == "complete" {
+		date!: #DateStr
+	}
+	if status != "complete" {
+		// Forbid `date` by constraining the optional field to bottom — if
+		// the field is present, validation fails.
+		date?: _|_
+	}
 }

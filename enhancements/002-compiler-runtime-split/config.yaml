@@ -3,6 +3,7 @@ slug: compiler-runtime-split
 title: Compiler / Runtime Kernel Split
 
 status: draft
+semver: minor
 
 created: 2026-05-08
 updated: 2026-05-17

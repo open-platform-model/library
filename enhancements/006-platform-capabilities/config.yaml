@@ -3,6 +3,7 @@ slug: platform-capabilities
 title: Platform Capabilities
 
 status: draft
+semver: minor
 
 created: 2026-05-14
 updated: 2026-05-17
@@ -12,10 +13,10 @@ authors:
 
 implementation:
   status: in-progress
-  date: 2026-05-15
   notes: >-
-    Experiments 01 (matcher mechanics) and 02 (read portability + FillPath) concluded;
-    D5 revised per F1 (#ContextBuilder must be invoked at top level, not inside #ModuleRelease).
+    Experiments 01 (matcher mechanics) and 02 (read portability + FillPath) concluded
+    (2026-05-15); D5 revised per F1 (#ContextBuilder must be invoked at top level, not
+    inside #ModuleRelease).
 
 # 005 and 006 are competing approaches to the same problem (ecosystem-supplied
 # needs flowing typed values back to a module). They are NOT cross-linked via
