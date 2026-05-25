@@ -2,11 +2,11 @@ id: "003"
 slug: platform-construct
 title: "`#Platform` Construct"
 
-status: implemented
+status: superseded
 semver: major
 
 created: 2026-04-30
-updated: 2026-05-17
+updated: 2026-05-23
 
 authors:
   - OPM Contributors
@@ -26,4 +26,4 @@ related:
   - "005"
 
 supersedes: []
-superseded_by: null
+superseded_by: "007"

@@ -1,5 +1,7 @@
 # Design Package: `#Platform` Construct
 
+> **Superseded by 007 (2026-05-23).** See [007 — Platform Registry Subscription](../007-platform-registry-subscription/). The static-Module `#registry` shape introduced here is replaced by a path-keyed subscription model that pulls multiple SemVer builds of a catalog through OCI and materializes a multi-version `#composedTransformers`. `#Module.#defines`, `#knownResources`, and `#knownTraits` are retired; primitive FQNs gain SemVer suffixes; match-time always unifies the consumer primitive with the transformer's required entry. Migration: catalog modules become plain CUE packages with a `Catalog: { Version, ModulePath }` constant stamped at publish; platform fixtures swap `#registry.<id>.#module` for `#registry.<id>.{ path, enable, filter }`.
+
 ## Summary
 
 Defines `#Platform` as the catalog construct that models a deployment target. `#Platform` carries platform identity (`metadata`, `type`), platform-level context (`#ctx`, typed `#PlatformContext` from enhancement 004), and a single dynamic ingress — `#registry` — that holds registered `#Module` values. Outward platform-level views at this layer (known resources, known traits, composed transformers, matcher index) are computed projections over `#registry`.

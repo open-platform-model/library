@@ -11,20 +11,26 @@ graph LR
 
   N001["001: Kernel Redesign Around #Platform"]:::implemented
   N002["002: Compiler / Runtime Kernel Split"]:::draft
-  N003["003: #Platform Construct"]:::implemented
+  N003["003: #Platform Construct"]:::superseded
   N004["004: #ctx — Module Runtime Context"]:::draft
   N005["005: #Claim and Module Extension Surface"]:::draft
   N006["006: Platform Capabilities"]:::draft
+  N007["007: Platform Registry Subscription"]:::draft
 
   N001 ---|related| N003
+  N001 ---|related| N007
   N003 ---|related| N004
   N003 ---|related| N005
   N003 ---|related| N006
   N004 ---|related| N005
   N004 ---|related| N006
+  N004 ---|related| N007
+  N005 ---|related| N007
+  N006 ---|related| N007
+  N007 -->|supersedes| N003
   N005 -.-|competes| N006
 
-  linkStyle 6 stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 11 stroke:#dc2626,stroke-width:2px,stroke-dasharray:5 5
 ```
 
 ## Legend
