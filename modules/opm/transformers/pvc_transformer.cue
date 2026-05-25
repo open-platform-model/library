@@ -24,7 +24,7 @@ import (
 
 	// Required resources - Volumes MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/volumes@v1": res.#VolumesResource
+		(res.#VolumesResource.metadata.fqn): res.#VolumesResource
 	}
 
 	// No optional resources

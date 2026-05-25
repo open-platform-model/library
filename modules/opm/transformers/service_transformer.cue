@@ -25,7 +25,7 @@ import (
 
 	// Required resources - Container MUST be present to know which ports to expose
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/container@v1": res.#ContainerResource
+		(res.#ContainerResource.metadata.fqn): res.#ContainerResource
 	}
 
 	// No optional resources
@@ -33,7 +33,7 @@ import (
 
 	// Required traits - Expose is mandatory for Service creation
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/expose@v1": tr.#ExposeTrait
+		(tr.#ExposeTrait.metadata.fqn): tr.#ExposeTrait
 	}
 
 	// No optional traits

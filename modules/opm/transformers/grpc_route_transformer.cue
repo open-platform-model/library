@@ -25,7 +25,7 @@ import (
 	optionalResources: {}
 
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/grpc-route@v1": tr.#GrpcRouteTrait
+		(tr.#GrpcRouteTrait.metadata.fqn): tr.#GrpcRouteTrait
 	}
 	optionalTraits: {}
 

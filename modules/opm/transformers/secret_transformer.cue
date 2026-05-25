@@ -31,7 +31,7 @@ import (
 
 	// Required resources - Secrets MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/secrets@v1": res.#SecretsResource
+		(res.#SecretsResource.metadata.fqn): res.#SecretsResource
 	}
 
 	optionalResources: {}

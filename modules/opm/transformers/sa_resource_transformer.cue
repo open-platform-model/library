@@ -25,7 +25,7 @@ import (
 
 	// Required resources - ServiceAccount resource MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/service-account@v1": res.#ServiceAccountResource
+		(res.#ServiceAccountResource.metadata.fqn): res.#ServiceAccountResource
 	}
 
 	optionalResources: {}

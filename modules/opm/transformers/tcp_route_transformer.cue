@@ -25,7 +25,7 @@ import (
 	optionalResources: {}
 
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/tcp-route@v1": tr.#TcpRouteTrait
+		(tr.#TcpRouteTrait.metadata.fqn): tr.#TcpRouteTrait
 	}
 	optionalTraits: {}
 

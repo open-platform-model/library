@@ -29,30 +29,30 @@ import (
 
 	// Required resources - Container MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/container@v1": res.#ContainerResource
+		(res.#ContainerResource.metadata.fqn): res.#ContainerResource
 	}
 
 	// Optional resources
 	optionalResources: {
-		"opmodel.dev/modules/opm/resources/volumes@v1": res.#VolumesResource
+		(res.#VolumesResource.metadata.fqn): res.#VolumesResource
 	}
 
 	// Required traits - CronJobConfig is mandatory for CronJob
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/cron-job-config@v1": tr.#CronJobConfigTrait
+		(tr.#CronJobConfigTrait.metadata.fqn): tr.#CronJobConfigTrait
 	}
 
 	// Optional traits
 	optionalTraits: {
-		"opmodel.dev/modules/opm/traits/restart-policy@v1":     tr.#RestartPolicyTrait
-		"opmodel.dev/modules/opm/traits/sidecar-containers@v1": tr.#SidecarContainersTrait
-		"opmodel.dev/modules/opm/traits/init-containers@v1":    tr.#InitContainersTrait
-		"opmodel.dev/modules/opm/traits/security-context@v1":   tr.#SecurityContextTrait
-		"opmodel.dev/modules/opm/traits/workload-identity@v1":  tr.#WorkloadIdentityTrait
-		"opmodel.dev/modules/opm/traits/image-pull-secrets@v1": tr.#ImagePullSecretsTrait
-		"opmodel.dev/modules/opm/traits/host-pid@v1":           tr.#HostPIDTrait
-		"opmodel.dev/modules/opm/traits/host-ipc@v1":           tr.#HostIPCTrait
-		"opmodel.dev/modules/opm/traits/graceful-shutdown@v1":  tr.#GracefulShutdownTrait
+		(tr.#RestartPolicyTrait.metadata.fqn):     tr.#RestartPolicyTrait
+		(tr.#SidecarContainersTrait.metadata.fqn): tr.#SidecarContainersTrait
+		(tr.#InitContainersTrait.metadata.fqn):    tr.#InitContainersTrait
+		(tr.#SecurityContextTrait.metadata.fqn):   tr.#SecurityContextTrait
+		(tr.#WorkloadIdentityTrait.metadata.fqn):  tr.#WorkloadIdentityTrait
+		(tr.#ImagePullSecretsTrait.metadata.fqn):  tr.#ImagePullSecretsTrait
+		(tr.#HostPIDTrait.metadata.fqn):           tr.#HostPIDTrait
+		(tr.#HostIPCTrait.metadata.fqn):           tr.#HostIPCTrait
+		(tr.#GracefulShutdownTrait.metadata.fqn):  tr.#GracefulShutdownTrait
 	}
 
 	#transform: {

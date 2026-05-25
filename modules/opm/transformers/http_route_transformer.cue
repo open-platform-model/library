@@ -26,7 +26,7 @@ import (
 	optionalResources: {}
 
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/http-route@v1": tr.#HttpRouteTrait
+		(tr.#HttpRouteTrait.metadata.fqn): tr.#HttpRouteTrait
 	}
 	optionalTraits: {}
 

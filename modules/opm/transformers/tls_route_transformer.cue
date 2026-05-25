@@ -25,7 +25,7 @@ import (
 	optionalResources: {}
 
 	requiredTraits: {
-		"opmodel.dev/modules/opm/traits/tls-route@v1": tr.#TlsRouteTrait
+		(tr.#TlsRouteTrait.metadata.fqn): tr.#TlsRouteTrait
 	}
 	optionalTraits: {}
 

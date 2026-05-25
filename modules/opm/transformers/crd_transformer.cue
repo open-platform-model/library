@@ -24,7 +24,7 @@ import (
 
 	// Required resources - CRDs MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/crds@v1": res.#CRDsResource
+		(res.#CRDsResource.metadata.fqn): res.#CRDsResource
 	}
 
 	optionalResources: {}

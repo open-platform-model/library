@@ -26,7 +26,7 @@ import (
 
 	// Required resources - Role resource MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/role@v1": res.#RoleResource
+		(res.#RoleResource.metadata.fqn): res.#RoleResource
 	}
 
 	optionalResources: {}

@@ -25,7 +25,7 @@ import (
 
 	// Required resources - ConfigMaps MUST be present
 	requiredResources: {
-		"opmodel.dev/modules/opm/resources/config-maps@v1": res.#ConfigMapsResource
+		(res.#ConfigMapsResource.metadata.fqn): res.#ConfigMapsResource
 	}
 
 	optionalResources: {}
