@@ -12,10 +12,10 @@
 ## 2. Re-sync library/apis/core/ with new core repo
 
 - [ ] 2.1 Delete `library/apis/core/v1alpha2/` (recursive, including testdata).
-- [ ] 2.2 Copy `core/{blueprint,component,helpers_autosecrets,module,module_release,platform,resource,schemas,trait,transformer,types}.cue` from new core repo into `library/apis/core/*.cue` (flat layout, package `core`).
-- [ ] 2.3 Update `library/apis/core/cue.mod/module.cue` to match new core repo's module name and language version.
+- [ ] 2.2 Copy every `*.cue` file from `core/src/` (the new core repo's source directory) into `library/apis/core/*.cue` (flat layout, package `core`). As of 2026-05-26 the file set is: `blueprint.cue`, `catalog.cue`, `component.cue`, `helpers_autosecrets.cue`, `module.cue`, `module_context.cue`, `module_release.cue`, `platform.cue`, `resource.cue`, `schemas.cue`, `trait.cue`, `transformer.cue`, `types.cue`. `catalog.cue` and `module_context.cue` were introduced by enhancement 0001's `core/` slice (D19/D25 and D1–D4 respectively) — copy whatever is in `core/src/` at sync time rather than relying on this enumerated list. Skip `INDEX.md` (generated doc).
+- [ ] 2.3 Copy `core/src/cue.mod/module.cue` verbatim — the module identifier is `opmodel.dev/core@v0` per enhancement 0001 D12.
 - [ ] 2.4 Update `library/apis/core/embed.go`: change `//go:embed cue.mod/module.cue v1alpha2/*.cue` → `//go:embed cue.mod/module.cue *.cue`.
-- [ ] 2.5 Re-run schema load via a tiny throwaway main if needed; confirm `schema.SchemaValue` returns a value whose `#ModuleRelease` exists. (Build runs first.)
+- [ ] 2.5 Re-run schema load via a tiny throwaway main if needed; confirm `schema.SchemaValue` returns a value whose `#ModuleRelease` exists. (Build runs first.) The re-synced schema is the post-0001 `core` shape: `#Module` has `#ctx` (no `#defines`); `#Platform.#registry` is path-keyed `#Subscription`; `#FQNType` uses SemVer; `#Catalog` is a top-level definition. Consumer fixtures that still use the old shapes will fail unification — see task 12 for the quarantine + D10 in `design.md` for the scope boundary.
 
 ## 3. Rewrite opm/module to drop APIVersion + use opm/schema
 
@@ -90,6 +90,15 @@
 - [ ] 12.8 `opm/helper/platform/compose_test.go`: drop blank import + APIVersion-on-Platform usage.
 - [ ] 12.9 `opm/helper/synth/release_test.go`: drop blank import + APIVersion usage.
 - [ ] 12.10 Verify there are no leftover references to `apiVersion: "opmodel.dev/v1alpha2"` in any `_test.go` CUE string fixtures.
+
+## 12a. Quarantine consumer fixtures the re-sync breaks
+
+Per D10 in `design.md`, post-0001 `core` schema breaks three consumer fixtures whose rewrites belong to enhancement 0001's library slice, not Part B. Quarantine them so the test suite stays green at the end of Part B.
+
+- [ ] 12a.1 `library/modules/opm_platform/platform.cue` uses the old `#registry: {opm: {#module: …, enabled: true}}` Module-valued shape and imports `opmodel.dev/core/v1alpha2@v1`. The new `#Platform.#registry` is path-keyed `[Path=#ModulePathType]: #Subscription`. Either: (a) delete the file and re-introduce it under enhancement 0001's library slice in the `#Subscription` shape, or (b) gate its build with a build tag the rest of the library does not set. Pick one and document the choice in the commit message.
+- [ ] 12a.2 `library/testdata/modules/web_app/{module,components}.cue` imports `opmodel.dev/core/v1alpha2@v1` and references the `opmodel.dev/modules/opm` catalog at MAJOR-only `@v1`. Both paths and FQN shapes are pre-0001. Quarantine the package (same options as 12a.1); enhancement 0001's library slice rewrites it against `opmodel.dev/core@v0` + the repackaged `opmodel.dev/catalogs/opm@0.1.0` (D23) once that catalog tag exists.
+- [ ] 12a.3 `opm/kernel/flow_integration_test.go` and `flow_synth_integration_test.go` consume the two fixtures above. Mark them `t.Skip("quarantined — see openspec/changes/remove-api-binding-dispatch design.md D10; re-enabled by enhancement 0001 library slice")` so `task test` stays clean. Do not delete — the skip leaves an obvious marker for the 0001 library-slice author.
+- [ ] 12a.4 Confirm `task cue:test:flow` either succeeds against the (skipped) integration tests or is itself skipped via its existing `OPM_FLOW_TEST_FORCE`-gated guard.
 
 ## 13. Validation gates
 

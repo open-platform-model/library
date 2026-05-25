@@ -23,7 +23,8 @@ Per the user, the library has no external consumers yet, so this is an opportune
 
 **Non-Goals:**
 - Re-architect the kernel beyond removing this indirection. Compile pipeline, match algorithm, validation tiers, error-wrap conventions stay as-is.
-- Touch the consumer CUE modules (`modules/opm`, `modules/opm_platform`, `testdata/modules/web_app`). Their CUE imports may still reference `opmodel.dev/core/v1alpha2@v1`; rewriting them is out of scope for this change.
+- Rewrite the consumer CUE fixtures (`library/modules/opm_platform/`, `library/testdata/modules/web_app/`) against the post-0001 schema. They are pre-0001 in *both* import path (`opmodel.dev/core/v1alpha2@v1`) and registry / FQN shape (Module-valued `#registry`, MAJOR-only `@v1` FQNs). The shape rewrite is design implementation that belongs to enhancement 0001's library slice, not Part B's mechanical cleanup. Part B quarantines them (see D10 + tasks 12a.1–12a.4). Mechanical import-path rewires alone (e.g. `core/v1alpha2@v1` → `core@v0` without re-shaping `#registry`) would not produce a unifiable fixture — they would just fail at a different evaluation point — so Part B does not perform partial rewires either.
+- Repackage `library/modules/opm` into the D19 catalog shape or republish it at `opmodel.dev/catalogs/opm@0.1.0`. That is squarely enhancement 0001 D23's scope.
 - Provide a backwards-compatibility shim. Every API rename is a hard break.
 - Defer deletion behind a feature flag. The package goes; importers either compile against the new shape or fail.
 
@@ -49,7 +50,9 @@ The old per-binding cache lived on `*v1alpha2.binding` and was justified by "one
 **Trade-off:** two test runs in the same `go test` invocation share the cache. Mitigation: any test that wants a fresh schema build must use a separate process, which `go test` does anyway for separate `_test.go` packages.
 
 ### D4: `apis/core/` is re-synced from the new `core` repo, flat layout
-`library/apis/core/v1alpha2/*.cue` is deleted. The contents of `core/*.cue` (from the new repo) land at `library/apis/core/*.cue` directly (package `core`, no `v1alpha2/` subdir). `cue.mod/module.cue` is updated to match the new repo's module identity. `embed.go`'s `go:embed` pattern changes from `v1alpha2/*.cue` to `*.cue`.
+`library/apis/core/v1alpha2/*.cue` is deleted. The contents of `core/src/*.cue` (from the new repo — sources live under `src/`, not at the repo root) land at `library/apis/core/*.cue` directly (package `core`, no `v1alpha2/` subdir). `cue.mod/module.cue` is copied verbatim — the new module identifier is `opmodel.dev/core@v0` per enhancement 0001 D12. `embed.go`'s `go:embed` pattern changes from `v1alpha2/*.cue` to `*.cue`.
+
+The file set on the day of re-sync includes `catalog.cue` and `module_context.cue` — both introduced by enhancement 0001's core slice (D19/D25 and D1–D4) ahead of Part B landing. Part B does not consume either file (Go-side reads paths via `opm/schema`, and neither `#Catalog` nor `#ReleaseIdentity` is referenced by the kernel until 0001's library slice lands). Copy the directory contents wholesale rather than enumerating files — the enumeration drifts every time 0001 adds a file.
 
 **Why a vendored copy at all?**
 The library uses the embed for offline schema validation in Go-side code paths (`schema.SchemaValue`, kernel tests, `synth.Release`). Tests run without a CUE registry; the embed is the only source. The alternative — drop the embed and require registry access for every schema lookup — is a bigger architectural call and out of scope here.
@@ -85,13 +88,27 @@ Same applies to the kernel wrappers in `opm/kernel/wrappers.go`.
 
 Plus `extractComponentSummaries(schemaComponents, b api.Binding)` in `compile/module.go`. All become parameter-less in their paths argument; they reference `opm/schema` package vars directly.
 
-`Match(components cue.Value, plat *platform.Platform, b api.Binding)` becomes `Match(components cue.Value, plat *platform.Platform)`. Caller chain in `kernel/{phases,compile}.go` drops the lookup-then-pass-binding.
+`Match(components cue.Value, plat *platform.Platform, b api.Binding)` becomes `Match(components cue.Value, plat *platform.Platform)`. Caller chain in `kernel/{phases,compile}.go` drops the lookup-then-pass-binding. The `*platform.Platform` argument is unchanged — `MaterializedPlatform` is enhancement 0001's library-slice surface, not Part B's.
+
+### D10: Consumer fixtures are quarantined, not rewritten
+The re-sync (D4) lands the post-enhancement-0001 `core` schema: `#Platform.#registry` is path-keyed `[Path]: #Subscription`, `#FQNType` uses SemVer, `#Module` carries `#ctx` instead of `#defines`. The library's existing consumer fixtures predate all of that:
+
+- `library/modules/opm_platform/platform.cue` uses Module-valued `#registry: {opm: {#module: …, enabled: true}}` and imports `opmodel.dev/core/v1alpha2@v1`.
+- `library/testdata/modules/web_app/{module,components}.cue` imports `opmodel.dev/core/v1alpha2@v1` and references the `opmodel.dev/modules/opm` catalog at MAJOR-only `@v1` FQNs.
+- `opm/kernel/flow_integration_test.go` + `flow_synth_integration_test.go` consume both.
+
+A partial rewrite — change the import path but keep the registry shape — does not produce a unifiable value; it just shifts the failure point. A full rewrite requires authoring against `#Subscription`, `#ctx`, and SemVer FQNs, which is enhancement 0001's library-slice design implementation. Per enhancement 0001 D22, folding design implementation into Part B "defeats reviewability."
+
+**Decision:** Part B quarantines the affected fixtures (delete or guard with an unset build tag) and `t.Skip`s the two integration tests with an explicit pointer to this D10 + 0001's library slice. The test suite stays green; the broken-for-now state is announced in code rather than implicit.
+
+**Alternative considered:** sync `apis/core/` from an earlier core/ tag (pre-0001). Rejected — no such tag exists once 0001's core slice ships, and maintaining a parallel snapshot lineage in the standalone core repo just to keep one library refactor green is more work than the quarantine.
 
 ## Risks / Trade-offs
 
 - **[Risk] CUE module identity drift in `apis/core/cue.mod/module.cue`** → Mitigation: copy `cue.mod/module.cue` verbatim from the new `core` repo. The library Go code only uses the embed via the overlay-based `load.Instances` (no module-path resolution required), so the in-library copy's module name only needs to be *consistent with itself*, not with consumer modules.
 - **[Risk] Test fixtures contain `apiVersion: "opmodel.dev/v1alpha2"` inline strings.** Removing the field from `#Module` etc. makes the field undefined in the schema; unifying a fixture that *adds* `apiVersion: "..."` will either silently leave it as a free field (likely fine) or fail closed-struct admission (depends on whether `#Module` is closed). → Mitigation: rewrite all test fixtures to drop the inline `apiVersion: "..."` lines as part of the test sweep.
-- **[Risk] Sync drift between `library/apis/core/*.cue` and the new `core` repo over time.** → Mitigation: out-of-scope here, but the next change can add a `task vendor:core` target.
+- **[Risk] Sync drift between `library/apis/core/*.cue` and the new `core` repo over time.** → Mitigation: out-of-scope here, but the next change can add a `task vendor:core` target. Note: enhancement 0001's library slice (per D24) deletes `library/apis/core/` entirely and switches the kernel to lazy OCI pull of the core schema via `Kernel.Registry` + `Kernel.CoreVersion`, which retires this drift risk wholesale shortly after Part B ships.
+- **[Risk] Quarantined fixtures + skipped integration tests leave a coverage gap until enhancement 0001's library slice lands.** → Mitigation: D10 documents the boundary; `t.Skip` strings point at the unblocking change so the gap is visible at every `task test` run. The Go unit tests in `opm/{module,platform,kernel,compile,helper/*}` exercise every code path Part B touches; the lost coverage is end-to-end flow against the OPM catalog, not the schema-dispatch refactor itself.
 - **[Trade-off] One-shot deletion vs. incremental refactor.** Library principle VIII demands tiny batches. This change touches ~13 Go packages plus CUE schema. → Justification: the binding API is a coherent unit. Splitting the deletion across multiple changes leaves the codebase in a half-deleted state with broken cross-references for days. The blast radius is wide but mechanical; every edit is a 1-to-1 rewrite. Compile-time errors guide the work to completion.
 - **[Risk] cmd/flow-inspect manual smoke check.** No Go unit tests for it. → Mitigation: build it and run with `-stages module` after the refactor.
 
