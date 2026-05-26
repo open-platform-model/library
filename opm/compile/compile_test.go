@@ -9,27 +9,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/api"
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
-	"github.com/open-platform-model/library/opm/apiversion"
 	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
-// minimalPlatform constructs a *platform.Platform with the given apiVersion
-// and an empty registry / matchers / composedTransformers index.
-func minimalPlatform(t *testing.T, ver apiversion.Version) *platform.Platform {
+// minimalPlatform constructs a *platform.Platform with an empty registry /
+// matchers / composedTransformers index.
+func minimalPlatform(t *testing.T) *platform.Platform {
 	t.Helper()
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
-apiVersion: "ignored-by-test"
 kind: "Platform"
 metadata: { name: "kubernetes" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {}
 #matchers: {
 	resources: {}
@@ -38,54 +33,32 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	return &platform.Platform{
-		APIVersion: ver,
-		Metadata:   &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
+		Package:  pv,
 	}
-}
-
-// Coverage for the version-mismatch and unknown-binding error paths
-// previously lived here (testing compile.CompileModuleRelease). Those
-// scenarios are now exercised against the canonical Kernel.Compile entry
-// point in opm/kernel/kernel_test.go (TestKernel_Compile_Parity_*).
-
-func TestMatch_RequiresBinding(t *testing.T) {
-	ctx := cuecontext.New()
-	components := ctx.CompileString(`{}`)
-	require.NoError(t, components.Err())
-	plat := minimalPlatform(t, apiversion.V1alpha2)
-
-	_, err := compile.Match(components, plat, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "binding is required")
 }
 
 func TestMatch_RequiresPlatform(t *testing.T) {
 	ctx := cuecontext.New()
 	components := ctx.CompileString(`{}`)
 	require.NoError(t, components.Err())
-	b, err := api.Lookup(apiversion.V1alpha2)
-	require.NoError(t, err)
 
-	_, err = compile.Match(components, nil, b)
+	_, err := compile.Match(components, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "platform is required")
 }
 
-func TestMatch_UsesBindingPaths(t *testing.T) {
+func TestMatch_UsesSchemaPaths(t *testing.T) {
 	// Construct a Platform whose #matchers index points a resource FQN at a
 	// transformer requiring a label that the component carries. Match should
-	// mark the pair as matched, proving the path lookups go through the
-	// binding rather than crashing on absent paths.
+	// mark the pair as matched, proving the path lookups go through opm/schema
+	// rather than crashing on absent paths.
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "k8s" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {
 	"opmodel.dev/p/k8s/x@v0": {
 		metadata: { fqn: "opmodel.dev/p/k8s/x@v0" }
@@ -104,9 +77,8 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	plat := &platform.Platform{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
 	}
 	components := ctx.CompileString(`
 "web": {
@@ -116,10 +88,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, components.Err())
 
-	b, err := api.Lookup(apiversion.V1alpha2)
-	require.NoError(t, err)
-
-	plan, err := compile.Match(components, plat, b)
+	plan, err := compile.Match(components, plat)
 	require.NoError(t, err)
 	require.NotNil(t, plan)
 	pairs := plan.MatchedPairs()
@@ -135,13 +104,10 @@ type: "kubernetes"
 func TestMatch_MultiCandidateDisambiguatedByLabels(t *testing.T) {
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "k8s" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {
 	"example.com/p/deployment@v0": {
 		metadata: { fqn: "example.com/p/deployment@v0" }
@@ -170,9 +136,8 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	plat := &platform.Platform{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
 	}
 	components := ctx.CompileString(`
 "web": {
@@ -186,10 +151,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, components.Err())
 
-	b, err := api.Lookup(apiversion.V1alpha2)
-	require.NoError(t, err)
-
-	plan, err := compile.Match(components, plat, b)
+	plan, err := compile.Match(components, plat)
 	require.NoError(t, err)
 	require.NotNil(t, plan)
 
@@ -213,13 +175,10 @@ type: "kubernetes"
 func TestMatch_TwoTransformersPairBoth(t *testing.T) {
 	ctx := cuecontext.New()
 	pv := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "k8s" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {
 	"example.com/p/a@v0": {
 		metadata: { fqn: "example.com/p/a@v0" }
@@ -248,9 +207,8 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	plat := &platform.Platform{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
 	}
 	components := ctx.CompileString(`
 "web": {
@@ -260,10 +218,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, components.Err())
 
-	b, err := api.Lookup(apiversion.V1alpha2)
-	require.NoError(t, err)
-
-	plan, err := compile.Match(components, plat, b)
+	plan, err := compile.Match(components, plat)
 	require.NoError(t, err)
 	require.NotNil(t, plan)
 
@@ -281,31 +236,23 @@ type: "kubernetes"
 		"transformer b should pair with web")
 }
 
-// keep a reference to cue.Value to silence unused-import warnings in builds
-// where the helper structs change shape during refactors.
-var _ = cue.Value{}
-
 // TestReleaseImplementsReleaseView confirms that *module.Release satisfies
-// api.ReleaseView so the v1alpha2 binding can call it without an adapter.
-// This is the static guard for the moves added in group 7.
+// schema.ReleaseView so BuildTransformerContext can call it without an
+// adapter.
 func TestReleaseImplementsReleaseView(t *testing.T) {
-	var _ api.ReleaseView = (*module.Release)(nil)
+	var _ schema.ReleaseView = (*module.Release)(nil)
 }
 
-// TestCompileModuleRelease_RendersContextViaBinding is a coarse snapshot test
-// for the binding-driven context injection. It builds a minimal release+platform
+// TestCompileModuleRelease_RendersContextViaSchema is a coarse snapshot test
+// for the schema-driven context injection. It builds a minimal release+platform
 // fixture with one transformer whose `output` echoes back the injected #context,
-// then confirms the rendered value carries the binding-built fields. The test
-// does not pin byte-stable serialised output — that would force a CUE→JSON
-// encode step the renderer does not perform — but it does verify the new
-// binding.BuildTransformerContext path produces the expected shape.
-func TestCompileModuleRelease_RendersContextViaBinding(t *testing.T) {
+// then confirms the rendered value carries the schema-built fields.
+func TestCompileModuleRelease_RendersContextViaSchema(t *testing.T) {
 	ctx := cuecontext.New()
 
 	// Release spec carries a single component declaring an "echo" resource
 	// and a tier=web label.
 	releaseSpec := ctx.CompileString(`
-apiVersion: "ignored-by-test"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
 components: {
@@ -323,7 +270,6 @@ components: {
 	require.NoError(t, releaseSpec.Err())
 
 	rel := &module.Release{
-		APIVersion: apiversion.V1alpha2,
 		Metadata: &module.ReleaseMetadata{
 			Name: "demo", Namespace: "ns", UUID: "u-rel",
 			Labels: map[string]string{"k": "v"},
@@ -332,17 +278,13 @@ components: {
 	}
 
 	// Platform with one transformer matching tier=web and indexed against the
-	// echo resource FQN. #transform's output is a single-element list whose
-	// only entry echoes #context.#runtimeName, providing a probe for the
-	// binding's context injection.
+	// echo resource FQN. #transform's output echoes #context, providing a probe
+	// for the schema's context injection.
 	pv := ctx.CompileString(`
-apiVersion: "ignored-by-test"
 kind: "Platform"
 metadata: { name: "k8s" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {
 	"example.com/p/echo@v0": {
 		metadata: { fqn: "example.com/p/echo@v0" }
@@ -371,18 +313,15 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	plat := &platform.Platform{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
 	}
 
-	binding, err := api.Lookup(rel.APIVersion)
-	require.NoError(t, err)
 	schemaComponents := rel.MatchComponents()
 	require.True(t, schemaComponents.Exists())
 	dataComponents, err := compile.FinalizeValue(plat.Package.Context(), schemaComponents)
 	require.NoError(t, err)
-	plan, err := compile.Match(schemaComponents, plat, binding)
+	plan, err := compile.Match(schemaComponents, plat)
 	require.NoError(t, err)
 	out, err := compile.NewModule(plat, "opm-cli").Execute(context.Background(), rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule is on its own deprecation arc, unrelated to this test
 	require.NoError(t, err)
@@ -392,7 +331,7 @@ type: "kubernetes"
 	got := out.Compiled[0].Value
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
-	assert.Equal(t, "opm-cli", runtime, "binding-built #runtimeName should reach the compiled output")
+	assert.Equal(t, "opm-cli", runtime, "schema-built #runtimeName should reach the compiled output")
 	release, err := got.LookupPath(cue.ParsePath("release")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "demo", release)
@@ -400,3 +339,7 @@ type: "kubernetes"
 	require.NoError(t, err)
 	assert.Equal(t, "web", component)
 }
+
+// silence unused-import warnings that crop up during refactors
+var _ = cue.Value{}
+var _ = minimalPlatform

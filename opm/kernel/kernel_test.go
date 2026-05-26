@@ -16,9 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/open-platform-model/library/opm/api"
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
-	"github.com/open-platform-model/library/opm/apiversion"
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -105,7 +102,6 @@ func writeTempReleaseDir(t *testing.T, content string) string {
 func TestKernel_LoadModulePackage_Parity(t *testing.T) {
 	dir := writeTempModuleDir(t, `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
 metadata: {
 	name:       "demo"
@@ -115,14 +111,12 @@ metadata: {
 `)
 
 	k := kernel.New()
-	gotVal, gotVer, gotErr := k.LoadModulePackage(context.Background(), dir, loader.LoadOptions{})
+	gotVal, gotErr := k.LoadModulePackage(context.Background(), dir, loader.LoadOptions{})
 	require.NoError(t, gotErr)
 
-	wantVal, wantVer, wantErr := loader.LoadModulePackage(k.CueContext(), dir, loader.LoadOptions{})
+	wantVal, wantErr := loader.LoadModulePackage(k.CueContext(), dir, loader.LoadOptions{})
 	require.NoError(t, wantErr)
 
-	assert.Equal(t, wantVer, gotVer)
-	assert.Equal(t, apiversion.V1alpha2, gotVer)
 	assert.True(t, gotVal.Exists())
 	assert.True(t, wantVal.Exists())
 }
@@ -130,7 +124,6 @@ metadata: {
 func TestKernel_LoadReleasePackage_Parity(t *testing.T) {
 	dir := writeTempReleaseDir(t, `
 package release
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
 metadata: {
 	name: "demo"
@@ -140,14 +133,12 @@ metadata: {
 `)
 
 	k := kernel.New()
-	gotVal, gotVer, gotErr := k.LoadReleasePackage(context.Background(), dir, loader.LoadOptions{})
+	gotVal, gotErr := k.LoadReleasePackage(context.Background(), dir, loader.LoadOptions{})
 	require.NoError(t, gotErr)
 
-	wantVal, wantVer, wantErr := loader.LoadReleasePackage(k.CueContext(), dir, loader.LoadOptions{})
+	wantVal, wantErr := loader.LoadReleasePackage(k.CueContext(), dir, loader.LoadOptions{})
 	require.NoError(t, wantErr)
 
-	assert.Equal(t, wantVer, gotVer)
-	assert.Equal(t, apiversion.V1alpha2, gotVer)
 	assert.True(t, gotVal.Exists())
 	assert.True(t, wantVal.Exists())
 }
@@ -186,7 +177,6 @@ func TestKernel_ValidateConfig_SchemaErrorReturnsCueNativeError(t *testing.T) {
 
 func minimalModule() module.Module {
 	return module.Module{
-		APIVersion: apiversion.V1alpha2,
 		Metadata: &module.ModuleMetadata{
 			Name:       "demo-mod",
 			ModulePath: "example.com/m",
@@ -200,7 +190,6 @@ func minimalModule() module.Module {
 func TestKernel_ProcessModuleRelease_HappyPath(t *testing.T) {
 	k := kernel.New()
 	spec := k.CueContext().CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
 metadata: {
 	name: "demo"
@@ -213,7 +202,6 @@ metadata: {
 	rel, err := k.ProcessModuleRelease(context.Background(), spec, minimalModule(), cue.Value{})
 	require.NoError(t, err)
 	require.NotNil(t, rel)
-	assert.Equal(t, apiversion.V1alpha2, rel.APIVersion)
 	assert.Equal(t, "demo", rel.Metadata.Name)
 	assert.Equal(t, "ns", rel.Metadata.Namespace)
 }
@@ -224,11 +212,9 @@ metadata: {
 func minimalReleaseValue(t *testing.T, k *kernel.Kernel) *module.Release {
 	t.Helper()
 	spec := k.CueContext().CompileString(`
-apiVersion: "ignored-by-test"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns", uuid: "u" }
 #module: {
-	apiVersion: "opmodel.dev/v1alpha2"
 	kind: "Module"
 	metadata: {
 		name: "demo-mod"
@@ -242,24 +228,20 @@ components: {}
 `)
 	require.NoError(t, spec.Err())
 	return &module.Release{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &module.ReleaseMetadata{Name: "demo", Namespace: "ns"},
-		Package:    spec,
+		Metadata: &module.ReleaseMetadata{Name: "demo", Namespace: "ns"},
+		Package:  spec,
 	}
 }
 
-// minimalPlatformValue constructs a *platform.Platform with the given
-// apiVersion and an empty registry / matchers / composedTransformers index.
+// minimalPlatformValue constructs a *platform.Platform with an empty registry
+// / matchers / composedTransformers index.
 func minimalPlatformValue(t *testing.T, k *kernel.Kernel) *platform.Platform {
 	t.Helper()
 	pv := k.CueContext().CompileString(`
-apiVersion: "ignored-by-test"
 kind: "Platform"
 metadata: { name: "kubernetes" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {}
 #matchers: {
 	resources: {}
@@ -268,51 +250,9 @@ type: "kubernetes"
 `)
 	require.NoError(t, pv.Err())
 	return &platform.Platform{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
-		Package:    pv,
+		Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
+		Package:  pv,
 	}
-}
-
-func TestKernel_Compile_Parity_VersionMismatch(t *testing.T) {
-	k := kernel.New()
-	rel := minimalReleaseValue(t, k)
-	plat := minimalPlatformValue(t, k)
-	// Force a mismatch.
-	plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
-
-	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: rel,
-		Platform:      plat,
-		RuntimeName:   "opm-cli",
-	})
-
-	require.Error(t, gotErr)
-	assert.Contains(t, gotErr.Error(), "apiVersion mismatch")
-}
-
-func TestKernel_Compile_Parity_UnknownVersion(t *testing.T) {
-	k := kernel.New()
-	unknown := apiversion.Version("opmodel.dev/never-registered")
-	rel := minimalReleaseValue(t, k)
-	rel.APIVersion = unknown
-	plat := minimalPlatformValue(t, k)
-	plat.APIVersion = unknown
-
-	_, gotErr := k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: rel,
-		Platform:      plat,
-		RuntimeName:   "opm-cli",
-	})
-
-	require.Error(t, gotErr)
-	assert.True(t, errors.Is(gotErr, apiversion.ErrUnknownAPIVersion))
-}
-
-// Sanity check: the v1alpha2 binding is registered so api.Lookup succeeds.
-func TestKernel_BindingRegistered(t *testing.T) {
-	_, err := api.Lookup(apiversion.V1alpha2)
-	require.NoError(t, err)
 }
 
 // --- Goroutine-safety regression: N kernels (one per goroutine) each run a
@@ -323,7 +263,6 @@ func TestKernel_GoroutineIsolation(t *testing.T) {
 	const n = 8
 	dir := writeTempModuleDir(t, `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
 metadata: {
 	name:       "demo"
@@ -341,17 +280,13 @@ metadata: {
 			k := kernel.New() // one Kernel per goroutine
 			ctx := context.Background()
 
-			val, ver, err := k.LoadModulePackage(ctx, dir, loader.LoadOptions{})
+			val, err := k.LoadModulePackage(ctx, dir, loader.LoadOptions{})
 			if err != nil {
 				errCh <- err
 				return
 			}
 			if !val.Exists() {
 				errCh <- errors.New("module value does not exist")
-				return
-			}
-			if ver != apiversion.V1alpha2 {
-				errCh <- errors.New("unexpected apiversion")
 				return
 			}
 

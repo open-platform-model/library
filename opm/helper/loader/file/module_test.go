@@ -1,7 +1,6 @@
 package file_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,13 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/apiversion"
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 )
 
 // writeTempModuleDir writes a single-file CUE package under a fresh temp dir
-// and returns the dir path. The file uses package name "mod" so load.Instances
-// resolves it as a single-package directory without needing cue.mod.
+// and returns the dir path.
 func writeTempModuleDir(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -24,10 +21,9 @@ func writeTempModuleDir(t *testing.T, content string) string {
 	return dir
 }
 
-func TestLoadModulePackage_DetectsV1alpha2(t *testing.T) {
+func TestLoadModulePackage_Loads(t *testing.T) {
 	dir := writeTempModuleDir(t, `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
 metadata: {
 	name:       "demo"
@@ -36,19 +32,7 @@ metadata: {
 }
 `)
 
-	val, ver, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
+	val, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.NoError(t, err)
 	assert.True(t, val.Exists())
-	assert.Equal(t, apiversion.V1alpha2, ver)
-}
-
-func TestLoadModulePackage_RejectsMissingAPIVersion(t *testing.T) {
-	dir := writeTempModuleDir(t, `
-package mod
-kind: "Module"
-`)
-
-	_, _, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion))
 }

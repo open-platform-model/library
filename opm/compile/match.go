@@ -4,8 +4,8 @@
 // and trait FQNs the component declares (component.#resources keys ∪
 // component.#traits keys), and looks each demanded FQN up in
 // Platform.#matchers.{resources, traits}. The reverse index is built by the
-// schema at apis/core/v1alpha2/platform.cue: matchers[FQN] yields the list
-// of transformers that require that primitive FQN.
+// schema at apis/core/platform.cue: matchers[FQN] yields the list of
+// transformers that require that primitive FQN.
 //
 // Multiple candidates per FQN are normal. The matcher evaluates each
 // candidate's predicate (requiredLabels ∧ requiredResources ∧ requiredTraits)
@@ -15,8 +15,8 @@
 //
 // Located transformer bodies live in Platform.#composedTransformers[tfFQN];
 // requiredLabels matching against component metadata.labels still applies
-// and is retained verbatim from the previous implementation. All path access
-// goes through binding.Paths() so v1alpha1/v1alpha2/etc. share one walk.
+// and is retained verbatim from the previous implementation. Path access
+// references opm/schema package-level vars directly.
 //
 // Match is in Go (not CUE #PlatformMatch) per umbrella decision Q1: keeps
 // the Go-native error/diagnostic shape, avoids one CUE evaluation per match,
@@ -29,8 +29,8 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/platform"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // MatchResult is the per-(component, transformer) match outcome.
@@ -66,23 +66,19 @@ type NonMatchedPair struct {
 
 // Match walks a consumer Module's components against a Platform's
 // #matchers index and returns a MatchPlan describing matched pairs,
-// unmatched FQNs, and ambiguous FQNs. The binding argument supplies the
-// per-schema-version CUE path inventory; every lookup goes through b.Paths().
+// unmatched FQNs, and ambiguous FQNs. Path access references opm/schema
+// package-level vars directly.
 //
 //nolint:gocyclo // matching is naturally branchy but kept in one place
-func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*MatchPlan, error) {
+func Match(components cue.Value, plat *platform.Platform) (*MatchPlan, error) {
 	if plat == nil {
 		return nil, fmt.Errorf("platform is required")
 	}
-	if b == nil {
-		return nil, fmt.Errorf("binding is required")
-	}
-	paths := b.Paths()
 	plan := &MatchPlan{Matches: map[string]map[string]MatchResult{}, UnhandledTraits: map[string][]string{}}
 
-	composed := plat.Package.LookupPath(paths.ComposedTransformers)
-	matchersResources := plat.Package.LookupPath(paths.MatchersResources)
-	matchersTraits := plat.Package.LookupPath(paths.MatchersTraits)
+	composed := plat.Package.LookupPath(schema.ComposedTransformers)
+	matchersResources := plat.Package.LookupPath(schema.MatchersResources)
+	matchersTraits := plat.Package.LookupPath(schema.MatchersTraits)
 
 	compIter, err := components.Fields()
 	if err != nil {
@@ -92,9 +88,9 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 	for compIter.Next() {
 		compName := compIter.Selector().Unquoted()
 		compVal := compIter.Value()
-		labels := labelPairs(compVal.LookupPath(paths.MetadataLabels))
-		resources := fieldKeys(compVal.LookupPath(paths.ComponentResources))
-		traits := fieldKeys(compVal.LookupPath(paths.ComponentTraits))
+		labels := labelPairs(compVal.LookupPath(schema.MetadataLabels))
+		resources := fieldKeys(compVal.LookupPath(schema.ComponentResources))
+		traits := fieldKeys(compVal.LookupPath(schema.ComponentTraits))
 		resourceSet := stringSet(resources)
 		traitSet := stringSet(traits)
 
@@ -106,25 +102,25 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 		// by the component pairs; matched is keyed by transformer FQN so the
 		// trait walk below idempotently dedupes.
 		for _, fqn := range resources {
-			survivors := lookupCandidates(matchersResources, fqn, paths, labels, resourceSet, traitSet)
+			survivors := lookupCandidates(matchersResources, fqn, labels, resourceSet, traitSet)
 			if len(survivors) == 0 {
 				plan.Matches[compName][fqn] = MatchResult{MissingResources: []string{fqn}}
 				continue
 			}
 			for _, tfFQN := range survivors {
-				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
+				pairTransformer(plan, compName, tfFQN, composed, labels, matched)
 			}
 		}
 
 		// Trait demand walk.
 		for _, fqn := range traits {
-			survivors := lookupCandidates(matchersTraits, fqn, paths, labels, resourceSet, traitSet)
+			survivors := lookupCandidates(matchersTraits, fqn, labels, resourceSet, traitSet)
 			if len(survivors) == 0 {
 				plan.Matches[compName][fqn] = MatchResult{MissingTraits: []string{fqn}}
 				continue
 			}
 			for _, tfFQN := range survivors {
-				pairTransformer(plan, compName, tfFQN, composed, paths, labels, matched)
+				pairTransformer(plan, compName, tfFQN, composed, labels, matched)
 			}
 			traitHandled[fqn] = struct{}{}
 		}
@@ -136,7 +132,7 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 		// they are not flagged as unhandled.
 		for tfFQN := range matched {
 			tfVal := composed.LookupPath(cue.MakePath(cue.Str(tfFQN)))
-			for _, fqn := range fieldKeys(tfVal.LookupPath(paths.TransformerOptionalTraits)) {
+			for _, fqn := range fieldKeys(tfVal.LookupPath(schema.TransformerOptionalTraits)) {
 				traitHandled[fqn] = struct{}{}
 			}
 		}
@@ -163,7 +159,6 @@ func Match(components cue.Value, plat *platform.Platform, b api.Binding) (*Match
 func lookupCandidates(
 	matchersIndex cue.Value,
 	fqn string,
-	paths api.Paths,
 	compLabels map[string]struct{},
 	compResources map[string]struct{},
 	compTraits map[string]struct{},
@@ -184,11 +179,11 @@ func lookupCandidates(
 		var survivors []string
 		for iter.Next() {
 			cand := iter.Value()
-			tfFQN, err := cand.LookupPath(paths.MetadataFQN).String()
+			tfFQN, err := cand.LookupPath(schema.MetadataFQN).String()
 			if err != nil {
 				continue
 			}
-			if !candidateSatisfied(cand, paths, compLabels, compResources, compTraits) {
+			if !candidateSatisfied(cand, compLabels, compResources, compTraits) {
 				continue
 			}
 			survivors = append(survivors, tfFQN)
@@ -212,18 +207,17 @@ func lookupCandidates(
 // (transformer doesn't constrain that dimension).
 func candidateSatisfied(
 	cand cue.Value,
-	paths api.Paths,
 	compLabels map[string]struct{},
 	compResources map[string]struct{},
 	compTraits map[string]struct{},
 ) bool {
-	if missing := missingMapLabels(cand.LookupPath(paths.TransformerRequiredLabels), compLabels); len(missing) > 0 {
+	if missing := missingMapLabels(cand.LookupPath(schema.TransformerRequiredLabels), compLabels); len(missing) > 0 {
 		return false
 	}
-	if !fqnSubset(cand.LookupPath(paths.TransformerRequiredResources), compResources) {
+	if !fqnSubset(cand.LookupPath(schema.TransformerRequiredResources), compResources) {
 		return false
 	}
-	if !fqnSubset(cand.LookupPath(paths.TransformerRequiredTraits), compTraits) {
+	if !fqnSubset(cand.LookupPath(schema.TransformerRequiredTraits), compTraits) {
 		return false
 	}
 	return true
@@ -265,7 +259,6 @@ func pairTransformer(
 	plan *MatchPlan,
 	compName, tfFQN string,
 	composed cue.Value,
-	paths api.Paths,
 	labels map[string]struct{},
 	matched map[string]struct{},
 ) {
@@ -276,7 +269,7 @@ func pairTransformer(
 		}
 	}
 	tfVal := composed.LookupPath(cue.MakePath(cue.Str(tfFQN)))
-	missingLabels := missingMapLabels(tfVal.LookupPath(paths.TransformerRequiredLabels), labels)
+	missingLabels := missingMapLabels(tfVal.LookupPath(schema.TransformerRequiredLabels), labels)
 	result := MatchResult{
 		Matched:       len(missingLabels) == 0,
 		MissingLabels: missingLabels,

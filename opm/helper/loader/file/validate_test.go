@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/apiversion"
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 )
 
@@ -19,17 +18,17 @@ import (
 type loadFn func(dir string) error
 
 func moduleLoad(dir string) error {
-	_, _, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
+	_, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	return err
 }
 
 func releaseLoad(dir string) error {
-	_, _, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
+	_, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	return err
 }
 
 func platformLoad(dir string) error {
-	_, _, err := loader.LoadPlatformPackage(cuecontext.New(), dir, loader.LoadOptions{})
+	_, err := loader.LoadPlatformPackage(cuecontext.New(), dir, loader.LoadOptions{})
 	return err
 }
 
@@ -48,7 +47,6 @@ func TestShapeGate_RejectsMalformedPackages(t *testing.T) {
 			load: moduleLoad,
 			content: `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Platform"
 metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
 `,
@@ -59,7 +57,6 @@ metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
 			load: moduleLoad,
 			content: `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Module"
 metadata: {modulePath: "example.com/modules", version: "0.1.0"}
 `,
@@ -70,7 +67,6 @@ metadata: {modulePath: "example.com/modules", version: "0.1.0"}
 			load: releaseLoad,
 			content: `
 package release
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "ModuleRelease"
 metadata: {name: "demo", namespace: "ns"}
 #module: {kind: "Platform"}
@@ -82,7 +78,6 @@ metadata: {name: "demo", namespace: "ns"}
 			load: releaseLoad,
 			content: `
 package release
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "ModuleRelease"
 metadata: {name: "demo", namespace: "ns"}
 `,
@@ -93,7 +88,6 @@ metadata: {name: "demo", namespace: "ns"}
 			load: platformLoad,
 			content: `
 package platform
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Platform"
 metadata: {name: "demo"}
 type: "kubernetes"
@@ -106,7 +100,6 @@ type: "kubernetes"
 			load: platformLoad,
 			content: `
 package platform
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Platform"
 metadata: {name: "demo"}
 `,
@@ -134,53 +127,46 @@ func TestShapeGate_RejectsConflictingPackageClauses(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.cue"), []byte("package one\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.cue"), []byte("package two\n"), 0o644))
 
-	_, _, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
+	_, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	require.Error(t, err)
 }
 
 // TestShapeGate_WellFormedArtifactsPass is the regression guard: a well-formed
-// module, release, and platform each still load and return the detected
-// apiVersion exactly as before the shape gate was introduced.
+// module, release, and platform each still load successfully.
 func TestShapeGate_WellFormedArtifactsPass(t *testing.T) {
 	t.Run("module", func(t *testing.T) {
 		dir := writeTempModuleDir(t, `
 package mod
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Module"
 metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
 `)
-		val, ver, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
+		val, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 		require.NoError(t, err)
 		assert.True(t, val.Exists())
-		assert.Equal(t, apiversion.V1alpha2, ver)
 	})
 
 	t.Run("release", func(t *testing.T) {
 		dir := writeTempReleaseDir(t, `
 package release
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "ModuleRelease"
 metadata: {name: "demo", namespace: "ns"}
 #module: {kind: "Module"}
 `)
-		val, ver, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
+		val, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
 		require.NoError(t, err)
 		assert.True(t, val.Exists())
-		assert.Equal(t, apiversion.V1alpha2, ver)
 	})
 
 	t.Run("platform", func(t *testing.T) {
 		dir := writeTempPlatformDir(t, `
 package platform
-apiVersion: "opmodel.dev/v1alpha2"
 kind:       "Platform"
 metadata: {name: "demo"}
 type: "kubernetes"
 #registry: {}
 `)
-		val, ver, err := loader.LoadPlatformPackage(cuecontext.New(), dir, loader.LoadOptions{})
+		val, err := loader.LoadPlatformPackage(cuecontext.New(), dir, loader.LoadOptions{})
 		require.NoError(t, err)
 		assert.True(t, val.Exists())
-		assert.Equal(t, apiversion.V1alpha2, ver)
 	})
 }

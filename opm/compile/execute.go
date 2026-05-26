@@ -6,9 +6,9 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/core"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // executeTransforms runs the CUE #transform for each matched (component, transformer)
@@ -31,7 +31,6 @@ func executeTransforms(
 	dataComponents cue.Value,
 	rel *module.Release,
 	runtimeName string,
-	binding api.Binding,
 ) ([]*core.Compiled, []string, []error) {
 	compiled := make([]*core.Compiled, 0)
 	var warnings []string
@@ -44,7 +43,7 @@ func executeTransforms(
 		default:
 		}
 
-		res, pairWarnings, err := executePair(cueCtx, platformVal, schemaComponents, dataComponents, rel, pair, runtimeName, binding)
+		res, pairWarnings, err := executePair(cueCtx, platformVal, schemaComponents, dataComponents, rel, pair, runtimeName)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -73,18 +72,16 @@ func executePair(
 	rel *module.Release,
 	pair MatchedPair,
 	runtimeName string,
-	binding api.Binding,
 ) ([]*core.Compiled, []string, error) {
 	compName := pair.ComponentName
 	tfFQN := pair.TransformerFQN
-	paths := binding.Paths()
 
 	// Retrieve the transformer's #transform definition from
 	// Platform.#composedTransformers.
 	transformVal := platformVal.
-		LookupPath(paths.ComposedTransformers).
+		LookupPath(schema.ComposedTransformers).
 		LookupPath(cue.MakePath(cue.Str(tfFQN))).
-		LookupPath(paths.Transform)
+		LookupPath(schema.Transform)
 
 	if !transformVal.Exists() {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform not found in platform.#composedTransformers", compName, tfFQN)
@@ -106,24 +103,24 @@ func executePair(
 
 	// Inject #component using the finalized data value — safe for FillPath without
 	// schema constraint conflicts.
-	unified := transformVal.FillPath(paths.Component, dataComp)
+	unified := transformVal.FillPath(schema.Component, dataComp)
 	if err := unified.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: filling #component: %w", compName, tfFQN, err)
 	}
 
-	// Build and inject #context. The binding owns the shape; the renderer
-	// only fills the resulting value at Paths().Context.
-	ctxVal, warnings, err := binding.BuildTransformerContext(cueCtx, rel, compName, schemaComp, runtimeName)
+	// Build and inject #context. opm/schema owns the shape; the renderer
+	// only fills the resulting value at schema.Context.
+	ctxVal, warnings, err := schema.BuildTransformerContext(cueCtx, rel, compName, schemaComp, runtimeName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: injecting #context: %w", compName, tfFQN, err)
 	}
-	unified = unified.FillPath(paths.Context, ctxVal)
+	unified = unified.FillPath(schema.Context, ctxVal)
 	if err := unified.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: filling #context: %w", compName, tfFQN, err)
 	}
 
 	// Extract the output field.
-	outputVal := unified.LookupPath(paths.Output)
+	outputVal := unified.LookupPath(schema.Output)
 	if !outputVal.Exists() {
 		return []*core.Compiled{}, warnings, nil
 	}

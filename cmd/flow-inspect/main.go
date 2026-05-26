@@ -33,10 +33,9 @@ import (
 	"cuelang.org/go/cue/ast/astutil"
 	"cuelang.org/go/cue/format"
 
-	"github.com/open-platform-model/library/opm/api"
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 const localRegistry = "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
@@ -86,7 +85,7 @@ func run(libraryRoot string, want map[stage]bool) error {
 
 	// ── Load module ─────────────────────────────────────────────────
 	moduleDir := filepath.Join(libraryRoot, "testdata", "modules", "web_app")
-	modVal, modVer, err := k.LoadModulePackage(ctx, moduleDir, loaderfile.LoadOptions{})
+	modVal, err := k.LoadModulePackage(ctx, moduleDir, loaderfile.LoadOptions{})
 	if err != nil {
 		return fmt.Errorf("loading module from %s: %w", moduleDir, err)
 	}
@@ -102,7 +101,7 @@ func run(libraryRoot string, want map[stage]bool) error {
 
 	// ── Load platform ───────────────────────────────────────────────
 	platformDir := filepath.Join(libraryRoot, "modules", "opm_platform")
-	platVal, _, err := k.LoadPlatformPackage(ctx, platformDir, loaderfile.LoadOptions{Registry: localRegistry})
+	platVal, err := k.LoadPlatformPackage(ctx, platformDir, loaderfile.LoadOptions{Registry: localRegistry})
 	if err != nil {
 		return fmt.Errorf("loading platform from %s: %w", platformDir, err)
 	}
@@ -110,12 +109,6 @@ func run(libraryRoot string, want map[stage]bool) error {
 	if err != nil {
 		return fmt.Errorf("constructing *platform.Platform: %w", err)
 	}
-
-	binding, err := api.Lookup(modVer)
-	if err != nil {
-		return fmt.Errorf("resolving binding: %w", err)
-	}
-	paths := binding.Paths()
 
 	if want[stagePlatform] {
 		header("Stage 2: Loaded Platform — opm-platform")
@@ -126,36 +119,35 @@ func run(libraryRoot string, want map[stage]bool) error {
 
 		// Registry entries: print one summary line per registered Module.
 		subHeader("#registry (registered Modules)")
-		printRegistrySummary(platVal.LookupPath(paths.Registry))
+		printRegistrySummary(platVal.LookupPath(schema.Registry))
 
 		// Computed views are too large to dump fully (they recursively pull in
 		// every primitive's schema). Print FQN keys instead so the reader sees
 		// the "what is registered" shape without the noise.
 		subHeader("#knownResources (FQNs)")
-		printFQNKeys(platVal.LookupPath(paths.KnownResources))
+		printFQNKeys(platVal.LookupPath(schema.KnownResources))
 
 		subHeader("#knownTraits (FQNs)")
-		printFQNKeys(platVal.LookupPath(paths.KnownTraits))
+		printFQNKeys(platVal.LookupPath(schema.KnownTraits))
 
 		subHeader("#composedTransformers (FQNs)")
-		printFQNKeys(platVal.LookupPath(paths.ComposedTransformers))
+		printFQNKeys(platVal.LookupPath(schema.ComposedTransformers))
 
 		subHeader("#matchers.resources (FQN → [transformer FQNs])")
-		printMatcherIndex(platVal.LookupPath(paths.MatchersResources), paths)
+		printMatcherIndex(platVal.LookupPath(schema.MatchersResources))
 
 		subHeader("#matchers.traits (FQN → [transformer FQNs])")
-		printMatcherIndex(platVal.LookupPath(paths.MatchersTraits), paths)
+		printMatcherIndex(platVal.LookupPath(schema.MatchersTraits))
 	}
 
 	// ── Build the release ───────────────────────────────────────────
-	debugValues := modVal.LookupPath(paths.DebugValues)
+	debugValues := modVal.LookupPath(schema.DebugValues)
 	if !debugValues.Exists() {
 		return fmt.Errorf("web_app fixture must define debugValues")
 	}
 
 	releaseSkeleton := k.CueContext().CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
-kind:       "ModuleRelease"
+kind: "ModuleRelease"
 metadata: {
 	name:      "web-app-demo"
 	namespace: "default"
@@ -166,7 +158,7 @@ metadata: {
 		return fmt.Errorf("building release skeleton: %w", err)
 	}
 
-	unifiedModule := modVal.FillPath(paths.Config, debugValues)
+	unifiedModule := modVal.FillPath(schema.Config, debugValues)
 	if err := unifiedModule.Err(); err != nil {
 		return fmt.Errorf("filling values into module #config: %w", err)
 	}
@@ -176,9 +168,9 @@ metadata: {
 	}
 
 	releaseSpec := releaseSkeleton.
-		FillPath(paths.Module, modVal).
-		FillPath(paths.Values, debugValues).
-		FillPath(paths.Components, moduleComponents)
+		FillPath(schema.Module, modVal).
+		FillPath(schema.Values, debugValues).
+		FillPath(schema.Components, moduleComponents)
 	if err := releaseSpec.Err(); err != nil {
 		return fmt.Errorf("building release spec: %w", err)
 	}
@@ -193,9 +185,9 @@ metadata: {
 		subHeader("metadata")
 		mustPrintConcreteCUE(rel.Package.LookupPath(cue.ParsePath("metadata")))
 		subHeader("values (resolved from debugValues)")
-		mustPrintConcreteCUE(rel.Package.LookupPath(paths.Values))
+		mustPrintConcreteCUE(rel.Package.LookupPath(schema.Values))
 		subHeader("components (passed to matcher)")
-		mustPrintConcreteCUE(rel.Package.LookupPath(paths.Components))
+		mustPrintConcreteCUE(rel.Package.LookupPath(schema.Components))
 	}
 
 	// ── Match + Compile ─────────────────────────────────────────────
@@ -394,7 +386,7 @@ func printRegistrySummary(registry cue.Value) {
 // printMatcherIndex prints each FQN's bucket as the FQNs of the candidate
 // transformers, so the reader sees which transformers compete for each
 // primitive without the dense per-transformer subtree.
-func printMatcherIndex(idx cue.Value, paths api.Paths) {
+func printMatcherIndex(idx cue.Value) {
 	if !idx.Exists() {
 		fmt.Println("  <field does not exist>")
 		return
@@ -413,7 +405,7 @@ func printMatcherIndex(idx cue.Value, paths api.Paths) {
 		listIter, err := bucket.List()
 		if err == nil {
 			for listIter.Next() {
-				if s, err := listIter.Value().LookupPath(paths.MetadataFQN).String(); err == nil {
+				if s, err := listIter.Value().LookupPath(schema.MetadataFQN).String(); err == nil {
 					tfFQNs = append(tfFQNs, s)
 				}
 			}

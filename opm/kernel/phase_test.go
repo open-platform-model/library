@@ -2,7 +2,6 @@ package kernel_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -10,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
-	"github.com/open-platform-model/library/opm/apiversion"
 	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -34,7 +31,6 @@ func newPhaseFixture(t *testing.T, k *kernel.Kernel) phaseFixture {
 	ctx := k.CueContext()
 
 	modPkg := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Module"
 metadata: {
 	name: "demo-mod"
@@ -51,11 +47,9 @@ metadata: {
 	require.NoError(t, modPkg.Err())
 
 	relPkg := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "ModuleRelease"
 metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
 #module: {
-	apiVersion: "opmodel.dev/v1alpha2"
 	kind: "Module"
 	metadata: {
 		name: "demo-mod"
@@ -84,13 +78,10 @@ components: {
 	require.NoError(t, relPkg.Err())
 
 	platVal := ctx.CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "k8s" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {
 	"example.com/p/echo@v0": {
 		metadata: { fqn: "example.com/p/echo@v0" }
@@ -121,7 +112,6 @@ type: "kubernetes"
 
 	return phaseFixture{
 		mod: &module.Module{
-			APIVersion: apiversion.V1alpha2,
 			Metadata: &module.ModuleMetadata{
 				Name:       "demo-mod",
 				ModulePath: "example.com/m",
@@ -132,16 +122,14 @@ type: "kubernetes"
 			Package: modPkg,
 		},
 		rel: &module.Release{
-			APIVersion: apiversion.V1alpha2,
 			Metadata: &module.ReleaseMetadata{
 				Name: "demo", Namespace: "ns", UUID: "u-rel",
 			},
 			Package: relPkg,
 		},
 		plat: &platform.Platform{
-			APIVersion: apiversion.V1alpha2,
-			Metadata:   &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-			Package:    platVal,
+			Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+			Package:  platVal,
 		},
 	}
 }
@@ -212,18 +200,6 @@ func TestKernel_Match_OK(t *testing.T) {
 	require.Len(t, pairs, 1)
 	assert.Equal(t, "web", pairs[0].ComponentName)
 	assert.Equal(t, "example.com/p/echo@v0", pairs[0].TransformerFQN)
-}
-
-func TestKernel_Match_VersionMismatch(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-	f.plat.APIVersion = apiversion.Version("opmodel.dev/v1alpha-other")
-
-	_, err := k.Match(context.Background(), kernel.MatchInput{
-		ModuleRelease: f.rel, Platform: f.plat,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiVersion mismatch")
 }
 
 func TestKernel_Plan_NoRendered(t *testing.T) {
@@ -304,26 +280,6 @@ func TestRender_ModuleResult_Aliased(t *testing.T) {
 	var cr *compile.CompileResult
 	var mr *compile.ModuleResult = cr //nolint:staticcheck // SA1019: testing alias compatibility
 	_ = mr
-}
-
-func TestKernel_DetectAPIVersion(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`apiVersion: "opmodel.dev/v1alpha2"`)
-	require.NoError(t, v.Err())
-
-	got, err := k.DetectAPIVersion(v)
-	require.NoError(t, err)
-	assert.Equal(t, apiversion.V1alpha2, got)
-}
-
-func TestKernel_DetectAPIVersion_Unknown(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`apiVersion: "opmodel.dev/never-registered"`)
-	require.NoError(t, v.Err())
-
-	_, err := k.DetectAPIVersion(v)
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, apiversion.ErrUnknownAPIVersion))
 }
 
 func TestKernel_Finalize(t *testing.T) {

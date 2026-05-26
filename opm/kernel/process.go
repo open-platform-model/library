@@ -6,20 +6,20 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // ProcessModuleRelease validates the supplied values, fills them into the
 // release spec, asserts the result is fully concrete, decodes release
-// metadata via the version binding, and returns a constructed
-// [*module.Release].
+// metadata via opm/schema, and returns a constructed [*module.Release].
 //
 // The release spec carries its source #Module inside the CUE package; the
-// schema for value validation is read from spec via the binding's Module +
-// Config paths. mod is supplied for fallback diagnostics (release name when
-// metadata.name is not yet concrete) and is not retained on the returned
-// Release — the source module remains reachable through Release.Package.
+// schema for value validation is read from spec via schema.Module +
+// schema.Config. mod is supplied for fallback diagnostics (release name
+// when metadata.name is not yet concrete) and is not retained on the
+// returned Release — the source module remains reachable through
+// Release.Package.
 //
 // values is a single, pre-unified [cue.Value] — layering is performed by
 // callers via [Kernel.ValidateConfigDetailed] before this call. The zero
@@ -29,21 +29,15 @@ import (
 func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod module.Module, values cue.Value) (*module.Release, error) {
 	name := bestEffortReleaseName(spec, mod)
 
-	b, err := api.Lookup(mod.APIVersion)
-	if err != nil {
-		return nil, fmt.Errorf("release %q: resolving binding for %q: %w", name, mod.APIVersion, err)
-	}
-	paths := b.Paths()
+	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
 
-	schema := spec.LookupPath(paths.Module).LookupPath(paths.Config)
-
-	validated, vErr := k.ValidateConfig(schema, values)
+	validated, vErr := k.ValidateConfig(configSchema, values)
 	if vErr != nil {
 		return nil, fmt.Errorf("release %q: %w", name, vErr)
 	}
 
 	if validated.Exists() {
-		spec = spec.FillPath(paths.Values, validated)
+		spec = spec.FillPath(schema.Values, validated)
 		if err := spec.Err(); err != nil {
 			return nil, fmt.Errorf("filling values into release spec: %w", err)
 		}
@@ -53,15 +47,14 @@ func (k *Kernel) ProcessModuleRelease(_ context.Context, spec cue.Value, mod mod
 		return nil, fmt.Errorf("release %q: not fully concrete: %w", name, err)
 	}
 
-	apiMeta, err := b.DecodeReleaseMetadata(spec)
+	meta, err := schema.DecodeReleaseMetadata(spec)
 	if err != nil {
 		return nil, fmt.Errorf("release %q: %w", name, err)
 	}
 
 	return &module.Release{
-		APIVersion: mod.APIVersion,
-		Metadata:   module.ReleaseMetadataFromAPI(apiMeta),
-		Package:    spec,
+		Metadata: meta,
+		Package:  spec,
 	}, nil
 }
 

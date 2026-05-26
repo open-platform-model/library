@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
-	"github.com/open-platform-model/library/opm/apiversion"
 	helperplatform "github.com/open-platform-model/library/opm/helper/platform"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -24,13 +22,10 @@ import (
 func makeShell(t *testing.T, k *kernel.Kernel) *pkgplatform.Platform {
 	t.Helper()
 	v := k.CueContext().CompileString(`
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "test-shell" }
 type: "kubernetes"
 #registry: {}
-#knownResources: {}
-#knownTraits: {}
 #composedTransformers: {}
 #matchers: { resources: {}, traits: {} }
 `)
@@ -42,8 +37,9 @@ type: "kubernetes"
 
 // makeComputingShell returns a Platform whose #composedTransformers and
 // #matchers are CUE comprehensions reading from registered Modules'
-// #defines.transformers map. Mirrors the schema's #Platform enough to
-// exercise view recomputation after FillPath.
+// #defines.transformers map. The fixtures use a hand-rolled shape that
+// mirrors what the matcher needs without depending on the schema's actual
+// #Platform.
 func makeComputingShell(t *testing.T, k *kernel.Kernel) *pkgplatform.Platform {
 	t.Helper()
 	v := k.CueContext().CompileString(computingShellSrc)
@@ -57,7 +53,6 @@ func makeComputingShell(t *testing.T, k *kernel.Kernel) *pkgplatform.Platform {
 // matchers are intentionally omitted — the resource path exercises the
 // same machinery and keeps the fixture compact.
 const computingShellSrc = `
-apiVersion: "opmodel.dev/v1alpha2"
 kind: "Platform"
 metadata: { name: "computing-shell" }
 type: "kubernetes"
@@ -66,9 +61,6 @@ type: "kubernetes"
 	#module!: _
 	enabled: bool | *true
 }
-
-#knownResources: {}
-#knownTraits: {}
 
 #composedTransformers: {
 	for _, reg in #registry
@@ -108,8 +100,7 @@ type: "kubernetes"
 func makeModule(t *testing.T, k *kernel.Kernel, name string, transformers map[string][]string) *module.Module {
 	t.Helper()
 	var b strings.Builder
-	fmt.Fprintf(&b, `apiVersion: "opmodel.dev/v1alpha2"
-kind: "Module"
+	fmt.Fprintf(&b, `kind: "Module"
 metadata: {
 	name: %q
 	modulePath: "example.com/m"
@@ -136,8 +127,7 @@ metadata: {
 }
 
 // TestCompose_EmptyModules confirms that an empty modules slice returns a
-// Platform identical to the shell except for ApiVersion stamping. The
-// shell's empty #registry stays empty.
+// Platform identical to the shell. The shell's empty #registry stays empty.
 func TestCompose_EmptyModules(t *testing.T) {
 	k := kernel.New()
 	shell := makeShell(t, k)
@@ -146,7 +136,6 @@ func TestCompose_EmptyModules(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	assert.Equal(t, shell.APIVersion, got.APIVersion)
 	assert.Equal(t, shell.Metadata.Name, got.Metadata.Name)
 
 	registry := got.Package.LookupPath(cue.ParsePath("#registry"))
@@ -236,8 +225,7 @@ func TestCompose_TwoModulesSharingResourceFQN_Compose(t *testing.T) {
 }
 
 // TestCompose_Idempotency confirms two Compose calls with the same inputs
-// produce equal Package values. We compare via cue.Value.Equals which
-// considers semantic equivalence rather than byte-stable rendering.
+// produce equal Package values.
 func TestCompose_Idempotency(t *testing.T) {
 	k := kernel.New()
 	shell := makeComputingShell(t, k)
@@ -273,22 +261,18 @@ func TestCompose_DoesNotMutateInputs(t *testing.T) {
 	assert.True(t, m.Package.Equals(moduleSnapshot),
 		"module.Package must be unchanged after Compose")
 
-	// And the shell's #registry is still empty post-call (the new Platform
-	// was returned by value, the original was not touched).
 	registry := shell.Package.LookupPath(cue.ParsePath("#registry"))
 	iter, err := registry.Fields()
 	require.NoError(t, err)
 	assert.False(t, iter.Next(), "shell's #registry must remain empty")
 }
 
-// TestCompose_RejectsNilOwner exercises the kernel-required guard.
 func TestCompose_RejectsNilOwner(t *testing.T) {
 	_, err := helperplatform.Compose(nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kernel is required")
 }
 
-// TestCompose_RejectsNilShell exercises the shell-required guard.
 func TestCompose_RejectsNilShell(t *testing.T) {
 	k := kernel.New()
 	_, err := helperplatform.Compose(k, nil, nil)
@@ -296,22 +280,18 @@ func TestCompose_RejectsNilShell(t *testing.T) {
 	assert.Contains(t, err.Error(), "shell platform is required")
 }
 
-// TestCompose_RejectsModuleWithoutName covers the empty-Name guard.
 func TestCompose_RejectsModuleWithoutName(t *testing.T) {
 	k := kernel.New()
 	shell := makeShell(t, k)
 	m := &module.Module{
-		APIVersion: apiversion.V1alpha2,
-		Metadata:   &module.ModuleMetadata{Name: ""},
-		Package:    k.CueContext().CompileString(`{}`),
+		Metadata: &module.ModuleMetadata{Name: ""},
+		Package:  k.CueContext().CompileString(`{}`),
 	}
 	_, err := helperplatform.Compose(k, shell, []*module.Module{m})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "metadata.name")
 }
 
-// TestComposePlatform_KernelWrapper checks the kernel method delegates to
-// helperplatform.Compose and returns a semantically equal Platform.
 func TestComposePlatform_KernelWrapper(t *testing.T) {
 	k := kernel.New()
 	shell := makeComputingShell(t, k)

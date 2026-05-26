@@ -1,4 +1,4 @@
-module: "opmodel.dev/core@v1"
+module: "opmodel.dev/core@v0"
 language: {
 	version: "v0.16.0"
 }

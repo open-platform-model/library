@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
 	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -21,21 +20,14 @@ import (
 // synthKernel is the single Kernel shared by every synth-using test in this
 // package (this file plus flow_synth_integration_test.go).
 //
-// The api.Binding interface contract on SchemaValue states:
-//
-//	"Caching contract: implementations MUST cache the loaded cue.Value so
-//	 repeated calls amortise the cost of cue/load.Instances. The cache is
-//	 keyed implicitly on the first cue.Context passed in — implementations
-//	 MAY assume every subsequent call uses the same context (the documented
-//	 'one Kernel (one *cue.Context) per process' pattern)."
-//
-// The v1alpha2 binding honours that contract via sync.Once. Tests that build
-// releases from typed inputs MUST route every synth call through this kernel
-// so the binding's cached cue.Value lives in the same runtime as every other
-// cue.Value the test produces — otherwise synth.Release panics with
-// "incompatible runtime" inside CompileString(... cue.Scope(...)). Each
-// kernel.New() in a separate test would seat a different first context in
-// the binding cache and trip that contract.
+// The schema package caches its loaded cue.Value against the first
+// *cue.Context that calls SchemaValue. Tests that build releases from typed
+// inputs MUST route every synth call through this kernel so the cached
+// cue.Value lives in the same runtime as every other cue.Value the test
+// produces — otherwise synth.Release panics with "incompatible runtime"
+// inside CompileString(... cue.Scope(...)). Each kernel.New() in a separate
+// test would seat a different first context in the schema cache and trip
+// that contract.
 var synthKernel = kernel.New()
 
 // kernelSynthApisCoreDir resolves apis/core relative to this test file.
@@ -51,7 +43,7 @@ func kernelSynthApisCoreDir(t *testing.T) string {
 
 // synthTestModule builds a *module.Module against the Kernel's context by
 // loading a synthetic fixture rooted at apis/core. The Kernel's CueContext
-// MUST own every cue.Value the synth path consumes (binding.SchemaValue caches
+// MUST own every cue.Value the synth path consumes (schema.SchemaValue caches
 // against the first context it sees), so this helper threads k.CueContext()
 // through load.Instances.
 func synthTestModule(t *testing.T, k *kernel.Kernel, src string) *module.Module {
@@ -81,7 +73,7 @@ func synthTestModule(t *testing.T, k *kernel.Kernel, src string) *module.Module 
 const kernelSynthBaseFixture = `
 package synthtest
 
-import core "opmodel.dev/core/v1alpha2@v1"
+import core "opmodel.dev/core@v0"
 
 module: {
 	core.#Module
@@ -112,7 +104,6 @@ func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rel)
 
-	assert.Equal(t, mod.APIVersion, rel.APIVersion)
 	assert.Equal(t, "myrel", rel.Metadata.Name)
 	assert.Equal(t, "default", rel.Metadata.Namespace)
 	assert.NotEmpty(t, rel.Metadata.UUID, "release UUID must be schema-derived")
@@ -136,7 +127,7 @@ func TestKernel_SynthesizeRelease_UnconcreteRejected(t *testing.T) {
 	mod := synthTestModule(t, k, `
 package synthtest
 
-import core "opmodel.dev/core/v1alpha2@v1"
+import core "opmodel.dev/core@v0"
 
 module: {
 	core.#Module
@@ -181,7 +172,7 @@ func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
 	// same runtime". The unification succeeds only if both values share the
 	// kernel's context, proving SynthesizeRelease threaded the kernel's
 	// *cue.Context end-to-end.
-	probe := k.CueContext().CompileString(`apiVersion: "opmodel.dev/v1alpha2"`)
+	probe := k.CueContext().CompileString(`metadata: name: "myrel"`)
 	require.NoError(t, probe.Err())
 	merged := rel.Package.Unify(probe)
 	require.NoError(t, merged.Err())

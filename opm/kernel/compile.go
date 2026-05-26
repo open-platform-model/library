@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -32,17 +31,6 @@ func compileModuleRelease(
 	if plat == nil {
 		return nil, fmt.Errorf("platform is required")
 	}
-	if rel.APIVersion != plat.APIVersion {
-		return nil, fmt.Errorf(
-			"apiVersion mismatch: release %q has %q but platform %q has %q",
-			rel.Metadata.Name, rel.APIVersion, plat.Metadata.Name, plat.APIVersion,
-		)
-	}
-
-	binding, err := api.Lookup(rel.APIVersion)
-	if err != nil {
-		return nil, fmt.Errorf("resolving binding for release %q: %w", rel.Metadata.Name, err)
-	}
 
 	schemaComponents := rel.MatchComponents()
 	if !schemaComponents.Exists() {
@@ -54,7 +42,7 @@ func compileModuleRelease(
 		return nil, fmt.Errorf("finalizing components: %w", err)
 	}
 
-	plan, err := compile.Match(schemaComponents, plat, binding)
+	plan, err := compile.Match(schemaComponents, plat)
 	if err != nil {
 		return nil, err
 	}

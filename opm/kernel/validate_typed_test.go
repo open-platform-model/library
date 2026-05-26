@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/open-platform-model/library/opm/api/v1alpha2"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 

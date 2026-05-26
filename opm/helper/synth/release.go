@@ -7,8 +7,8 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // ReleaseInput is the typed input carried into Release. Required fields:
@@ -44,8 +44,7 @@ type ReleaseInput struct {
 
 // Sentinel errors. Frontends inspecting the failure surface match on these via
 // errors.Is. Synthesis-time errors all wrap one of these so callers can
-// distinguish "you forgot a required field" from "the binding/schema is
-// broken."
+// distinguish "you forgot a required field" from "the schema is broken."
 var (
 	// ErrMissingModule is returned when ReleaseInput.Module is nil.
 	ErrMissingModule = errors.New("synth.Release: Module is required")
@@ -56,13 +55,13 @@ var (
 	// ErrMissingNamespace is returned when ReleaseInput.Namespace is empty.
 	ErrMissingNamespace = errors.New("synth.Release: Namespace is required")
 
-	// ErrSchemaUnavailable is returned when the version binding cannot supply
-	// its schema package or the package does not expose #ModuleRelease.
+	// ErrSchemaUnavailable is returned when opm/schema cannot supply the
+	// schema package or the package does not expose #ModuleRelease.
 	ErrSchemaUnavailable = errors.New("synth.Release: schema unavailable")
 )
 
 // Release builds a #ModuleRelease CUE value by unifying ReleaseInput against
-// the schema definition obtained via the version binding's SchemaValue.
+// the embedded schema definition obtained via schema.SchemaValue.
 //
 // The function does NOT validate values against #config and does NOT enforce
 // concreteness. Both responsibilities live downstream in
@@ -85,21 +84,16 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 		return cue.Value{}, ErrMissingNamespace
 	}
 
-	binding, err := api.Lookup(in.Module.APIVersion)
-	if err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Release: resolving binding for %q: %w", in.Module.APIVersion, err)
-	}
-
-	schemaPkg, err := binding.SchemaValue(ctx)
+	schemaPkg, err := schema.SchemaValue(ctx)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Release: loading schema: %w", err)
 	}
 	if !schemaPkg.LookupPath(cue.ParsePath("#ModuleRelease")).Exists() {
-		return cue.Value{}, fmt.Errorf("%w: #ModuleRelease not found in binding %q schema", ErrSchemaUnavailable, in.Module.APIVersion)
+		return cue.Value{}, fmt.Errorf("%w: #ModuleRelease not found in embedded schema", ErrSchemaUnavailable)
 	}
 
 	// CUE's Go API rejects FillPath into a closed definition when the
-	// definition uses self-referential constraints (apis/core/v1alpha2/module.cue:15
+	// definition uses self-referential constraints (apis/core/module.cue
 	// declares `modulePath: metadata.modulePath`). Filling a separately-built
 	// module value into #ModuleRelease.#module triggers admission checks
 	// against a re-evaluated copy of #Module where the self-reference
@@ -129,7 +123,7 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	// to project values back through the closure boundary.
 	preparedModule := in.Module.Package
 	if in.Values.Exists() {
-		preparedModule = preparedModule.FillPath(binding.Paths().Config, in.Values)
+		preparedModule = preparedModule.FillPath(schema.Config, in.Values)
 		if err := preparedModule.Err(); err != nil {
 			return cue.Value{}, fmt.Errorf("synth.Release: merging values into module #config: %w", err)
 		}
@@ -152,7 +146,7 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	return spec, nil
 }
 
-// buildReleaseScope produces a cue.Value combining the binding's schema
+// buildReleaseScope produces a cue.Value combining the embedded schema
 // package with a `userModule` field bound to the supplied module. The
 // returned value is used as cue.Scope when compiling the release source.
 //
@@ -160,19 +154,20 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 // overlay `{userModule: _}` introduces a new field without violating any
 // closure. The combined value is then used as a *scope* for compilation,
 // not a value to be filled — references resolve against it lexically.
+//
+// We do NOT call combined.Err() at any step: the schema carries
+// self-referential constraints in unset required fields (see
+// schemavalue.go's note). Surfacing the resulting bottom on the root would
+// abort every synth call; the actual unification we care about runs in
+// CompileString below where Scope is consulted lexically, and any genuine
+// schema/scope problem surfaces there.
 func buildReleaseScope(ctx *cue.Context, schemaPkg, userModule cue.Value) (cue.Value, error) {
 	overlay := ctx.CompileString("userModule: _")
 	if err := overlay.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("building scope overlay: %w", err)
 	}
 	combined := schemaPkg.Unify(overlay)
-	if err := combined.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unifying schema with scope overlay: %w", err)
-	}
 	combined = combined.FillPath(cue.ParsePath("userModule"), userModule)
-	if err := combined.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("binding module into scope: %w", err)
-	}
 	return combined, nil
 }
 

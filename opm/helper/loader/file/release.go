@@ -7,8 +7,6 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
-
-	"github.com/open-platform-model/library/opm/apiversion"
 )
 
 // LoadOptions configures package-loader behavior shared by LoadModulePackage,
@@ -24,34 +22,31 @@ type LoadOptions struct {
 }
 
 // LoadReleasePackage loads a #ModuleRelease CUE package from a directory and
-// returns the raw cue.Value plus the detected apiVersion. Mirrors
-// LoadModulePackage: every .cue file in dirPath that shares the package is
-// unified into a single instance, so authors can split a release across
-// release.cue, values.cue, and overlay files within one CUE package.
+// returns the raw cue.Value. Mirrors LoadModulePackage: every .cue file in
+// dirPath that shares the package is unified into a single instance, so
+// authors can split a release across release.cue, values.cue, and overlay
+// files within one CUE package.
 //
 // LoadOptions.Registry, when non-empty, is applied via load.Config.Env so
 // the release's module imports resolve from the override registry without
 // mutating process state.
 //
-// An unrecognised or missing apiVersion produces an error wrapping
-// apiversion.ErrUnknownAPIVersion.
-//
 // The recommended entry point is Kernel.LoadReleasePackage, which owns its
 // [*cue.Context] and threads cross-cutting dependencies through every
 // operation. Call this function directly only if you are not using a
 // Kernel.
-func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, apiversion.Version, error) {
+func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
-		return cue.Value{}, "", fmt.Errorf("resolving release directory: %w", err)
+		return cue.Value{}, fmt.Errorf("resolving release directory: %w", err)
 	}
 
 	info, err := os.Stat(absDir)
 	if err != nil {
-		return cue.Value{}, "", fmt.Errorf("accessing release directory %q: %w", absDir, err)
+		return cue.Value{}, fmt.Errorf("accessing release directory %q: %w", absDir, err)
 	}
 	if !info.IsDir() {
-		return cue.Value{}, "", fmt.Errorf("release path %q is not a directory", absDir)
+		return cue.Value{}, fmt.Errorf("release path %q is not a directory", absDir)
 	}
 
 	cfg := &load.Config{
@@ -60,27 +55,22 @@ func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {
-		return cue.Value{}, "", fmt.Errorf("expected exactly one CUE package in %s, found %d: %w", absDir, len(instances), ErrInvalidPackage)
+		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in %s, found %d: %w", absDir, len(instances), ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, "", fmt.Errorf("loading release package from %s: %w", absDir, instances[0].Err)
+		return cue.Value{}, fmt.Errorf("loading release package from %s: %w", absDir, instances[0].Err)
 	}
 
 	val := ctx.BuildInstance(instances[0])
 	if err := val.Err(); err != nil {
-		return cue.Value{}, "", fmt.Errorf("building release package from %s: %w", absDir, err)
-	}
-
-	ver, err := apiversion.Detect(val)
-	if err != nil {
-		return cue.Value{}, "", fmt.Errorf("detecting apiVersion in %s: %w", absDir, err)
+		return cue.Value{}, fmt.Errorf("building release package from %s: %w", absDir, err)
 	}
 
 	if err := shapeGate(val, releaseSpec); err != nil {
-		return cue.Value{}, "", fmt.Errorf("validating release package in %s: %w", absDir, err)
+		return cue.Value{}, fmt.Errorf("validating release package in %s: %w", absDir, err)
 	}
 
-	return val, ver, nil
+	return val, nil
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if

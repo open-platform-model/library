@@ -13,10 +13,10 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/api"
 	"github.com/open-platform-model/library/opm/core"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // ComponentSummary contains display-oriented summary data extracted from a component
@@ -92,9 +92,6 @@ func NewModule(plat *platform.Platform, runtimeName string) *Module {
 // schemaComponents is the non-finalized components value (from rel.MatchComponents())
 // preserving CUE definition fields needed for metadata extraction.
 // dataComponents is the finalized, constraint-free components value for FillPath injection.
-//
-// The api.Binding for rel.APIVersion is looked up internally so callers do
-// not have to thread one through.
 func (r *Module) Execute(
 	ctx context.Context,
 	rel *module.Release,
@@ -107,10 +104,6 @@ func (r *Module) Execute(
 	}
 	if r.platform == nil {
 		return nil, fmt.Errorf("platform is required")
-	}
-	binding, err := api.Lookup(rel.APIVersion)
-	if err != nil {
-		return nil, fmt.Errorf("resolving binding for release %q: %w", rel.Metadata.Name, err)
 	}
 
 	// The CUE context lives on each cue.Value — extract it from the platform.
@@ -134,7 +127,7 @@ func (r *Module) Execute(
 	compiled, warnings, errs := executeTransforms(
 		ctx, cueCtx, plan, r.platform.Package,
 		schemaComponents, dataComponents, rel,
-		r.runtimeName, binding,
+		r.runtimeName,
 	)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("executing transforms: %w", errors.Join(errs...))
@@ -146,7 +139,7 @@ func (r *Module) Execute(
 	return &CompileResult{
 		Compiled:   nonNilCompiled(compiled),
 		MatchPlan:  plan,
-		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents, binding)),
+		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents)),
 		Unmatched:  []string{},
 		Warnings:   allWarnings,
 	}, nil
@@ -178,8 +171,7 @@ func nonNilWarnings(warnings []string) []string {
 //
 // schemaComponents is the value from rel.MatchComponents() which preserves the
 // definition fields (#resources, #traits) that carry FQN keys.
-func extractComponentSummaries(schemaComponents cue.Value, b api.Binding) []ComponentSummary {
-	paths := b.Paths()
+func extractComponentSummaries(schemaComponents cue.Value) []ComponentSummary {
 	iter, err := schemaComponents.Fields()
 	if err != nil {
 		return nil
@@ -193,7 +185,7 @@ func extractComponentSummaries(schemaComponents cue.Value, b api.Binding) []Comp
 		summary := ComponentSummary{Name: compName}
 
 		// Extract metadata.labels (optional field).
-		if labelsVal := compVal.LookupPath(paths.MetadataLabels); labelsVal.Exists() {
+		if labelsVal := compVal.LookupPath(schema.MetadataLabels); labelsVal.Exists() {
 			var labels map[string]string
 			if err := labelsVal.Decode(&labels); err == nil {
 				summary.Labels = labels
@@ -201,7 +193,7 @@ func extractComponentSummaries(schemaComponents cue.Value, b api.Binding) []Comp
 		}
 
 		// Extract #resources keys (definition field — FQN keys).
-		if resourcesVal := compVal.LookupPath(paths.ComponentResources); resourcesVal.Exists() {
+		if resourcesVal := compVal.LookupPath(schema.ComponentResources); resourcesVal.Exists() {
 			var fqns []string
 			ri, err := resourcesVal.Fields()
 			if err == nil {
@@ -214,7 +206,7 @@ func extractComponentSummaries(schemaComponents cue.Value, b api.Binding) []Comp
 		}
 
 		// Extract #traits keys (definition field — FQN keys). Optional.
-		if traitsVal := compVal.LookupPath(paths.ComponentTraits); traitsVal.Exists() {
+		if traitsVal := compVal.LookupPath(schema.ComponentTraits); traitsVal.Exists() {
 			var fqns []string
 			ti, err := traitsVal.Fields()
 			if err == nil {
