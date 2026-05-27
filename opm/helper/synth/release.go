@@ -12,9 +12,9 @@ import (
 )
 
 // ReleaseInput is the typed input carried into Release. Required fields:
-// Module, Name, Namespace. Optional fields are filled into the release only
-// when present (non-nil / non-empty / non-zero); empty values do not displace
-// schema-derived fields.
+// Module, Name, Namespace, SchemaCache. Optional fields are filled into
+// the release only when present (non-nil / non-empty / non-zero); empty
+// values do not displace schema-derived fields.
 type ReleaseInput struct {
 	// Module is the source #Module the release deploys. Required.
 	Module *module.Module
@@ -26,6 +26,14 @@ type ReleaseInput struct {
 
 	// Namespace is the target namespace (metadata.namespace). Required.
 	Namespace string
+
+	// SchemaCache supplies the OPM core schema used to unify against
+	// #ModuleRelease. REQUIRED. Typically the value of
+	// kernel.SchemaCache() from the caller's Kernel — passing the
+	// kernel's cache preserves the one-Cache-per-process invariant and
+	// avoids a duplicate schema fetch. Release returns an error when
+	// this field is nil.
+	SchemaCache *schema.Cache
 
 	// Values is the caller-supplied configuration value unified against the
 	// module's #config. The zero cue.Value signals "no values supplied" — the
@@ -55,13 +63,18 @@ var (
 	// ErrMissingNamespace is returned when ReleaseInput.Namespace is empty.
 	ErrMissingNamespace = errors.New("synth.Release: Namespace is required")
 
-	// ErrSchemaUnavailable is returned when opm/schema cannot supply the
-	// schema package or the package does not expose #ModuleRelease.
+	// ErrMissingSchemaCache is returned when ReleaseInput.SchemaCache is
+	// nil. Callers typically pass kernel.SchemaCache() from their Kernel.
+	ErrMissingSchemaCache = errors.New("synth.Release: SchemaCache is required")
+
+	// ErrSchemaUnavailable is returned when the caller-supplied
+	// SchemaCache resolves but does not expose #ModuleRelease.
 	ErrSchemaUnavailable = errors.New("synth.Release: schema unavailable")
 )
 
 // Release builds a #ModuleRelease CUE value by unifying ReleaseInput against
-// the embedded schema definition obtained via schema.SchemaValue.
+// the #ModuleRelease definition obtained from the caller-supplied
+// SchemaCache.
 //
 // The function does NOT validate values against #config and does NOT enforce
 // concreteness. Both responsibilities live downstream in
@@ -83,19 +96,23 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	if in.Namespace == "" {
 		return cue.Value{}, ErrMissingNamespace
 	}
+	if in.SchemaCache == nil {
+		return cue.Value{}, ErrMissingSchemaCache
+	}
 
-	schemaPkg, err := schema.SchemaValue(ctx)
+	schemaPkg, err := in.SchemaCache.Get(ctx)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Release: loading schema: %w", err)
 	}
 	if !schemaPkg.LookupPath(cue.ParsePath("#ModuleRelease")).Exists() {
-		return cue.Value{}, fmt.Errorf("%w: #ModuleRelease not found in embedded schema", ErrSchemaUnavailable)
+		return cue.Value{}, fmt.Errorf("%w: #ModuleRelease not found in resolved schema", ErrSchemaUnavailable)
 	}
 
 	// CUE's Go API rejects FillPath into a closed definition when the
-	// definition uses self-referential constraints (apis/core/module.cue
-	// declares `modulePath: metadata.modulePath`). Filling a separately-built
-	// module value into #ModuleRelease.#module triggers admission checks
+	// definition uses self-referential constraints (#Module in
+	// opmodel.dev/core@v0 declares `modulePath: metadata.modulePath`).
+	// Filling a separately-built module value into #ModuleRelease.#module
+	// triggers admission checks
 	// against a re-evaluated copy of #Module where the self-reference
 	// resolves to bottom, so caller-supplied modulePath / version are
 	// rejected as "field not allowed".
@@ -117,7 +134,7 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	// with the defaults that ProcessModuleRelease later folds into the values
 	// path: closed res.#Image types declared in the user's registry-loaded
 	// module differ at the CUE-runtime level from the same types reached
-	// through the embedded schema, so admission of fields like image.pullPolicy
+	// through the cache-resolved schema, so admission of fields like image.pullPolicy
 	// fails even though both sides declare them. Pre-merging in Go sidesteps
 	// the conflict — the schema sees a fully-formed #config without needing
 	// to project values back through the closure boundary.
@@ -146,7 +163,7 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	return spec, nil
 }
 
-// buildReleaseScope produces a cue.Value combining the embedded schema
+// buildReleaseScope produces a cue.Value combining the resolved schema
 // package with a `userModule` field bound to the supplied module. The
 // returned value is used as cue.Scope when compiling the release source.
 //

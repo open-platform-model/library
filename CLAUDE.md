@@ -31,32 +31,31 @@ Read these on entry:
 ## Repository Layout
 
 ```text
-apis/core/                    Versioned OPM schema (CUE). Single embed.go pulls cue.mod + every vN/ dir
-  v1alpha2/                   Current schema. v1alpha1 retired (commit 3a9a9bd).
 opm/
   apiversion/                 Version type + Detect(cue.Value) reads apiVersion off any artifact
-  api/                        Binding interface + process-wide registry (init()-time registration)
-  api/v1alpha2/               Concrete binding; exposes apis/core/v1alpha2/ as go:embed FS
   core/                       Platform-neutral primitives: Compiled, Resource, Identity
   errors/                     Sentinels + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
   module/                     *module.Module / *module.Release types + value-validation accessors
   platform/                   *platform.Platform — kernel's sole match/execute input
   compile/                    finalize → match → execute → emit pipeline (no public entry; called via Kernel)
+  schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformFile
     loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
     platform/                 Compose(shell, modules...) → *platform.Platform
     synth/                    Release(name, ns, ref, values, ...) → cue.Value (no files)
+  internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
 modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
-testdata/                     CUE module fixtures consumed by package tests
+testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  Flow diagrams + pipeline gap notes
 MIGRATIONS.md                 Pre-release API evolution + breaking-change recipes
+.cue-cache/                   Gitignored workspace-local CUE module cache populated by tests
 ```
 
 ### Three artifact types — and nothing else
@@ -74,6 +73,29 @@ The kernel accepts exactly:
 ## Environment Notes
 
 Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUDE.md`. A local CUE registry at `localhost:5000` is expected for publish/integration tests.
+
+### Schema cache lifetime contract
+
+The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
+`opmodel.dev/core@v0` against `CUE_REGISTRY`) and memoized in a
+`*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
+
+- **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
+  share the on-disk CUE module cache (`$CUE_CACHE_DIR`, by default
+  `~/.cache/cuelang/mod/`) but not the in-process memoized `cue.Value`.
+- **Long-running consumers (operator, server) MUST keep the Kernel alive
+  across operations.** The schema fetch happens once per Kernel-instance on
+  first `Cache.Get`; subsequent calls return the cached value with no
+  registry round-trip.
+- **Short-lived consumers (CLI, tests) pay one fetch per cold disk cache,
+  then hit the warm CUE cache.** A repeated CLI invocation in the same
+  process tree gets the same disk cache; a fresh checkout (or a deleted
+  `$CUE_CACHE_DIR`) re-fetches once.
+- The library auto-applies no `CUE_REGISTRY` default. Frontends (CLI,
+  operator) MUST set `CUE_REGISTRY` (e.g. to `schema.PublicRegistry`,
+  which maps `opmodel.dev` → `ghcr.io/open-platform-model`) before the
+  first schema-touching Kernel call. Tests use the workspace-local cache
+  via `opm/internal/schematest`.
 
 ## Build And Dev Commands
 
@@ -97,7 +119,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo also vendors CUE modules under `apis/core/`, `modules/opm`, `modules/opm_platform`, and `testdata/modules/*`. They're auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm`, `modules/opm_platform`, and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v0`. Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps
@@ -149,19 +171,24 @@ Kernel.Compile                 → *kernel.CompileResult
               emit []*core.Compiled with Release/Component/Transformer FQN provenance
 ```
 
-### Multi-version OPM schema
+### OPM schema versioning
 
-The kernel dispatches per-artifact on `apiVersion`. Adding `v1beta1`/`v1`/etc. is a localised change:
+The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v0` for the floating major, `opmodel.dev/core@v0.X.Y` for a pinned release.
 
-1. Drop `apis/core/<vN>/` + add it to the `//go:embed` pattern in `apis/core/embed.go`.
-2. Add `opm/api/<vN>/` registering its `Binding` in `init()`.
+Operators wanting reproducibility pin the schema version explicitly:
 
-`opm/compile`, `opm/helper/loader/file`, and `opm/module` need no edits. The compile pipeline calls `api.Lookup(rel.APIVersion)` once per release and threads the binding through Match/Execute/context-injection.
+```go
+k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v0.3.0"}))
+```
+
+Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call.
+
+A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema` and `opm/compile` adapts to the new paths, and downstream consumers re-pin. Within a major (`@v0`), additive schema changes are absorbed transparently by floating-major resolution.
 
 Two independent compat tracks, never confuse:
 
 - **Go-module SemVer** — Go types/signatures consumed by binaries. Breaking change → MAJOR library bump.
-- **OPM schema versioning** — CUE shapes loaded at runtime. Kernel MUST load older schema versions seamlessly so frontends inherit multi-version support for free.
+- **OPM schema versioning** — CUE module versions resolved via `CUE_REGISTRY`. Within a major, kernel MUST adapt to additive schema changes. A shape break in the schema is itself a library-breaking event.
 
 ### Imports + style
 

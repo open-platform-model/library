@@ -130,19 +130,19 @@ type ReleaseInput struct {
 
 **Rationale:** User preference; one cache per process. Forces every caller to be explicit about cache ownership.
 
-### D7. Tests use a pre-seeded CUE module cache under `testdata/cue-cache/`
+### D7. Tests use the real OCILoader against GHCR with a workspace-local CUE cache
 
-Test setup sets `CUE_CACHE_DIR=<repo>/library/testdata/cue-cache` (via `t.Setenv` or `OCILoader.CacheDir`), then uses the real `OCILoader`. No test-only Loader exists.
-
-A new `task test:seed-cache` (name TBD) fetches `opmodel.dev/core@v0.<pinned>` from GHCR once and writes the result into `testdata/cue-cache/` in CUE's cache layout. The seeded directory is committed.
+Test setup configures `OCILoader.CacheDir = "<repo>/library/.cue-cache"` (or `t.Setenv("CUE_CACHE_DIR", ...)`) and sets `CUE_REGISTRY` to `schema.PublicRegistry`, then uses the real `OCILoader`. The cache directory is gitignored. First test run on a fresh clone fetches `opmodel.dev/core@v0` from GHCR; subsequent runs hit the workspace cache. No fixtures are committed, no `task test:seed-cache` exists, no test-only Loader is introduced.
 
 **Alternatives considered:**
 
+- *Pre-seeded committed cache under `testdata/cue-cache/`.* Achieves full offline test execution, but commits binary blobs to git, re-introduces vendoring drift between the committed seed and the pinned tag, and re-creates the kind of in-tree schema mirror this change exists to eliminate. Rejected after the user accepted network dependency for tests.
+- *Default CUE cache (`~/.cache/cuelang/mod/`).* Simplest, but pollutes the user's shared CUE cache with test-driven state and makes cache state non-deterministic per workspace checkout.
+- *Per-test `t.TempDir()`.* Forces every test invocation to fetch from GHCR. Catches cache-staleness bugs immediately but makes the test suite slow and network-bound on every run.
 - *`internal/testschema/` package providing an unexported test Loader.* Effectively re-introduces `FSLoader` under a different name; tests no longer exercise the real `OCILoader` code path.
-- *Localhost:5000 registry dependency (matching the existing flow-test pattern).* Adds setup friction; bare `go test` would skip; CI requires registry running just for unit tests.
-- *Pull from GHCR on each test run.* Slow, network-dependent, breaks in restricted CI environments.
+- *Localhost:5000 registry dependency (matching the existing flow-test pattern).* Adds setup friction; bare `go test` would skip; CI needs registry running just for unit tests. User has confirmed GHCR is the supported test source.
 
-**Rationale:** Tests exercise the real Loader code path against a hermetic fixture. The fixture *is* the CUE module cache CUE would have produced — there is no parallel test loader to drift from production. CI loader-path coverage can hit GHCR directly because core publishes before the library consumes (no temporal coupling).
+**Rationale:** Tests exercise the real Loader code path against the production registry. The workspace-local cache directory keeps test state isolated from the user's home cache and from CI runners while preserving "fetch once, hit cache thereafter" semantics across test runs in the same checkout. Network reachability of GHCR is a hard prerequisite for cold-clone test runs and CI — accepted trade-off, since the same prerequisite holds for any real use of the library.
 
 ### D8. `Cache.ResolvedVersion() string` for diagnostics
 
@@ -206,11 +206,11 @@ The kernel wraps the supplied Loader in a fresh `*schema.Cache`. Callers cannot 
 
 ## Risks / Trade-offs
 
-**[R1] CUE's module cache layout is not a public contract** → Pin CUE version in `go.mod` (already done at `v0.16.1`). The `task test:seed-cache` re-bakes `testdata/cue-cache/` from GHCR using the same CUE version the tests use, so seed and consumer always agree. Add a probe in test helpers that verifies the expected module path exists under `testdata/cue-cache/` and fails loud (not silently as "module not found") if CUE bumped layout. Record this in `MIGRATIONS.md` as a "bumping CUE? rerun seed task" checklist item.
+**[R1] CUE's module cache layout is not a public contract** → No longer a concern after the D7 pivot. Tests never read the cache directory directly; they go through `OCILoader.Load` → `cue/load.Instances`, which abstracts the layout. A CUE SDK bump may invalidate the workspace cache (`library/.cue-cache/`), which CUE will silently re-fetch on the next test run. No probe or layout assertion is needed.
 
 **[R2] Floating-major default is non-deterministic across processes** → `Cache.ResolvedVersion()` exposes the resolved version. Document in `library/CLAUDE.md` that operators wanting reproducibility set `OCILoader.Module = "opmodel.dev/core@v0.X.Y"`. Surface the resolved version in any diagnostic output the consuming frontend produces (operator status conditions, CLI `--verbose`).
 
-**[R3] Network unavailable on cold cache** → CUE returns a clean load error; we do not silently fall back. Document the warm-cache prerequisite for restricted environments. The operator-shipping pattern is "image build copies a known-good `$CUE_CACHE_DIR` into the runtime image", same as Go module caches in multi-stage builds.
+**[R3] Network unavailable on cold cache** → CUE returns a clean load error; we do not silently fall back. Document the warm-cache prerequisite for restricted environments. The operator-shipping pattern is "image build copies a known-good `$CUE_CACHE_DIR` into the runtime image", same as Go module caches in multi-stage builds. For the library's own tests, this means a cold-clone test run requires GHCR (or whichever registry `CUE_REGISTRY` points at) to be reachable — accepted trade-off per D7.
 
 **[R4] Caller forgets to set `CUE_REGISTRY`** → CUE falls back to `registry.cue.works`, which does not host `opmodel.dev/core`; load returns a "module not found" error. Document the `schema.PublicRegistry` opt-in prominently in `library/docs/getting-started.md` and `library/MIGRATIONS.md`. Consider a sanity check on first `Cache.Get` that returns a clearer error if the load fails and `CUE_REGISTRY` is empty — but this risks duplicating CUE's error messaging; resolve in implementation.
 
@@ -227,7 +227,7 @@ The library has no published external consumers (per the recent `remove-api-bind
 1. **Add new types** — Create `opm/schema/loader.go` (`Loader`, `OCILoader`, `PublicRegistry`) and `opm/schema/cache.go` (`Cache`, `Get`, `ResolvedVersion`). Leave the existing `schemavalue.go` in place. Compiles green.
 2. **Wire kernel** — Add `WithSchemaLoader` option, `SchemaCache()` accessor. Kernel's internal schema-using code (if any) starts going through `k.schemaCache`. The old `schema.SchemaValue` package function is reimplemented as a thin shim that constructs a default `OCILoader`-backed cache (transitional only). Compiles green.
 3. **Migrate synth** — Update `synth.ReleaseInput` with required `SchemaCache`. Update the two synth callsites (production + tests) to pass it. Tests temporarily use a `schema.Cache{Loader: schema.OCILoader{CacheDir: testdataPath}}` constructed inline.
-4. **Seed test cache** — Add `task test:seed-cache` (or equivalent). Run it to populate `testdata/cue-cache/`. Commit the seeded directory. Update test helpers to share a common helper that constructs the test Cache.
+4. **Configure workspace cache** — Add `library/.cue-cache/` to `.gitignore`. Add a shared test helper that constructs a `*schema.Cache` with `OCILoader{CacheDir: <repo>/library/.cue-cache}` and sets `CUE_REGISTRY` to `schema.PublicRegistry` via `t.Setenv`.
 5. **Relocate fixture** — Move `apis/core/synthtest/fixture.cue` → `testdata/synth/fixture.cue`. Update path constants in `release_test.go` and `synth_test.go`.
 6. **Migrate flow-inspect** — Update `cmd/flow-inspect/` to construct a kernel via the new Loader. Add registry/cache flags if D6 needs them.
 7. **Delete `library/apis/`** — Remove the directory in full. Remove the transitional `schema.SchemaValue` shim. Remove the import in `opm/schema/schemavalue.go` (which becomes either deleted or trivially empty).
@@ -238,7 +238,6 @@ The library has no published external consumers (per the recent `remove-api-bind
 
 ## Open Questions
 
-- **OQ1** — Final pinned schema version for `testdata/cue-cache/`. Currently `v0.3.0` is the latest published; will use that unless something newer lands during implementation.
 - **OQ2** — Whether to add a `--registry` / `--cache-dir` flag to `cmd/flow-inspect`, or rely on `CUE_REGISTRY` / `CUE_CACHE_DIR` env. Suggested: env-only, consistent with workspace conventions; revisit if usability suffers.
 - **OQ3** — Whether `Loader.Load` should accept `context.Context` for cancellation/timeout of the OCI fetch. CUE's `load.Instances` does not take a context. Adding one ourselves would mean wrapping `load.Instances` in a goroutine. Defer until a real cancellation use case appears.
 - **OQ4** — `Cache.ResolvedVersion()` semantics before first `Get` — return empty string (proposed), panic, or block waiting for first Get? Empty string is simplest and matches "diagnostic, not authoritative" framing.

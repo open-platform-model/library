@@ -96,20 +96,19 @@ The library follows SemVer 2.0.0. The public surface is everything under `opm/`.
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
 - **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
-The two tracks are independent: a kernel `v1.4.0` may simultaneously support multiple OPM schema versions. Today only `v1alpha2` is shipped — `v1alpha1` was retired in commit `3a9a9bd` — but the multi-version machinery remains in place for the next version cut.
+The two tracks are independent: within an OPM schema major (`@v0`), additive shape changes are absorbed by floating-major resolution and require no Go-side bump; a shape break in the schema is itself a coordinated library-breaking event.
 
-## Multi-version OPM schema support
+## OPM schema resolution
 
-The kernel dispatches on each artifact's `apiVersion` literal. Adding a new schema version (`v1beta1`, `v1`, ...) is a localised change: drop a new directory under `apis/core/<vN>/` (and add it to the `//go:embed` pattern in `apis/core/embed.go`), then add a sibling Go package under `opm/api/<vN>/` that registers a `Binding` in its `init()`. The new version coexists at runtime with every other registered binding. `opm/compile`, `opm/helper/loader/file`, and `opm/module` need no edits.
+The library does NOT vendor or embed the OPM core schema. At runtime the kernel resolves `opmodel.dev/core@v0` through CUE's module system against `CUE_REGISTRY`, then memoizes the built `cue.Value` in a per-`Kernel` `*schema.Cache`.
 
 Key pieces:
 
 - `opm/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
-- `opm/api` — `Binding` interface (`Paths`, decoders, `BuildTransformerContext`, `EmbeddedSchema`, `SchemaValue`) plus a process-wide registry. `Register` panics on duplicate; `Lookup` and `For` return errors that wrap `apiversion.ErrUnknownAPIVersion`.
-- `opm/api/v1alpha2` — the v1alpha2 binding. Registers itself in `init()` and exposes the `apis/core/v1alpha2/` schema as a `go:embed` filesystem.
-- `apis/core/embed.go` — single `//go:embed` directive at the core CUE module root that pulls in `cue.mod/module.cue` plus every versioned schema package below it, so the kernel can validate artifacts deterministically without touching `CUE_REGISTRY`.
+- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata decoders, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
+- `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to release-synthesis and other callers.
 
-The compile pipeline resolves the binding once per release (via `api.Lookup(rel.APIVersion)`) and threads it through `Match`, `Execute`, and the per-pair context-injection step. See `MIGRATIONS.md` and the archived OpenSpec change `add-multi-apiversion-support` for the full design notes.
+Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` and `MIGRATIONS.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
 
 ## Helper boundary (`opm/helper/`)
 
@@ -141,7 +140,7 @@ task check
 
 - `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
 - `openspec/config.yaml` — normative constitution source.
-- `apis/core/v1alpha2/` — current OPM schema definitions in CUE.
+- `opmodel.dev/core@v0` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/` — flow diagrams and pipeline notes (`kernel-validate-flow.md`, `compile-pipeline-known-gaps.md`).
 - `enhancements/` — long-form design proposals (kernel redesign, compiler/runtime split, platform construct, module context, claims).

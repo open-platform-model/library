@@ -4,9 +4,6 @@ version: "3"
 silent: true
 
 includes:
-  apis:
-    taskfile: ./apis/Taskfile.yaml
-    dir: ./apis
   enhancements:
     taskfile: ./.tasks/enhancements.yaml
 
@@ -19,7 +16,6 @@ vars:
   # autodiscovery (modules/*) and pinned single-module entries.
   CUE_MODULE_GLOBS: |
     modules/*
-    apis/core
     testdata/modules/*
 
   CUE_VERSION_FILE: cue-versions.yml
@@ -143,7 +139,7 @@ tasks:
   # Auto-discovers CUE modules via CUE_MODULE_GLOBS. Each match must contain
   # cue.mod/module.cue. Module identity comes from the `module:` field; per-
   # module version + checksum tracked in cue-versions.yml keyed by relative
-  # path (e.g. modules/opm, apis/core).
+  # path (e.g. modules/opm, modules/opm_platform).
   # ============================================================================
 
   cue:discover:
@@ -294,42 +290,6 @@ tasks:
       - task: cue:fmt
       - task: cue:vet
 
-  cue:test:
-    desc: Run the v1alpha2 schema fixture harness (apis/core/v1alpha2/testdata/)
-    summary: |
-      Drives the table-driven harness in opm/api/v1alpha2/schema_fixture_test.go,
-      which loads each fixture under apis/core/v1alpha2/testdata/ with the
-      `test` build tag (see @if(test) at the top of every fixture) and asserts
-      its positive / negative contract.
-
-      Faster than `task test` when iterating on a fixture; equivalent coverage
-      to running `go test ./opm/api/v1alpha2/... -run TestSchemaFixtures`.
-    cmds:
-      - go test ./opm/api/v1alpha2/... -run TestSchemaFixtures
-
-  cue:test:verbose:
-    desc: Run the schema fixture harness with verbose per-subtest output
-    cmds:
-      - go test -v ./opm/api/v1alpha2/... -run TestSchemaFixtures
-
-  cue:test:run:
-    desc: Run a single fixture case by name (CASE=<schemaCase.name>)
-    summary: |
-      Filters TestSchemaFixtures down to a single subtest. The CASE value
-      matches the `name` field of an entry in `schemaCases` in
-      opm/api/v1alpha2/schema_fixture_test.go.
-
-      Usage:
-        task cue:test:run CASE=platform_matchers_projects_single_candidate
-        task cue:test:run CASE=multi_fulfiller_violates_no_multi_fulfiller
-    vars:
-      CASE: '{{.CASE | default ""}}'
-    preconditions:
-      - sh: '[ -n "{{.CASE}}" ]'
-        msg: "CASE is required. Usage: task cue:test:run CASE=<schemaCase.name>"
-    cmds:
-      - go test -v ./opm/api/v1alpha2/... -run "TestSchemaFixtures/{{.CASE}}"
-
   cue:test:flow:
     desc: Run the plan/match/compile flow integration test against the on-disk web_app + opm_platform fixtures
     summary: |
@@ -387,29 +347,6 @@ tasks:
           go run ./cmd/flow-inspect
         fi
 
-  cue:test:eval:
-    desc: Evaluate a single fixture with `cue eval -t test` (FIXTURE=<filename>)
-    summary: |
-      Bypasses the Go harness — runs `cue eval -t test ./testdata/<FIXTURE>`
-      from apis/core/v1alpha2/. Useful for quick sanity checks while authoring
-      a new fixture: positive fixtures evaluate cleanly, negative fixtures
-      print the expected CUE error.
-
-      Usage:
-        task cue:test:eval FIXTURE=platform_matchers_fixture.cue
-        task cue:test:eval FIXTURE=multi_fulfiller_fixture.cue
-    vars:
-      FIXTURE: '{{.FIXTURE | default ""}}'
-    env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
-    preconditions:
-      - sh: '[ -n "{{.FIXTURE}}" ]'
-        msg: "FIXTURE is required. Usage: task cue:test:eval FIXTURE=<file.cue>"
-      - sh: '[ -f "apis/core/v1alpha2/testdata/{{.FIXTURE}}" ]'
-        msg: "fixture not found: apis/core/v1alpha2/testdata/{{.FIXTURE}}"
-    cmds:
-      - cd apis/core/v1alpha2 && cue eval -t test ./testdata/{{.FIXTURE}}
-
   cue:publish:
     desc: Publish a single CUE module to local registry (PATH=<dir> [VERSION=vX.Y.Z])
     summary: |
@@ -417,7 +354,7 @@ tasks:
 
       Usage:
         task cue:publish PATH=modules/opm
-        task cue:publish PATH=apis/core VERSION=v1.0.1
+        task cue:publish PATH=modules/opm_platform VERSION=v1.0.1
     vars:
       PATH: '{{.PATH | default ""}}'
       VERSION: '{{.VERSION | default ""}}'

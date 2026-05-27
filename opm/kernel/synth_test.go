@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -13,46 +12,44 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/helper/synth"
+	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// synthKernel is the single Kernel shared by every synth-using test in this
-// package (this file plus flow_synth_integration_test.go).
-//
-// The schema package caches its loaded cue.Value against the first
-// *cue.Context that calls SchemaValue. Tests that build releases from typed
-// inputs MUST route every synth call through this kernel so the cached
-// cue.Value lives in the same runtime as every other cue.Value the test
-// produces — otherwise synth.Release panics with "incompatible runtime"
-// inside CompileString(... cue.Scope(...)). Each kernel.New() in a separate
-// test would seat a different first context in the schema cache and trip
-// that contract.
-var synthKernel = kernel.New()
-
-// kernelSynthApisCoreDir resolves apis/core relative to this test file.
-// Mirrors opm/helper/synth/release_test.go's apisCoreDir.
-func kernelSynthApisCoreDir(t *testing.T) string {
+// newSynthKernel returns a fresh kernel.Kernel configured with the
+// workspace-local CUE cache. Each test gets its own Kernel so the
+// schema-cache lifetime is per-test and explicit. Tests in this file
+// MUST route every synth call through the returned Kernel — the
+// Kernel's *cue.Context owns every cue.Value the synth path consumes,
+// and a second Kernel in the same test would seat a different runtime
+// in its own *schema.Cache, tripping the "values are not from the same
+// runtime" contract inside cue.Value.FillPath.
+func newSynthKernel(t *testing.T) *kernel.Kernel {
 	t.Helper()
-	_, here, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	// opm/kernel/ → library/
-	libRoot := filepath.Clean(filepath.Join(filepath.Dir(here), "..", ".."))
-	return filepath.Join(libRoot, "apis", "core")
+	schematest.SetEnv(t)
+	return kernel.New()
 }
 
-// synthTestModule builds a *module.Module against the Kernel's context by
-// loading a synthetic fixture rooted at apis/core. The Kernel's CueContext
-// MUST own every cue.Value the synth path consumes (schema.SchemaValue caches
-// against the first context it sees), so this helper threads k.CueContext()
-// through load.Instances.
+// testdataSynthDir resolves the on-disk path to library/testdata/synth/
+// relative to this test file.
+func testdataSynthDir(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(schematest.LibraryRoot(t), "testdata", "synth")
+}
+
+// synthTestModule builds a *module.Module against the Kernel's context
+// by loading a synthtest fixture rooted at library/testdata/synth/. The
+// Kernel's CueContext owns every cue.Value the synth path consumes, so
+// the helper threads k.CueContext() through load.Instances.
 func synthTestModule(t *testing.T, k *kernel.Kernel, src string) *module.Module {
 	t.Helper()
+	schematest.SetEnv(t)
 
-	moduleRoot := kernelSynthApisCoreDir(t)
-	fixturePath := filepath.Join(moduleRoot, "synthtest", "fixture.cue")
+	moduleRoot := testdataSynthDir(t)
+	fixturePath := filepath.Join(moduleRoot, "fixture.cue")
 	cfg := &load.Config{
-		Dir: filepath.Join(moduleRoot, "synthtest"),
+		Dir: moduleRoot,
 		Overlay: map[string]load.Source{
 			fixturePath: load.FromString(src),
 		},
@@ -89,17 +86,18 @@ module: {
 `
 
 func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
-	k := synthKernel
+	k := newSynthKernel(t)
 	mod := synthTestModule(t, k, kernelSynthBaseFixture)
 
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 
 	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
-		Values:    values,
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		Values:      values,
+		SchemaCache: k.SchemaCache(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, rel)
@@ -110,10 +108,11 @@ func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
 }
 
 func TestKernel_SynthesizeRelease_NilModuleRejectedBeforeValidation(t *testing.T) {
-	k := synthKernel
+	k := newSynthKernel(t)
 	_, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
-		Name:      "myrel",
-		Namespace: "default",
+		Name:        "myrel",
+		Namespace:   "default",
+		SchemaCache: k.SchemaCache(),
 	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingModule),
@@ -121,7 +120,7 @@ func TestKernel_SynthesizeRelease_NilModuleRejectedBeforeValidation(t *testing.T
 }
 
 func TestKernel_SynthesizeRelease_UnconcreteRejected(t *testing.T) {
-	k := synthKernel
+	k := newSynthKernel(t)
 	// Module declares a required #config field with no default. Omitting
 	// Values means ProcessModuleRelease's concreteness check must fail.
 	mod := synthTestModule(t, k, `
@@ -143,18 +142,23 @@ module: {
 `)
 
 	_, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		SchemaCache: k.SchemaCache(),
 		// Values omitted; the schema's `required!: string` has no default,
 		// so the concreteness check downstream MUST reject.
 	})
 	require.Error(t, err)
 }
 
-func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
-	k := synthKernel
+// TestKernel_SynthesizeRelease_DefaultSchemaCache asserts that omitting
+// SchemaCache on ReleaseInput falls back to the kernel-owned cache via
+// SynthesizeRelease's defaulting.
+func TestKernel_SynthesizeRelease_DefaultSchemaCache(t *testing.T) {
+	k := newSynthKernel(t)
 	mod := synthTestModule(t, k, kernelSynthBaseFixture)
+
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 
@@ -163,6 +167,25 @@ func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
 		Name:      "myrel",
 		Namespace: "default",
 		Values:    values,
+		// SchemaCache intentionally omitted; SynthesizeRelease fills it from
+		// k.SchemaCache().
+	})
+	require.NoError(t, err)
+	require.NotNil(t, rel)
+}
+
+func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
+	k := newSynthKernel(t)
+	mod := synthTestModule(t, k, kernelSynthBaseFixture)
+	values := k.CueContext().CompileString(`sentinel: "from-values"`)
+	require.NoError(t, values.Err())
+
+	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		Values:      values,
+		SchemaCache: k.SchemaCache(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, rel)

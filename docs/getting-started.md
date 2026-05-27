@@ -8,7 +8,25 @@ The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.
 
 - Go 1.22+
 - A CUE module containing a `Module` artifact (and optionally a `ModuleRelease` artifact and a `Platform` artifact).
-- `CUE_REGISTRY` configured if your module pulls in remote schemas. The kernel resolves CUE module references through the native CUE module system; nothing in the library overrides that.
+- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v0`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
+
+## Configure CUE_REGISTRY
+
+The library exports `schema.PublicRegistry` as the documented mapping for the canonical GHCR location:
+
+```go
+import (
+    "os"
+
+    "github.com/open-platform-model/library/opm/schema"
+)
+
+// Once at startup, before kernel.New:
+os.Setenv("CUE_REGISTRY", schema.PublicRegistry)
+// → "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+```
+
+Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v0` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
 
 ## Construct a kernel
 
@@ -20,7 +38,25 @@ k := kernel.New()
 k := kernel.New(kernel.WithLogger(myLogger))
 ```
 
-`kernel.New` accepts functional options for logger, tracer, and clock. None are required; defaults are no-op implementations.
+`kernel.New` accepts functional options for logger, tracer, clock, and schema loader. None are required; defaults are no-op implementations.
+
+The Kernel owns a single `*schema.Cache` for its lifetime. The first method that needs the schema (validation, release synthesis, compile) triggers one `OCILoader.Load` call; subsequent operations on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization.
+
+### Pin a specific schema version
+
+`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v0`. To pin a reproducible version:
+
+```go
+import "github.com/open-platform-model/library/opm/schema"
+
+k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
+    Module: "opmodel.dev/core@v0.3.0",
+}))
+
+// After any schema-touching call:
+log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
+// → "v0.3.0"
+```
 
 ## Load a module package
 
@@ -77,7 +113,7 @@ if err != nil {
 }
 ```
 
-If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeRelease` (from `opm/helper/synth`) instead. It unifies the typed inputs against the embedded `#ModuleRelease` schema and chains into `ProcessModuleRelease` in one call.
+If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeRelease` (from `opm/helper/synth`) instead. It unifies the typed inputs against the `#ModuleRelease` schema (resolved via the kernel's `*schema.Cache`) and chains into `ProcessModuleRelease` in one call. The kernel-owned cache is plumbed through `synth.ReleaseInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across release synthesis and other schema-touching code.
 
 ## Load and compose a Platform
 

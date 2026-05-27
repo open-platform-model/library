@@ -4,7 +4,7 @@
 // and trait FQNs the component declares (component.#resources keys ∪
 // component.#traits keys), and looks each demanded FQN up in
 // Platform.#matchers.{resources, traits}. The reverse index is built by the
-// schema at apis/core/platform.cue: matchers[FQN] yields the list of
+// schema at #Platform.matchers in opmodel.dev/core@v0: matchers[FQN] yields the list of
 // transformers that require that primitive FQN.
 //
 // Multiple candidates per FQN are normal. The matcher evaluates each

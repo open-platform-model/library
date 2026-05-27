@@ -6,6 +6,91 @@ From the first tagged release onward, released versions are summarised in [CHANG
 
 ## Unreleased — next MAJOR
 
+### Added — `replace-embedded-schema-with-oci-loader`
+
+- `opm/schema.Loader` — interface (`Load(*cue.Context) (cue.Value, error)`)
+  for resolving the OPM core schema. The library exposes exactly one
+  public implementation: `OCILoader`.
+- `opm/schema.OCILoader{Module, Registry, CacheDir}` — sole public
+  `Loader` implementation. Zero value resolves
+  `Module="opmodel.dev/core@v0"` against `CUE_REGISTRY` / `CUE_CACHE_DIR`
+  from the process environment. Empty fields inherit env; explicit fields
+  override env without mutating process state.
+- `opm/schema.PublicRegistry` — exported const
+  `"opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"`. Not an
+  auto-applied default; callers opt in by setting `CUE_REGISTRY` to this
+  value (or via `OCILoader.Registry`).
+- `opm/schema.Cache{Loader}` — per-instance memoization in front of a
+  Loader. `(*Cache).Get(ctx) (cue.Value, error)` is `sync.Once`-guarded;
+  `(*Cache).ResolvedVersion() string` surfaces the resolved version
+  (e.g. `"v0.3.0"`) for diagnostics. Cache is per-Kernel — long-running
+  consumers MUST keep the Kernel alive across operations.
+- `opm/kernel.WithSchemaLoader(schema.Loader) Option` — configures the
+  Loader the Kernel's cache uses. Omitting the option defaults to
+  `schema.OCILoader{}`.
+- `(*kernel.Kernel).SchemaCache() *schema.Cache` — accessor returning
+  the kernel-owned cache. Pass this to
+  `synth.ReleaseInput.SchemaCache`.
+
+### Test cache convention — `replace-embedded-schema-with-oci-loader`
+
+Tests use a workspace-local CUE module cache at `library/.cue-cache/`
+(gitignored). First test run on a fresh clone fetches
+`opmodel.dev/core@v0` from `CUE_REGISTRY` (default `schema.PublicRegistry`
+→ GHCR); subsequent runs hit the workspace cache. A CUE SDK bump may
+invalidate the cache, which CUE will silently re-fetch on the next test
+run. Delete the directory to force a cold re-fetch.
+
+### Changed — `replace-embedded-schema-with-oci-loader` (BREAKING)
+
+- `opm/helper/synth.ReleaseInput` grew a REQUIRED
+  `SchemaCache *schema.Cache` field. `synth.Release` returns an error
+  when `SchemaCache == nil`. Callers pass `kernel.SchemaCache()` from
+  their Kernel.
+
+### Removed — `replace-embedded-schema-with-oci-loader` (BREAKING)
+
+- `library/apis/` deleted in full: `apis/core/*.cue`, `apis/core/embed.go`,
+  `apis/core/cue.mod/`, `apis/core/INDEX.md`, `apis/core/synthtest/`,
+  `apis/Taskfile.yaml`, `apis/.tasks/`. The Go import path
+  `github.com/open-platform-model/library/apis/core` no longer exists.
+- `opm/schema.SchemaValue(ctx)` and `opm/schema.EmbeddedSchema()` removed.
+  The only public schema-load surface is `(*schema.Cache).Get`.
+
+### Migration recipes — `replace-embedded-schema-with-oci-loader`
+
+```text
+OLD                                              NEW
+────────────────────────────────────────────────────────────────────────────────────────────
+val, err := schema.SchemaValue(ctx)              val, err := k.SchemaCache().Get(ctx)
+                                                 // k is your *kernel.Kernel; one Cache per Kernel.
+
+schemaFS := schema.EmbeddedSchema()              // No replacement. The library no longer ships an
+                                                 // embed.FS. Air-gap consumers MUST pre-seed
+                                                 // $CUE_CACHE_DIR or mirror to an internal OCI
+                                                 // registry; configure via CUE_REGISTRY.
+
+synth.Release(ctx, synth.ReleaseInput{           synth.Release(ctx, synth.ReleaseInput{
+    Module: mod, Name: ..., Namespace: ...,          Module:      mod, Name: ..., Namespace: ...,
+})                                                   SchemaCache: k.SchemaCache(),  // REQUIRED
+                                                 })
+
+import core "github.com/.../library/apis/core"   // No replacement. Schema is resolved via CUE's
+                                                 // module system from opmodel.dev/core@v0.
+```
+
+Frontend startup (CLI / operator) MUST set `CUE_REGISTRY` before the
+first `Cache.Get`. The library does NOT auto-set it. Suggested setup:
+
+```go
+os.Setenv("CUE_REGISTRY", schema.PublicRegistry) // or a private mirror
+```
+
+To pin a specific schema version (e.g. for reproducible operator
+builds), pass `kernel.WithSchemaLoader(schema.OCILoader{Module:
+"opmodel.dev/core@v0.3.0"})`. Inspect the resolved version at runtime
+via `k.SchemaCache().ResolvedVersion()`.
+
 ### Added — `replace-load-platform-file-with-package`
 
 - `opm/helper/loader/file.LoadPlatformPackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
