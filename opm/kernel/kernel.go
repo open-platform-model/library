@@ -33,6 +33,7 @@ type Kernel struct {
 	clock        Clock
 	schemaLoader schema.Loader
 	schemaCache  *schema.Cache
+	registry     string
 }
 
 // Option configures a [Kernel] at construction time. Options compose via
@@ -140,6 +141,22 @@ func WithSchemaLoader(l schema.Loader) Option {
 		if l != nil {
 			k.schemaLoader = l
 		}
+	}
+}
+
+// WithRegistry sets the OCI registry mapping (CUE_REGISTRY syntax, e.g.
+// "opmodel.dev=ghcr.io/open-platform-model") used for catalog resolution
+// during [Kernel.Materialize]. The materialize flow uses the same mapping when
+// it resolves opmodel.dev/core for the schema.
+//
+// Omitting this option (or passing an empty string) inherits CUE_REGISTRY from
+// the process environment; the kernel applies no built-in default registry —
+// the same stance as the schema loader. The mapping is never written back to
+// the process environment; it is plumbed into the load configuration for the
+// operation only.
+func WithRegistry(registry string) Option {
+	return func(k *Kernel) {
+		k.registry = registry
 	}
 }
 
