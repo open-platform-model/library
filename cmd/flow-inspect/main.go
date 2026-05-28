@@ -35,6 +35,7 @@ import (
 
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -110,6 +111,17 @@ func run(libraryRoot string, want map[stage]bool) error {
 		return fmt.Errorf("constructing *platform.Platform: %w", err)
 	}
 
+	// Realize subscriptions into the composed transformer map + #matchers index.
+	// Materialize performs registry I/O, so only run it for the stages that
+	// consume the realized views.
+	var mp *materialize.MaterializedPlatform
+	if want[stagePlatform] || want[stagePlan] {
+		mp, err = k.Materialize(ctx, plat)
+		if err != nil {
+			return fmt.Errorf("materializing platform: %w", err)
+		}
+	}
+
 	if want[stagePlatform] {
 		header("Stage 2: Loaded Platform — opm-platform")
 
@@ -130,14 +142,14 @@ func run(libraryRoot string, want map[stage]bool) error {
 		subHeader("#knownTraits (FQNs)")
 		printFQNKeys(platVal.LookupPath(schema.KnownTraits))
 
-		subHeader("#composedTransformers (FQNs)")
-		printFQNKeys(platVal.LookupPath(schema.ComposedTransformers))
+		subHeader("#composedTransformers (FQNs) — materialized")
+		printFQNKeys(mp.Package.LookupPath(schema.ComposedTransformers))
 
-		subHeader("#matchers.resources (FQN → [transformer FQNs])")
-		printMatcherIndex(platVal.LookupPath(schema.MatchersResources))
+		subHeader("#matchers.resources (FQN → [transformer FQNs]) — materialized")
+		printMatcherIndex(mp.Package.LookupPath(schema.MatchersResources))
 
-		subHeader("#matchers.traits (FQN → [transformer FQNs])")
-		printMatcherIndex(platVal.LookupPath(schema.MatchersTraits))
+		subHeader("#matchers.traits (FQN → [transformer FQNs]) — materialized")
+		printMatcherIndex(mp.Package.LookupPath(schema.MatchersTraits))
 	}
 
 	// ── Build the release ───────────────────────────────────────────
@@ -197,7 +209,7 @@ metadata: {
 
 	header("Stage 4: Plan, Match, and Compile outputs")
 
-	plan, err := k.Match(ctx, kernel.MatchInput{ModuleRelease: rel, Platform: plat})
+	plan, err := k.Match(ctx, kernel.MatchInput{ModuleRelease: rel, Platform: mp})
 	if err != nil {
 		return fmt.Errorf("match: %w", err)
 	}
@@ -222,7 +234,7 @@ metadata: {
 
 	out, err := k.Compile(ctx, kernel.CompileInput{
 		ModuleRelease: rel,
-		Platform:      plat,
+		Platform:      mp,
 		RuntimeName:   "flow-inspect",
 	})
 	if err != nil {

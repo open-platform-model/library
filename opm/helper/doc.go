@@ -18,9 +18,6 @@
 //   - loader/bytes — in-memory loading skeleton; full implementation
 //     deferred until a consumer (Crossplane composition fn, fuzzing
 //     harness, in-memory tests) demands it.
-//   - platform     — Platform composition (Compose(shell, modules) →
-//     *Platform with #registry filled). Implemented by slice 10
-//     (add-platform-composition-helper).
 //   - synth        — artifact synthesis from in-memory typed inputs.
 //     synth.Release composes a #ModuleRelease CUE value by unifying
 //     (Module, name, namespace, values, labels, annotations) against the
@@ -33,6 +30,10 @@
 // Kernel.ValidateConfigDetailed and the Source / ValidateOption types in
 // opm/kernel. The earlier opm/helper/values subpackage was removed as
 // part of redesign-config-validation.
+//
+// The opm/helper/platform subpackage (the Compose helper) was removed as
+// part of rewrite-match-materialized: platform realization now goes through
+// the subscription #registry plus (*Kernel).Materialize. See MIGRATIONS.md.
 //
 // Planned subpackages (added by their respective slices):
 //

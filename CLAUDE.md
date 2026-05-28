@@ -43,7 +43,6 @@ opm/
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformFile
     loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
-    platform/                 Compose(shell, modules...) → *platform.Platform
     synth/                    Release(name, ns, ref, values, ...) → cue.Value (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
@@ -96,6 +95,36 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
   which maps `opmodel.dev` → `ghcr.io/open-platform-model`) before the
   first schema-touching Kernel call. Tests use the workspace-local cache
   via `opm/internal/schematest`.
+
+### Materialize lifetime & registry contract
+
+`Materialize` (`opm/materialize`, reachable as `(*Kernel).Materialize`)
+resolves a `#Platform`'s `#registry` subscriptions into a sealed
+`*MaterializedPlatform` (composed transformers + `#matchers` filled). Lifetime
+and registry rules:
+
+- **Explicit and caller-driven — the kernel holds no materialize cache**
+  (Principle I). Every `Materialize` call performs registry I/O (version
+  enumeration + OCI pulls). Long-running consumers that want memoization wire
+  their own `opm/materialize/cache.MaterializeCache` (reference `LRU` +
+  `Key(*platform.Platform)` over the `#registry` subtree). Invalidation policy
+  is theirs: the operator keys it on a CR generation; the CLI opts out and
+  relies on CUE's on-disk module cache.
+- **Registry config mirrors the schema loader.** `(*Kernel).WithRegistry` sets
+  the `CUE_REGISTRY` mapping for catalog (and the materialize-path schema)
+  resolution; absent it, the kernel inherits process `CUE_REGISTRY` and
+  auto-applies no default. The mapping is plumbed into `load.Config.Env` for
+  the operation — never written back to the process environment.
+- **Same `*cue.Context` throughout.** The owner's context builds the platform
+  value AND every pulled catalog, so the filled `#composedTransformers` /
+  `#matchers` share one context with the platform (cross-context values cannot
+  be filled together).
+- **Inputs are not mutated; failures fail-fast** as `*oerrors.MaterializeError`
+  (`Kind: "catalog"`) naming the offending subscription path and version.
+- Tests stand up an in-memory OCI registry (`mod/modregistrytest`) with inline
+  `#Catalog` fixtures while resolving `opmodel.dev/core@v0` from the warm
+  workspace cache — no test-only `Loader` backdoor; the production
+  resolver→client→loader path runs unchanged.
 
 ## Build And Dev Commands
 

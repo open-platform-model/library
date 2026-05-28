@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
@@ -23,7 +24,7 @@ import (
 type phaseFixture struct {
 	mod  *module.Module
 	rel  *module.Release
-	plat *platform.Platform
+	plat *materialize.MaterializedPlatform
 }
 
 func newPhaseFixture(t *testing.T, k *kernel.Kernel) phaseFixture {
@@ -127,9 +128,12 @@ type: "kubernetes"
 			},
 			Package: relPkg,
 		},
-		plat: &platform.Platform{
-			Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-			Package:  platVal,
+		plat: &materialize.MaterializedPlatform{
+			Source: &platform.Platform{
+				Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+				Package:  platVal,
+			},
+			Package: platVal,
 		},
 	}
 }

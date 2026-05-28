@@ -2,9 +2,7 @@
 
 ## Purpose
 The `Kernel` struct is the public anchor type for the OPM kernel runtime. It owns the `*cue.Context` and the cross-cutting dependencies (logger, tracer, clock) used by every kernel operation, so downstream consumers (CLI, operator, Crossplane function) attach to a single mental anchor instead of importing the loader / module / render / validate packages individually. All future kernel-facing slices modify this capability.
-
 ## Requirements
-
 ### Requirement: Kernel Type and Construction
 
 The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function.
@@ -124,7 +122,7 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 
 ### Requirement: Phase Input Structs
 
-Each phase method SHALL accept a phase-specific input struct rather than positional arguments. Input structs SHALL be additive — new fields SHALL be addable without breaking existing call sites. Phases that operate on a constructed `*module.Release` SHALL NOT carry a parallel `*module.Module` field; the source module is reachable via the release's `Package` at the binding's `Paths().Module`.
+Each phase method SHALL accept a phase-specific input struct rather than positional arguments. Input structs SHALL be additive — new fields SHALL be addable without breaking existing call sites. Phases that operate on a constructed `*module.Release` SHALL NOT carry a parallel `*module.Module` field; the source module is reachable via the release's `Package` at the binding's `Paths().Module`. The matcher-facing input structs (`MatchInput`, `PlanInput`, `CompileInput`) SHALL carry the platform as a `*materialize.MaterializedPlatform` (the realized form), not a raw `*platform.Platform`; callers MUST `Materialize` before invoking these phases.
 
 #### Scenario: ValidateInput shape
 
@@ -135,19 +133,19 @@ Each phase method SHALL accept a phase-specific input struct rather than positio
 #### Scenario: MatchInput shape
 
 - **WHEN** a developer reads the `MatchInput` struct
-- **THEN** the struct has exactly `ModuleRelease *module.Release` and `Platform *platform.Platform` as required artifact fields
+- **THEN** the struct has exactly `ModuleRelease *module.Release` and `Platform *materialize.MaterializedPlatform` as required artifact fields
 - **AND** the struct has no `Module` field
 
 #### Scenario: PlanInput shape
 
 - **WHEN** a developer reads the `PlanInput` struct
-- **THEN** the struct has `ModuleRelease *module.Release`, `Values cue.Value`, `Platform *platform.Platform`, and `RuntimeName string`
+- **THEN** the struct has `ModuleRelease *module.Release`, `Values cue.Value`, `Platform *materialize.MaterializedPlatform`, and `RuntimeName string`
 - **AND** the struct has no `Module` field
 
 #### Scenario: CompileInput shape
 
 - **WHEN** a developer reads the `CompileInput` struct
-- **THEN** the struct has `ModuleRelease *module.Release`, `Values cue.Value`, `Platform *platform.Platform`, and `RuntimeName string`
+- **THEN** the struct has `ModuleRelease *module.Release`, `Values cue.Value`, `Platform *materialize.MaterializedPlatform`, and `RuntimeName string`
 - **AND** the struct has no `Module` field
 - **AND** the struct has no `Provider` field
 
@@ -160,7 +158,7 @@ Each phase method SHALL accept a phase-specific input struct rather than positio
 #### Scenario: Match does not require module metadata
 
 - **WHEN** `kernel.Match` is invoked with a `MatchInput`
-- **THEN** matching consumes `in.ModuleRelease.MatchComponents()` and `in.Platform` only
+- **THEN** matching consumes `in.ModuleRelease.MatchComponents()`, the release name for diagnostics, and `in.Platform` (a `*materialize.MaterializedPlatform`) only
 - **AND** the operation completes without reading any `*module.Module` field
 
 ### Requirement: Single Pre-Unified Values Input
@@ -374,3 +372,34 @@ The method SHALL set `Source.Origin` to the absolute path of the loaded file and
 - **WHEN** a caller invokes `k.LoadSourceFromFile("./flat.cue")` against a file with no top-level `values:` field
 - **THEN** the returned `Source.Value` is the whole evaluated file value
 - **AND** `Source.Origin` and `Source.Name` are populated as above
+
+### Requirement: Registry Configuration Option
+
+The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the OCI registry mapping used for catalog (and schema) resolution during `Materialize`. Absent the option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHALL NOT auto-apply a built-in default registry. The option MUST NOT mutate process environment state; the registry mapping is plumbed into the load configuration for the operation.
+
+#### Scenario: Registry option used for resolution
+
+- **WHEN** `kernel.New(WithRegistry("opmodel.dev=ghcr.io/open-platform-model"))` is called
+- **THEN** catalog resolution during `Materialize` uses that mapping
+- **AND** the process environment is not mutated
+
+#### Scenario: No default applied
+
+- **WHEN** `kernel.New()` is called with no registry option
+- **THEN** the kernel inherits the process `CUE_REGISTRY`
+- **AND** applies no built-in default mapping
+
+### Requirement: Materialize Method on Kernel
+
+The `Kernel` SHALL expose `(k *Kernel) Materialize(ctx context.Context, p *platform.Platform) (*MaterializedPlatform, error)` delegating to `opm/materialize`, using the kernel's configured registry and owned `*cue.Context`. Adding this method SHALL NOT change the signatures of existing phase methods in this slice.
+
+#### Scenario: Delegates to materialize package
+
+- **WHEN** a caller invokes `k.Materialize(ctx, plat)`
+- **THEN** it returns the `*MaterializedPlatform` produced by `opm/materialize.Materialize` using the kernel's registry and context
+
+#### Scenario: Existing phase signatures unchanged
+
+- **WHEN** a developer reads `Match`, `Plan`, and `Compile` after this slice
+- **THEN** their signatures are unchanged and still take `*platform.Platform`
+

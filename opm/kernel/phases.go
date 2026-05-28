@@ -53,7 +53,7 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 	if !components.Exists() {
 		return nil, fmt.Errorf("release %q: no components field in release spec", in.ModuleRelease.Metadata.Name)
 	}
-	return compile.Match(components, in.Platform)
+	return compile.Match(components, in.Platform, in.ModuleRelease.Metadata.Name)
 }
 
 // Plan runs Validate + Match + Execute (dry-run) and returns a

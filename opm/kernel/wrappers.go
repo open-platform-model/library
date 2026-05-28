@@ -6,7 +6,6 @@ import (
 	"cuelang.org/go/cue"
 
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	helperplatform "github.com/open-platform-model/library/opm/helper/platform"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
@@ -33,14 +32,6 @@ func (k *Kernel) LoadPlatformPackage(_ context.Context, dirPath string, opts loa
 // [cue.Value]. See [platform.NewPlatformFromValue].
 func (k *Kernel) NewPlatformFromValue(v cue.Value) (*platform.Platform, error) {
 	return platform.NewPlatformFromValue(k, v)
-}
-
-// ComposePlatform returns a new [*platform.Platform] with the given Modules
-// FillPath-injected into shell.Package at the schema Registry path.
-// See [helperplatform.Compose] for the full contract, including the
-// multi-fulfiller error surface.
-func (k *Kernel) ComposePlatform(shell *platform.Platform, modules []*module.Module) (*platform.Platform, error) {
-	return helperplatform.Compose(k, shell, modules)
 }
 
 // NewModuleFromValue builds a typed [*module.Module] from a raw [cue.Value].

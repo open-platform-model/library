@@ -18,6 +18,7 @@ import (
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
@@ -233,9 +234,10 @@ components: {}
 	}
 }
 
-// minimalPlatformValue constructs a *platform.Platform with an empty registry
-// / matchers / composedTransformers index.
-func minimalPlatformValue(t *testing.T, k *kernel.Kernel) *platform.Platform {
+// minimalPlatformValue constructs a *materialize.MaterializedPlatform with an
+// empty registry / matchers / composedTransformers index — the realized form
+// the phase methods now consume.
+func minimalPlatformValue(t *testing.T, k *kernel.Kernel) *materialize.MaterializedPlatform {
 	t.Helper()
 	pv := k.CueContext().CompileString(`
 kind: "Platform"
@@ -249,9 +251,12 @@ type: "kubernetes"
 }
 `)
 	require.NoError(t, pv.Err())
-	return &platform.Platform{
-		Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
-		Package:  pv,
+	return &materialize.MaterializedPlatform{
+		Source: &platform.Platform{
+			Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
+			Package:  pv,
+		},
+		Package: pv,
 	}
 }
 

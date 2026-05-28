@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/open-platform-model/library/opm/compile"
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/platform"
 )
 
 // compileModuleRelease is the canonical compile pipeline implementation. It
@@ -19,7 +19,7 @@ import (
 func compileModuleRelease(
 	ctx context.Context,
 	rel *module.Release,
-	plat *platform.Platform,
+	mp *materialize.MaterializedPlatform,
 	runtimeName string,
 ) (*compile.CompileResult, error) {
 	if runtimeName == "" {
@@ -28,7 +28,7 @@ func compileModuleRelease(
 	if rel == nil {
 		return nil, fmt.Errorf("release is required")
 	}
-	if plat == nil {
+	if mp == nil {
 		return nil, fmt.Errorf("platform is required")
 	}
 
@@ -37,15 +37,15 @@ func compileModuleRelease(
 		return nil, fmt.Errorf("release %q: no components field in release spec", rel.Metadata.Name)
 	}
 
-	dataComponents, err := compile.FinalizeValue(plat.Package.Context(), schemaComponents)
+	dataComponents, err := compile.FinalizeValue(mp.Package.Context(), schemaComponents)
 	if err != nil {
 		return nil, fmt.Errorf("finalizing components: %w", err)
 	}
 
-	plan, err := compile.Match(schemaComponents, plat)
+	plan, err := compile.Match(schemaComponents, mp, rel.Metadata.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return compile.NewModule(plat, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule constructor is on its own deprecation arc; replacing it is out of scope for this change.
+	return compile.NewModule(mp, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule constructor is on its own deprecation arc; replacing it is out of scope for this change.
 }

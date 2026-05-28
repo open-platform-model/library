@@ -3,8 +3,8 @@ package kernel
 import (
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/platform"
 )
 
 // ValidateInput is the input for [Kernel.Validate].
@@ -30,9 +30,10 @@ type MatchInput struct {
 	// [module.Release.MatchComponents]. Required.
 	ModuleRelease *module.Release
 
-	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher. Required.
-	Platform *platform.Platform
+	// Platform is the materialized platform whose #composedTransformers and
+	// #matchers index drive the matcher. Required. Callers MUST Materialize a
+	// *platform.Platform before invoking these phases.
+	Platform *materialize.MaterializedPlatform
 }
 
 // PlanInput is the input for [Kernel.Plan]. The release artifact is the sole
@@ -48,9 +49,10 @@ type PlanInput struct {
 	// the zero cue.Value skips validation.
 	Values cue.Value
 
-	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher. Required.
-	Platform *platform.Platform
+	// Platform is the materialized platform whose #composedTransformers and
+	// #matchers index drive the matcher. Required. Callers MUST Materialize a
+	// *platform.Platform before invoking these phases.
+	Platform *materialize.MaterializedPlatform
 
 	// RuntimeName identifies the runtime executing this plan (e.g.
 	// "opm-cli", "opm-controller"). MUST be non-empty.
@@ -70,9 +72,10 @@ type CompileInput struct {
 	// the zero cue.Value skips validation.
 	Values cue.Value
 
-	// Platform is the platform artifact whose #composedTransformers and
-	// #matchers index drive the matcher. Required.
-	Platform *platform.Platform
+	// Platform is the materialized platform whose #composedTransformers and
+	// #matchers index drive the matcher. Required. Callers MUST Materialize a
+	// *platform.Platform before invoking these phases.
+	Platform *materialize.MaterializedPlatform
 
 	// RuntimeName identifies the runtime executing this compile (e.g.
 	// "opm-cli", "opm-controller"). MUST be non-empty.
