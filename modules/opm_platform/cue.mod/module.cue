@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/opm-platform@v1"
+module: "opmodel.dev/modules/opm-platform@v0"
 language: {
 	version: "v0.16.0"
 }
