@@ -33,7 +33,7 @@
 
 - [x] 6.1 With the local registry running (`localhost:5000`), run `task cue:publish:catalog VERSION=0.1.0`; confirm tag `v0.1.0` lands and the published `metadata.fqn` reads `opmodel.dev/catalogs/opm@0.1.0` (bare).
 - [x] 6.2 Confirm the guard: attempt a publish without the stamp and verify it is rejected with no tag pushed.
-- [ ] 6.3 Commit Phase 2 (`ci(catalog): standalone content-diff publish for catalogs/opm`).
+- [x] 6.3 Commit Phase 2 (`ci(catalog): standalone content-diff publish for catalogs/opm`).
 
 ## 7. Restore opm_platform fixture (Phase 3)
 
@@ -44,9 +44,9 @@
 ## 8. Phase 3 gate + final validation
 
 - [x] 8.1 `cd library/modules/opm_platform && cue fmt ./... && cue vet ./...` passes against the published catalog.
-- [ ] 8.2 `task cue:test:flow` (plan→match→compile integration) passes using the restored on-disk fixture.
+- [x] 8.2 `task cue:test:flow` (plan→match→compile integration) passes using the restored on-disk fixture.
 - [x] 8.3 `task check` passes (Go side unaffected: fmt/vet/lint/test green).
-- [ ] 8.4 Commit Phase 3 (`test(catalog): restore opm_platform fixture on #Subscription`).
+- [x] 8.4 Commit Phase 3 (`test(catalog): restore opm_platform fixture on #Subscription`).
 
 ## 9. Enhancement bookkeeping
 
