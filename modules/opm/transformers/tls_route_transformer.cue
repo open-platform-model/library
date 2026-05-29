@@ -1,16 +1,17 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	tr "opmodel.dev/modules/opm/traits"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 // TlsRouteTransformer creates Gateway API TLSRoutes from components with TlsRoute trait.
 // Untyped struct output — see #HttpRouteTransformer for rationale.
 #TlsRouteTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "tls-route-transformer"
 		description: "Creates Gateway API TLSRoutes for components with TlsRoute trait"
 

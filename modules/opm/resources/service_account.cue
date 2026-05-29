@@ -1,7 +1,8 @@
 package resources
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
 )
 
 /////////////////////////////////////////////////////////////////
@@ -10,8 +11,8 @@ import (
 
 #ServiceAccountResource: c.#Resource & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/resources"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/resources"
+		version:     id.Version
 		name:        "service-account"
 		description: "A standalone ServiceAccount definition for identity"
 		labels: {

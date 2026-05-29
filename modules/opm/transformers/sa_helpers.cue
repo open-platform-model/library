@@ -1,8 +1,8 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
+	c "opmodel.dev/core@v0"
+	k8scorev1 "opmodel.dev/catalogs/opm/schemas/kubernetes/core/v1"
 )
 
 // #ToK8sServiceAccount converts an OPM identity spec (either #WorkloadIdentitySchema

@@ -1,4 +1,4 @@
-module: "opmodel.dev/catalogs/opm@v1"
+module: "opmodel.dev/catalogs/opm@v0"
 language: {
 	version: "v0.16.0"
 }
@@ -10,7 +10,7 @@ deps: {
 		v:       "v0.7.0"
 		default: true
 	}
-	"opmodel.dev/core@v1": {
-		v: "v1.0.6"
+	"opmodel.dev/core@v0": {
+		v: "v0.3.0"
 	}
 }

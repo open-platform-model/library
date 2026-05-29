@@ -1,9 +1,10 @@
 package resources
 
 import (
+	id "opmodel.dev/catalogs/opm/identity"
 	"strings"
 
-	c "opmodel.dev/core/v1alpha2@v1"
+	c "opmodel.dev/core@v0"
 )
 
 /////////////////////////////////////////////////////////////////
@@ -12,8 +13,8 @@ import (
 
 #ContainerResource: c.#Resource & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/resources"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/resources"
+		version:     id.Version
 		name:        "container"
 		description: "A container definition for workloads"
 		labels: {

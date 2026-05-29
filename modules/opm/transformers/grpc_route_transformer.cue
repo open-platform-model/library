@@ -1,16 +1,17 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	tr "opmodel.dev/modules/opm/traits"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 // GrpcRouteTransformer creates Gateway API GRPCRoutes from components with GrpcRoute trait.
 // Untyped struct output — see #HttpRouteTransformer for rationale.
 #GrpcRouteTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "grpc-route-transformer"
 		description: "Creates Gateway API GRPCRoutes for components with GrpcRoute trait"
 

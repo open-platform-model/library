@@ -1,9 +1,10 @@
 package workload
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
-	tr "opmodel.dev/modules/opm/traits"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 #StatefulWorkloadSchema: {
@@ -18,8 +19,8 @@ import (
 
 #StatefulWorkloadBlueprint: c.#Blueprint & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/blueprints/workload"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/blueprints/workload"
+		version:     id.Version
 		name:        "stateful-workload"
 		description: "A stateful workload with stable identity and persistent storage requirements"
 	}

@@ -1,18 +1,19 @@
 package transformers
 
 import (
+	id "opmodel.dev/catalogs/opm/identity"
 	"list"
-	k8sappsv1 "opmodel.dev/modules/opm/schemas/kubernetes/apps/v1@v1"
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
-	tr "opmodel.dev/modules/opm/traits"
+	k8sappsv1 "opmodel.dev/catalogs/opm/schemas/kubernetes/apps/v1"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 // DeploymentTransformer converts stateless workload components to Kubernetes Deployments
 #DeploymentTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "deployment-transformer"
 		description: "Converts stateless workload components with Container resource to Kubernetes Deployments"
 

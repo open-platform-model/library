@@ -1,8 +1,9 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // ServiceAccountResourceTransformer converts standalone ServiceAccount resources
@@ -10,8 +11,8 @@ import (
 // #ServiceAccountTransformer which handles trait-attached identities.
 #ServiceAccountResourceTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "serviceaccount-resource-transformer"
 		description: "Converts standalone ServiceAccount resources to Kubernetes ServiceAccounts"
 
@@ -62,7 +63,7 @@ _testSAResourceTransformer: (#ServiceAccountResourceTransformer.#transform & {
 		#moduleReleaseMetadata: {
 			name:      "test-release"
 			namespace: "ci"
-			fqn:       "opmodel.dev/modules/opm/test-release:0.1.0"
+			fqn:       "opmodel.dev/catalogs/opm/test-release@0.1.0"
 			version:   "0.1.0"
 			uuid:      "00000000-0000-0000-0000-000000000000"
 		}

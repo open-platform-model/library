@@ -1,8 +1,9 @@
 package traits
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // Enables hostNetwork: true on the pod spec, sharing the node's network
@@ -10,8 +11,8 @@ import (
 // directly (e.g. MetalLB speaker for ARP/NDP).
 #HostNetworkTrait: c.#Trait & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/traits"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/traits"
+		version:     id.Version
 		name:        "host-network"
 		description: "Share the node's network namespace (hostNetwork: true)"
 		labels: {

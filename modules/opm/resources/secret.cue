@@ -1,13 +1,14 @@
 package resources
 
 import (
+	id "opmodel.dev/catalogs/opm/identity"
 	"crypto/sha256"
 	"encoding/hex"
 	"list"
 	"strings"
 
-	c "opmodel.dev/core/v1alpha2@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
+	c "opmodel.dev/core@v0"
+	schemas "opmodel.dev/catalogs/opm/schemas"
 )
 
 /////////////////////////////////////////////////////////////////
@@ -16,8 +17,8 @@ import (
 
 #SecretsResource: c.#Resource & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/resources"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/resources"
+		version:     id.Version
 		name:        "secrets"
 		description: "A Secret definition for sensitive configuration"
 		labels: {

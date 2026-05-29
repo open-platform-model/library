@@ -1,14 +1,15 @@
 package traits
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 #SecurityContextTrait: c.#Trait & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/traits"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/traits"
+		version:     id.Version
 		name:        "security-context"
 		description: "Container and pod-level security constraints"
 		labels: {

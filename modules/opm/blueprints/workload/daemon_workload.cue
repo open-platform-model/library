@@ -1,9 +1,10 @@
 package workload
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
-	tr "opmodel.dev/modules/opm/traits"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 #DaemonWorkloadSchema: {
@@ -16,8 +17,8 @@ import (
 
 #DaemonWorkloadBlueprint: c.#Blueprint & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/blueprints/workload"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/blueprints/workload"
+		version:     id.Version
 		name:        "daemon-workload"
 		description: "A daemon workload that runs on all (or selected) nodes in a cluster"
 	}
