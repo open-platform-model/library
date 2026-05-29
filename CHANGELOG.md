@@ -5,6 +5,8 @@
 
 ### ⚠ BREAKING CHANGES
 
+* **compile:** Match/Plan/Compile take *materialize.MaterializedPlatform; callers must Materialize first. Compose/ComposePlatform removed. See MIGRATIONS.md.
+* **schema:** replace embedded schema with OCI loader; opm/schema gains a Loader interface + OCILoader resolving opmodel.dev/core@v0 via CUE_REGISTRY. library/apis removed; SchemaValue/EmbeddedSchema removed; synth.ReleaseInput requires a SchemaCache field.
 * **kernel:** drop api binding dispatch; centralise schema knowledge in opm/schema
 * **api:** rename defaultNamespace annotation to kebab-case
 * **loader:** replace LoadPlatformFile with LoadPlatformPackage
@@ -28,6 +30,8 @@
 * **api:** retire ModuleDebug; expose Paths.DebugValues (slice 03) ([8e8a5ad](https://github.com/open-platform-model/library/commit/8e8a5adc9752a5ae20d5a0e3c24f416c39db33b3))
 * **apis:** add core v1alpha1 and v1alpha2 cue schemas ([967853d](https://github.com/open-platform-model/library/commit/967853d0ec5e37813afc9ce33dede6e4e601b64e))
 * **apis:** implement 014 platform construct schemas ([14fb134](https://github.com/open-platform-model/library/commit/14fb1346eb14efeff331c796c503b12cf7df4140))
+* **catalog:** repackage onto core@v0 with #Catalog + identity ([159d0a5](https://github.com/open-platform-model/library/commit/159d0a59733e1ce95d2f98c5fe336cb302f99aeb))
+* **compile:** rewrite matcher onto MaterializedPlatform with unify rung ([071fb0d](https://github.com/open-platform-model/library/commit/071fb0d6131d99cc004b0a3c35e42308d5dc763f))
 * **enhancements:** add lifecycle gates, metadata fields, and check task ([8fb8270](https://github.com/open-platform-model/library/commit/8fb82709751c236dbf0f593b9728695aef9b3af0))
 * **enhancements:** tighten implementation.date to status=complete only ([ae11f73](https://github.com/open-platform-model/library/commit/ae11f736af11aa7b043c9d015c82be5168e467fc))
 * **helper:** add Platform composition helper (slice 10) ([71e0448](https://github.com/open-platform-model/library/commit/71e0448caa9984ab489e76c6267e1723cebb2a45))
@@ -41,10 +45,12 @@
 * **kernel:** rewrite match around Platform; retire Provider (slice 09) ([7eba2b9](https://github.com/open-platform-model/library/commit/7eba2b98c580b434ce297f2672215061d3ca2ef0))
 * **kernel:** slim Match/Plan/Compile inputs (slice 11) ([e93f8be](https://github.com/open-platform-model/library/commit/e93f8be3bffe3cc238b4c620f404e4b1d8615f95))
 * **loader:** add shape-gate validation to package loaders ([218f61f](https://github.com/open-platform-model/library/commit/218f61f390de15bfd959d05455c3690837f039bd))
+* **materialize:** realize platform subscriptions into MaterializedPlatform ([cd0182d](https://github.com/open-platform-model/library/commit/cd0182d2aeeec0cdc41ab16e48cc5bf88af13d2a))
 * **modules:** add opm catalog module ([613efa9](https://github.com/open-platform-model/library/commit/613efa9495d43633862deec4f080fd92536f2ce2))
 * **modules:** add opm-platform module ([6da1d3d](https://github.com/open-platform-model/library/commit/6da1d3d1fefd41c9467f26268f16528b0da35af9))
 * **module:** unify artifact shape and land kernel scaffolding ([faf0b54](https://github.com/open-platform-model/library/commit/faf0b5488a141419517f324786d19d3f58ed7654))
 * **platform:** add Platform artifact type and loader (slice 08) ([4af9f56](https://github.com/open-platform-model/library/commit/4af9f56ddb0abe2dea59dde712776943220df76a))
+* **schema:** replace embedded schema with OCI loader ([4e83168](https://github.com/open-platform-model/library/commit/4e83168540863794537e6848431e7f6b2dcbcef9))
 * **synth:** add release synthesis helper and Binding.SchemaValue ([1c3607f](https://github.com/open-platform-model/library/commit/1c3607f5634c29e66feb3bdec41aa8e024c59343))
 * **transformers:** add gateway api route transformers ([bb53bb9](https://github.com/open-platform-model/library/commit/bb53bb92d5804188398652e8349845f57c1b5ab3))
 
@@ -52,6 +58,7 @@
 ### Bug Fixes
 
 * **apis:** pin v1alpha2 #ApiVersion to literal string ([da2cacc](https://github.com/open-platform-model/library/commit/da2cacc4a78834bc4cee31d8e592d2c93b3d3560))
+* **loader:** accept #Subscription platforms; restore flow integration tests ([91ba273](https://github.com/open-platform-model/library/commit/91ba273cf8343420d0e002d7c2979c7176ac8b26))
 
 
 ### Documentation
@@ -67,6 +74,8 @@
 * add constitution and openspec config ([36d0be9](https://github.com/open-platform-model/library/commit/36d0be9141e0351d1afdbe3bb642f853fa5c33ab))
 * **adr:** mark adr-001 accepted ([2767106](https://github.com/open-platform-model/library/commit/2767106ca7db771b2f1b388c0e25536c867b248c))
 * **adr:** propose 001 module default namespace as annotation ([e437f82](https://github.com/open-platform-model/library/commit/e437f8290ff91ffa1d5b94acf3a540026613109a))
+* **catalog:** mark phase-3 flow-test tasks complete ([a69a8cb](https://github.com/open-platform-model/library/commit/a69a8cbe83c423d3c6320a64dce23bfba4f52a06))
+* **catalog:** mark phase-9 enhancement bookkeeping complete ([8fc7a9f](https://github.com/open-platform-model/library/commit/8fc7a9fcc2458a45ab4ce78ffb8c4baf9836cf23))
 * **constitution:** list pkg/apiversion and pkg/api packages ([ae67e5c](https://github.com/open-platform-model/library/commit/ae67e5ce16824a1de11e3b09feed2cbaf3aad6d8))
 * **enhancements:** add 007 platform registry subscription; supersede 003 ([5bf5d2f](https://github.com/open-platform-model/library/commit/5bf5d2f84d8cd3b85f2d8ccbf87657ab1e9fd41b))
 * **enhancements:** add config.yaml metadata for 001-006 and graph ([38043c0](https://github.com/open-platform-model/library/commit/38043c0f18d515b704b896aaa12572ffb06f5543))
@@ -77,9 +86,11 @@
 * **library:** split quick start into docs/getting-started.md ([feb29fa](https://github.com/open-platform-model/library/commit/feb29fafe6a66862fb30885136106468843e0123))
 * **openspec:** archive add-kernel-struct slice ([60364be](https://github.com/open-platform-model/library/commit/60364be19a57188c4a0c8b6b2ee98756c242a2db))
 * **openspec:** archive add-multi-apiversion-support slice ([ae7970c](https://github.com/open-platform-model/library/commit/ae7970c71aad295af1618f89b77033a04464add8))
+* **openspec:** archive repackage-opm-catalog and sync catalog specs ([30df636](https://github.com/open-platform-model/library/commit/30df636257f1f0e8ffa2783c72ddb3e507ce6ad1))
 * **openspec:** draft kernel-redesign slice proposals ([4272e96](https://github.com/open-platform-model/library/commit/4272e96d030269f9e325784d83aa26b1177057f3))
 * **openspec:** draft retire-module-debug change ([549e862](https://github.com/open-platform-model/library/commit/549e8620dc6ea77c794133722ca386c766f942a7))
 * **openspec:** propose remove-api-binding-dispatch change ([5545011](https://github.com/open-platform-model/library/commit/55450116cf9e5d87b43b047f35202d30b2c8c782))
+* **openspec:** propose replace-embedded-schema-with-oci-loader change ([5877354](https://github.com/open-platform-model/library/commit/58773543d934020293bb6e1b70ed9070c364fb79))
 * **openspec:** scope remove-api-binding-dispatch around post-0001 core schema ([d349bca](https://github.com/open-platform-model/library/commit/d349bca12c922d0ef059fc8cd7532f7191444174))
 
 
@@ -96,10 +107,12 @@
 * **loader:** unify module and release loading as packages ([7c435f2](https://github.com/open-platform-model/library/commit/7c435f25d61d2765dfb5ee2932f3229f44402bc8))
 * **modules/opm:** collocate schemas, flatten layout, drop area subpath from FQNs ([9bc22b4](https://github.com/open-platform-model/library/commit/9bc22b4210db116d682da5cfd2218a9300c81918))
 * **modules/opm:** retire #defines aggregator; key transformers by metadata.fqn ([906848a](https://github.com/open-platform-model/library/commit/906848a57d1c0cee37dc22a84e11a69f0250faa3))
+* **test:** drop legacy @v1 from opm_platform fixture module id ([bf47e6e](https://github.com/open-platform-model/library/commit/bf47e6edbf08d260749626df76f101647391c0b5))
 
 
 ### Miscellaneous Chores
 
+* **agent:** update agent file ([f571047](https://github.com/open-platform-model/library/commit/f571047cfa37f2d81211562b2e74a882df9276ee))
 * **apis:** add index generator script ([97bec14](https://github.com/open-platform-model/library/commit/97bec14160f5c44371ffd3f551c8f88dcaefab18))
 * **apis:** drop unused v1alpha1 policy and primitives ([dc7453a](https://github.com/open-platform-model/library/commit/dc7453ad32cb5d3df9ca6e4bc72823a33111aa73))
 * **apis:** remove deprecated v1alpha1 schemas and pkg/loader ([3a9a9bd](https://github.com/open-platform-model/library/commit/3a9a9bdfed465912cec79b4bf41a7353705916fa))
