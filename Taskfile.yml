@@ -596,3 +596,81 @@ tasks:
       - task: cue:tidy
       - task: cue:fmt
       - task: cue:vet
+
+  cue:publish:catalog:
+    desc: Publish the opm catalog (opmodel.dev/catalogs/opm) at VERSION via temp-build stamping
+    summary: |
+      Publish the OPM core catalog with publish-time version stamping.
+
+      The committed source tree resolves identity.Version to the "0.0.0-dev"
+      dev sentinel. This task copies the catalog into a transient build dir
+      (source tree untouched, cue.mod/{pkg,gen,usr} excluded), writes
+      identity/version_override.cue pinning the concrete bare SemVer, vets
+      from the build dir, then runs `cue mod publish vX.Y.Z`.
+
+      VERSION accepts bare (0.1.0) or v-prefixed (v0.1.0) input. The OCI tag
+      is always v-prefixed; the stamped metadata.version / FQN stays bare,
+      per the version-layering decision (D-D). Publishing is refused when the
+      resolved Version is the 0.0.0-dev sentinel (D8/D9 guard).
+
+      CUE_REGISTRY is inherited from the environment when set (CI sets the
+      GHCR mapping); otherwise it defaults to the local registry.
+
+      Usage:
+        task cue:publish:catalog VERSION=0.1.0
+    vars:
+      VERSION: '{{.VERSION | default ""}}'
+      CATALOG_DIR: modules/opm
+      BUILD_DIR: .build/catalog
+    preconditions:
+      - sh: command -v rsync >/dev/null 2>&1
+        msg: "rsync is required"
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+    cmds:
+      - |
+        set -euo pipefail
+
+        # Inherit CUE_REGISTRY from the environment (CI sets GHCR); default to
+        # the local registry for laptop publishing.
+        : "${CUE_REGISTRY:={{.CUE_LOCAL_REGISTRY}}}"
+        export CUE_REGISTRY
+
+        SRC="{{.CATALOG_DIR}}"
+        BUILD="{{.BUILD_DIR}}"
+        DEV_SENTINEL="0.0.0-dev"
+
+        # Normalize: strip a leading v for the bare SemVer; the OCI tag re-adds it.
+        BARE="$(printf '%s' '{{.VERSION}}' | sed 's/^v//')"
+
+        # Stage a clean build tree (source untouched).
+        rm -rf "$BUILD"
+        mkdir -p "$BUILD"
+        rsync -a \
+          --exclude='cue.mod/pkg' \
+          --exclude='cue.mod/gen' \
+          --exclude='cue.mod/usr' \
+          "$SRC/" "$BUILD/"
+
+        # Stamp the concrete version into the build tree only (never the source
+        # tree). With no real VERSION the stamp is skipped and the resolved
+        # version stays at the dev sentinel, tripping the guard below.
+        if [ -n "$BARE" ] && [ "$BARE" != "$DEV_SENTINEL" ]; then
+          printf 'package identity\n\nVersion: "%s"\n' "$BARE" > "$BUILD/identity/version_override.cue"
+        fi
+
+        # Resolve the effective version from the staged identity package.
+        RESOLVED="$(cd "$BUILD" && cue export ./identity -e Version 2>/dev/null | tr -d '"')"
+
+        # Guard (D8/D9): the dev sentinel is never publishable.
+        if [ -z "$RESOLVED" ] || [ "$RESOLVED" = "$DEV_SENTINEL" ]; then
+          echo "::error:: refusing to publish catalog at version '${RESOLVED:-<unset>}' — supply VERSION=X.Y.Z ('$DEV_SENTINEL' is the dev sentinel and is not publishable)" >&2
+          exit 1
+        fi
+
+        echo "Validating catalog at ${RESOLVED}..."
+        (cd "$BUILD" && cue vet ./...)
+
+        echo "Publishing opmodel.dev/catalogs/opm@${RESOLVED} (OCI tag v${RESOLVED}) to ${CUE_REGISTRY}..."
+        (cd "$BUILD" && cue mod publish "v${RESOLVED}")
+        echo "Published opmodel.dev/catalogs/opm@${RESOLVED}"

@@ -1,16 +1,18 @@
-# OPM Modules Version Registry
-# Format: <module-dir-name>: {version: vMAJOR.MINOR.PATCH, checksum: sha256}
-# Checksum covers .cue files excluding cue.mod/ — used by publish:smart.
-# Modules are auto-discovered from */cue.mod/module.cue under this directory.
-apis/core:
-  version: v1.0.6
-  checksum: 77e8f79f2fe9ee6b60df9cd1779a7d9bf7c71d19012ab1a038bb670f20d35043
-modules/opm:
-  version: v1.0.7
-  checksum: d0e120ab5fbefc110a0f4322fb1dfed64a9a9222c7bf471aed6c3e7a9d347ffe
-modules/opm_platform:
-  version: v1.0.0
-  checksum: ef024cda348b6c15aaf17ccf21243a65cb5a3d43db8eb08c50b2b3005b04f978
+# OPM CUE Module Version Registry
+# Format: <key>: {version: vMAJOR.MINOR.PATCH[, checksum: sha256]}
+#
+# The OPM core catalog is keyed by its module identity (catalogs/opm) and
+# published by the standalone registry-presence workflow (publish-catalog.yml)
+# via `task cue:publish:catalog`. That path is version-gated and stateless, so
+# the catalog entry carries no checksum — bump `version` in a PR to cut a
+# release. Remaining entries are test fixtures verified (never published) by
+# cue.yml and checksum-tracked by publish:smart.
+#
+# Legacy entries removed by the repackage-opm-catalog change: apis/core (lives
+# in its own repo now), modules/opm (republished as catalogs/opm), and
+# modules/opm_platform (now an unpublished in-repo fixture).
+catalogs/opm:
+  version: v0.1.0
 testdata/modules/web_app:
   version: v1.0.7
   checksum: c08b56b126db366264ac3c0311bfafe112b3906490d674f7e29d5c4c889cc904

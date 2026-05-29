@@ -1,0 +1,91 @@
+name: Publish Catalog
+
+# Standalone, catalog-only publisher for opmodel.dev/catalogs/opm.
+#
+# This is deliberately NOT release-please: the library repo already runs
+# release-please for the Go module with bare vX.Y.Z tags that `go get`
+# requires, and adding the catalog as an RP component would prefix every tag
+# and break that contract. Instead this workflow uses a registry-presence
+# (version-gated) trigger — it reads the catalog version from cue-versions.yml,
+# checks whether that OCI tag already exists, and publishes only when it is
+# absent. The trigger is stateless: nothing is written back to the repo. Cut a
+# release by bumping `catalogs/opm.version` in cue-versions.yml in a PR; on
+# merge the new (absent) tag publishes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cue-versions.yml'
+      - 'modules/opm/**'
+      - 'Taskfile.yml'
+      - '.github/workflows/publish-catalog.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CUE_VERSION: 'v0.16.0'
+  # opmodel.dev -> GHCR resolves both the core@v0 dependency and the catalog's
+  # own publish target; cue.dev / others fall through to registry.cue.works.
+  CUE_REGISTRY: 'opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+  CATALOG_KEY: 'catalogs/opm'
+  CATALOG_OCI_REPO: 'catalogs/opm'
+
+jobs:
+  publish:
+    name: Publish catalogs/opm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install yq
+        uses: mikefarah/yq@751d8ad57b84f1794661bc70c0afb92a22ad7b3c # v4.53.2
+        with:
+          cmd: echo "yq installed"
+
+      - name: Check registry for the catalog version
+        id: check
+        run: |
+          set -euo pipefail
+
+          VERSION=$(yq ".\"${CATALOG_KEY}\".version" cue-versions.yml)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error:: no version for ${CATALOG_KEY} in cue-versions.yml" >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          # HEAD the manifest for this tag. Present -> nothing to do (stateless).
+          if curl -fsS --head \
+              -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json,*/*" \
+              "https://ghcr.io/v2/open-platform-model/${CATALOG_OCI_REPO}/manifests/${VERSION}" \
+              >/dev/null 2>&1; then
+            echo "  ${CATALOG_KEY}@${VERSION}: already published — skipping"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "  ${CATALOG_KEY}@${VERSION}: unpublished — will publish"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: cue-lang/setup-cue@a93fa358375740cd8b0078f76355512b9208acb1 # v1.0.1
+        if: steps.check.outputs.publish == 'true'
+        with:
+          version: ${{ env.CUE_VERSION }}
+
+      - name: Install Task
+        if: steps.check.outputs.publish == 'true'
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: 3.x
+
+      - name: Login to GHCR
+        if: steps.check.outputs.publish == 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Publish catalog
+        if: steps.check.outputs.publish == 'true'
+        run: task cue:publish:catalog VERSION="${{ steps.check.outputs.version }}"

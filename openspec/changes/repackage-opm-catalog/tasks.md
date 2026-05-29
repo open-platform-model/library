@@ -16,23 +16,23 @@
 
 - [x] 3.1 `cd library/modules/opm && cue fmt ./... && cue vet ./...` passes (FQNs resolve to `@0.0.0-dev`).
 - [x] 3.2 Verify transformer stamping is enforced: temporarily introduce a `modulePath` typo in one transformer, confirm `cue vet` fails with a "conflicting values" diagnostic, then revert.
-- [ ] 3.3 Commit Phase 1 (`feat(catalog): repackage onto core@v0 with #Catalog + identity`).
+- [x] 3.3 Commit Phase 1 (`feat(catalog): repackage onto core@v0 with #Catalog + identity`).
 
 ## 4. Publish task + guard (Phase 2)
 
-- [ ] 4.1 Add `cue:publish:catalog` to `library/Taskfile.yml`: rsync source → `.build/catalog/` excluding `cue.mod/{pkg,gen,usr}`; write `.build/catalog/identity/version_override.cue` pinning the bare `Version`; `cue vet` from build dir; `cue mod publish v<VERSION>` from build dir.
-- [ ] 4.2 Add the `0.0.0-dev` publish guard: the task exits non-zero (no tag pushed) when the resolved `identity.Version` is `0.0.0-dev`.
-- [ ] 4.3 Retarget/clean `library/cue-versions.yml`: remove the `apis/core` entry and the legacy `modules/opm` entry; add the catalog under its `catalogs/opm` identity at `v0.1.0`.
+- [x] 4.1 Add `cue:publish:catalog` to `library/Taskfile.yml`: rsync source → `.build/catalog/` excluding `cue.mod/{pkg,gen,usr}`; write `.build/catalog/identity/version_override.cue` pinning the bare `Version`; `cue vet` from build dir; `cue mod publish v<VERSION>` from build dir.
+- [x] 4.2 Add the `0.0.0-dev` publish guard: the task exits non-zero (no tag pushed) when the resolved `identity.Version` is `0.0.0-dev`.
+- [x] 4.3 Retarget/clean `library/cue-versions.yml`: remove the `apis/core` entry and the legacy `modules/opm` entry; add the catalog under its `catalogs/opm` identity at `v0.1.0`.
 
 ## 5. Publish workflow (Phase 2)
 
-- [ ] 5.1 Add `library/.github/workflows/publish-catalog.yml`: on push to `main`, read the catalog version from `cue-versions.yml`, HEAD the GHCR manifest for that tag, and if absent login + `task cue:publish:catalog VERSION=<that>`. Stateless (no commit-back); catalog-only; no release-please.
-- [ ] 5.2 Remove `library/.github/workflows/publish-cue.yml`; confirm no remaining workflow publishes `modules/opm` or `modules/opm_platform`. Confirm the Go-module `release.yml` is untouched.
+- [x] 5.1 Add `library/.github/workflows/publish-catalog.yml`: on push to `main`, read the catalog version from `cue-versions.yml`, HEAD the GHCR manifest for that tag, and if absent login + `task cue:publish:catalog VERSION=<that>`. Stateless (no commit-back); catalog-only; no release-please.
+- [x] 5.2 Remove `library/.github/workflows/publish-cue.yml`; confirm no remaining workflow publishes `modules/opm` or `modules/opm_platform`. Confirm the Go-module `release.yml` is untouched.
 
 ## 6. Phase 2 gate
 
-- [ ] 6.1 With the local registry running (`localhost:5000`), run `task cue:publish:catalog VERSION=0.1.0`; confirm tag `v0.1.0` lands and the published `metadata.fqn` reads `opmodel.dev/catalogs/opm@0.1.0` (bare).
-- [ ] 6.2 Confirm the guard: attempt a publish without the stamp and verify it is rejected with no tag pushed.
+- [x] 6.1 With the local registry running (`localhost:5000`), run `task cue:publish:catalog VERSION=0.1.0`; confirm tag `v0.1.0` lands and the published `metadata.fqn` reads `opmodel.dev/catalogs/opm@0.1.0` (bare).
+- [x] 6.2 Confirm the guard: attempt a publish without the stamp and verify it is rejected with no tag pushed.
 - [ ] 6.3 Commit Phase 2 (`ci(catalog): standalone content-diff publish for catalogs/opm`).
 
 ## 7. Restore opm_platform fixture (Phase 3)

@@ -41,3 +41,7 @@ flow-inspect
 # Workspace-local CUE module cache used by tests. Populated lazily on
 # first test run; safe to delete to force a re-fetch from the registry.
 .cue-cache/
+
+# Transient catalog publish build tree (cue:publish:catalog stamps the
+# version_override here; never committed).
+.build/
