@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -18,12 +19,12 @@ import (
 // registry, enumerated, pulled, and read. The earlier spike used a simplified
 // stand-in; this exercises the production shape.
 func TestSpike_EnumeratePullRealCatalog(t *testing.T) {
-	path := uniquePath(t, "cat")
-	registry := newCatalogRegistry(t,
-		catalogFixture{Path: path, Version: "0.1.0", Body: buildCatalog(path, "0.1.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
-		catalogFixture{Path: path, Version: "0.2.0", Body: buildCatalog(path, "0.2.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}})},
+	path := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: registrytest.BuildCatalog(path, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
+		registrytest.CatalogFixture{Path: path, Version: "0.2.0", Body: registrytest.BuildCatalog(path, "0.2.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})},
 	)
 	env := resolverEnv(registry)
 

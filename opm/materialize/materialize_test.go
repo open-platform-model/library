@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -19,17 +20,17 @@ import (
 // is pulled, #composedTransformers + #matchers are filled, and the resolved
 // version is recorded.
 func TestMaterialize_HappyPath(t *testing.T) {
-	path := uniquePath(t, "cat")
-	registry := newCatalogRegistry(t,
-		catalogFixture{Path: path, Version: "0.1.0", Body: buildCatalog(path, "0.1.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
-		catalogFixture{Path: path, Version: "0.2.0", Body: buildCatalog(path, "0.2.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
+	path := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: registrytest.BuildCatalog(path, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
+		registrytest.CatalogFixture{Path: path, Version: "0.2.0", Body: registrytest.BuildCatalog(path, "0.2.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
 	)
 	octx := cuecontext.New()
-	p := buildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, path))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, path))
 
-	mp, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 
 	// Highest version (0.2.0) selected with no filter.
@@ -79,17 +80,17 @@ func TestMaterialize_RangeAllowDeny(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := uniquePath(t, "cat")
-			var fixtures []catalogFixture
+			path := registrytest.UniquePath(t, "cat")
+			var fixtures []registrytest.CatalogFixture
 			for _, v := range []string{"0.1.0", "0.1.1", "0.2.0"} {
-				fixtures = append(fixtures, catalogFixture{Path: path, Version: v,
-					Body: buildCatalog(path, v, txFixture{Name: "deployment", Resources: []string{"container"}})})
+				fixtures = append(fixtures, registrytest.CatalogFixture{Path: path, Version: v,
+					Body: registrytest.BuildCatalog(path, v, registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})})
 			}
-			registry := newCatalogRegistry(t, fixtures...)
+			registry := registrytest.NewCatalogRegistry(t, fixtures...)
 			octx := cuecontext.New()
-			p := buildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, %s} }`, path, tt.filterBody))
+			p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, %s} }`, path, tt.filterBody))
 
-			mp, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+			mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 			require.NoError(t, err)
 
 			var want []string
@@ -116,16 +117,16 @@ func TestMaterialize_DivergentFQNConflicts(t *testing.T) {
 }
 `, path, sharedKey, desc)
 	}
-	pathA := uniquePath(t, "cata")
-	pathB := uniquePath(t, "catb")
-	registry := newCatalogRegistry(t,
-		catalogFixture{Path: pathA, Version: "0.1.0", Body: body(pathA, "from A")},
-		catalogFixture{Path: pathB, Version: "0.1.0", Body: body(pathB, "from B")},
+	pathA := registrytest.UniquePath(t, "cata")
+	pathB := registrytest.UniquePath(t, "catb")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: pathA, Version: "0.1.0", Body: body(pathA, "from A")},
+		registrytest.CatalogFixture{Path: pathB, Version: "0.1.0", Body: body(pathB, "from B")},
 	)
 	octx := cuecontext.New()
-	p := buildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: true} }`, pathA, pathB))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: true} }`, pathA, pathB))
 
-	_, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.Error(t, err)
 	var me *oerrors.MaterializeError
 	require.True(t, errors.As(err, &me), "divergence surfaces as MaterializeError: %v", err)
@@ -134,16 +135,16 @@ func TestMaterialize_DivergentFQNConflicts(t *testing.T) {
 
 // 6.3b — an unresolvable subscription path surfaces as MaterializeError{catalog}.
 func TestMaterialize_UnresolvablePath(t *testing.T) {
-	published := uniquePath(t, "cat")
-	registry := newCatalogRegistry(t,
-		catalogFixture{Path: published, Version: "0.1.0", Body: buildCatalog(published, "0.1.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}})},
+	published := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: published, Version: "0.1.0", Body: registrytest.BuildCatalog(published, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})},
 	)
-	missing := uniquePath(t, "missing")
+	missing := registrytest.UniquePath(t, "missing")
 	octx := cuecontext.New()
-	p := buildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, missing))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, missing))
 
-	_, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.Error(t, err)
 	var me *oerrors.MaterializeError
 	require.True(t, errors.As(err, &me), "unresolvable path surfaces as MaterializeError: %v", err)
@@ -154,18 +155,18 @@ func TestMaterialize_UnresolvablePath(t *testing.T) {
 // 6.4 — enable:false is skipped; Materialize is idempotent and does not mutate
 // its input platform.
 func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
-	enabled := uniquePath(t, "on")
-	disabled := uniquePath(t, "off")
-	registry := newCatalogRegistry(t,
-		catalogFixture{Path: enabled, Version: "0.1.0", Body: buildCatalog(enabled, "0.1.0",
-			txFixture{Name: "deployment", Resources: []string{"container"}})},
-		catalogFixture{Path: disabled, Version: "0.1.0", Body: buildCatalog(disabled, "0.1.0",
-			txFixture{Name: "service", Resources: []string{"port"}})},
+	enabled := registrytest.UniquePath(t, "on")
+	disabled := registrytest.UniquePath(t, "off")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: enabled, Version: "0.1.0", Body: registrytest.BuildCatalog(enabled, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})},
+		registrytest.CatalogFixture{Path: disabled, Version: "0.1.0", Body: registrytest.BuildCatalog(disabled, "0.1.0",
+			registrytest.TxFixture{Name: "service", Resources: []string{"port"}})},
 	)
 	octx := cuecontext.New()
-	p := buildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: false} }`, enabled, disabled))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: false} }`, enabled, disabled))
 
-	mp1, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+	mp1, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 
 	// Disabled subscription contributes nothing.
@@ -175,7 +176,7 @@ func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
 	assert.NotContains(t, keys1, disabled+"/transformers/service@0.1.0")
 
 	// Idempotent: a second call produces the same selection.
-	mp2, err := Materialize(context.Background(), ctxOwner{octx}, registry, p)
+	mp2, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 	assert.Equal(t, mp1.Resolved, mp2.Resolved)
 	assert.Equal(t, keys1, mapKeys(mp2.Package, schema.ComposedTransformers))
