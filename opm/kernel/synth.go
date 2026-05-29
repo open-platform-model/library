@@ -36,6 +36,13 @@ func (k *Kernel) SynthesizeRelease(ctx context.Context, in synth.ReleaseInput) (
 	if in.Module == nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", synth.ErrMissingModule)
 	}
+	// The Kernel owns the cache; callers MUST NOT need to thread it
+	// through SynthesizeRelease explicitly. If they did set SchemaCache,
+	// honor it (a test may pin a different one), otherwise fall back to
+	// the kernel-owned cache.
+	if in.SchemaCache == nil {
+		in.SchemaCache = k.schemaCache
+	}
 	spec, err := synth.Release(k.cueCtx, in)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)

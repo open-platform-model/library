@@ -1,8 +1,9 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	tr "opmodel.dev/modules/opm/traits"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	tr "opmodel.dev/catalogs/opm/traits"
 )
 
 // HttpRouteTransformer creates Gateway API HTTPRoutes from components with HttpRoute trait.
@@ -10,8 +11,8 @@ import (
 // and the renderer dispatches on cue.Kind.
 #HttpRouteTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "http-route-transformer"
 		description: "Creates Gateway API HTTPRoutes for components with HttpRoute trait"
 

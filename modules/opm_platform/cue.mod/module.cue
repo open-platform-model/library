@@ -1,4 +1,4 @@
-module: "opmodel.dev/modules/opm-platform@v1"
+module: "opmodel.dev/modules/opm-platform@v0"
 language: {
 	version: "v0.16.0"
 }
@@ -7,13 +7,12 @@ source: {
 }
 deps: {
 	"cue.dev/x/k8s.io@v0": {
-		v:       "v0.7.0"
-		default: true
+		v: "v0.7.0"
 	}
-	"opmodel.dev/core@v1": {
-		v: "v1.0.6"
+	"opmodel.dev/catalogs/opm@v0": {
+		v: "v0.1.0"
 	}
-	"opmodel.dev/modules/opm@v1": {
-		v: "v1.0.7"
+	"opmodel.dev/core@v0": {
+		v: "v0.3.0"
 	}
 }

@@ -1,7 +1,7 @@
 // Package synth builds OPM artifact CUE values from in-memory typed inputs by
 // unifying caller-supplied identity (name, namespace, module reference,
-// values, labels, annotations) against the embedded schema definition for the
-// target API version.
+// values, labels, annotations) against the schema definition resolved through
+// the caller-supplied *schema.Cache.
 //
 // Synth is a peer of opm/helper/loader, not a subpackage of it. The loader
 // tree (opm/helper/loader/file, opm/helper/loader/bytes) reads existing
@@ -20,9 +20,9 @@
 // Schema source of truth: synth.Release never reimplements derivations the
 // CUE schema already owns (UUID stamping, components fan-out from #components,
 // auto-secrets injection, standard label stamping). Every derived field flows
-// through unification with the schema's #ModuleRelease definition, loaded
-// from the version binding's embedded filesystem via
-// api.Binding.SchemaValue. No CUE_REGISTRY round-trip, no filesystem read.
+// through unification with the #ModuleRelease definition obtained from
+// in.SchemaCache.Get(ctx); the schema package itself is resolved by the
+// Cache's underlying Loader (typically schema.OCILoader against CUE_REGISTRY).
 //
 // Boundary scope: synth helpers live under opm/helper/ because they are
 // opinionated frontend conveniences. Frontends MAY bypass them and unify

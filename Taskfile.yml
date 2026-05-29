@@ -4,9 +4,6 @@ version: "3"
 silent: true
 
 includes:
-  apis:
-    taskfile: ./apis/Taskfile.yaml
-    dir: ./apis
   enhancements:
     taskfile: ./.tasks/enhancements.yaml
 
@@ -19,12 +16,15 @@ vars:
   # autodiscovery (modules/*) and pinned single-module entries.
   CUE_MODULE_GLOBS: |
     modules/*
-    apis/core
     testdata/modules/*
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
-  CUE_LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # The OPM core schema lives in its own repo and is published to GHCR; the
+  # workspace-local registry holds only the catalogs/fixtures. The more
+  # specific opmodel.dev/core prefix resolves the schema from GHCR while every
+  # other opmodel.dev module (catalogs, test fixtures) resolves from localhost.
+  CUE_LOCAL_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
 tasks:
   default:
@@ -143,7 +143,7 @@ tasks:
   # Auto-discovers CUE modules via CUE_MODULE_GLOBS. Each match must contain
   # cue.mod/module.cue. Module identity comes from the `module:` field; per-
   # module version + checksum tracked in cue-versions.yml keyed by relative
-  # path (e.g. modules/opm, apis/core).
+  # path (e.g. modules/opm, modules/opm_platform).
   # ============================================================================
 
   cue:discover:
@@ -294,42 +294,6 @@ tasks:
       - task: cue:fmt
       - task: cue:vet
 
-  cue:test:
-    desc: Run the v1alpha2 schema fixture harness (apis/core/v1alpha2/testdata/)
-    summary: |
-      Drives the table-driven harness in opm/api/v1alpha2/schema_fixture_test.go,
-      which loads each fixture under apis/core/v1alpha2/testdata/ with the
-      `test` build tag (see @if(test) at the top of every fixture) and asserts
-      its positive / negative contract.
-
-      Faster than `task test` when iterating on a fixture; equivalent coverage
-      to running `go test ./opm/api/v1alpha2/... -run TestSchemaFixtures`.
-    cmds:
-      - go test ./opm/api/v1alpha2/... -run TestSchemaFixtures
-
-  cue:test:verbose:
-    desc: Run the schema fixture harness with verbose per-subtest output
-    cmds:
-      - go test -v ./opm/api/v1alpha2/... -run TestSchemaFixtures
-
-  cue:test:run:
-    desc: Run a single fixture case by name (CASE=<schemaCase.name>)
-    summary: |
-      Filters TestSchemaFixtures down to a single subtest. The CASE value
-      matches the `name` field of an entry in `schemaCases` in
-      opm/api/v1alpha2/schema_fixture_test.go.
-
-      Usage:
-        task cue:test:run CASE=platform_matchers_projects_single_candidate
-        task cue:test:run CASE=multi_fulfiller_violates_no_multi_fulfiller
-    vars:
-      CASE: '{{.CASE | default ""}}'
-    preconditions:
-      - sh: '[ -n "{{.CASE}}" ]'
-        msg: "CASE is required. Usage: task cue:test:run CASE=<schemaCase.name>"
-    cmds:
-      - go test -v ./opm/api/v1alpha2/... -run "TestSchemaFixtures/{{.CASE}}"
-
   cue:test:flow:
     desc: Run the plan/match/compile flow integration test against the on-disk web_app + opm_platform fixtures
     summary: |
@@ -387,29 +351,6 @@ tasks:
           go run ./cmd/flow-inspect
         fi
 
-  cue:test:eval:
-    desc: Evaluate a single fixture with `cue eval -t test` (FIXTURE=<filename>)
-    summary: |
-      Bypasses the Go harness — runs `cue eval -t test ./testdata/<FIXTURE>`
-      from apis/core/v1alpha2/. Useful for quick sanity checks while authoring
-      a new fixture: positive fixtures evaluate cleanly, negative fixtures
-      print the expected CUE error.
-
-      Usage:
-        task cue:test:eval FIXTURE=platform_matchers_fixture.cue
-        task cue:test:eval FIXTURE=multi_fulfiller_fixture.cue
-    vars:
-      FIXTURE: '{{.FIXTURE | default ""}}'
-    env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
-    preconditions:
-      - sh: '[ -n "{{.FIXTURE}}" ]'
-        msg: "FIXTURE is required. Usage: task cue:test:eval FIXTURE=<file.cue>"
-      - sh: '[ -f "apis/core/v1alpha2/testdata/{{.FIXTURE}}" ]'
-        msg: "fixture not found: apis/core/v1alpha2/testdata/{{.FIXTURE}}"
-    cmds:
-      - cd apis/core/v1alpha2 && cue eval -t test ./testdata/{{.FIXTURE}}
-
   cue:publish:
     desc: Publish a single CUE module to local registry (PATH=<dir> [VERSION=vX.Y.Z])
     summary: |
@@ -417,7 +358,7 @@ tasks:
 
       Usage:
         task cue:publish PATH=modules/opm
-        task cue:publish PATH=apis/core VERSION=v1.0.1
+        task cue:publish PATH=modules/opm_platform VERSION=v1.0.1
     vars:
       PATH: '{{.PATH | default ""}}'
       VERSION: '{{.VERSION | default ""}}'
@@ -659,3 +600,81 @@ tasks:
       - task: cue:tidy
       - task: cue:fmt
       - task: cue:vet
+
+  cue:publish:catalog:
+    desc: Publish the opm catalog (opmodel.dev/catalogs/opm) at VERSION via temp-build stamping
+    summary: |
+      Publish the OPM core catalog with publish-time version stamping.
+
+      The committed source tree resolves identity.Version to the "0.0.0-dev"
+      dev sentinel. This task copies the catalog into a transient build dir
+      (source tree untouched, cue.mod/{pkg,gen,usr} excluded), writes
+      identity/version_override.cue pinning the concrete bare SemVer, vets
+      from the build dir, then runs `cue mod publish vX.Y.Z`.
+
+      VERSION accepts bare (0.1.0) or v-prefixed (v0.1.0) input. The OCI tag
+      is always v-prefixed; the stamped metadata.version / FQN stays bare,
+      per the version-layering decision (D-D). Publishing is refused when the
+      resolved Version is the 0.0.0-dev sentinel (D8/D9 guard).
+
+      CUE_REGISTRY is inherited from the environment when set (CI sets the
+      GHCR mapping); otherwise it defaults to the local registry.
+
+      Usage:
+        task cue:publish:catalog VERSION=0.1.0
+    vars:
+      VERSION: '{{.VERSION | default ""}}'
+      CATALOG_DIR: modules/opm
+      BUILD_DIR: .build/catalog
+    preconditions:
+      - sh: command -v rsync >/dev/null 2>&1
+        msg: "rsync is required"
+      - sh: command -v cue >/dev/null 2>&1
+        msg: "cue is required"
+    cmds:
+      - |
+        set -euo pipefail
+
+        # Inherit CUE_REGISTRY from the environment (CI sets GHCR); default to
+        # the local registry for laptop publishing.
+        : "${CUE_REGISTRY:={{.CUE_LOCAL_REGISTRY}}}"
+        export CUE_REGISTRY
+
+        SRC="{{.CATALOG_DIR}}"
+        BUILD="{{.BUILD_DIR}}"
+        DEV_SENTINEL="0.0.0-dev"
+
+        # Normalize: strip a leading v for the bare SemVer; the OCI tag re-adds it.
+        BARE="$(printf '%s' '{{.VERSION}}' | sed 's/^v//')"
+
+        # Stage a clean build tree (source untouched).
+        rm -rf "$BUILD"
+        mkdir -p "$BUILD"
+        rsync -a \
+          --exclude='cue.mod/pkg' \
+          --exclude='cue.mod/gen' \
+          --exclude='cue.mod/usr' \
+          "$SRC/" "$BUILD/"
+
+        # Stamp the concrete version into the build tree only (never the source
+        # tree). With no real VERSION the stamp is skipped and the resolved
+        # version stays at the dev sentinel, tripping the guard below.
+        if [ -n "$BARE" ] && [ "$BARE" != "$DEV_SENTINEL" ]; then
+          printf 'package identity\n\nVersion: "%s"\n' "$BARE" > "$BUILD/identity/version_override.cue"
+        fi
+
+        # Resolve the effective version from the staged identity package.
+        RESOLVED="$(cd "$BUILD" && cue export ./identity -e Version 2>/dev/null | tr -d '"')"
+
+        # Guard (D8/D9): the dev sentinel is never publishable.
+        if [ -z "$RESOLVED" ] || [ "$RESOLVED" = "$DEV_SENTINEL" ]; then
+          echo "::error:: refusing to publish catalog at version '${RESOLVED:-<unset>}' — supply VERSION=X.Y.Z ('$DEV_SENTINEL' is the dev sentinel and is not publishable)" >&2
+          exit 1
+        fi
+
+        echo "Validating catalog at ${RESOLVED}..."
+        (cd "$BUILD" && cue vet ./...)
+
+        echo "Publishing opmodel.dev/catalogs/opm@${RESOLVED} (OCI tag v${RESOLVED}) to ${CUE_REGISTRY}..."
+        (cd "$BUILD" && cue mod publish "v${RESOLVED}")
+        echo "Published opmodel.dev/catalogs/opm@${RESOLVED}"

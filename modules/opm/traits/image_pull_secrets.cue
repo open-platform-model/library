@@ -1,8 +1,9 @@
 package traits
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // References pre-existing K8s Secrets (type kubernetes.io/dockerconfigjson)
@@ -10,8 +11,8 @@ import (
 // pulling images for any container in the pod.
 #ImagePullSecretsTrait: c.#Trait & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/traits"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/traits"
+		version:     id.Version
 		name:        "image-pull-secrets"
 		description: "Reference K8s Secrets used to authenticate to private container registries"
 		labels: {

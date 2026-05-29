@@ -28,21 +28,19 @@ var (
 // artifactSpec describes the shape gate for one artifact type. expectedKind is
 // the concrete kind literal the package must carry; requiredConcreteFields are
 // dotted paths to scalar identity fields that must be present and concrete;
-// moduleRefs point at embedded #Module values (directly or as a map) whose
-// kind must in turn be "Module".
+// moduleRefs point at embedded #Module values whose kind must in turn be
+// "Module".
 type artifactSpec struct {
 	expectedKind           string
 	requiredConcreteFields []string
 	moduleRefs             []moduleRef
 }
 
-// moduleRef locates one or more embedded #Module values within an artifact.
-// When isMap is false, path points directly at a #Module value. When isMap is
-// true, path points at a struct whose every field carries a #module subfield
-// (the #Platform.#registry shape).
+// moduleRef locates an embedded #Module value within an artifact: path points
+// directly at a #Module value whose kind must be "Module" (the
+// #ModuleRelease.#module shape).
 type moduleRef struct {
-	path  string
-	isMap bool
+	path string
 }
 
 // moduleSpec, releaseSpec, and platformSpec are the shape-gate definitions for
@@ -61,10 +59,13 @@ var (
 		moduleRefs:             []moduleRef{{path: "#module"}},
 	}
 
+	// #Platform.#registry carries path-keyed #Subscription values (enhancement
+	// 0001), not embedded #Module registrations — so there is no per-entry
+	// #module to gate here. Subscription resolution is the materialize layer's
+	// contract; the loader only checks the platform's own identity.
 	platformSpec = artifactSpec{
 		expectedKind:           "Platform",
 		requiredConcreteFields: []string{"metadata.name", "type"},
-		moduleRefs:             []moduleRef{{path: "#registry", isMap: true}},
 	}
 )
 
@@ -138,38 +139,15 @@ func requireConcrete(val cue.Value, path string) error {
 	return nil
 }
 
-// checkModuleRef asserts that the #Module value(s) located by ref carry kind
-// "Module". A direct ref that is absent is a missing-field failure; an absent
-// map has no entries and passes vacuously.
+// checkModuleRef asserts that the #Module value located by ref carries kind
+// "Module". An absent ref is a missing-field failure.
 func checkModuleRef(val cue.Value, ref moduleRef) error {
 	target := val.LookupPath(cue.ParsePath(ref.path))
-
-	if !ref.isMap {
-		if !target.Exists() {
-			return fmt.Errorf("required field %q is absent: %w", ref.path, ErrMissingRequiredField)
-		}
-		if err := checkKind(target, "Module"); err != nil {
-			return fmt.Errorf("%s: %w", ref.path, err)
-		}
-		return nil
-	}
-
 	if !target.Exists() {
-		return nil
+		return fmt.Errorf("required field %q is absent: %w", ref.path, ErrMissingRequiredField)
 	}
-	iter, err := target.Fields()
-	if err != nil {
-		return nil
-	}
-	for iter.Next() {
-		entryPath := ref.path + "." + iter.Selector().String() + ".#module"
-		mod := iter.Value().LookupPath(cue.ParsePath("#module"))
-		if !mod.Exists() {
-			return fmt.Errorf("required field %q is absent: %w", entryPath, ErrMissingRequiredField)
-		}
-		if err := checkKind(mod, "Module"); err != nil {
-			return fmt.Errorf("%s: %w", entryPath, err)
-		}
+	if err := checkKind(target, "Module"); err != nil {
+		return fmt.Errorf("%s: %w", ref.path, err)
 	}
 	return nil
 }

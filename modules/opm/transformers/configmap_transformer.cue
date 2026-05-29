@@ -1,17 +1,18 @@
 package transformers
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
-	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
+	k8scorev1 "opmodel.dev/catalogs/opm/schemas/kubernetes/core/v1"
 )
 
 // ConfigMapTransformer converts ConfigMaps resources to Kubernetes ConfigMaps.
 // Supports immutable ConfigMaps with content-hash naming.
 #ConfigMapTransformer: c.#ComponentTransformer & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/transformers"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/transformers"
+		version:     id.Version
 		name:        "configmap-transformer"
 		description: "Converts ConfigMaps resources to Kubernetes ConfigMaps"
 
@@ -46,8 +47,8 @@ import (
 
 		// Emit one K8s ConfigMap per entry in the component's configMaps map.
 		// Output is a list of resources; the renderer dispatches on cue.Kind
-		// (see apis/core/v1alpha2/transformer.cue) and produces one Compiled
-		// per list element.
+		// (see core's #ComponentTransformer output contract) and produces one
+		// Compiled per list element.
 		output: [
 			for _, cm in _configMaps
 			let _baseName = "\(_relName)-\(_compName)-\(cm.name)"

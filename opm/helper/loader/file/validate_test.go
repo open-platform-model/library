@@ -84,18 +84,6 @@ metadata: {name: "demo", namespace: "ns"}
 			sentinel: loader.ErrMissingRequiredField,
 		},
 		{
-			name: "platform registry entry pointing at a non-module",
-			load: platformLoad,
-			content: `
-package platform
-kind:       "Platform"
-metadata: {name: "demo"}
-type: "kubernetes"
-#registry: {bad: {#module: {kind: "Platform"}}}
-`,
-			sentinel: loader.ErrWrongKind,
-		},
-		{
 			name: "platform missing type",
 			load: platformLoad,
 			content: `

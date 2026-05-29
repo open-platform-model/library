@@ -1,16 +1,17 @@
 package traits
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // Enables hostPID: true on the pod spec, sharing the node's PID namespace.
 // Required for workloads that must observe or signal host processes.
 #HostPIDTrait: c.#Trait & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/traits"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/traits"
+		version:     id.Version
 		name:        "host-pid"
 		description: "Share the node's PID namespace (hostPID: true)"
 		labels: {

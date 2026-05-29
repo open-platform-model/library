@@ -1,8 +1,9 @@
 package traits
 
 import (
-	c "opmodel.dev/core/v1alpha2@v1"
-	res "opmodel.dev/modules/opm/resources"
+	id "opmodel.dev/catalogs/opm/identity"
+	c "opmodel.dev/core@v0"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // Enables hostIPC: true on the pod spec, sharing the node's IPC namespace.
@@ -10,8 +11,8 @@ import (
 // processes.
 #HostIPCTrait: c.#Trait & {
 	metadata: {
-		modulePath:  "opmodel.dev/modules/opm/traits"
-		version:     "v1"
+		modulePath:  "\(id.ModulePath)/traits"
+		version:     id.Version
 		name:        "host-ipc"
 		description: "Share the node's IPC namespace (hostIPC: true)"
 		labels: {

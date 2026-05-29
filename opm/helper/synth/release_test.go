@@ -3,7 +3,6 @@ package synth_test
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -13,39 +12,38 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/helper/synth"
+	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // sharedCtx is the single *cue.Context used by every synth test in this
-// package. The schema package caches its loaded schema against the first
-// *cue.Context that calls SchemaValue. If tests use multiple contexts, the
-// second context's values cannot unify with the schema (the schema is bound
-// to the first context's runtime), triggering "values are not from the same
-// runtime" panics inside cue.Value.FillPath.
+// package. The schema cache must produce values in the same runtime that
+// the synth test's other cue.Values live in; if tests use multiple
+// contexts, cross-runtime unification panics inside cue.Value.FillPath
+// with "values are not from the same runtime". Pin to one ctx per
+// package and pair it with one Cache per test.
 var sharedCtx = cuecontext.New()
 
-// apisCoreDir resolves the on-disk path to the apis/core CUE module from
-// this test file's location.
-func apisCoreDir(t *testing.T) string {
+// testdataSynthDir resolves the on-disk path to the testdata/synth/
+// fixture directory relative to this test file.
+func testdataSynthDir(t *testing.T) string {
 	t.Helper()
-	_, here, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	// opm/helper/synth/ → repo/library/
-	libRoot := filepath.Clean(filepath.Join(filepath.Dir(here), "..", "..", ".."))
-	return filepath.Join(libRoot, "apis", "core")
+	return filepath.Join(schematest.LibraryRoot(t), "testdata", "synth")
 }
 
-// testModule loads a #Module from a synthetic in-overlay fixture rooted under
-// apis/core. The overlay provides a synthtest/ package whose source is the
-// caller-supplied src; it imports "opmodel.dev/core@v0" so the local
-// module's #Module definition resolves without any registry access.
+// testModule loads a #Module from a synthtest/ fixture. The fixture
+// imports "opmodel.dev/core@v0" which resolves through
+// testdata/cue.mod/module.cue's deps against CUE_REGISTRY (configured
+// by schematest.SetEnv before the load).
 func testModule(t *testing.T, ctx *cue.Context, src string) *module.Module {
 	t.Helper()
+	schematest.SetEnv(t)
 
-	moduleRoot := apisCoreDir(t)
-	fixturePath := filepath.Join(moduleRoot, "synthtest", "fixture.cue")
+	moduleRoot := testdataSynthDir(t)
+	fixturePath := filepath.Join(moduleRoot, "fixture.cue")
 	cfg := &load.Config{
-		Dir: filepath.Join(moduleRoot, "synthtest"),
+		Dir: moduleRoot,
 		Overlay: map[string]load.Source{
 			fixturePath: load.FromString(src),
 		},
@@ -96,9 +94,20 @@ module: {
 }
 `
 
+// newCache builds a fresh *schema.Cache via the workspace-local cache
+// helper. Each test gets its own cache so memoization scope is explicit.
+func newCache(t *testing.T) *schema.Cache {
+	t.Helper()
+	return schematest.NewCache(t)
+}
+
 func TestRelease_RejectsNilModule(t *testing.T) {
 	ctx := sharedCtx
-	_, err := synth.Release(ctx, synth.ReleaseInput{Name: "demo", Namespace: "ns"})
+	_, err := synth.Release(ctx, synth.ReleaseInput{
+		Name:        "demo",
+		Namespace:   "ns",
+		SchemaCache: newCache(t),
+	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingModule), "want ErrMissingModule, got %v", err)
 }
@@ -106,7 +115,11 @@ func TestRelease_RejectsNilModule(t *testing.T) {
 func TestRelease_RejectsEmptyName(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Namespace: "ns"})
+	_, err := synth.Release(ctx, synth.ReleaseInput{
+		Module:      mod,
+		Namespace:   "ns",
+		SchemaCache: newCache(t),
+	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingName), "want ErrMissingName, got %v", err)
 }
@@ -114,9 +127,26 @@ func TestRelease_RejectsEmptyName(t *testing.T) {
 func TestRelease_RejectsEmptyNamespace(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "demo"})
+	_, err := synth.Release(ctx, synth.ReleaseInput{
+		Module:      mod,
+		Name:        "demo",
+		SchemaCache: newCache(t),
+	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingNamespace), "want ErrMissingNamespace, got %v", err)
+}
+
+func TestRelease_RejectsNilSchemaCache(t *testing.T) {
+	ctx := sharedCtx
+	mod := testModule(t, ctx, baseModuleFixture)
+	_, err := synth.Release(ctx, synth.ReleaseInput{
+		Module:    mod,
+		Name:      "demo",
+		Namespace: "ns",
+	})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, synth.ErrMissingSchemaCache),
+		"want ErrMissingSchemaCache, got %v", err)
 }
 
 func TestRelease_StampsCanonicalFields(t *testing.T) {
@@ -124,9 +154,10 @@ func TestRelease_StampsCanonicalFields(t *testing.T) {
 	mod := testModule(t, ctx, baseModuleFixture)
 
 	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		SchemaCache: newCache(t),
 	})
 	require.NoError(t, err)
 	require.True(t, rel.Exists())
@@ -161,10 +192,11 @@ out: cue_uuid.SHA1(OPMNamespace, "` + moduleUUID + `:` + name + `:` + namespace 
 func TestRelease_NamespaceChangesUUID(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
+	cache := newCache(t)
 
-	rel1, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-a"})
+	rel1, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-a", SchemaCache: cache})
 	require.NoError(t, err)
-	rel2, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-b"})
+	rel2, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-b", SchemaCache: cache})
 	require.NoError(t, err)
 
 	uuid1, err := rel1.LookupPath(cue.ParsePath("metadata.uuid")).String()
@@ -173,7 +205,7 @@ func TestRelease_NamespaceChangesUUID(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid1, uuid2, "different namespaces must produce different UUIDs")
 
-	rel3, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-a"})
+	rel3, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: "ns-a", SchemaCache: cache})
 	require.NoError(t, err)
 	uuid3, err := rel3.LookupPath(cue.ParsePath("metadata.uuid")).String()
 	require.NoError(t, err)
@@ -185,10 +217,11 @@ func TestRelease_CallerLabelsCoexistWithStampedLabels(t *testing.T) {
 	mod := testModule(t, ctx, baseModuleFixture)
 
 	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
-		Labels:    map[string]string{"env": "prod"},
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		Labels:      map[string]string{"env": "prod"},
+		SchemaCache: newCache(t),
 	})
 	require.NoError(t, err)
 
@@ -223,9 +256,10 @@ module: {
 `)
 
 	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		SchemaCache: newCache(t),
 		// Values intentionally omitted — synth.Release MUST NOT fall back to
 		// debugValues. The values path stays open; concreteness is the
 		// downstream kernel's responsibility.
@@ -277,10 +311,11 @@ dbPassword: {
 	require.NoError(t, values.Err())
 
 	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
-		Values:    values,
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		Values:      values,
+		SchemaCache: newCache(t),
 	})
 	require.NoError(t, err)
 
@@ -289,27 +324,6 @@ dbPassword: {
 	secretsComp := components.LookupPath(cue.ParsePath(`"opm-secrets"`))
 	require.True(t, secretsComp.Exists(),
 		"opm-secrets component must be auto-injected when module has #Secret instances")
-}
-
-func TestRelease_NoCueRegistryNeeded(t *testing.T) {
-	// synth.Release goes through schema.SchemaValue, which is entirely
-	// off-disk (embed + overlay). Verify the contract by explicitly clearing
-	// CUE_REGISTRY before the synth call.
-	t.Setenv("CUE_REGISTRY", "")
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
-
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
-	})
-	require.NoError(t, err)
-	require.True(t, rel.Exists())
-
-	uuid, err := rel.LookupPath(cue.ParsePath("metadata.uuid")).String()
-	require.NoError(t, err)
-	assert.NotEmpty(t, uuid, "UUID must be schema-derived even with CUE_REGISTRY unset")
 }
 
 func TestRelease_ComponentsAreFannedBySchema(t *testing.T) {
@@ -336,9 +350,10 @@ module: {
 `)
 
 	rel, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
+		Module:      mod,
+		Name:        "myrel",
+		Namespace:   "default",
+		SchemaCache: newCache(t),
 	})
 	require.NoError(t, err)
 
@@ -359,6 +374,7 @@ func TestRelease_AnnotationsPassThrough(t *testing.T) {
 		Name:        "myrel",
 		Namespace:   "default",
 		Annotations: map[string]string{"opmodel.dev/owner": "team-x"},
+		SchemaCache: newCache(t),
 	})
 	require.NoError(t, err)
 
@@ -373,9 +389,10 @@ func TestRelease_RejectsBadName(t *testing.T) {
 	mod := testModule(t, ctx, baseModuleFixture)
 
 	_, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:    mod,
-		Name:      "BAD-UPPER", // #NameType forbids uppercase
-		Namespace: "default",
+		Module:      mod,
+		Name:        "BAD-UPPER", // #NameType forbids uppercase
+		Namespace:   "default",
+		SchemaCache: newCache(t),
 	})
 	require.Error(t, err,
 		"Names violating #NameType must surface as a unification error")

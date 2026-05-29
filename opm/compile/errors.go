@@ -40,12 +40,6 @@ func (e *UnmatchedComponentsError) Error() string {
 			if len(result.MissingLabels) > 0 {
 				fmt.Fprintf(&sb, "      missing labels:    %v\n", result.MissingLabels)
 			}
-			if len(result.MissingResources) > 0 {
-				fmt.Fprintf(&sb, "      missing resources: %v\n", result.MissingResources)
-			}
-			if len(result.MissingTraits) > 0 {
-				fmt.Fprintf(&sb, "      missing traits:    %v\n", result.MissingTraits)
-			}
 		}
 	}
 

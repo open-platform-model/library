@@ -14,8 +14,8 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/opm/core"
+	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/platform"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -46,7 +46,7 @@ type ComponentSummary struct {
 // A Module is constructed once per platform and reused across multiple
 // Execute calls. It is not safe for concurrent use (CUE context is single-threaded).
 type Module struct {
-	platform    *platform.Platform
+	platform    *materialize.MaterializedPlatform
 	runtimeName string // identity of the runtime executing this compile
 }
 
@@ -79,11 +79,13 @@ type CompileResult struct {
 // Deprecated: use [CompileResult].
 type ModuleResult = CompileResult
 
-// NewModule creates a Module for the given platform and runtime identity.
+// NewModule creates a Module for the given materialized platform and runtime
+// identity. The Execute path reads #composedTransformers off mp.Package — the
+// kernel-filled view — so callers must Materialize before compiling.
 // runtimeName must be non-empty — the catalog requires #context.#runtimeName
 // to be populated and CUE evaluation fails on empty values.
-func NewModule(plat *platform.Platform, runtimeName string) *Module {
-	return &Module{platform: plat, runtimeName: runtimeName}
+func NewModule(mp *materialize.MaterializedPlatform, runtimeName string) *Module {
+	return &Module{platform: mp, runtimeName: runtimeName}
 }
 
 // Execute runs matched transformers against the provided component views and

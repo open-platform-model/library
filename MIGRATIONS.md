@@ -6,6 +6,91 @@ From the first tagged release onward, released versions are summarised in [CHANG
 
 ## Unreleased — next MAJOR
 
+### Added — `replace-embedded-schema-with-oci-loader`
+
+- `opm/schema.Loader` — interface (`Load(*cue.Context) (cue.Value, error)`)
+  for resolving the OPM core schema. The library exposes exactly one
+  public implementation: `OCILoader`.
+- `opm/schema.OCILoader{Module, Registry, CacheDir}` — sole public
+  `Loader` implementation. Zero value resolves
+  `Module="opmodel.dev/core@v0"` against `CUE_REGISTRY` / `CUE_CACHE_DIR`
+  from the process environment. Empty fields inherit env; explicit fields
+  override env without mutating process state.
+- `opm/schema.PublicRegistry` — exported const
+  `"opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"`. Not an
+  auto-applied default; callers opt in by setting `CUE_REGISTRY` to this
+  value (or via `OCILoader.Registry`).
+- `opm/schema.Cache{Loader}` — per-instance memoization in front of a
+  Loader. `(*Cache).Get(ctx) (cue.Value, error)` is `sync.Once`-guarded;
+  `(*Cache).ResolvedVersion() string` surfaces the resolved version
+  (e.g. `"v0.3.0"`) for diagnostics. Cache is per-Kernel — long-running
+  consumers MUST keep the Kernel alive across operations.
+- `opm/kernel.WithSchemaLoader(schema.Loader) Option` — configures the
+  Loader the Kernel's cache uses. Omitting the option defaults to
+  `schema.OCILoader{}`.
+- `(*kernel.Kernel).SchemaCache() *schema.Cache` — accessor returning
+  the kernel-owned cache. Pass this to
+  `synth.ReleaseInput.SchemaCache`.
+
+### Test cache convention — `replace-embedded-schema-with-oci-loader`
+
+Tests use a workspace-local CUE module cache at `library/.cue-cache/`
+(gitignored). First test run on a fresh clone fetches
+`opmodel.dev/core@v0` from `CUE_REGISTRY` (default `schema.PublicRegistry`
+→ GHCR); subsequent runs hit the workspace cache. A CUE SDK bump may
+invalidate the cache, which CUE will silently re-fetch on the next test
+run. Delete the directory to force a cold re-fetch.
+
+### Changed — `replace-embedded-schema-with-oci-loader` (BREAKING)
+
+- `opm/helper/synth.ReleaseInput` grew a REQUIRED
+  `SchemaCache *schema.Cache` field. `synth.Release` returns an error
+  when `SchemaCache == nil`. Callers pass `kernel.SchemaCache()` from
+  their Kernel.
+
+### Removed — `replace-embedded-schema-with-oci-loader` (BREAKING)
+
+- `library/apis/` deleted in full: `apis/core/*.cue`, `apis/core/embed.go`,
+  `apis/core/cue.mod/`, `apis/core/INDEX.md`, `apis/core/synthtest/`,
+  `apis/Taskfile.yaml`, `apis/.tasks/`. The Go import path
+  `github.com/open-platform-model/library/apis/core` no longer exists.
+- `opm/schema.SchemaValue(ctx)` and `opm/schema.EmbeddedSchema()` removed.
+  The only public schema-load surface is `(*schema.Cache).Get`.
+
+### Migration recipes — `replace-embedded-schema-with-oci-loader`
+
+```text
+OLD                                              NEW
+────────────────────────────────────────────────────────────────────────────────────────────
+val, err := schema.SchemaValue(ctx)              val, err := k.SchemaCache().Get(ctx)
+                                                 // k is your *kernel.Kernel; one Cache per Kernel.
+
+schemaFS := schema.EmbeddedSchema()              // No replacement. The library no longer ships an
+                                                 // embed.FS. Air-gap consumers MUST pre-seed
+                                                 // $CUE_CACHE_DIR or mirror to an internal OCI
+                                                 // registry; configure via CUE_REGISTRY.
+
+synth.Release(ctx, synth.ReleaseInput{           synth.Release(ctx, synth.ReleaseInput{
+    Module: mod, Name: ..., Namespace: ...,          Module:      mod, Name: ..., Namespace: ...,
+})                                                   SchemaCache: k.SchemaCache(),  // REQUIRED
+                                                 })
+
+import core "github.com/.../library/apis/core"   // No replacement. Schema is resolved via CUE's
+                                                 // module system from opmodel.dev/core@v0.
+```
+
+Frontend startup (CLI / operator) MUST set `CUE_REGISTRY` before the
+first `Cache.Get`. The library does NOT auto-set it. Suggested setup:
+
+```go
+os.Setenv("CUE_REGISTRY", schema.PublicRegistry) // or a private mirror
+```
+
+To pin a specific schema version (e.g. for reproducible operator
+builds), pass `kernel.WithSchemaLoader(schema.OCILoader{Module:
+"opmodel.dev/core@v0.3.0"})`. Inspect the resolved version at runtime
+via `k.SchemaCache().ResolvedVersion()`.
+
 ### Added — `replace-load-platform-file-with-package`
 
 - `opm/helper/loader/file.LoadPlatformPackage(ctx, dirPath, opts) (cue.Value, apiversion.Version, error)` —
@@ -468,9 +553,142 @@ ctx.CompileBytes(b)                                    src, err := k.LoadSourceF
 + })
 ```
 
+### Changed — `rewrite-match-materialized` (BREAKING)
+
+- `(*kernel.Kernel).Match` / `Plan` / `Compile` now take a
+  `*materialize.MaterializedPlatform` instead of a raw `*platform.Platform`.
+  The `Platform` field on `MatchInput`, `PlanInput`, and `CompileInput` is
+  retyped to `*materialize.MaterializedPlatform`. Callers MUST `Materialize`
+  the platform before invoking these phases.
+- `opm/compile.Match` signature changed from
+  `Match(components cue.Value, plat *platform.Platform)` to
+  `Match(components cue.Value, mp *materialize.MaterializedPlatform, releaseName string)`.
+  The matcher now reads `#composedTransformers` / `#matchers` off `mp.Package`
+  and threads `releaseName` into `MissingFQN` diagnostics.
+- `opm/compile.NewModule` signature changed from
+  `NewModule(plat *platform.Platform, runtimeName string)` to
+  `NewModule(mp *materialize.MaterializedPlatform, runtimeName string)`; the
+  Execute path reads the composed transformer map off the materialized package.
+- `opm/compile.MatchResult` lost its `MissingResources` / `MissingTraits`
+  fields (and `NonMatchedPair` lost the same two); the absent-FQN case is now a
+  structured `MatchPlan.Missing []oerrors.MissingFQN`. `MissingLabels` stays.
+- The matcher inserts an always-on **unify rung** between FQN lookup and
+  predicate evaluation: for every FQN present in both `component.#resources` and
+  `transformer.requiredResources` (and the analogous traits intersection), the
+  bodies must unify. Divergent bodies disqualify the candidate and append an
+  `oerrors.UnifyError`. This is uniform behavior — there is no `--strict`
+  opt-out.
+
+### Added — `rewrite-match-materialized`
+
+- `opm/errors.MissingFQN{Release, Component, FQN, Alternatives}` — the hard
+  "no transformer requires this FQN" diagnostic, one per
+  `(release, component, fqn)`. `Alternatives` lists same-modulePath/name FQNs
+  materialized at other SemVers. Accumulated on `MatchPlan.Missing` in one pass
+  (no fail-fast).
+- `opm/errors.UnifyError{Component, FQN, Cause}` — the always-unify-rung
+  failure. `Cause` carries the CUE error tree verbatim, reachable via
+  `errors.As` for `cuelang.org/go/cue/errors.Error`. Accumulated on
+  `MatchPlan.Unify`.
+
+### Removed — `rewrite-match-materialized` (BREAKING)
+
+- `opm/helper/platform.Compose(owner, shell, modules)` and its kernel wrapper
+  `(*kernel.Kernel).ComposePlatform(shell, modules)` are deleted outright (no
+  deprecated stub). The Module-valued `#registry` composition they performed is
+  obsolete under enhancement 0001's subscription model.
+- `opm/helper/platform.MultiFulfillerError` (Compose's same-FQN collision
+  error) is removed with it.
+
+### Migration recipes — `rewrite-match-materialized`
+
+Match / Plan / Compile now consume a materialized platform:
+
+```diff
+  plat, err := k.NewPlatformFromValue(platVal)
+- result, err := k.Compile(ctx, kernel.CompileInput{
+-     ModuleRelease: rel, Platform: plat, RuntimeName: "opm-cli",
+- })
++ mp, err := k.Materialize(ctx, plat)
++ result, err := k.Compile(ctx, kernel.CompileInput{
++     ModuleRelease: rel, Platform: mp, RuntimeName: "opm-cli",
++ })
+```
+
+Replace `Compose` with a subscription-shaped `#registry` plus `Materialize`:
+
+```diff
+- shell, _ := k.NewPlatformFromValue(shellVal)
+- plat, err := k.ComposePlatform(shell, []*module.Module{a, b})
++ // Build a *platform.Platform whose #registry carries #Subscription entries
++ // directly (path-keyed [#ModulePathType]: #Subscription), then materialize:
++ plat, _ := k.NewPlatformFromValue(platValWithSubscriptions)
++ mp, err := k.Materialize(ctx, plat)
+```
+
+Read absent-FQN and unify diagnostics off the `MatchPlan`:
+
+```diff
+- for _, np := range plan.NonMatchedPairs() {
+-     fmt.Println(np.MissingResources, np.MissingTraits)
+- }
++ for _, m := range plan.Missing { // []oerrors.MissingFQN
++     fmt.Printf("%s: no transformer for %s (try %v)\n", m.Component, m.FQN, m.Alternatives)
++ }
++ for _, u := range plan.Unify { // []oerrors.UnifyError — CUE cause verbatim
++     fmt.Printf("%s @ %s: %v\n", u.Component, u.FQN, u.Cause)
++ }
+```
+
 ## Unreleased — next MINOR
 
 ### Added
+
+- `opm/materialize/` — new package realizing a `#Platform`'s path-keyed
+  catalog subscriptions into a sealed `*MaterializedPlatform`
+  (`add-platform-materialize`). `Materialize(ctx, owner, registry, p)` walks
+  `p.Package`'s `#registry` and, for each subscription with `enable:true`:
+    - enumerates published versions (`modregistry.ModuleVersions`);
+    - narrows them Go-side by the filter — `range` ∧ `allow` ∧ `deny`, parsed
+      as SemVer constraints via `github.com/Masterminds/semver/v3` (CUE cannot
+      evaluate range syntax);
+    - pulls each survivor through `cue/load`;
+    - reads the build's `#Catalog.#transformers`.
+
+  The indexed result — a composed transformer map plus a
+  `#matchers.{resources,traits}` reverse index — is `FillPath`-ed onto a copy
+  of `Source.Package`, so it answers the matcher's existing path constants
+  (`schema.ComposedTransformers`, `schema.MatchersResources`,
+  `schema.MatchersTraits`). Inputs are not mutated; the registry mapping is
+  plumbed into `load.Config.Env` (no `os.Setenv`). `MaterializedPlatform`
+  carries `Source *platform.Platform`, `Package cue.Value` (filled), and
+  `Resolved map[string]string` (subscription path → resolved bare SemVer,
+  diagnostic-only). Failures surface as `*oerrors.MaterializeError`
+  (fail-fast on the first failing subscription).
+- `opm/errors.MaterializeError{Kind, Subscription, Version, Cause}` — with
+  `Error()` + `Unwrap()` and kind constants `MaterializeKindCatalog`
+  (`"catalog"`, the only kind `Materialize` emits) and
+  `MaterializeKindCoreSchema` (`"core-schema"`, reserved for schema-load
+  failures surfaced through the same shape later).
+- `opm/materialize/cache/` — opt-in memoization, kept off the kernel
+  (Principle I — invalidation policy differs per consumer). `MaterializeCache`
+  interface (`Get(key)`/`Put(key, mp)`), reference `LRU` (`NewLRU(capacity)`,
+  concurrency-safe; non-positive capacity disables caching), and
+  `Key(*platform.Platform) (string, error)` deriving a SHA-256 key over the
+  canonicalized `#registry` subtree (invariant to field ordering, `enable`
+  defaulting, and `allow`/`deny` list order).
+- `opm/kernel.WithRegistry(string) Option` — sets the OCI registry mapping
+  (CUE_REGISTRY syntax) used for catalog resolution during `Materialize`.
+  No auto-applied default; an empty mapping inherits process `CUE_REGISTRY`.
+  Never mutates process environment state.
+- `(*kernel.Kernel).Materialize(ctx, *platform.Platform) (*materialize.MaterializedPlatform, error)`
+  — thin delegate to `opm/materialize.Materialize` using the kernel's
+  configured registry and owned `*cue.Context`. Additive: `Validate`,
+  `Match`, `Plan`, and `Compile` signatures are unchanged in this slice
+  (the `*MaterializedPlatform` phase-signature swap lands in the follow-up
+  `rewrite-match-materialized` change).
+- New dependency `github.com/Masterminds/semver/v3` (SemVer range/constraint
+  parsing for the subscription filter).
 
 - `opm/helper/values/` — new helper package shipping the Tier-1 layered
   values validator. `Layer{Name, Source, Value}` labels a single values

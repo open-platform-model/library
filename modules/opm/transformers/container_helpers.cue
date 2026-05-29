@@ -3,9 +3,9 @@ package transformers
 import (
 	"strconv"
 
-	k8scorev1 "opmodel.dev/modules/opm/schemas/kubernetes/core/v1@v1"
-	schemas "opmodel.dev/modules/opm/schemas"
-	res "opmodel.dev/modules/opm/resources"
+	k8scorev1 "opmodel.dev/catalogs/opm/schemas/kubernetes/core/v1"
+	schemas "opmodel.dev/catalogs/opm/schemas"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // #ToK8sContainer converts an OPM #ContainerSchema to a Kubernetes #Container.

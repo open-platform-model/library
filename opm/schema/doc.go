@@ -1,11 +1,10 @@
 // Package schema is the kernel's single source of truth for OPM schema-side
 // knowledge: CUE paths, metadata decoders, the transformer-context builder,
-// and the cached embedded-schema loader.
+// and the OCI-backed schema loader.
 //
-// Schema is unversioned. The library ships exactly one CUE schema vendored
-// under apis/core/. Every consumer that previously dispatched through a
-// per-version binding now reaches directly for the free functions and
-// package-level path vars in this package.
+// Schema is unversioned at the package level. The library consumes exactly
+// one OPM CUE schema package — opmodel.dev/core@v0, resolved through CUE's
+// module system against CUE_REGISTRY. There is no in-tree schema mirror.
 //
 // # Path inventory
 //
@@ -27,10 +26,16 @@
 // for filling the returned value at schema.Context on the unified
 // transformer.
 //
-// # Embedded schema loader
+// # Schema loader and cache
 //
-// SchemaValue returns the embedded OPM schema as a cue.Value. The first call
-// builds the package via cuelang.org/go/cue/load with a synthetic overlay
-// (no CUE_REGISTRY, no filesystem read); subsequent calls return the cached
-// value. Schema-load failures are cached too — the load is never retried.
+// Loader is the strategy interface for resolving the schema; OCILoader is
+// the sole public implementation, fetching opmodel.dev/core@v0 through
+// CUE's module system. Cache memoizes a single Loader.Load per instance
+// (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
+//
+// Long-running consumers attach the Cache to a Kernel (via
+// kernel.WithSchemaLoader) and reuse the kernel-owned cache via
+// kernel.SchemaCache(). The library auto-applies no CUE_REGISTRY default;
+// callers opt in by setting CUE_REGISTRY to schema.PublicRegistry (or to
+// a private mirror) before the first Cache.Get.
 package schema
