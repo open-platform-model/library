@@ -20,7 +20,11 @@ vars:
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
-  CUE_LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # The OPM core schema lives in its own repo and is published to GHCR; the
+  # workspace-local registry holds only the catalogs/fixtures. The more
+  # specific opmodel.dev/core prefix resolves the schema from GHCR while every
+  # other opmodel.dev module (catalogs, test fixtures) resolves from localhost.
+  CUE_LOCAL_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
 tasks:
   default:

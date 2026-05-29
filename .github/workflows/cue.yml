@@ -6,9 +6,11 @@ on:
   pull_request:
 
 env:
-  # Matches CUE_LOCAL_REGISTRY in Taskfile.yml — opmodel.dev modules resolve
-  # from the ephemeral local registry; everything else from registry.cue.works.
-  CUE_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # Matches CUE_LOCAL_REGISTRY in Taskfile.yml. The OPM core schema lives in
+  # its own repo and is pulled from GHCR; the catalog + on-disk fixtures
+  # resolve from the ephemeral local registry; everything else from
+  # registry.cue.works.
+  CUE_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
 jobs:
   cue:
@@ -43,15 +45,16 @@ jobs:
         with:
           cmd: echo "yq installed"
 
-      - name: Publish CUE modules to local registry
-        # Dependency order: apis/core feeds modules/opm, which feeds the
-        # platform and fixture modules. Each is published before the next so
-        # dependent `cue vet` and the flow test can resolve their imports.
+      - name: Publish catalog to local registry
+        # The OPM core schema is pulled from GHCR (its own repo). Only the
+        # catalog is published to the ephemeral local registry: the platform
+        # subscribes to it and the on-disk fixtures (opm_platform, web_app)
+        # resolve their imports against it. cue:publish:catalog stamps the
+        # version from cue-versions.yml and vets before publishing.
         run: |
           set -euo pipefail
-          for path in apis/core modules/opm modules/opm_platform testdata/modules/web_app; do
-            task cue:publish PATH="$path"
-          done
+          VERSION=$(yq '.["catalogs/opm"].version' cue-versions.yml)
+          task cue:publish:catalog VERSION="$VERSION"
 
       - name: Check CUE formatting
         run: |
@@ -60,9 +63,6 @@ jobs:
 
       - name: Vet CUE modules
         run: task cue:vet
-
-      - name: Run schema fixture harness
-        run: task cue:test
 
       - name: Run plan/match/compile flow test
         env:

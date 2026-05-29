@@ -39,7 +39,10 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-const localRegistry = "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
+// localRegistry resolves the OPM core schema from GHCR (its own repo) while
+// pulling the catalog and on-disk fixtures from the local registry. The more
+// specific opmodel.dev/core prefix wins over the broader opmodel.dev mapping.
+const localRegistry = "opmodel.dev/core=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
 type stage string
 

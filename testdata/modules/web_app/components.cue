@@ -1,20 +1,19 @@
 package web_app
 
 import (
-	tr "opmodel.dev/modules/opm/traits@v1"
-	bp_workload "opmodel.dev/modules/opm/blueprints/workload@v1"
-	res "opmodel.dev/modules/opm/resources@v1"
+	tr "opmodel.dev/catalogs/opm/traits"
+	bp_workload "opmodel.dev/catalogs/opm/blueprints/workload"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // One stateless web component. Attaches:
 //   - Container resource     → satisfies DeploymentTransformer's required FQN
 //   - Scaling trait          → optional for DeploymentTransformer
 //   - RestartPolicy trait    → optional for DeploymentTransformer
-//   - HttpRoute trait        → unmatched in this fixture (no opm HTTPRoute
-//     transformer registered) — surfaces the unhandled-trait warning path
+//   - HttpRoute trait        → pairs with http-route-transformer
 //   - Expose trait           → satisfies ServiceTransformer's required trait
-//     FQN, so the component pairs both deployment-transformer and
-//     service-transformer in a single match cycle
+//     FQN, so the component pairs deployment-transformer, service-transformer,
+//     and http-route-transformer in a single match cycle
 //   - StatelessWorkloadBlueprint → demonstrates Blueprint composition; its
 //     spec.statelessWorkload field is satisfied alongside the direct primitives
 //
