@@ -37,15 +37,15 @@
 
 ## 7. Restore opm_platform fixture (Phase 3)
 
-- [ ] 7.1 Rewrite `library/modules/opm_platform/_platform.cue.quarantined` to a `#Subscription`-shaped `#registry` importing the republished catalog; update `opm_platform/cue.mod/module.cue` deps (`core@v0`, `opmodel.dev/catalogs/opm@v0`).
-- [ ] 7.2 Rename the file back to `platform.cue`; delete `QUARANTINE.md`.
-- [ ] 7.3 Confirm `opm_platform` is absent from all publish config (already removed in 5.x); it remains an unpublished fixture in the `modules/` namespace.
+- [x] 7.1 Rewrite `library/modules/opm_platform/_platform.cue.quarantined` to a `#Subscription`-shaped `#registry` importing the republished catalog; update `opm_platform/cue.mod/module.cue` deps (`core@v0`, `opmodel.dev/catalogs/opm@v0`).
+- [x] 7.2 Rename the file back to `platform.cue`; delete `QUARANTINE.md`.
+- [x] 7.3 Confirm `opm_platform` is absent from all publish config (already removed in 5.x); it remains an unpublished fixture in the `modules/` namespace.
 
 ## 8. Phase 3 gate + final validation
 
-- [ ] 8.1 `cd library/modules/opm_platform && cue fmt ./... && cue vet ./...` passes against the published catalog.
+- [x] 8.1 `cd library/modules/opm_platform && cue fmt ./... && cue vet ./...` passes against the published catalog.
 - [ ] 8.2 `task cue:test:flow` (plan→match→compile integration) passes using the restored on-disk fixture.
-- [ ] 8.3 `task check` passes (Go side unaffected: fmt/vet/lint/test green).
+- [x] 8.3 `task check` passes (Go side unaffected: fmt/vet/lint/test green).
 - [ ] 8.4 Commit Phase 3 (`test(catalog): restore opm_platform fixture on #Subscription`).
 
 ## 9. Enhancement bookkeeping
