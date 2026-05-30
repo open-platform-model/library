@@ -3,6 +3,7 @@ package compile_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/compile"
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -558,4 +560,375 @@ type: "kubernetes"
 	component, err := got.LookupPath(cue.ParsePath("component")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web", component)
+}
+
+// ---------------------------------------------------------------------------
+// Execute-path tests.
+//
+// The match phase is covered above. The tests below exercise compile/execute.go
+// and compile/module.go: output-kind dispatch (struct vs list vs unexpected),
+// the per-pair error branches, context cancellation, the nil guards,
+// UnmatchedComponentsError, and warning propagation. They drive the same entry
+// the kernel uses (compile.NewModule(mp, runtime).Execute), so behaviour stays
+// pinned to the real compile pipeline.
+// ---------------------------------------------------------------------------
+
+const (
+	echoResFQN = "example.com/r/echo@v0"
+	echoTfFQN  = "example.com/p/echo@v0"
+)
+
+// releaseWithComponents builds a minimal *module.Release whose `components`
+// field is the given CUE struct source. Metadata is fixed; only the component
+// shape varies between tests.
+func releaseWithComponents(t *testing.T, ctx *cue.Context, componentsSrc string) *module.Release {
+	t.Helper()
+	spec := ctx.CompileString(`
+kind: "ModuleRelease"
+metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+components: ` + componentsSrc)
+	require.NoError(t, spec.Err())
+	return &module.Release{
+		Metadata: &module.ReleaseMetadata{
+			Name: "demo", Namespace: "ns", UUID: "u-rel",
+			Labels: map[string]string{},
+		},
+		Package: spec,
+	}
+}
+
+// echoRelease is the common single-component release: "web" declaring the echo
+// resource and no labels.
+func echoRelease(t *testing.T, ctx *cue.Context) *module.Release {
+	t.Helper()
+	return releaseWithComponents(t, ctx, `{
+	web: {
+		metadata: { name: "web", labels: {} }
+		#resources: { "`+echoResFQN+`": {} }
+	}
+}`)
+}
+
+// echoPlatform builds a materialized platform with one transformer matched to
+// the echo resource. transformField is spliced into the composed entry verbatim
+// (e.g. `#transform: { ... }`); pass "" to omit #transform entirely and
+// exercise the not-found branch.
+func echoPlatform(t *testing.T, ctx *cue.Context, transformField string) *materialize.MaterializedPlatform {
+	t.Helper()
+	return materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"`+echoTfFQN+`": {
+		metadata: { fqn: "`+echoTfFQN+`" }
+		requiredLabels: {}
+		requiredResources: { "`+echoResFQN+`": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+		`+transformField+`
+	}
+}
+#matchers: {
+	resources: {
+		"`+echoResFQN+`": [#composedTransformers["`+echoTfFQN+`"]]
+	}
+	traits: {}
+}
+`)
+}
+
+// runExecute drives MatchComponents → Finalize → Match → Execute against the
+// given platform and release using a background context.
+func runExecute(t *testing.T, mp *materialize.MaterializedPlatform, rel *module.Release) (*compile.CompileResult, error) {
+	t.Helper()
+	return runExecuteCtx(t, context.Background(), mp, rel)
+}
+
+func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.MaterializedPlatform, rel *module.Release) (*compile.CompileResult, error) {
+	t.Helper()
+	sc := rel.MatchComponents()
+	require.True(t, sc.Exists())
+	dc, err := compile.FinalizeValue(mp.Package.Context(), sc)
+	require.NoError(t, err)
+	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	require.NoError(t, err)
+	//nolint:staticcheck // SA1019: NewModule is on its own deprecation arc; this mirrors kernel/compile.go.
+	return compile.NewModule(mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
+}
+
+// TestExecute_ListOutputEmitsOnePerItem covers the ListKind dispatch: a list
+// output yields one *core.Compiled per element, each carrying identical
+// provenance and a distinct value.
+func TestExecute_ListOutputEmitsOnePerItem(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: [ {n: 1}, {n: 2}, {n: 3} ] }`)
+
+	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.NoError(t, err)
+	require.Len(t, out.Compiled, 3, "one Compiled per list element")
+
+	seen := map[int64]bool{}
+	for _, c := range out.Compiled {
+		assert.Equal(t, "web", c.Component)
+		assert.Equal(t, echoTfFQN, c.Transformer)
+		assert.Equal(t, "demo", c.Release)
+		n, err := c.Value.LookupPath(cue.ParsePath("n")).Int64()
+		require.NoError(t, err)
+		seen[n] = true
+	}
+	assert.Equal(t, map[int64]bool{1: true, 2: true, 3: true}, seen, "each element preserved")
+}
+
+// TestExecute_EmptyListEmitsZero covers an empty list output: zero Compiled, no
+// error.
+func TestExecute_EmptyListEmitsZero(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: [] }`)
+
+	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.NoError(t, err)
+	assert.Empty(t, out.Compiled)
+}
+
+// TestExecute_UnexpectedOutputKindErrors covers the default dispatch arm: a
+// scalar output is neither struct nor list and must error.
+func TestExecute_UnexpectedOutputKindErrors(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: "not-a-resource" }`)
+
+	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected output kind")
+}
+
+// TestExecute_AbsentOutputFieldYieldsNoCompiledNoError covers a #transform with
+// no output field: the pair contributes nothing but is not an error.
+func TestExecute_AbsentOutputFieldYieldsNoCompiledNoError(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _ }`)
+
+	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.NoError(t, err)
+	assert.Empty(t, out.Compiled)
+}
+
+// TestExecute_FillComponentConflictErrors covers the FillPath(#component) error
+// branch: the transform unifies the injected #component with a conflicting
+// scalar, so unification fails the moment the data component is filled in.
+//
+// Note: this is also the closest reachable proxy for the later
+// outputVal.Err() branch (execute.go evaluating-output) — any structural bottom
+// in the transform value surfaces at the first FillPath().Err() check, so the
+// output-evaluation branch is effectively shadowed by this one.
+func TestExecute_FillComponentConflictErrors(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: #component.metadata.name & 123 }`)
+
+	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "filling #component")
+}
+
+// TestExecute_TransformNotFoundInComposed covers the missing-#transform branch:
+// the transformer is indexed and pairs at match time but carries no #transform,
+// so execution cannot find it.
+func TestExecute_TransformNotFoundInComposed(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, "") // composed entry without #transform
+
+	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "#transform not found")
+}
+
+// TestExecute_ComponentMissingInDataComponents covers the branch where a matched
+// component is absent from the finalized data components passed to Execute.
+func TestExecute_ComponentMissingInDataComponents(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
+	rel := echoRelease(t, ctx)
+
+	sc := rel.MatchComponents()
+	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	require.NoError(t, err)
+
+	// Deliberately pass empty data components — the plan still references "web".
+	emptyDC := ctx.CompileString(`{}`)
+	require.NoError(t, emptyDC.Err())
+
+	//nolint:staticcheck // SA1019: NewModule deprecation arc, see runExecuteCtx.
+	_, err = compile.NewModule(mp, "opm-cli").Execute(context.Background(), rel, sc, emptyDC, plan)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found in data components value")
+}
+
+// TestExecute_PerPairErrorsAccumulated covers executeTransforms collecting
+// errors across pairs rather than failing fast: two components each match a
+// transformer that lacks #transform, and both failures surface.
+func TestExecute_PerPairErrorsAccumulated(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"example.com/p/ta@v0": {
+		metadata: { fqn: "example.com/p/ta@v0" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/ra@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+	"example.com/p/tb@v0": {
+		metadata: { fqn: "example.com/p/tb@v0" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/rb@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"example.com/r/ra@v0": [#composedTransformers["example.com/p/ta@v0"]]
+		"example.com/r/rb@v0": [#composedTransformers["example.com/p/tb@v0"]]
+	}
+	traits: {}
+}
+`)
+	rel := releaseWithComponents(t, ctx, `{
+	a: { metadata: { name: "a", labels: {} }, #resources: { "example.com/r/ra@v0": {} } }
+	b: { metadata: { name: "b", labels: {} }, #resources: { "example.com/r/rb@v0": {} } }
+}`)
+
+	_, err := runExecute(t, mp, rel)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `"a"`, "first pair failure surfaced")
+	assert.Contains(t, err.Error(), `"b"`, "second pair failure surfaced (no fail-fast)")
+}
+
+// TestExecute_ContextCancellationStops covers the ctx.Done() guard in
+// executeTransforms: a cancelled context aborts execution with context.Canceled.
+func TestExecute_ContextCancellationStops(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := runExecuteCtx(t, cancelled, mp, echoRelease(t, ctx))
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestExecute_UnmatchedComponentsError covers module.Execute rejecting a plan
+// with unmatched components, exposing per-component *oerrors.TransformError via
+// errors.As.
+func TestExecute_UnmatchedComponentsError(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
+	// Component demands a resource the platform does not index → unmatched.
+	rel := releaseWithComponents(t, ctx, `{
+	web: { metadata: { name: "web", labels: {} }, #resources: { "example.com/r/missing@v0": {} } }
+}`)
+
+	_, err := runExecute(t, mp, rel)
+	require.Error(t, err)
+
+	var uce *compile.UnmatchedComponentsError
+	require.ErrorAs(t, err, &uce)
+	assert.Contains(t, uce.Components, "web")
+
+	var te *oerrors.TransformError
+	require.ErrorAs(t, err, &te, "per-component TransformError reachable via errors.As")
+}
+
+// TestExecute_NilGuards covers the three nil guards at the top of module.Execute.
+func TestExecute_NilGuards(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
+	rel := echoRelease(t, ctx)
+	sc := rel.MatchComponents()
+	dc, err := compile.FinalizeValue(mp.Package.Context(), sc)
+	require.NoError(t, err)
+	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	require.NoError(t, err)
+
+	t.Run("nil release", func(t *testing.T) {
+		//nolint:staticcheck // SA1019: NewModule deprecation arc.
+		_, err := compile.NewModule(mp, "opm-cli").Execute(context.Background(), nil, sc, dc, plan)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "release is required")
+	})
+	t.Run("nil platform", func(t *testing.T) {
+		//nolint:staticcheck // SA1019: NewModule deprecation arc.
+		_, err := compile.NewModule(nil, "opm-cli").Execute(context.Background(), rel, sc, dc, plan)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "platform is required")
+	})
+	t.Run("nil plan", func(t *testing.T) {
+		//nolint:staticcheck // SA1019: NewModule deprecation arc.
+		_, err := compile.NewModule(mp, "opm-cli").Execute(context.Background(), rel, sc, dc, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "match plan is required")
+	})
+}
+
+// TestExecute_WarningsPropagated covers warning aggregation: a component matches
+// one transformer via its resource but also declares a trait whose only
+// candidate transformer fails its label predicate, so the trait is unhandled and
+// surfaces as a warning (without failing the compile).
+func TestExecute_WarningsPropagated(t *testing.T) {
+	ctx := cuecontext.New()
+	const extraTraitFQN = "example.com/tr/extra@v0"
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"`+echoTfFQN+`": {
+		metadata: { fqn: "`+echoTfFQN+`" }
+		requiredLabels: {}
+		requiredResources: { "`+echoResFQN+`": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+		#transform: { #component: _, #context: _, output: { ok: true } }
+	}
+	"example.com/p/needslabel@v0": {
+		metadata: { fqn: "example.com/p/needslabel@v0" }
+		requiredLabels: { need: "yes" }
+		requiredResources: {}
+		requiredTraits: { "`+extraTraitFQN+`": {} }
+		optionalTraits: {}
+		#transform: { #component: _, #context: _, output: {} }
+	}
+}
+#matchers: {
+	resources: {
+		"`+echoResFQN+`": [#composedTransformers["`+echoTfFQN+`"]]
+	}
+	traits: {
+		"`+extraTraitFQN+`": [#composedTransformers["example.com/p/needslabel@v0"]]
+	}
+}
+`)
+	// "web" carries the echo resource (matches) and the extra trait (its only
+	// candidate transformer needs label need:"yes", which web lacks).
+	rel := releaseWithComponents(t, ctx, `{
+	web: {
+		metadata: { name: "web", labels: {} }
+		#resources: { "`+echoResFQN+`": {} }
+		#traits: { "`+extraTraitFQN+`": {} }
+	}
+}`)
+
+	out, err := runExecute(t, mp, rel)
+	require.NoError(t, err, "unhandled trait is a warning, not a failure")
+	require.Len(t, out.Compiled, 1, "the echo transformer still fired")
+	require.NotEmpty(t, out.Warnings, "unhandled trait recorded as a warning")
+	joined := strings.Join(out.Warnings, "\n")
+	assert.Contains(t, joined, extraTraitFQN)
 }

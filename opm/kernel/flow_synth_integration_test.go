@@ -21,11 +21,11 @@ import (
 // shape as the file-loaded equivalent — pinning the synth helper as a drop-in
 // replacement for the skeleton pattern.
 //
-// Skips under -short or when localhost:5000 is unreachable, matching the gating
-// in the file-driven test.
+// Skips under -short or when GHCR is unreachable, matching the gating in the
+// file-driven test.
 func TestFlow_WebApp_SynthPath_OnOpmPlatform(t *testing.T) {
 	if testing.Short() {
-		t.Skip("flow integration test requires the local CUE registry; skipping under -short")
+		t.Skip("flow integration test pulls the catalog + core schema from GHCR; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
