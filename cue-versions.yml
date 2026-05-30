@@ -1,18 +1,11 @@
 # OPM CUE Module Version Registry
 # Format: <key>: {version: vMAJOR.MINOR.PATCH[, checksum: sha256]}
 #
-# The OPM core catalog is keyed by its module identity (catalogs/opm) and
-# published by the standalone registry-presence workflow (publish-catalog.yml)
-# via `task cue:publish:catalog`. That path is version-gated and stateless, so
-# the catalog entry carries no checksum — bump `version` in a PR to cut a
-# release. Remaining entries are test fixtures verified (never published) by
-# cue.yml and checksum-tracked by publish:smart.
-#
-# Legacy entries removed by the repackage-opm-catalog change: apis/core (lives
-# in its own repo now), modules/opm (republished as catalogs/opm), and
-# modules/opm_platform (now an unpublished in-repo fixture).
-catalogs/opm:
-  version: v0.1.0
+# Entries here are in-repo test fixtures: verified (never published) by cue.yml
+# and checksum-tracked by publish:smart. The OPM core catalog
+# (opmodel.dev/catalogs/opm) is NOT listed — it is authored and published from
+# the catalog_opm repo; the library only consumes it from GHCR. The
+# cue:catalog:drift guard checks that fixtures track the latest published tag.
 testdata/modules/web_app:
   version: v1.0.7
   checksum: c08b56b126db366264ac3c0311bfafe112b3906490d674f7e29d5c4c889cc904
