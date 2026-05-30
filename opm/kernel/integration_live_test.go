@@ -20,10 +20,10 @@ import (
 // filesystem loader (LoadModulePackage) and validation against the published
 // core@v0 schema and real catalog primitives — paths the in-memory harness
 // deliberately bypasses. Gated like the flow tests: skipped under -short or when
-// localhost:5000 is unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
+// GHCR is unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
 func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 	if testing.Short() {
-		t.Skip("live integration test requires the local CUE registry; skipping under -short")
+		t.Skip("live integration test pulls the catalog + core schema from GHCR; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
