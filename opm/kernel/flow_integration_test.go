@@ -35,11 +35,11 @@ import (
 // FQNs are asserted by substring so the test survives catalog version bumps.
 //
 // Re-enabled by enhancement 0001's library slice (the catalog repackage +
-// #Subscription fixture restore). Skips under -short or when localhost:5000 is
+// #Subscription fixture restore). Skips under -short or when GHCR is
 // unreachable; OPM_FLOW_TEST_FORCE=1 turns the skip into a hard failure.
 func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	if testing.Short() {
-		t.Skip("flow integration test requires the local CUE registry; skipping under -short")
+		t.Skip("flow integration test pulls the catalog + core schema from GHCR; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
@@ -214,14 +214,16 @@ metadata: {
 
 // flowRegistry returns the CUE registry mapping the flow tests resolve imports
 // through. It honors an externally-set CUE_REGISTRY (set by
-// `task cue:test:flow` and CI), falling back to a split mapping that resolves
-// the external core@v0 schema from GHCR while pulling the catalog and fixture
-// modules from the local registry.
+// `task cue:test:flow` and CI), falling back to schema.PublicRegistry, which
+// resolves the whole opmodel.dev prefix — the core@v0 schema *and* the
+// opmodel.dev/catalogs/opm catalog — from GHCR, with cue.dev/x/k8s.io falling
+// through to registry.cue.works. Pulling the catalog from GHCR (rather than a
+// laptop-only localhost:5000) is what lets these tests run in CI.
 func flowRegistry() string {
 	if v := os.Getenv("CUE_REGISTRY"); v != "" {
 		return v
 	}
-	return "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
+	return schema.PublicRegistry
 }
 
 // matchPairsToMap groups MatchedPair entries by component name for ergonomic
@@ -267,16 +269,19 @@ func repoLibraryRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(here), "..", ".."))
 }
 
-// skipUnlessRegistry calls t.Skip when localhost:5000 is unreachable, unless
-// OPM_FLOW_TEST_FORCE=1 forces the test to run.
+// skipUnlessRegistry calls t.Skip when GHCR is unreachable, unless
+// OPM_FLOW_TEST_FORCE=1 forces the test to run. The flow tests resolve the
+// catalog and core schema from ghcr.io (see flowRegistry); probing it keeps an
+// offline `go test ./...` graceful (skip, not a multi-second pull timeout)
+// while CI — which sets OPM_FLOW_TEST_FORCE=1 — always runs the flow.
 func skipUnlessRegistry(t *testing.T) {
 	t.Helper()
 	if os.Getenv("OPM_FLOW_TEST_FORCE") == "1" {
 		return
 	}
-	conn, err := net.DialTimeout("tcp", "localhost:5000", 200*time.Millisecond)
+	conn, err := net.DialTimeout("tcp", "ghcr.io:443", 500*time.Millisecond)
 	if err != nil {
-		t.Skipf("local CUE registry not reachable on localhost:5000 (%v); start it via `task -d ../opm registry:start`", err)
+		t.Skipf("GHCR not reachable (%v); the flow test pulls the catalog + core schema from ghcr.io. Set OPM_FLOW_TEST_FORCE=1 to require it", err)
 	}
 	_ = conn.Close()
 }

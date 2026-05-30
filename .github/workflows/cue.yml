@@ -6,21 +6,17 @@ on:
   pull_request:
 
 env:
-  # Matches CUE_LOCAL_REGISTRY in Taskfile.yml. The OPM core schema lives in
-  # its own repo and is pulled from GHCR; the catalog + on-disk fixtures
-  # resolve from the ephemeral local registry; everything else from
-  # registry.cue.works.
-  CUE_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  # Matches schema.PublicRegistry / CUE_GHCR_REGISTRY in Taskfile.yml. The OPM
+  # core schema and the opmodel.dev/catalogs/opm catalog both resolve from GHCR
+  # (their own repos); everything else from registry.cue.works. No local
+  # registry: the fixtures pin a published catalog version and pull it from
+  # ghcr.io, which is what lets this job — and the Go tests — run in CI.
+  CUE_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 
 jobs:
   cue:
     name: Validate CUE modules
     runs-on: ubuntu-latest
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -40,21 +36,10 @@ jobs:
         with:
           version: 3.x
 
-      - name: Install yq
-        uses: mikefarah/yq@751d8ad57b84f1794661bc70c0afb92a22ad7b3c # v4.53.2
-        with:
-          cmd: echo "yq installed"
-
-      - name: Publish catalog to local registry
-        # The OPM core schema is pulled from GHCR (its own repo). Only the
-        # catalog is published to the ephemeral local registry: the platform
-        # subscribes to it and the on-disk fixtures (opm_platform, web_app)
-        # resolve their imports against it. cue:publish:catalog stamps the
-        # version from cue-versions.yml and vets before publishing.
-        run: |
-          set -euo pipefail
-          VERSION=$(yq '.["catalogs/opm"].version' cue-versions.yml)
-          task cue:publish:catalog VERSION="$VERSION"
+      - name: Check fixtures track the latest catalog
+        # Fails if any fixture pins an opmodel.dev/catalogs/opm version older
+        # than the latest published on GHCR. Remediate with `task cue:deps:update`.
+        run: task cue:catalog:drift
 
       - name: Check CUE formatting
         run: |
@@ -66,7 +51,7 @@ jobs:
 
       - name: Run plan/match/compile flow test
         env:
-          # Turn the registry-skip into a hard failure — the local registry
-          # is up and the fixtures are published, so the flow MUST run.
+          # Turn the registry-skip into a hard failure — ghcr.io is reachable
+          # and the fixtures pin a published catalog, so the flow MUST run.
           OPM_FLOW_TEST_FORCE: "1"
         run: task cue:test:flow

@@ -26,6 +26,20 @@ vars:
   # other opmodel.dev module (catalogs, test fixtures) resolves from localhost.
   CUE_LOCAL_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
+  # All-GHCR mapping (mirrors schema.PublicRegistry in opm/schema/loader.go).
+  # The OPM core schema and the opmodel.dev/catalogs/opm catalog both live in
+  # their own repos published to GHCR; cue.dev/x/k8s.io falls through to the
+  # central registry.cue.works. Used by dep-update + drift so the on-disk
+  # fixtures track the published catalog (and stay CI-resolvable, no localhost).
+  CUE_GHCR_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+
+  # GHCR repo holding the published OPM catalog, and the fixtures whose catalog
+  # pin the drift check verifies against the latest published tag.
+  CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
+  CATALOG_FIXTURE_MODULES: |
+    testdata/modules/web_app
+    modules/opm_platform
+
 tasks:
   default:
     desc: Show available tasks
@@ -227,7 +241,9 @@ tasks:
       Usage:
         task cue:deps:update
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      # Resolve against GHCR so the catalog (and core schema) bump to their
+      # latest *published* versions — the fixtures must stay CI-resolvable.
+      CUE_REGISTRY: "{{.CUE_GHCR_REGISTRY}}"
     preconditions:
       - sh: command -v jq >/dev/null 2>&1
         msg: "jq is required"
@@ -288,6 +304,86 @@ tasks:
 
         printf "${BOLD}Done.${RESET}\n"
 
+  cue:catalog:drift:
+    desc: Fail if any fixture pins an opmodel.dev/catalogs/opm version behind the latest GHCR release
+    summary: |
+      Queries GHCR (anonymously) for the latest published opmodel.dev/catalogs/opm
+      tag, then compares it against the version each fixture pins in its
+      cue.mod/module.cue. Exits non-zero if any fixture is behind, so CI catches
+      a stale pin. Remediate with `task cue:deps:update`.
+
+      Pre-release tags (vX.Y.Z-dev.*) are ignored — only stable releases count.
+
+      Usage:
+        task cue:catalog:drift
+    preconditions:
+      - sh: command -v jq >/dev/null 2>&1
+        msg: "jq is required"
+      - sh: command -v curl >/dev/null 2>&1
+        msg: "curl is required"
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; RESET='\033[0m'
+
+        repo="{{.CATALOG_GHCR_REPO}}"
+        # ghcr.io needs a pull token even for public reads. Derive the registry
+        # host and repository path from the configured repo string.
+        host="${repo%%/*}"            # ghcr.io
+        path="${repo#*/}"             # open-platform-model/opmodel.dev/catalogs/opm
+
+        token=$(curl -fsSL "https://${host}/token?scope=repository:${path}:pull" | jq -r '.token')
+        if [ -z "$token" ] || [ "$token" = "null" ]; then
+          echo -e "${RED}Failed to obtain a GHCR pull token for ${path}${RESET}" >&2
+          exit 1
+        fi
+
+        tags=$(curl -fsSL -H "Authorization: Bearer ${token}" "https://${host}/v2/${path}/tags/list" | jq -r '.tags[]?')
+        if [ -z "$tags" ]; then
+          echo -e "${RED}No tags found for ${repo}${RESET}" >&2
+          exit 1
+        fi
+
+        # Latest stable: strip leading v, drop pre-releases (contain '-'), sort semver.
+        latest=$(echo "$tags" \
+          | sed 's/^v//' \
+          | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+          | sort -t. -k1,1n -k2,2n -k3,3n \
+          | tail -1)
+        if [ -z "$latest" ]; then
+          echo -e "${RED}No stable semver tags for ${repo} (got: $(echo "$tags" | tr '\n' ' '))${RESET}" >&2
+          exit 1
+        fi
+        echo -e "${BOLD}Latest published catalog:${RESET} v${latest}"
+
+        drift=0
+        while IFS= read -r dir; do
+          [ -z "$dir" ] && continue
+          mod="${dir}/cue.mod/module.cue"
+          [ -f "$mod" ] || { echo -e "${YELLOW}skip ${dir} (no cue.mod/module.cue)${RESET}"; continue; }
+
+          pinned=$(cue export "$mod" --out json | jq -r '.deps["opmodel.dev/catalogs/opm@v0"].v // empty' | sed 's/^v//')
+          if [ -z "$pinned" ]; then
+            echo -e "    ${dir}: ${YELLOW}(does not depend on the catalog)${RESET}"
+            continue
+          fi
+
+          if [ "$pinned" = "$latest" ]; then
+            echo -e "    ${dir}: ${GREEN}v${pinned} (current)${RESET}"
+          else
+            echo -e "    ${dir}: ${RED}v${pinned} — behind latest v${latest}${RESET}"
+            drift=1
+          fi
+        done <<< '{{.CATALOG_FIXTURE_MODULES}}'
+
+        if [ "$drift" -ne 0 ]; then
+          echo -e "${RED}${BOLD}Catalog drift detected.${RESET} Run ${BOLD}task cue:deps:update${RESET} to bump the fixtures." >&2
+          exit 1
+        fi
+        echo -e "${GREEN}All fixtures track the latest published catalog.${RESET}"
+
   cue:check:
     desc: Run cue:fmt and cue:vet across all discovered modules
     cmds:
@@ -302,18 +398,18 @@ tasks:
       The test loads:
         - testdata/modules/web_app/   (consumer #Module using opm primitives)
         - modules/opm_platform/        (canonical Kubernetes #Platform)
-      and runs Match → Plan → Compile end-to-end. CUE imports are resolved
-      against the local registry (opmodel.dev=localhost:5000); the test skips
-      with a clear message if the registry is unreachable.
+      and runs Match → Plan → Compile end-to-end. CUE imports (the catalog and
+      core schema) resolve from GHCR; the test skips with a clear message if
+      ghcr.io is unreachable.
 
       Force-run (turn the skip into a hard failure) by setting
       OPM_FLOW_TEST_FORCE=1.
 
       Usage:
         task cue:test:flow                       # honour the registry-skip
-        OPM_FLOW_TEST_FORCE=1 task cue:test:flow # require the registry
+        OPM_FLOW_TEST_FORCE=1 task cue:test:flow # require GHCR
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_GHCR_REGISTRY}}"
     cmds:
       - go test -v ./opm/kernel/... -run TestFlow_WebApp_OnOpmPlatform
 
@@ -342,7 +438,7 @@ tasks:
     vars:
       STAGES: '{{.STAGES | default ""}}'
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_GHCR_REGISTRY}}"
     cmds:
       - |
         if [ -n "{{.STAGES}}" ]; then

@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # The kernel flow + live integration tests resolve the OPM core schema and
+  # the opmodel.dev/catalogs/opm catalog from GHCR (see schema.PublicRegistry).
+  # No local registry is needed — CI has network access to ghcr.io.
+  CUE_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+
 jobs:
   test:
     name: Go tests
@@ -24,6 +30,10 @@ jobs:
           version: 3.x
 
       - name: Running Tests
+        env:
+          # Turn the registry-skip into a hard failure: ghcr.io is reachable in
+          # CI, so the flow + live integration tests MUST run, not silently skip.
+          OPM_FLOW_TEST_FORCE: "1"
         run: |
           go mod tidy
           task test
