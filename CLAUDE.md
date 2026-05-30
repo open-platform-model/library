@@ -148,7 +148,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo vendors CUE modules under `modules/opm`, `modules/opm_platform`, and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v0`. Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v0`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v0`, authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps
@@ -157,7 +157,7 @@ task cue:vet                 # cue vet across all (CONCRETE=true for -c)
 task cue:check               # fmt + vet
 task cue:tidy                # cue mod tidy across all
 task cue:publish:smart       # checksum-detect changes, bump, publish in dep order (DRY_RUN=true to preview)
-task cue:publish PATH=modules/opm [VERSION=vX.Y.Z]
+task cue:publish PATH=modules/opm_platform [VERSION=vX.Y.Z]
 task cue:deps:update         # cue mod get + tidy across all
 ```
 
