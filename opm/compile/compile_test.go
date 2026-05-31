@@ -545,7 +545,7 @@ type: "kubernetes"
 	require.NoError(t, err)
 	plan, err := compile.Match(schemaComponents, mp, rel.Metadata.Name)
 	require.NoError(t, err)
-	out, err := compile.NewModule(mp, "opm-cli").Execute(context.Background(), rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule is on its own deprecation arc, unrelated to this test
+	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule is on its own deprecation arc, unrelated to this test
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Compiled, 1, "expected one compiled item")
@@ -655,7 +655,7 @@ func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.Materializ
 	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
 	require.NoError(t, err)
 	//nolint:staticcheck // SA1019: NewModule is on its own deprecation arc; this mirrors kernel/compile.go.
-	return compile.NewModule(mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
+	return compile.NewModule(mp.Package.Context(), mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
 }
 
 // TestExecute_ListOutputEmitsOnePerItem covers the ListKind dispatch: a list
@@ -759,7 +759,7 @@ func TestExecute_ComponentMissingInDataComponents(t *testing.T) {
 	require.NoError(t, emptyDC.Err())
 
 	//nolint:staticcheck // SA1019: NewModule deprecation arc, see runExecuteCtx.
-	_, err = compile.NewModule(mp, "opm-cli").Execute(context.Background(), rel, sc, emptyDC, plan)
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, sc, emptyDC, plan)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in data components value")
 }
@@ -858,19 +858,19 @@ func TestExecute_NilGuards(t *testing.T) {
 
 	t.Run("nil release", func(t *testing.T) {
 		//nolint:staticcheck // SA1019: NewModule deprecation arc.
-		_, err := compile.NewModule(mp, "opm-cli").Execute(context.Background(), nil, sc, dc, plan)
+		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), nil, sc, dc, plan)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "release is required")
 	})
 	t.Run("nil platform", func(t *testing.T) {
 		//nolint:staticcheck // SA1019: NewModule deprecation arc.
-		_, err := compile.NewModule(nil, "opm-cli").Execute(context.Background(), rel, sc, dc, plan)
+		_, err := compile.NewModule(ctx, nil, "opm-cli").Execute(context.Background(), rel, sc, dc, plan)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "platform is required")
 	})
 	t.Run("nil plan", func(t *testing.T) {
 		//nolint:staticcheck // SA1019: NewModule deprecation arc.
-		_, err := compile.NewModule(mp, "opm-cli").Execute(context.Background(), rel, sc, dc, nil)
+		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, sc, dc, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "match plan is required")
 	})

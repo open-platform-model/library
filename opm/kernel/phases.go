@@ -118,7 +118,7 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 		return nil, err
 	}
 
-	return compileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName)
+	return k.compileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName)
 }
 
 // moduleFromRelease synthesizes a transient *module.Module from the embedded

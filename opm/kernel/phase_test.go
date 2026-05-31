@@ -259,6 +259,15 @@ func TestKernel_Compile_OK(t *testing.T) {
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "opm-cli", runtime)
+
+	// The compile pipeline builds every value in the caller Kernel's own
+	// *cue.Context, not in the materialized platform's context. Asserting the
+	// rendered value's context IS k.CueContext() is the observable contract of
+	// the concurrent-render recontract (kernel-runtime delta) — a direct check
+	// independent of output equality, so a regression cannot hide behind the
+	// single-Kernel case where the two contexts happen to coincide.
+	assert.Same(t, k.CueContext(), got.Context(),
+		"rendered value must build in the Kernel's cue.Context, not the platform's")
 }
 
 // TestKernel_Compile_FromReleaseOnly is a regression test for the slim-input

@@ -6,6 +6,33 @@ From the first tagged release onward, released versions are summarised in [CHANG
 
 ## Unreleased — next MAJOR
 
+### Changed — `concurrent-render-recontract` (BREAKING)
+
+- `opm/compile.NewModule` gained a leading `*cue.Context` parameter:
+  `NewModule(cueCtx *cue.Context, mp *materialize.MaterializedPlatform, runtimeName string) *Module`.
+  The compile pipeline now builds every value it constructs (finalized data
+  components, the transformer `#context.*` view, and the rendered output) in
+  the caller-supplied context, consuming `mp.Package` as read-only input
+  rather than borrowing its `*cue.Context`. This removes the v0.17-deprecated
+  `Value.Context()` calls and positions the pipeline so per-goroutine Kernels
+  can later render concurrently against one shared materialized platform.
+- **`Kernel` callers are unaffected.** `opm/compile` has no public entry — the
+  only in-tree caller is `kernel/compile.go`, and downstream binaries (`cli`,
+  `opm-operator`) consume the unchanged `Kernel.Compile` surface. Behavior is
+  identical for single-Kernel callers, where the caller context and the
+  platform context are the same instance.
+
+#### Migration recipe — `concurrent-render-recontract`
+
+```text
+OLD                                              NEW
+────────────────────────────────────────────────────────────────────────────────────────────
+compile.NewModule(mp, runtimeName)               compile.NewModule(cueCtx, mp, runtimeName)
+                                                  // cueCtx is the *cue.Context that owns the
+                                                  // build; for a single-Kernel caller pass
+                                                  // k.CueContext() (== mp.Package.Context()).
+```
+
 ### Added — `replace-embedded-schema-with-oci-loader`
 
 - `opm/schema.Loader` — interface (`Load(*cue.Context) (cue.Value, error)`)
