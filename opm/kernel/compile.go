@@ -49,5 +49,5 @@ func (k *Kernel) compileModuleRelease(
 		return nil, err
 	}
 
-	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule constructor is on its own deprecation arc; replacing it is out of scope for this change.
+	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan)
 }
