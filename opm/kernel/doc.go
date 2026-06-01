@@ -8,10 +8,22 @@
 //
 // # Goroutine safety
 //
-// Kernel is NOT safe for concurrent use across method calls. The owned
-// [*cue.Context] is single-threaded — sharing one Kernel between goroutines
-// can cause data races inside CUE evaluation. Callers that need concurrency
-// MUST construct one Kernel per goroutine.
+// A single Kernel is NOT safe for concurrent use across its own method calls.
+// The owned [*cue.Context] is driven single-threaded — sharing one Kernel
+// between goroutines can cause data races inside CUE evaluation. Callers that
+// need concurrency MUST construct one Kernel per goroutine.
+//
+// Under the CUE v0.17 toolchain, a [*materialize.MaterializedPlatform]
+// materialized once by one Kernel is safe to be read concurrently by many
+// per-goroutine Kernels' [Kernel.Compile] calls — with no mutex and no
+// re-materialization. This holds because the compile pipeline builds every
+// value it constructs in the caller Kernel's own [*cue.Context] and only
+// cross-*reads* the shared platform (it looks up and fills from the platform's
+// Package, never mutating it). This is the materialize-once-reuse-many model
+// the Platform-CR design depends on.
+//
+// The two facts compose: keep one Kernel per goroutine, but share a single
+// materialized platform across all of them read-only.
 //
 // # One-Kernel-per-goroutine example
 //
@@ -27,6 +39,41 @@
 //	                errs <- err
 //	            }
 //	        }(p)
+//	    }
+//	    wg.Wait()
+//	    close(errs)
+//	    for err := range errs {
+//	        if err != nil {
+//	            return err
+//	        }
+//	    }
+//	    return nil
+//	}
+//
+// # Concurrent rendering against a shared platform
+//
+// One Kernel materializes a platform once; N goroutines each construct their
+// own Kernel and Compile a distinct release against that single shared
+// platform. Per ADR-002 the speedup is real but sub-linear — the CUE evaluator
+// is allocator-bound and plateaus around four cores — so share for correctness
+// and memory footprint, not for linear throughput.
+//
+//	func renderConcurrent(ctx context.Context, shared *materialize.MaterializedPlatform, rels []*module.Release) error {
+//	    var wg sync.WaitGroup
+//	    errs := make(chan error, len(rels))
+//	    for _, rel := range rels {
+//	        wg.Add(1)
+//	        go func(rel *module.Release) {
+//	            defer wg.Done()
+//	            k := kernel.New() // one Kernel per goroutine
+//	            if _, err := k.Compile(ctx, kernel.CompileInput{
+//	                ModuleRelease: rel,
+//	                Platform:      shared, // materialized once elsewhere, read-only here
+//	                RuntimeName:   "opm-operator",
+//	            }); err != nil {
+//	                errs <- err
+//	            }
+//	        }(rel)
 //	    }
 //	    wg.Wait()
 //	    close(errs)
