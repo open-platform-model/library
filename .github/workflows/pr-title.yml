@@ -1,0 +1,55 @@
+name: PR Title
+
+# Squash-merge is the norm here, and the repo's squash setting derives the
+# merge-commit title from the PR title. release-please then parses that title
+# as a Conventional Commit to build the changelog and pick the next version.
+# A non-conventional PR title (e.g. a branch name like "Feat/foo") produces an
+# unparseable merge commit, so release-please silently skips it and cuts no
+# release. This check fails the PR until its title is a valid Conventional
+# Commit, keeping main's history release-please-parseable.
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate Conventional Commit title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Keep in lockstep with release-please-config.json changelog-sections.
+          types: |
+            feat
+            fix
+            perf
+            revert
+            docs
+            refactor
+            test
+            ci
+            build
+            chore
+            style
+          # Scopes are optional (CLAUDE.md lists them as "encouraged"), so do
+          # not require one. The action accepts a trailing "!" for breaking
+          # changes (e.g. "refactor(compile)!: ...") out of the box.
+          requireScope: false
+          # Subject must not start with an uppercase letter — matches the
+          # repo's "lowercase, imperative mood" rule and rejects branch-name
+          # titles like "Feat/concurrent render recontract".
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the PR title "{title}" must start
+            lowercase (imperative mood, no leading capital), per CLAUDE.md.
