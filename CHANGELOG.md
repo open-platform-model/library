@@ -3,9 +3,36 @@
 ## [0.3.0](https://github.com/open-platform-model/library/compare/v0.2.1...v0.3.0) (2026-06-06)
 
 
+### ⚠ BREAKING CHANGES
+
+* **compile:** `compile.NewModule` now takes a `*cue.Context` as its first argument. `Kernel.Compile` is the only in-tree caller and downstream consumers go through `Kernel`, so they are unaffected. See MIGRATIONS.md.
+
+### Features
+
+* **helper:** add platform synthesis from typed inputs — `synth.Platform` + `Kernel.SynthesizePlatform`, the typed in-memory path to a `#Platform` (peer of release synthesis; stops before `Materialize`) ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+* **kernel:** guarantee concurrent render against a shared platform — a once-materialized `*MaterializedPlatform` is safe to read concurrently from many per-goroutine Kernels' `Compile` calls ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+
+### Code Refactoring
+
+* **compile:** source `cue.Context` from the caller Kernel — renders build in the caller's context, consuming the materialized platform as read-only input (lands the v0.16-landable half of adr/002) ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+
+### Documentation
+
+* **openspec:** add platform-synthesis change proposal ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+* **openspec:** sync concurrent-render-recontract deltas to specs ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+
 ### Miscellaneous Chores
 
-* force v0.3.0 release ([06e2685](https://github.com/open-platform-model/library/commit/06e268519a0db82f1954b30a1e87f6bbddb96da2))
+* **openspec:** archive concurrent-render-recontract ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+* **openspec:** archive remove-library-catalog ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+* **spike:** add cross-context cue concurrency spike ([4b973ec](https://github.com/open-platform-model/library/commit/4b973ec52894009eeb463141612dfbe91ba20b70))
+
+> Note: this 0.3.0 section was authored by hand. PR #8 squash-merged with a
+> non-conventional title (`Feat/concurrent render recontract`), so
+> release-please could not parse it; the entries above were reconstructed
+> from the squash commit body (`4b973ec`). Hidden `build`/`ci`/`test` work
+> (CUE v0.17 toolchain adoption, the hermetic kernel integration suite,
+> `setup-cue` pin) shipped in the same merge — see MIGRATIONS.md.
 
 ## [0.2.1](https://github.com/open-platform-model/library/compare/v0.2.0...v0.2.1) (2026-05-29)
 
