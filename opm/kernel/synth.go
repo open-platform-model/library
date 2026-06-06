@@ -6,6 +6,7 @@ import (
 
 	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/platform"
 )
 
 // SynthesizeRelease builds a *module.Release from typed in-memory inputs.
@@ -52,4 +53,45 @@ func (k *Kernel) SynthesizeRelease(ctx context.Context, in synth.ReleaseInput) (
 		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)
 	}
 	return rel, nil
+}
+
+// SynthesizePlatform builds a *platform.Platform from typed in-memory inputs.
+// This is the recommended entry point for callers that hold platform
+// configuration as typed data — an operator reconciling a Platform CRD spec,
+// a CLI assembling subscriptions from flags — and is the synthesis peer of
+// [Kernel.LoadPlatformPackage] on the file-driven path.
+//
+// SynthesizePlatform chains [synth.Platform] (which unifies inputs against the
+// resolved #Platform schema) into [platform.NewPlatformFromValue] (which
+// decodes the platform metadata and stores the value as the platform's
+// Package). It returns the pre-materialize *platform.Platform twin.
+//
+// It does NOT call [Kernel.Materialize]: resolving the platform's #registry
+// subscriptions into a *MaterializedPlatform performs registry I/O and stays
+// an explicit, separate, caller-driven step (Principle I / design D14). The
+// returned Package carries #registry as authored with #composedTransformers /
+// #matchers unset.
+//
+// The Kernel owns the schema cache; callers MUST NOT need to thread it
+// through explicitly. If in.SchemaCache is set it is honored (a test may pin a
+// different one), otherwise it defaults to the kernel-owned cache.
+//
+// ctx is unused today — synthesis touches no I/O the caller could cancel
+// (synth.Platform uses the Kernel's *cue.Context; NewPlatformFromValue takes
+// none). It is part of the signature for parity with [Kernel.SynthesizeRelease]
+// and so a future materialize-aware variant can honor cancellation without an
+// API break. Keep it.
+func (k *Kernel) SynthesizePlatform(_ context.Context, in synth.PlatformInput) (*platform.Platform, error) {
+	if in.SchemaCache == nil {
+		in.SchemaCache = k.schemaCache
+	}
+	spec, err := synth.Platform(k.cueCtx, in)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.SynthesizePlatform: %w", err)
+	}
+	plat, err := platform.NewPlatformFromValue(k, spec)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.SynthesizePlatform: %w", err)
+	}
+	return plat, nil
 }

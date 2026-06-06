@@ -35,6 +35,8 @@ Constraints from `library/CLAUDE.md` / `CONSTITUTION.md`: kernel neutrality (no 
 
 *Alternative considered:* `schemaPkg.LookupPath("#Platform").FillPath(...)`. Workable since there's no self-reference, but rendering source keeps the implementation visually parallel to `release.go` (`renderReleaseSource`) and sidesteps any FillPath-into-pattern-constraint edge cases on `#registry`.
 
+*Implementation note (landed):* the rendered source unifies the definition explicitly — `platform: #Platform & { … }` — rather than embedding it as a struct field (`platform: { #Platform; … }`). Embedding a closed definition into an open struct literal relaxes its closedness, so an invalid `#registry` key (one violating `#ModulePathType`) would be silently accepted instead of surfacing as a unification error. `#Platform & {…}` preserves the closedness, satisfying the "Invalid catalog path" scenario. The mechanism is still render-source + `cue.Scope` as decided here; only embed-vs-`&` changed.
+
 ### D3: Fully typed `Subscriptions`, with `Enable *bool`
 
 ```

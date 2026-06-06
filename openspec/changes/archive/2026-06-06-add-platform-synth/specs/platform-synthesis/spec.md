@@ -16,12 +16,12 @@ The package `opm/helper/synth` SHALL expose `Platform(ctx *cue.Context, in Platf
 
 ### Requirement: Required inputs are validated with sentinel errors
 
-`Platform` SHALL reject missing required inputs before touching the schema, returning a sentinel error matchable via `errors.Is`. The required inputs are `Name`, `Type`, and `SchemaCache`. When the resolved schema does not expose `#Platform`, `Platform` SHALL return a schema-unavailable sentinel.
+`Platform` SHALL reject missing required inputs before touching the schema, returning a sentinel error matchable via `errors.Is`. The required inputs are `Name`, `Type`, and `SchemaCache`. When the resolved schema does not expose `#Platform`, `Platform` SHALL return a schema-unavailable sentinel. The sentinels are platform-scoped (`synth.Platform:` wording) and distinct from the `synth.Release` set, per design D4.
 
 #### Scenario: Missing name
 
 - **WHEN** `Platform` is called with an empty `Name`
-- **THEN** it returns an error satisfying `errors.Is(err, ErrMissingName)` and no schema fetch is attempted
+- **THEN** it returns an error satisfying `errors.Is(err, ErrPlatformMissingName)` and no schema fetch is attempted
 
 #### Scenario: Missing type
 
@@ -31,12 +31,12 @@ The package `opm/helper/synth` SHALL expose `Platform(ctx *cue.Context, in Platf
 #### Scenario: Missing schema cache
 
 - **WHEN** `Platform` is called with a nil `SchemaCache`
-- **THEN** it returns an error satisfying `errors.Is(err, ErrMissingSchemaCache)`
+- **THEN** it returns an error satisfying `errors.Is(err, ErrPlatformMissingSchemaCache)`
 
 #### Scenario: Schema without #Platform
 
 - **WHEN** the supplied `SchemaCache` resolves but the package does not expose `#Platform`
-- **THEN** `Platform` returns an error satisfying `errors.Is(err, ErrSchemaUnavailable)`
+- **THEN** `Platform` returns an error satisfying `errors.Is(err, ErrPlatformSchemaUnavailable)`
 
 ### Requirement: Subscriptions and filters map onto the registry
 

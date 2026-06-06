@@ -669,6 +669,39 @@ Read absent-FQN and unify diagnostics off the `MatchPlan`:
 
 ## Unreleased — next MINOR
 
+### Added — `add-platform-synth`
+
+- `opm/helper/synth.Platform(ctx *cue.Context, in PlatformInput) (cue.Value, error)` —
+  new helper, the `#Platform` peer of `synth.Release`. Builds a `#Platform`
+  artifact value by rendering a `{ #Platform, metadata, type, #registry }`
+  CUE source and compiling it with the schema package resolved through
+  `in.SchemaCache` as `cue.Scope`. Unlike `synth.Release` it needs no
+  `userModule` scope dance — `#Platform` has no nested closed-artifact input.
+  The returned value leaves the kernel-filled materialization slots
+  (`#composedTransformers`, `#matchers`) unset; those are populated later by
+  `Materialize`.
+- `opm/helper/synth.PlatformInput{Name, Type, SchemaCache, Description,
+  Labels, Annotations, Subscriptions}` — typed inputs. `Name`, `Type`, and
+  `SchemaCache` are REQUIRED. `Subscriptions` is a
+  `map[string]SubscriptionSpec` keyed by catalog module path.
+- `opm/helper/synth.SubscriptionSpec{Enable *bool, Filter *FilterSpec}` and
+  `synth.FilterSpec{Range string, Allow, Deny []string}` — typed registry
+  inputs. `Enable` is a pointer so an omitted value defers to the schema's
+  `*true` default rather than forcing `false`; empty filter fields are not
+  rendered.
+- `opm/helper/synth` platform sentinels: `ErrMissingType`,
+  `ErrPlatformMissingName`, `ErrPlatformMissingSchemaCache`,
+  `ErrPlatformSchemaUnavailable` (distinct from the `synth.Release` set so
+  error messages name the failing artifact).
+- `(*kernel.Kernel).SynthesizePlatform(ctx, synth.PlatformInput) (*platform.Platform, error)` —
+  recommended in-memory entry point. Chains `synth.Platform` into
+  `platform.NewPlatformFromValue` and returns the pre-materialize
+  `*platform.Platform`. Defaults `in.SchemaCache` to the kernel-owned cache
+  when nil. It does NOT call `Materialize`; resolving subscriptions into a
+  `*MaterializedPlatform` remains a separate, explicit, caller-driven step.
+- Purely additive — no existing signatures change; `cli/` and `opm-operator/`
+  keep compiling unchanged.
+
 ### Added
 
 - `opm/materialize/` — new package realizing a `#Platform`'s path-keyed
