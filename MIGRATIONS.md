@@ -6,6 +6,33 @@ From the first tagged release onward, released versions are summarised in [CHANG
 
 ## Unreleased — next MAJOR
 
+### Changed — `concurrent-render-recontract` (BREAKING)
+
+- `opm/compile.NewModule` gained a leading `*cue.Context` parameter:
+  `NewModule(cueCtx *cue.Context, mp *materialize.MaterializedPlatform, runtimeName string) *Module`.
+  The compile pipeline now builds every value it constructs (finalized data
+  components, the transformer `#context.*` view, and the rendered output) in
+  the caller-supplied context, consuming `mp.Package` as read-only input
+  rather than borrowing its `*cue.Context`. This removes the v0.17-deprecated
+  `Value.Context()` calls and positions the pipeline so per-goroutine Kernels
+  can later render concurrently against one shared materialized platform.
+- **`Kernel` callers are unaffected.** `opm/compile` has no public entry — the
+  only in-tree caller is `kernel/compile.go`, and downstream binaries (`cli`,
+  `opm-operator`) consume the unchanged `Kernel.Compile` surface. Behavior is
+  identical for single-Kernel callers, where the caller context and the
+  platform context are the same instance.
+
+#### Migration recipe — `concurrent-render-recontract`
+
+```text
+OLD                                              NEW
+────────────────────────────────────────────────────────────────────────────────────────────
+compile.NewModule(mp, runtimeName)               compile.NewModule(cueCtx, mp, runtimeName)
+                                                  // cueCtx is the *cue.Context that owns the
+                                                  // build; for a single-Kernel caller pass
+                                                  // k.CueContext() (== mp.Package.Context()).
+```
+
 ### Added — `replace-embedded-schema-with-oci-loader`
 
 - `opm/schema.Loader` — interface (`Load(*cue.Context) (cue.Value, error)`)
@@ -641,6 +668,39 @@ Read absent-FQN and unify diagnostics off the `MatchPlan`:
 ```
 
 ## Unreleased — next MINOR
+
+### Added — `add-platform-synth`
+
+- `opm/helper/synth.Platform(ctx *cue.Context, in PlatformInput) (cue.Value, error)` —
+  new helper, the `#Platform` peer of `synth.Release`. Builds a `#Platform`
+  artifact value by rendering a `{ #Platform, metadata, type, #registry }`
+  CUE source and compiling it with the schema package resolved through
+  `in.SchemaCache` as `cue.Scope`. Unlike `synth.Release` it needs no
+  `userModule` scope dance — `#Platform` has no nested closed-artifact input.
+  The returned value leaves the kernel-filled materialization slots
+  (`#composedTransformers`, `#matchers`) unset; those are populated later by
+  `Materialize`.
+- `opm/helper/synth.PlatformInput{Name, Type, SchemaCache, Description,
+  Labels, Annotations, Subscriptions}` — typed inputs. `Name`, `Type`, and
+  `SchemaCache` are REQUIRED. `Subscriptions` is a
+  `map[string]SubscriptionSpec` keyed by catalog module path.
+- `opm/helper/synth.SubscriptionSpec{Enable *bool, Filter *FilterSpec}` and
+  `synth.FilterSpec{Range string, Allow, Deny []string}` — typed registry
+  inputs. `Enable` is a pointer so an omitted value defers to the schema's
+  `*true` default rather than forcing `false`; empty filter fields are not
+  rendered.
+- `opm/helper/synth` platform sentinels: `ErrMissingType`,
+  `ErrPlatformMissingName`, `ErrPlatformMissingSchemaCache`,
+  `ErrPlatformSchemaUnavailable` (distinct from the `synth.Release` set so
+  error messages name the failing artifact).
+- `(*kernel.Kernel).SynthesizePlatform(ctx, synth.PlatformInput) (*platform.Platform, error)` —
+  recommended in-memory entry point. Chains `synth.Platform` into
+  `platform.NewPlatformFromValue` and returns the pre-materialize
+  `*platform.Platform`. Defaults `in.SchemaCache` to the kernel-owned cache
+  when nil. It does NOT call `Materialize`; resolving subscriptions into a
+  `*MaterializedPlatform` remains a separate, explicit, caller-driven step.
+- Purely additive — no existing signatures change; `cli/` and `opm-operator/`
+  keep compiling unchanged.
 
 ### Added
 

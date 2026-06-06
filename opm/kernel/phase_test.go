@@ -259,6 +259,18 @@ func TestKernel_Compile_OK(t *testing.T) {
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "opm-cli", runtime)
+
+	// The compile pipeline builds every value in the caller Kernel's own
+	// *cue.Context (k.cueCtx), consuming the materialized platform as read-only
+	// input. The v0.16-era observable contract for this — asserting the rendered
+	// value's context IS k.CueContext() via cue.Value.Context() — has been
+	// retired: under CUE v0.17 that method is deprecated and its result is
+	// undefined precisely because values from different contexts may now be
+	// combined freely (the property the concurrent-render model relies on), so
+	// context identity is no longer a meaningful invariant. Cross-Kernel context
+	// behavior is instead verified by the concurrent -race regression test
+	// deferred to the v0.17 follow-up (see openspec change
+	// concurrent-render-recontract, design.md § Deferred).
 }
 
 // TestKernel_Compile_FromReleaseOnly is a regression test for the slim-input

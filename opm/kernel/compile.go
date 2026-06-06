@@ -14,9 +14,11 @@ import (
 // release and platform and returns the resulting [*compile.CompileResult].
 //
 // Callers go through [Kernel.Compile] (which adds Tier-2 validation in front
-// of this helper). This function lives on the kernel package so the kernel
-// owns the canonical impl rather than wrapping a deprecated free function.
-func compileModuleRelease(
+// of this helper). This method lives on the kernel so the kernel owns the
+// canonical impl and so the pipeline builds every value in the Kernel's own
+// [*cue.Context] (k.cueCtx) — consuming the materialized platform's Package as
+// read-only input — rather than borrowing the platform's context.
+func (k *Kernel) compileModuleRelease(
 	ctx context.Context,
 	rel *module.Release,
 	mp *materialize.MaterializedPlatform,
@@ -37,7 +39,7 @@ func compileModuleRelease(
 		return nil, fmt.Errorf("release %q: no components field in release spec", rel.Metadata.Name)
 	}
 
-	dataComponents, err := compile.FinalizeValue(mp.Package.Context(), schemaComponents)
+	dataComponents, err := compile.FinalizeValue(k.cueCtx, schemaComponents)
 	if err != nil {
 		return nil, fmt.Errorf("finalizing components: %w", err)
 	}
@@ -47,5 +49,5 @@ func compileModuleRelease(
 		return nil, err
 	}
 
-	return compile.NewModule(mp, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan) //nolint:staticcheck // SA1019: compile.NewModule constructor is on its own deprecation arc; replacing it is out of scope for this change.
+	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, rel, schemaComponents, dataComponents, plan)
 }

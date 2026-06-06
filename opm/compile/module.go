@@ -46,6 +46,7 @@ type ComponentSummary struct {
 // A Module is constructed once per platform and reused across multiple
 // Execute calls. It is not safe for concurrent use (CUE context is single-threaded).
 type Module struct {
+	cueCtx      *cue.Context // build context owned by the caller Kernel
 	platform    *materialize.MaterializedPlatform
 	runtimeName string // identity of the runtime executing this compile
 }
@@ -80,12 +81,16 @@ type CompileResult struct {
 type ModuleResult = CompileResult
 
 // NewModule creates a Module for the given materialized platform and runtime
-// identity. The Execute path reads #composedTransformers off mp.Package — the
-// kernel-filled view — so callers must Materialize before compiling.
-// runtimeName must be non-empty — the catalog requires #context.#runtimeName
-// to be populated and CUE evaluation fails on empty values.
-func NewModule(mp *materialize.MaterializedPlatform, runtimeName string) *Module {
-	return &Module{platform: mp, runtimeName: runtimeName}
+// identity. cueCtx is the caller Kernel's owned build context — Execute builds
+// the finalized data, the transformer #context.* view, and the rendered output
+// in it, consuming mp.Package as read-only input (the FillPath argument /
+// cross-read source) rather than borrowing its context. The Execute path reads
+// #composedTransformers off mp.Package — the kernel-filled view — so callers
+// must Materialize before compiling. runtimeName must be non-empty — the
+// catalog requires #context.#runtimeName to be populated and CUE evaluation
+// fails on empty values.
+func NewModule(cueCtx *cue.Context, mp *materialize.MaterializedPlatform, runtimeName string) *Module {
+	return &Module{cueCtx: cueCtx, platform: mp, runtimeName: runtimeName}
 }
 
 // Execute runs matched transformers against the provided component views and
@@ -108,8 +113,8 @@ func (r *Module) Execute(
 		return nil, fmt.Errorf("platform is required")
 	}
 
-	// The CUE context lives on each cue.Value — extract it from the platform.
-	cueCtx := r.platform.Package.Context()
+	// Build in the caller Kernel's context; the platform is read-only input.
+	cueCtx := r.cueCtx
 
 	if plan == nil {
 		return nil, fmt.Errorf("match plan is required")

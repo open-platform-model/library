@@ -43,7 +43,7 @@ opm/
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformFile
     loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
-    synth/                    Release(name, ns, ref, values, ...) → cue.Value (no files)
+    synth/                    Release(...) + Platform(...) → cue.Value from typed inputs (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
 adr/                          Architecture decision records (use TEMPLATE.md)
