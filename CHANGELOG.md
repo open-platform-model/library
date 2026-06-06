@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/open-platform-model/library/compare/v0.2.1...v0.3.0) (2026-06-06)
+
+
+### Miscellaneous Chores
+
+* force v0.3.0 release ([06e2685](https://github.com/open-platform-model/library/commit/06e268519a0db82f1954b30a1e87f6bbddb96da2))
+
 ## [0.2.1](https://github.com/open-platform-model/library/compare/v0.2.0...v0.2.1) (2026-05-29)
 
 
