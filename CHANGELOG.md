@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/open-platform-model/library/compare/v0.3.0...v0.3.1) (2026-06-07)
+
+
+### Documentation
+
+* **changelog:** backfill v0.3.0 entries lost to squash merge ([8a0b522](https://github.com/open-platform-model/library/commit/8a0b522bdea010853c289eeeb802e1da4a50db32))
+
 ## [0.3.0](https://github.com/open-platform-model/library/compare/v0.2.1...v0.3.0) (2026-06-06)
 
 
