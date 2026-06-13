@@ -24,7 +24,7 @@ vars:
   # workspace-local registry holds only the catalogs/fixtures. The more
   # specific opmodel.dev/core prefix resolves the schema from GHCR while every
   # other opmodel.dev module (catalogs, test fixtures) resolves from localhost.
-  CUE_LOCAL_REGISTRY: "opmodel.dev/core=ghcr.io/open-platform-model,opmodel.dev=localhost:5000+insecure,registry.cue.works"
+  CUE_LOCAL_REGISTRY: "opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
   # All-GHCR mapping (mirrors schema.PublicRegistry in opm/schema/loader.go).
   # The OPM core schema and the opmodel.dev/catalogs/opm catalog both live in
