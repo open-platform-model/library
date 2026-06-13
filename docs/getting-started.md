@@ -60,12 +60,12 @@ log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
 
 ## Load a module package
 
-`LoadModulePackage` reads a CUE package directory, builds a `cue.Value`, and returns the detected `apiVersion`. `NewModuleFromValue` wraps it into a typed `*module.Module`.
+`LoadModulePackage` reads a CUE package directory and builds a `cue.Value`. `NewModuleFromValue` wraps it into a typed `*module.Module`. To load a module published in an OCI registry instead of from disk, use `k.LoadModuleFromRegistry(ctx, modPath, version)` (or `opm/helper/loader/registry.LoadModulePackage` directly) — it returns the same raw `cue.Value` for `NewModuleFromValue`.
 
 ```go
 import loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 
-moduleVal, _, err := k.LoadModulePackage(ctx, "./module/", loaderfile.LoadOptions{})
+moduleVal, err := k.LoadModulePackage(ctx, "./module/", loaderfile.LoadOptions{})
 if err != nil {
     return err
 }
@@ -103,7 +103,7 @@ See [`docs/design/kernel-validate-flow.md`](design/kernel-validate-flow.md) for 
 Releases load as CUE packages (unified with module loading in commit `7c435f2`). The release's `Package` embeds the source `#module` reference; `ProcessModuleRelease` uses it to validate user values against `#module.#config` without a separate schema argument (Tier-2 safety net).
 
 ```go
-releaseVal, _, err := k.LoadReleasePackage(ctx, "./release/", loaderfile.LoadOptions{})
+releaseVal, err := k.LoadReleasePackage(ctx, "./release/", loaderfile.LoadOptions{})
 if err != nil {
     return err
 }
@@ -122,7 +122,7 @@ The Platform is the kernel's matching and execution input. A *shell* is a `Platf
 Frontends that load a fully-authored `platform.cue` (with its registry already populated) can skip `ComposePlatform` and use `NewPlatformFromValue` directly.
 
 ```go
-shellVal, _, err := k.LoadPlatformFile(ctx, "./platform.cue", loaderfile.LoadOptions{})
+shellVal, err := k.LoadPlatformPackage(ctx, "./platform/", loaderfile.LoadOptions{})
 if err != nil {
     return err
 }
