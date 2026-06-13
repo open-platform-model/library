@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/open-platform-model/library/compare/v0.4.0...v0.5.0) (2026-06-13)
+
+
+### Features
+
+* **loader:** add registry module loader for published modules ([#14](https://github.com/open-platform-model/library/issues/14)) ([c315f8d](https://github.com/open-platform-model/library/commit/c315f8d00dcdd1b48c4e68634d288c09a07397d0))
+
 ## [0.4.0](https://github.com/open-platform-model/library/compare/v0.3.1...v0.4.0) (2026-06-13)
 
 
