@@ -28,31 +28,29 @@ The kernel accepts exactly three artifact types — every input ultimately resol
 | `ModuleRelease`  | `#ModuleRelease`           | `*module.Release`    | Per-deployment instantiation of a `Module` with concrete user values.                         |
 | `Platform`       | `#Platform`                | `*platform.Platform` | Composed registry of Modules; supplies `#composedTransformers` and `#matchers` to the kernel. |
 
-`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**. The migration is one line: read `mod.Package.LookupPath(b.Paths().DebugValues)` (with `b, _ := api.Lookup(mod.APIVersion)`) and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
+`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
 See `CONSTITUTION.md` for the full set of principles.
 
 ## Layout
 
 ```
-apis/                     Versioned OPM schema (CUE)
-  core/                   CUE module rooted here (cue.mod/module.cue) + embed.go for all versions
-    v1alpha2/             Schema for v1alpha2 — single source of truth for that version
 opm/
-  api/                    Per-schema-version Binding interface, process-wide registry, embed plumbing
-  api/v1alpha2/           v1alpha2 binding (registers itself in init())
-  apiversion/             apiVersion enum + Detect helper
   core/                   Platform-neutral primitives — Compiled, Resource, Identity
   errors/                 Sentinels, structured errors, grouped CUE diagnostics
+  schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   module/                 Module / Release model and value-validation accessors
   platform/               Platform artifact model — kernel's sole input for matching and execution
-  compile/                Match -> finalize -> execute -> emit pipeline
+  compile/                finalize -> match -> execute -> emit pipeline
+  materialize/            Resolve a Platform's #registry subscriptions into a sealed MaterializedPlatform
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
-    loader/file/          Filesystem-coupled loading (modules, releases, platforms)
+    loader/file/          Filesystem loading (modules, releases, platforms)
+    loader/registry/      Load a published module from an OCI registry by path@version
     loader/bytes/         In-memory loading (skeleton; deferred implementation)
-    platform/             Platform composition (shell + modules -> composed Platform)
-    synth/                Release synthesis from typed inputs (no file / no bytes)
+    loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
+    synth/                Release / Platform synthesis from typed inputs (no file / no bytes)
+  internal/               Test-only cross-package internals (schematest, registrytest)
 cmd/
   flow-inspect/           Internal diagnostic CLI for the compile pipeline
 adr/                      Architecture decision records
@@ -63,7 +61,7 @@ testdata/                 CUE module fixtures consumed by package tests
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
 
-The `opm/loader/` deprecation shim has been removed; the canonical import path is `opm/helper/loader/file`. A standalone `opm/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus the typed shortcuts in `opm/kernel/validate_typed.go`.
+The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). The `opm/loader/` deprecation shim is also gone; the canonical import path is `opm/helper/loader/file` (or `opm/helper/loader/registry` for published modules). A standalone `opm/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus the typed shortcuts in `opm/kernel/validate_typed.go`.
 
 ## Compile pipeline
 
@@ -104,7 +102,6 @@ The library does NOT vendor or embed the OPM core schema. At runtime the kernel 
 
 Key pieces:
 
-- `opm/apiversion` — `Version` type, registered constants, and `Detect(cue.Value)` that reads the `apiVersion` field off any artifact root.
 - `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata decoders, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
 - `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to release-synthesis and other callers.
 

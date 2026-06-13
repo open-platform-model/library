@@ -57,21 +57,22 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
-- `opm/apiversion/` — `Version` type, registered constants, `Detect(cue.Value)`
-- `opm/api/` — per-schema-version `Binding` interface and registry
-- `opm/api/<vN>/` — concrete bindings (registered in `init()`)
+- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata decoders
 - `opm/core/` — shared domain primitives (resource identity, compiled output)
 - `opm/errors/` — structured errors and sentinels (alias as `oerrors` in consumers)
-- `opm/loader/` — load CUE artifacts (modules, providers, releases) into `cue.Value`
-- `opm/module/` — module and release model, parsing, and helpers
-- `opm/provider/` — provider model
-- `opm/compile/` — compile pipeline (match, process, execute, finalize)
-- `opm/validate/` — configuration validation helpers
+- `opm/kernel/` — public `Kernel` struct: the single runtime entry point (load, validate, match, plan, compile, materialize)
+- `opm/module/` — module and release model, value-validation accessors
+- `opm/platform/` — platform artifact model (the kernel's match/execute input)
+- `opm/compile/` — compile pipeline (finalize, match, execute, emit)
+- `opm/materialize/` — resolve a platform's `#registry` subscriptions into a sealed `MaterializedPlatform`
+- `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `loader/bytes`, `synth`); a frontend MAY skip the entire tree
+
+Validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) rather than a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
 
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 
 ```text
-loader -> module/provider -> validate -> compile -> core
+loader -> module -> schema-validate -> compile -> core
 ```
 
 ---
