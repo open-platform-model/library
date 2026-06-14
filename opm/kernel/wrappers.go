@@ -6,6 +6,7 @@ import (
 	"cuelang.org/go/cue"
 
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	loaderregistry "github.com/open-platform-model/library/opm/helper/loader/registry"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
@@ -14,6 +15,17 @@ import (
 // kernel's [*cue.Context]. See [loaderfile.LoadModulePackage].
 func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, error) {
 	return loaderfile.LoadModulePackage(k.cueCtx, dirPath, opts)
+}
+
+// LoadModuleFromRegistry loads a #Module published in an OCI registry by its
+// major-qualified path (e.g. "example.com/modules/hello@v0") and version (e.g.
+// "v0.0.2"), using the kernel's [*cue.Context] and configured registry (set via
+// [WithRegistry], inheriting CUE_REGISTRY from the process environment when
+// unset). It returns the raw module [cue.Value]; callers decode it via
+// [Kernel.NewModuleFromValue], mirroring [Kernel.LoadModulePackage]'s two-step
+// load→decode contract. See [loaderregistry.LoadModulePackage].
+func (k *Kernel) LoadModuleFromRegistry(ctx context.Context, modPath, version string) (cue.Value, error) {
+	return loaderregistry.LoadModulePackage(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
 }
 
 // LoadReleasePackage loads a #ModuleRelease CUE package from a directory

@@ -690,6 +690,39 @@ Read absent-FQN and unify diagnostics off the `MatchPlan`:
   `pkg.LookupPath(schema.ComposedTransformers)` if you only have a filled
   platform value.
 
+### Added — `add-registry-module-loader`
+
+- `opm/helper/loader/registry` — new subpackage, the OCI-registry sibling of
+  `opm/helper/loader/file`. Loads a published `#Module` by `path@version`:
+  - `registry.LoadModulePackage(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (cue.Value, error)` —
+    fetches the module's source via CUE's native module machinery
+    (`mod/modconfig` → `Registry.Fetch`) and loads it **in memory as the main
+    module** through a `load.Config.Overlay` under a deterministic synthetic
+    root (no temp dir, no wrapper package). The module's own
+    `cue.mod/module.cue` drives transitive-dependency resolution and its
+    `kind`/`metadata` evaluate at the package root, so core@v0's
+    self-referential metadata is preserved. Applies the same module shape gate
+    as `loader/file` before returning.
+  - `registry.LoadOptions{Registry string}` — registry override, the same shape
+    as `loader/file.LoadOptions`. Applied via `load.Config.Env`; process
+    environment is never mutated.
+- `(*kernel.Kernel).LoadModuleFromRegistry(ctx context.Context, modPath, version string) (cue.Value, error)` —
+  thin wrapper delegating to `registry.LoadModulePackage` with the kernel's
+  owned `*cue.Context` and configured registry (`WithRegistry`). Returns the raw
+  module `cue.Value`; callers decode via `Kernel.NewModuleFromValue`, mirroring
+  the existing `Kernel.LoadModulePackage` two-step contract.
+- Internal refactor (behavior-preserving): the module shape gate and its
+  sentinels moved to `opm/helper/loader/internal/shape`, single-sourced across
+  both loaders. `loader/file.ErrInvalidPackage`, `ErrWrongKind`, and
+  `ErrMissingRequiredField` are **re-exported with unchanged identity** — existing
+  `errors.Is(err, loaderfile.ErrWrongKind)` callers are unaffected.
+- Note: this loader returns `(cue.Value, error)`, mirroring the current
+  `loader/file` loaders (the `opm/apiversion` package and loader-layer apiVersion
+  detection were removed earlier; see the next-MAJOR entries).
+- Purely additive — no existing signatures change; `cli/` and `opm-operator/`
+  keep compiling unchanged. Unblocks the operator deleting its module-acquire
+  wrapper shim in favor of `LoadModuleFromRegistry`.
+
 ### Added — `add-platform-synth`
 
 - `opm/helper/synth.Platform(ctx *cue.Context, in PlatformInput) (cue.Value, error)` —

@@ -41,8 +41,10 @@ opm/
   compile/                    finalize → match → execute → emit pipeline (no public entry; called via Kernel)
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
-    loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformFile
+    loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformPackage
+    loader/registry/          Registry loader: LoadModulePackage (published #Module by path@version, via Fetch+Overlay)
     loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
+    loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
     synth/                    Release(...) + Platform(...) → cue.Value from typed inputs (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
@@ -240,3 +242,4 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 - Run `task check:fast` for iterative work, `task check` before merge.
 - When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers and update `MIGRATIONS.md`.
 - Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleRelease`, etc.).
+- "Load a published module by `path@version`" lives in the library (`opm/helper/loader/registry.LoadModulePackage`, surfaced as `Kernel.LoadModuleFromRegistry`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, or dependency walks; call the loader. The shape gate is single-sourced in `loader/internal/shape` — extend it there, not per-loader.

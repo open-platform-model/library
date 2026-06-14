@@ -66,6 +66,18 @@ func UniquePath(t *testing.T, leaf string) string {
 	return CatalogPrefix + "/" + s + "/" + leaf
 }
 
+// ModuleFixture is one (path, version) #Module published into the in-memory
+// registry. File is the full module CUE file content (package clause + imports +
+// the c.#Module embed and author-set metadata); Deps lists any module deps
+// BEYOND opmodel.dev/core@v0 that File imports (e.g. a catalog the module
+// references), keyed by major-qualified path → bare SemVer. See [BuildModuleFile].
+type ModuleFixture struct {
+	Path    string            // module path without @major, e.g. "test.example/x/modules/hello"
+	Version string            // bare SemVer, e.g. "0.0.2"
+	File    string            // full module.cue contents
+	Deps    map[string]string // extra deps: "<path>@vN" → bare SemVer (core is added automatically)
+}
+
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
 // catalog fixtures and configures CUE_REGISTRY / CUE_CACHE_DIR for the test
 // scope: the test prefix routes to the in-process host (+insecure), while
@@ -81,6 +93,26 @@ func NewCatalogRegistry(t *testing.T, fixtures ...CatalogFixture) string {
 	t.Helper()
 
 	mapfs := fstest.MapFS{}
+	addCatalogs(mapfs, fixtures...)
+	return buildRegistry(t, mapfs)
+}
+
+// NewModuleRegistry stands up an in-memory OCI registry serving the given module
+// AND catalog fixtures from one host, configuring CUE_REGISTRY / CUE_CACHE_DIR
+// exactly like [NewCatalogRegistry]. Catalogs published here are resolvable as
+// transitive deps of the modules. Returns the CUE_REGISTRY mapping string.
+func NewModuleRegistry(t *testing.T, modules []ModuleFixture, catalogs []CatalogFixture) string {
+	t.Helper()
+
+	mapfs := fstest.MapFS{}
+	addCatalogs(mapfs, catalogs...)
+	addModules(mapfs, modules...)
+	return buildRegistry(t, mapfs)
+}
+
+// addCatalogs writes the modregistrytest fixture files for each catalog into
+// mapfs.
+func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 	for _, f := range fixtures {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
@@ -92,18 +124,69 @@ func NewCatalogRegistry(t *testing.T, fixtures ...CatalogFixture) string {
 			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v0\"\n\nc.#Catalog\n" + f.Body,
 		)}
 	}
+}
+
+// addModules writes the modregistrytest fixture files for each module into
+// mapfs. Each module's cue.mod/module.cue declares opmodel.dev/core@v0 plus any
+// extra Deps; the module body itself is the fixture's File verbatim.
+func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
+	for _, m := range modules {
+		dir := strings.ReplaceAll(m.Path, "/", "_") + "_v" + m.Version
+		var deps strings.Builder
+		deps.WriteString("deps: \"opmodel.dev/core@v0\": v: \"v0.3.0\"\n")
+		for p, v := range m.Deps {
+			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
+		}
+		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
+			"module: %q\nlanguage: version: \"v0.16.0\"\n%s",
+			m.Path+"@v0", deps.String(),
+		)}
+		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}
+	}
+}
+
+// buildRegistry stands up the in-memory registry from mapfs and wires the test
+// environment (warm core cache + in-process host for the test prefix). Returns
+// the CUE_REGISTRY mapping string.
+func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
+	t.Helper()
 
 	reg, err := modregistrytest.New(mapfs, "")
-	require.NoError(t, err, "stand up in-memory catalog registry")
+	require.NoError(t, err, "stand up in-memory registry")
 	t.Cleanup(reg.Close)
 
 	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core@v0
 	// already extracted there) and seeds CUE_REGISTRY with PublicRegistry;
-	// the combined mapping below adds the in-process catalog host.
+	// the combined mapping below adds the in-process host.
 	schematest.SetEnv(t)
 	registry := CatalogPrefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
 	t.Setenv("CUE_REGISTRY", registry)
 	return registry
+}
+
+// BuildModuleFile renders a complete module.cue for a #Module that imports the
+// core schema and (optionally) a single catalog, setting the author-given
+// identity metadata. When catalogImport is non-empty the module imports that
+// major-qualified catalog path and references its metadata under debugValues
+// (an open field), forcing the loader to resolve the catalog as a transitive
+// dependency. pkg is the package clause name.
+func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "package %s\n\n", pkg)
+	if catalogImport == "" {
+		b.WriteString("import c \"opmodel.dev/core@v0\"\n\n")
+	} else {
+		b.WriteString("import (\n\tc \"opmodel.dev/core@v0\"\n")
+		fmt.Fprintf(&b, "\tcat %q\n)\n\n", catalogImport)
+	}
+	b.WriteString("c.#Module\n")
+	fmt.Fprintf(&b, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    \"0.0.2\"\n}\n", name, modulePath)
+	if catalogImport != "" {
+		// Reference the imported catalog so the dep is load-bearing; debugValues
+		// is an open field on #Module, so this does not trip closedness.
+		b.WriteString("debugValues: catalogModulePath: cat.metadata.modulePath\n")
+	}
+	return b.String()
 }
 
 // BuildCatalog renders a complete catalog package body (the text after the bare
