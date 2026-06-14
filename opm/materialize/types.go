@@ -36,7 +36,23 @@ type MaterializedPlatform struct {
 
 	// Package is Source.Package with #composedTransformers and #matchers
 	// filled by Materialize. It is built with the owner's *cue.Context.
+	//
+	// WARNING: do NOT read a transformer's #transform out of Package to render
+	// its output. Package is a *closed* c.#Platform value, and FillPath-ing the
+	// composed map into a closed, independently-built value corrupts the lazy
+	// in-expression resolution of output-local hidden fields in the transformers
+	// (a CUE Go-API closedness bug — see
+	// docs/design/transformer-output-hidden-field-scope-bug.md §12). The matcher
+	// reads only FQNs/labels off Package, which are unaffected; the executor MUST
+	// read transforms from Composed instead.
 	Package cue.Value
+
+	// Composed is the open #composedTransformers map (FQN → #ComponentTransformer)
+	// as produced by indexCatalogs, BEFORE it is filled onto the closed Package.
+	// Reading a transform from this open value renders output-local hidden fields
+	// correctly; reading it from Package does not (see Package's warning). The
+	// executor sources every #transform from here.
+	Composed cue.Value
 
 	// Resolved maps each enabled subscription path to the bare SemVer that
 	// Materialize recorded for it. When a filter selects several versions

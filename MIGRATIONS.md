@@ -669,6 +669,27 @@ Read absent-FQN and unify diagnostics off the `MatchPlan`:
 
 ## Unreleased — next MINOR
 
+### Added — `materialized-platform-composed` (fixes output-local hidden field corruption)
+
+- `materialize.MaterializedPlatform` gained a field:
+  `Composed cue.Value` — the **open** `#composedTransformers` map (FQN →
+  `#ComponentTransformer`) as produced by `indexCatalogs`, kept separate from
+  the closed `Package`. Purely additive; existing fields are unchanged.
+- **Why:** `FillPath`-ing the composed map into the closed, independently-built
+  `c.#Platform` (`Package`) corrupts the lazy in-expression resolution of
+  output-local hidden fields inside transformers (a CUE Go-API
+  closedness/structure-sharing bug — see
+  `docs/design/transformer-output-hidden-field-scope-bug.md`). The executor now
+  reads each `#transform` from `Composed`; the matcher still reads FQNs/labels
+  off `Package` (those are unaffected).
+- **`Kernel` callers are unaffected.** `Materialize` populates `Composed`
+  automatically; no signature changed. Anyone who *constructs* a
+  `MaterializedPlatform` by hand (e.g. in tests, bypassing `Materialize`) MUST
+  now set `Composed` — otherwise execution reports
+  `#transform not found in #composedTransformers`. Set it to
+  `pkg.LookupPath(schema.ComposedTransformers)` if you only have a filled
+  platform value.
+
 ### Added — `add-platform-synth`
 
 - `opm/helper/synth.Platform(ctx *cue.Context, in PlatformInput) (cue.Value, error)` —

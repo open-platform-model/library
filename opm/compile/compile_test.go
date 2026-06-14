@@ -33,7 +33,15 @@ func materialized(t *testing.T, ctx *cue.Context, src string) *materialize.Mater
 		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
 		Package:  pv,
 	}
-	return &materialize.MaterializedPlatform{Source: plat, Package: pv}
+	// Composed mirrors what Materialize stores: the open #composedTransformers
+	// map the executor reads transforms from. (These fixtures build pv as an
+	// open struct literal, so reading from Package would also work here — but
+	// production Composed is intentionally separate; see MaterializedPlatform.)
+	return &materialize.MaterializedPlatform{
+		Source:   plat,
+		Package:  pv,
+		Composed: pv.LookupPath(schema.ComposedTransformers),
+	}
 }
 
 func TestMatch_RequiresPlatform(t *testing.T) {
@@ -658,6 +666,43 @@ func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.Materializ
 	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
 	require.NoError(t, err)
 	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
+}
+
+// TestExecute_ReadsTransformFromComposedNotPackage is the wiring guard for the
+// output-local hidden field fix: the executor MUST source the #transform from
+// the open MaterializedPlatform.Composed map, never from the closed Package
+// (reading from Package corrupts output-local hidden fields — see
+// docs/design/transformer-output-hidden-field-scope-bug.md §12, and the
+// materialize-package regression test).
+//
+// It makes Package and Composed DIVERGE: Match (which reads Package) still pairs
+// the component, but the rendered output must come from Composed. Hermetic — no
+// registry, no real catalog.
+func TestExecute_ReadsTransformFromComposedNotPackage(t *testing.T) {
+	ctx := cuecontext.New()
+
+	// Package carries a transformer whose output marks "package"; Match reads
+	// #composedTransformers/#matchers off Package, so the pair still forms.
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { src: "package" } }`)
+
+	// Composed (the open index the executor must use) carries the SAME FQN but a
+	// divergent output marking "composed".
+	mp.Composed = ctx.CompileString(`{
+	"` + echoTfFQN + `": {
+		metadata: { fqn: "` + echoTfFQN + `" }
+		#transform: { #component: _, #context: _, output: { src: "composed" } }
+	}
+}`)
+	require.NoError(t, mp.Composed.Err())
+
+	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	require.NoError(t, err)
+	require.Len(t, out.Compiled, 1)
+
+	src, err := out.Compiled[0].Value.LookupPath(cue.ParsePath("src")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "composed", src,
+		"executor must read the #transform from Composed, not Package")
 }
 
 // TestExecute_ListOutputEmitsOnePerItem covers the ListKind dispatch: a list

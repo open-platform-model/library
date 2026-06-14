@@ -129,10 +129,13 @@ func (r *Module) Execute(
 	}
 
 	// Phase 2 — execution (CUE #transform per pair).
-	// Passes both schemaComponents (for metadata extraction) and dataComponents
-	// (already finalized, no materialize() needed).
+	// Passes the OPEN composed transformer map (NOT r.platform.Package): reading
+	// a #transform out of the closed Package corrupts output-local hidden fields
+	// (see materialize.MaterializedPlatform.Composed). Also passes both
+	// schemaComponents (for metadata extraction) and dataComponents (already
+	// finalized, no materialize() needed).
 	compiled, warnings, errs := executeTransforms(
-		ctx, cueCtx, plan, r.platform.Package,
+		ctx, cueCtx, plan, r.platform.Composed,
 		schemaComponents, dataComponents, rel,
 		r.runtimeName,
 	)

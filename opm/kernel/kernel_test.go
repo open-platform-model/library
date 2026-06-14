@@ -257,7 +257,8 @@ type: "kubernetes"
 			Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
 			Package:  pv,
 		},
-		Package: pv,
+		Package:  pv,
+		Composed: pv.LookupPath(cue.ParsePath("#composedTransformers")),
 	}
 }
 
@@ -376,7 +377,8 @@ type: "kubernetes"
 			Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
 			Package:  pv,
 		},
-		Package: pv,
+		Package:  pv,
+		Composed: pv.LookupPath(cue.ParsePath("#composedTransformers")),
 	}
 }
 
