@@ -108,7 +108,11 @@ func Materialize(ctx context.Context, owner CueContextOwner, registry string, p 
 		}
 	}
 
-	return &MaterializedPlatform{Source: p, Package: filled, Resolved: resolved}, nil
+	// Composed is the OPEN index, kept separate from the closed Package on
+	// purpose: the executor must read transforms from here, not out of Package
+	// (filling the map into the closed #Platform corrupts output-local hidden
+	// fields — see types.go / the design doc §12).
+	return &MaterializedPlatform{Source: p, Package: filled, Composed: composed, Resolved: resolved}, nil
 }
 
 // subscriptionEnabled reports whether a #Subscription value is enabled. The
