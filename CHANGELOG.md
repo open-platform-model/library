@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/open-platform-model/library/compare/v0.5.0...v0.5.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **materialize:** source transforms from open composed map ([#16](https://github.com/open-platform-model/library/issues/16)) ([045414c](https://github.com/open-platform-model/library/commit/045414cd2b52ab86c638bf338315e95332d16d3b))
+
 ## [0.5.0](https://github.com/open-platform-model/library/compare/v0.4.0...v0.5.0) (2026-06-13)
 
 
