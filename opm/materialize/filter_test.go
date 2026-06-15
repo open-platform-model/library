@@ -77,6 +77,24 @@ func TestFilterVersions(t *testing.T) {
 			filter:    &subscriptionFilter{Deny: []string{"garbage"}},
 			wantErr:   true,
 		},
+		{
+			name:      "no filter excludes pre-release",
+			published: []string{"v0.5.0", "v0.5.1", "v0.6.0-dev.1"},
+			filter:    nil,
+			want:      []string{"v0.5.1"},
+		},
+		{
+			name:      "no filter falls back to highest pre-release when no stable",
+			published: []string{"v0.6.0-dev.1", "v0.6.0-dev.2"},
+			filter:    nil,
+			want:      []string{"v0.6.0-dev.2"},
+		},
+		{
+			name:      "allow opts a pre-release into a stable range",
+			published: []string{"v0.5.0", "v0.5.1", "v0.6.0-dev.1"},
+			filter:    &subscriptionFilter{Range: ">=0.5.0 <0.6.0", Allow: []string{"0.6.0-dev.1"}},
+			want:      []string{"v0.5.0", "v0.5.1", "v0.6.0-dev.1"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -88,6 +106,41 @@ func TestFilterVersions(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestHighestStable(t *testing.T) {
+	tests := []struct {
+		name      string
+		published []string
+		want      string
+	}{
+		{
+			name:      "all stable returns highest",
+			published: []string{"v0.4.0", "v0.5.0", "v0.5.1"},
+			want:      "v0.5.1",
+		},
+		{
+			name:      "skips a higher pre-release",
+			published: []string{"v0.5.0", "v0.5.1", "v0.6.0-dev.1"},
+			want:      "v0.5.1",
+		},
+		{
+			name:      "pre-release-only falls back to highest overall",
+			published: []string{"v0.6.0-dev.1", "v0.6.0-dev.2"},
+			want:      "v0.6.0-dev.2",
+		},
+		{
+			name:      "unparseable trailing entry is skipped",
+			published: []string{"v0.5.1", "not-semver"},
+			want:      "v0.5.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, highestStable(tt.published))
 		})
 	}
 }

@@ -9,7 +9,8 @@ import (
 // subscriptionFilter is the Go projection of a #SubscriptionFilter. Range is
 // a SemVer constraint expression; Allow / Deny are bare-SemVer (#VersionType)
 // version lists. A nil *subscriptionFilter (no filter authored) selects the
-// highest published version.
+// highest published stable (non-pre-release) version; pre-releases require
+// explicit opt-in via Allow or a pre-release-bearing Range.
 type subscriptionFilter struct {
 	Range string
 	Allow []string
@@ -32,14 +33,19 @@ func (f *subscriptionFilter) isEmpty() bool {
 // tolerates a leading `v`. The result preserves the published ascending order
 // and keeps the `v`-prefixed strings (the form [pullCatalog] consumes).
 //
-// With no filter (or an all-empty filter) the highest published version is
-// selected (spec: "Enabled subscription with no filter").
+// With no filter (or an all-empty filter) the highest published *stable*
+// version is selected — pre-releases are excluded so a leaked dev tag does not
+// silently become "latest" (spec: "Enabled subscription with no filter"). A
+// path that has published only pre-releases falls back to the highest of them.
+// Pre-releases are otherwise reachable only by explicit opt-in: a filter.allow
+// naming the exact version, or a filter.range whose constraint carries a
+// pre-release identifier.
 func filterVersions(published []string, f *subscriptionFilter) ([]string, error) {
 	if len(published) == 0 {
 		return nil, nil
 	}
 	if f.isEmpty() {
-		return []string{published[len(published)-1]}, nil
+		return []string{highestStable(published)}, nil
 	}
 
 	selected := make(map[string]bool, len(published))
@@ -95,6 +101,25 @@ func filterVersions(published []string, f *subscriptionFilter) ([]string, error)
 		}
 	}
 	return out, nil
+}
+
+// highestStable returns the highest published stable (non-pre-release) version.
+// published is the registry's `v`-prefixed, SemVer-ascending list. Pre-release
+// tags (e.g. v0.6.0-dev.*) are skipped so an unfiltered subscription resolves to
+// the latest *released* catalog — matching the drift check's stable-only
+// semantics. If no stable version exists, the highest overall is returned so a
+// pre-release-only catalog still materializes.
+func highestStable(published []string) string {
+	for i := len(published) - 1; i >= 0; i-- {
+		sv, err := semver.NewVersion(published[i])
+		if err != nil {
+			continue
+		}
+		if sv.Prerelease() == "" {
+			return published[i]
+		}
+	}
+	return published[len(published)-1]
 }
 
 // matchingPublished returns the published versions SemVer-equal to want
