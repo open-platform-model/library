@@ -12,6 +12,15 @@ fields that are explicitly declared in the closed schema**. The same modules
 validate cleanly on `v0.16.0` and `v0.17.0-alpha.1`. The regression was
 introduced between `alpha.1` and `alpha.2` and persists in `alpha.3`.
 
+**Root cause is bisected** (2026-06-16): the first bad commit is
+[`339485d`](https://github.com/cue-lang/cue/commit/339485ddf008a5b536714a5ed0fc625769a0f1a1)
+"internal/core/adt: dependency-tracking comprehension pushdown". A 24-line
+self-contained single-package reproduction is checked in at
+[`repro-comprehension-closedness/`](./repro-comprehension-closedness/). The
+regression **still reproduces on upstream `master` HEAD** (`89492a12`,
+2026-06-16) and is **not yet filed** as an upstream issue. See
+[Root cause](#root-cause-bisected) below.
+
 This matters because the OPM kernel (`library`, `opm-operator`) pins
 `cuelang.org/go v0.17.0-alpha.1`. A bump to `alpha.2`/`alpha.3` would make the Go
 evaluator reject real catalog-backed modules at render time — exactly what the
@@ -27,6 +36,7 @@ Measured with isolated binaries (`GOBIN=… go install cuelang.org/go/cmd/cue@<v
 | `v0.17.0-alpha.1`  | **clean**                                  | FAIL (`field not allowed`)     |
 | `v0.17.0-alpha.2`  | **FAIL** (`field not allowed`)             | FAIL (`field not allowed`)     |
 | `v0.17.0-alpha.3`  | **FAIL** (`field not allowed`)             | FAIL (`field not allowed`)     |
+| `master` `89492a12` (2026-06-16) | **FAIL** (`field not allowed`)  | —                              |
 
 † The metadata-self-cycle column is a **separate, real** OPM schema bug (a
 `#Module.metadata` self-reference), fixed independently and orthogonal to this
@@ -114,15 +124,86 @@ The combination — `close()` over a cross-package comprehension, plus a
 self-referential propagation copying an optional nested struct (`#ScalingSchema`,
 a closed cross-package definition) to a sibling field — is what alpha.2+ mis-closes.
 
-### Minimal in-package reproductions do NOT trigger it
+### A minimal single-package reproduction DOES trigger it
 
-Several reduced, single-package models of the above (a `close({...})` with the
-same propagation `scaling: spec.statelessWorkload.scaling`, including a
-comprehension over a `#traits` map) evaluate **cleanly on alpha.3**. The trigger
-therefore appears to require the real multi-layer, cross-package closed-type
-embedding (core `#Component` → catalog `#Trait`/`#Blueprint` → `#ScalingSchema`),
-not just the surface shape. This narrows the regression to closedness propagation
-across module/definition boundaries rather than a single local pattern.
+> Correction to an earlier version of this note. It previously claimed that
+> reduced single-package models do *not* trigger the bug and that the real
+> multi-layer cross-package embedding was required. **That was wrong** — the
+> earlier reductions simply omitted one essential ingredient (populating the
+> spec by *embedding a referenced struct*, not by writing fields directly).
+
+A 24-line single-file, single-package, registry-free reproduction is checked in
+at [`repro-comprehension-closedness/`](./repro-comprehension-closedness/):
+
+```cue
+#Inner: {count: int}
+#Schema: {
+	a:        string
+	scaling?: #Inner          // optional, typed by a closed definition
+}
+#Component: {
+	_allFields: {
+		scaling:           #Inner
+		statelessWorkload: #Schema
+	}
+	spec: {_allFields}        // (1) spec populated by EMBEDDING a reference
+}
+#SW: #Component & {
+	spec: {
+		statelessWorkload: #Schema
+		if spec.statelessWorkload.scaling != _|_ {   // (3) self-ref CONDITIONAL
+			scaling: spec.statelessWorkload.scaling
+		}
+	}
+}
+web: #SW & {
+	spec: statelessWorkload: {a: "x", scaling: count: 3}   // set the optional
+}
+```
+
+```bash
+( cd repro-comprehension-closedness && /tmp/a1/cue vet -c=false ./... )  # clean
+( cd repro-comprehension-closedness && /tmp/a2/cue vet -c=false ./... )
+#   web.spec.statelessWorkload: field not allowed
+```
+
+The three essential ingredients, each verified necessary by ablation
+(varA–varM, min–min4 during the investigation):
+
+1. **`spec` is populated by *embedding a referenced struct*** (`spec: {_allFields}`),
+   not by writing the merged fields directly. Writing the same fields inline
+   does **not** trigger it — this is the ingredient the earlier reductions
+   missed. (The catalog hits this via core `#Component`'s
+   `spec: close({_allFields})`, where `_allFields` is a hidden field built from
+   a comprehension.)
+2. **An embedded field is typed by a closed definition carrying a nested optional**
+   (`statelessWorkload: #Schema`, `#Schema.scaling?: #Inner`).
+3. **A self-referential *conditional* comprehension at the same struct level**
+   reads a field of the struct under construction
+   (`if spec.statelessWorkload.scaling != _|_ { … }`). An *unconditional* copy
+   does **not** trigger it — the `if` guard is required.
+
+What is *not* required (all verified): `close()` itself (recursive closedness of
+the enclosing `#definition` is enough); the `spec.`-prefixed self-path (a local
+reference inside the `if` also triggers it); the comprehension-over-a-`#traits`-map
+(inline fields trigger it too); and any cross-package / cross-module boundary
+(a single file in a single package suffices).
+
+## Root cause (bisected)
+
+`git bisect` over the 117 commits between `v0.17.0-alpha.1` (good) and
+`v0.17.0-alpha.2` (bad), using the minimal reproduction above as the test, lands
+on a single first-bad commit:
+[`339485d`](https://github.com/cue-lang/cue/commit/339485ddf008a5b536714a5ed0fc625769a0f1a1)
+— *internal/core/adt: dependency-tracking comprehension pushdown* (Marcel van
+Lohuizen, 2026-05-09). The new `ArcPending` scheduler runs a struct's closedness
+check before an *embedded conjunct's* fields are inserted, when a
+*self-referential conditional comprehension* on a sibling conjunct forces early
+evaluation — so a declared field is reported `field not allowed`.
+
+**The full mechanism, ablation table, bisection method, symptom mapping, and
+upstream-filing material live in the standalone report:
+[`cue-closedness-regression-alpha2-rootcause.md`](./cue-closedness-regression-alpha2-rootcause.md).**
 
 ## Impact on OPM
 
@@ -143,8 +224,12 @@ across module/definition boundaries rather than a single local pattern.
    `go.mod` until this is resolved upstream.
 2. **Before any bump past alpha.1**, re-run the matrix above (and the operator's
    `task dev:test:local` render integration tests) against the candidate version.
-3. **Report upstream** to `cuelang.org/go` with the reproduction above; offer to
-   bisect alpha.1→alpha.2 if maintainers want a narrower commit range.
+3. **Report upstream** to `cuelang.org/go` — no issue covers this yet. The
+   bisect is already done: cite first-bad commit `339485d` (comprehension
+   pushdown) and attach [`repro-comprehension-closedness/`](./repro-comprehension-closedness/)
+   verbatim (it needs no registry). Note it still reproduces on `master` HEAD
+   (`89492a12`, 2026-06-16) and cross-reference the same-class open issue
+   [#3486](https://github.com/cue-lang/cue/issues/3486).
 4. For local CLI work in this workspace, use a `cue` CLI at `v0.17.0-alpha.1`
    (matches the kernel) or `v0.16.0`; do not trust closedness errors from
    `alpha.2`/`alpha.3`.
@@ -155,5 +240,11 @@ across module/definition boundaries rather than a single local pattern.
 - `opmodel.dev/catalogs/opm` `blueprints/workload/stateless_workload.cue`,
   `traits/scaling.cue` — the closed schemas being mis-rejected.
 - `opmodel.dev/core` `component.cue` — `spec: close({_allFields})`.
-- `library/docs/design/repro-hidden-field/` — a sibling CUE closedness
-  investigation (different root cause: Go `FillPath` into a closed value).
+- [`repro-comprehension-closedness/`](./repro-comprehension-closedness/) —
+  the checked-in 24-line self-contained reproduction (no registry needed).
+- First-bad commit:
+  [`339485d`](https://github.com/cue-lang/cue/commit/339485ddf008a5b536714a5ed0fc625769a0f1a1)
+  "internal/core/adt: dependency-tracking comprehension pushdown".
+- Same-class upstream issues:
+  [#3486](https://github.com/cue-lang/cue/issues/3486) (open),
+  [#3533](https://github.com/cue-lang/cue/issues/3533).
