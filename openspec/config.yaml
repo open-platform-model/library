@@ -30,13 +30,11 @@ context: |
 
   ### III. Separation of Concerns
   The library MUST preserve clear package boundaries:
-  - `opm/core/`: shared domain primitives (resource identity, rendered output).
-  - `opm/errors/`: structured errors and sentinels (alias as `oerrors`).
-  - `opm/loader/`: CUE artifact loading (modules, providers, releases).
-  - `opm/module/`: module/release model, parsing, helpers.
-  - `opm/provider/`: provider model.
-  - `opm/render/`: render pipeline (match, process, execute, finalize).
-  Domain logic belongs in focused packages, not aggregated into one monolithic API. Configuration validation lives on the `Kernel` (see `opm/kernel/validate.go`); there is no standalone `opm/validate/` package.
+  - Domain logic lives in focused, single-responsibility packages, never aggregated into one monolithic API.
+  - The public kernel surface lives under `opm/`; opt-in frontend convenience lives behind a clearly marked boundary a consumer MAY skip.
+  - Errors, shared domain primitives, artifact loading, the artifact model, and the compile/render pipeline each own a distinct package.
+  - Configuration validation lives on the `Kernel`, not in a standalone validation package.
+  The authoritative package map is `CLAUDE.md` § Repository Layout — consult it for current package names. This constitution governs the boundaries, not the inventory.
 
   ### IV. Composability via Stable Contracts
   The library is a kernel; its public API is contractual.
@@ -61,7 +59,7 @@ context: |
   - PATCH: bug fixes, performance improvements, internal refactors.
   - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
   - Types: feat, fix, refactor, docs, test, chore.
-  - Scopes: core, loader, module, provider, render, kernel, errors.
+  - Scope SHOULD name the affected package or subsystem; see CLAUDE.md for the current scope set.
 
   ### VII. Simplicity & YAGNI
   Start with the simplest implementation that satisfies a real downstream need.
@@ -140,7 +138,7 @@ rules:
         **Decision**: [Chosen option]
         **Rationale**: [Why this option was selected]
     - Include Go pseudo-code or CUE snippets where they clarify intent.
-    - Detail the impact across loader / module / render / kernel phases.
+    - Detail the impact across the affected packages / pipeline phases.
     - Call out any change to the public surface in `opm/`.
 
   specs:
@@ -156,6 +154,6 @@ rules:
     - "Updates when: Tasks complete, new tasks discovered, blockers identified"
     - "CRITICAL: Break tasks into TINY chunks (max 1-2 hours)."
     - "CRITICAL: If the task list grows too long (>10 items) or spans multiple distinct packages, suggest splitting into a new OpenSpec change."
-    - Group tasks by package (`core`, `loader`, `module`, `provider`, `render`, `kernel`, `errors`).
+    - Group tasks by affected package (see CLAUDE.md for the current package set).
     - Each task should be independently testable.
     - Include validation gates as final tasks (`task fmt`, `task vet`, `task lint`, `task test`).
