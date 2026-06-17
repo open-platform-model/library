@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.3](https://github.com/open-platform-model/library/compare/v0.5.2...v0.5.3) (2026-06-17)
+
+
+### Miscellaneous Chores
+
+* **docs:** single build cue evaluation invariant and render/materialize plans ([#21](https://github.com/open-platform-model/library/issues/21)) ([c3ec31d](https://github.com/open-platform-model/library/commit/c3ec31df262a825314f382265f42c8ab73af2e92))
+* **docs:** Update status on closedness document ([62866e3](https://github.com/open-platform-model/library/commit/62866e3f550f794e184c9a991802e8916bbd6401))
+
 ## [0.5.2](https://github.com/open-platform-model/library/compare/v0.5.1...v0.5.2) (2026-06-17)
 
 
