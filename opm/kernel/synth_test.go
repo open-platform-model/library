@@ -3,91 +3,72 @@ package kernel_test
 import (
 	"context"
 	"errors"
-	"path/filepath"
+	"fmt"
+	"strings"
 	"testing"
 
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/load"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/helper/synth"
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
 
 // newSynthKernel returns a fresh kernel.Kernel configured with the
-// workspace-local CUE cache. Each test gets its own Kernel so the
-// schema-cache lifetime is per-test and explicit. Tests in this file
-// MUST route every synth call through the returned Kernel — the
-// Kernel's *cue.Context owns every cue.Value the synth path consumes,
-// and a second Kernel in the same test would seat a different runtime
-// in its own *schema.Cache, tripping the "values are not from the same
-// runtime" contract inside cue.Value.FillPath.
+// workspace-local CUE cache. Used by guard tests that fail before any synth
+// build runs (so they need no published module).
 func newSynthKernel(t *testing.T) *kernel.Kernel {
 	t.Helper()
 	schematest.SetEnv(t)
 	return kernel.New()
 }
 
-// testdataSynthDir resolves the on-disk path to library/testdata/synth/
-// relative to this test file.
-func testdataSynthDir(t *testing.T) string {
+// publishSynthModule publishes a #Module (bodyFields is the text after the
+// metadata block) to an in-memory registry pinned to core@v0.6.0, then returns
+// a Kernel wired to that registry plus the module loaded back through
+// Kernel.LoadModuleFromRegistry. This mirrors how a frontend acquires a module
+// before synthesizing a release: synth.Release imports the module by its
+// canonical registry path (metadata.modulePath/nameSnakeCase), so the module
+// MUST be resolvable from a registry — a locally-built value no longer works.
+//
+// Per the publishing convention, the module is published at the snake_case leaf
+// with a snake_case CUE package; metadata.name keeps its kebab form.
+func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel.Kernel, *module.Module) {
 	t.Helper()
-	return filepath.Join(schematest.LibraryRoot(t), "testdata", "synth")
-}
 
-// synthTestModule builds a *module.Module against the Kernel's context
-// by loading a synthtest fixture rooted at library/testdata/synth/. The
-// Kernel's CueContext owns every cue.Value the synth path consumes, so
-// the helper threads k.CueContext() through load.Instances.
-func synthTestModule(t *testing.T, k *kernel.Kernel, src string) *module.Module {
-	t.Helper()
-	schematest.SetEnv(t)
+	snake := strings.ReplaceAll(name, "-", "_")
+	metaPath := registrytest.UniquePath(t, "modules")
+	modPath := metaPath + "/" + snake
 
-	moduleRoot := testdataSynthDir(t)
-	fixturePath := filepath.Join(moduleRoot, "fixture.cue")
-	cfg := &load.Config{
-		Dir: moduleRoot,
-		Overlay: map[string]load.Source{
-			fixturePath: load.FromString(src),
-		},
-	}
-	insts := load.Instances([]string{"."}, cfg)
-	require.Len(t, insts, 1)
-	require.NoError(t, insts[0].Err)
+	var file strings.Builder
+	fmt.Fprintf(&file, "package %s\n\n", snake)
+	file.WriteString("import core \"opmodel.dev/core@v0\"\n\n")
+	file.WriteString("core.#Module\n")
+	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", name, metaPath, version)
+	file.WriteString(bodyFields)
 
-	pkg := k.CueContext().BuildInstance(insts[0])
-	require.NoErrorf(t, pkg.Err(), "building fixture: %v", pkg.Err())
-	modVal := pkg.LookupPath(cue.ParsePath("module"))
-	require.True(t, modVal.Exists())
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{{
+		Path:        modPath,
+		Version:     version,
+		File:        file.String(),
+		CoreVersion: "v0.6.0",
+	}}, nil)
+
+	k := kernel.New(kernel.WithRegistry(reg))
+	modVal, err := k.LoadModuleFromRegistry(context.Background(), modPath+"@v0", "v"+version)
+	require.NoErrorf(t, err, "loading published module %s@v%s", modPath, version)
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err)
-	return mod
+	return k, mod
 }
 
-const kernelSynthBaseFixture = `
-package synthtest
-
-import core "opmodel.dev/core@v0"
-
-module: {
-	core.#Module
-	metadata: {
-		name:       "demo"
-		modulePath: "example.com/demo"
-		version:    "0.1.0"
-	}
-	#components: {}
-	#config: { sentinel: string | *"ok" }
-	debugValues: { sentinel: "from-debug" }
-}
-`
+const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"ok\"}\ndebugValues: {sentinel: \"from-debug\"}\n"
 
 func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
-	k := newSynthKernel(t)
-	mod := synthTestModule(t, k, kernelSynthBaseFixture)
+	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
@@ -120,26 +101,10 @@ func TestKernel_SynthesizeRelease_NilModuleRejectedBeforeValidation(t *testing.T
 }
 
 func TestKernel_SynthesizeRelease_UnconcreteRejected(t *testing.T) {
-	k := newSynthKernel(t)
 	// Module declares a required #config field with no default. Omitting
 	// Values means ProcessModuleRelease's concreteness check must fail.
-	mod := synthTestModule(t, k, `
-package synthtest
-
-import core "opmodel.dev/core@v0"
-
-module: {
-	core.#Module
-	metadata: {
-		name:       "demo"
-		modulePath: "example.com/demo"
-		version:    "0.1.0"
-	}
-	#components: {}
-	#config: { required!: string }
-	debugValues: { required: "from-debug" }
-}
-`)
+	k, mod := publishSynthModule(t, "demo", "0.1.0",
+		"#components: {}\n#config: {required!: string}\ndebugValues: {required: \"from-debug\"}\n")
 
 	_, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
 		Module:      mod,
@@ -150,14 +115,15 @@ module: {
 		// so the concreteness check downstream MUST reject.
 	})
 	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "cannot find package",
+		"failure must be the concreteness check, not module resolution")
 }
 
 // TestKernel_SynthesizeRelease_DefaultSchemaCache asserts that omitting
 // SchemaCache on ReleaseInput falls back to the kernel-owned cache via
 // SynthesizeRelease's defaulting.
 func TestKernel_SynthesizeRelease_DefaultSchemaCache(t *testing.T) {
-	k := newSynthKernel(t)
-	mod := synthTestModule(t, k, kernelSynthBaseFixture)
+	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
@@ -175,8 +141,7 @@ func TestKernel_SynthesizeRelease_DefaultSchemaCache(t *testing.T) {
 }
 
 func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
-	k := newSynthKernel(t)
-	mod := synthTestModule(t, k, kernelSynthBaseFixture)
+	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 

@@ -3,10 +3,12 @@ package synth
 import (
 	"errors"
 	"fmt"
-	"strings"
+	"path/filepath"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/load"
 
+	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -16,7 +18,10 @@ import (
 // the release only when present (non-nil / non-empty / non-zero); empty
 // values do not displace schema-derived fields.
 type ReleaseInput struct {
-	// Module is the source #Module the release deploys. Required.
+	// Module is the source #Module the release deploys. Required. Its
+	// metadata.modulePath / metadata.version identify the published module
+	// the synthesized package imports (Release references the module by
+	// import, not by inlining its value).
 	Module *module.Module
 
 	// Name is the release name (metadata.name). Required. Must satisfy the
@@ -54,7 +59,8 @@ type ReleaseInput struct {
 // errors.Is. Synthesis-time errors all wrap one of these so callers can
 // distinguish "you forgot a required field" from "the schema is broken."
 var (
-	// ErrMissingModule is returned when ReleaseInput.Module is nil.
+	// ErrMissingModule is returned when ReleaseInput.Module is nil, or carries
+	// no decoded metadata identity (modulePath / version) to import by.
 	ErrMissingModule = errors.New("synth.Release: Module is required")
 
 	// ErrMissingName is returned when ReleaseInput.Name is empty.
@@ -68,13 +74,36 @@ var (
 	ErrMissingSchemaCache = errors.New("synth.Release: SchemaCache is required")
 
 	// ErrSchemaUnavailable is returned when the caller-supplied
-	// SchemaCache resolves but does not expose #ModuleRelease.
+	// SchemaCache resolves but does not expose #ModuleRelease, or does not
+	// surface a resolved version to pin the synthesized package's core dep.
 	ErrSchemaUnavailable = errors.New("synth.Release: schema unavailable")
 )
 
-// Release builds a #ModuleRelease CUE value by unifying ReleaseInput against
-// the #ModuleRelease definition obtained from the caller-supplied
-// SchemaCache.
+// synthRoot is the deterministic in-memory module root the synthesized release
+// package is overlaid under. It need not exist on disk; the loader treats the
+// overlaid files as present there and uses it as the module root so the
+// fabricated cue.mod/module.cue drives dependency resolution. It is constant
+// because the synthesized package is the MAIN module (rebuilt from the overlay
+// on every call), never cached by module path the way fetched deps are.
+func synthRoot() string {
+	return string(filepath.Separator) + "opm-synth-release"
+}
+
+// Release builds a #ModuleRelease CUE value by synthesizing an in-memory CUE
+// package and evaluating it in a single build (ADR-003), through the same
+// loader build-and-shape-gate path LoadReleasePackage uses for on-disk release
+// packages. The synthesized package consists of a fabricated cue.mod/module.cue
+// (deps: the resolved core version + the module's path@version), a release.cue
+// that imports core and the module and writes `#module: <import>` plus
+// caller-supplied metadata, and — when Values is supplied — a values.cue
+// rendered from ReleaseInput.Values.
+//
+// Because the module enters the build by import (one CUE evaluation, one
+// #Image / #Secret closure), there is no closed-into-closed FillPath and no
+// Go-side value pre-merge: the schema's own
+// `let unifiedModule = #module & {#config: values}` performs the values merge
+// in CUE. The previous cue.Scope / userModule workaround and the
+// FillPath(#config, Values) pre-merge are gone.
 //
 // The function does NOT validate values against #config and does NOT enforce
 // concreteness. Both responsibilities live downstream in
@@ -99,7 +128,14 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	if in.SchemaCache == nil {
 		return cue.Value{}, ErrMissingSchemaCache
 	}
+	if in.Module.Metadata == nil || in.Module.Metadata.ModulePath == "" || in.Module.Metadata.Version == "" {
+		return cue.Value{}, fmt.Errorf("%w: module has no modulePath/version identity to import by", ErrMissingModule)
+	}
 
+	// Resolve the schema to (a) confirm #ModuleRelease is present and (b) learn
+	// the resolved core version, which the fabricated cue.mod/module.cue pins
+	// so the synth build is reproducible. This is the same Cache the caller's
+	// Kernel owns, so it reuses the already-memoized schema fetch.
 	schemaPkg, err := in.SchemaCache.Get(ctx)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Release: loading schema: %w", err)
@@ -107,118 +143,46 @@ func Release(ctx *cue.Context, in ReleaseInput) (cue.Value, error) {
 	if !schemaPkg.LookupPath(cue.ParsePath("#ModuleRelease")).Exists() {
 		return cue.Value{}, fmt.Errorf("%w: #ModuleRelease not found in resolved schema", ErrSchemaUnavailable)
 	}
-
-	// CUE's Go API rejects FillPath into a closed definition when the
-	// definition uses self-referential constraints (#Module in
-	// opmodel.dev/core@v0 declares `modulePath: metadata.modulePath`).
-	// Filling a separately-built module value into #ModuleRelease.#module
-	// triggers admission checks
-	// against a re-evaluated copy of #Module where the self-reference
-	// resolves to bottom, so caller-supplied modulePath / version are
-	// rejected as "field not allowed".
-	//
-	// Workaround: build a scope value that extends the schema package with a
-	// non-hidden `userModule` field, fill the caller's module into that field,
-	// then compile a release expression that references both `#ModuleRelease`
-	// and `userModule` via cue.Scope. The user's module enters the
-	// compilation as a value (not a re-emitted source fragment), so its full
-	// type-embedding chain survives — components, traits, blueprints all
-	// retain the schema relationships needed for the schema's `components`
-	// comprehension and the autosecrets discovery walk.
-	//
-	// Caller-supplied Values are pre-merged into the module's #config BEFORE
-	// the module enters the scope. The release schema unifies values into
-	// #config via `let unifiedModule = #module & {#config: values}`, and the
-	// resulting #Image / #Secret closures propagate back to release.values
-	// through CUE's bidirectional unification. That propagation conflicts
-	// with the defaults that ProcessModuleRelease later folds into the values
-	// path: closed res.#Image types declared in the user's registry-loaded
-	// module differ at the CUE-runtime level from the same types reached
-	// through the cache-resolved schema, so admission of fields like image.pullPolicy
-	// fails even though both sides declare them. Pre-merging in Go sidesteps
-	// the conflict — the schema sees a fully-formed #config without needing
-	// to project values back through the closure boundary.
-	preparedModule := in.Module.Package
-	if in.Values.Exists() {
-		preparedModule = preparedModule.FillPath(schema.Config, in.Values)
-		if err := preparedModule.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("synth.Release: merging values into module #config: %w", err)
-		}
+	coreVersion := in.SchemaCache.ResolvedVersion()
+	if coreVersion == "" {
+		return cue.Value{}, fmt.Errorf("%w: resolved core schema version unavailable, cannot pin synth module deps", ErrSchemaUnavailable)
 	}
 
-	scope, err := buildReleaseScope(ctx, schemaPkg, preparedModule)
+	overlay, err := buildOverlay(in, coreVersion)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Release: %w", err)
 	}
 
-	src := renderReleaseSource(in)
-	root := ctx.CompileString(src, cue.Scope(scope), cue.Filename("synth/release.cue"))
-	if err := root.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Release: compiling release source: %w", err)
+	// Evaluate the synthesized package through the SAME build-and-shape-gate
+	// step LoadReleasePackage uses; the only difference is overlay vs. on-disk
+	// source. Registry resolution uses the process CUE_REGISTRY (the module and
+	// core resolve from the same registry/cache the caller already used to
+	// acquire the module).
+	val, err := loaderfile.BuildReleaseOverlay(ctx, synthRoot(), overlay, loaderfile.LoadOptions{})
+	if err != nil {
+		return cue.Value{}, fmt.Errorf("synth.Release: %w", err)
 	}
-	spec := root.LookupPath(cue.ParsePath("release"))
-	if err := spec.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Release: unifying inputs with #ModuleRelease: %w", err)
-	}
-	return spec, nil
+	return val, nil
 }
 
-// buildReleaseScope produces a cue.Value combining the resolved schema
-// package with a `userModule` field bound to the supplied module. The
-// returned value is used as cue.Scope when compiling the release source.
-//
-// The schema package is open at the file level, so unifying it with the
-// overlay `{userModule: _}` introduces a new field without violating any
-// closure. The combined value is then used as a *scope* for compilation,
-// not a value to be filled — references resolve against it lexically.
-//
-// We do NOT call combined.Err() at any step: the schema carries
-// self-referential constraints in unset required fields (see
-// schemavalue.go's note). Surfacing the resulting bottom on the root would
-// abort every synth call; the actual unification we care about runs in
-// CompileString below where Scope is consulted lexically, and any genuine
-// schema/scope problem surfaces there.
-func buildReleaseScope(ctx *cue.Context, schemaPkg, userModule cue.Value) (cue.Value, error) {
-	overlay := ctx.CompileString("userModule: _")
-	if err := overlay.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("building scope overlay: %w", err)
+// buildOverlay assembles the in-memory load.Source overlay for the synthesized
+// release package: the fabricated module file, the release file, and (only when
+// Values is supplied) the rendered values file. Keys are absolute paths under
+// synthRoot so the loader treats them as the package's files.
+func buildOverlay(in ReleaseInput, coreVersion string) (map[string]load.Source, error) {
+	root := synthRoot()
+	overlay := map[string]load.Source{
+		filepath.Join(root, "cue.mod", "module.cue"): load.FromString(renderModuleFile(in, coreVersion)),
+		filepath.Join(root, "release.cue"):           load.FromString(renderReleaseFile(in)),
 	}
-	combined := schemaPkg.Unify(overlay)
-	combined = combined.FillPath(cue.ParsePath("userModule"), userModule)
-	return combined, nil
-}
 
-// renderReleaseSource emits the CUE source compiled by Release. The source
-// declares `release: { #ModuleRelease, ... }` and references `userModule`
-// from cue.Scope.
-func renderReleaseSource(in ReleaseInput) string {
-	var sb strings.Builder
-	sb.WriteString("release: {\n")
-	sb.WriteString("\t#ModuleRelease\n")
-	sb.WriteString("\tmetadata: {\n")
-	fmt.Fprintf(&sb, "\t\tname:      %q\n", in.Name)
-	fmt.Fprintf(&sb, "\t\tnamespace: %q\n", in.Namespace)
-	writeStringMap(&sb, "\t\t", "labels", in.Labels)
-	writeStringMap(&sb, "\t\t", "annotations", in.Annotations)
-	sb.WriteString("\t}\n")
-	sb.WriteString("\t#module: userModule\n")
-	// values is left to ProcessModuleRelease to fill — synth pre-merges values
-	// into userModule's #config so the schema's components fan-out sees them,
-	// but the release-level values path stays open so downstream concreteness
-	// validation can run without colliding with res.#Image / res.#Secret
-	// closures inherited through `#config: values`.
-	sb.WriteString("}\n")
-	return sb.String()
-}
+	valuesSrc, err := renderValuesFile(in)
+	if err != nil {
+		return nil, err
+	}
+	if valuesSrc != nil {
+		overlay[filepath.Join(root, "values.cue")] = load.FromBytes(valuesSrc)
+	}
 
-// writeStringMap writes a "<field>: { ... }" block when m is non-empty.
-func writeStringMap(sb *strings.Builder, indent, field string, m map[string]string) {
-	if len(m) == 0 {
-		return
-	}
-	fmt.Fprintf(sb, "%s%s: {\n", indent, field)
-	for k, v := range m {
-		fmt.Fprintf(sb, "%s\t%q: %q\n", indent, k, v)
-	}
-	fmt.Fprintf(sb, "%s}\n", indent)
+	return overlay, nil
 }

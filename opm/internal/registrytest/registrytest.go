@@ -41,6 +41,14 @@ type CatalogFixture struct {
 	Path    string // module path without the @major suffix, e.g. "test.example/x/cat"
 	Version string // bare SemVer, e.g. "0.1.0"
 	Body    string // catalog package body (metadata + #transformers)
+
+	// CoreVersion pins the opmodel.dev/core@v0 dependency this catalog's
+	// cue.mod/module.cue declares. Empty defaults to defaultCoreVersion
+	// ("v0.3.0"), so existing callers are unaffected. Tests exercising the
+	// author-supplied-#Module-identity mechanism pin a later version (e.g.
+	// "v0.5.0", or the "v0.4.0" self-cycle boundary for a negative control).
+	// core still resolves from the public registry / warm workspace cache.
+	CoreVersion string
 }
 
 // TxFixture describes one transformer to author into a test catalog: its kebab
@@ -76,6 +84,29 @@ type ModuleFixture struct {
 	Version string            // bare SemVer, e.g. "0.0.2"
 	File    string            // full module.cue contents
 	Deps    map[string]string // extra deps: "<path>@vN" → bare SemVer (core is added automatically)
+
+	// CoreVersion pins the opmodel.dev/core@v0 dependency this module's
+	// cue.mod/module.cue declares. Empty defaults to defaultCoreVersion
+	// ("v0.3.0"), so existing callers are unaffected. Tests exercising the
+	// author-supplied-#Module-identity mechanism pin a later version (e.g.
+	// "v0.5.0", or the "v0.4.0" self-cycle boundary for a negative control).
+	// core still resolves from the public registry / warm workspace cache.
+	CoreVersion string
+}
+
+// defaultCoreVersion is the opmodel.dev/core@v0 version registrytest fixtures
+// declare when ModuleFixture.CoreVersion / CatalogFixture.CoreVersion are
+// empty. It preserves the historical pin so callers predating the override are
+// unaffected.
+const defaultCoreVersion = "v0.3.0"
+
+// coreVersionOr returns v normalized to a leading "v", or defaultCoreVersion
+// when v is empty.
+func coreVersionOr(v string) string {
+	if v == "" {
+		return defaultCoreVersion
+	}
+	return "v" + strings.TrimPrefix(v, "v")
 }
 
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
@@ -117,8 +148,8 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.16.0\"\ndeps: \"opmodel.dev/core@v0\": v: \"v0.3.0\"\n",
-			f.Path+"@v0",
+			"module: %q\nlanguage: version: \"v0.16.0\"\ndeps: \"opmodel.dev/core@v0\": v: %q\n",
+			f.Path+"@v0", coreVersionOr(f.CoreVersion),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
 			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v0\"\n\nc.#Catalog\n" + f.Body,
@@ -133,7 +164,7 @@ func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 	for _, m := range modules {
 		dir := strings.ReplaceAll(m.Path, "/", "_") + "_v" + m.Version
 		var deps strings.Builder
-		deps.WriteString("deps: \"opmodel.dev/core@v0\": v: \"v0.3.0\"\n")
+		fmt.Fprintf(&deps, "deps: \"opmodel.dev/core@v0\": v: %q\n", coreVersionOr(m.CoreVersion))
 		for p, v := range m.Deps {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
