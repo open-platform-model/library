@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"cuelang.org/go/cue"
+
 	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -48,7 +50,13 @@ func (k *Kernel) SynthesizeRelease(ctx context.Context, in synth.ReleaseInput) (
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)
 	}
-	rel, err := k.ProcessModuleRelease(ctx, spec, *in.Module, in.Values)
+	// synth.Release bakes in.Values into the single build (as values.cue), so
+	// the spec already carries them — exactly like an authored release.cue
+	// package. Re-filling here would write values a second time into the now-set
+	// `values` path and conflict. Pass the zero value: ProcessModuleRelease then
+	// validates concreteness and decodes metadata without re-filling, the same
+	// way it processes a file-loaded release whose values live in the package.
+	rel, err := k.ProcessModuleRelease(ctx, spec, *in.Module, cue.Value{})
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)
 	}

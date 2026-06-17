@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/load"
 )
 
 // LoadOptions configures package-loader behavior shared by LoadModulePackage,
@@ -49,28 +48,10 @@ func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue
 		return cue.Value{}, fmt.Errorf("release path %q is not a directory", absDir)
 	}
 
-	cfg := &load.Config{
-		Dir: absDir,
-		Env: registryEnv(opts.Registry),
-	}
-	instances := load.Instances([]string{"."}, cfg)
-	if len(instances) != 1 {
-		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in %s, found %d: %w", absDir, len(instances), ErrInvalidPackage)
-	}
-	if instances[0].Err != nil {
-		return cue.Value{}, fmt.Errorf("loading release package from %s: %w", absDir, instances[0].Err)
-	}
-
-	val := ctx.BuildInstance(instances[0])
-	if err := val.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("building release package from %s: %w", absDir, err)
-	}
-
-	if err := shapeGate(val, releaseSpec); err != nil {
-		return cue.Value{}, fmt.Errorf("validating release package in %s: %w", absDir, err)
-	}
-
-	return val, nil
+	// Filesystem source: overlay nil selects on-disk loading in the shared
+	// build-and-shape-gate step (the same step synth.Release drives with an
+	// in-memory overlay).
+	return buildAndShapeGate(ctx, absDir, nil, registryEnv(opts.Registry), releaseSpec)
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if

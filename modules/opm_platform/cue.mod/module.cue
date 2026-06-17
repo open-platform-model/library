@@ -7,6 +7,6 @@ source: {
 }
 deps: {
 	"opmodel.dev/core@v0": {
-		v: "v0.5.0"
+		v: "v0.6.0"
 	}
 }

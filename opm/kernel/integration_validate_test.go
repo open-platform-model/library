@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/helper/synth"
-	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
@@ -77,10 +76,10 @@ func TestIntegration_Validate(t *testing.T) {
 // producing a release whose identity fields are stamped by the schema. Needs
 // the core schema (warm workspace cache via schematest.SetEnv); no catalog.
 func TestIntegration_SynthesizeRelease(t *testing.T) {
-	schematest.SetEnv(t)
-	k := kernel.New()
-
-	mod := buildModule(t, k, `{ replicas: int | *1, image: string }`)
+	// synth.Release imports the module by its canonical registry path, so the
+	// module must be published (a locally-built value no longer resolves).
+	k, mod := publishSynthModule(t, "demo", "0.1.0",
+		"#components: {}\n#config: {replicas: int | *1, image: string}\ndebugValues: {}\n")
 	values := cueVal(t, k, `{ image: "nginx" }`, "values.cue")
 
 	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{

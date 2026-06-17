@@ -28,6 +28,21 @@
 // Call synth.Release / synth.Platform directly only when there is no *Kernel
 // on hand (rare; mostly unit-testing in tight loops).
 //
+// Single-build construction (ADR-003): synth.Release does NOT stitch a release
+// value together from separate CUE evaluations. It synthesizes a virtual CUE
+// package — a fabricated cue.mod/module.cue (deps: the resolved core version +
+// the module's path@version), a release.cue that IMPORTS the module and writes
+// `#module: <import>` plus caller metadata, and a values.cue rendered from the
+// caller's Values via format.Node — and evaluates it in one build through the
+// same loader build-and-shape-gate step LoadReleasePackage uses for on-disk
+// packages. There is no cue.Scope/userModule trick and no Go-side
+// FillPath(#config, Values) pre-merge: because the module enters the build by
+// import (one #Image / #Secret closure), the schema's own
+// `unifiedModule = #module & {#config: values}` performs the values merge in
+// CUE. The synth and authored-Release paths therefore share one mechanism, so a
+// render bug surfaces in both or neither. See adr/003-single-build-cue-
+// evaluation-invariant.md.
+//
 // Schema source of truth: the synth helpers never reimplement derivations the
 // CUE schema already owns (release UUID stamping, components fan-out from
 // #components, auto-secrets injection, standard label stamping, the

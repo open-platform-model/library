@@ -6,6 +6,35 @@ From the first tagged release onward, released versions are summarised in [CHANG
 
 ## Unreleased — next MINOR
 
+### Changed — `simplify-render-single-build`
+
+- `synth.Release` now constructs a `#ModuleRelease` by synthesizing an in-memory
+  CUE package that **imports** the module and evaluating it in a single build
+  (per ADR-003), instead of the previous `cue.Scope`/`userModule` trick plus a
+  Go-side `FillPath(#config, Values)` pre-merge. Behavior is preserved for every
+  input that worked before; **additionally**, releases referencing a module by
+  import now construct correctly (the authored-`release.cue` path that failed
+  with `field not allowed` before the `core` self-cycle fix). Requires
+  `opmodel.dev/core@v0` ≥ `v0.6.0`.
+- **Not a Go API change.** `synth.Release` / `Kernel.SynthesizeRelease` keep
+  their signatures and observable outputs (schema-derived `metadata.uuid`,
+  fanned `components`, `opm-secrets`, stamped labels). `cli` / `opm-operator`
+  callers are unaffected at the API level.
+- **Behavior note for direct `synth.Release` callers:** the helper now imports
+  the module from a registry by its canonical path
+  (`metadata.modulePath/metadata.nameSnakeCase@<major>`, per enhancement 0003),
+  rather than consuming the in-memory `*module.Module` value. The module MUST
+  therefore be resolvable from the configured `CUE_REGISTRY` (in practice it was
+  loaded via `Kernel.LoadModuleFromRegistry`). A locally-built `*module.Module`
+  that is not published no longer renders through synth — load it from the
+  registry first.
+- **Test-only:** the internal `TestFlow_WebApp_SynthPath_OnOpmPlatform` (which
+  synthesized from a local, unpublished fixture module) was removed — that
+  premise is incompatible with import-based construction. Synth correctness is
+  now covered by registry-published-module integration tests in
+  `opm/helper/synth` (construction, derived fields, authored-package parity, a
+  hyphenated-name regression guard, and a `core@v0.4.0` negative control).
+
 ### Changed — `exclude-prereleases-from-default-selection`
 
 - `Materialize` no longer auto-selects pre-release catalog versions for a

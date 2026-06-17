@@ -149,7 +149,9 @@ both render paths and delete the workarounds; its task 0.1 already records
 
 - `core/src/module.cue:11-19` — the (now non-self-referential) `#Module.metadata`.
 - `core/src/module_release.cue` — `#module!: #Module & {#ctx: …}`.
-- `library/opm/helper/synth/release.go:111-189` — the `userModule`-scope workaround + comment.
-- `library/opm/helper/loader/file/release.go` — `LoadReleasePackage` (no workaround).
+- `library/adr/003-single-build-cue-evaluation-invariant.md` — ADR-003, the invariant `simplify-render-single-build` applies to the render path.
+- `library/opm/helper/synth/release.go` — `synth.Release` now constructs the release via single-build CUE evaluation of a synthesized package that **imports** the module; the `userModule`-scope workaround and the Go `#config` pre-merge were deleted by `simplify-render-single-build`.
+- `library/opm/helper/loader/file/build.go` — the shared `buildAndShapeGate` both `synth.Release` (overlay source) and `LoadReleasePackage` (on-disk source) now run.
+- `library/opm/helper/loader/file/release.go` — `LoadReleasePackage` (re-pointed at the shared build step).
 - `opm-operator/docs/design/release-vs-modulerelease-render-divergence.md` — full two-path analysis.
 - `library/docs/design/cue-closedness-regression-alpha2.md` — the separate `alpha.2+` toolchain regression that masks this on a newer CLI.
