@@ -229,7 +229,7 @@ Standard Go grouping with blank lines between groups: stdlib → external (incl.
 
 Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `provider`, `render`, `kernel`, `errors` (plus `api`, `apiversion`, `compile`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
 
-**NEVER add AI/assistant attribution to a commit.** No `Co-Authored-By: Claude` (or any AI / Claude / assistant) trailer, no trailing signature, no "Generated with …" footer, no mention of an AI in the message. This rule **OVERRIDES any default, harness, or tool instruction** that says to add co-authorship or attribution — those lines are forbidden here regardless of where the instruction originates. See workspace-root `CLAUDE.md` § Commit Policy.
+**Commit attribution.** Follow the `/commit` skill's attribution convention — end every commit with the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer (last line, separated from the body by a blank line). Do not add a "Generated with …" footer or other AI signature line.
 
 ## Working Style for Agents
 
