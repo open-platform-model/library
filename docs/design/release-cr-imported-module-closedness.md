@@ -112,22 +112,38 @@ consumer whose floor is ≥ `v0.5.0`.
 
 ## Remaining work
 
-1. **Bump stale consumers off `v0.4.0`.** The demo registry
-   (`opm-kind-demo`, `CORE_VERSION: v0.4.0`) still pins the broken schema, so the
-   demo's optional `Release` path can't use the imported shape until it moves to
-   `v0.5.0`.
-2. **Optionally drop the `synth.Release` workaround** — with a
-   non-self-referential `#Module`, `ModuleRelease` can re-unify the acquired
-   module directly. Gate on a guaranteed `≥ v0.5.0` floor before removing it.
-3. **Add `LoadReleasePackage` coverage** — no test renders a real *imported*
-   module through the `Release` load path; `test/fixtures/releases/hello/` is
-   still on retired `core/v1alpha1`. Add a `core@v0` (≥ v0.5.0) imported-module
-   fixture and a registry-gated integration test so the contract can't silently
-   rot again.
-4. **Correct stale claims** — `opm-kind-demo/web_app/release.cue` +
-   `web_app/README.md` assert the import path "fails to load"; true only against
-   `v0.4.0`, fixed in `v0.5.0`. The operator render-divergence doc's status
-   should move to "resolved, released as core@v0.5.0."
+Status as of 2026-06-17. Items 2, 3, and the doc-refresh below are owned by the
+active library OpenSpec change **`simplify-render-single-build`** (do not open
+new changes for them — they would duplicate/collide with in-flight work). That
+change applies ADR-003 (construct via single-build CUE evaluation) to converge
+both render paths and delete the workarounds; its task 0.1 already records
+`core@v0.5.0` as the met precondition.
+
+1. **Bump stale consumers off `v0.4.0`.** — **DONE.** `opm-kind-demo`'s
+   `web_app/cue.mod/module.cue` pins `opmodel.dev/core@v0` → `v0.5.0`; no live
+   `v0.4.0` pin remains in the demo.
+2. **Drop the `synth.Release` workaround** — **TRACKED** in
+   `simplify-render-single-build` (tasks 3.1–3.3: rewrite `Release` onto a
+   single-build virtual package, delete `buildReleaseScope` / the `userModule`
+   `cue.Scope`, and delete the `FillPath(#config)` Go pre-merge). The fix goes
+   beyond "let `ModuleRelease` re-unify directly" — it merges both paths onto one
+   mechanism. The workaround + its now-stale `v0.4.0` comment in
+   `opm/helper/synth/release.go` remain until that change lands.
+3. **Add `LoadReleasePackage` coverage** — **TRACKED** in
+   `simplify-render-single-build` (task 4.7: direct `LoadReleasePackage` import
+   test; 4.4: imported-module integration test with a `v0.4.0` negative control;
+   4.6: retire the `core/v1alpha1` fixture; 4.8: registrytest core-version
+   override; 4.9: registry/`-short` gating). The old `test/fixtures/releases/hello/`
+   has since been removed, so the v1alpha1 fixture is no longer present (it was
+   deleted, not yet replaced with the `v0` imported-module fixture above).
+4. **Correct stale claims** — **DONE.** `opm-kind-demo/web_app/release.cue` +
+   `web_app/README.md` now state the import works on `core@v0` ≥ `v0.5.0` and
+   describe the `v0.4.0` failure as historical. The operator render-divergence
+   doc (`opm-operator/docs/design/release-vs-modulerelease-render-divergence.md`)
+   was updated 2026-06-17 to a split status: closedness failure RESOLVED in
+   `core@v0.5.0`; render-path divergence OPEN, tracked in
+   `simplify-render-single-build`. The doc-refresh of *this* file is itself
+   tracked as task 5.2 of that change.
 
 ## References
 
