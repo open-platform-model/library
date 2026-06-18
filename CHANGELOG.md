@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/open-platform-model/library/compare/v0.5.3...v0.6.0) (2026-06-17)
+
+
+### Features
+
+* **renderer:** simplify render single build ([#23](https://github.com/open-platform-model/library/issues/23)) ([adbe9bc](https://github.com/open-platform-model/library/commit/adbe9bc3be6365522a69d2a701055323f1a9c3d6))
+
 ## [0.5.3](https://github.com/open-platform-model/library/compare/v0.5.2...v0.5.3) (2026-06-17)
 
 
