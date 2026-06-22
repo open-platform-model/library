@@ -1,13 +1,16 @@
-# Transformer `output`-local hidden fields don't resolve after Materialize + FillPath (OPEN)
+# Transformer `output`-local hidden fields don't resolve after Materialize + FillPath (RESOLVED)
 
-**Status:** FIXED (kernel, 2026-06-14) — pending the OpenSpec write-up/commit. The defect is a **CUE
-Go-API closedness/structure-sharing bug**, NOT a CUE *evaluator* bug and NOT our schema. It was
-triggered by exactly one line — `materialize.go`'s `p.Package.FillPath(schema.ComposedTransformers,
-composed)`, which `FillPath`s the composed map into the **closed, separately-`BuildInstance`'d
-`c.#Platform`**. Fix: the executor now reads each `#transform` from the **open**
-`MaterializedPlatform.Composed` map instead of out of the closed `Package` (§12 / §13). Catalog
-workaround (§7) is now defence-in-depth. See §11 (pure-CUE control: not CUE), §12 (root cause), and
-**§13 (the landed fix)**.
+**Status:** RESOLVED structurally by `federate-materialize-transformers` (§14); the earlier kernel
+fix (§13, the open `Composed` escape hatch) is superseded. The defect is a **CUE Go-API
+closedness/structure-sharing bug**, NOT a CUE *evaluator* bug and NOT our schema. It was triggered by
+exactly one line — `materialize.go`'s `p.Package.FillPath(schema.ComposedTransformers, composed)`,
+which `FillPath`s the composed map into the **closed, separately-`BuildInstance`'d `c.#Platform`**.
+Federation removes that line entirely: the composed map and matcher index are exposed as native
+first-class fields (`MaterializedPlatform.Transformers` / `Matchers`) built in the owner context and
+**never filled onto the closed platform**, so the closed twin is never built and there is no surface
+from which reading a `#transform` corrupts (ADR-003). `Composed` and `Package` are removed. Catalog
+workaround (§7) is now defence-in-depth. See §11 (pure-CUE control: not CUE), §12 (root cause),
+§13 (the superseded interim fix), and **§14 (the structural resolution)**.
 **Severity:** High — breaks *every* container workload render (Deployment / StatefulSet / DaemonSet /
 Job / CronJob) until the catalog is patched.
 **First observed:** 2026-06-13, rendering `testdata/modules/web_app` on `modules/opm_platform` via the
@@ -540,3 +543,40 @@ Regression guards:
 Not fixed here (separate, pre-existing): `TestFlow_WebApp_OnOpmPlatform` still fails at **Match**
 because the on-disk `modules/opm_platform` subscription has no `filter` and pulls all 8 catalog
 versions → zero matches (§10.5). That is a matcher-vs-multi-version-index gap, unrelated to this fix.
+
+## 14. RESOLVED — `federate-materialize-transformers` (supersedes §13)
+
+The interim fix (§13) kept the corrupt closed twin alive (`Materialize` still `FillPath`-ed the
+composed map onto `Package`) and relied on a comment to keep the executor reading the open `Composed`
+map instead. Correctness depended on every future reader honoring that comment — a live tripwire that
+`cue vet` cannot catch.
+
+`federate-materialize-transformers` removes the seam **structurally** (ADR-003): the composed map and
+the matcher reverse index are exposed as native first-class fields on `MaterializedPlatform` —
+`Transformers` and `Matchers` — built in the owner `*cue.Context` by `indexCatalogs`, and **are no
+longer `FillPath`-ed onto the closed `c.#Platform`**. The closed twin is never constructed, so there
+is no surface from which reading a `#transform` corrupts output-local hidden fields. The
+comment-enforced `Composed` workaround and the now-empty-of-materialized-data `Package` field are both
+removed; the unfilled closed spec remains reachable as `Source.Package` for `#registry`/metadata.
+
+Why federation rather than the single-build composition ADR-003 first sketched: CUE Minimal Version
+Selection admits only one version per `path@major` per build, which is incompatible with OPM's
+required multi-version-per-major catalog composition (a platform may subscribe to `catalog@0.5.0` and
+`catalog@0.5.1` simultaneously). Federation keeps each selected version under its distinct
+version-bearing FQN in one native merged map and preserves all other materialize behavior.
+
+Regression guards (retargeted onto the native surface):
+- `opm/materialize/composed_open_test.go::TestTransformers_RenderConcreteWhereClosedPlatformDoesNot`
+  — with the real buggy catalog `@v0.5.2`, asserts a transform read from the native composed map
+  (what `mp.Transformers` exposes) renders a concrete, marshallable Deployment, while the same
+  transform read from a locally-reconstructed closed platform value still does not. Registry-gated.
+- `opm/compile/compile_test.go::TestExecute_ReadsTransformFromNativeTransformers` — hermetic wiring
+  guard: `Source.Package` and `Transformers` carry divergent outputs; asserts the executor's output
+  comes from `Transformers`. No registry.
+- `opm/materialize/materialize_test.go::TestMaterialize_DoesNotFillClosedPlatform` — locks the seam
+  shut: a successful materialization populates `Transformers` while `Source.Package`'s
+  `#composedTransformers` / `#matchers` stay unfilled.
+
+§10.5 follow-up: the matcher now reads the native `Matchers` index instead of the corrupt closed
+`Package`. Whether that fully clears the "multi-version subscription → zero pairs" symptom is asserted
+by the flow integration test; any residual matcher behavior is tracked separately, not by this doc.

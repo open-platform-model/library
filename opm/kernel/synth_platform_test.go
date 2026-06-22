@@ -136,20 +136,19 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 		"synthesized and file-loaded platforms must resolve the same catalog version for %q", path)
 
 	// The composed-transformer set must be identical between the two paths.
-	synthTransformers := transformerKeys(t, synthMP.Package)
-	fileTransformers := transformerKeys(t, fileMP.Package)
+	synthTransformers := transformerKeys(t, synthMP.Transformers)
+	fileTransformers := transformerKeys(t, fileMP.Transformers)
 	assert.Equal(t, fileTransformers, synthTransformers,
 		"synthesized platform must compose the same transformers as the file-loaded one")
 	assert.NotEmpty(t, synthTransformers, "materialized platform must compose at least one transformer")
 }
 
-// transformerKeys returns the sorted set of top-level keys under a
-// materialized platform's #composedTransformers map.
-func transformerKeys(t *testing.T, p cue.Value) []string {
+// transformerKeys returns the sorted set of top-level FQN keys of a
+// materialized platform's native Transformers composed map.
+func transformerKeys(t *testing.T, composed cue.Value) []string {
 	t.Helper()
-	ct := p.LookupPath(cue.ParsePath("#composedTransformers"))
-	require.True(t, ct.Exists(), "#composedTransformers must be filled after Materialize")
-	iter, err := ct.Fields()
+	require.True(t, composed.Exists(), "Transformers must be populated after Materialize")
+	iter, err := composed.Fields()
 	require.NoError(t, err)
 	var keys []string
 	for iter.Next() {

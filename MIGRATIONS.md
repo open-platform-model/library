@@ -62,6 +62,39 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 
 ## Unreleased — next MAJOR
 
+### Removed — `federate-materialize-transformers` (BREAKING)
+
+- **`materialize.MaterializedPlatform.Composed` and `materialize.MaterializedPlatform.Package`
+  are removed.** `Materialize` now exposes the composed transformer map and the
+  matcher reverse index as native first-class fields built in the owner
+  `*cue.Context` — `Transformers cue.Value` (FQN → `#ComponentTransformer`) and
+  `Matchers cue.Value` (the `{resources, traits}` reverse index) — and no longer
+  `FillPath`s them onto the closed `c.#Platform`. Per ADR-003, filling the
+  composed map into a closed, separately-built platform value corrupts
+  output-local hidden fields in transformer `#transform`s; federating the native
+  surfaces removes that footgun by construction (there is no closed twin to
+  misread). The behavioral contract — subscription resolution, range/allow/deny
+  filtering, multi-version selection, transformer indexing/divergence conflicts,
+  `Resolved`, `MaterializeError` shape, non-mutation, idempotency, the opt-in
+  cache, and v0.17 concurrent-read-only safety — is **preserved**; only the
+  surface the matcher/executor read from changes.
+- **Blast radius:** in-repo only. The sole readers of the old fields were
+  `opm/compile/match.go`, `opm/compile/execute.go` / `module.go`, and
+  `cmd/flow-inspect` (all updated in lockstep). `cli/` and `opm-operator/` treat
+  `*MaterializedPlatform` as an opaque handle (constructed via
+  `Kernel.Materialize`, passed to `Kernel.Compile`) and read none of its fields —
+  no external break.
+
+#### Migration recipe — `federate-materialize-transformers`
+
+| Before | After |
+| --- | --- |
+| `mp.Composed` (open composed map the executor read) | `mp.Transformers` (native composed map; `#transform`s render concrete) |
+| `mp.Package.LookupPath(schema.ComposedTransformers)` | `mp.Transformers` |
+| `mp.Package.LookupPath(schema.MatchersResources)` | `mp.Matchers.LookupPath(cue.ParsePath("resources"))` |
+| `mp.Package.LookupPath(schema.MatchersTraits)` | `mp.Matchers.LookupPath(cue.ParsePath("traits"))` |
+| `mp.Package` (for `#registry` / metadata / diagnostics) | `mp.Source.Package` (the unfilled closed platform spec) |
+
 ### Changed — `concurrent-render-recontract` (BREAKING)
 
 - `opm/compile.NewModule` gained a leading `*cue.Context` parameter:

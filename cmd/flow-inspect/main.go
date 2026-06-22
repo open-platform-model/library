@@ -145,14 +145,18 @@ func run(libraryRoot string, want map[stage]bool) error {
 		subHeader("#knownTraits (FQNs)")
 		printFQNKeys(platVal.LookupPath(schema.KnownTraits))
 
-		subHeader("#composedTransformers (FQNs) — materialized")
-		printFQNKeys(mp.Package.LookupPath(schema.ComposedTransformers))
+		// The composed map and matcher index are native first-class fields on
+		// the MaterializedPlatform (not filled onto the closed platform); the
+		// #registry/metadata above is read from the platform spec, which is also
+		// reachable as mp.Source.Package.
+		subHeader("Transformers (FQNs) — materialized")
+		printFQNKeys(mp.Transformers)
 
-		subHeader("#matchers.resources (FQN → [transformer FQNs]) — materialized")
-		printMatcherIndex(mp.Package.LookupPath(schema.MatchersResources))
+		subHeader("Matchers.resources (FQN → [transformer FQNs]) — materialized")
+		printMatcherIndex(mp.Matchers.LookupPath(cue.ParsePath("resources")))
 
-		subHeader("#matchers.traits (FQN → [transformer FQNs]) — materialized")
-		printMatcherIndex(mp.Package.LookupPath(schema.MatchersTraits))
+		subHeader("Matchers.traits (FQN → [transformer FQNs]) — materialized")
+		printMatcherIndex(mp.Matchers.LookupPath(cue.ParsePath("traits")))
 	}
 
 	// ── Build the release ───────────────────────────────────────────

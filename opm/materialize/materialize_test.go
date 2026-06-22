@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -36,23 +37,66 @@ func TestMaterialize_HappyPath(t *testing.T) {
 	// Highest version (0.2.0) selected with no filter.
 	assert.Equal(t, "0.2.0", mp.Resolved[path])
 
-	// Composed transformer reachable via the matcher's path constant.
+	// Composed transformer reachable on the native Transformers surface.
 	txFQN := path + "/transformers/deployment@0.2.0"
-	composedKeys := mapKeys(mp.Package, schema.ComposedTransformers)
-	assert.Equal(t, []string{txFQN}, composedKeys, "#composedTransformers indexes the stamped FQN")
+	composedKeys := composedFQNs(mp.Transformers)
+	assert.Equal(t, []string{txFQN}, composedKeys, "Transformers indexes the stamped FQN")
 
 	// Reverse index: resource FQN → transformer.
 	resFQN := path + "/resources/container@0.2.0"
-	ri := mp.Package.LookupPath(schema.MatchersResources).LookupPath(cue.MakePath(cue.Str(resFQN)))
-	require.True(t, ri.Exists(), "#matchers.resources[%s] present", resFQN)
+	ri := mp.Matchers.LookupPath(cue.ParsePath("resources")).LookupPath(cue.MakePath(cue.Str(resFQN)))
+	require.True(t, ri.Exists(), "Matchers.resources[%s] present", resFQN)
 	n, err := ri.Len().Int64()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n, "one transformer references the resource")
 
 	// Reverse index: trait FQN → transformer.
 	traitFQN := path + "/traits/replicas@0.2.0"
-	ti := mp.Package.LookupPath(schema.MatchersTraits).LookupPath(cue.MakePath(cue.Str(traitFQN)))
-	assert.True(t, ti.Exists(), "#matchers.traits[%s] present", traitFQN)
+	ti := mp.Matchers.LookupPath(cue.ParsePath("traits")).LookupPath(cue.MakePath(cue.Str(traitFQN)))
+	assert.True(t, ti.Exists(), "Matchers.traits[%s] present", traitFQN)
+}
+
+// TestMaterialize_DoesNotFillClosedPlatform locks the federation seam shut: even
+// on a successful materialization that produces a non-empty Transformers map,
+// Materialize MUST NOT FillPath #composedTransformers or #matchers onto the
+// closed c.#Platform (Source.Package). If a future change reintroduces the
+// closed-fill, these assertions fail. (ADR-003 / federate-materialize-transformers.)
+func TestMaterialize_DoesNotFillClosedPlatform(t *testing.T) {
+	path := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: registrytest.BuildCatalog(path, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
+	)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, path))
+
+	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.NoError(t, err)
+
+	// Sanity: the native surface IS populated...
+	require.NotEmpty(t, composedFQNs(mp.Transformers), "Transformers must carry the composed map")
+
+	// ...while the closed platform spec stays unfilled.
+	assert.False(t, mp.Source.Package.LookupPath(schema.ComposedTransformers).Exists(),
+		"Source.Package.#composedTransformers must remain unfilled (never FillPath-ed onto the closed platform)")
+	assert.False(t, mp.Source.Package.LookupPath(schema.Matchers).Exists(),
+		"Source.Package.#matchers must remain unfilled (never FillPath-ed onto the closed platform)")
+}
+
+// composedFQNs returns the sorted top-level FQN keys of a native Transformers
+// composed map (the federated surface replacing the old
+// #composedTransformers-on-Package lookup).
+func composedFQNs(composed cue.Value) []string {
+	it, err := composed.Fields()
+	if err != nil {
+		return nil
+	}
+	var keys []string
+	for it.Next() {
+		keys = append(keys, it.Selector().Unquoted())
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // 6.2 — range / allow / deny survivor selection.
@@ -97,7 +141,7 @@ func TestMaterialize_RangeAllowDeny(t *testing.T) {
 			for _, v := range tt.wantVers {
 				want = append(want, path+"/transformers/deployment@"+v)
 			}
-			assert.ElementsMatch(t, want, mapKeys(mp.Package, schema.ComposedTransformers))
+			assert.ElementsMatch(t, want, composedFQNs(mp.Transformers))
 		})
 	}
 }
@@ -171,7 +215,7 @@ func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
 
 	// Disabled subscription contributes nothing.
 	assert.NotContains(t, mp1.Resolved, disabled, "disabled subscription not resolved")
-	keys1 := mapKeys(mp1.Package, schema.ComposedTransformers)
+	keys1 := composedFQNs(mp1.Transformers)
 	assert.Equal(t, []string{enabled + "/transformers/deployment@0.1.0"}, keys1)
 	assert.NotContains(t, keys1, disabled+"/transformers/service@0.1.0")
 
@@ -179,9 +223,12 @@ func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
 	mp2, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 	assert.Equal(t, mp1.Resolved, mp2.Resolved)
-	assert.Equal(t, keys1, mapKeys(mp2.Package, schema.ComposedTransformers))
+	assert.Equal(t, keys1, composedFQNs(mp2.Transformers))
 
-	// Non-mutating: the source platform's slots stay empty.
+	// Non-mutating: the source platform is never filled — the federated surfaces
+	// live on MaterializedPlatform, not on the closed platform spec.
 	assert.Empty(t, mapKeys(p.Package, schema.ComposedTransformers),
 		"input platform #composedTransformers must remain empty")
+	assert.Empty(t, mapKeys(mp1.Source.Package, schema.ComposedTransformers),
+		"Source.Package #composedTransformers must remain unfilled (federation, ADR-003)")
 }

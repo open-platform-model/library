@@ -22,9 +22,10 @@
 //     requiredResources ∧ requiredTraits predicate is satisfied by the
 //     component context. Multiple satisfied candidates are legitimate.
 //
-// Located transformer bodies live in #composedTransformers[tfFQN]; both the
-// composed map and the #matchers index are read off the MaterializedPlatform's
-// Package via opm/schema package-level path vars.
+// Located transformer bodies live in the composed map keyed by tfFQN; both the
+// composed map and the #matchers reverse index are read off the
+// MaterializedPlatform's native Transformers / Matchers fields (built in the
+// owner context, not filled onto the closed platform).
 //
 // Match is in Go (not CUE #PlatformMatch) per umbrella decision Q1: keeps the
 // Go-native error/diagnostic shape, avoids one CUE evaluation per match, and
@@ -85,8 +86,8 @@ type NonMatchedPair struct {
 // #matchers index and returns a MatchPlan describing matched pairs, unmatched
 // components, structured missing-FQN diagnostics, and unify failures.
 // releaseName populates MissingFQN.Release; a blank value is tolerated when
-// Match is called outside the kernel. Path access references opm/schema
-// package-level vars directly.
+// Match is called outside the kernel. The composed map comes from
+// mp.Transformers and the reverse index from mp.Matchers.{resources,traits}.
 //
 //nolint:gocyclo // matching is naturally branchy but kept in one place
 func Match(components cue.Value, mp *materialize.MaterializedPlatform, releaseName string) (*MatchPlan, error) {
@@ -95,9 +96,9 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, releaseNa
 	}
 	plan := &MatchPlan{Matches: map[string]map[string]MatchResult{}, UnhandledTraits: map[string][]string{}}
 
-	composed := mp.Package.LookupPath(schema.ComposedTransformers)
-	matchersResources := mp.Package.LookupPath(schema.MatchersResources)
-	matchersTraits := mp.Package.LookupPath(schema.MatchersTraits)
+	composed := mp.Transformers
+	matchersResources := mp.Matchers.LookupPath(cue.ParsePath("resources"))
+	matchersTraits := mp.Matchers.LookupPath(cue.ParsePath("traits"))
 
 	compIter, err := components.Fields()
 	if err != nil {

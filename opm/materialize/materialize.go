@@ -17,16 +17,18 @@ import (
 // subscription it enumerates published versions, narrows them by the
 // subscription filter (range ∧ allow ∧ deny), pulls each survivor against the
 // supplied registry, and indexes the selected catalogs' #transformers into a
-// composed transformer map plus a #matchers reverse index. The index is
-// filled onto a copy of p.Package at #composedTransformers / #matchers.
+// composed transformer map plus a #matchers reverse index. Both are exposed as
+// native first-class fields ([MaterializedPlatform.Transformers] /
+// [MaterializedPlatform.Matchers]) — they are NOT filled onto the closed
+// c.#Platform (ADR-003: doing so corrupts output-local hidden fields).
 //
 // owner supplies the *cue.Context used for both the platform value and every
-// catalog build (the filled values share one context — design.md D2). registry
-// is the CUE_REGISTRY mapping for catalog (and schema) resolution; an empty
-// string inherits the process CUE_REGISTRY. The process environment is never
-// mutated.
+// catalog build (the native surfaces share one context with the platform).
+// registry is the CUE_REGISTRY mapping for catalog (and schema) resolution; an
+// empty string inherits the process CUE_REGISTRY. The process environment is
+// never mutated.
 //
-// Inputs are not mutated: FillPath is non-mutating and p.Package is read-only.
+// Inputs are not mutated: p.Package is read-only and never filled.
 // Failures surface as [oerrors.MaterializeError] (Kind "catalog") naming the
 // offending subscription path and version. Materialize fails fast on the
 // first failing subscription (design.md Q3).
@@ -99,20 +101,12 @@ func Materialize(ctx context.Context, owner CueContextOwner, registry string, p 
 		return nil, err
 	}
 
-	filled := p.Package.FillPath(schema.ComposedTransformers, composed)
-	filled = filled.FillPath(schema.Matchers, matchers)
-	if filled.Err() != nil {
-		return nil, &oerrors.MaterializeError{
-			Kind:  oerrors.MaterializeKindCatalog,
-			Cause: fmt.Errorf("filling materialized index onto platform: %w", filled.Err()),
-		}
-	}
-
-	// Composed is the OPEN index, kept separate from the closed Package on
-	// purpose: the executor must read transforms from here, not out of Package
-	// (filling the map into the closed #Platform corrupts output-local hidden
-	// fields — see types.go / the design doc §12).
-	return &MaterializedPlatform{Source: p, Package: filled, Composed: composed, Resolved: resolved}, nil
+	// Federate the native surfaces (ADR-003): expose the open composed map and
+	// reverse index as first-class fields and do NOT FillPath them onto the
+	// closed c.#Platform. The closed twin is never built, so there is no surface
+	// from which reading a #transform corrupts output-local hidden fields. The
+	// original spec stays reachable as Source.Package for #registry/metadata.
+	return &MaterializedPlatform{Source: p, Transformers: composed, Matchers: matchers, Resolved: resolved}, nil
 }
 
 // subscriptionEnabled reports whether a #Subscription value is enabled. The
