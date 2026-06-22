@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/open-platform-model/library/compare/v0.6.0...v0.7.0) (2026-06-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **materialize:** MaterializedPlatform.Composed and .Package are removed; read transforms off .Transformers, the reverse index off .Matchers, and the closed spec off .Source.Package. Recorded in MIGRATIONS.md.
+
+### Code Refactoring
+
+* **materialize:** federate native transformer surfaces ([#25](https://github.com/open-platform-model/library/issues/25)) ([9e6cf28](https://github.com/open-platform-model/library/commit/9e6cf288c50ba1f28f9e2b88d93378e0d1cd9781))
+
 ## [0.6.0](https://github.com/open-platform-model/library/compare/v0.5.3...v0.6.0) (2026-06-17)
 
 
