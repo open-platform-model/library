@@ -115,8 +115,9 @@ consumer whose floor is ≥ `v0.5.0`.
 Status as of 2026-06-17. Items 2, 3, and the doc-refresh below are owned by the
 active library OpenSpec change **`simplify-render-single-build`** (do not open
 new changes for them — they would duplicate/collide with in-flight work). That
-change applies ADR-003 (construct via single-build CUE evaluation) to converge
-both render paths and delete the workarounds; its task 0.1 already records
+change applies ADR-003 (the no-cross-build-FillPath invariant, via its
+single-build tactic for the render path) to converge both render paths and
+delete the workarounds; its task 0.1 already records
 `core@v0.5.0` as the met precondition.
 
 1. **Bump stale consumers off `v0.4.0`.** — **DONE.** `opm-kind-demo`'s
@@ -149,7 +150,7 @@ both render paths and delete the workarounds; its task 0.1 already records
 
 - `core/src/module.cue:11-19` — the (now non-self-referential) `#Module.metadata`.
 - `core/src/module_release.cue` — `#module!: #Module & {#ctx: …}`.
-- `library/adr/003-single-build-cue-evaluation-invariant.md` — ADR-003, the invariant `simplify-render-single-build` applies to the render path.
+- `library/adr/003-no-cross-build-fillpath-into-closed-values.md` — ADR-003, the no-cross-build-FillPath invariant; `simplify-render-single-build` applies its single-build tactic to the render path.
 - `library/opm/helper/synth/release.go` — `synth.Release` now constructs the release via single-build CUE evaluation of a synthesized package that **imports** the module; the `userModule`-scope workaround and the Go `#config` pre-merge were deleted by `simplify-render-single-build`.
 - `library/opm/helper/loader/file/build.go` — the shared `buildAndShapeGate` both `synth.Release` (overlay source) and `LoadReleasePackage` (on-disk source) now run.
 - `library/opm/helper/loader/file/release.go` — `LoadReleasePackage` (re-pointed at the shared build step).

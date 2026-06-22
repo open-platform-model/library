@@ -18,10 +18,14 @@
 //     map, plus a #matchers reverse index over the primitive FQNs those
 //     transformers reference.
 //
-// The result is a [MaterializedPlatform] whose Package answers the exact
-// LookupPath calls the matcher already makes (schema.ComposedTransformers,
-// schema.MatchersResources, schema.MatchersTraits), so the downstream match
-// rewrite consumes it with a minimal diff.
+// The result is a [MaterializedPlatform] that exposes the composed transformer
+// map and the #matchers reverse index as native first-class fields —
+// Transformers (FQN → #ComponentTransformer) and Matchers ({resources, traits})
+// — built in the owner *cue.Context by indexCatalogs. They are NOT filled onto
+// the closed c.#Platform (ADR-003): the matcher and executor read them off the
+// native fields, and a #transform read off Transformers renders concrete
+// because no closed twin is ever constructed. The closed platform spec stays
+// reachable as Source.Package for #registry / metadata / diagnostics.
 //
 // Materialize performs I/O (registry enumeration + OCI pulls) and is
 // explicit and caller-driven: the kernel holds no cache (Principle I).

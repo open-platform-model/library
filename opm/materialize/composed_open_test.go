@@ -14,26 +14,28 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// TestComposed_RendersConcreteWherePackageDoesNot is the regression guard for
-// the output-local hidden field bug
-// (docs/design/transformer-output-hidden-field-scope-bug.md).
+// TestTransformers_RenderConcreteWhereClosedPlatformDoesNot is the regression
+// guard for the output-local hidden field bug
+// (docs/design/transformer-output-hidden-field-scope-bug.md, ADR-003).
 //
-// Root cause: FillPath-ing the composed transformer map into the closed,
-// independently-built c.#Platform value (mp.Package) corrupts the lazy
-// in-expression resolution of output-local hidden fields in the transformers.
-// MaterializedPlatform.Composed exists precisely so the executor reads
-// transforms from the OPEN index instead.
+// Root cause: FillPath-ing the composed transformer map into a closed,
+// independently-built c.#Platform value corrupts the lazy in-expression
+// resolution of output-local hidden fields in the transformers. Federation
+// (this change) never builds that closed twin: MaterializedPlatform.Transformers
+// is the native composed map produced by indexCatalogs in the owner context,
+// and is the only surface the executor reads.
 //
 // This test pins the invariant with the real buggy catalog (v0.5.2, whose
 // deployment-transformer declares `_convertedSidecars` INSIDE output):
-//   - a #transform read from the open composed map renders a concrete,
-//     marshallable Deployment  (the fix);
-//   - the SAME #transform read out of the closed platform does NOT
-//     (the bug — proving the separation is load-bearing, not decorative).
+//   - a #transform read from the native composed map (what mp.Transformers
+//     exposes) renders a concrete, marshallable Deployment (the federated
+//     surface);
+//   - the SAME #transform read out of a closed platform value does NOT
+//     (the bug — proving the federation is load-bearing, not decorative).
 //
-// If someone makes the executor read transforms from mp.Package again, or drops
-// the Composed field, the first assertion breaks.
-func TestComposed_RendersConcreteWherePackageDoesNot(t *testing.T) {
+// If someone reintroduces a closed-fill seam, or reads transforms off a closed
+// platform value again, the first assertion breaks.
+func TestTransformers_RenderConcreteWhereClosedPlatformDoesNot(t *testing.T) {
 	const reg = "opmodel.dev=localhost:5000+insecure,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"
 	if v := os.Getenv("CUE_REGISTRY"); v != "" {
 		// honor an externally configured registry (CI), else use the local default
@@ -57,7 +59,8 @@ func TestComposed_RendersConcreteWherePackageDoesNot(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the real, closed c.#Platform fixture and fill the composed map onto
-	// it — exactly what Materialize does to produce Package.
+	// it — reproducing the rejected closed-fill seam locally to prove it still
+	// corrupts (Materialize itself no longer does this).
 	platDir := platformFixtureDir(t)
 	insts := load.Instances([]string{"."}, &load.Config{Dir: platDir, Env: env})
 	require.NotEmpty(t, insts)
@@ -107,15 +110,16 @@ func TestComposed_RendersConcreteWherePackageDoesNot(t *testing.T) {
 		LookupPath(schema.Transform)
 	require.True(t, txFromPackage.Exists())
 
-	// The fix: open composed map renders concrete.
+	// The federated surface: the native composed map (what mp.Transformers
+	// exposes) renders concrete.
 	require.NoError(t, render(txFromComposed),
-		"transform read from the open composed map must render a concrete, marshallable resource")
+		"transform read from the native composed map must render a concrete, marshallable resource")
 
-	// The bug: closed platform corrupts it. This asserts the separation is
-	// load-bearing; if CUE fixes the underlying Go-API bug, this will start
-	// passing and the test should be revisited (the fix is then redundant).
+	// The bug: a closed platform value corrupts it. This asserts the federation
+	// is load-bearing; if CUE fixes the underlying Go-API bug, this will start
+	// passing and the test should be revisited (federation is then belt-and-braces).
 	require.Error(t, render(txFromPackage),
-		"sanity: reading the transform from the closed Package is still corrupt (the reason Composed exists)")
+		"sanity: reading the transform from a closed platform value is still corrupt (the reason we federate, never fill)")
 }
 
 func platformFixtureDir(t *testing.T) string {

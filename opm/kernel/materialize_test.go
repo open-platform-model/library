@@ -14,7 +14,6 @@ import (
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/platform"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // buildEmptyRegistryPlatform builds a valid #Platform with an empty #registry
@@ -54,8 +53,8 @@ func TestKernel_MaterializeDelegates(t *testing.T) {
 
 	assert.Same(t, p, mp.Source, "MaterializedPlatform wraps the source platform")
 	assert.Empty(t, mp.Resolved, "no subscriptions resolved")
-	assert.True(t, mp.Package.LookupPath(schema.ComposedTransformers).Exists(),
-		"#composedTransformers slot filled (empty)")
+	assert.True(t, mp.Transformers.Exists(),
+		"native Transformers surface present (empty composed map)")
 }
 
 // TestKernel_WithRegistryDoesNotMutateEnv asserts WithRegistry plumbs the

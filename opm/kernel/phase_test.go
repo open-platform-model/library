@@ -133,8 +133,8 @@ type: "kubernetes"
 				Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
 				Package:  platVal,
 			},
-			Package:  platVal,
-			Composed: platVal.LookupPath(cue.ParsePath("#composedTransformers")),
+			Transformers: platVal.LookupPath(cue.ParsePath("#composedTransformers")),
+			Matchers:     platVal.LookupPath(cue.ParsePath("#matchers")),
 		},
 	}
 }

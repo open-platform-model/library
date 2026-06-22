@@ -20,11 +20,15 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// materialized wraps a platform CUE source (already carrying filled
-// #composedTransformers / #matchers) into a *materialize.MaterializedPlatform —
-// the realized form the matcher now consumes. Unit-level match tests build the
-// realized package directly rather than round-tripping through an OCI registry;
-// the materialize package's own tests cover the registry resolution path.
+// materialized wraps a platform CUE source carrying #composedTransformers /
+// #matchers into a *materialize.MaterializedPlatform — the realized form the
+// matcher and executor consume. Unit-level match tests build the index directly
+// rather than round-tripping through an OCI registry; the materialize package's
+// own tests cover the registry resolution path.
+//
+// The fixture's #composedTransformers / #matchers are read off pv into the
+// native Transformers / Matchers fields — the federated surfaces. The closed
+// platform spec lives on Source.Package and is NOT filled with the index.
 func materialized(t *testing.T, ctx *cue.Context, src string) *materialize.MaterializedPlatform {
 	t.Helper()
 	pv := ctx.CompileString(src)
@@ -33,14 +37,10 @@ func materialized(t *testing.T, ctx *cue.Context, src string) *materialize.Mater
 		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
 		Package:  pv,
 	}
-	// Composed mirrors what Materialize stores: the open #composedTransformers
-	// map the executor reads transforms from. (These fixtures build pv as an
-	// open struct literal, so reading from Package would also work here — but
-	// production Composed is intentionally separate; see MaterializedPlatform.)
 	return &materialize.MaterializedPlatform{
-		Source:   plat,
-		Package:  pv,
-		Composed: pv.LookupPath(schema.ComposedTransformers),
+		Source:       plat,
+		Transformers: pv.LookupPath(schema.ComposedTransformers),
+		Matchers:     pv.LookupPath(schema.Matchers),
 	}
 }
 
@@ -96,6 +96,63 @@ type: "kubernetes"
 	require.Len(t, pairs, 1)
 	assert.Equal(t, "web", pairs[0].ComponentName)
 	assert.Equal(t, "opmodel.dev/p/k8s/x@v0", pairs[0].TransformerFQN)
+	assert.Empty(t, plan.Missing)
+	assert.Empty(t, plan.Unify)
+}
+
+// TestMatch_ExactVersionBearingFQN is the D3 matcher-contract guard: when the
+// platform composes two same-major versions of a transformer under their
+// distinct version-bearing FQNs, a component demanding only the @0.5.0 resource
+// FQN matches ONLY the @0.5.0 transformer, never @0.5.1. Version selection is a
+// demand-side, authoring-time decision — the matcher never picks a version, so
+// there is no "two versions both match" ambiguity. This mirrors the federated
+// Transformers/Matchers surfaces carrying distinct version-bearing entries.
+func TestMatch_ExactVersionBearingFQN(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"example.com/p/deployment-transformer@0.5.0": {
+		metadata: { fqn: "example.com/p/deployment-transformer@0.5.0" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/container@0.5.0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+	"example.com/p/deployment-transformer@0.5.1": {
+		metadata: { fqn: "example.com/p/deployment-transformer@0.5.1" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/container@0.5.1": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"example.com/r/container@0.5.0": [#composedTransformers["example.com/p/deployment-transformer@0.5.0"]]
+		"example.com/r/container@0.5.1": [#composedTransformers["example.com/p/deployment-transformer@0.5.1"]]
+	}
+	traits: {}
+}
+`)
+	// Component built on catalog@0.5.0 embeds the version-bearing resource FQN.
+	components := ctx.CompileString(`
+"web": {
+	metadata: { labels: {} }
+	#resources: { "example.com/r/container@0.5.0": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	pairs := plan.MatchedPairs()
+	require.Len(t, pairs, 1, "exactly one version-bearing transformer matches")
+	assert.Equal(t, "example.com/p/deployment-transformer@0.5.0", pairs[0].TransformerFQN,
+		"component embedding @0.5.0 matches only the @0.5.0 transformer, not @0.5.1")
 	assert.Empty(t, plan.Missing)
 	assert.Empty(t, plan.Unify)
 }
@@ -668,32 +725,34 @@ func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.Materializ
 	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
 }
 
-// TestExecute_ReadsTransformFromComposedNotPackage is the wiring guard for the
-// output-local hidden field fix: the executor MUST source the #transform from
-// the open MaterializedPlatform.Composed map, never from the closed Package
-// (reading from Package corrupts output-local hidden fields — see
-// docs/design/transformer-output-hidden-field-scope-bug.md §12, and the
-// materialize-package regression test).
+// TestExecute_ReadsTransformFromNativeTransformers is the wiring guard for the
+// federated surface (ADR-003): the executor MUST source the #transform from the
+// native MaterializedPlatform.Transformers map, never from the closed
+// Source.Package. Reading a #transform off a closed, separately-built platform
+// corrupts output-local hidden fields (see
+// docs/design/transformer-output-hidden-field-scope-bug.md §12); federation
+// removes that surface entirely. This proves the seam is gone, not relocated.
 //
-// It makes Package and Composed DIVERGE: Match (which reads Package) still pairs
-// the component, but the rendered output must come from Composed. Hermetic — no
+// It makes Source.Package and Transformers DIVERGE: the matcher index (built
+// from Source.Package's embedded #composedTransformers) still pairs the
+// component, but the rendered output must come from Transformers. Hermetic — no
 // registry, no real catalog.
-func TestExecute_ReadsTransformFromComposedNotPackage(t *testing.T) {
+func TestExecute_ReadsTransformFromNativeTransformers(t *testing.T) {
 	ctx := cuecontext.New()
 
-	// Package carries a transformer whose output marks "package"; Match reads
-	// #composedTransformers/#matchers off Package, so the pair still forms.
+	// Source.Package carries a transformer whose output marks "package"; the
+	// matcher reverse index (Matchers) is built from it, so the pair still forms.
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { src: "package" } }`)
 
-	// Composed (the open index the executor must use) carries the SAME FQN but a
-	// divergent output marking "composed".
-	mp.Composed = ctx.CompileString(`{
+	// Transformers (the native map the executor must use) carries the SAME FQN
+	// but a divergent output marking "composed".
+	mp.Transformers = ctx.CompileString(`{
 	"` + echoTfFQN + `": {
 		metadata: { fqn: "` + echoTfFQN + `" }
 		#transform: { #component: _, #context: _, output: { src: "composed" } }
 	}
 }`)
-	require.NoError(t, mp.Composed.Err())
+	require.NoError(t, mp.Transformers.Err())
 
 	out, err := runExecute(t, mp, echoRelease(t, ctx))
 	require.NoError(t, err)
@@ -702,7 +761,7 @@ func TestExecute_ReadsTransformFromComposedNotPackage(t *testing.T) {
 	src, err := out.Compiled[0].Value.LookupPath(cue.ParsePath("src")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "composed", src,
-		"executor must read the #transform from Composed, not Package")
+		"executor must read the #transform from Transformers, not Source.Package")
 }
 
 // TestExecute_ListOutputEmitsOnePerItem covers the ListKind dispatch: a list

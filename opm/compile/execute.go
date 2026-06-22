@@ -57,10 +57,10 @@ func executeTransforms(
 
 // executePair runs the CUE #transform for a single (component, transformer) matched pair.
 //
-// composedVal is the OPEN #composedTransformers map (FQN → #ComponentTransformer)
-// from materialize.MaterializedPlatform.Composed — NOT the closed platform value.
-// Reading the #transform out of the closed platform corrupts output-local hidden
-// fields (CUE Go-API closedness bug; see that field's docs and the design doc §12).
+// composedVal is the native #composedTransformers map (FQN → #ComponentTransformer)
+// from materialize.MaterializedPlatform.Transformers, built in the owner context.
+// Reading a #transform off it — including output-local hidden fields — renders
+// concrete (the federation guarantee; see that field's docs and ADR-003).
 //
 // The flow:
 //  1. Look up the transformer's #transform from the composed map (by FQN).

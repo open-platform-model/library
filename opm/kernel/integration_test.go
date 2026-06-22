@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -11,7 +12,6 @@ import (
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // This is the always-on, fully hermetic integration harness. It drives the
@@ -55,7 +55,7 @@ func TestIntegration_Materialize(t *testing.T) {
 		require.NotNil(t, mp)
 		assert.Equal(t, "0.1.0", mp.Resolved[path], "resolved version recorded")
 		assert.True(t,
-			mp.Package.LookupPath(schema.MatchersResources).Exists(),
+			mp.Matchers.LookupPath(cue.ParsePath("resources")).Exists(),
 			"materialized platform carries #matchers")
 	})
 

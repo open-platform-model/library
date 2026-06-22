@@ -1,8 +1,9 @@
 // Default Kubernetes Platform fixture. Subscribes to the OPM core catalog via
 // a #Subscription-shaped #registry (enhancement 0001). The kernel's
 // Materialize step resolves the subscription against the registry, pulls the
-// catalog build, and fills #composedTransformers / #matchers on the
-// materialized twin — this CUE value is the spec only.
+// catalog build, and exposes the composed transformers / matcher index as
+// native fields on the MaterializedPlatform (Transformers / Matchers) — it does
+// NOT fill them onto this closed spec (ADR-003). This CUE value is the spec only.
 //
 // Unpublished in-repo fixture: consumed on-disk by the kernel flow tests
 // (D-F). It is not part of any publish path.

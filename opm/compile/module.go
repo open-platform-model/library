@@ -83,9 +83,9 @@ type ModuleResult = CompileResult
 // NewModule creates a Module for the given materialized platform and runtime
 // identity. cueCtx is the caller Kernel's owned build context — Execute builds
 // the finalized data, the transformer #context.* view, and the rendered output
-// in it, consuming mp.Package as read-only input (the FillPath argument /
-// cross-read source) rather than borrowing its context. The Execute path reads
-// #composedTransformers off mp.Package — the kernel-filled view — so callers
+// in it, consuming mp.Transformers / mp.Matchers as read-only input (the
+// cross-read source) rather than borrowing their context. The Execute path
+// reads #transforms off mp.Transformers — the native composed map — so callers
 // must Materialize before compiling. runtimeName must be non-empty — the
 // catalog requires #context.#runtimeName to be populated and CUE evaluation
 // fails on empty values.
@@ -129,13 +129,12 @@ func (r *Module) Execute(
 	}
 
 	// Phase 2 — execution (CUE #transform per pair).
-	// Passes the OPEN composed transformer map (NOT r.platform.Package): reading
-	// a #transform out of the closed Package corrupts output-local hidden fields
-	// (see materialize.MaterializedPlatform.Composed). Also passes both
-	// schemaComponents (for metadata extraction) and dataComponents (already
-	// finalized, no materialize() needed).
+	// Passes the native composed transformer map (mp.Transformers), built in the
+	// owner context so #transforms — including output-local hidden fields —
+	// render concrete. Also passes both schemaComponents (for metadata
+	// extraction) and dataComponents (already finalized, no materialize() needed).
 	compiled, warnings, errs := executeTransforms(
-		ctx, cueCtx, plan, r.platform.Composed,
+		ctx, cueCtx, plan, r.platform.Transformers,
 		schemaComponents, dataComponents, rel,
 		r.runtimeName,
 	)
