@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-alpha.1](https://github.com/open-platform-model/library/compare/v0.7.0...v1.0.0-alpha.1) (2026-06-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **module:** rename release to instance ([#27](https://github.com/open-platform-model/library/issues/27))
+
+### Features
+
+* **module:** rename release to instance ([#27](https://github.com/open-platform-model/library/issues/27)) ([92dfaf8](https://github.com/open-platform-model/library/commit/92dfaf8e9936305d48385d97fecc6ea8a82ab3ad))
+
+
+### Miscellaneous Chores
+
+* configure release-please for the v1 alpha prerelease line ([ec35b3c](https://github.com/open-platform-model/library/commit/ec35b3c62f2ddecd46b3ae0651a14b4524400ede))
+* release 1.0.0-alpha.1 ([c8e2f8d](https://github.com/open-platform-model/library/commit/c8e2f8d5a87f414d63ebbf3ac873c4f65edfdaa9))
+
 ## [0.7.0](https://github.com/open-platform-model/library/compare/v0.6.0...v0.7.0) (2026-06-22)
 
 
