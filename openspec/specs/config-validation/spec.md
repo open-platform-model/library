@@ -3,9 +3,7 @@
 ## Purpose
 
 The OPM kernel's CUE-native validation surface. The library exposes three validation primitives on `*Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) plus typed Module/Release wrappers and Source loader helpers, all returning errors that implement `cuelang.org/go/cue/errors.Error`. The library does not project CUE errors into custom Go types and does not expose presentation-layer formatters; frontends own their own display by walking `cueerrors.Errors(err)` directly. This capability supersedes the prior `values-validation` capability (the `opm/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError` types), collapsing per-layer-partial-then-unify into unify-then-validate while preserving per-source attribution through `cue.Filename` set at compile time.
-
 ## Requirements
-
 ### Requirement: Three Kernel Validation Primitives
 
 The library SHALL expose three validation methods on `*Kernel` in `opm/kernel/`: `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`. All three SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors.
@@ -69,39 +67,6 @@ The library SHALL expose a `Source` struct in `opm/kernel/` describing one label
 - **THEN** unification proceeds `a → a∪b → a∪b∪c`
 - **AND** field conflicts resolve to the layer that wrote them last
 
-### Requirement: Module and Release Typed Convenience Methods
-
-`*Module` SHALL expose a `ConfigSchema()` accessor (`*Release` already exposes one). The Kernel SHALL expose typed convenience methods `ValidateModuleValues`, `ValidateModuleValuesPartial`, `ValidateModuleValuesDetailed`, `ValidateReleaseValues`, `ValidateReleaseValuesPartial`, `ValidateReleaseValuesDetailed` — each a 1-line schema-lookup wrapper that delegates to the corresponding primitive.
-
-The convenience methods live on `*Kernel` rather than on `*Module`/`*Release` because `opm/kernel` already imports `opm/module`; placing methods that take a `*kernel.Kernel` on `*Module`/`*Release` would close the import cycle.
-
-#### Scenario: Module.ConfigSchema accessor
-
-- **WHEN** a caller invokes `m.ConfigSchema()`
-- **THEN** the result is the `cue.Value` at `b.Paths().Config` inside `m.Package`, where `b` is the binding for `m.APIVersion`
-- **AND** the accessor returns a zero value if the module has no `#config` field
-
-#### Scenario: Kernel.ValidateModuleValues delegates without name wrapping
-
-- **WHEN** a caller invokes `k.ValidateModuleValues(m, values)`
-- **THEN** the result is identical to `k.ValidateConfig(m.ConfigSchema(), values)`
-- **AND** the method does NOT wrap the error with the module name (caller wraps if needed; the phase method `Kernel.Validate` is the wrapping entry point)
-
-#### Scenario: Kernel.ValidateModuleValuesPartial delegates
-
-- **WHEN** a caller invokes `k.ValidateModuleValuesPartial(m, values)`
-- **THEN** the result is identical to `k.ValidateConfigPartial(m.ConfigSchema(), values)`
-
-#### Scenario: Kernel.ValidateModuleValuesDetailed delegates
-
-- **WHEN** a caller invokes `k.ValidateModuleValuesDetailed(m, sources, opts...)`
-- **THEN** the result is identical to `k.ValidateConfigDetailed(m.ConfigSchema(), sources, opts...)`
-
-#### Scenario: Release equivalents
-
-- **WHEN** a caller invokes any of `k.ValidateReleaseValues(r, values)`, `k.ValidateReleaseValuesPartial(r, values)`, or `k.ValidateReleaseValuesDetailed(r, sources, opts...)`
-- **THEN** the behavior mirrors the Module equivalents, sourcing the schema from `r.ConfigSchema()` (which resolves the embedded `#module` reference at `b.Paths().Module` then `b.Paths().Config`)
-
 ### Requirement: Source Loader Helpers
 
 The library SHALL expose three loader helpers on `*Kernel` that produce `Source` values with `cue.Filename` baked in: `LoadSourceFromFile`, `LoadSourceFromBytes`, `LoadSourceFromString`.
@@ -142,20 +107,20 @@ The library SHALL NOT expose a print helper, formatter, or any other presentatio
 
 ### Requirement: Phase Method Wraps With Module Name
 
-`Kernel.Validate(ctx, ValidateInput)` SHALL retain its public signature and SHALL internally call `Kernel.ValidateConfig` then wrap any returned error with `fmt.Errorf("module %q: %w", name, err)` where `name` is derived from `ValidateInput.ModuleRelease.Metadata.Name` (or a "<unknown>" fallback).
+`Kernel.Validate(ctx, ValidateInput)` SHALL retain its public signature and SHALL internally call `Kernel.ValidateConfig` then wrap any returned error with `fmt.Errorf("module %q: %w", name, err)` where `name` is derived from `ValidateInput.ModuleInstance.Metadata.Name` (or a "<unknown>" fallback).
 
 #### Scenario: Validate phase signature unchanged
 
-- **WHEN** a caller invokes `k.Validate(ctx, ValidateInput{Module, ModuleRelease, Values})`
+- **WHEN** a caller invokes `k.Validate(ctx, ValidateInput{Module, ModuleInstance, Values})`
 - **THEN** the method returns nil on success or a wrapped `error` on failure
 - **AND** the wrapped error is walkable via `errors.As` and `cueerrors.Errors` to reach the underlying CUE diagnostics
 - **AND** the textual prefix on `Error()` is `module "<name>": ` followed by the CUE error message
 
-#### Scenario: ProcessModuleRelease uses ValidateConfig and wraps with release name
+#### Scenario: ProcessModuleInstance uses ValidateConfig and wraps with instance name
 
-- **WHEN** `k.ProcessModuleRelease(ctx, spec, mod, values)` performs its values validation step
+- **WHEN** `k.ProcessModuleInstance(ctx, spec, mod, values)` performs its values validation step
 - **THEN** the call routes through `k.ValidateConfig(schema, values)` (no per-call options)
-- **AND** any returned error is wrapped with `fmt.Errorf("release %q: %w", releaseName, err)`
+- **AND** any returned error is wrapped with `fmt.Errorf("instance %q: %w", instanceName, err)`
 - **AND** the subsequent `spec.Validate(cue.Concrete(true))` call (CUE stdlib) is unchanged
 
 ### Requirement: Internal Closed-Schema Workaround
@@ -189,3 +154,37 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 - **WHEN** a frontend wants per-position iteration over validation errors
 - **THEN** it imports `cuelang.org/go/cue/errors` and uses `errors.Errors(err)` plus `errors.Positions(ce)` to walk the tree
 - **AND** the library does not provide a parallel walking API
+
+### Requirement: Module and Instance Typed Convenience Methods
+
+`*Module` SHALL expose a `ConfigSchema()` accessor (`*Instance` already exposes one). The Kernel SHALL expose typed convenience methods `ValidateModuleValues`, `ValidateModuleValuesPartial`, `ValidateModuleValuesDetailed`, `ValidateInstanceValues`, `ValidateInstanceValuesPartial`, `ValidateInstanceValuesDetailed` — each a 1-line schema-lookup wrapper that delegates to the corresponding primitive.
+
+The convenience methods live on `*Kernel` rather than on `*Module`/`*Instance` because `opm/kernel` already imports `opm/module`; placing methods that take a `*kernel.Kernel` on `*Module`/`*Instance` would close the import cycle.
+
+#### Scenario: Module.ConfigSchema accessor
+
+- **WHEN** a caller invokes `m.ConfigSchema()`
+- **THEN** the result is the `cue.Value` at `b.Paths().Config` inside `m.Package`, where `b` is the binding for `m.APIVersion`
+- **AND** the accessor returns a zero value if the module has no `#config` field
+
+#### Scenario: Kernel.ValidateModuleValues delegates without name wrapping
+
+- **WHEN** a caller invokes `k.ValidateModuleValues(m, values)`
+- **THEN** the result is identical to `k.ValidateConfig(m.ConfigSchema(), values)`
+- **AND** the method does NOT wrap the error with the module name (caller wraps if needed; the phase method `Kernel.Validate` is the wrapping entry point)
+
+#### Scenario: Kernel.ValidateModuleValuesPartial delegates
+
+- **WHEN** a caller invokes `k.ValidateModuleValuesPartial(m, values)`
+- **THEN** the result is identical to `k.ValidateConfigPartial(m.ConfigSchema(), values)`
+
+#### Scenario: Kernel.ValidateModuleValuesDetailed delegates
+
+- **WHEN** a caller invokes `k.ValidateModuleValuesDetailed(m, sources, opts...)`
+- **THEN** the result is identical to `k.ValidateConfigDetailed(m.ConfigSchema(), sources, opts...)`
+
+#### Scenario: Instance equivalents
+
+- **WHEN** a caller invokes any of `k.ValidateInstanceValues(r, values)`, `k.ValidateInstanceValuesPartial(r, values)`, or `k.ValidateInstanceValuesDetailed(r, sources, opts...)`
+- **THEN** the behavior mirrors the Module equivalents, sourcing the schema from `r.ConfigSchema()` (which resolves the embedded `#module` reference at `b.Paths().Module` then `b.Paths().Config`)
+
