@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0-alpha.2](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.1...v1.0.0-alpha.2) (2026-06-27)
+
+
+### Documentation
+
+* **openspec:** add migration-guard change ([7d16942](https://github.com/open-platform-model/library/commit/7d1694241110fc411bd63229d19485ff6f481233))
+
+
+### Miscellaneous Chores
+
+* **ci:** add migration guard ([#29](https://github.com/open-platform-model/library/issues/29)) ([7d16942](https://github.com/open-platform-model/library/commit/7d1694241110fc411bd63229d19485ff6f481233))
+
 ## [1.0.0-alpha.1](https://github.com/open-platform-model/library/compare/v0.7.0...v1.0.0-alpha.1) (2026-06-27)
 
 
