@@ -28,10 +28,12 @@ func (k *Kernel) LoadModuleFromRegistry(ctx context.Context, modPath, version st
 	return loaderregistry.LoadModulePackage(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
 }
 
-// LoadReleasePackage loads a #ModuleRelease CUE package from a directory
-// using the kernel's [*cue.Context]. See [loaderfile.LoadReleasePackage].
-func (k *Kernel) LoadReleasePackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, error) {
-	return loaderfile.LoadReleasePackage(k.cueCtx, dirPath, opts)
+// LoadInstancePackage loads a #ModuleInstance CUE package from a directory
+// using the kernel's [*cue.Context]. See [loaderfile.LoadInstancePackage].
+//
+// Was: LoadReleasePackage
+func (k *Kernel) LoadInstancePackage(_ context.Context, dirPath string, opts loaderfile.LoadOptions) (cue.Value, error) {
+	return loaderfile.LoadInstancePackage(k.cueCtx, dirPath, opts)
 }
 
 // LoadPlatformPackage loads a #Platform CUE package from a directory using
@@ -52,8 +54,10 @@ func (k *Kernel) NewModuleFromValue(v cue.Value) (*module.Module, error) {
 	return module.NewModuleFromValue(k, v)
 }
 
-// NewReleaseFromValue builds a typed [*module.Release] from a raw
-// [cue.Value]. See [module.NewReleaseFromValue].
-func (k *Kernel) NewReleaseFromValue(v cue.Value) (*module.Release, error) {
-	return module.NewReleaseFromValue(k, v)
+// NewInstanceFromValue builds a typed [*module.Instance] from a raw
+// [cue.Value]. See [module.NewInstanceFromValue].
+//
+// Was: NewReleaseFromValue
+func (k *Kernel) NewInstanceFromValue(v cue.Value) (*module.Instance, error) {
+	return module.NewInstanceFromValue(k, v)
 }

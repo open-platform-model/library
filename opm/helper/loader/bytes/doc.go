@@ -1,11 +1,11 @@
 // Package bytes provides in-memory loaders for OPM artifacts: module
-// CUE packages, releases, and providers built from byte buffers rather
+// CUE packages, instances, and providers built from byte buffers rather
 // than a filesystem.
 //
 // It is the sibling of opm/helper/loader/file. Use bytes when the
 // embedding caller does not have a real filesystem and instead receives
 // raw artifact bytes — for example a Crossplane composition function
-// that gets module/release CUE inline on its gRPC request, or a
+// that gets module/instance CUE inline on its gRPC request, or a
 // fuzzing harness that synthesises artifacts in memory.
 //
 // Status: skeleton only. The package intentionally exposes no functions

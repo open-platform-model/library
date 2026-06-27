@@ -37,7 +37,7 @@ func (f *subscriptionFilter) isEmpty() bool {
 // version is selected — pre-releases are excluded so a leaked dev tag does not
 // silently become "latest" (spec: "Enabled subscription with no filter"). A
 // path that has published only pre-releases falls back to the highest of them.
-// Pre-releases are otherwise reachable only by explicit opt-in: a filter.allow
+// Pre-instances are otherwise reachable only by explicit opt-in: a filter.allow
 // naming the exact version, or a filter.range whose constraint carries a
 // pre-release identifier.
 func filterVersions(published []string, f *subscriptionFilter) ([]string, error) {

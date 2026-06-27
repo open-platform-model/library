@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by syncing change unify-artifact-shape. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Uniform Artifact Shape
 
 Every OPM artifact type accepted by the kernel SHALL be a Go struct with exactly three exported fields: `APIVersion apiversion.Version`, `Metadata *<Type>Metadata`, and `Package cue.Value`. The `Metadata` pointer holds a decoded ergonomic projection; the `Package` field carries the source-of-truth CUE value.
@@ -15,10 +13,10 @@ Every OPM artifact type accepted by the kernel SHALL be a Go struct with exactly
 - **THEN** the struct has exactly three exported fields: `APIVersion`, `Metadata` (typed `*ModuleMetadata`), and `Package` (typed `cue.Value`)
 - **AND** there are no `Spec` or `Config` exported fields
 
-#### Scenario: ModuleRelease type shape
+#### Scenario: ModuleInstance type shape
 
-- **WHEN** a developer reads the `module.Release` struct definition
-- **THEN** the struct has exactly three exported fields: `APIVersion`, `Metadata` (typed `*ReleaseMetadata`), and `Package` (typed `cue.Value`)
+- **WHEN** a developer reads the `module.Instance` struct definition
+- **THEN** the struct has exactly three exported fields: `APIVersion`, `Metadata` (typed `*InstanceMetadata`), and `Package` (typed `cue.Value`)
 - **AND** there are no `Module`, `Spec`, or `Values` exported fields
 
 ### Requirement: Constructor Helpers from cue.Value
@@ -44,11 +42,11 @@ The library SHALL provide constructor helpers that build each typed artifact fro
 - **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
 - **AND** no partial `*Module` is returned
 
-#### Scenario: NewReleaseFromValue success path
+#### Scenario: NewInstanceFromValue success path
 
-- **WHEN** a caller invokes `module.NewReleaseFromValue(k, v)` with a `cue.Value` carrying a valid release
-- **THEN** the returned `*Release` has `APIVersion`, `Metadata`, and `Package` populated
-- **AND** the release's referenced module is reachable via `Package.LookupPath(binding.Paths().Module)`
+- **WHEN** a caller invokes `module.NewInstanceFromValue(k, v)` with a `cue.Value` carrying a valid instance
+- **THEN** the returned `*Instance` has `APIVersion`, `Metadata`, and `Package` populated
+- **AND** the instance's referenced module is reachable via `Package.LookupPath(binding.Paths().Module)`
 
 ### Requirement: Package Is Source of Truth
 
@@ -56,7 +54,7 @@ When the typed `Metadata` field and the corresponding subtree of `Package` carry
 
 #### Scenario: Documentation states authority
 
-- **WHEN** a developer reads the godoc for `Module.Metadata` or `Release.Metadata`
+- **WHEN** a developer reads the godoc for `Module.Metadata` or `Instance.Metadata`
 - **THEN** the doc comment states that `Package` is authoritative and `Metadata` is a decoded cache
 - **AND** the doc comment warns against mutating `Package` after construction without re-running the constructor
 
@@ -69,29 +67,9 @@ The `APIVersion` field SHALL be set by the constructor based on detection of the
 - **WHEN** a constructor returns a typed artifact
 - **THEN** `artifact.APIVersion` equals the value extracted from `artifact.Package` via `apiversion.Detect`
 
-### Requirement: Release-Side Module Paths On Binding
-
-The `api.Paths` inventory SHALL expose two CUE paths for release-side lookup of the embedded source module:
-
-- `Paths.Module` — the path under which the release's CUE package carries its `#Module` reference (v1alpha2: `#module`).
-- `Paths.ModuleMetadata` — the path under which the release's CUE package carries the projected module metadata (v1alpha2: `#moduleMetadata`).
-
-These paths SHALL be populated by every concrete binding so that kernel-internal call sites and `*Release` accessor methods can read module identity from `Release.Package` without ad-hoc path strings.
-
-#### Scenario: Release reaches its source module via the binding
-
-- **WHEN** a caller holds a `*Release` whose `Package` carries a `#module` field
-- **THEN** `rel.Package.LookupPath(b.Paths().Module).Exists()` is true (where `b` is the binding for `rel.APIVersion`)
-
-#### Scenario: Release accessors read module metadata via the binding
-
-- **WHEN** a caller invokes `rel.ModuleFQN()` or `rel.ModuleVersion()`
-- **THEN** the returned value is read from `rel.Package.LookupPath(b.Paths().ModuleMetadata)` via `api.Lookup(rel.APIVersion)`
-- **AND** there is no cached `*Module` field on `Release` carrying the same data
-
 ### Requirement: Internal Call Sites Use Binding Paths
 
-All kernel-internal call sites that previously read `Module.Spec`, `Module.Config`, `Release.Spec`, `Release.Values`, or `Release.Module` SHALL be migrated to read sub-values from `Package` using `binding.Paths()` from the version binding.
+All kernel-internal call sites that previously read `Module.Spec`, `Module.Config`, `Instance.Spec`, `Instance.Values`, or `Instance.Module` SHALL be migrated to read sub-values from `Package` using `binding.Paths()` from the version binding.
 
 #### Scenario: Compile pipeline uses binding paths
 
@@ -106,7 +84,7 @@ All kernel-internal call sites that previously read `Module.Spec`, `Module.Confi
 
 ### Requirement: Kernel Artifact Type Set
 
-The kernel SHALL accept exactly three artifact types: `Module`, `ModuleRelease`, and `Platform`. `#ModuleDebug` SHALL NOT be a kernel artifact type. Debug values are carried as a `debugValues` field within `Module.Package`; whether they participate in the values stack is a frontend policy decision, not a kernel concern.
+The kernel SHALL accept exactly three artifact types: `Module`, `ModuleInstance`, and `Platform`. `#ModuleDebug` SHALL NOT be a kernel artifact type. Debug values are carried as a `debugValues` field within `Module.Package`; whether they participate in the values stack is a frontend policy decision, not a kernel concern.
 
 #### Scenario: No top-level ModuleDebug type
 
@@ -125,29 +103,50 @@ The kernel SHALL accept exactly three artifact types: `Module`, `ModuleRelease`,
 - **WHEN** a developer reads `library/README.md` or `opm/module/` godoc
 - **THEN** at least one prose section states that `#ModuleDebug` is not a kernel artifact and that debug overlays are a frontend layering concern
 
-### Requirement: Release Config Schema Accessor
+### Requirement: Instance-Side Module Paths On Binding
 
-`*module.Release` SHALL expose a `ConfigSchema() cue.Value` accessor that returns the embedded source module's `#config` schema. The accessor SHALL look up the schema via the binding registered for `r.APIVersion` using `Paths().Module` followed by `Paths().Config`. The accessor SHALL return the zero `cue.Value` (not an error) when the binding is unregistered, the receiver is `nil`, or the path does not exist.
+The `api.Paths` inventory SHALL expose two CUE paths for instance-side lookup of the embedded source module:
 
-#### Scenario: Schema reachable on a well-formed release
+- `Paths.Module` — the path under which the instance's CUE package carries its `#Module` reference (v1alpha2: `#module`).
+- `Paths.ModuleMetadata` — the path under which the instance's CUE package carries the projected module metadata (v1alpha2: `#moduleMetadata`).
 
-- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Release` whose `Package` carries an embedded `#module` with a `#config` definition
+These paths SHALL be populated by every concrete binding so that kernel-internal call sites and `*Instance` accessor methods can read module identity from `Instance.Package` without ad-hoc path strings.
+
+#### Scenario: Instance reaches its source module via the binding
+
+- **WHEN** a caller holds a `*Instance` whose `Package` carries a `#module` field
+- **THEN** `rel.Package.LookupPath(b.Paths().Module).Exists()` is true (where `b` is the binding for `rel.APIVersion`)
+
+#### Scenario: Instance accessors read module metadata via the binding
+
+- **WHEN** a caller invokes `rel.ModuleFQN()` or `rel.ModuleVersion()`
+- **THEN** the returned value is read from `rel.Package.LookupPath(b.Paths().ModuleMetadata)` via `api.Lookup(rel.APIVersion)`
+- **AND** there is no cached `*Module` field on `Instance` carrying the same data
+
+### Requirement: Instance Config Schema Accessor
+
+`*module.Instance` SHALL expose a `ConfigSchema() cue.Value` accessor that returns the embedded source module's `#config` schema. The accessor SHALL look up the schema via the binding registered for `r.APIVersion` using `Paths().Module` followed by `Paths().Config`. The accessor SHALL return the zero `cue.Value` (not an error) when the binding is unregistered, the receiver is `nil`, or the path does not exist.
+
+#### Scenario: Schema reachable on a well-formed instance
+
+- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Instance` whose `Package` carries an embedded `#module` with a `#config` definition
 - **THEN** the returned `cue.Value` exists (`v.Exists() == true`)
 - **AND** the returned value is identical to `rel.Package.LookupPath(b.Paths().Module).LookupPath(b.Paths().Config)` where `b` is the binding for `rel.APIVersion`
 
 #### Scenario: Zero value on unregistered binding
 
-- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Release` whose `APIVersion` has no registered binding
+- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Instance` whose `APIVersion` has no registered binding
 - **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
 - **AND** no error is returned
 
 #### Scenario: Zero value on missing #config path
 
-- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Release` whose embedded `#module` does not declare a `#config` definition
+- **WHEN** a caller invokes `rel.ConfigSchema()` on a `*Instance` whose embedded `#module` does not declare a `#config` definition
 - **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
 
 #### Scenario: Nil receiver safety
 
-- **WHEN** a caller invokes `(*Release)(nil).ConfigSchema()`
+- **WHEN** a caller invokes `(*Instance)(nil).ConfigSchema()`
 - **THEN** the returned `cue.Value` is the zero value
 - **AND** no panic occurs
+

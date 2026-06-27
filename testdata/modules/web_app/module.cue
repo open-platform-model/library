@@ -1,10 +1,10 @@
-// web_app — a core@v0 #Module that consumes opm Resources, Traits, and
+// web_app — a core@v1 #Module that consumes opm Resources, Traits, and
 // Blueprints. Drives the plan / match / compile integration tests against
 // the opm_platform fixture (which subscribes to opmodel.dev/catalogs/opm).
 package web_app
 
 import (
-	m "opmodel.dev/core@v0"
+	m "opmodel.dev/core@v1"
 	res "opmodel.dev/catalogs/opm/resources"
 )
 

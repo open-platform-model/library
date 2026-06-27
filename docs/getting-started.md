@@ -1,14 +1,14 @@
 # Getting started
 
-This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, composing a Platform, and compiling a Release down to rendered `*core.Compiled` values.
+This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, composing a Platform, and compiling a Instance down to rendered `*core.Compiled` values.
 
 The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.Context` and threads cross-cutting dependencies (logger, tracer, clock) through every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use.
 
 ## Prerequisites
 
 - Go 1.22+
-- A CUE module containing a `Module` artifact (and optionally a `ModuleRelease` artifact and a `Platform` artifact).
-- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v0`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
+- A CUE module containing a `Module` artifact (and optionally a `ModuleInstance` artifact and a `Platform` artifact).
+- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v1`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
 
 ## Configure CUE_REGISTRY
 
@@ -26,7 +26,7 @@ os.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 // → "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 ```
 
-Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v0` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
+Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v1` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
 
 ## Construct a kernel
 
@@ -44,7 +44,7 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first method that
 
 ### Pin a specific schema version
 
-`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v0`. To pin a reproducible version:
+`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v1`. To pin a reproducible version:
 
 ```go
 import "github.com/open-platform-model/library/opm/schema"
@@ -100,20 +100,20 @@ See [`docs/design/kernel-validate-flow.md`](design/kernel-validate-flow.md) for 
 
 ## Load and process a release
 
-Releases load as CUE packages (unified with module loading in commit `7c435f2`). The release's `Package` embeds the source `#module` reference; `ProcessModuleRelease` uses it to validate user values against `#module.#config` without a separate schema argument (Tier-2 safety net).
+Instances load as CUE packages (unified with module loading in commit `7c435f2`). The release's `Package` embeds the source `#module` reference; `ProcessModuleInstance` uses it to validate user values against `#module.#config` without a separate schema argument (Tier-2 safety net).
 
 ```go
-releaseVal, err := k.LoadReleasePackage(ctx, "./release/", loaderfile.LoadOptions{})
+releaseVal, err := k.LoadInstancePackage(ctx, "./release/", loaderfile.LoadOptions{})
 if err != nil {
     return err
 }
-rel, err := k.ProcessModuleRelease(ctx, releaseVal, *mod, userValues)
+rel, err := k.ProcessModuleInstance(ctx, releaseVal, *mod, userValues)
 if err != nil {
     return err
 }
 ```
 
-If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeRelease` (from `opm/helper/synth`) instead. It unifies the typed inputs against the `#ModuleRelease` schema (resolved via the kernel's `*schema.Cache`) and chains into `ProcessModuleRelease` in one call. The kernel-owned cache is plumbed through `synth.ReleaseInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across release synthesis and other schema-touching code.
+If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeInstance` (from `opm/helper/synth`) instead. It unifies the typed inputs against the `#ModuleInstance` schema (resolved via the kernel's `*schema.Cache`) and chains into `ProcessModuleInstance` in one call. The kernel-owned cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across release synthesis and other schema-touching code.
 
 ## Load and compose a Platform
 
@@ -143,7 +143,7 @@ if err != nil {
 ```go
 result, err := k.Compile(ctx, kernel.CompileInput{
     Module:        mod,
-    ModuleRelease: rel,
+    ModuleInstance: rel,
     Values:        userValues,
     Platform:      plat,
     RuntimeName:   "opm-cli",
@@ -156,7 +156,7 @@ for _, r := range result.Compiled {
 }
 ```
 
-Each `*core.Compiled` carries Release / Component / Transformer FQN provenance. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
+Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
 
 ## Phase-explicit entry points
 
@@ -175,10 +175,10 @@ The previous free-function entry points have all been removed. If you have old c
 
 | Removed                         | Replacement                                  |
 | ------------------------------- | -------------------------------------------- |
-| `compile.CompileModuleRelease`  | `(*Kernel).Compile`                          |
-| `compile.ProcessModuleRelease`  | `(*Kernel).ProcessModuleRelease`             |
-| `module.ParseModuleRelease`     | `(*Kernel).ProcessModuleRelease`             |
-| `loaderfile.LoadReleaseFile`    | `loaderfile.LoadReleasePackage` (now a pkg)  |
+| `compile.CompileModuleInstance`  | `(*Kernel).Compile`                          |
+| `compile.ProcessModuleInstance`  | `(*Kernel).ProcessModuleInstance`             |
+| `module.ParseModuleInstance`     | `(*Kernel).ProcessModuleInstance`             |
+| `loaderfile.LoadInstanceFile`    | `loaderfile.LoadInstancePackage` (now a pkg)  |
 | `opm/loader/` shim              | `opm/helper/loader/file`                     |
 
 ## Further reading

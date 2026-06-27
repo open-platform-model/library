@@ -2,7 +2,7 @@
 // that need to materialize catalogs without a live registry.
 //
 // It stands up a [modregistrytest] registry serving inline `c.#Catalog`
-// fixtures under the [CatalogPrefix] module path, while opmodel.dev/core@v0
+// fixtures under the [CatalogPrefix] module path, while opmodel.dev/core@v1
 // still resolves from the warm workspace cache (via
 // [schematest.SetEnv]). The CUE_REGISTRY mapping routes the test prefix to the
 // in-process host and leaves every other path on the public registry.
@@ -30,7 +30,7 @@ import (
 
 // CatalogPrefix is the module-path prefix every in-memory catalog fixture lives
 // under. The CUE_REGISTRY mapping routes this prefix to the in-process registry
-// while opmodel.dev (core@v0) still resolves from the public registry / warm
+// while opmodel.dev (core@v1) still resolves from the public registry / warm
 // workspace cache.
 const CatalogPrefix = "test.example"
 
@@ -42,9 +42,9 @@ type CatalogFixture struct {
 	Version string // bare SemVer, e.g. "0.1.0"
 	Body    string // catalog package body (metadata + #transformers)
 
-	// CoreVersion pins the opmodel.dev/core@v0 dependency this catalog's
+	// CoreVersion pins the opmodel.dev/core@v1 dependency this catalog's
 	// cue.mod/module.cue declares. Empty defaults to defaultCoreVersion
-	// ("v0.3.0"), so existing callers are unaffected. Tests exercising the
+	// ("v1.0.0-alpha.1"), so existing callers are unaffected. Tests exercising the
 	// author-supplied-#Module-identity mechanism pin a later version (e.g.
 	// "v0.5.0", or the "v0.4.0" self-cycle boundary for a negative control).
 	// core still resolves from the public registry / warm workspace cache.
@@ -77,7 +77,7 @@ func UniquePath(t *testing.T, leaf string) string {
 // ModuleFixture is one (path, version) #Module published into the in-memory
 // registry. File is the full module CUE file content (package clause + imports +
 // the c.#Module embed and author-set metadata); Deps lists any module deps
-// BEYOND opmodel.dev/core@v0 that File imports (e.g. a catalog the module
+// BEYOND opmodel.dev/core@v1 that File imports (e.g. a catalog the module
 // references), keyed by major-qualified path → bare SemVer. See [BuildModuleFile].
 type ModuleFixture struct {
 	Path    string            // module path without @major, e.g. "test.example/x/modules/hello"
@@ -85,20 +85,20 @@ type ModuleFixture struct {
 	File    string            // full module.cue contents
 	Deps    map[string]string // extra deps: "<path>@vN" → bare SemVer (core is added automatically)
 
-	// CoreVersion pins the opmodel.dev/core@v0 dependency this module's
+	// CoreVersion pins the opmodel.dev/core@v1 dependency this module's
 	// cue.mod/module.cue declares. Empty defaults to defaultCoreVersion
-	// ("v0.3.0"), so existing callers are unaffected. Tests exercising the
+	// ("v1.0.0-alpha.1"), so existing callers are unaffected. Tests exercising the
 	// author-supplied-#Module-identity mechanism pin a later version (e.g.
 	// "v0.5.0", or the "v0.4.0" self-cycle boundary for a negative control).
 	// core still resolves from the public registry / warm workspace cache.
 	CoreVersion string
 }
 
-// defaultCoreVersion is the opmodel.dev/core@v0 version registrytest fixtures
+// defaultCoreVersion is the opmodel.dev/core@v1 version registrytest fixtures
 // declare when ModuleFixture.CoreVersion / CatalogFixture.CoreVersion are
 // empty. It preserves the historical pin so callers predating the override are
 // unaffected.
-const defaultCoreVersion = "v0.3.0"
+const defaultCoreVersion = "v1.0.0-alpha.1"
 
 // coreVersionOr returns v normalized to a leading "v", or defaultCoreVersion
 // when v is empty.
@@ -118,7 +118,7 @@ func coreVersionOr(v string) string {
 //
 // Fixture layout follows modregistrytest.New: one directory per (module,
 // version) named "<path with / → _>_v<X.Y.Z>", each holding cue.mod/module.cue
-// (module + language version + the opmodel.dev/core@v0 dep) and catalog.cue
+// (module + language version + the opmodel.dev/core@v1 dep) and catalog.cue
 // (package body importing core and unifying c.#Catalog).
 func NewCatalogRegistry(t *testing.T, fixtures ...CatalogFixture) string {
 	t.Helper()
@@ -148,28 +148,28 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.16.0\"\ndeps: \"opmodel.dev/core@v0\": v: %q\n",
+			"module: %q\nlanguage: version: \"v0.17.0-alpha.1\"\ndeps: \"opmodel.dev/core@v1\": v: %q\n",
 			f.Path+"@v0", coreVersionOr(f.CoreVersion),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
-			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v0\"\n\nc.#Catalog\n" + f.Body,
+			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v1\"\n\nc.#Catalog\n" + f.Body,
 		)}
 	}
 }
 
 // addModules writes the modregistrytest fixture files for each module into
-// mapfs. Each module's cue.mod/module.cue declares opmodel.dev/core@v0 plus any
+// mapfs. Each module's cue.mod/module.cue declares opmodel.dev/core@v1 plus any
 // extra Deps; the module body itself is the fixture's File verbatim.
 func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 	for _, m := range modules {
 		dir := strings.ReplaceAll(m.Path, "/", "_") + "_v" + m.Version
 		var deps strings.Builder
-		fmt.Fprintf(&deps, "deps: \"opmodel.dev/core@v0\": v: %q\n", coreVersionOr(m.CoreVersion))
+		fmt.Fprintf(&deps, "deps: \"opmodel.dev/core@v1\": v: %q\n", coreVersionOr(m.CoreVersion))
 		for p, v := range m.Deps {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.16.0\"\n%s",
+			"module: %q\nlanguage: version: \"v0.17.0-alpha.1\"\n%s",
 			m.Path+"@v0", deps.String(),
 		)}
 		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}
@@ -186,7 +186,7 @@ func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 	require.NoError(t, err, "stand up in-memory registry")
 	t.Cleanup(reg.Close)
 
-	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core@v0
+	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core@v1
 	// already extracted there) and seeds CUE_REGISTRY with PublicRegistry;
 	// the combined mapping below adds the in-process host.
 	schematest.SetEnv(t)
@@ -205,9 +205,9 @@ func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", pkg)
 	if catalogImport == "" {
-		b.WriteString("import c \"opmodel.dev/core@v0\"\n\n")
+		b.WriteString("import c \"opmodel.dev/core@v1\"\n\n")
 	} else {
-		b.WriteString("import (\n\tc \"opmodel.dev/core@v0\"\n")
+		b.WriteString("import (\n\tc \"opmodel.dev/core@v1\"\n")
 		fmt.Fprintf(&b, "\tcat %q\n)\n\n", catalogImport)
 	}
 	b.WriteString("c.#Module\n")

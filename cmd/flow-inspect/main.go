@@ -5,14 +5,14 @@
 //
 //  1. module    — the loaded web_app #Module
 //  2. platform  — opm_platform plus its computed views
-//  3. release   — the constructed #ModuleRelease passed to the matcher
+//  3. instance   — the constructed #ModuleInstance passed to the matcher
 //  4. plan      — the Go MatchPlan and per-pair Compiled outputs
 //
 // Usage:
 //
 //	go run ./cmd/flow-inspect                  # all stages
 //	go run ./cmd/flow-inspect -stages module   # one stage
-//	go run ./cmd/flow-inspect -stages plan,release
+//	go run ./cmd/flow-inspect -stages plan,instance
 //
 // Imports are resolved through the local OPM registry; the command exits
 // non-zero with a clear message when localhost:5000 is unreachable.
@@ -49,14 +49,14 @@ type stage string
 const (
 	stageModule   stage = "module"
 	stagePlatform stage = "platform"
-	stageRelease  stage = "release"
+	stageInstance stage = "instance"
 	stagePlan     stage = "plan"
 )
 
-var allStages = []stage{stageModule, stagePlatform, stageRelease, stagePlan}
+var allStages = []stage{stageModule, stagePlatform, stageInstance, stagePlan}
 
 func main() {
-	stagesFlag := flag.String("stages", "", "comma-separated list of stages to dump (module,platform,release,plan); empty = all")
+	stagesFlag := flag.String("stages", "", "comma-separated list of stages to dump (module,platform,instance,plan); empty = all")
 	libRoot := flag.String("library", "", "absolute path to the library/ directory; defaults to current working directory")
 	flag.Parse()
 
@@ -159,22 +159,22 @@ func run(libraryRoot string, want map[stage]bool) error {
 		printMatcherIndex(mp.Matchers.LookupPath(cue.ParsePath("traits")))
 	}
 
-	// ── Build the release ───────────────────────────────────────────
+	// ── Build the instance ───────────────────────────────────────────
 	debugValues := modVal.LookupPath(schema.DebugValues)
 	if !debugValues.Exists() {
 		return fmt.Errorf("web_app fixture must define debugValues")
 	}
 
-	releaseSkeleton := k.CueContext().CompileString(`
-kind: "ModuleRelease"
+	instanceSkeleton := k.CueContext().CompileString(`
+kind: "ModuleInstance"
 metadata: {
 	name:      "web-app-demo"
 	namespace: "default"
 	uuid:      "11111111-2222-5333-8444-555555555555"
 }
-`, cue.Filename("release.cue"))
-	if err := releaseSkeleton.Err(); err != nil {
-		return fmt.Errorf("building release skeleton: %w", err)
+`, cue.Filename("instance.cue"))
+	if err := instanceSkeleton.Err(); err != nil {
+		return fmt.Errorf("building instance skeleton: %w", err)
 	}
 
 	unifiedModule := modVal.FillPath(schema.Config, debugValues)
@@ -186,27 +186,27 @@ metadata: {
 		return fmt.Errorf("module exposes no #components after values are unified")
 	}
 
-	releaseSpec := releaseSkeleton.
+	instanceSpec := instanceSkeleton.
 		FillPath(schema.Module, modVal).
 		FillPath(schema.Values, debugValues).
 		FillPath(schema.Components, moduleComponents)
-	if err := releaseSpec.Err(); err != nil {
-		return fmt.Errorf("building release spec: %w", err)
+	if err := instanceSpec.Err(); err != nil {
+		return fmt.Errorf("building instance spec: %w", err)
 	}
 
-	rel, err := k.ProcessModuleRelease(ctx, releaseSpec, *mod, debugValues)
+	inst, err := k.ProcessModuleInstance(ctx, instanceSpec, *mod, debugValues)
 	if err != nil {
-		return fmt.Errorf("processing module release: %w", err)
+		return fmt.Errorf("processing module instance: %w", err)
 	}
 
-	if want[stageRelease] {
-		header("Stage 3: Constructed ModuleRelease — web-app-demo")
+	if want[stageInstance] {
+		header("Stage 3: Constructed ModuleInstance — web-app-demo")
 		subHeader("metadata")
-		mustPrintConcreteCUE(rel.Package.LookupPath(cue.ParsePath("metadata")))
+		mustPrintConcreteCUE(inst.Package.LookupPath(cue.ParsePath("metadata")))
 		subHeader("values (resolved from debugValues)")
-		mustPrintConcreteCUE(rel.Package.LookupPath(schema.Values))
+		mustPrintConcreteCUE(inst.Package.LookupPath(schema.Values))
 		subHeader("components (passed to matcher)")
-		mustPrintConcreteCUE(rel.Package.LookupPath(schema.Components))
+		mustPrintConcreteCUE(inst.Package.LookupPath(schema.Components))
 	}
 
 	// ── Match + Compile ─────────────────────────────────────────────
@@ -216,7 +216,7 @@ metadata: {
 
 	header("Stage 4: Plan, Match, and Compile outputs")
 
-	plan, err := k.Match(ctx, kernel.MatchInput{ModuleRelease: rel, Platform: mp})
+	plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 	if err != nil {
 		return fmt.Errorf("match: %w", err)
 	}
@@ -240,9 +240,9 @@ metadata: {
 	}
 
 	out, err := k.Compile(ctx, kernel.CompileInput{
-		ModuleRelease: rel,
-		Platform:      mp,
-		RuntimeName:   "flow-inspect",
+		ModuleInstance: inst,
+		Platform:       mp,
+		RuntimeName:    "flow-inspect",
 	})
 	if err != nil {
 		return fmt.Errorf("compile: %w", err)
@@ -290,7 +290,7 @@ func mustPrintCUE(v cue.Value) {
 
 // mustPrintConcreteCUE formats a cue.Value as fully-evaluated CUE source —
 // constraints collapsed to their concrete values, defaults resolved. Use
-// this for downstream stages (release, compiled outputs) where the reader
+// this for downstream stages (instance, compiled outputs) where the reader
 // wants the post-evaluation data, not the constraint tree.
 //
 // cue.Docs(false) is forced — Final() preserves the import-side comments
@@ -474,10 +474,10 @@ func parseStages(raw string) (map[stage]bool, error) {
 		}
 		s := stage(name)
 		switch s {
-		case stageModule, stagePlatform, stageRelease, stagePlan:
+		case stageModule, stagePlatform, stageInstance, stagePlan:
 			want[s] = true
 		default:
-			return nil, fmt.Errorf("unknown stage %q (valid: module, platform, release, plan)", name)
+			return nil, fmt.Errorf("unknown stage %q (valid: module, platform, instance, plan)", name)
 		}
 	}
 	return want, nil

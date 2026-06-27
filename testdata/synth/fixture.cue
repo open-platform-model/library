@@ -9,7 +9,7 @@
 // existing synth tests assume these exact values.
 package synthtest
 
-import core "opmodel.dev/core@v0"
+import core "opmodel.dev/core@v1"
 
 module: {
 	core.#Module

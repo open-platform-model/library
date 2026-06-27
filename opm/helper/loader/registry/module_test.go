@@ -23,7 +23,7 @@ func lookupString(t *testing.T, v cue.Value, path string) string {
 	return s
 }
 
-// 5.1 + 5.2 — a published core@v0 module that imports a catalog loads by
+// 5.1 + 5.2 — a published core@v1 module that imports a catalog loads by
 // path@version with its author-set, self-referential metadata intact (the
 // fields that regressed under the operator's wrapper approach), and its
 // transitive catalog dependency resolves through the in-memory Overlay load.

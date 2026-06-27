@@ -20,7 +20,7 @@ import (
 // sharedCtx is the single *cue.Context used by the guard tests in this package.
 // The schema cache must produce values in the same runtime that a test's other
 // cue.Values live in; mixing contexts panics cross-runtime unification. The
-// import-based integration tests (release_integration_test.go) construct their
+// import-based integration tests (instance_integration_test.go) construct their
 // own per-test contexts.
 var sharedCtx = cuecontext.New()
 
@@ -32,7 +32,7 @@ func testdataSynthDir(t *testing.T) string {
 }
 
 // testModule loads a #Module from a synthtest/ fixture for the guard tests. The
-// fixture imports "opmodel.dev/core@v0" which resolves through
+// fixture imports "opmodel.dev/core@v1" which resolves through
 // testdata/cue.mod/module.cue's deps against CUE_REGISTRY (configured by
 // schematest.SetEnv). Guard tests only need a well-formed *module.Module to feed
 // the required-input checks; they return before any synthesized build runs, so
@@ -80,7 +80,7 @@ func (s stubOwner) CueContext() *cue.Context { return s.ctx }
 const baseModuleFixture = `
 package synthtest
 
-import core "opmodel.dev/core@v0"
+import core "opmodel.dev/core@v1"
 
 module: {
 	core.#Module
@@ -102,9 +102,9 @@ func newCache(t *testing.T) *schema.Cache {
 	return schematest.NewCache(t)
 }
 
-func TestRelease_RejectsNilModule(t *testing.T) {
+func TestInstance_RejectsNilModule(t *testing.T) {
 	ctx := sharedCtx
-	_, err := synth.Release(ctx, synth.ReleaseInput{
+	_, err := synth.Instance(ctx, synth.InstanceInput{
 		Name:        "demo",
 		Namespace:   "ns",
 		SchemaCache: newCache(t),
@@ -113,10 +113,10 @@ func TestRelease_RejectsNilModule(t *testing.T) {
 	assert.True(t, errors.Is(err, synth.ErrMissingModule), "want ErrMissingModule, got %v", err)
 }
 
-func TestRelease_RejectsEmptyName(t *testing.T) {
+func TestInstance_RejectsEmptyName(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Release(ctx, synth.ReleaseInput{
+	_, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Namespace:   "ns",
 		SchemaCache: newCache(t),
@@ -125,10 +125,10 @@ func TestRelease_RejectsEmptyName(t *testing.T) {
 	assert.True(t, errors.Is(err, synth.ErrMissingName), "want ErrMissingName, got %v", err)
 }
 
-func TestRelease_RejectsEmptyNamespace(t *testing.T) {
+func TestInstance_RejectsEmptyNamespace(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Release(ctx, synth.ReleaseInput{
+	_, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "demo",
 		SchemaCache: newCache(t),
@@ -137,10 +137,10 @@ func TestRelease_RejectsEmptyNamespace(t *testing.T) {
 	assert.True(t, errors.Is(err, synth.ErrMissingNamespace), "want ErrMissingNamespace, got %v", err)
 }
 
-func TestRelease_RejectsNilSchemaCache(t *testing.T) {
+func TestInstance_RejectsNilSchemaCache(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Release(ctx, synth.ReleaseInput{
+	_, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:    mod,
 		Name:      "demo",
 		Namespace: "ns",
@@ -150,10 +150,10 @@ func TestRelease_RejectsNilSchemaCache(t *testing.T) {
 		"want ErrMissingSchemaCache, got %v", err)
 }
 
-// expectedReleaseUUID computes the canonical release UUID through CUE so the
+// expectedInstanceUUID computes the canonical instance UUID through CUE so the
 // derived-field tests stay in lockstep with the schema's definition. Failing
-// this assertion is the drift sentinel for module_release.cue.
-func expectedReleaseUUID(t *testing.T, ctx *cue.Context, moduleUUID, name, namespace string) string {
+// this assertion is the drift sentinel for module_instance.cue.
+func expectedInstanceUUID(t *testing.T, ctx *cue.Context, moduleUUID, name, namespace string) string {
 	t.Helper()
 	src := `
 import cue_uuid "uuid"

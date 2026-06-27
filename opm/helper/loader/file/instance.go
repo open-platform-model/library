@@ -9,7 +9,7 @@ import (
 )
 
 // LoadOptions configures package-loader behavior shared by LoadModulePackage,
-// LoadReleasePackage, and LoadPlatformPackage.
+// LoadInstancePackage, and LoadPlatformPackage.
 type LoadOptions struct {
 	// Registry overrides the CUE_REGISTRY value used while loading. Empty
 	// means use the current process environment.
@@ -20,38 +20,40 @@ type LoadOptions struct {
 	Registry string
 }
 
-// LoadReleasePackage loads a #ModuleRelease CUE package from a directory and
+// LoadInstancePackage loads a #ModuleInstance CUE package from a directory and
 // returns the raw cue.Value. Mirrors LoadModulePackage: every .cue file in
 // dirPath that shares the package is unified into a single instance, so
-// authors can split a release across release.cue, values.cue, and overlay
+// authors can split an instance across instance.cue, values.cue, and overlay
 // files within one CUE package.
 //
 // LoadOptions.Registry, when non-empty, is applied via load.Config.Env so
-// the release's module imports resolve from the override registry without
+// the instance's module imports resolve from the override registry without
 // mutating process state.
 //
-// The recommended entry point is Kernel.LoadReleasePackage, which owns its
+// The recommended entry point is Kernel.LoadInstancePackage, which owns its
 // [*cue.Context] and threads cross-cutting dependencies through every
 // operation. Call this function directly only if you are not using a
 // Kernel.
-func LoadReleasePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error) {
+//
+// Was: LoadReleasePackage
+func LoadInstancePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("resolving release directory: %w", err)
+		return cue.Value{}, fmt.Errorf("resolving instance directory: %w", err)
 	}
 
 	info, err := os.Stat(absDir)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("accessing release directory %q: %w", absDir, err)
+		return cue.Value{}, fmt.Errorf("accessing instance directory %q: %w", absDir, err)
 	}
 	if !info.IsDir() {
-		return cue.Value{}, fmt.Errorf("release path %q is not a directory", absDir)
+		return cue.Value{}, fmt.Errorf("instance path %q is not a directory", absDir)
 	}
 
 	// Filesystem source: overlay nil selects on-disk loading in the shared
-	// build-and-shape-gate step (the same step synth.Release drives with an
+	// build-and-shape-gate step (the same step synth.Instance drives with an
 	// in-memory overlay).
-	return buildAndShapeGate(ctx, absDir, nil, registryEnv(opts.Registry), releaseSpec)
+	return buildAndShapeGate(ctx, absDir, nil, registryEnv(opts.Registry), instanceSpec)
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if

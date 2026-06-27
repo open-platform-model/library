@@ -27,7 +27,7 @@ func TestOCILoader_ZeroValueResolvesDefault(t *testing.T) {
 	require.NoError(t, err, "zero-value OCILoader must resolve the default module")
 	require.True(t, val.Exists(), "loaded schema cue.Value must exist")
 
-	for _, def := range []string{"#ModuleRelease", "#Module", "#Platform"} {
+	for _, def := range []string{"#ModuleInstance", "#Module", "#Platform"} {
 		assert.True(t,
 			val.LookupPath(cue.ParsePath(def)).Exists(),
 			"loaded schema must expose %s", def,
@@ -53,8 +53,8 @@ func TestOCILoader_ExplicitOverridesBeatEnv(t *testing.T) {
 	require.NoError(t, err, "explicit overrides must beat env: %v", err)
 	require.True(t, val.Exists())
 	require.True(t,
-		val.LookupPath(cue.ParsePath("#ModuleRelease")).Exists(),
-		"loaded schema must expose #ModuleRelease",
+		val.LookupPath(cue.ParsePath("#ModuleInstance")).Exists(),
+		"loaded schema must expose #ModuleInstance",
 	)
 
 	// Sanity: the explicit cacheDir contains an extract directory after
@@ -94,11 +94,11 @@ func TestOCILoader_ModuleOverride(t *testing.T) {
 	// Pin to the major-only form — the loader expands it to vN.latest
 	// internally; the resolved value should still expose the schema.
 	val, err := schema.OCILoader{
-		Module: "opmodel.dev/core@v0",
+		Module: "opmodel.dev/core@v1",
 	}.Load(ctx)
 	require.NoError(t, err)
 	require.True(t, val.Exists())
-	require.True(t, val.LookupPath(cue.ParsePath("#ModuleRelease")).Exists())
+	require.True(t, val.LookupPath(cue.ParsePath("#ModuleInstance")).Exists())
 }
 
 // TestOCILoader_LoadFailureWrapped asserts that a load failure surfaces

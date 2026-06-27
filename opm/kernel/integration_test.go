@@ -91,14 +91,14 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 	mp, err := materializePlatform(t, k, path)
 	require.NoError(t, err)
 
-	rel := buildRelease(t, k, path, "0.1.0", "", "",
+	inst := buildInstance(t, k, path, "0.1.0", "", "",
 		compSpec{name: "web", resources: []string{"container"}},
 		compSpec{name: "config", resources: []string{"config-maps"}},
 	)
 	ctx := context.Background()
 
 	t.Run("Match pairs both components", func(t *testing.T) {
-		plan, err := k.Match(ctx, kernel.MatchInput{ModuleRelease: rel, Platform: mp})
+		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 		require.NoError(t, err)
 		pairs := matchPairsToMap(plan.MatchedPairs())
 		assertContainsFQNSub(t, pairs["web"], "transformers/deployment@", "web → deployment")
@@ -108,7 +108,7 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 	})
 
 	t.Run("Plan summarizes components", func(t *testing.T) {
-		pr, err := k.Plan(ctx, kernel.PlanInput{ModuleRelease: rel, Platform: mp, RuntimeName: "rt"})
+		pr, err := k.Plan(ctx, kernel.PlanInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
 		require.NoError(t, err)
 		assert.Empty(t, pr.Unmatched)
 		require.Len(t, pr.Components, 2)
@@ -121,13 +121,13 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 	})
 
 	t.Run("Plan requires runtime name", func(t *testing.T) {
-		_, err := k.Plan(ctx, kernel.PlanInput{ModuleRelease: rel, Platform: mp})
+		_, err := k.Plan(ctx, kernel.PlanInput{ModuleInstance: inst, Platform: mp})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "RuntimeName must be non-empty")
 	})
 
 	t.Run("Compile dispatches struct and list outputs", func(t *testing.T) {
-		out, err := k.Compile(ctx, kernel.CompileInput{ModuleRelease: rel, Platform: mp, RuntimeName: "rt"})
+		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
 		require.NoError(t, err)
 		require.NotNil(t, out)
 		assert.Empty(t, out.Unmatched)
@@ -141,7 +141,7 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 	})
 
 	t.Run("Compile requires runtime name", func(t *testing.T) {
-		_, err := k.Compile(ctx, kernel.CompileInput{ModuleRelease: rel, Platform: mp})
+		_, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "RuntimeName must be non-empty")
 	})
@@ -154,12 +154,12 @@ func TestIntegration_Compile_UnmatchedComponentErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	// "web" declares a resource short-name the catalog does not publish.
-	rel := buildRelease(t, k, path, "0.1.0", "", "",
+	inst := buildInstance(t, k, path, "0.1.0", "", "",
 		compSpec{name: "web", resources: []string{"does-not-exist"}},
 	)
 
 	_, err = k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: rel, Platform: mp, RuntimeName: "rt",
+		ModuleInstance: inst, Platform: mp, RuntimeName: "rt",
 	})
 	require.Error(t, err)
 	var uce *compile.UnmatchedComponentsError
@@ -174,11 +174,11 @@ func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {
 	mp, err := materializePlatform(t, k, path)
 	require.NoError(t, err)
 
-	rel := buildRelease(t, k, path, "0.1.0", "", "",
+	inst := buildInstance(t, k, path, "0.1.0", "", "",
 		compSpec{name: "web", resources: []string{"container"}},
 	)
 
-	plan, err := k.Match(context.Background(), kernel.MatchInput{ModuleRelease: rel, Platform: mp})
+	plan, err := k.Match(context.Background(), kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 	require.NoError(t, err)
 	require.NotEmpty(t, plan.Missing, "demanded FQN at an unpublished version is a hard miss")
 

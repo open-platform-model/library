@@ -9,13 +9,14 @@ import (
 // bucket is empty). It is distinct from the soft non-match recorded when a
 // transformer is found but its requiredLabels are not satisfied.
 //
-// One MissingFQN is recorded per (Release, Component, FQN) triple. Alternatives
+// One MissingFQN is recorded per (Instance, Component, FQN) triple. Alternatives
 // lists every primitive FQN sharing the same modulePath/name at other SemVers
 // that the platform did materialize, sorted by SemVer — a hint that a different
 // version of the same primitive is available.
 type MissingFQN struct {
-	// Release is the ModuleRelease name the demanding component belongs to.
-	Release string
+	// Instance is the ModuleInstance name the demanding component belongs to.
+	// Was: Release
+	Instance string
 
 	// Component is the component name that demanded the FQN.
 	Component string
@@ -30,11 +31,11 @@ type MissingFQN struct {
 
 func (e MissingFQN) Error() string {
 	if len(e.Alternatives) > 0 {
-		return fmt.Sprintf("release %q, component %q: no transformer requires %q (alternatives: %v)",
-			e.Release, e.Component, e.FQN, e.Alternatives)
+		return fmt.Sprintf("instance %q, component %q: no transformer requires %q (alternatives: %v)",
+			e.Instance, e.Component, e.FQN, e.Alternatives)
 	}
-	return fmt.Sprintf("release %q, component %q: no transformer requires %q",
-		e.Release, e.Component, e.FQN)
+	return fmt.Sprintf("instance %q, component %q: no transformer requires %q",
+		e.Instance, e.Component, e.FQN)
 }
 
 // UnifyError is the structured diagnostic for a unification failure between a

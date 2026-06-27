@@ -36,16 +36,16 @@ opm/
   core/                       Platform-neutral primitives: Compiled, Resource, Identity
   errors/                     Sentinels + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
-  module/                     *module.Module / *module.Release types + value-validation accessors
+  module/                     *module.Module / *module.Instance types + value-validation accessors
   platform/                   *platform.Platform — kernel's sole match/execute input
   compile/                    finalize → match → execute → emit pipeline (no public entry; called via Kernel)
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
-    loader/file/              Filesystem loaders: LoadModulePackage, LoadReleasePackage, LoadPlatformPackage
+    loader/file/              Filesystem loaders: LoadModulePackage, LoadInstancePackage, LoadPlatformPackage
     loader/registry/          Registry loader: LoadModulePackage (published #Module by path@version, via Fetch+Overlay)
     loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
     loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
-    synth/                    Release(...) + Platform(...) → cue.Value from typed inputs (no files)
+    synth/                    Instance(...) + Platform(...) → cue.Value from typed inputs (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
 adr/                          Architecture decision records (use TEMPLATE.md)
@@ -66,7 +66,7 @@ The kernel accepts exactly:
 | Artifact         | Schema (`v1alpha2`)  | Go type              |
 | ---------------- | -------------------- | -------------------- |
 | `Module`         | `#Module`            | `*module.Module`     |
-| `ModuleRelease`  | `#ModuleRelease`     | `*module.Release`    |
+| `ModuleInstance`  | `#ModuleInstance`     | `*module.Instance`    |
 | `Platform`       | `#Platform`          | `*platform.Platform` |
 
 `#ModuleDebug` was retired. `debugValues` is now a field on `Module`; whether the frontend layers it into the values stack is helper-layer policy. Don't reintroduce `ModuleDebug` as a top-level artifact.
@@ -78,7 +78,7 @@ Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUD
 ### Schema cache lifetime contract
 
 The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
-`opmodel.dev/core@v0` against `CUE_REGISTRY`) and memoized in a
+`opmodel.dev/core@v1` against `CUE_REGISTRY`) and memoized in a
 `*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
 
 - **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
@@ -124,7 +124,7 @@ and registry rules:
 - **Inputs are not mutated; failures fail-fast** as `*oerrors.MaterializeError`
   (`Kind: "catalog"`) naming the offending subscription path and version.
 - Tests stand up an in-memory OCI registry (`mod/modregistrytest`) with inline
-  `#Catalog` fixtures while resolving `opmodel.dev/core@v0` from the warm
+  `#Catalog` fixtures while resolving `opmodel.dev/core@v1` from the warm
   workspace cache — no test-only `Loader` backdoor; the production
   resolver→client→loader path runs unchanged.
 
@@ -150,7 +150,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v0`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v0`, authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v1`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v0`, authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps
@@ -184,27 +184,27 @@ task cue:test:flow:inspect [STAGES=plan,...]    # pretty-print each pipeline sta
 - `Kernel.Plan` — plan / preview
 - `Kernel.Compile` — apply / render → `*kernel.CompileResult` carrying `[]*core.Compiled`
 
-The free-function entry points (`compile.CompileModuleRelease`, `compile.ProcessModuleRelease`, `module.ParseModuleRelease`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, plus typed shortcuts in `kernel/validate_typed.go`).
+The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, plus typed shortcuts in `kernel/validate_typed.go`).
 
 `*core.Compiled` is terminal output — adapters in downstream impls wrap each one with a platform-specific `core.Resource` filling `core.Identity`. Don't push platform-native identity into the kernel.
 
 ### Compile pipeline (per release)
 
 ```
-loaderfile.LoadReleasePackage  → cue.Value
-Kernel.ProcessModuleRelease    → *module.Release (validated, concrete)
+loaderfile.LoadInstancePackage  → cue.Value
+Kernel.ProcessModuleInstance    → *module.Instance (validated, concrete)
 Kernel.Compile                 → *kernel.CompileResult
         compile.FinalizeValue       strip schema constraints from components
         compile.Match               component ↔ transformer pairing
         compile.Module.Execute      per-pair transformer execution
-              FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
+              FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
               decode `output` (ListKind | StructKind dispatch)
-              emit []*core.Compiled with Release/Component/Transformer FQN provenance
+              emit []*core.Compiled with Instance/Component/Transformer FQN provenance
 ```
 
 ### OPM schema versioning
 
-The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v0` for the floating major, `opmodel.dev/core@v0.X.Y` for a pinned release.
+The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v1` for the floating major, `opmodel.dev/core@v0.X.Y` for a pinned release.
 
 Operators wanting reproducibility pin the schema version explicitly:
 
@@ -241,5 +241,5 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
   - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
 - Run `task check:fast` for iterative work, `task check` before merge.
 - When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers and update `MIGRATIONS.md`.
-- Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleRelease`, etc.).
+- Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleInstance`, etc.).
 - "Load a published module by `path@version`" lives in the library (`opm/helper/loader/registry.LoadModulePackage`, surfaced as `Kernel.LoadModuleFromRegistry`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, or dependency walks; call the loader. The shape gate is single-sourced in `loader/internal/shape` — extend it there, not per-loader.

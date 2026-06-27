@@ -59,37 +59,37 @@ func TestKernel_ValidateModuleValuesDetailed_LayeredSuccess(t *testing.T) {
 	assert.True(t, merged.Exists())
 }
 
-func TestKernel_ValidateReleaseValues_OK(t *testing.T) {
+func TestKernel_ValidateInstanceValues_OK(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
 	require.NoError(t, values.Err())
 
-	merged, err := k.ValidateReleaseValues(f.rel, values)
+	merged, err := k.ValidateInstanceValues(f.inst, values)
 	require.NoError(t, err)
 	assert.True(t, merged.Exists())
 }
 
-func TestKernel_ValidateReleaseValuesPartial_AllowsMissingFields(t *testing.T) {
+func TestKernel_ValidateInstanceValuesPartial_AllowsMissingFields(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
 	require.NoError(t, partial.Err())
 
-	_, err := k.ValidateReleaseValuesPartial(f.rel, partial)
+	_, err := k.ValidateInstanceValuesPartial(f.inst, partial)
 	require.NoError(t, err)
 }
 
-func TestKernel_ValidateReleaseValuesDetailed_LayeredSuccess(t *testing.T) {
+func TestKernel_ValidateInstanceValuesDetailed_LayeredSuccess(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 
 	a, err := k.LoadSourceFromString("a.cue", "a", `replicas: 2`)
 	require.NoError(t, err)
-	b, err := k.LoadSourceFromString("b.cue", "b", `name: "rel"`)
+	b, err := k.LoadSourceFromString("b.cue", "b", `name: "inst"`)
 	require.NoError(t, err)
 
-	merged, vErr := k.ValidateReleaseValuesDetailed(f.rel, []kernel.Source{a, b}, kernel.Partial())
+	merged, vErr := k.ValidateInstanceValuesDetailed(f.inst, []kernel.Source{a, b}, kernel.Partial())
 	require.NoError(t, vErr)
 	assert.True(t, merged.Exists())
 }

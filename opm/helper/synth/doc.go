@@ -5,7 +5,7 @@
 //
 // It covers two of the three OPM artifacts:
 //
-//   - synth.Release builds a #ModuleRelease from a *module.Module plus typed
+//   - synth.Instance builds a #ModuleInstance from a *module.Module plus typed
 //     identity and values.
 //   - synth.Platform builds a #Platform from typed identity and subscription
 //     inputs.
@@ -18,33 +18,33 @@
 // to ignore the package doc when interpreting the package path. Keeping them
 // as peers makes each verb legible at a glance.
 //
-// Recommended entry points: (*kernel.Kernel).SynthesizeRelease and
-// (*kernel.Kernel).SynthesizePlatform. SynthesizeRelease chains synth.Release
-// into Kernel.ProcessModuleRelease so a caller building a release from typed
-// inputs gets a fully validated, concrete *module.Release in one call.
+// Recommended entry points: (*kernel.Kernel).SynthesizeInstance and
+// (*kernel.Kernel).SynthesizePlatform. SynthesizeInstance chains synth.Instance
+// into Kernel.ProcessModuleInstance so a caller building an instance from typed
+// inputs gets a fully validated, concrete *module.Instance in one call.
 // SynthesizePlatform chains synth.Platform into platform.NewPlatformFromValue
 // and returns a typed pre-materialize *platform.Platform; it does NOT call
 // Materialize (registry I/O stays an explicit, separate, caller-driven step).
-// Call synth.Release / synth.Platform directly only when there is no *Kernel
+// Call synth.Instance / synth.Platform directly only when there is no *Kernel
 // on hand (rare; mostly unit-testing in tight loops).
 //
-// Single-build construction (ADR-003): synth.Release does NOT stitch a release
+// Single-build construction (ADR-003): synth.Instance does NOT stitch an instance
 // value together from separate CUE evaluations. It synthesizes a virtual CUE
 // package — a fabricated cue.mod/module.cue (deps: the resolved core version +
-// the module's path@version), a release.cue that IMPORTS the module and writes
+// the module's path@version), an instance.cue that IMPORTS the module and writes
 // `#module: <import>` plus caller metadata, and a values.cue rendered from the
 // caller's Values via format.Node — and evaluates it in one build through the
-// same loader build-and-shape-gate step LoadReleasePackage uses for on-disk
+// same loader build-and-shape-gate step LoadInstancePackage uses for on-disk
 // packages. There is no cue.Scope/userModule trick and no Go-side
 // FillPath(#config, Values) pre-merge: because the module enters the build by
 // import (one #Image / #Secret closure), the schema's own
 // `unifiedModule = #module & {#config: values}` performs the values merge in
-// CUE. The synth and authored-Release paths therefore share one mechanism, so a
+// CUE. The synth and authored-Instance paths therefore share one mechanism, so a
 // render bug surfaces in both or neither. See adr/003-single-build-cue-
 // evaluation-invariant.md.
 //
 // Schema source of truth: the synth helpers never reimplement derivations the
-// CUE schema already owns (release UUID stamping, components fan-out from
+// CUE schema already owns (instance UUID stamping, components fan-out from
 // #components, auto-secrets injection, standard label stamping, the
 // #Subscription enable default). Every derived field flows through unification
 // with the artifact definition obtained from in.SchemaCache.Get(ctx); the

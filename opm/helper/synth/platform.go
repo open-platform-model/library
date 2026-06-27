@@ -13,7 +13,7 @@ import (
 // PlatformInput is the typed input carried into Platform. Required fields:
 // Name, Type, SchemaCache. Optional fields are rendered into the platform
 // only when present (non-nil / non-empty); empty values do not displace
-// schema-derived fields. It is the #Platform peer of [ReleaseInput].
+// schema-derived fields. It is the #Platform peer of [InstanceInput].
 type PlatformInput struct {
 	// Name is the platform name (metadata.name). Required. Must satisfy the
 	// schema's #NameType regex; violations surface as a CUE unification error
@@ -51,7 +51,7 @@ type SubscriptionSpec struct {
 	// Enable maps onto #Subscription.enable. It is a pointer so an omitted
 	// value (nil) DEFERS to the schema's `*true` default rather than forcing
 	// `false`: nil → schema default, non-nil → the explicit bool. This mirrors
-	// the unset-vs-supplied distinction synth.Release draws for its inputs.
+	// the unset-vs-supplied distinction synth.Instance draws for its inputs.
 	Enable *bool
 
 	// Filter maps onto #Subscription.filter. nil → no filter rendered.
@@ -59,7 +59,7 @@ type SubscriptionSpec struct {
 }
 
 // FilterSpec is the typed form of #SubscriptionFilter. Each field is rendered
-// only when non-empty, mirroring writeStringMap in release.go.
+// only when non-empty, mirroring writeStringMap in instance.go.
 type FilterSpec struct {
 	// Range is the SemVer constraint expression (filter.range). Omitted when "".
 	Range string
@@ -71,13 +71,13 @@ type FilterSpec struct {
 	Deny []string
 }
 
-// Platform sentinel errors. These mirror the Release set but carry
+// Platform sentinel errors. These mirror the Instance set but carry
 // synth.Platform: wording so error messages name the failing artifact. They
-// are distinct package-level vars from the Release sentinels (D4) — the
-// release sentinels stay untouched to avoid churn on synth.Release callers.
+// are distinct package-level vars from the Instance sentinels (D4) — the
+// instance sentinels stay untouched to avoid churn on synth.Instance callers.
 var (
 	// ErrMissingType is returned when PlatformInput.Type is empty. It has no
-	// Release counterpart (only #Platform carries a required type).
+	// Instance counterpart (only #Platform carries a required type).
 	ErrMissingType = errors.New("synth.Platform: Type is required")
 
 	// ErrPlatformMissingName is returned when PlatformInput.Name is empty.
@@ -94,9 +94,9 @@ var (
 
 // Platform builds a #Platform CUE value by unifying PlatformInput against the
 // #Platform definition obtained from the caller-supplied SchemaCache. It is a
-// peer of [Release].
+// peer of [Instance].
 //
-// Unlike Release, Platform needs no userModule scope dance: #Platform has no
+// Unlike Instance, Platform needs no userModule scope dance: #Platform has no
 // nested closed-artifact input — all inputs are plain scalars, maps, and
 // lists — so Platform renders a CUE source string and CompileStrings it with
 // the resolved schema package as cue.Scope (to resolve #Platform /

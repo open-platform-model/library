@@ -53,27 +53,27 @@
 // # Concurrent rendering against a shared platform
 //
 // One Kernel materializes a platform once; N goroutines each construct their
-// own Kernel and Compile a distinct release against that single shared
+// own Kernel and Compile a distinct instance against that single shared
 // platform. Per ADR-002 the speedup is real but sub-linear — the CUE evaluator
 // is allocator-bound and plateaus around four cores — so share for correctness
 // and memory footprint, not for linear throughput.
 //
-//	func renderConcurrent(ctx context.Context, shared *materialize.MaterializedPlatform, rels []*module.Release) error {
+//	func renderConcurrent(ctx context.Context, shared *materialize.MaterializedPlatform, rels []*module.Instance) error {
 //	    var wg sync.WaitGroup
 //	    errs := make(chan error, len(rels))
-//	    for _, rel := range rels {
+//	    for _, inst := range rels {
 //	        wg.Add(1)
-//	        go func(rel *module.Release) {
+//	        go func(inst *module.Instance) {
 //	            defer wg.Done()
 //	            k := kernel.New() // one Kernel per goroutine
 //	            if _, err := k.Compile(ctx, kernel.CompileInput{
-//	                ModuleRelease: rel,
+//	                ModuleInstance: inst,
 //	                Platform:      shared, // materialized once elsewhere, read-only here
 //	                RuntimeName:   "opm-operator",
 //	            }); err != nil {
 //	                errs <- err
 //	            }
-//	        }(rel)
+//	        }(inst)
 //	    }
 //	    wg.Wait()
 //	    close(errs)
@@ -131,9 +131,9 @@
 // the frontend — the kernel does not ship a formatter.
 //
 // Typed convenience methods on the kernel resolve `#config` for the
-// caller: [Kernel.ValidateModuleValues] / [Kernel.ValidateReleaseValues]
+// caller: [Kernel.ValidateModuleValues] / [Kernel.ValidateInstanceValues]
 // (plus their `Partial` and `Detailed` counterparts) take a *module.Module
-// or *module.Release and delegate to the corresponding primitive.
+// or *module.Instance and delegate to the corresponding primitive.
 //
 // # Advanced: CueContext accessor
 //

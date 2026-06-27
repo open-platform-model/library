@@ -24,7 +24,7 @@ is declared *inside* `output`).
 ## Running
 
 Requires a local OCI registry at `localhost:5000` holding
-`opmodel.dev/catalogs/opm@v0.5.2` (the pre-fix catalog), `opmodel.dev/core@v0`,
+`opmodel.dev/catalogs/opm@v0.5.2` (the pre-fix catalog), `opmodel.dev/core@v1`,
 and `cue.dev/x/k8s.io@v0`.
 
 ```bash

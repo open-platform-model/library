@@ -26,21 +26,27 @@ func (k *Kernel) ValidateModuleValuesDetailed(m *module.Module, sources []Source
 	return k.ValidateConfigDetailed(m.ConfigSchema(), sources, opts...)
 }
 
-// ValidateReleaseValues is a typed shortcut for
+// ValidateInstanceValues is a typed shortcut for
 // [Kernel.ValidateConfig](r.ConfigSchema(), values). It resolves the
 // embedded source module's #config schema for the caller.
-func (k *Kernel) ValidateReleaseValues(r *module.Release, values cue.Value) (cue.Value, error) {
+//
+// Was: ValidateReleaseValues
+func (k *Kernel) ValidateInstanceValues(r *module.Instance, values cue.Value) (cue.Value, error) {
 	return k.ValidateConfig(r.ConfigSchema(), values)
 }
 
-// ValidateReleaseValuesPartial is the partial-mode counterpart of
-// [Kernel.ValidateReleaseValues].
-func (k *Kernel) ValidateReleaseValuesPartial(r *module.Release, values cue.Value) (cue.Value, error) {
+// ValidateInstanceValuesPartial is the partial-mode counterpart of
+// [Kernel.ValidateInstanceValues].
+//
+// Was: ValidateReleaseValuesPartial
+func (k *Kernel) ValidateInstanceValuesPartial(r *module.Instance, values cue.Value) (cue.Value, error) {
 	return k.ValidateConfigPartial(r.ConfigSchema(), values)
 }
 
-// ValidateReleaseValuesDetailed is the layered counterpart of
-// [Kernel.ValidateReleaseValues] — see [Kernel.ValidateConfigDetailed].
-func (k *Kernel) ValidateReleaseValuesDetailed(r *module.Release, sources []Source, opts ...ValidateOption) (cue.Value, error) {
+// ValidateInstanceValuesDetailed is the layered counterpart of
+// [Kernel.ValidateInstanceValues] — see [Kernel.ValidateConfigDetailed].
+//
+// Was: ValidateReleaseValuesDetailed
+func (k *Kernel) ValidateInstanceValuesDetailed(r *module.Instance, sources []Source, opts ...ValidateOption) (cue.Value, error) {
 	return k.ValidateConfigDetailed(r.ConfigSchema(), sources, opts...)
 }

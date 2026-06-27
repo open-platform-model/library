@@ -1,6 +1,6 @@
 // Package module defines the Module type, mirroring the #Module definition
 // in the OPM core schema. A Module represents the parsed module definition
-// before it is built into a release.
+// before it is built into an instance.
 //
 // Debug overlays. The CUE schema includes a `debugValues` field on every
 // `#Module` for author-supplied example values used by build/validation

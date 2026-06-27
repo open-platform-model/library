@@ -6,7 +6,7 @@ package hiddenbug
 
 import (
 	tf3 "opmodel.dev/catalogs/opm/transformers"
-	c "opmodel.dev/core@v0"
+	c "opmodel.dev/core@v1"
 )
 
 _fqn: "opmodel.dev/catalogs/opm/transformers/deployment-transformer@0.5.2"

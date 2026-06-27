@@ -11,7 +11,7 @@ import (
 
 // LoadPlatformPackage loads a #Platform CUE package from a directory and
 // returns the raw cue.Value. Mirrors LoadModulePackage and
-// LoadReleasePackage: every .cue file in dirPath that shares the package is
+// LoadInstancePackage: every .cue file in dirPath that shares the package is
 // unified into a single instance, so the platform is identified by its CUE
 // package clause rather than a platform.cue filename.
 //

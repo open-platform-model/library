@@ -1,6 +1,6 @@
 module: "example.com/hiddenbug@v0"
 language: {
-	version: "v0.17.0"
+	version: "v0.17.0-alpha.1"
 }
 deps: {
 	"cue.dev/x/k8s.io@v0": {
@@ -9,7 +9,7 @@ deps: {
 	"opmodel.dev/catalogs/opm@v0": {
 		v: "v0.5.2"
 	}
-	"opmodel.dev/core@v0": {
+	"opmodel.dev/core@v1": {
 		v: "v0.4.0"
 	}
 }

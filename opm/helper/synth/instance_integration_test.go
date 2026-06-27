@@ -42,7 +42,7 @@ func skipUnlessGHCR(t *testing.T) {
 	_ = conn.Close()
 }
 
-// coreVersionSlug turns a core version like "v0.6.0" into a clean module-path
+// coreVersionSlug turns a core version like "v1.0.0-alpha.1" into a clean module-path
 // segment ("v0-5-0"). Module paths must avoid "." in a path segment and MUST
 // NOT be built from t.Name() (subtest names carry '@', '#', parens — all
 // invalid in a CUE module path), so each fixture is keyed by this slug and the
@@ -82,7 +82,7 @@ func publishModuleWithBody(t *testing.T, ctx *cue.Context, coreVersion, name, ve
 
 	var file strings.Builder
 	fmt.Fprintf(&file, "package %s\n\n", snake) // package name = snake_case(name)
-	file.WriteString("import core \"opmodel.dev/core@v0\"\n\n")
+	file.WriteString("import core \"opmodel.dev/core@v1\"\n\n")
 	file.WriteString("core.#Module\n")
 	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", name, metaPath, version)
 	file.WriteString(bodyFields)
@@ -115,79 +115,65 @@ func publishImportableModule(t *testing.T, ctx *cue.Context, coreVersion string)
 }
 
 // pinnedCache returns a *schema.Cache pinned to an explicit core version so a
-// test controls exactly which schema the synth build resolves (synth.Release
+// test controls exactly which schema the synth build resolves (synth.Instance
 // pins the fabricated module.cue's core dep to the cache's ResolvedVersion).
 func pinnedCache(coreVersion string) *schema.Cache {
 	return &schema.Cache{Loader: schema.OCILoader{Module: "opmodel.dev/core@" + coreVersion}}
 }
 
-// TestRelease_ImportedModule_ConstructsOnAuthorSuppliedCore is the positive half
+// TestInstance_ImportedModule_ConstructsOnAuthorSuppliedCore is the positive half
 // of the import-construction guard (tasks 4.4 / 4.9): a real published module
-// referenced by IMPORT constructs a #ModuleRelease with concrete #module
+// referenced by IMPORT constructs a #ModuleInstance with concrete #module
 // identity on core ≥ v0.5.0 (author-supplied #Module identity).
-func TestRelease_ImportedModule_ConstructsOnAuthorSuppliedCore(t *testing.T) {
+func TestInstance_ImportedModule_ConstructsOnAuthorSuppliedCore(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishImportableModule(t, ctx, "v0.6.0")
+	mod, _ := publishImportableModule(t, ctx, "v1.0.0-alpha.1")
 
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
-		Name:        "hello-rel",
+		Name:        "hello-inst",
 		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
-	require.NoError(t, err, "imported-module release must construct on author-supplied-identity core")
-	require.True(t, rel.Exists())
+	require.NoError(t, err, "imported-module instance must construct on author-supplied-identity core")
+	require.True(t, inst.Exists())
 
-	kind, err := rel.LookupPath(cue.ParsePath("kind")).String()
+	kind, err := inst.LookupPath(cue.ParsePath("kind")).String()
 	require.NoError(t, err)
-	assert.Equal(t, "ModuleRelease", kind)
+	assert.Equal(t, "ModuleInstance", kind)
 
 	// #module identity must be concrete — this is the self-cycle boundary the
 	// core fix removed; before it, re-evaluating the imported #Module resolved
 	// modulePath/version to bottom.
-	modPath, err := rel.LookupPath(cue.ParsePath("#module.metadata.modulePath")).String()
+	modPath, err := inst.LookupPath(cue.ParsePath("#module.metadata.modulePath")).String()
 	require.NoError(t, err, "imported #module.metadata.modulePath must be concrete")
 	assert.Equal(t, mod.Metadata.ModulePath, modPath)
-	modVer, err := rel.LookupPath(cue.ParsePath("#module.metadata.version")).String()
+	modVer, err := inst.LookupPath(cue.ParsePath("#module.metadata.version")).String()
 	require.NoError(t, err, "imported #module.metadata.version must be concrete")
 	assert.Equal(t, mod.Metadata.Version, modVer)
 }
 
-// TestRelease_ImportedModule_NegativeControlV040 is the negative half: the SAME
-// mechanism pinned to core@v0.4.0 (the self-cycle boundary) MUST fail with
-// "field not allowed", proving the positive test exercises the re-admission
-// path rather than passing vacuously. v0.4.0 is immutable/published, so this
-// control is stable.
-func TestRelease_ImportedModule_NegativeControlV040(t *testing.T) {
-	skipUnlessGHCR(t)
-	ctx := cuecontext.New()
+// The negative control TestRelease_ImportedModule_NegativeControlV040 was
+// retired by enhancement 0002 (Release→Instance). It pinned core@v0.4.0 (the
+// pre-self-cycle-fix boundary) to prove the positive test was non-vacuous, but
+// the library now hard-targets core@v1: synth emits core.#ModuleInstance, which
+// is undefined in v0.4.0, so the construction fails for a different reason than
+// the self-cycle admission path it was meant to exercise. Supporting a
+// pre-rename core is explicitly out of scope. See MIGRATIONS.md.
 
-	mod, _ := publishImportableModule(t, ctx, "v0.4.0")
-
-	_, err := synth.Release(ctx, synth.ReleaseInput{
-		Module:      mod,
-		Name:        "hello-rel",
-		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.4.0"),
-	})
-	require.Error(t, err, "core@v0.4.0 self-cycle must reject imported-module construction")
-	assert.Contains(t, err.Error(), "field not allowed",
-		"the self-cycle boundary fails admission of the imported #Module identity")
-}
-
-// TestRelease_DerivedFields_FromSchema pins task 4.2: every field the schema
+// TestInstance_DerivedFields_FromSchema pins task 4.2: every field the schema
 // derives is unchanged under single-build construction — metadata.uuid is the
 // canonical SHA1 (stable, namespace-divergent), components is fanned from the
-// module's #components, and the standard module-release.opmodel.dev/{name,uuid}
+// module's #components, and the standard module-instance.opmodel.dev/{name,uuid}
 // labels coexist with caller labels. These are produced by CUE unification of
 // the synthesized package, not by Go-side scope/fill.
-func TestRelease_DerivedFields_FromSchema(t *testing.T) {
+func TestInstance_DerivedFields_FromSchema(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishModuleWithBody(t, ctx, "v0.6.0", "demo", "0.1.0", `
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0", `
 #components: {
 	foo: {metadata: name: "foo"}
 	bar: {metadata: name: "bar"}
@@ -196,54 +182,54 @@ func TestRelease_DerivedFields_FromSchema(t *testing.T) {
 debugValues: {}
 `)
 
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
 		Labels:      map[string]string{"env": "prod"},
 		Annotations: map[string]string{"opmodel.dev/owner": "team-x"},
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
 	require.NoError(t, err)
 
 	// metadata.uuid is the canonical SHA1 derived by the schema.
-	uuid, err := rel.LookupPath(cue.ParsePath("metadata.uuid")).String()
+	uuid, err := inst.LookupPath(cue.ParsePath("metadata.uuid")).String()
 	require.NoError(t, err)
-	assert.Equal(t, expectedReleaseUUID(t, ctx, mod.Metadata.UUID, "myrel", "default"), uuid,
+	assert.Equal(t, expectedInstanceUUID(t, ctx, mod.Metadata.UUID, "myrel", "default"), uuid,
 		"schema-derived UUID must equal uuid.SHA1(OPMNamespace, <module.uuid>:<name>:<namespace>)")
 
 	// components fanned from #components.
-	components := rel.LookupPath(cue.ParsePath("components"))
+	components := inst.LookupPath(cue.ParsePath("components"))
 	require.True(t, components.Exists())
 	assert.True(t, components.LookupPath(cue.ParsePath("foo")).Exists(), "components.foo fanned from #components.foo")
 	assert.True(t, components.LookupPath(cue.ParsePath("bar")).Exists(), "components.bar fanned from #components.bar")
 
 	// caller labels coexist with schema-stamped labels.
 	labels := map[string]string{}
-	require.NoError(t, rel.LookupPath(cue.ParsePath("metadata.labels")).Decode(&labels))
+	require.NoError(t, inst.LookupPath(cue.ParsePath("metadata.labels")).Decode(&labels))
 	assert.Equal(t, "prod", labels["env"], "caller-supplied label must be present")
-	assert.Equal(t, "myrel", labels["module-release.opmodel.dev/name"], "schema-stamped name label must coexist")
-	assert.NotEmpty(t, labels["module-release.opmodel.dev/uuid"], "schema-stamped uuid label must coexist")
+	assert.Equal(t, "myrel", labels["module-instance.opmodel.dev/name"], "schema-stamped name label must coexist")
+	assert.NotEmpty(t, labels["module-instance.opmodel.dev/uuid"], "schema-stamped uuid label must coexist")
 
 	// annotations pass through unchanged.
 	annotations := map[string]string{}
-	require.NoError(t, rel.LookupPath(cue.ParsePath("metadata.annotations")).Decode(&annotations))
+	require.NoError(t, inst.LookupPath(cue.ParsePath("metadata.annotations")).Decode(&annotations))
 	assert.Equal(t, "team-x", annotations["opmodel.dev/owner"], "caller-supplied annotation must survive")
 }
 
-// TestRelease_NamespaceChangesUUID pins the namespace-divergence + determinism
-// of the schema-derived release UUID under single-build construction.
-func TestRelease_NamespaceChangesUUID(t *testing.T) {
+// TestInstance_NamespaceChangesUUID pins the namespace-divergence + determinism
+// of the schema-derived instance UUID under single-build construction.
+func TestInstance_NamespaceChangesUUID(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishModuleWithBody(t, ctx, "v0.6.0", "demo", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
-	cache := pinnedCache("v0.6.0")
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
+	cache := pinnedCache("v1.0.0-alpha.1")
 
 	uuidFor := func(ns string) string {
-		rel, err := synth.Release(ctx, synth.ReleaseInput{Module: mod, Name: "rel", Namespace: ns, SchemaCache: cache})
+		inst, err := synth.Instance(ctx, synth.InstanceInput{Module: mod, Name: "inst", Namespace: ns, SchemaCache: cache})
 		require.NoError(t, err)
-		u, err := rel.LookupPath(cue.ParsePath("metadata.uuid")).String()
+		u, err := inst.LookupPath(cue.ParsePath("metadata.uuid")).String()
 		require.NoError(t, err)
 		return u
 	}
@@ -253,46 +239,46 @@ func TestRelease_NamespaceChangesUUID(t *testing.T) {
 	assert.Equal(t, a1, a2, "identical inputs must produce identical UUIDs")
 }
 
-// TestRelease_EmptyValuesNotReplacedByDebugValues pins task 4.1's values rule:
+// TestInstance_EmptyValuesNotReplacedByDebugValues pins task 4.1's values rule:
 // with no caller Values, the schema's values path stays unfilled and is NEVER
 // backfilled from Module.debugValues.
-func TestRelease_EmptyValuesNotReplacedByDebugValues(t *testing.T) {
+func TestInstance_EmptyValuesNotReplacedByDebugValues(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
 	// debugValues intentionally non-empty (and #config requires a sentinel) so
-	// we can prove synth.Release does NOT fall back to debugValues.
-	mod, _ := publishModuleWithBody(t, ctx, "v0.6.0", "demo", "0.1.0", `
+	// we can prove synth.Instance does NOT fall back to debugValues.
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0", `
 #components: {}
 #config: {sentinel: string}
 debugValues: {sentinel: "from-debug"}
 `)
 
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 		// Values omitted — MUST NOT fall back to debugValues.
 	})
 	require.NoError(t, err)
 
-	values := rel.LookupPath(cue.ParsePath("values"))
+	values := inst.LookupPath(cue.ParsePath("values"))
 	if values.Exists() {
 		assert.Error(t, values.Validate(cue.Concrete(true)),
 			"values path must be non-concrete when no Values were supplied (not backfilled from debugValues)")
 	}
 }
 
-// TestRelease_AutoSecretsComponentInjected pins task 4.2's opm-secrets rule:
+// TestInstance_AutoSecretsComponentInjected pins task 4.2's opm-secrets rule:
 // when caller Values carry a #Secret instance, the schema injects the
 // opm-secrets component — and the values merge happens in-build via the
 // schema's unifiedModule, not a Go-side #config fill.
-func TestRelease_AutoSecretsComponentInjected(t *testing.T) {
+func TestInstance_AutoSecretsComponentInjected(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishModuleWithBody(t, ctx, "v0.6.0", "demo", "0.1.0", `
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0", `
 #components: {}
 #config: {
 	dbPassword: core.#SecretLiteral & {
@@ -313,51 +299,51 @@ dbPassword: {
 `)
 	require.NoError(t, values.Err())
 
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
 		Values:      values,
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
 	require.NoError(t, err)
 
-	components := rel.LookupPath(cue.ParsePath("components"))
+	components := inst.LookupPath(cue.ParsePath("components"))
 	require.True(t, components.Exists())
 	assert.True(t, components.LookupPath(cue.ParsePath(`"opm-secrets"`)).Exists(),
 		"opm-secrets component must be auto-injected when the module has #Secret instances")
 }
 
-// TestRelease_BadNameFailsUnification pins that a #NameType-violating name fails
+// TestInstance_BadNameFailsUnification pins that a #NameType-violating name fails
 // at schema unification within the single build (a real admission error), not
 // vacuously via some unrelated failure.
-func TestRelease_BadNameFailsUnification(t *testing.T) {
+func TestInstance_BadNameFailsUnification(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishImportableModule(t, ctx, "v0.6.0")
+	mod, _ := publishImportableModule(t, ctx, "v1.0.0-alpha.1")
 
-	_, err := synth.Release(ctx, synth.ReleaseInput{
+	_, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "BAD-UPPER", // #NameType forbids uppercase
 		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
 	require.Error(t, err, "names violating #NameType must surface as a unification error")
 	assert.NotContains(t, err.Error(), "cannot find package",
 		"failure must be name unification, not a module-resolution accident")
 }
 
-// TestRelease_ParityWithAuthoredPackage pins task 4.5: synth.Release and an
-// equivalent authored release.cue package that imports the SAME published
-// module construct the same release value — same schema-derived uuid and the
+// TestInstance_ParityWithAuthoredPackage pins task 4.5: synth.Instance and an
+// equivalent authored instance.cue package that imports the SAME published
+// module construct the same instance value — same schema-derived uuid and the
 // same fanned components. This is the convergence the change exists to
 // guarantee: a render bug surfaces in both paths or neither.
-func TestRelease_ParityWithAuthoredPackage(t *testing.T) {
+func TestInstance_ParityWithAuthoredPackage(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, registryMapping := publishModuleWithBody(t, ctx, "v0.6.0", "demo", "0.1.0", `
+	mod, registryMapping := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0", `
 #components: {
 	foo: {metadata: name: "foo"}
 }
@@ -366,25 +352,25 @@ debugValues: {}
 `)
 
 	// synth path.
-	synthRel, err := synth.Release(ctx, synth.ReleaseInput{
+	synthRel, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
 	require.NoError(t, err)
 
-	// authored path: an on-disk release.cue importing the same published module.
+	// authored path: an on-disk instance.cue importing the same published module.
 	importPath := mod.Metadata.ModulePath + "/" + mod.Metadata.Name + "@v0"
 	dir := t.TempDir()
-	releaseSrc := `package release
+	instanceSrc := `package instance
 
 import (
-	core "opmodel.dev/core@v0"
+	core "opmodel.dev/core@v1"
 	opmModule "` + importPath + `"
 )
 
-core.#ModuleRelease
+core.#ModuleInstance
 
 metadata: {
 	name:      "myrel"
@@ -393,20 +379,20 @@ metadata: {
 
 #module: opmModule
 `
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.cue"), []byte(releaseSrc), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(instanceSrc), 0o644))
 	// A cue.mod/module.cue pinning core + the module is required for the import.
-	moduleSrc := `module: "authored.opmodel.dev/release@v0"
-language: version: "v0.17.0"
+	moduleSrc := `module: "authored.opmodel.dev/instance@v0"
+language: version: "v0.17.0-alpha.1"
 deps: {
-	"opmodel.dev/core@v0": v: "v0.6.0"
+	"opmodel.dev/core@v1": v: "v1.0.0-alpha.1"
 	"` + importPath + `": v: "v0.1.0"
 }
 `
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(moduleSrc), 0o644))
 
-	authoredRel, err := loaderfile.LoadReleasePackage(ctx, dir, loaderfile.LoadOptions{Registry: registryMapping})
-	require.NoError(t, err, "authored release.cue importing the published module must load")
+	authoredRel, err := loaderfile.LoadInstancePackage(ctx, dir, loaderfile.LoadOptions{Registry: registryMapping})
+	require.NoError(t, err, "authored instance.cue importing the published module must load")
 
 	// Authored-path identity (task 4.7): the imported #module's identity must be
 	// concrete end-to-end — this is the path that rotted invisibly before the
@@ -422,7 +408,7 @@ deps: {
 	require.NoError(t, err)
 	authoredUUID, err := authoredRel.LookupPath(cue.ParsePath("metadata.uuid")).String()
 	require.NoError(t, err)
-	assert.Equal(t, authoredUUID, synthUUID, "synth and authored paths must derive the same release UUID")
+	assert.Equal(t, authoredUUID, synthUUID, "synth and authored paths must derive the same instance UUID")
 
 	for _, comp := range []string{"foo"} {
 		assert.True(t, synthRel.LookupPath(cue.ParsePath("components."+comp)).Exists(), "synth components."+comp)
@@ -430,17 +416,17 @@ deps: {
 	}
 }
 
-// TestRelease_HyphenatedNameImportsBySnakeCase pins the nameSnakeCase fix
+// TestInstance_HyphenatedNameImportsBySnakeCase pins the nameSnakeCase fix
 // (enhancements/0003): a module whose metadata.name carries hyphens
 // ("web-app") is published at the snake_case leaf (".../web_app") with a
-// snake_case CUE package, and synth.Release must derive that import path from
+// snake_case CUE package, and synth.Instance must derive that import path from
 // metadata.nameSnakeCase. The previous modulePath/name derivation produced
 // ".../web-app" and failed to resolve — this is the regression guard for that.
-func TestRelease_HyphenatedNameImportsBySnakeCase(t *testing.T) {
+func TestInstance_HyphenatedNameImportsBySnakeCase(t *testing.T) {
 	skipUnlessGHCR(t)
 	ctx := cuecontext.New()
 
-	mod, _ := publishModuleWithBody(t, ctx, "v0.6.0", "web-app", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "web-app", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
 
 	// The kebab identity is preserved; nameSnakeCase is the derived snake form.
 	require.Equal(t, "web-app", mod.Metadata.Name)
@@ -448,15 +434,15 @@ func TestRelease_HyphenatedNameImportsBySnakeCase(t *testing.T) {
 	require.NoError(t, err, "core@v0.6.0 module must expose metadata.nameSnakeCase")
 	require.Equal(t, "web_app", snake)
 
-	rel, err := synth.Release(ctx, synth.ReleaseInput{
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
-		Name:        "web-app-rel",
+		Name:        "web-app-inst",
 		Namespace:   "default",
-		SchemaCache: pinnedCache("v0.6.0"),
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
 	})
 	require.NoError(t, err, "hyphenated-name module must import by its snake_case registry leaf")
 
-	modName, err := rel.LookupPath(cue.ParsePath("#module.metadata.name")).String()
+	modName, err := inst.LookupPath(cue.ParsePath("#module.metadata.name")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web-app", modName, "imported #module keeps its kebab metadata.name")
 }

@@ -23,7 +23,7 @@ type Source struct {
 	Value cue.Value
 
 	// Name is the human-friendly label shown in UI. Examples:
-	// "user values", "ConfigMap/foo", "release overlay".
+	// "user values", "ConfigMap/foo", "instance overlay".
 	Name string
 
 	// Origin is the stable identifier for machine-readable correlation
@@ -45,7 +45,7 @@ type validateConfig struct {
 
 // ValidateOption configures [Kernel.ValidateConfigDetailed]. Options compose
 // via the functional-options pattern; new options can be added in MINOR
-// releases without breaking existing call sites.
+// instances without breaking existing call sites.
 //
 // The type is named ValidateOption (rather than the more terse Option) to
 // avoid collision with [Option], the kernel-construction option type.

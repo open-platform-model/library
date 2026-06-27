@@ -18,7 +18,7 @@ import (
 //
 // This is the live counterpart to the hermetic Validate cases: it exercises the
 // filesystem loader (LoadModulePackage) and validation against the published
-// core@v0 schema and real catalog primitives — paths the in-memory harness
+// core@v1 schema and real catalog primitives — paths the in-memory harness
 // deliberately bypasses. Gated like the flow tests: skipped under -short or when
 // GHCR is unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
 func TestIntegration_Live_ValidateRealConfig(t *testing.T) {

@@ -55,7 +55,7 @@ _realComponent: {
 _appliedReal: tf2.#DeploymentTransformer.#transform & {
 	#component: _realComponent
 	#context: {
-		#moduleReleaseMetadata: {name: "web-app-demo", namespace: "default", uuid: "11111111-2222-5333-8444-555555555555"}
+		#moduleInstanceMetadata: {name: "web-app-demo", namespace: "default", uuid: "11111111-2222-5333-8444-555555555555"}
 		#componentMetadata: {name: "web", labels: {"component.opmodel.dev/name": "web", "core.opmodel.dev/workload-type": "stateless"}}
 		#runtimeName: "opm-test"
 	}

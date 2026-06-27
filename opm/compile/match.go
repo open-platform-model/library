@@ -10,7 +10,7 @@
 // The algorithm is FQN-lookup → always-unify → predicate:
 //
 //  1. Lookup. A demanded FQN whose #matchers bucket is empty is a hard miss —
-//     recorded as a structured oerrors.MissingFQN (per (release, component,
+//     recorded as a structured oerrors.MissingFQN (per (instance, component,
 //     fqn)), accumulated in one pass with no fail-fast.
 //  2. Always-unify (D6). For each candidate transformer in the bucket, unify
 //     the component's primitive body against the transformer's required body
@@ -58,7 +58,7 @@ type MatchPlan struct {
 	UnhandledTraits map[string][]string
 
 	// Missing holds the hard "no transformer requires this FQN" diagnostics,
-	// one per (release, component, fqn). Distinct from UnhandledTraits, which
+	// one per (instance, component, fqn). Distinct from UnhandledTraits, which
 	// flags a component trait that no matched transformer consumes (soft).
 	Missing []oerrors.MissingFQN
 
@@ -85,12 +85,12 @@ type NonMatchedPair struct {
 // Match walks a consumer Module's components against a MaterializedPlatform's
 // #matchers index and returns a MatchPlan describing matched pairs, unmatched
 // components, structured missing-FQN diagnostics, and unify failures.
-// releaseName populates MissingFQN.Release; a blank value is tolerated when
+// instanceName populates MissingFQN.Instance; a blank value is tolerated when
 // Match is called outside the kernel. The composed map comes from
 // mp.Transformers and the reverse index from mp.Matchers.{resources,traits}.
 //
 //nolint:gocyclo // matching is naturally branchy but kept in one place
-func Match(components cue.Value, mp *materialize.MaterializedPlatform, releaseName string) (*MatchPlan, error) {
+func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceName string) (*MatchPlan, error) {
 	if mp == nil {
 		return nil, fmt.Errorf("materialized platform is required")
 	}
@@ -128,7 +128,7 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, releaseNa
 			candidates, exists := bucketTransformers(matchersIndex, fqn)
 			if !exists {
 				plan.Missing = append(plan.Missing, oerrors.MissingFQN{
-					Release:      releaseName,
+					Instance:     instanceName,
 					Component:    compName,
 					FQN:          fqn,
 					Alternatives: alternativesFor(matchersIndex, fqn),

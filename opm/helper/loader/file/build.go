@@ -10,8 +10,8 @@ import (
 )
 
 // buildAndShapeGate is the single evaluate-and-shape-gate step shared by the
-// directory loaders (LoadReleasePackage et al., filesystem source) and
-// synth.Release (in-memory overlay source). It builds exactly one CUE package
+// directory loaders (LoadInstancePackage et al., filesystem source) and
+// synth.Instance (in-memory overlay source). It builds exactly one CUE package
 // rooted at root, builds it in ctx, and runs the artifact shape gate described
 // by spec. The two source modes are selected by overlay:
 //
@@ -60,18 +60,20 @@ func buildAndShapeGate(ctx *cue.Context, root string, overlay map[string]load.So
 	return val, nil
 }
 
-// BuildReleaseOverlay evaluates an in-memory #ModuleRelease package supplied as
+// BuildInstanceOverlay evaluates an in-memory #ModuleInstance package supplied as
 // a load.Source overlay rooted at root, running the same build-and-shape-gate
-// step LoadReleasePackage applies to on-disk release packages. It is the entry
-// point synth.Release uses to evaluate the virtual package it synthesizes (a
-// fabricated cue.mod/module.cue + release.cue + values.cue) as a single CUE
-// build, so synthesized and authored releases share one evaluation path.
+// step LoadInstancePackage applies to on-disk instance packages. It is the entry
+// point synth.Instance uses to evaluate the virtual package it synthesizes (a
+// fabricated cue.mod/module.cue + instance.cue + values.cue) as a single CUE
+// build, so synthesized and authored instances share one evaluation path.
 //
-// The shape gate (shape.ReleaseSpec) is single-sourced in
+// The shape gate (shape.InstanceSpec) is single-sourced in
 // opm/helper/loader/internal/shape and unreachable from outside the loader
 // tree; this exported wrapper lets the synth helper reuse it without naming the
 // internal spec type. opts.Registry, when non-empty, overrides CUE_REGISTRY via
 // load.Config.Env (never os.Setenv), so it is safe under concurrency.
-func BuildReleaseOverlay(ctx *cue.Context, root string, overlay map[string]load.Source, opts LoadOptions) (cue.Value, error) {
-	return buildAndShapeGate(ctx, root, overlay, registryEnv(opts.Registry), releaseSpec)
+//
+// Was: BuildReleaseOverlay
+func BuildInstanceOverlay(ctx *cue.Context, root string, overlay map[string]load.Source, opts LoadOptions) (cue.Value, error) {
+	return buildAndShapeGate(ctx, root, overlay, registryEnv(opts.Registry), instanceSpec)
 }

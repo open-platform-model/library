@@ -71,18 +71,18 @@ func TestIntegration_Validate(t *testing.T) {
 	})
 }
 
-// TestIntegration_SynthesizeRelease covers the synth release-construction path:
-// a module plus typed inputs is unified against the core #ModuleRelease,
-// producing a release whose identity fields are stamped by the schema. Needs
+// TestIntegration_SynthesizeInstance covers the synth instance-construction path:
+// a module plus typed inputs is unified against the core #ModuleInstance,
+// producing an instance whose identity fields are stamped by the schema. Needs
 // the core schema (warm workspace cache via schematest.SetEnv); no catalog.
-func TestIntegration_SynthesizeRelease(t *testing.T) {
-	// synth.Release imports the module by its canonical registry path, so the
+func TestIntegration_SynthesizeInstance(t *testing.T) {
+	// synth.Instance imports the module by its canonical registry path, so the
 	// module must be published (a locally-built value no longer resolves).
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {replicas: int | *1, image: string}\ndebugValues: {}\n")
 	values := cueVal(t, k, `{ image: "nginx" }`, "values.cue")
 
-	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Module:      mod,
 		Name:        "web",
 		Namespace:   "default",
@@ -90,8 +90,8 @@ func TestIntegration_SynthesizeRelease(t *testing.T) {
 		SchemaCache: k.SchemaCache(),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, rel)
-	assert.Equal(t, "web", rel.Metadata.Name)
-	assert.Equal(t, "default", rel.Metadata.Namespace)
-	assert.NotEmpty(t, rel.Metadata.UUID, "release UUID is stamped by the schema (SHA1 over identity)")
+	require.NotNil(t, inst)
+	assert.Equal(t, "web", inst.Metadata.Name)
+	assert.Equal(t, "default", inst.Metadata.Namespace)
+	assert.NotEmpty(t, inst.Metadata.UUID, "instance UUID is stamped by the schema (SHA1 over identity)")
 }

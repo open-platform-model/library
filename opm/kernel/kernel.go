@@ -38,7 +38,7 @@ type Kernel struct {
 
 // Option configures a [Kernel] at construction time. Options compose via
 // the functional-options pattern; new options can be added in MINOR
-// releases without breaking existing call sites.
+// instances without breaking existing call sites.
 type Option func(*Kernel)
 
 // Clock is the kernel's view of wall-clock time. The interface is
@@ -62,7 +62,7 @@ func (systemClock) Now() time.Time { return time.Now() }
 //   - Tracer:      a no-op OpenTelemetry tracer
 //   - Clock:       wall-clock time via [time.Now]
 //   - SchemaCache: a fresh [*schema.Cache] backed by zero-value
-//     [schema.OCILoader]; resolves opmodel.dev/core@v0 against
+//     [schema.OCILoader]; resolves opmodel.dev/core@v1 against
 //     CUE_REGISTRY / CUE_CACHE_DIR from the process environment
 //
 // New never returns nil. The returned Kernel is NOT safe for concurrent
@@ -82,7 +82,7 @@ func New(opts ...Option) *Kernel {
 		opt(k)
 	}
 	// One Cache per Kernel. WithSchemaLoader sets schemaLoader; absent
-	// the option, the zero-value OCILoader resolves opmodel.dev/core@v0
+	// the option, the zero-value OCILoader resolves opmodel.dev/core@v1
 	// against the process environment.
 	loader := k.schemaLoader
 	if loader == nil {
@@ -126,7 +126,7 @@ func WithClock(c Clock) Option {
 
 // WithSchemaLoader configures the [schema.Loader] used to populate the
 // kernel's [*schema.Cache]. Omitting this option defaults to a
-// zero-value [schema.OCILoader] that resolves opmodel.dev/core@v0 via
+// zero-value [schema.OCILoader] that resolves opmodel.dev/core@v1 via
 // CUE_REGISTRY / CUE_CACHE_DIR from the process environment.
 //
 // The Kernel wraps the supplied Loader in a fresh Cache; callers cannot
@@ -179,8 +179,8 @@ func (k *Kernel) CueContext() *cue.Context {
 // [schema.Cache.Get] invocation contacts CUE; the load is lazy and
 // memoized.
 //
-// Typical use: pass to [synth.ReleaseInput.SchemaCache] before calling
-// release synthesis, or read [schema.Cache.ResolvedVersion] for
+// Typical use: pass to [synth.InstanceInput.SchemaCache] before calling
+// instance synthesis, or read [schema.Cache.ResolvedVersion] for
 // diagnostics after a schema-touching operation has run.
 func (k *Kernel) SchemaCache() *schema.Cache {
 	return k.schemaCache

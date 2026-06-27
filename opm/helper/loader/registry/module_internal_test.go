@@ -74,7 +74,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	require.Error(t, fsErr, "FS-pinned load must fail on a transitive dependency")
 	// With FS pinned to the single fetched module FS, every import is read
 	// through that one FS — so the FIRST dependency outside it is unresolvable.
-	// In-library that is opmodel.dev/core@v0 (resolved from the module cache by
+	// In-library that is opmodel.dev/core@v1 (resolved from the module cache by
 	// the Overlay load above, but invisible through the pinned FS); the catalog
 	// would fail the same way. The footgun signature is "cannot find package".
 	assert.Contains(t, fsErr.Error(), "cannot find package",

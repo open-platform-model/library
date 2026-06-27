@@ -5,7 +5,7 @@
 // the real OCILoader code path; no test-only Loader exists in the
 // library. The workspace cache directory (library/.cue-cache/) is
 // gitignored. First test run on a fresh checkout fetches
-// opmodel.dev/core@v0 from CUE_REGISTRY (default schema.PublicRegistry →
+// opmodel.dev/core@v1 from CUE_REGISTRY (default schema.PublicRegistry →
 // GHCR); subsequent runs hit the workspace cache.
 //
 // This package is under opm/internal/ — only opm/* packages may import it.
@@ -53,7 +53,7 @@ func SetEnv(t testing.TB) {
 
 // NewCache returns a fresh *schema.Cache backed by a zero-value
 // [schema.OCILoader]. It also configures CUE_REGISTRY and CUE_CACHE_DIR
-// via [SetEnv] so the loader resolves opmodel.dev/core@v0 against the
+// via [SetEnv] so the loader resolves opmodel.dev/core@v1 against the
 // public registry into the workspace-local cache.
 //
 // Memoization is per-call: distinct tests get distinct caches to keep

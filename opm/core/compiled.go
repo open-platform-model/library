@@ -17,10 +17,11 @@ type Compiled struct {
 	// fully evaluated — safe to encode directly to YAML or JSON.
 	Value cue.Value
 
-	// Release is the name of the ModuleRelease that produced this resource.
-	Release string
+	// Instance is the name of the ModuleInstance that produced this resource.
+	// Was: Release
+	Instance string
 
-	// Component is the source component name within the release.
+	// Component is the source component name within the instance.
 	Component string
 
 	// Transformer is the FQN of the transformer that produced this resource.

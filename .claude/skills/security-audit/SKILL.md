@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: Security audit skill for the OPM library — the Go kernel/reference runtime that loads, validates, materializes, and compiles untrusted CUE artifacts (Module / ModuleRelease / Platform) and executes catalog transformer expressions. Audits CUE-evaluation safety, artifact input validation, loader path handling, registry/OCI trust, kernel concurrency, and supply chain. Targets a path, feature, or the full project. Produces a severity-ranked report (CRITICAL / WARNING / SUGGESTION).
+description: Security audit skill for the OPM library — the Go kernel/reference runtime that loads, validates, materializes, and compiles untrusted CUE artifacts (Module / ModuleInstance / Platform) and executes catalog transformer expressions. Audits CUE-evaluation safety, artifact input validation, loader path handling, registry/OCI trust, kernel concurrency, and supply chain. Targets a path, feature, or the full project. Produces a severity-ranked report (CRITICAL / WARNING / SUGGESTION).
 user-invocable: true
 argument-hint: "[path-or-feature]"
 ---
@@ -33,7 +33,7 @@ Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against
 
 The trust gate: all three artifact types must be validated before the kernel acts on them.
 
-- Every artifact (`Module`, `ModuleRelease`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleRelease), empty-string rejection
+- Every artifact (`Module`, `ModuleInstance`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleInstance), empty-string rejection
 - No bypass path: a code route that reaches `Compile`/`Materialize`/`Execute` without first passing `helper/loader/file/validate.go` shape-gating + full schema validation
 - Full schema validation (`Kernel.Validate*`) runs user values against the module `#config` schema **before** any execution
 - Sentinel errors (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`) are returned so callers can branch — and validation fails closed (an unparseable/ambiguous artifact is rejected, not partially processed)
@@ -44,7 +44,7 @@ The trust gate: all three artifact types must be validated before the kernel act
 
 The heart of the threat model — user-influenced data flows into CUE evaluation.
 
-- Transformers are sourced from the **trusted catalog** (`Platform.#composedTransformers`), never from user artifact input — confirm no path lets a Module/Release supply or override a `#transform`
+- Transformers are sourced from the **trusted catalog** (`Platform.#composedTransformers`), never from user artifact input — confirm no path lets a Module/Instance supply or override a `#transform`
 - `FillPath` injection of `#component` and `#context.*` is non-mutating / purely functional (no in-place mutation of shared CUE values)
 - `FinalizeValue()` strips definition fields and constraints before filling, so user-supplied concrete data **cannot bypass or redefine** schema constraints (constraint-injection); confirm every user→transformer data path goes through finalization
 - Transformer output evaluation (`unified.LookupPath(schema.Output)`) handles both StructKind and ListKind without trusting attacker-controlled shape to drive unbounded expansion
@@ -62,7 +62,7 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 ### Dimension 4: Registry / OCI Trust & Integrity
 
-- Schema (`opmodel.dev/core@v0`) and catalogs are pulled via CUE's OCI loader (`OCILoader.Load`, `pullCatalog`); assess that there is **no checksum/signature/digest verification** of pulled modules beyond OCI registry + TLS trust — flag MITM / registry-substitution risk and whether version pinning (vs mutable major `@v0`) is enforced
+- Schema (`opmodel.dev/core@v1`) and catalogs are pulled via CUE's OCI loader (`OCILoader.Load`, `pullCatalog`); assess that there is **no checksum/signature/digest verification** of pulled modules beyond OCI registry + TLS trust — flag MITM / registry-substitution risk and whether version pinning (vs mutable major `@v0`) is enforced
 - Per-call registry override is plumbed via `load.Config.Env` only and never mutates `os.Environ()` (kernel neutrality) — a fresh env slice per call, no global state
 - Catalog enumeration/filtering (`enumerate.go`, `filter.go`) cannot be steered by untrusted platform `#registry` content into pulling an attacker-chosen version/module
 - Cache key derivation (`opm/materialize/cache/key.go`, `sha256` over the registry subtree) is integrity-only, not a security control — confirm it isn't relied on as one
@@ -99,7 +99,7 @@ Apply when scope is project-wide or covers a significant subsystem.
 
 **Trust boundary identification**:
 - Trusted: the OPM core schema and catalog modules (pulled from the registry, pinned), the kernel itself
-- Untrusted: user-authored Module / ModuleRelease / Platform CUE content
+- Untrusted: user-authored Module / ModuleInstance / Platform CUE content
 - The boundary is crossed at load (shape-gate), at validation (schema), and at compile (finalize → fill → evaluate)
 
 **Confused deputy assessment**:
