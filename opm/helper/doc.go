@@ -12,19 +12,19 @@
 //
 // Current subpackages:
 //
-//   - loader/file  — filesystem-coupled loading of modules, releases, and
+//   - loader/file  — filesystem-coupled loading of modules, instances, and
 //     providers from a CUE module directory or .cue file. Use when the
 //     frontend has access to a real filesystem.
 //   - loader/bytes — in-memory loading skeleton; full implementation
 //     deferred until a consumer (Crossplane composition fn, fuzzing
 //     harness, in-memory tests) demands it.
 //   - synth        — artifact synthesis from in-memory typed inputs.
-//     synth.Release composes a #ModuleRelease CUE value by unifying
+//     synth.Instance composes a #ModuleInstance CUE value by unifying
 //     (Module, name, namespace, values, labels, annotations) against the
-//     embedded #ModuleRelease schema. Peer of loader/ (loading parses
+//     embedded #ModuleInstance schema. Peer of loader/ (loading parses
 //     bytes; synth creates from typed inputs). Recommended entry point is
-//     (*Kernel).SynthesizeRelease, which chains synth.Release into
-//     ProcessModuleRelease for a fully validated *module.Release.
+//     (*Kernel).SynthesizeInstance, which chains synth.Instance into
+//     ProcessModuleInstance for a fully validated *module.Instance.
 //
 // Layered values validation now lives on the kernel itself: see
 // Kernel.ValidateConfigDetailed and the Source / ValidateOption types in

@@ -422,7 +422,7 @@ tasks:
         Stage 1 — loaded web_app #Module
         Stage 2 — opm-platform metadata, registered Modules, computed views,
                   matcher reverse index
-        Stage 3 — constructed #ModuleRelease (metadata, values, components)
+        Stage 3 — constructed #ModuleInstance (metadata, values, components)
         Stage 4 — MatchPlan (matched / unmatched / ambiguous / unhandled)
                   + per-pair Compiled outputs
 
@@ -433,7 +433,7 @@ tasks:
       Usage:
         task cue:test:flow:inspect                            # all stages
         task cue:test:flow:inspect STAGES=plan                # one stage
-        task cue:test:flow:inspect STAGES=module,release      # several
+        task cue:test:flow:inspect STAGES=module,instance      # several
         OPM_FLOW_INSPECT_FORCE=1 task cue:test:flow:inspect   # skip probe
     vars:
       STAGES: '{{.STAGES | default ""}}'

@@ -20,16 +20,18 @@ func DecodeModuleMetadata(v cue.Value) (*ModuleMetadata, error) {
 	return meta, nil
 }
 
-// DecodeReleaseMetadata extracts ReleaseMetadata from a #ModuleRelease
+// DecodeInstanceMetadata extracts InstanceMetadata from a #ModuleInstance
 // artifact root. A missing metadata field is fatal.
-func DecodeReleaseMetadata(v cue.Value) (*ReleaseMetadata, error) {
+//
+// Was: DecodeReleaseMetadata
+func DecodeInstanceMetadata(v cue.Value) (*InstanceMetadata, error) {
 	metaVal := v.LookupPath(Metadata)
 	if !metaVal.Exists() {
-		return nil, fmt.Errorf("release metadata field is required")
+		return nil, fmt.Errorf("instance metadata field is required")
 	}
-	meta := &ReleaseMetadata{}
+	meta := &InstanceMetadata{}
 	if err := metaVal.Decode(meta); err != nil {
-		return nil, fmt.Errorf("decoding release metadata: %w", err)
+		return nil, fmt.Errorf("decoding instance metadata: %w", err)
 	}
 	return meta, nil
 }

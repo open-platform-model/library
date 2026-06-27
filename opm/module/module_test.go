@@ -48,10 +48,10 @@ func TestNewModuleFromValue_MissingMetadata(t *testing.T) {
 	assert.Contains(t, err.Error(), "metadata field is required")
 }
 
-func TestNewReleaseFromValue_SuccessPath(t *testing.T) {
+func TestNewInstanceFromValue_SuccessPath(t *testing.T) {
 	k := kernel.New()
 	v := k.CueContext().CompileString(`
-kind: "ModuleRelease"
+kind: "ModuleInstance"
 metadata: {
 	name: "demo"
 	namespace: "ns"
@@ -71,32 +71,32 @@ metadata: {
 `)
 	require.NoError(t, v.Err())
 
-	rel, err := module.NewReleaseFromValue(k, v)
+	inst, err := module.NewInstanceFromValue(k, v)
 	require.NoError(t, err)
-	require.NotNil(t, rel)
+	require.NotNil(t, inst)
 
-	require.NotNil(t, rel.Metadata)
-	assert.Equal(t, "demo", rel.Metadata.Name)
-	assert.Equal(t, "ns", rel.Metadata.Namespace)
-	assert.True(t, rel.Package.Equals(v), "Package set unchanged from input")
+	require.NotNil(t, inst.Metadata)
+	assert.Equal(t, "demo", inst.Metadata.Name)
+	assert.Equal(t, "ns", inst.Metadata.Namespace)
+	assert.True(t, inst.Package.Equals(v), "Package set unchanged from input")
 
-	// Spec scenario: the release's referenced module is reachable via
+	// Spec scenario: the instance's referenced module is reachable via
 	// Package.LookupPath(schema.Module).
-	moduleRef := rel.Package.LookupPath(schema.Module)
-	require.True(t, moduleRef.Exists(), "release's #module reference must be reachable via schema.Module")
+	moduleRef := inst.Package.LookupPath(schema.Module)
+	require.True(t, moduleRef.Exists(), "instance's #module reference must be reachable via schema.Module")
 	moduleName, err := moduleRef.LookupPath(schema.Metadata).LookupPath(cue.ParsePath("name")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "demo-mod", moduleName)
 }
 
-func TestNewReleaseFromValue_MissingMetadata(t *testing.T) {
+func TestNewInstanceFromValue_MissingMetadata(t *testing.T) {
 	k := kernel.New()
-	v := k.CueContext().CompileString(`kind: "ModuleRelease"`)
+	v := k.CueContext().CompileString(`kind: "ModuleInstance"`)
 	require.NoError(t, v.Err())
 
-	rel, err := module.NewReleaseFromValue(k, v)
+	inst, err := module.NewInstanceFromValue(k, v)
 	require.Error(t, err)
-	assert.Nil(t, rel)
+	assert.Nil(t, inst)
 	assert.Contains(t, err.Error(), "metadata field is required")
 }
 
@@ -124,12 +124,12 @@ metadata: {
 	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
 }
 
-// TestRelease_ModuleFQNFromPackage confirms ModuleFQN reads through the
+// TestInstance_ModuleFQNFromPackage confirms ModuleFQN reads through the
 // schema's ModuleMetadataPath on Package rather than a cached struct field.
-func TestRelease_ModuleFQNFromPackage(t *testing.T) {
+func TestInstance_ModuleFQNFromPackage(t *testing.T) {
 	ctx := cuecontext.New()
 	v := ctx.CompileString(`
-kind: "ModuleRelease"
+kind: "ModuleInstance"
 metadata: { name: "demo", namespace: "ns", uuid: "u" }
 #moduleMetadata: {
 	name: "demo-mod"
@@ -141,10 +141,10 @@ metadata: { name: "demo", namespace: "ns", uuid: "u" }
 `)
 	require.NoError(t, v.Err())
 
-	rel := &module.Release{
-		Metadata: &module.ReleaseMetadata{Name: "demo", Namespace: "ns"},
+	inst := &module.Instance{
+		Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns"},
 		Package:  v,
 	}
-	assert.Equal(t, "example.com/m/demo-mod:1.2.3", rel.ModuleFQN())
-	assert.Equal(t, "1.2.3", rel.ModuleVersion())
+	assert.Equal(t, "example.com/m/demo-mod:1.2.3", inst.ModuleFQN())
+	assert.Equal(t, "1.2.3", inst.ModuleVersion())
 }

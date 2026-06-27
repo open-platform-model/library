@@ -14,19 +14,19 @@ import (
 
 func TestMissingFQN_Shape(t *testing.T) {
 	e := oerrors.MissingFQN{
-		Release:      "demo",
+		Instance:     "demo",
 		Component:    "web",
 		FQN:          "example.com/r/container@1.0.0",
 		Alternatives: []string{"example.com/r/container@1.1.0"},
 	}
 	msg := e.Error()
-	assert.Contains(t, msg, `release "demo"`)
+	assert.Contains(t, msg, `instance "demo"`)
 	assert.Contains(t, msg, `component "web"`)
 	assert.Contains(t, msg, "example.com/r/container@1.0.0")
 	assert.Contains(t, msg, "example.com/r/container@1.1.0")
 
 	// With no alternatives the message omits the alternatives clause.
-	bare := oerrors.MissingFQN{Release: "demo", Component: "web", FQN: "x@1.0.0"}
+	bare := oerrors.MissingFQN{Instance: "demo", Component: "web", FQN: "x@1.0.0"}
 	assert.NotContains(t, bare.Error(), "alternatives")
 }
 

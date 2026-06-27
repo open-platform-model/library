@@ -293,7 +293,7 @@ type: "kubernetes"
 
 	require.Len(t, plan.Missing, 1, "absent FQN must record exactly one MissingFQN")
 	miss := plan.Missing[0]
-	assert.Equal(t, "demo", miss.Release)
+	assert.Equal(t, "demo", miss.Instance)
 	assert.Equal(t, "web", miss.Component)
 	assert.Equal(t, "example.com/r/container@1.0.0", miss.FQN)
 	assert.Equal(t, []string{"example.com/r/container@1.1.0"}, miss.Alternatives)
@@ -361,7 +361,7 @@ type: "kubernetes"
 
 // TestMatch_MultipleMissesAccumulated covers the one-pass, no-fail-fast
 // accumulation: two components each demand a distinct absent FQN, so the plan
-// carries two MissingFQN entries (one per (release, component, fqn)).
+// carries two MissingFQN entries (one per (instance, component, fqn)).
 func TestMatch_MultipleMissesAccumulated(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := materialized(t, ctx, `
@@ -390,7 +390,7 @@ type: "kubernetes"
 	require.Len(t, plan.Missing, 2, "one MissingFQN per (component, fqn), accumulated in one pass")
 	byComp := map[string]string{}
 	for _, m := range plan.Missing {
-		assert.Equal(t, "demo", m.Release)
+		assert.Equal(t, "demo", m.Instance)
 		byComp[m.Component] = m.FQN
 	}
 	assert.Equal(t, "example.com/r/a@v0", byComp["web"])
@@ -528,25 +528,25 @@ type: "kubernetes"
 		"transformer b should pair with web")
 }
 
-// TestReleaseImplementsReleaseView confirms that *module.Release satisfies
-// schema.ReleaseView so BuildTransformerContext can call it without an
+// TestInstanceImplementsInstanceView confirms that *module.Instance satisfies
+// schema.InstanceView so BuildTransformerContext can call it without an
 // adapter.
-func TestReleaseImplementsReleaseView(t *testing.T) {
-	var _ schema.ReleaseView = (*module.Release)(nil)
+func TestInstanceImplementsInstanceView(t *testing.T) {
+	var _ schema.InstanceView = (*module.Instance)(nil)
 }
 
-// TestCompileModuleRelease_RendersContextViaSchema is a coarse snapshot test
-// for the schema-driven context injection. It builds a minimal release+platform
+// TestCompileModuleInstance_RendersContextViaSchema is a coarse snapshot test
+// for the schema-driven context injection. It builds a minimal instance+platform
 // fixture with one transformer whose `output` echoes back the injected #context,
 // then confirms the rendered value carries the schema-built fields.
-func TestCompileModuleRelease_RendersContextViaSchema(t *testing.T) {
+func TestCompileModuleInstance_RendersContextViaSchema(t *testing.T) {
 	ctx := cuecontext.New()
 
-	// Release spec carries a single component declaring an "echo" resource
+	// Instance spec carries a single component declaring an "echo" resource
 	// and a tier=web label.
-	releaseSpec := ctx.CompileString(`
-kind: "ModuleRelease"
-metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+	instanceSpec := ctx.CompileString(`
+kind: "ModuleInstance"
+metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
 components: {
 	web: {
 		metadata: {
@@ -559,14 +559,14 @@ components: {
 	}
 }
 `)
-	require.NoError(t, releaseSpec.Err())
+	require.NoError(t, instanceSpec.Err())
 
-	rel := &module.Release{
-		Metadata: &module.ReleaseMetadata{
-			Name: "demo", Namespace: "ns", UUID: "u-rel",
+	inst := &module.Instance{
+		Metadata: &module.InstanceMetadata{
+			Name: "demo", Namespace: "ns", UUID: "u-inst",
 			Labels: map[string]string{"k": "v"},
 		},
-		Package: releaseSpec,
+		Package: instanceSpec,
 	}
 
 	// Platform with one transformer matching tier=web and indexed against the
@@ -590,7 +590,7 @@ type: "kubernetes"
 			output: {
 				kind: "echo"
 				runtime: #context.#runtimeName
-				release: #context.#moduleReleaseMetadata.name
+				instance: #context.#moduleInstanceMetadata.name
 				component: #context.#componentMetadata.name
 			}
 		}
@@ -604,13 +604,13 @@ type: "kubernetes"
 }
 `)
 
-	schemaComponents := rel.MatchComponents()
+	schemaComponents := inst.MatchComponents()
 	require.True(t, schemaComponents.Exists())
 	dataComponents, err := compile.FinalizeValue(ctx, schemaComponents)
 	require.NoError(t, err)
-	plan, err := compile.Match(schemaComponents, mp, rel.Metadata.Name)
+	plan, err := compile.Match(schemaComponents, mp, inst.Metadata.Name)
 	require.NoError(t, err)
-	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, schemaComponents, dataComponents, plan)
+	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, schemaComponents, dataComponents, plan)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Compiled, 1, "expected one compiled item")
@@ -619,9 +619,9 @@ type: "kubernetes"
 	runtime, err := got.LookupPath(cue.ParsePath("runtime")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "opm-cli", runtime, "schema-built #runtimeName should reach the compiled output")
-	release, err := got.LookupPath(cue.ParsePath("release")).String()
+	instance, err := got.LookupPath(cue.ParsePath("instance")).String()
 	require.NoError(t, err)
-	assert.Equal(t, "demo", release)
+	assert.Equal(t, "demo", instance)
 	component, err := got.LookupPath(cue.ParsePath("component")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web", component)
@@ -643,30 +643,30 @@ const (
 	echoTfFQN  = "example.com/p/echo@v0"
 )
 
-// releaseWithComponents builds a minimal *module.Release whose `components`
+// instanceWithComponents builds a minimal *module.Instance whose `components`
 // field is the given CUE struct source. Metadata is fixed; only the component
 // shape varies between tests.
-func releaseWithComponents(t *testing.T, ctx *cue.Context, componentsSrc string) *module.Release {
+func instanceWithComponents(t *testing.T, ctx *cue.Context, componentsSrc string) *module.Instance {
 	t.Helper()
 	spec := ctx.CompileString(`
-kind: "ModuleRelease"
-metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+kind: "ModuleInstance"
+metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
 components: ` + componentsSrc)
 	require.NoError(t, spec.Err())
-	return &module.Release{
-		Metadata: &module.ReleaseMetadata{
-			Name: "demo", Namespace: "ns", UUID: "u-rel",
+	return &module.Instance{
+		Metadata: &module.InstanceMetadata{
+			Name: "demo", Namespace: "ns", UUID: "u-inst",
 			Labels: map[string]string{},
 		},
 		Package: spec,
 	}
 }
 
-// echoRelease is the common single-component release: "web" declaring the echo
+// echoInstance is the common single-component instance: "web" declaring the echo
 // resource and no labels.
-func echoRelease(t *testing.T, ctx *cue.Context) *module.Release {
+func echoInstance(t *testing.T, ctx *cue.Context) *module.Instance {
 	t.Helper()
-	return releaseWithComponents(t, ctx, `{
+	return instanceWithComponents(t, ctx, `{
 	web: {
 		metadata: { name: "web", labels: {} }
 		#resources: { "`+echoResFQN+`": {} }
@@ -705,24 +705,24 @@ type: "kubernetes"
 }
 
 // runExecute drives MatchComponents → Finalize → Match → Execute against the
-// given platform and release using a background context.
-func runExecute(t *testing.T, mp *materialize.MaterializedPlatform, rel *module.Release) (*compile.CompileResult, error) {
+// given platform and instance using a background context.
+func runExecute(t *testing.T, mp *materialize.MaterializedPlatform, inst *module.Instance) (*compile.CompileResult, error) {
 	t.Helper()
-	return runExecuteCtx(t, context.Background(), mp, rel)
+	return runExecuteCtx(t, context.Background(), mp, inst)
 }
 
-func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.MaterializedPlatform, rel *module.Release) (*compile.CompileResult, error) {
+func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.MaterializedPlatform, inst *module.Instance) (*compile.CompileResult, error) {
 	t.Helper()
 	// Build in an explicit caller context, mirroring how kernel/compile.go
 	// threads k.cueCtx; the platform's Package is consumed as read-only input.
 	cc := cuecontext.New()
-	sc := rel.MatchComponents()
+	sc := inst.MatchComponents()
 	require.True(t, sc.Exists())
 	dc, err := compile.FinalizeValue(cc, sc)
 	require.NoError(t, err)
-	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
-	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, rel, sc, dc, plan)
+	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, inst, sc, dc, plan)
 }
 
 // TestExecute_ReadsTransformFromNativeTransformers is the wiring guard for the
@@ -754,7 +754,7 @@ func TestExecute_ReadsTransformFromNativeTransformers(t *testing.T) {
 }`)
 	require.NoError(t, mp.Transformers.Err())
 
-	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	out, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.NoError(t, err)
 	require.Len(t, out.Compiled, 1)
 
@@ -771,7 +771,7 @@ func TestExecute_ListOutputEmitsOnePerItem(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: [ {n: 1}, {n: 2}, {n: 3} ] }`)
 
-	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	out, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.NoError(t, err)
 	require.Len(t, out.Compiled, 3, "one Compiled per list element")
 
@@ -779,7 +779,7 @@ func TestExecute_ListOutputEmitsOnePerItem(t *testing.T) {
 	for _, c := range out.Compiled {
 		assert.Equal(t, "web", c.Component)
 		assert.Equal(t, echoTfFQN, c.Transformer)
-		assert.Equal(t, "demo", c.Release)
+		assert.Equal(t, "demo", c.Instance)
 		n, err := c.Value.LookupPath(cue.ParsePath("n")).Int64()
 		require.NoError(t, err)
 		seen[n] = true
@@ -793,7 +793,7 @@ func TestExecute_EmptyListEmitsZero(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: [] }`)
 
-	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	out, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.NoError(t, err)
 	assert.Empty(t, out.Compiled)
 }
@@ -804,7 +804,7 @@ func TestExecute_UnexpectedOutputKindErrors(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: "not-a-resource" }`)
 
-	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	_, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected output kind")
 }
@@ -815,7 +815,7 @@ func TestExecute_AbsentOutputFieldYieldsNoCompiledNoError(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _ }`)
 
-	out, err := runExecute(t, mp, echoRelease(t, ctx))
+	out, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.NoError(t, err)
 	assert.Empty(t, out.Compiled)
 }
@@ -832,7 +832,7 @@ func TestExecute_FillComponentConflictErrors(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: #component.metadata.name & 123 }`)
 
-	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	_, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "filling #component")
 }
@@ -844,7 +844,7 @@ func TestExecute_TransformNotFoundInComposed(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, "") // composed entry without #transform
 
-	_, err := runExecute(t, mp, echoRelease(t, ctx))
+	_, err := runExecute(t, mp, echoInstance(t, ctx))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "#transform not found")
 }
@@ -854,17 +854,17 @@ func TestExecute_TransformNotFoundInComposed(t *testing.T) {
 func TestExecute_ComponentMissingInDataComponents(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
-	rel := echoRelease(t, ctx)
+	inst := echoInstance(t, ctx)
 
-	sc := rel.MatchComponents()
-	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	sc := inst.MatchComponents()
+	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
 
 	// Deliberately pass empty data components — the plan still references "web".
 	emptyDC := ctx.CompileString(`{}`)
 	require.NoError(t, emptyDC.Err())
 
-	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, sc, emptyDC, plan)
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, emptyDC, plan)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in data components value")
 }
@@ -903,12 +903,12 @@ type: "kubernetes"
 	traits: {}
 }
 `)
-	rel := releaseWithComponents(t, ctx, `{
+	inst := instanceWithComponents(t, ctx, `{
 	a: { metadata: { name: "a", labels: {} }, #resources: { "example.com/r/ra@v0": {} } }
 	b: { metadata: { name: "b", labels: {} }, #resources: { "example.com/r/rb@v0": {} } }
 }`)
 
-	_, err := runExecute(t, mp, rel)
+	_, err := runExecute(t, mp, inst)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `"a"`, "first pair failure surfaced")
 	assert.Contains(t, err.Error(), `"b"`, "second pair failure surfaced (no fail-fast)")
@@ -923,7 +923,7 @@ func TestExecute_ContextCancellationStops(t *testing.T) {
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := runExecuteCtx(t, cancelled, mp, echoRelease(t, ctx))
+	_, err := runExecuteCtx(t, cancelled, mp, echoInstance(t, ctx))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
 }
@@ -935,11 +935,11 @@ func TestExecute_UnmatchedComponentsError(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
 	// Component demands a resource the platform does not index → unmatched.
-	rel := releaseWithComponents(t, ctx, `{
+	inst := instanceWithComponents(t, ctx, `{
 	web: { metadata: { name: "web", labels: {} }, #resources: { "example.com/r/missing@v0": {} } }
 }`)
 
-	_, err := runExecute(t, mp, rel)
+	_, err := runExecute(t, mp, inst)
 	require.Error(t, err)
 
 	var uce *compile.UnmatchedComponentsError
@@ -954,25 +954,25 @@ func TestExecute_UnmatchedComponentsError(t *testing.T) {
 func TestExecute_NilGuards(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
-	rel := echoRelease(t, ctx)
-	sc := rel.MatchComponents()
+	inst := echoInstance(t, ctx)
+	sc := inst.MatchComponents()
 	dc, err := compile.FinalizeValue(ctx, sc)
 	require.NoError(t, err)
-	plan, err := compile.Match(sc, mp, rel.Metadata.Name)
+	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
 
-	t.Run("nil release", func(t *testing.T) {
+	t.Run("nil instance", func(t *testing.T) {
 		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), nil, sc, dc, plan)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "release is required")
+		assert.Contains(t, err.Error(), "instance is required")
 	})
 	t.Run("nil platform", func(t *testing.T) {
-		_, err := compile.NewModule(ctx, nil, "opm-cli").Execute(context.Background(), rel, sc, dc, plan)
+		_, err := compile.NewModule(ctx, nil, "opm-cli").Execute(context.Background(), inst, sc, dc, plan)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "platform is required")
 	})
 	t.Run("nil plan", func(t *testing.T) {
-		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), rel, sc, dc, nil)
+		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, dc, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "match plan is required")
 	})
@@ -1019,7 +1019,7 @@ type: "kubernetes"
 `)
 	// "web" carries the echo resource (matches) and the extra trait (its only
 	// candidate transformer needs label need:"yes", which web lacks).
-	rel := releaseWithComponents(t, ctx, `{
+	inst := instanceWithComponents(t, ctx, `{
 	web: {
 		metadata: { name: "web", labels: {} }
 		#resources: { "`+echoResFQN+`": {} }
@@ -1027,7 +1027,7 @@ type: "kubernetes"
 	}
 }`)
 
-	out, err := runExecute(t, mp, rel)
+	out, err := runExecute(t, mp, inst)
 	require.NoError(t, err, "unhandled trait is a warning, not a failure")
 	require.Len(t, out.Compiled, 1, "the echo transformer still fired")
 	require.NotEmpty(t, out.Warnings, "unhandled trait recorded as a warning")

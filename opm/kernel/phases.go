@@ -23,8 +23,8 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 	if in.Module == nil {
 		return fmt.Errorf("ValidateInput.Module is required")
 	}
-	if in.ModuleRelease == nil {
-		return fmt.Errorf("ValidateInput.ModuleRelease is required")
+	if in.ModuleInstance == nil {
+		return fmt.Errorf("ValidateInput.ModuleInstance is required")
 	}
 	if !in.Values.Exists() {
 		return nil
@@ -33,7 +33,7 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 	if !configSchema.Exists() {
 		return nil
 	}
-	name := releaseDisplayName(in.ModuleRelease)
+	name := instanceDisplayName(in.ModuleInstance)
 	if _, vErr := k.ValidateConfig(configSchema, in.Values); vErr != nil {
 		return fmt.Errorf("module %q: %w", name, vErr)
 	}
@@ -43,17 +43,17 @@ func (k *Kernel) Validate(_ context.Context, in ValidateInput) error {
 // Match produces a [*MatchPlan] describing matched and non-matched
 // component / transformer pairs. It does NOT execute any transformer.
 func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
-	if in.ModuleRelease == nil {
-		return nil, fmt.Errorf("MatchInput.ModuleRelease is required")
+	if in.ModuleInstance == nil {
+		return nil, fmt.Errorf("MatchInput.ModuleInstance is required")
 	}
 	if in.Platform == nil {
 		return nil, fmt.Errorf("MatchInput.Platform is required")
 	}
-	components := in.ModuleRelease.MatchComponents()
+	components := in.ModuleInstance.MatchComponents()
 	if !components.Exists() {
-		return nil, fmt.Errorf("release %q: no components field in release spec", in.ModuleRelease.Metadata.Name)
+		return nil, fmt.Errorf("instance %q: no components field in instance spec", in.ModuleInstance.Metadata.Name)
 	}
-	return compile.Match(components, in.Platform, in.ModuleRelease.Metadata.Name)
+	return compile.Match(components, in.Platform, in.ModuleInstance.Metadata.Name)
 }
 
 // Plan runs Validate + Match + Execute (dry-run) and returns a
@@ -65,8 +65,8 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 // succeeds gives the caller strong confidence that a subsequent Compile
 // will also succeed.
 func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
-	if in.ModuleRelease == nil {
-		return nil, fmt.Errorf("PlanInput.ModuleRelease is required")
+	if in.ModuleInstance == nil {
+		return nil, fmt.Errorf("PlanInput.ModuleInstance is required")
 	}
 	if in.Platform == nil {
 		return nil, fmt.Errorf("PlanInput.Platform is required")
@@ -93,11 +93,11 @@ func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
 // summaries, unmatched FQNs, and warnings.
 //
 // The Tier-2 #config schema validation is sourced from the embedded #module
-// reference on `in.ModuleRelease.Package` (see [module.Release.ConfigSchema]).
+// reference on `in.ModuleInstance.Package` (see [module.Instance.ConfigSchema]).
 // No standalone `*module.Module` is required.
 func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, error) {
-	if in.ModuleRelease == nil {
-		return nil, fmt.Errorf("CompileInput.ModuleRelease is required")
+	if in.ModuleInstance == nil {
+		return nil, fmt.Errorf("CompileInput.ModuleInstance is required")
 	}
 	if in.Platform == nil {
 		return nil, fmt.Errorf("CompileInput.Platform is required")
@@ -106,35 +106,35 @@ func (k *Kernel) Compile(ctx context.Context, in CompileInput) (*CompileResult, 
 		return nil, fmt.Errorf("CompileInput.RuntimeName must be non-empty")
 	}
 
-	mod, err := moduleFromRelease(k, in.ModuleRelease)
+	mod, err := moduleFromInstance(k, in.ModuleInstance)
 	if err != nil {
 		return nil, err
 	}
 	if err := k.Validate(ctx, ValidateInput{
-		Module:        mod,
-		ModuleRelease: in.ModuleRelease,
-		Values:        in.Values,
+		Module:         mod,
+		ModuleInstance: in.ModuleInstance,
+		Values:         in.Values,
 	}); err != nil {
 		return nil, err
 	}
 
-	return k.compileModuleRelease(ctx, in.ModuleRelease, in.Platform, in.RuntimeName)
+	return k.compileModuleInstance(ctx, in.ModuleInstance, in.Platform, in.RuntimeName)
 }
 
-// moduleFromRelease synthesizes a transient *module.Module from the embedded
-// #module reference on rel.Package. The transient view is used by Compile to
+// moduleFromInstance synthesizes a transient *module.Module from the embedded
+// #module reference on inst.Package. The transient view is used by Compile to
 // satisfy the [ValidateInput.Module] contract while the slim CompileInput
 // surface drops the parallel field.
 //
-// No defensive fallback: production releases produced by
-// [Kernel.ProcessModuleRelease] always embed #module at schema.Module, and
+// No defensive fallback: production instances produced by
+// [Kernel.ProcessModuleInstance] always embed #module at schema.Module, and
 // hand-built test fixtures must do the same. A missing embedded module is a
 // programming error and is surfaced loudly so it cannot mask a malformed
 // fixture or a regressed parser.
-func moduleFromRelease(k *Kernel, rel *module.Release) (*module.Module, error) {
-	embedded := rel.Package.LookupPath(schema.Module)
+func moduleFromInstance(k *Kernel, inst *module.Instance) (*module.Module, error) {
+	embedded := inst.Package.LookupPath(schema.Module)
 	if !embedded.Exists() {
-		return nil, fmt.Errorf("release %q: embedded #module reference not found at %q", releaseDisplayName(rel), schema.Module)
+		return nil, fmt.Errorf("instance %q: embedded #module reference not found at %q", instanceDisplayName(inst), schema.Module)
 	}
 	return module.NewModuleFromValue(k, embedded)
 }
@@ -145,11 +145,11 @@ func (k *Kernel) Finalize(v cue.Value) (cue.Value, error) {
 	return compile.FinalizeValue(k.cueCtx, v)
 }
 
-func releaseDisplayName(rel *module.Release) string {
-	if rel == nil || rel.Metadata == nil || rel.Metadata.Name == "" {
+func instanceDisplayName(inst *module.Instance) string {
+	if inst == nil || inst.Metadata == nil || inst.Metadata.Name == "" {
 		return "<unknown>"
 	}
-	return rel.Metadata.Name
+	return inst.Metadata.Name
 }
 
 func nonNilStrings(s []string) []string {

@@ -11,10 +11,10 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-func TestRelease_ConfigSchema_Reachable(t *testing.T) {
+func TestInstance_ConfigSchema_Reachable(t *testing.T) {
 	ctx := cuecontext.New()
 	v := ctx.CompileString(`
-kind: "ModuleRelease"
+kind: "ModuleInstance"
 metadata: { name: "demo", namespace: "ns", uuid: "u" }
 #module: {
 	kind: "Module"
@@ -33,22 +33,22 @@ metadata: { name: "demo", namespace: "ns", uuid: "u" }
 `)
 	require.NoError(t, v.Err())
 
-	rel := &module.Release{
-		Metadata: &module.ReleaseMetadata{Name: "demo", Namespace: "ns"},
+	inst := &module.Instance{
+		Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns"},
 		Package:  v,
 	}
 
-	cfg := rel.ConfigSchema()
-	require.True(t, cfg.Exists(), "ConfigSchema must resolve on a release whose #module carries #config")
+	cfg := inst.ConfigSchema()
+	require.True(t, cfg.Exists(), "ConfigSchema must resolve on an instance whose #module carries #config")
 
 	replicas := cfg.LookupPath(cue.ParsePath("replicas"))
 	assert.True(t, replicas.Exists(), "ConfigSchema returned the #config subtree (replicas field reachable)")
 }
 
-func TestRelease_ConfigSchema_MissingConfigPath(t *testing.T) {
+func TestInstance_ConfigSchema_MissingConfigPath(t *testing.T) {
 	ctx := cuecontext.New()
 	v := ctx.CompileString(`
-kind: "ModuleRelease"
+kind: "ModuleInstance"
 metadata: { name: "demo", namespace: "ns", uuid: "u" }
 #module: {
 	metadata: { name: "demo-mod" }
@@ -56,17 +56,17 @@ metadata: { name: "demo", namespace: "ns", uuid: "u" }
 `)
 	require.NoError(t, v.Err())
 
-	rel := &module.Release{
-		Metadata: &module.ReleaseMetadata{Name: "demo"},
+	inst := &module.Instance{
+		Metadata: &module.InstanceMetadata{Name: "demo"},
 		Package:  v,
 	}
 
-	assert.False(t, rel.ConfigSchema().Exists(), "missing #config path must yield zero value")
+	assert.False(t, inst.ConfigSchema().Exists(), "missing #config path must yield zero value")
 }
 
-func TestRelease_ConfigSchema_NilReceiver(t *testing.T) {
-	var rel *module.Release
+func TestInstance_ConfigSchema_NilReceiver(t *testing.T) {
+	var inst *module.Instance
 	assert.NotPanics(t, func() {
-		assert.False(t, rel.ConfigSchema().Exists())
+		assert.False(t, inst.ConfigSchema().Exists())
 	})
 }

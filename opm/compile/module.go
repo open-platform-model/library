@@ -41,7 +41,7 @@ type ComponentSummary struct {
 	TraitFQNs []string
 }
 
-// Module drives the OPM compile pipeline for a single ModuleRelease.
+// Module drives the OPM compile pipeline for a single ModuleInstance.
 //
 // A Module is constructed once per platform and reused across multiple
 // Execute calls. It is not safe for concurrent use (CUE context is single-threaded).
@@ -96,18 +96,18 @@ func NewModule(cueCtx *cue.Context, mp *materialize.MaterializedPlatform, runtim
 // Execute runs matched transformers against the provided component views and
 // returns rendered values, component summaries, and warnings.
 //
-// schemaComponents is the non-finalized components value (from rel.MatchComponents())
+// schemaComponents is the non-finalized components value (from inst.MatchComponents())
 // preserving CUE definition fields needed for metadata extraction.
 // dataComponents is the finalized, constraint-free components value for FillPath injection.
 func (r *Module) Execute(
 	ctx context.Context,
-	rel *module.Release,
+	inst *module.Instance,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
 	plan *MatchPlan,
 ) (*CompileResult, error) {
-	if rel == nil {
-		return nil, fmt.Errorf("release is required")
+	if inst == nil {
+		return nil, fmt.Errorf("instance is required")
 	}
 	if r.platform == nil {
 		return nil, fmt.Errorf("platform is required")
@@ -135,7 +135,7 @@ func (r *Module) Execute(
 	// extraction) and dataComponents (already finalized, no materialize() needed).
 	compiled, warnings, errs := executeTransforms(
 		ctx, cueCtx, plan, r.platform.Transformers,
-		schemaComponents, dataComponents, rel,
+		schemaComponents, dataComponents, inst,
 		r.runtimeName,
 	)
 	if len(errs) > 0 {
@@ -178,7 +178,7 @@ func nonNilWarnings(warnings []string) []string {
 // extractComponentSummaries iterates the schemaComponents CUE value and builds
 // a sorted []ComponentSummary for verbose output.
 //
-// schemaComponents is the value from rel.MatchComponents() which preserves the
+// schemaComponents is the value from inst.MatchComponents() which preserves the
 // definition fields (#resources, #traits) that carry FQN keys.
 func extractComponentSummaries(schemaComponents cue.Value) []ComponentSummary {
 	iter, err := schemaComponents.Fields()

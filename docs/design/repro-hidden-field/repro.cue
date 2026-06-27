@@ -23,7 +23,7 @@ _applied: tf.#DeploymentTransformer.#transform & {
 		}
 	}
 	#context: {
-		#moduleReleaseMetadata: {
+		#moduleInstanceMetadata: {
 			name:      "web-app-demo"
 			namespace: "default"
 			uuid:      "11111111-2222-5333-8444-555555555555"

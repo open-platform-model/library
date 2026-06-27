@@ -84,6 +84,10 @@ func TestTransformers_RenderConcreteWhereClosedPlatformDoesNot(t *testing.T) {
 				repository: "nginx", tag: "1.27", digest: "", pullPolicy: "IfNotPresent", reference: "nginx:1.27" } }
 		}
 	}`)
+	// NOTE: this fixture pins the real pre-rename catalog v0.5.2, whose
+	// deployment-transformer@0.5.2 reads #moduleReleaseMetadata (the old
+	// vocabulary). It is intentionally NOT renamed to #moduleInstanceMetadata —
+	// the context must match the pinned transformer's contract, not core@v1's.
 	ctxv := octx.CompileString(`{
 		#moduleReleaseMetadata: { name: "web-app", namespace: "default", uuid: "11111111-2222-5333-8444-555555555555" }
 		#componentMetadata: { name: "web" }

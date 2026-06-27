@@ -16,14 +16,14 @@ import (
 	"github.com/open-platform-model/library/opm/platform"
 )
 
-// phaseFixture builds a minimal Module + Release + Platform with a single
+// phaseFixture builds a minimal Module + Instance + Platform with a single
 // component declaring one resource FQN, and one transformer in the
 // platform's #composedTransformers / #matchers index that fulfills it.
 // The transformer's output echoes #context fields so tests can confirm the
 // full pipeline ran.
 type phaseFixture struct {
 	mod  *module.Module
-	rel  *module.Release
+	inst *module.Instance
 	plat *materialize.MaterializedPlatform
 }
 
@@ -48,8 +48,8 @@ metadata: {
 	require.NoError(t, modPkg.Err())
 
 	relPkg := ctx.CompileString(`
-kind: "ModuleRelease"
-metadata: { name: "demo", namespace: "ns", uuid: "u-rel" }
+kind: "ModuleInstance"
+metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
 #module: {
 	kind: "Module"
 	metadata: {
@@ -96,7 +96,7 @@ type: "kubernetes"
 			output: {
 				kind: "echo"
 				runtime: #context.#runtimeName
-				release: #context.#moduleReleaseMetadata.name
+				instance: #context.#moduleInstanceMetadata.name
 				component: #context.#componentMetadata.name
 			}
 		}
@@ -122,9 +122,9 @@ type: "kubernetes"
 			},
 			Package: modPkg,
 		},
-		rel: &module.Release{
-			Metadata: &module.ReleaseMetadata{
-				Name: "demo", Namespace: "ns", UUID: "u-rel",
+		inst: &module.Instance{
+			Metadata: &module.InstanceMetadata{
+				Name: "demo", Namespace: "ns", UUID: "u-inst",
 			},
 			Package: relPkg,
 		},
@@ -147,7 +147,7 @@ func TestKernel_Validate_OK(t *testing.T) {
 	require.NoError(t, values.Err())
 
 	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleRelease: f.rel, Values: values,
+		Module: f.mod, ModuleInstance: f.inst, Values: values,
 	})
 	require.NoError(t, err)
 }
@@ -157,7 +157,7 @@ func TestKernel_Validate_NoValues(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleRelease: f.rel,
+		Module: f.mod, ModuleInstance: f.inst,
 	})
 	require.NoError(t, err)
 }
@@ -170,11 +170,11 @@ func TestKernel_Validate_FailureWrapsModuleName(t *testing.T) {
 	require.NoError(t, bad.Err())
 
 	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleRelease: f.rel, Values: bad,
+		Module: f.mod, ModuleInstance: f.inst, Values: bad,
 	})
 	require.Error(t, err)
 	// Error MUST be framed with the module name and walkable as CUE-native.
-	assert.Contains(t, err.Error(), `module "`+f.rel.Metadata.Name+`":`,
+	assert.Contains(t, err.Error(), `module "`+f.inst.Metadata.Name+`":`,
 		"phase method MUST wrap with module-name framing")
 	assert.NotEmpty(t, cueerrors.Errors(err),
 		"wrapped error MUST remain walkable via cueerrors.Errors")
@@ -185,7 +185,7 @@ func TestKernel_Validate_RequiresInputs(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
-		ModuleRelease: f.rel,
+		ModuleInstance: f.inst,
 	}))
 	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
 		Module: f.mod,
@@ -197,7 +197,7 @@ func TestKernel_Match_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	plan, err := k.Match(context.Background(), kernel.MatchInput{
-		ModuleRelease: f.rel, Platform: f.plat,
+		ModuleInstance: f.inst, Platform: f.plat,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, plan)
@@ -212,7 +212,7 @@ func TestKernel_Plan_NoRendered(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Plan(context.Background(), kernel.PlanInput{
-		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		ModuleInstance: f.inst, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -232,15 +232,15 @@ func TestKernel_Plan_RequiresInputs(t *testing.T) {
 	_, err := k.Plan(context.Background(), kernel.PlanInput{
 		Platform: f.plat, RuntimeName: "opm-cli",
 	})
-	require.Error(t, err, "ModuleRelease must be required")
+	require.Error(t, err, "ModuleInstance must be required")
 
 	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		ModuleRelease: f.rel, RuntimeName: "opm-cli",
+		ModuleInstance: f.inst, RuntimeName: "opm-cli",
 	})
 	require.Error(t, err, "Platform must be required")
 
 	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		ModuleRelease: f.rel, Platform: f.plat,
+		ModuleInstance: f.inst, Platform: f.plat,
 	})
 	require.Error(t, err, "RuntimeName must be required")
 }
@@ -250,7 +250,7 @@ func TestKernel_Compile_OK(t *testing.T) {
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: f.rel, Platform: f.plat, RuntimeName: "opm-cli",
+		ModuleInstance: f.inst, Platform: f.plat, RuntimeName: "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -274,21 +274,21 @@ func TestKernel_Compile_OK(t *testing.T) {
 	// concurrent-render-recontract, design.md § Deferred).
 }
 
-// TestKernel_Compile_FromReleaseOnly is a regression test for the slim-input
-// contract: Compile must succeed when given a release whose Package carries an
+// TestKernel_Compile_FromInstanceOnly is a regression test for the slim-input
+// contract: Compile must succeed when given an instance whose Package carries an
 // embedded #module reference, with no separate *module.Module supplied.
-func TestKernel_Compile_FromReleaseOnly(t *testing.T) {
+func TestKernel_Compile_FromInstanceOnly(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
 
 	out, err := k.Compile(context.Background(), kernel.CompileInput{
-		ModuleRelease: f.rel,
-		Platform:      f.plat,
-		RuntimeName:   "opm-cli",
+		ModuleInstance: f.inst,
+		Platform:       f.plat,
+		RuntimeName:    "opm-cli",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Len(t, out.Compiled, 1, "embedded #module on the release is sufficient for Compile")
+	require.Len(t, out.Compiled, 1, "embedded #module on the instance is sufficient for Compile")
 }
 
 // TestRender_ModuleResult_Aliased verifies *compile.ModuleResult resolves to

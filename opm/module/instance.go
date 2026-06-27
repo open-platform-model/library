@@ -8,36 +8,40 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// Release is an OPM #ModuleRelease artifact in the unified artifact shape.
+// Instance is an OPM #ModuleInstance artifact in the unified artifact shape.
 //
 // Package is the source of truth: it is the concrete, values-filled CUE
-// value for the release and every kernel-internal read (components subtree,
+// value for the instance and every kernel-internal read (components subtree,
 // source module, transformer match data) goes through Package.LookupPath
 // with paths from opm/schema.
 //
-// Metadata is an ergonomic decoded projection of the release-level metadata
+// Metadata is an ergonomic decoded projection of the instance-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —
 // when Metadata and the corresponding subtree of Package disagree, Package
 // wins.
-type Release struct {
-	// Metadata is the decoded release-level metadata cache. May be nil when
+//
+// Was: Release
+type Instance struct {
+	// Metadata is the decoded instance-level metadata cache. May be nil when
 	// the metadata could not be decoded.
-	Metadata *ReleaseMetadata
+	Metadata *InstanceMetadata
 
-	// Package is the loaded, concrete CUE value for the release artifact.
+	// Package is the loaded, concrete CUE value for the instance artifact.
 	// Source of truth for every field reachable via opm/schema, including
 	// the embedded #module reference at schema.Module.
 	Package cue.Value
 }
 
-// ReleaseMetadata is a re-export of [schema.ReleaseMetadata] so callers can
-// keep working with `module.ReleaseMetadata`.
-type ReleaseMetadata = schema.ReleaseMetadata
+// InstanceMetadata is a re-export of [schema.InstanceMetadata] so callers can
+// keep working with `module.InstanceMetadata`.
+//
+// Was: ReleaseMetadata
+type InstanceMetadata = schema.InstanceMetadata
 
 // MatchComponents returns the schema-preserving components value used for
 // matching. The returned value keeps definition fields such as #resources,
 // #traits, and #blueprints.
-func (r *Release) MatchComponents() cue.Value {
+func (r *Instance) MatchComponents() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
@@ -50,7 +54,7 @@ func (r *Release) MatchComponents() cue.Value {
 // All failure modes return the zero cue.Value (not an error): a nil
 // receiver, a missing #module reference, or a missing #config definition on
 // the embedded module.
-func (r *Release) ConfigSchema() cue.Value {
+func (r *Instance) ConfigSchema() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
@@ -61,28 +65,32 @@ func (r *Release) ConfigSchema() cue.Value {
 	return mod.LookupPath(schema.Config)
 }
 
-// The methods below let *Release satisfy schema.ReleaseView — the surface
+// The methods below let *Instance satisfy schema.InstanceView — the surface
 // that BuildTransformerContext uses to assemble a transformer context
 // without dragging opm/module's types behind it.
 
-// ReleaseName returns the release's metadata.name.
-func (r *Release) ReleaseName() string {
+// InstanceName returns the instance's metadata.name.
+//
+// Was: ReleaseName
+func (r *Instance) InstanceName() string {
 	if r == nil || r.Metadata == nil {
 		return ""
 	}
 	return r.Metadata.Name
 }
 
-// Namespace returns the release's metadata.namespace.
-func (r *Release) Namespace() string {
+// Namespace returns the instance's metadata.namespace.
+func (r *Instance) Namespace() string {
 	if r == nil || r.Metadata == nil {
 		return ""
 	}
 	return r.Metadata.Namespace
 }
 
-// ReleaseUUID returns the release's metadata.uuid.
-func (r *Release) ReleaseUUID() string {
+// InstanceUUID returns the instance's metadata.uuid.
+//
+// Was: ReleaseUUID
+func (r *Instance) InstanceUUID() string {
 	if r == nil || r.Metadata == nil {
 		return ""
 	}
@@ -92,27 +100,27 @@ func (r *Release) ReleaseUUID() string {
 // ModuleFQN returns the source module's fully qualified name. The value is
 // read from Package.LookupPath(schema.ModuleMetadataPath).fqn so that
 // Package remains the source of truth for module identity.
-func (r *Release) ModuleFQN() string {
+func (r *Instance) ModuleFQN() string {
 	return r.lookupModuleMetadataString("fqn")
 }
 
 // ModuleVersion returns the source module's version, read from Package via
 // the ModuleMetadataPath path.
-func (r *Release) ModuleVersion() string {
+func (r *Instance) ModuleVersion() string {
 	return r.lookupModuleMetadataString("version")
 }
 
-// Labels returns the release-level labels (already merged with module labels
+// Labels returns the instance-level labels (already merged with module labels
 // at CUE evaluation time).
-func (r *Release) Labels() map[string]string {
+func (r *Instance) Labels() map[string]string {
 	if r == nil || r.Metadata == nil {
 		return nil
 	}
 	return r.Metadata.Labels
 }
 
-// Annotations returns the release-level annotations.
-func (r *Release) Annotations() map[string]string {
+// Annotations returns the instance-level annotations.
+func (r *Instance) Annotations() map[string]string {
 	if r == nil || r.Metadata == nil {
 		return nil
 	}
@@ -122,7 +130,7 @@ func (r *Release) Annotations() map[string]string {
 // lookupModuleMetadataString reads a string field under the schema's
 // ModuleMetadataPath. Returns the empty string on any lookup or decode
 // failure — callers treat this as "metadata not available".
-func (r *Release) lookupModuleMetadataString(field string) string {
+func (r *Instance) lookupModuleMetadataString(field string) string {
 	if r == nil {
 		return ""
 	}
@@ -141,19 +149,21 @@ func (r *Release) lookupModuleMetadataString(field string) string {
 	return s
 }
 
-// NewReleaseFromValue builds a *Release from a raw CUE artifact value. The
+// NewInstanceFromValue builds a *Instance from a raw CUE artifact value. The
 // supplied k is currently unused but preserved in the signature so future
 // kernel-scoped state can be threaded without an API break.
 //
-// The function decodes ReleaseMetadata via schema.DecodeReleaseMetadata and
+// The function decodes InstanceMetadata via schema.DecodeInstanceMetadata and
 // stores the input cue.Value unmodified in Package. Errors return a nil
-// *Release.
-func NewReleaseFromValue(_ CueContextOwner, v cue.Value) (*Release, error) {
-	meta, err := schema.DecodeReleaseMetadata(v)
+// *Instance.
+//
+// Was: NewReleaseFromValue
+func NewInstanceFromValue(_ CueContextOwner, v cue.Value) (*Instance, error) {
+	meta, err := schema.DecodeInstanceMetadata(v)
 	if err != nil {
-		return nil, fmt.Errorf("decoding release metadata: %w", err)
+		return nil, fmt.Errorf("decoding instance metadata: %w", err)
 	}
-	return &Release{
+	return &Instance{
 		Metadata: meta,
 		Package:  v,
 	}, nil

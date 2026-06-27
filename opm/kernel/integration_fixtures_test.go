@@ -20,13 +20,13 @@ import (
 // (opm/internal/registrytest); the core schema resolves from the warm
 // workspace cache. No localhost:5000, so these run in CI under any condition.
 //
-// Releases are hand-authored CUE values rather than loaded from disk: a
+// Instances are hand-authored CUE values rather than loaded from disk: a
 // component's #resources / #traits are keyed by the catalog's stamped FQNs
 // (`<path>/resources/<name>@<version>` etc.), which is all the matcher and
 // compile phases read. This keeps the harness independent of on-disk fixtures
 // and of any module that imports the real catalog.
 
-// compSpec describes one component to author into a release: its name, the
+// compSpec describes one component to author into an instance: its name, the
 // short names of the catalog resources/traits it declares, and its labels.
 type compSpec struct {
 	name      string
@@ -36,7 +36,7 @@ type compSpec struct {
 }
 
 // resFQN / traitFQN reproduce the FQNs registrytest.BuildCatalog stamps so
-// release components key against the same strings the matcher index uses.
+// instance components key against the same strings the matcher index uses.
 func resFQN(path, name, version string) string {
 	return fmt.Sprintf("%s/resources/%s@%s", path, name, version)
 }
@@ -68,18 +68,18 @@ func subscribe(paths ...string) string {
 	return b.String()
 }
 
-// buildRelease assembles a hermetic *module.Release: an embedded #module (with
-// an optional #config schema), release metadata, optional values, and the
+// buildInstance assembles a hermetic *module.Instance: an embedded #module (with
+// an optional #config schema), instance metadata, optional values, and the
 // authored components. configSchema and valuesSrc are raw CUE struct bodies
-// ("" to omit). It is constructed through k.NewReleaseFromValue so the harness
+// ("" to omit). It is constructed through k.NewInstanceFromValue so the harness
 // exercises that constructor path.
-func buildRelease(
+func buildInstance(
 	t *testing.T,
 	k *kernel.Kernel,
 	catPath, version string,
 	configSchema, valuesSrc string,
 	comps ...compSpec,
-) *module.Release {
+) *module.Instance {
 	t.Helper()
 
 	var cb strings.Builder
@@ -118,7 +118,7 @@ func buildRelease(
 	}
 
 	src := fmt.Sprintf(`
-kind: "ModuleRelease"
+kind: "ModuleInstance"
 metadata: { name: "demo", namespace: "ns", uuid: "11111111-2222-5333-8444-555555555555" }
 #module: {
 	kind: "Module"
@@ -127,11 +127,11 @@ metadata: { name: "demo", namespace: "ns", uuid: "11111111-2222-5333-8444-555555
 components: %s
 `, configField, valuesField, cb.String())
 
-	v := k.CueContext().CompileString(src, cue.Filename("release.cue"))
-	require.NoError(t, v.Err(), "compiling hermetic release")
-	rel, err := k.NewReleaseFromValue(v)
-	require.NoError(t, err, "constructing release from value")
-	return rel
+	v := k.CueContext().CompileString(src, cue.Filename("instance.cue"))
+	require.NoError(t, v.Err(), "compiling hermetic instance")
+	inst, err := k.NewInstanceFromValue(v)
+	require.NoError(t, err, "constructing instance from value")
+	return inst
 }
 
 func labelsLiteral(labels map[string]string) string {

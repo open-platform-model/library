@@ -16,7 +16,7 @@ The kernel does **not** own:
 - Logging output (loggers are passed in by the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity beyond the `core.Identity` tuple — adapters wrap rendered values into platform-specific resources.
-- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleRelease`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
+- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
 
 ## Artifact types
 
@@ -25,7 +25,7 @@ The kernel accepts exactly three artifact types — every input ultimately resol
 | Artifact         | Schema definition          | Go type              | Role                                                                                          |
 | ---------------- | -------------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
 | `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).     |
-| `ModuleRelease`  | `#ModuleRelease`           | `*module.Release`    | Per-deployment instantiation of a `Module` with concrete user values.                         |
+| `ModuleInstance`  | `#ModuleInstance`           | `*module.Instance`    | Per-deployment instantiation of a `Module` with concrete user values.                         |
 | `Platform`       | `#Platform`                | `*platform.Platform` | Composed registry of Modules; supplies `#composedTransformers` and `#matchers` to the kernel. |
 
 `#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
@@ -40,7 +40,7 @@ opm/
   errors/                 Sentinels, structured errors, grouped CUE diagnostics
   schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
-  module/                 Module / Release model and value-validation accessors
+  module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — kernel's sole input for matching and execution
   compile/                finalize -> match -> execute -> emit pipeline
   materialize/            Resolve a Platform's #registry subscriptions into a sealed MaterializedPlatform
@@ -49,7 +49,7 @@ opm/
     loader/registry/      Load a published module from an OCI registry by path@version
     loader/bytes/         In-memory loading (skeleton; deferred implementation)
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
-    synth/                Release / Platform synthesis from typed inputs (no file / no bytes)
+    synth/                Instance / Platform synthesis from typed inputs (no file / no bytes)
   internal/               Test-only cross-package internals (schematest, registrytest)
 cmd/
   flow-inspect/           Internal diagnostic CLI for the compile pipeline
@@ -66,39 +66,39 @@ The OPM core schema is no longer vendored or embedded — it is fetched at runti
 ## Compile pipeline
 
 ```
-loaderfile.LoadReleasePackage  ->  cue.Value (release artifact)
-Kernel.ProcessModuleRelease    ->  *module.Release          (validated, concrete)
+loaderfile.LoadInstancePackage  ->  cue.Value (release artifact)
+Kernel.ProcessModuleInstance    ->  *module.Instance          (validated, concrete)
 Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenance)
         |
         +-- compile.FinalizeValue   strip schema constraints from components
         +-- compile.Match           component <-> transformer pairing (paired output)
         +-- compile.Module.Execute  per-pair transformer execution
                 |
-                +-- FillPath #component, #context.{moduleReleaseMetadata, componentMetadata, runtimeName}
+                +-- FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
                 +-- decode `output` (kind-based dispatch: ListKind | StructKind)
-                +-- emit []*core.Compiled carrying Release/Component/Transformer FQN provenance
+                +-- emit []*core.Compiled carrying Instance/Component/Transformer FQN provenance
 ```
 
-The kernel exposes four phase-explicit methods that map onto frontend subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match), `Kernel.Plan` (plan / preview), and `Kernel.Compile` (apply / render). The old free-function entry points (`compile.CompileModuleRelease`, `compile.ProcessModuleRelease`, `module.ParseModuleRelease`) have been removed — construct a `Kernel` and call its methods directly.
+The kernel exposes four phase-explicit methods that map onto frontend subcommands: `Kernel.Validate` (vet), `Kernel.Match` (match), `Kernel.Plan` (plan / preview), and `Kernel.Compile` (apply / render). The old free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods directly.
 
 `*core.Compiled` is the kernel's terminal output. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
 
 ## Quick start
 
-See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, Platform composition, and compiling a Release into rendered `*core.Compiled` values.
+See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, Platform composition, and compiling a Instance into rendered `*core.Compiled` values.
 
 ## API stability
 
 The library follows SemVer 2.0.0. The public surface is everything under `opm/`. Two distinct compatibility tracks coexist and must not be confused:
 
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
-- **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleRelease`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
+- **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleInstance`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
 The two tracks are independent: within an OPM schema major (`@v0`), additive shape changes are absorbed by floating-major resolution and require no Go-side bump; a shape break in the schema is itself a coordinated library-breaking event.
 
 ## OPM schema resolution
 
-The library does NOT vendor or embed the OPM core schema. At runtime the kernel resolves `opmodel.dev/core@v0` through CUE's module system against `CUE_REGISTRY`, then memoizes the built `cue.Value` in a per-`Kernel` `*schema.Cache`.
+The library does NOT vendor or embed the OPM core schema. At runtime the kernel resolves `opmodel.dev/core@v1` through CUE's module system against `CUE_REGISTRY`, then memoizes the built `cue.Value` in a per-`Kernel` `*schema.Cache`.
 
 Key pieces:
 
@@ -113,10 +113,10 @@ Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a f
 
 Today this layer holds:
 
-- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadReleasePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
+- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
 - `opm/helper/loader/bytes` — in-memory loader. **Skeleton only**, no exported functions yet. The full implementation lands when a concrete consumer (Crossplane composition fn, fuzzing harness) pulls on the design.
 - `opm/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
-- `opm/helper/synth` — Release synthesis (`Release`): build a `ModuleRelease` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeRelease`, which chains synth + validate in one call.
+- `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
@@ -137,7 +137,7 @@ task check
 
 - `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
 - `openspec/config.yaml` — normative constitution source.
-- `opmodel.dev/core@v0` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
+- `opmodel.dev/core@v1` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/` — flow diagrams and pipeline notes (`kernel-validate-flow.md`, `compile-pipeline-known-gaps.md`).
 - `enhancements/` — long-form design proposals (kernel redesign, compiler/runtime split, platform construct, module context, claims).

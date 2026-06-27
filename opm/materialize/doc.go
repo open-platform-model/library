@@ -1,7 +1,7 @@
 // Package materialize realizes a #Platform's path-keyed catalog
 // subscriptions into a sealed [MaterializedPlatform].
 //
-// A #Platform authored against opmodel.dev/core@v0.3.0 carries only a
+// A #Platform authored against opmodel.dev/core@v1.0.0-alpha.1 carries only a
 // #registry of subscriptions; its #composedTransformers / #matchers slots
 // are empty (the schema marks them optional, kernel-filled).
 //

@@ -6,10 +6,12 @@ import (
 	"cuelang.org/go/cue"
 )
 
-// ModuleReleaseContextData is the Go-side mirror of
-// #TransformerContext.#moduleReleaseMetadata. Field names use json tags that
+// ModuleInstanceContextData is the Go-side mirror of
+// #TransformerContext.#moduleInstanceMetadata. Field names use json tags that
 // match the CUE definition fields.
-type ModuleReleaseContextData struct {
+//
+// Was: ModuleReleaseContextData
+type ModuleInstanceContextData struct {
 	Name        string            `json:"name"`
 	Namespace   string            `json:"namespace"`
 	FQN         string            `json:"fqn"`
@@ -28,7 +30,7 @@ type ComponentContextData struct {
 }
 
 // BuildTransformerContext constructs the #context value for a single
-// (release, component, transformer) pair. The caller fills the returned value
+// (instance, component, transformer) pair. The caller fills the returned value
 // at schema.Context on the unified transformer.
 //
 // schemaComp must be the schema-preserving component value (the one that
@@ -36,7 +38,7 @@ type ComponentContextData struct {
 // Decode errors on those metadata fields surface as warnings, not errors.
 func BuildTransformerContext(
 	cueCtx *cue.Context,
-	rel ReleaseView,
+	inst InstanceView,
 	compName string,
 	schemaComp cue.Value,
 	runtimeName string,
@@ -44,21 +46,21 @@ func BuildTransformerContext(
 	if cueCtx == nil {
 		return cue.Value{}, nil, fmt.Errorf("cue context is required")
 	}
-	if rel == nil {
-		return cue.Value{}, nil, fmt.Errorf("release view is required")
+	if inst == nil {
+		return cue.Value{}, nil, fmt.Errorf("instance view is required")
 	}
 	if runtimeName == "" {
 		return cue.Value{}, nil, fmt.Errorf("runtimeName must be non-empty")
 	}
 
-	mrm := ModuleReleaseContextData{
-		Name:        rel.ReleaseName(),
-		Namespace:   rel.Namespace(),
-		FQN:         rel.ModuleFQN(),
-		Version:     rel.ModuleVersion(),
-		UUID:        rel.ReleaseUUID(),
-		Labels:      rel.Labels(),
-		Annotations: rel.Annotations(),
+	mim := ModuleInstanceContextData{
+		Name:        inst.InstanceName(),
+		Namespace:   inst.Namespace(),
+		FQN:         inst.ModuleFQN(),
+		Version:     inst.ModuleVersion(),
+		UUID:        inst.InstanceUUID(),
+		Labels:      inst.Labels(),
+		Annotations: inst.Annotations(),
 	}
 
 	var warnings []string
@@ -89,7 +91,7 @@ func BuildTransformerContext(
 		return cue.Value{}, warnings, fmt.Errorf("building context root: %w", err)
 	}
 	ctxVal := root.
-		FillPath(cue.ParsePath("#moduleReleaseMetadata"), cueCtx.Encode(mrm)).
+		FillPath(cue.ParsePath("#moduleInstanceMetadata"), cueCtx.Encode(mim)).
 		FillPath(cue.ParsePath("#componentMetadata"), cueCtx.Encode(comp)).
 		FillPath(cue.ParsePath("#runtimeName"), cueCtx.Encode(runtimeName))
 	if err := ctxVal.Err(); err != nil {

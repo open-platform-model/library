@@ -16,14 +16,14 @@ Source files:
 - `opm/kernel/validate.go` — `ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, the internal `runValidate` + `walkDisallowed` + `fieldNotAllowedError`
 - `opm/kernel/source.go` — `Source`, `ValidateOption`, `Partial()`
 - `opm/kernel/source_loader.go` — `LoadSourceFromFile`, `LoadSourceFromBytes`, `LoadSourceFromString`
-- `opm/kernel/validate_typed.go` — `ValidateModuleValues*` / `ValidateReleaseValues*` typed shortcuts
+- `opm/kernel/validate_typed.go` — `ValidateModuleValues*` / `ValidateInstanceValues*` typed shortcuts
 - `opm/kernel/inputs.go:11` — `ValidateInput`
 - `opm/module/module.go`, `opm/module/release.go` — artifact types and `ConfigSchema()` accessors
 - `opm/api/api.go`, `opm/api/registry.go` — version binding
 
 ## Class Diagram
 
-Types involved in the call. `Module` and `Release` carry the `cue.Value` `Package` as source of truth; `Metadata` is a decoded cache. The per-version `Binding` supplies the CUE paths the kernel reads. Errors flow as `cuelang.org/go/cue/errors.Error` — no library-defined wrapper type.
+Types involved in the call. `Module` and `Instance` carry the `cue.Value` `Package` as source of truth; `Metadata` is a decoded cache. The per-version `Binding` supplies the CUE paths the kernel reads. Errors flow as `cuelang.org/go/cue/errors.Error` — no library-defined wrapper type.
 
 ```mermaid
 classDiagram
@@ -39,9 +39,9 @@ classDiagram
         +ValidateModuleValues(m, values) (cue.Value, error)
         +ValidateModuleValuesPartial(m, values) (cue.Value, error)
         +ValidateModuleValuesDetailed(m, sources, opts) (cue.Value, error)
-        +ValidateReleaseValues(r, values) (cue.Value, error)
-        +ValidateReleaseValuesPartial(r, values) (cue.Value, error)
-        +ValidateReleaseValuesDetailed(r, sources, opts) (cue.Value, error)
+        +ValidateInstanceValues(r, values) (cue.Value, error)
+        +ValidateInstanceValuesPartial(r, values) (cue.Value, error)
+        +ValidateInstanceValuesDetailed(r, sources, opts) (cue.Value, error)
         +LoadSourceFromFile(path) (Source, error)
         +LoadSourceFromBytes(origin, name, b) (Source, error)
         +LoadSourceFromString(origin, name, s) (Source, error)
@@ -60,7 +60,7 @@ classDiagram
 
     class ValidateInput {
         +Module *module.Module
-        +ModuleRelease *module.Release
+        +ModuleInstance *module.Instance
         +Values cue.Value
     }
 
@@ -71,13 +71,13 @@ classDiagram
         +ConfigSchema() cue.Value
     }
 
-    class Release {
+    class Instance {
         +APIVersion apiversion.Version
-        +Metadata *ReleaseMetadata
+        +Metadata *InstanceMetadata
         +Package cue.Value
         +MatchComponents() cue.Value
         +ConfigSchema() cue.Value
-        +ReleaseName() string
+        +InstanceName() string
         +Namespace() string
     }
 
@@ -86,7 +86,7 @@ classDiagram
         +Version() apiversion.Version
         +Paths() Paths
         +DecodeModuleMetadata(v) ModuleMetadata
-        +DecodeReleaseMetadata(v) ReleaseMetadata
+        +DecodeInstanceMetadata(v) InstanceMetadata
     }
 
     class Paths {
@@ -115,9 +115,9 @@ classDiagram
     Kernel ..> Source : consumes (Detailed)
     Kernel ..> ValidateOption : consumes (Detailed)
     ValidateInput o-- Module
-    ValidateInput o-- Release
+    ValidateInput o-- Instance
     Module --> Binding : looked up via api.Lookup(APIVersion)
-    Release --> Binding : looked up via api.Lookup(APIVersion)
+    Instance --> Binding : looked up via api.Lookup(APIVersion)
     Binding --> Paths : returns
     Kernel ..> CueErrorTree : returns on fail (wrapped with module name in phase method)
     fieldNotAllowedError ..|> CueErrorTree : implements
@@ -140,13 +140,13 @@ sequenceDiagram
     participant W as walkDisallowed
     participant CUE as cue engine
 
-    Caller->>K: Validate(ctx, ValidateInput{Module, ModuleRelease, Values})
+    Caller->>K: Validate(ctx, ValidateInput{Module, ModuleInstance, Values})
 
     alt Module == nil
         K-->>Caller: error "ValidateInput.Module is required"
     end
-    alt ModuleRelease == nil
-        K-->>Caller: error "ValidateInput.ModuleRelease is required"
+    alt ModuleInstance == nil
+        K-->>Caller: error "ValidateInput.ModuleInstance is required"
     end
     alt !Values.Exists()
         K-->>Caller: nil (no values = success)
@@ -165,7 +165,7 @@ sequenceDiagram
         K-->>Caller: nil (no schema = success)
     end
 
-    K->>K: releaseDisplayName(ModuleRelease)<br/>→ Metadata.Name or "<unknown>"
+    K->>K: releaseDisplayName(ModuleInstance)<br/>→ Metadata.Name or "<unknown>"
 
     K->>V: k.ValidateConfig(schema, values)
     V->>R: runValidate(schema, values, requireConcrete=true)
@@ -206,7 +206,7 @@ sequenceDiagram
 ### 1. Input guards
 
 - `in.Module == nil` → `fmt.Errorf("ValidateInput.Module is required")`
-- `in.ModuleRelease == nil` → `fmt.Errorf("ValidateInput.ModuleRelease is required")`
+- `in.ModuleInstance == nil` → `fmt.Errorf("ValidateInput.ModuleInstance is required")`
 - `!in.Values.Exists()` (zero `cue.Value`) → `nil` (treated as "no values supplied" — success)
 
 ### 2. Resolve per-version binding
@@ -271,8 +271,8 @@ Catches:
 
 Two branches of the validation surface:
 
-- **Single value** (`ValidateConfig`, `ValidateConfigPartial`, `ValidateModuleValues`, `ValidateReleaseValues` and their `Partial` counterparts) — caller supplies one pre-merged `cue.Value`. Used by `Kernel.Validate`, `Kernel.ProcessModuleRelease`, admission webhooks that see a single `values:` field on a CR.
-- **Layered** (`ValidateConfigDetailed`, `ValidateModuleValuesDetailed`, `ValidateReleaseValuesDetailed`) — caller supplies an ordered `[]Source`; the kernel unifies in stack order then validates the merged value. Per-source attribution flows through `token.Pos.Filename`, populated from `cue.Filename(Origin)` at compile time.
+- **Single value** (`ValidateConfig`, `ValidateConfigPartial`, `ValidateModuleValues`, `ValidateInstanceValues` and their `Partial` counterparts) — caller supplies one pre-merged `cue.Value`. Used by `Kernel.Validate`, `Kernel.ProcessModuleInstance`, admission webhooks that see a single `values:` field on a CR.
+- **Layered** (`ValidateConfigDetailed`, `ValidateModuleValuesDetailed`, `ValidateInstanceValuesDetailed`) — caller supplies an ordered `[]Source`; the kernel unifies in stack order then validates the merged value. Per-source attribution flows through `token.Pos.Filename`, populated from `cue.Filename(Origin)` at compile time.
 
 The detailed branch is what frontends with multiple values sources reach for: CLI `-f a.cue -f b.cue`, operator `ConfigMap → Secret → CR overlay`, XR composition function input. The single-value branch is the primitive everything else builds on.
 
@@ -280,8 +280,8 @@ The detailed branch is what frontends with multiple values sources reach for: CL
 
 ## What `Validate` Does NOT Do
 
-- Does not fill `values` into the release `Package` — that happens in `Kernel.ProcessModuleRelease` (`opm/kernel/process.go:29`).
-- Does not decode release metadata — also `ProcessModuleRelease`.
+- Does not fill `values` into the release `Package` — that happens in `Kernel.ProcessModuleInstance` (`opm/kernel/process.go:29`).
+- Does not decode release metadata — also `ProcessModuleInstance`.
 - Does not match components against platform transformers — that is `Kernel.Match`.
 - Does not produce rendered output — that is `Kernel.Compile` / `Kernel.Plan`.
 

@@ -12,9 +12,9 @@ type ValidateInput struct {
 	// Module supplies the `#config` schema via its Package. Required.
 	Module *module.Module
 
-	// ModuleRelease provides the release context (name, namespace) used
+	// ModuleInstance provides the instance context (name, namespace) used
 	// in diagnostic messages. Required.
-	ModuleRelease *module.Release
+	ModuleInstance *module.Instance
 
 	// Values is the user-supplied values cue.Value to validate. The zero
 	// cue.Value is treated as "no values" and Validate returns nil without
@@ -22,13 +22,13 @@ type ValidateInput struct {
 	Values cue.Value
 }
 
-// MatchInput is the input for [Kernel.Match]. The release artifact is the
+// MatchInput is the input for [Kernel.Match]. The instance artifact is the
 // sole module-side handle: the source module, when needed, is reachable via
-// `ModuleRelease.Package` at the binding's `Paths().Module`.
+// `ModuleInstance.Package` at the binding's `Paths().Module`.
 type MatchInput struct {
-	// ModuleRelease supplies the components value via
-	// [module.Release.MatchComponents]. Required.
-	ModuleRelease *module.Release
+	// ModuleInstance supplies the components value via
+	// [module.Instance.MatchComponents]. Required.
+	ModuleInstance *module.Instance
 
 	// Platform is the materialized platform whose #composedTransformers and
 	// #matchers index drive the matcher. Required. Callers MUST Materialize a
@@ -36,14 +36,14 @@ type MatchInput struct {
 	Platform *materialize.MaterializedPlatform
 }
 
-// PlanInput is the input for [Kernel.Plan]. The release artifact is the sole
+// PlanInput is the input for [Kernel.Plan]. The instance artifact is the sole
 // module-side handle: the `#config` schema and module-level metadata are
-// reachable via `ModuleRelease.ConfigSchema()` and the binding's
+// reachable via `ModuleInstance.ConfigSchema()` and the binding's
 // `Paths().ModuleMetadata`.
 type PlanInput struct {
-	// ModuleRelease supplies release-level metadata and components.
+	// ModuleInstance supplies instance-level metadata and components.
 	// Required.
-	ModuleRelease *module.Release
+	ModuleInstance *module.Instance
 
 	// Values is the user-supplied values cue.Value to validate. Optional;
 	// the zero cue.Value skips validation.
@@ -59,14 +59,14 @@ type PlanInput struct {
 	RuntimeName string
 }
 
-// CompileInput is the input for [Kernel.Compile]. The release artifact is
+// CompileInput is the input for [Kernel.Compile]. The instance artifact is
 // the sole module-side handle: the `#config` schema and module-level metadata
-// are reachable via `ModuleRelease.ConfigSchema()` and the binding's
+// are reachable via `ModuleInstance.ConfigSchema()` and the binding's
 // `Paths().ModuleMetadata`.
 type CompileInput struct {
-	// ModuleRelease supplies release-level metadata and components.
+	// ModuleInstance supplies instance-level metadata and components.
 	// Required.
-	ModuleRelease *module.Release
+	ModuleInstance *module.Instance
 
 	// Values is the user-supplied values cue.Value to validate. Optional;
 	// the zero cue.Value skips validation.

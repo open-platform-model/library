@@ -14,12 +14,12 @@ var (
 	// Artifact root.
 	Metadata = cue.ParsePath("metadata")
 
-	// Module release.
+	// Module instance.
 	Components         = cue.ParsePath("components")
 	Values             = cue.ParsePath("values")
 	Config             = cue.MakePath(cue.Def("config"))
-	Module             = cue.MakePath(cue.Def("module"))         // release's reference to its source #Module
-	ModuleMetadataPath = cue.MakePath(cue.Def("moduleMetadata")) // release-side projection of #module.metadata. Suffixed -Path to avoid collision with the ModuleMetadata struct type.
+	Module             = cue.MakePath(cue.Def("module"))         // instance's reference to its source #Module
+	ModuleMetadataPath = cue.MakePath(cue.Def("moduleMetadata")) // instance-side projection of #module.metadata. Suffixed -Path to avoid collision with the ModuleMetadata struct type.
 
 	// Module-internal field. DebugValues is a Module field — NOT a separate
 	// kernel artifact. Frontends that want a debug overlay read it from
@@ -55,10 +55,11 @@ var (
 	Context   = cue.MakePath(cue.Def("context"))
 	Output    = cue.ParsePath("output")
 
-	// Sub-paths of #context filled per (release, component, transformer) pair.
-	ContextModuleReleaseMetadata = cue.MakePath(cue.Def("context"), cue.Def("moduleReleaseMetadata"))
-	ContextComponentMetadata     = cue.MakePath(cue.Def("context"), cue.Def("componentMetadata"))
-	ContextRuntimeName           = cue.MakePath(cue.Def("context"), cue.Def("runtimeName"))
+	// Sub-paths of #context filled per (instance, component, transformer) pair.
+	// Was: ContextModuleReleaseMetadata
+	ContextModuleInstanceMetadata = cue.MakePath(cue.Def("context"), cue.Def("moduleInstanceMetadata"))
+	ContextComponentMetadata      = cue.MakePath(cue.Def("context"), cue.Def("componentMetadata"))
+	ContextRuntimeName            = cue.MakePath(cue.Def("context"), cue.Def("runtimeName"))
 
 	// Component sub-paths.
 	//

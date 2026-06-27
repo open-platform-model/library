@@ -1,7 +1,7 @@
 package schema
 
 // ModuleMetadata contains module-level identity and version information.
-// This is the module's canonical metadata, distinct from the release it is
+// This is the module's canonical metadata, distinct from the instance it is
 // deployed as. Populated by DecodeModuleMetadata.
 type ModuleMetadata struct {
 	// Name is the canonical module name from module.metadata.name (kebab-case).
@@ -31,23 +31,25 @@ type ModuleMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// ReleaseMetadata contains release-level identity information.
+// InstanceMetadata contains instance-level identity information.
 // Used for inventory tracking, resource labeling, and CLI output.
-type ReleaseMetadata struct {
-	// Name is the release name (from --name or module.metadata.name).
+//
+// Was: ReleaseMetadata
+type InstanceMetadata struct {
+	// Name is the instance name (from --name or module.metadata.name).
 	Name string `json:"name"`
 
 	// Namespace is the target namespace.
 	Namespace string `json:"namespace"`
 
-	// UUID is the release identity UUID.
+	// UUID is the instance identity UUID.
 	// Computed by CUE as SHA1(OPMNamespace, moduleUUID:name:namespace).
 	UUID string `json:"uuid"`
 
-	// Labels are the merged release labels (module labels + standard opm labels).
+	// Labels are the merged instance labels (module labels + standard opm labels).
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// Annotations are the merged release annotations.
+	// Annotations are the merged instance annotations.
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
@@ -71,14 +73,16 @@ type PlatformMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// ReleaseView is the read-only view of a module release that
+// InstanceView is the read-only view of a module instance that
 // BuildTransformerContext needs. The interface exists so the context builder
 // stays decoupled from opm/module; any caller-supplied type that exposes
 // these accessors can drive context construction (e.g. tests).
-type ReleaseView interface {
-	ReleaseName() string
+//
+// Was: ReleaseView
+type InstanceView interface {
+	InstanceName() string
 	Namespace() string
-	ReleaseUUID() string
+	InstanceUUID() string
 	ModuleFQN() string
 	ModuleVersion() string
 	Labels() map[string]string

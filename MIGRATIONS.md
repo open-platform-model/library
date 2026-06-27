@@ -94,6 +94,40 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 | `mp.Package.LookupPath(schema.MatchersResources)` | `mp.Matchers.LookupPath(cue.ParsePath("resources"))` |
 | `mp.Package.LookupPath(schema.MatchersTraits)` | `mp.Matchers.LookupPath(cue.ParsePath("traits"))` |
 | `mp.Package` (for `#registry` / metadata / diagnostics) | `mp.Source.Package` (the unfilled closed platform spec) |
+### Changed — `rename-release-to-instance` (BREAKING)
+
+Renames the deployable-artifact family from `Release` to `Instance` vocabulary across the Go surface, the wire `kind` string, and the schema label domain (enhancement [0002](enhancements/), slice L1). Behavior is unchanged; this is a pure rename. Ships on the `v1.0.0-alpha.N` line and pins `opmodel.dev/core@v1` `v1.0.0-alpha.1` (was `@v0`).
+
+**Go API rename — every `Release` symbol becomes its `Instance` form:**
+
+| Old | New |
+| --- | --- |
+| `module.Release` (type) | `module.Instance` |
+| `module.ReleaseMetadata` / `schema.ReleaseMetadata` | `module.InstanceMetadata` / `schema.InstanceMetadata` |
+| `schema.ReleaseView` | `schema.InstanceView` |
+| `(*module.Release).ReleaseName()` / `.ReleaseUUID()` | `(*module.Instance).InstanceName()` / `.InstanceUUID()` |
+| `module.NewReleaseFromValue` | `module.NewInstanceFromValue` |
+| `schema.DecodeReleaseMetadata` | `schema.DecodeInstanceMetadata` |
+| `schema.ModuleReleaseContextData` / `schema.ContextModuleReleaseMetadata` | `schema.ModuleInstanceContextData` / `schema.ContextModuleInstanceMetadata` |
+| `synth.Release` / `synth.ReleaseInput` | `synth.Instance` / `synth.InstanceInput` |
+| `Kernel.ProcessModuleRelease` | `Kernel.ProcessModuleInstance` |
+| `Kernel.SynthesizeRelease` | `Kernel.SynthesizeInstance` |
+| `Kernel.LoadReleasePackage` / `Kernel.NewReleaseFromValue` | `Kernel.LoadInstancePackage` / `Kernel.NewInstanceFromValue` |
+| `Kernel.ValidateReleaseValues{,Partial,Detailed}` | `Kernel.ValidateInstanceValues{,Partial,Detailed}` |
+| `core.Resource.Release()` / `core.Compiled.Release` | `core.Resource.Instance()` / `core.Compiled.Instance` |
+| `loaderfile.LoadReleasePackage` | `loaderfile.LoadInstancePackage` |
+
+**Wire / schema (must match `core@v1`):**
+
+- Artifact `kind` string `"ModuleRelease"` → `"ModuleInstance"` (the loader shape gate's `ExpectedKind`).
+- Transformer-context path `#moduleReleaseMetadata` → `#moduleInstanceMetadata`.
+- Label domain `module-release.opmodel.dev/{name,uuid}` → `module-instance.opmodel.dev/{name,uuid}` (stamped by the `core` schema; the library only asserts it in tests).
+
+**Migration recipe:** mechanical rename — replace each `*Release*` identifier above with its `*Instance*` form; flip the `kind` literal and any `#moduleReleaseMetadata` / `module-release.opmodel.dev` string in your own fixtures. Re-pin `opmodel.dev/core@v1`. No behavioral or signature-shape change beyond the names. No compatibility alias is provided (hard rename, enhancement D8).
+
+**Note for `cli` / `opm-operator`:** both pin the published library tag and adapt in lockstep (slices O*/X*).
+
+**Test-only:** the `core@v0.4.0` negative control in `opm/helper/synth` was retired — it proved the imported-module positive test was non-vacuous by pinning a pre-self-cycle-fix core, but synth now emits `core.#ModuleInstance` (undefined in v0.4.0), so it no longer exercises the self-cycle admission path. Supporting a pre-rename core is out of scope. One library test (`opm/materialize` composed-map bug-repro) intentionally keeps the **old** `#moduleReleaseMetadata` vocabulary because it pins the real pre-rename catalog `opmodel.dev/catalogs/opm@v0.5.2`; the published `opmodel.dev/catalogs/opm` catalog has not yet been re-cut against `core@v1`.
 
 ### Changed — `concurrent-render-recontract` (BREAKING)
 

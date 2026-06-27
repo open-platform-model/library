@@ -22,8 +22,8 @@ func moduleLoad(dir string) error {
 	return err
 }
 
-func releaseLoad(dir string) error {
-	_, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
+func instanceLoad(dir string) error {
+	_, err := loader.LoadInstancePackage(cuecontext.New(), dir, loader.LoadOptions{})
 	return err
 }
 
@@ -63,22 +63,22 @@ metadata: {modulePath: "example.com/modules", version: "0.1.0"}
 			sentinel: loader.ErrMissingRequiredField,
 		},
 		{
-			name: "release with a non-module #module",
-			load: releaseLoad,
+			name: "instance with a non-module #module",
+			load: instanceLoad,
 			content: `
-package release
-kind:       "ModuleRelease"
+package instance
+kind:       "ModuleInstance"
 metadata: {name: "demo", namespace: "ns"}
 #module: {kind: "Platform"}
 `,
 			sentinel: loader.ErrWrongKind,
 		},
 		{
-			name: "release missing #module",
-			load: releaseLoad,
+			name: "instance missing #module",
+			load: instanceLoad,
 			content: `
-package release
-kind:       "ModuleRelease"
+package instance
+kind:       "ModuleInstance"
 metadata: {name: "demo", namespace: "ns"}
 `,
 			sentinel: loader.ErrMissingRequiredField,
@@ -120,7 +120,7 @@ func TestShapeGate_RejectsConflictingPackageClauses(t *testing.T) {
 }
 
 // TestShapeGate_WellFormedArtifactsPass is the regression guard: a well-formed
-// module, release, and platform each still load successfully.
+// module, instance, and platform each still load successfully.
 func TestShapeGate_WellFormedArtifactsPass(t *testing.T) {
 	t.Run("module", func(t *testing.T) {
 		dir := writeTempModuleDir(t, `
@@ -133,14 +133,14 @@ metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
 		assert.True(t, val.Exists())
 	})
 
-	t.Run("release", func(t *testing.T) {
-		dir := writeTempReleaseDir(t, `
-package release
-kind:       "ModuleRelease"
+	t.Run("instance", func(t *testing.T) {
+		dir := writeTempInstanceDir(t, `
+package instance
+kind:       "ModuleInstance"
 metadata: {name: "demo", namespace: "ns"}
 #module: {kind: "Module"}
 `)
-		val, err := loader.LoadReleasePackage(cuecontext.New(), dir, loader.LoadOptions{})
+		val, err := loader.LoadInstancePackage(cuecontext.New(), dir, loader.LoadOptions{})
 		require.NoError(t, err)
 		assert.True(t, val.Exists())
 	})

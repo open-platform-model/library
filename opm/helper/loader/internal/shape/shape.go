@@ -51,12 +51,12 @@ type ArtifactSpec struct {
 
 // ModuleRef locates an embedded #Module value within an artifact: Path points
 // directly at a #Module value whose kind must be "Module" (the
-// #ModuleRelease.#module shape).
+// #ModuleInstance.#module shape).
 type ModuleRef struct {
 	Path string
 }
 
-// ModuleSpec, ReleaseSpec, and PlatformSpec are the shape-gate definitions for
+// ModuleSpec, InstanceSpec, and PlatformSpec are the shape-gate definitions for
 // the three package loaders. The required field lists carry only the identity
 // fields the schema never defaults — fields the schema fills in (or leaves as
 // open `_`) are out of scope here and validated by the Kernel/Binding layer.
@@ -66,8 +66,8 @@ var (
 		RequiredConcreteFields: []string{"metadata.name", "metadata.modulePath", "metadata.version"},
 	}
 
-	ReleaseSpec = ArtifactSpec{
-		ExpectedKind:           "ModuleRelease",
+	InstanceSpec = ArtifactSpec{
+		ExpectedKind:           "ModuleInstance",
 		RequiredConcreteFields: []string{"metadata.name", "metadata.namespace"},
 		ModuleRefs:             []ModuleRef{{Path: "#module"}},
 	}

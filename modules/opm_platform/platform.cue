@@ -10,7 +10,7 @@
 package opm_platform
 
 import (
-	c "opmodel.dev/core@v0"
+	c "opmodel.dev/core@v1"
 )
 
 c.#Platform

@@ -29,7 +29,7 @@ var (
 // definitions so the gate stays single-sourced.
 var (
 	moduleSpec   = shape.ModuleSpec
-	releaseSpec  = shape.ReleaseSpec
+	instanceSpec = shape.InstanceSpec
 	platformSpec = shape.PlatformSpec
 )
 

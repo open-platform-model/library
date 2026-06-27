@@ -13,16 +13,17 @@ import (
 // synthLanguageVersion is the CUE language version stamped into the fabricated
 // cue.mod/module.cue. It tracks the kernel-pinned toolchain (and the workspace
 // testdata module) so the synthesized package evaluates under the same language
-// semantics as authored release packages.
-const synthLanguageVersion = "v0.17.0"
+// semantics as authored instance packages.
+const synthLanguageVersion = "v0.17.0-alpha.1"
 
-// corePath is the module path of the OPM core schema the synthesized release
-// imports. It is major-floating (@v0); the fabricated module.cue pins the
-// concrete resolved version so evaluation is reproducible.
+// corePath is the module path of the OPM core schema the synthesized instance
+// imports. The import major is derived from the caller-resolved core version
+// (currently @v1); the fabricated module.cue pins the concrete resolved
+// version so evaluation is reproducible.
 const corePath = "opmodel.dev/core"
 
 // renderModuleFile produces the fabricated cue.mod/module.cue for the
-// synthesized release package. It declares two deps — the resolved core schema
+// synthesized instance package. It declares two deps — the resolved core schema
 // version and the caller's module at its own path@version — so CUE resolves
 // both imports through the normal registry/cache path (the same dependency-
 // fabrication approach proven in opm/helper/loader/registry, which overlays a
@@ -31,12 +32,12 @@ const corePath = "opmodel.dev/core"
 // coreVersion is the version the caller's *schema.Cache resolved (e.g.
 // "v0.5.0"); pinning it keeps the synth build reproducible rather than floating
 // to whatever @v0 happens to resolve to at evaluation time.
-func renderModuleFile(in ReleaseInput, coreVersion string) string {
+func renderModuleFile(in InstanceInput, coreVersion string) string {
 	modImport := moduleImportPath(in.Module)
 	modVersion := in.Module.Metadata.Version
 
 	var b strings.Builder
-	b.WriteString("module: \"synth.opmodel.dev/release@v0\"\n")
+	b.WriteString("module: \"synth.opmodel.dev/instance@v0\"\n")
 	fmt.Fprintf(&b, "language: version: %q\n", synthLanguageVersion)
 	b.WriteString("deps: {\n")
 	fmt.Fprintf(&b, "\t%q: v: %q\n", corePath+"@"+major(coreVersion), normalizeVersion(coreVersion))
@@ -72,24 +73,26 @@ func moduleSnakeName(m *module.Module) string {
 	return strings.ReplaceAll(m.Metadata.Name, "-", "_")
 }
 
-// renderReleaseFile produces the release.cue source for the synthesized
-// package. It imports core and the caller's module, embeds #ModuleRelease at
-// the package root (matching an authored release.cue), stamps caller-supplied
+// renderInstanceFile produces the instance.cue source for the synthesized
+// package. It imports core and the caller's module, embeds #ModuleInstance at
+// the package root (matching an authored instance.cue), stamps caller-supplied
 // identity metadata as regex-constrained literals, and writes the module by
 // IMPORT reference (#module: <import>) rather than inlining a value — so the
 // module enters the single build with its full type-embedding chain intact and
 // the schema's `unifiedModule = #module & {#config: values}` performs the
 // values merge in CUE.
-func renderReleaseFile(in ReleaseInput) string {
+//
+// Was: renderReleaseFile
+func renderInstanceFile(in InstanceInput, coreVersion string) string {
 	modImport := moduleImportPath(in.Module) + "@" + major(in.Module.Metadata.Version)
 
 	var b strings.Builder
-	b.WriteString("package release\n\n")
+	b.WriteString("package instance\n\n")
 	b.WriteString("import (\n")
-	fmt.Fprintf(&b, "\tcore %q\n", corePath+"@v0")
+	fmt.Fprintf(&b, "\tcore %q\n", corePath+"@"+major(coreVersion))
 	fmt.Fprintf(&b, "\topmModule %q\n", modImport)
 	b.WriteString(")\n\n")
-	b.WriteString("core.#ModuleRelease\n\n")
+	b.WriteString("core.#ModuleInstance\n\n")
 	b.WriteString("metadata: {\n")
 	fmt.Fprintf(&b, "\tname:      %q\n", in.Name)
 	fmt.Fprintf(&b, "\tnamespace: %q\n", in.Namespace)
@@ -106,8 +109,8 @@ func renderReleaseFile(in ReleaseInput) string {
 // value cannot inject CUE source. It returns (nil, nil) when no values were
 // supplied (in.Values is the zero value or does not exist), signalling the
 // caller to omit the file entirely; the schema's values path then stays open
-// and concreteness is enforced downstream by Kernel.ProcessModuleRelease.
-func renderValuesFile(in ReleaseInput) ([]byte, error) {
+// and concreteness is enforced downstream by Kernel.ProcessModuleInstance.
+func renderValuesFile(in InstanceInput) ([]byte, error) {
 	if !in.Values.Exists() {
 		return nil, nil
 	}
@@ -119,7 +122,7 @@ func renderValuesFile(in ReleaseInput) ([]byte, error) {
 	}
 
 	var b strings.Builder
-	b.WriteString("package release\n\n")
+	b.WriteString("package instance\n\n")
 	b.WriteString("values: ")
 	b.Write(rendered)
 	b.WriteString("\n")

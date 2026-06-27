@@ -153,7 +153,7 @@ Schema paths: `opm/schema/paths.go` — `ComposedTransformers`, `Transform`, `Co
 
 ## 6. Reproduction
 
-Prereqs: local OCI registry at `localhost:5000` with `opmodel.dev/core@v0` and a catalog that still has
+Prereqs: local OCI registry at `localhost:5000` with `opmodel.dev/core@v1` and a catalog that still has
 the bug (i.e. `_convertedSidecars` declared inside `output`). **Correction (see §10.2):** the buggy
 placement is `@v0.5.0`–`@v0.5.4`; the workaround landed at **`@v0.5.5`** (not v0.5.7). The clean
 buggy-but-matching repro version is **`@v0.5.2`** — `0.5.0`/`0.5.1` additionally hit the matcher miss
@@ -392,14 +392,14 @@ render the buggy `deployment-transformer@0.5.2`. Harness preserved under
 ### 11.1 Setup
 
 A throwaway CUE module depending on `opmodel.dev/catalogs/opm@v0.5.2` (the buggy catalog, hidden field
-*inside* `output`), `opmodel.dev/core@v0`, `cue.dev/x/k8s.io@v0`. The glue is plain unification:
+*inside* `output`), `opmodel.dev/core@v1`, `cue.dev/x/k8s.io@v0`. The glue is plain unification:
 
 ```cue
 import tf "opmodel.dev/catalogs/opm/transformers"
 
 _applied: tf.#DeploymentTransformer.#transform & {
     #component: { /* … */ }
-    #context:   { #moduleReleaseMetadata: {…}, #componentMetadata: {…}, #runtimeName: "opm-test" }
+    #context:   { #moduleInstanceMetadata: {…}, #componentMetadata: {…}, #runtimeName: "opm-test" }
 }
 containers: _applied.output.spec.template.spec.containers
 ```

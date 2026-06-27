@@ -29,7 +29,7 @@ func executeTransforms(
 	composedVal cue.Value,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
-	rel *module.Release,
+	inst *module.Instance,
 	runtimeName string,
 ) ([]*core.Compiled, []string, []error) {
 	compiled := make([]*core.Compiled, 0)
@@ -43,7 +43,7 @@ func executeTransforms(
 		default:
 		}
 
-		res, pairWarnings, err := executePair(cueCtx, composedVal, schemaComponents, dataComponents, rel, pair, runtimeName)
+		res, pairWarnings, err := executePair(cueCtx, composedVal, schemaComponents, dataComponents, inst, pair, runtimeName)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -66,7 +66,7 @@ func executeTransforms(
 //  1. Look up the transformer's #transform from the composed map (by FQN).
 //  2. Look up the component from dataComponents (already finalized — no constraints).
 //  3. FillPath #component with the data component value directly (no materialize needed).
-//  4. FillPath #context.* fields (#moduleReleaseMetadata, #componentMetadata, #runtimeName).
+//  4. FillPath #context.* fields (#moduleInstanceMetadata, #componentMetadata, #runtimeName).
 //     Metadata is read from schemaComponents which preserves definition fields.
 //  5. Look up and decode the output field.
 func executePair(
@@ -74,7 +74,7 @@ func executePair(
 	composedVal cue.Value,
 	schemaComponents cue.Value,
 	dataComponents cue.Value,
-	rel *module.Release,
+	inst *module.Instance,
 	pair MatchedPair,
 	runtimeName string,
 ) ([]*core.Compiled, []string, error) {
@@ -113,7 +113,7 @@ func executePair(
 
 	// Build and inject #context. opm/schema owns the shape; the renderer
 	// only fills the resulting value at schema.Context.
-	ctxVal, warnings, err := schema.BuildTransformerContext(cueCtx, rel, compName, schemaComp, runtimeName)
+	ctxVal, warnings, err := schema.BuildTransformerContext(cueCtx, inst, compName, schemaComp, runtimeName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: injecting #context: %w", compName, tfFQN, err)
 	}
@@ -137,12 +137,12 @@ func executePair(
 	//   ListKind   → one Compiled per item, Value = the list element verbatim
 	// The renderer never inspects fields inside Value — apply-layer code
 	// (binding-specific) is responsible for interpreting the resource shape.
-	releaseName := rel.Metadata.Name
+	instanceName := inst.Metadata.Name
 	switch outputVal.Kind() {
 	case cue.StructKind:
 		return []*core.Compiled{{
 			Value:       outputVal,
-			Release:     releaseName,
+			Instance:    instanceName,
 			Component:   compName,
 			Transformer: tfFQN,
 		}}, warnings, nil
@@ -158,7 +158,7 @@ func executePair(
 		for iter.Next() {
 			compiled = append(compiled, &core.Compiled{
 				Value:       iter.Value(),
-				Release:     releaseName,
+				Instance:    instanceName,
 				Component:   compName,
 				Transformer: tfFQN,
 			})

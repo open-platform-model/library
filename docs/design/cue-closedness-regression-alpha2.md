@@ -36,7 +36,7 @@ regression (changes between alpha.1 and alpha.2); the right does not.
 
 ## Reproduction
 
-Prereqs: a local OCI registry at `localhost:5000` holding `opmodel.dev/core@v0`
+Prereqs: a local OCI registry at `localhost:5000` holding `opmodel.dev/core@v1`
 and `opmodel.dev/catalogs/opm@v0.5.2` (any version with the workload blueprints),
 and a module that uses the stateless-workload blueprint with `scaling` +
 `updateStrategy` set — e.g. `modules/web_app` in this workspace.

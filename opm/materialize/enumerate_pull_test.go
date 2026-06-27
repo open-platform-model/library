@@ -15,7 +15,7 @@ import (
 
 // TestSpike_EnumeratePullRealCatalog de-risks the still-open item from
 // design.md Research & Decisions: the real c.#Catalog shape (importing
-// opmodel.dev/core@v0, pattern-stamped #transformers) pushed to the in-memory
+// opmodel.dev/core@v1, pattern-stamped #transformers) pushed to the in-memory
 // registry, enumerated, pulled, and read. The earlier spike used a simplified
 // stand-in; this exercises the production shape.
 func TestSpike_EnumeratePullRealCatalog(t *testing.T) {

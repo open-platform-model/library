@@ -18,7 +18,7 @@ import (
 // SynthesizePlatform returns a *platform.Platform whose decoded metadata
 // matches the inputs and whose Package is the synthesized value. The core
 // schema is resolved from the warm workspace cache (no catalog pull), so the
-// test does not gate on GHCR — mirroring the SynthesizeRelease kernel tests.
+// test does not gate on GHCR — mirroring the SynthesizeInstance kernel tests.
 func TestKernel_SynthesizePlatform_DecodesMetadata(t *testing.T) {
 	k := newSynthKernel(t)
 

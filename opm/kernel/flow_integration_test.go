@@ -23,14 +23,14 @@ import (
 // TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match → Plan
 // → Compile pipeline against the on-disk fixture pair:
 //
-//   - testdata/modules/web_app   (a core@v0 #Module consuming opm primitives:
+//   - testdata/modules/web_app   (a core@v1 #Module consuming opm primitives:
 //     Container resource, HttpRoute / Scaling / RestartPolicy / Expose traits,
 //     StatelessWorkloadBlueprint)
 //   - modules/opm_platform       (the canonical Kubernetes #Platform that
 //     subscribes to opmodel.dev/catalogs/opm via a path-keyed #registry)
 //
 // The platform's subscription is materialized against the published catalog
-// (opmodel.dev/catalogs/opm@0.1.0), then a #ModuleRelease is built from the
+// (opmodel.dev/catalogs/opm@0.1.0), then a #ModuleInstance is built from the
 // module's debugValues and driven through Match / Plan / Compile. Transformer
 // FQNs are asserted by substring so the test survives catalog version bumps.
 //
@@ -75,46 +75,46 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	require.NoError(t, err, "materializing platform against the published catalog")
 	require.NotNil(t, mp)
 
-	// ── Build a #ModuleRelease referencing the loaded Module ─────────
+	// ── Build a #ModuleInstance referencing the loaded Module ─────────
 	//
-	// The release skeleton is a plain CUE literal — CompileString has no
+	// The instance skeleton is a plain CUE literal — CompileString has no
 	// cue.mod context and cannot resolve registry-backed imports; the schema
 	// constraints and the auto-fanned `components` field are filled below by
 	// FillPath against the loaded module value. Mirrors cmd/flow-inspect.
 	debugValues := modVal.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
 
-	releaseSkeleton := k.CueContext().CompileString(`
-kind: "ModuleRelease"
+	instanceSkeleton := k.CueContext().CompileString(`
+kind: "ModuleInstance"
 metadata: {
 	name:      "web-app-demo"
 	namespace: "default"
 	uuid:      "11111111-2222-5333-8444-555555555555"
 }
-`, cue.Filename("release.cue"))
-	require.NoError(t, releaseSkeleton.Err(), "compiling release skeleton")
+`, cue.Filename("instance.cue"))
+	require.NoError(t, instanceSkeleton.Err(), "compiling instance skeleton")
 
 	unifiedModule := modVal.FillPath(schema.Config, debugValues)
 	require.NoErrorf(t, unifiedModule.Err(), "filling values into module #config")
 	moduleComponents := unifiedModule.LookupPath(cue.ParsePath("#components"))
 	require.True(t, moduleComponents.Exists(), "module must expose #components after values are unified")
 
-	releaseSpec := releaseSkeleton.
+	instanceSpec := instanceSkeleton.
 		FillPath(schema.Module, modVal).
 		FillPath(schema.Values, debugValues).
 		FillPath(schema.Components, moduleComponents)
-	require.NoErrorf(t, releaseSpec.Err(), "building release spec from module value")
+	require.NoErrorf(t, instanceSpec.Err(), "building instance spec from module value")
 
-	rel, err := k.ProcessModuleRelease(ctx, releaseSpec, *mod, debugValues)
-	require.NoError(t, err, "processing module release")
-	require.NotNil(t, rel)
-	require.Equal(t, "web-app-demo", rel.Metadata.Name)
+	inst, err := k.ProcessModuleInstance(ctx, instanceSpec, *mod, debugValues)
+	require.NoError(t, err, "processing module instance")
+	require.NotNil(t, inst)
+	require.Equal(t, "web-app-demo", inst.Metadata.Name)
 
 	const runtimeName = "opm-test"
 
 	// ── Phase 1: Match ───────────────────────────────────────────────
 	t.Run("Match", func(t *testing.T) {
-		plan, err := k.Match(ctx, kernel.MatchInput{ModuleRelease: rel, Platform: mp})
+		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 		require.NoError(t, err)
 		require.NotNil(t, plan)
 
@@ -143,9 +143,9 @@ metadata: {
 	// ── Phase 2: Plan ────────────────────────────────────────────────
 	t.Run("Plan", func(t *testing.T) {
 		planResult, err := k.Plan(ctx, kernel.PlanInput{
-			ModuleRelease: rel,
-			Platform:      mp,
-			RuntimeName:   runtimeName,
+			ModuleInstance: inst,
+			Platform:       mp,
+			RuntimeName:    runtimeName,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, planResult)
@@ -173,9 +173,9 @@ metadata: {
 	// ── Phase 3: Compile ─────────────────────────────────────────────
 	t.Run("Compile", func(t *testing.T) {
 		out, err := k.Compile(ctx, kernel.CompileInput{
-			ModuleRelease: rel,
-			Platform:      mp,
-			RuntimeName:   runtimeName,
+			ModuleInstance: inst,
+			Platform:       mp,
+			RuntimeName:    runtimeName,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, out)
@@ -215,7 +215,7 @@ metadata: {
 // flowRegistry returns the CUE registry mapping the flow tests resolve imports
 // through. It honors an externally-set CUE_REGISTRY (set by
 // `task cue:test:flow` and CI), falling back to schema.PublicRegistry, which
-// resolves the whole opmodel.dev prefix — the core@v0 schema *and* the
+// resolves the whole opmodel.dev prefix — the core@v1 schema *and* the
 // opmodel.dev/catalogs/opm catalog — from GHCR, with cue.dev/x/k8s.io falling
 // through to registry.cue.works. Pulling the catalog from GHCR (rather than a
 // laptop-only localhost:5000) is what lets these tests run in CI.

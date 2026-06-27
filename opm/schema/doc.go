@@ -3,7 +3,7 @@
 // and the OCI-backed schema loader.
 //
 // Schema is unversioned at the package level. The library consumes exactly
-// one OPM CUE schema package — opmodel.dev/core@v0, resolved through CUE's
+// one OPM CUE schema package — opmodel.dev/core@v1, resolved through CUE's
 // module system against CUE_REGISTRY. There is no in-tree schema mirror.
 //
 // # Path inventory
@@ -14,22 +14,22 @@
 //
 // # Metadata decoders
 //
-// DecodeModuleMetadata, DecodeReleaseMetadata, DecodeProviderMetadata, and
+// DecodeModuleMetadata, DecodeInstanceMetadata, DecodeProviderMetadata, and
 // DecodePlatformMetadata accept a raw artifact-root cue.Value and return the
-// canonical decoded struct. Missing metadata is fatal for module / release /
+// canonical decoded struct. Missing metadata is fatal for module / instance /
 // platform; provider metadata falls back to a caller-supplied name.
 //
 // # Transformer context
 //
 // BuildTransformerContext constructs the #TransformerContext value for a
-// single (release, component, transformer) tuple. The caller is responsible
+// single (instance, component, transformer) tuple. The caller is responsible
 // for filling the returned value at schema.Context on the unified
 // transformer.
 //
 // # Schema loader and cache
 //
 // Loader is the strategy interface for resolving the schema; OCILoader is
-// the sole public implementation, fetching opmodel.dev/core@v0 through
+// the sole public implementation, fetching opmodel.dev/core@v1 through
 // CUE's module system. Cache memoizes a single Loader.Load per instance
 // (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
 //

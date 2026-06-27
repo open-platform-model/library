@@ -30,7 +30,7 @@ func newSynthKernel(t *testing.T) *kernel.Kernel {
 // metadata block) to an in-memory registry pinned to core@v0.6.0, then returns
 // a Kernel wired to that registry plus the module loaded back through
 // Kernel.LoadModuleFromRegistry. This mirrors how a frontend acquires a module
-// before synthesizing a release: synth.Release imports the module by its
+// before synthesizing an instance: synth.Instance imports the module by its
 // canonical registry path (metadata.modulePath/nameSnakeCase), so the module
 // MUST be resolvable from a registry — a locally-built value no longer works.
 //
@@ -45,7 +45,7 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 
 	var file strings.Builder
 	fmt.Fprintf(&file, "package %s\n\n", snake)
-	file.WriteString("import core \"opmodel.dev/core@v0\"\n\n")
+	file.WriteString("import core \"opmodel.dev/core@v1\"\n\n")
 	file.WriteString("core.#Module\n")
 	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", name, metaPath, version)
 	file.WriteString(bodyFields)
@@ -54,7 +54,7 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 		Path:        modPath,
 		Version:     version,
 		File:        file.String(),
-		CoreVersion: "v0.6.0",
+		CoreVersion: "v1.0.0-alpha.1",
 	}}, nil)
 
 	k := kernel.New(kernel.WithRegistry(reg))
@@ -67,13 +67,13 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 
 const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"ok\"}\ndebugValues: {sentinel: \"from-debug\"}\n"
 
-func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
+func TestKernel_SynthesizeInstance_HappyPath(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 
-	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -81,32 +81,32 @@ func TestKernel_SynthesizeRelease_HappyPath(t *testing.T) {
 		SchemaCache: k.SchemaCache(),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, rel)
+	require.NotNil(t, inst)
 
-	assert.Equal(t, "myrel", rel.Metadata.Name)
-	assert.Equal(t, "default", rel.Metadata.Namespace)
-	assert.NotEmpty(t, rel.Metadata.UUID, "release UUID must be schema-derived")
+	assert.Equal(t, "myrel", inst.Metadata.Name)
+	assert.Equal(t, "default", inst.Metadata.Namespace)
+	assert.NotEmpty(t, inst.Metadata.UUID, "instance UUID must be schema-derived")
 }
 
-func TestKernel_SynthesizeRelease_NilModuleRejectedBeforeValidation(t *testing.T) {
+func TestKernel_SynthesizeInstance_NilModuleRejectedBeforeValidation(t *testing.T) {
 	k := newSynthKernel(t)
-	_, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	_, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Name:        "myrel",
 		Namespace:   "default",
 		SchemaCache: k.SchemaCache(),
 	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingModule),
-		"nil Module must error from synth.Release, not ProcessModuleRelease")
+		"nil Module must error from synth.Instance, not ProcessModuleInstance")
 }
 
-func TestKernel_SynthesizeRelease_UnconcreteRejected(t *testing.T) {
+func TestKernel_SynthesizeInstance_UnconcreteRejected(t *testing.T) {
 	// Module declares a required #config field with no default. Omitting
-	// Values means ProcessModuleRelease's concreteness check must fail.
+	// Values means ProcessModuleInstance's concreteness check must fail.
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {required!: string}\ndebugValues: {required: \"from-debug\"}\n")
 
-	_, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	_, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -119,33 +119,33 @@ func TestKernel_SynthesizeRelease_UnconcreteRejected(t *testing.T) {
 		"failure must be the concreteness check, not module resolution")
 }
 
-// TestKernel_SynthesizeRelease_DefaultSchemaCache asserts that omitting
-// SchemaCache on ReleaseInput falls back to the kernel-owned cache via
-// SynthesizeRelease's defaulting.
-func TestKernel_SynthesizeRelease_DefaultSchemaCache(t *testing.T) {
+// TestKernel_SynthesizeInstance_DefaultSchemaCache asserts that omitting
+// SchemaCache on InstanceInput falls back to the kernel-owned cache via
+// SynthesizeInstance's defaulting.
+func TestKernel_SynthesizeInstance_DefaultSchemaCache(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 
-	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Module:    mod,
 		Name:      "myrel",
 		Namespace: "default",
 		Values:    values,
-		// SchemaCache intentionally omitted; SynthesizeRelease fills it from
+		// SchemaCache intentionally omitted; SynthesizeInstance fills it from
 		// k.SchemaCache().
 	})
 	require.NoError(t, err)
-	require.NotNil(t, rel)
+	require.NotNil(t, inst)
 }
 
-func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
+func TestKernel_SynthesizeInstance_UsesKernelContext(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 	values := k.CueContext().CompileString(`sentinel: "from-values"`)
 	require.NoError(t, values.Err())
 
-	rel, err := k.SynthesizeRelease(context.Background(), synth.ReleaseInput{
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -153,15 +153,15 @@ func TestKernel_SynthesizeRelease_UsesKernelContext(t *testing.T) {
 		SchemaCache: k.SchemaCache(),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, rel)
+	require.NotNil(t, inst)
 
 	// Cross-runtime sanity check: a cue.Value built with k.CueContext() must
-	// unify with rel.Package without triggering "values are not from the
+	// unify with inst.Package without triggering "values are not from the
 	// same runtime". The unification succeeds only if both values share the
-	// kernel's context, proving SynthesizeRelease threaded the kernel's
+	// kernel's context, proving SynthesizeInstance threaded the kernel's
 	// *cue.Context end-to-end.
 	probe := k.CueContext().CompileString(`metadata: name: "myrel"`)
 	require.NoError(t, probe.Err())
-	merged := rel.Package.Unify(probe)
+	merged := inst.Package.Unify(probe)
 	require.NoError(t, merged.Err())
 }

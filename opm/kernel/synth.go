@@ -11,56 +11,58 @@ import (
 	"github.com/open-platform-model/library/opm/platform"
 )
 
-// SynthesizeRelease builds a *module.Release from typed in-memory inputs.
+// SynthesizeInstance builds a *module.Instance from typed in-memory inputs.
 // This is the recommended entry point for callers that hold a Module and
-// need a fully validated release — it mirrors how [Kernel.LoadReleasePackage]
+// need a fully validated instance — it mirrors how [Kernel.LoadInstancePackage]
 // is the recommended entry point for the file-driven path.
 //
-// SynthesizeRelease chains [synth.Release] (which unifies inputs against the
-// version binding's #ModuleRelease schema and lets CUE derive uuid,
+// SynthesizeInstance chains [synth.Instance] (which unifies inputs against the
+// version binding's #ModuleInstance schema and lets CUE derive uuid,
 // components, auto-secrets, and standard labels) into
-// [Kernel.ProcessModuleRelease] (which validates supplied values against
+// [Kernel.ProcessModuleInstance] (which validates supplied values against
 // the module's #config, fills them into the spec, enforces concreteness,
-// and decodes release metadata).
+// and decodes instance metadata).
 //
 // The Kernel's [*cue.Context] threads through both steps so the resulting
-// *module.Release.Package is reachable through cue lookups using the same
+// *module.Instance.Package is reachable through cue lookups using the same
 // runtime. Callers that explicitly want the helper-level primitive — for
 // example, a test that wants the spec value before concreteness enforcement
-// — should call [synth.Release] directly with [Kernel.CueContext] and then
-// invoke [Kernel.ProcessModuleRelease] themselves.
+// — should call [synth.Instance] directly with [Kernel.CueContext] and then
+// invoke [Kernel.ProcessModuleInstance] themselves.
 //
-// in.Values is passed through to [Kernel.ProcessModuleRelease] unchanged.
-// The zero cue.Value means "no values supplied"; [Kernel.ProcessModuleRelease]
+// in.Values is passed through to [Kernel.ProcessModuleInstance] unchanged.
+// The zero cue.Value means "no values supplied"; [Kernel.ProcessModuleInstance]
 // then fails the concreteness check unless every #config field has a
-// default. synth.Release never falls back to Module.debugValues — frontends
+// default. synth.Instance never falls back to Module.debugValues — frontends
 // that want a debug-values overlay layer it on the caller side.
-func (k *Kernel) SynthesizeRelease(ctx context.Context, in synth.ReleaseInput) (*module.Release, error) {
+//
+// Was: SynthesizeRelease
+func (k *Kernel) SynthesizeInstance(ctx context.Context, in synth.InstanceInput) (*module.Instance, error) {
 	if in.Module == nil {
-		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", synth.ErrMissingModule)
+		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", synth.ErrMissingModule)
 	}
 	// The Kernel owns the cache; callers MUST NOT need to thread it
-	// through SynthesizeRelease explicitly. If they did set SchemaCache,
+	// through SynthesizeInstance explicitly. If they did set SchemaCache,
 	// honor it (a test may pin a different one), otherwise fall back to
 	// the kernel-owned cache.
 	if in.SchemaCache == nil {
 		in.SchemaCache = k.schemaCache
 	}
-	spec, err := synth.Release(k.cueCtx, in)
+	spec, err := synth.Instance(k.cueCtx, in)
 	if err != nil {
-		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)
+		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
-	// synth.Release bakes in.Values into the single build (as values.cue), so
-	// the spec already carries them — exactly like an authored release.cue
+	// synth.Instance bakes in.Values into the single build (as values.cue), so
+	// the spec already carries them — exactly like an authored instance.cue
 	// package. Re-filling here would write values a second time into the now-set
-	// `values` path and conflict. Pass the zero value: ProcessModuleRelease then
+	// `values` path and conflict. Pass the zero value: ProcessModuleInstance then
 	// validates concreteness and decodes metadata without re-filling, the same
-	// way it processes a file-loaded release whose values live in the package.
-	rel, err := k.ProcessModuleRelease(ctx, spec, *in.Module, cue.Value{})
+	// way it processes a file-loaded instance whose values live in the package.
+	inst, err := k.ProcessModuleInstance(ctx, spec, *in.Module, cue.Value{})
 	if err != nil {
-		return nil, fmt.Errorf("Kernel.SynthesizeRelease: %w", err)
+		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
-	return rel, nil
+	return inst, nil
 }
 
 // SynthesizePlatform builds a *platform.Platform from typed in-memory inputs.
@@ -86,7 +88,7 @@ func (k *Kernel) SynthesizeRelease(ctx context.Context, in synth.ReleaseInput) (
 //
 // ctx is unused today — synthesis touches no I/O the caller could cancel
 // (synth.Platform uses the Kernel's *cue.Context; NewPlatformFromValue takes
-// none). It is part of the signature for parity with [Kernel.SynthesizeRelease]
+// none). It is part of the signature for parity with [Kernel.SynthesizeInstance]
 // and so a future materialize-aware variant can honor cancellation without an
 // API break. Keep it.
 func (k *Kernel) SynthesizePlatform(_ context.Context, in synth.PlatformInput) (*platform.Platform, error) {
