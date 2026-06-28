@@ -118,6 +118,69 @@ func publishImportableModule(t *testing.T, ctx *cue.Context, coreVersion string)
 	return publishModuleWithBody(t, ctx, coreVersion, "hello", "0.0.2", "")
 }
 
+// regressionCatalogModule is the published OPM catalog the #31 regression
+// fixture imports. It is the SAME catalog the workspace fixtures track and CI
+// resolves from GHCR (see testdata/modules/web_app and the Taskfile catalog
+// drift check), so the fixture depends only on the catalog — never on a
+// pre-published consumer module from another repo.
+const (
+	regressionCatalogModule  = "opmodel.dev/catalogs/opm@v0"
+	regressionCatalogVersion = "v0.6.0" // tracks testdata/modules/web_app's pin
+)
+
+// publishCatalogImportingModule publishes a #Module whose SOURCE imports the
+// real opmodel.dev/catalogs/opm/blueprints/workload subpackage — the library#31
+// shape (a module that imports a catalog subpackage it does not re-declare at
+// the synth main-module level) — and loads it back WITH staged source. The
+// module's own cue.mod/module.cue declares the catalog (as a tidied module
+// does); the catalog itself resolves from the configured registry (GHCR in CI).
+// The import is made load-bearing via a hidden field (exempt from #Module
+// closedness; synth enforces no concreteness, so the blueprint need not be
+// satisfied) so the fixture stays minimal and independent of the blueprint's
+// concrete schema.
+func publishCatalogImportingModule(t *testing.T, ctx *cue.Context, coreVersion string) (*module.Module, string) {
+	t.Helper()
+
+	const name = "wl-importer"
+	const snake = "wl_importer"
+	base := registrytest.CatalogPrefix + "/synthunit/" + cleanSeg(t.Name()) + "-" + coreVersionSlug(coreVersion)
+	metaPath := base
+	modPath := metaPath + "/" + snake
+
+	var file strings.Builder
+	fmt.Fprintf(&file, "package %s\n\n", snake)
+	file.WriteString("import (\n")
+	file.WriteString("\tcore \"opmodel.dev/core@v1\"\n")
+	file.WriteString("\tbp \"opmodel.dev/catalogs/opm/blueprints/workload\"\n")
+	file.WriteString(")\n\n")
+	file.WriteString("core.#Module\n")
+	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    \"0.1.0\"\n}\n", name, metaPath)
+	file.WriteString("#config: {}\n#components: {}\ndebugValues: {}\n")
+	// Load-bearing import of the catalog subpackage; a hidden field is exempt
+	// from #Module's closedness and needs no concreteness at synth time.
+	file.WriteString("_catalogImportProbe: bp.#StatelessWorkload\n")
+
+	mod := registrytest.ModuleFixture{
+		Path:        modPath,
+		Version:     "0.1.0",
+		File:        file.String(),
+		CoreVersion: coreVersion,
+		// The module's own tidied cue.mod/module.cue declares the catalog — the
+		// closure synth reuses by building inside the module's root.
+		Deps: map[string]string{regressionCatalogModule: regressionCatalogVersion},
+	}
+	registryMapping := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	res, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v0.1.0",
+		registryloader.LoadOptions{Registry: registryMapping})
+	require.NoErrorf(t, err, "loading catalog-importing module %s", modPath)
+	m, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, res.Value)
+	require.NoError(t, err, "constructing *module.Module from loaded value")
+	m.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	require.True(t, m.HasSource(), "fixture module must carry staged source for synth")
+	return m, registryMapping
+}
+
 // pinnedCache returns a *schema.Cache pinned to an explicit core version. Under
 // design D4 the cache no longer pins the synth build's core (that comes from the
 // MODULE's own cue.mod/module.cue); the cache confirms #ModuleInstance is
@@ -451,4 +514,46 @@ func TestInstance_HyphenatedNameImportsBySnakeCase(t *testing.T) {
 	modName, err := inst.LookupPath(cue.ParsePath("#module.metadata.name")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web-app", modName, "imported #module keeps its kebab metadata.name")
+}
+
+// TestInstance_CatalogSubpackageImport_Regression is the faithful, non-vacuous
+// library#31 guard. The fixture module's SOURCE imports the real catalog
+// subpackage opmodel.dev/catalogs/opm/blueprints/workload (resolved from the
+// configured registry — GHCR in CI), which it does not declare at the synth
+// main-module level. Before synth-instance-in-module-root, synth fabricated a
+// {core, module}-only cue.mod/module.cue and this failed with
+//
+//	cannot find module providing package opmodel.dev/catalogs/opm/...
+//
+// because the real modconfig resolver does NOT pull a dependency's transitive
+// closure into the main module. Building inside the module's own staged root —
+// whose cue.mod/module.cue declares the catalog — resolves it.
+//
+// This depends only on the published catalog (a workspace fixture/CI
+// dependency), never on a pre-published consumer module from another repo, so it
+// runs in CI under the same GHCR gate as the other synth integration tests. The
+// in-memory registrytest resolver over-resolves transitive deps and therefore
+// CANNOT reproduce #31, which is why the catalog is resolved from the real
+// registry rather than published in-memory.
+func TestInstance_CatalogSubpackageImport_Regression(t *testing.T) {
+	skipUnlessGHCR(t)
+	ctx := cuecontext.New()
+
+	mod, _ := publishCatalogImportingModule(t, ctx, "v1.0.0-alpha.1")
+
+	inst, err := synth.Instance(ctx, synth.InstanceInput{
+		Module:      mod,
+		Name:        "wl-inst",
+		Namespace:   "default",
+		SchemaCache: pinnedCache("v1.0.0-alpha.1"),
+	})
+	if err != nil {
+		assert.NotContains(t, err.Error(), "cannot find module providing package",
+			"library#31: synth must resolve the module's transitive catalog import via its own cue.mod/module.cue")
+		require.NoError(t, err, "synthesizing a catalog-subpackage-importing module must succeed")
+	}
+	require.True(t, inst.Exists())
+	kind, err := inst.LookupPath(cue.ParsePath("kind")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "ModuleInstance", kind)
 }
