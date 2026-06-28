@@ -28,6 +28,29 @@ func (k *Kernel) LoadModuleFromRegistry(ctx context.Context, modPath, version st
 	return loaderregistry.LoadModulePackage(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
 }
 
+// AcquireModuleFromRegistry loads a #Module published in an OCI registry (same
+// fetch + main-module staging + shape gate as [Kernel.LoadModuleFromRegistry])
+// and returns a decoded [*module.Module] whose staged source ([module.Source])
+// is populated, so the module can be reused as the main module of a follow-on
+// build — notably by [Kernel.SynthesizeInstance], which stages the instance
+// inside the module's own root so the module's already-tidied
+// cue.mod/module.cue drives transitive dependency resolution. Unlike the
+// two-step [Kernel.LoadModuleFromRegistry] → [Kernel.NewModuleFromValue] path
+// (which discards the staged source at the cue.Value boundary), this single
+// call preserves it without a second registry fetch.
+func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
+	res, err := loaderregistry.LoadModulePackageWithSource(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
+	if err != nil {
+		return nil, err
+	}
+	mod, err := module.NewModuleFromValue(k, res.Value)
+	if err != nil {
+		return nil, err
+	}
+	mod.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	return mod, nil
+}
+
 // LoadInstancePackage loads a #ModuleInstance CUE package from a directory
 // using the kernel's [*cue.Context]. See [loaderfile.LoadInstancePackage].
 //

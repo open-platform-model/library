@@ -53,6 +53,13 @@ type Module struct {
 	// Package is the loaded CUE value for the module artifact. Source of
 	// truth for every field reachable via opm/schema's path vars.
 	Package cue.Value `json:"-"`
+
+	// Source is the module's staged registry source tree (synthetic root +
+	// overlay), populated only when the module was acquired through the
+	// source-carrying registry path (Kernel.AcquireModuleFromRegistry). It is
+	// nil otherwise. Consumers that must build inside the module's own root
+	// (e.g. synth.Instance) gate on HasSource(). See source.go.
+	Source *Source `json:"-"`
 }
 
 // ModuleMetadata is the decoded module-level identity record. It is a
