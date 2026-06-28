@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.3](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.2...v1.0.0-alpha.3) (2026-06-28)
+
+
+### Features
+
+* **synth:** synth instance in module root ([#32](https://github.com/open-platform-model/library/issues/32)) ([a30507e](https://github.com/open-platform-model/library/commit/a30507e85fd3b5e805e928babc12a441af8e8be9))
+
 ## [1.0.0-alpha.2](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.1...v1.0.0-alpha.2) (2026-06-27)
 
 
