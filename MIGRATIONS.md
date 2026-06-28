@@ -13,6 +13,16 @@ This file records the evolution of the library's public Go API and the OPM schem
 
 ## Unreleased — Additive
 
+### Added — `synth-instance-in-module-root`
+
+- **New `Kernel.AcquireModuleFromRegistry(ctx, modPath, version) (*module.Module, error)`.** It performs the same fetch + main-module staging + shape gate as `Kernel.LoadModuleFromRegistry`, but returns a decoded `*module.Module` whose new `Source` field (`module.Source{Root, Overlay}`) carries the module's staged source tree (including its own already-tidied `cue.mod/module.cue`). `Kernel.LoadModuleFromRegistry` is **unchanged** (still returns a source-free `cue.Value`).
+- **`synth.Instance` now constructs the instance INSIDE the module's own staged source root** (under a reserved `opm-synth-instance/` subdirectory), reusing the module's published `cue.mod/module.cue` so the module's tidied dependency closure drives transitive resolution. It no longer fabricates a `{core, module}`-only `cue.mod/module.cue`. This fixes synthesis of any module whose source **imports a catalog subpackage** (e.g. `opmodel.dev/catalogs/opm/blueprints/workload`), which previously failed with `cannot find module providing package …` (library#31). The public `synth.Instance` / `Kernel.SynthesizeInstance` signatures and observable outputs (`metadata.uuid`, `components`, `opm-secrets`, stamped labels) are unchanged for every input that already worked.
+- **BEHAVIOR REQUIREMENT for `synth.Instance` / `Kernel.SynthesizeInstance` callers:** the supplied `*module.Module` MUST now carry staged source (`module.HasSource()` true). A module that does not (e.g. loaded via `LoadModuleFromRegistry` + `NewModuleFromValue`, or built from a bare `cue.Value`) is rejected with the new sentinel `synth.ErrMissingSource`. **Migration: acquire the module via `Kernel.AcquireModuleFromRegistry` instead of the two-step `LoadModuleFromRegistry` → `NewModuleFromValue` before synthesizing.**
+  - `opm-operator`: in the module-acquire path feeding `SynthesizeInstance` (`internal/render` / `moduleacquire`), replace the `LoadModuleFromRegistry` + `NewModuleFromValue` pair with `AcquireModuleFromRegistry`.
+  - `cli`: same substitution anywhere it synthesizes an instance from a registry-loaded module.
+- **Core version source (design D4):** the synth build's `core` (and thus `#ModuleInstance`) now resolves from the **module's own** `cue.mod/module.cue`, not from the kernel's `SchemaCache`. `SchemaCache` remains required (it confirms `#ModuleInstance` is available and supplies the core import's major) but no longer pins the build's core version. Within `core@v1` (additive major) this unifies with the kernel's schema downstream in `Compile`; a module pinned to a different core **major** than the kernel is out of scope.
+- **Additive Go API in `opm/helper/loader/registry`:** new `LoadModulePackageWithSource(...) (StagedSource, error)` and `StagedSource{Value, Root, Overlay}`; `LoadModulePackage` is unchanged (now a thin wrapper). New `opm/helper/loader/file.BuildInstanceOverlayAt(ctx, moduleRoot, pkg, overlay, opts)` for loading an instance package from a subdirectory of a module root.
+
 ### Changed — `simplify-render-single-build`
 
 - `synth.Release` now constructs a `#ModuleRelease` by synthesizing an in-memory
