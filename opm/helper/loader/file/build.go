@@ -30,7 +30,10 @@ import (
 // an on-disk artifact are evaluated, shape-gated, and error-wrapped
 // identically: the only difference between the two entry points is where the
 // package files come from.
-func buildAndShapeGate(ctx *cue.Context, root string, overlay map[string]load.Source, env []string, spec shape.ArtifactSpec) (cue.Value, error) {
+func buildAndShapeGate(ctx *cue.Context, root, pkg string, overlay map[string]load.Source, env []string, spec shape.ArtifactSpec) (cue.Value, error) {
+	if pkg == "" {
+		pkg = "."
+	}
 	cfg := &load.Config{
 		Dir: root,
 		Env: env,
@@ -40,12 +43,12 @@ func buildAndShapeGate(ctx *cue.Context, root string, overlay map[string]load.So
 		cfg.ModuleRoot = root
 	}
 
-	instances := load.Instances([]string{"."}, cfg)
+	instances := load.Instances([]string{pkg}, cfg)
 	if len(instances) != 1 {
-		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in %s, found %d: %w", root, len(instances), ErrInvalidPackage)
+		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in %s (%s), found %d: %w", root, pkg, len(instances), ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, fmt.Errorf("loading package from %s: %w", root, instances[0].Err)
+		return cue.Value{}, fmt.Errorf("loading package from %s (%s): %w", root, pkg, instances[0].Err)
 	}
 
 	val := ctx.BuildInstance(instances[0])
@@ -60,20 +63,23 @@ func buildAndShapeGate(ctx *cue.Context, root string, overlay map[string]load.So
 	return val, nil
 }
 
-// BuildInstanceOverlay evaluates an in-memory #ModuleInstance package supplied as
-// a load.Source overlay rooted at root, running the same build-and-shape-gate
-// step LoadInstancePackage applies to on-disk instance packages. It is the entry
-// point synth.Instance uses to evaluate the virtual package it synthesizes (a
-// fabricated cue.mod/module.cue + instance.cue + values.cue) as a single CUE
-// build, so synthesized and authored instances share one evaluation path.
+// BuildInstanceOverlayAt evaluates an in-memory #ModuleInstance package that
+// lives in a SUBDIRECTORY (pkg, e.g. "./opm-synth-instance") of a module rooted
+// at moduleRoot, supplied as a load.Source overlay. moduleRoot is the
+// load.Config.ModuleRoot, so the overlay's cue.mod/module.cue at that root —
+// typically a registry-staged module's own already-tidied module file — drives
+// transitive dependency resolution, while the instance package itself is loaded
+// from the subdirectory. Pass pkg "." to load the package at the module root.
 //
-// The shape gate (shape.InstanceSpec) is single-sourced in
-// opm/helper/loader/internal/shape and unreachable from outside the loader
-// tree; this exported wrapper lets the synth helper reuse it without naming the
-// internal spec type. opts.Registry, when non-empty, overrides CUE_REGISTRY via
-// load.Config.Env (never os.Setenv), so it is safe under concurrency.
+// This is the entry point synth.Instance uses to construct an instance INSIDE
+// the acquired module's own staged source tree (so the module import resolves
+// locally and the module's tidied closure is reused), rather than fabricating a
+// standalone module. It runs the same build-and-shape-gate step (shape.InstanceSpec)
+// as the on-disk LoadInstancePackage. opts.Registry, when non-empty, overrides
+// CUE_REGISTRY via load.Config.Env (never os.Setenv), so it is safe under
+// concurrency.
 //
-// Was: BuildReleaseOverlay
-func BuildInstanceOverlay(ctx *cue.Context, root string, overlay map[string]load.Source, opts LoadOptions) (cue.Value, error) {
-	return buildAndShapeGate(ctx, root, overlay, registryEnv(opts.Registry), instanceSpec)
+// Was: BuildInstanceOverlay / BuildReleaseOverlay
+func BuildInstanceOverlayAt(ctx *cue.Context, moduleRoot, pkg string, overlay map[string]load.Source, opts LoadOptions) (cue.Value, error) {
+	return buildAndShapeGate(ctx, moduleRoot, pkg, overlay, registryEnv(opts.Registry), instanceSpec)
 }

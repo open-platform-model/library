@@ -95,12 +95,16 @@ func publishModuleWithBody(t *testing.T, ctx *cue.Context, coreVersion, name, ve
 	}
 	registryMapping := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	modVal, err := registryloader.LoadModulePackage(context.Background(), ctx, modPath+"@v0", "v"+version,
+	res, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v"+version,
 		registryloader.LoadOptions{Registry: registryMapping})
 	require.NoErrorf(t, err, "loading published module %s@v%s", modPath, version)
 
-	m, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, modVal)
+	m, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, res.Value)
 	require.NoError(t, err, "constructing *module.Module from loaded value")
+	// Synth builds the instance inside the module's own staged root, so the
+	// module must carry its source (as Kernel.AcquireModuleFromRegistry attaches).
+	m.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	require.True(t, m.HasSource(), "published fixture module must carry staged source for synth")
 	require.Equal(t, metaPath, m.Metadata.ModulePath)
 	require.Equal(t, name, m.Metadata.Name)
 	return m, registryMapping
@@ -114,9 +118,11 @@ func publishImportableModule(t *testing.T, ctx *cue.Context, coreVersion string)
 	return publishModuleWithBody(t, ctx, coreVersion, "hello", "0.0.2", "")
 }
 
-// pinnedCache returns a *schema.Cache pinned to an explicit core version so a
-// test controls exactly which schema the synth build resolves (synth.Instance
-// pins the fabricated module.cue's core dep to the cache's ResolvedVersion).
+// pinnedCache returns a *schema.Cache pinned to an explicit core version. Under
+// design D4 the cache no longer pins the synth build's core (that comes from the
+// MODULE's own cue.mod/module.cue); the cache confirms #ModuleInstance is
+// available and supplies the core import's major. Tests pin it to the same core
+// version the fixture module is published against so the major aligns.
 func pinnedCache(coreVersion string) *schema.Cache {
 	return &schema.Cache{Loader: schema.OCILoader{Module: "opmodel.dev/core@" + coreVersion}}
 }
