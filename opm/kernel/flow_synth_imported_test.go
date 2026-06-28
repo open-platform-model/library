@@ -79,10 +79,8 @@ debugValues: {}
 	k := kernel.New(kernel.WithRegistry(registryMapping))
 	ctx := context.Background()
 
-	modVal, err := k.LoadModuleFromRegistry(ctx, modPath+"@v0", "v"+version)
-	require.NoErrorf(t, err, "loading published module %s", modPath)
-	mod, err := k.NewModuleFromValue(modVal)
-	require.NoError(t, err)
+	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@v0", "v"+version)
+	require.NoErrorf(t, err, "acquiring published module %s", modPath)
 	require.Equal(t, "web-app", mod.Metadata.Name)
 
 	mp, err := materializePlatform(t, k, catPath)

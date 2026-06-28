@@ -77,35 +77,52 @@ var (
 
 	// ErrSchemaUnavailable is returned when the caller-supplied
 	// SchemaCache resolves but does not expose #ModuleInstance, or does not
-	// surface a resolved version to pin the synthesized package's core dep.
+	// surface a resolved version to derive the synthesized package's core import
+	// major.
 	ErrSchemaUnavailable = errors.New("synth.Instance: schema unavailable")
+
+	// ErrMissingSource is returned when InstanceInput.Module carries no staged
+	// registry source (Module.HasSource() is false). Instance constructs the
+	// #ModuleInstance INSIDE the module's own staged source tree so the module's
+	// already-tidied cue.mod/module.cue drives transitive resolution; it cannot
+	// do so without that source. Callers acquire a source-carrying module via
+	// Kernel.AcquireModuleFromRegistry. Instance never performs a registry fetch
+	// of its own.
+	ErrMissingSource = errors.New("synth.Instance: Module has no staged source; acquire it via Kernel.AcquireModuleFromRegistry")
 )
 
-// synthRoot is the deterministic in-memory module root the synthesized instance
-// package is overlaid under. It need not exist on disk; the loader treats the
-// overlaid files as present there and uses it as the module root so the
-// fabricated cue.mod/module.cue drives dependency resolution. It is constant
-// because the synthesized package is the MAIN module (rebuilt from the overlay
-// on every call), never cached by module path the way fetched deps are.
-func synthRoot() string {
-	return string(filepath.Separator) + "opm-synth-instance"
-}
+// synthPkgDir is the reserved subdirectory, under the acquired module's staged
+// root, that the synthesized instance package is overlaid into. It is a single
+// non-"_"-prefixed segment so CUE does not treat it as an ignored directory and
+// it cannot collide with a real module package. The instance is loaded from
+// this subdirectory while the module's own root (and its cue.mod/module.cue)
+// remains the build's module root.
+const synthPkgDir = "opm-synth-instance"
 
 // Instance builds a #ModuleInstance CUE value by synthesizing an in-memory CUE
-// package and evaluating it in a single build (ADR-003), through the same
-// loader build-and-shape-gate path LoadInstancePackage uses for on-disk instance
-// packages. The synthesized package consists of a fabricated cue.mod/module.cue
-// (deps: the resolved core version + the module's path@version), an instance.cue
-// that imports core and the module and writes `#module: <import>` plus
-// caller-supplied metadata, and — when Values is supplied — a values.cue
-// rendered from InstanceInput.Values.
+// package INSIDE the acquired module's own staged source tree and evaluating it
+// in a single build (ADR-003), through the same loader build-and-shape-gate path
+// LoadInstancePackage uses for on-disk instance packages. The module's own
+// (already-tidied at publish time) cue.mod/module.cue is the build's module
+// file, so it — not a fabricated dep list — drives transitive dependency
+// resolution. The synthesized package consists of an instance.cue overlaid under
+// a reserved subdirectory of the module root (importing core and the module's
+// own package, writing `#module: <import>` plus caller-supplied metadata) and —
+// when Values is supplied — a values.cue rendered from InstanceInput.Values.
 //
-// Because the module enters the build by import (one CUE evaluation, one
-// #Image / #Secret closure), there is no closed-into-closed FillPath and no
-// Go-side value pre-merge: the schema's own
-// `let unifiedModule = #module & {#config: values}` performs the values merge
-// in CUE. The previous cue.Scope / userModule workaround and the
-// FillPath(#config, Values) pre-merge are gone.
+// Because the module is the build's main module, its own package import resolves
+// LOCALLY (no fabricated dependency, no registry round-trip for the module
+// itself), and the module's transitive imports (core, catalog subpackages, …)
+// resolve through the module's own cue.mod/module.cue. This is why a module that
+// imports a catalog subpackage synthesizes correctly where the previous
+// fabricated-{core, module}-deps approach failed (library#31). The module enters
+// the build by import, so there is no closed-into-closed FillPath and no Go-side
+// value pre-merge: the schema's own `let unifiedModule = #module & {#config:
+// values}` performs the values merge in CUE.
+//
+// Instance REQUIRES the module to carry staged source (Module.HasSource());
+// acquire it via Kernel.AcquireModuleFromRegistry. It never fetches from a
+// registry itself.
 //
 // The function does NOT validate values against #config and does NOT enforce
 // concreteness. Both responsibilities live downstream in
@@ -135,11 +152,17 @@ func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error) {
 	if in.Module.Metadata == nil || in.Module.Metadata.ModulePath == "" || in.Module.Metadata.Version == "" {
 		return cue.Value{}, fmt.Errorf("%w: module has no modulePath/version identity to import by", ErrMissingModule)
 	}
+	if !in.Module.HasSource() {
+		return cue.Value{}, ErrMissingSource
+	}
 
 	// Resolve the schema to (a) confirm #ModuleInstance is present and (b) learn
-	// the resolved core version, which the fabricated cue.mod/module.cue pins
-	// so the synth build is reproducible. This is the same Cache the caller's
-	// Kernel owns, so it reuses the already-memoized schema fetch.
+	// the core import major. Per design D4, the synth build's core (and thus
+	// #ModuleInstance) resolves from the MODULE's own tidied cue.mod/module.cue,
+	// not from this Cache — the Cache is consulted to confirm availability and to
+	// supply the import's major selector, but it no longer pins the build's core
+	// version. This is the same Cache the caller's Kernel owns, so it reuses the
+	// already-memoized schema fetch.
 	schemaPkg, err := in.SchemaCache.Get(ctx)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Instance: loading schema: %w", err)
@@ -149,44 +172,52 @@ func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error) {
 	}
 	coreVersion := in.SchemaCache.ResolvedVersion()
 	if coreVersion == "" {
-		return cue.Value{}, fmt.Errorf("%w: resolved core schema version unavailable, cannot pin synth module deps", ErrSchemaUnavailable)
+		return cue.Value{}, fmt.Errorf("%w: resolved core schema version unavailable, cannot derive synth core import major", ErrSchemaUnavailable)
 	}
 
-	overlay, err := buildOverlay(in, coreVersion)
+	moduleRoot, overlay, err := buildOverlay(in, coreVersion)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Instance: %w", err)
 	}
 
 	// Evaluate the synthesized package through the SAME build-and-shape-gate
-	// step LoadInstancePackage uses; the only difference is overlay vs. on-disk
-	// source. Registry resolution uses the process CUE_REGISTRY (the module and
-	// core resolve from the same registry/cache the caller already used to
+	// step LoadInstancePackage uses; the instance package lives in a subdirectory
+	// of the module's staged root, with the module's own cue.mod/module.cue as the
+	// module file. Registry resolution uses the process CUE_REGISTRY (core and any
+	// catalog deps resolve from the same registry/cache the caller already used to
 	// acquire the module).
-	val, err := loaderfile.BuildInstanceOverlay(ctx, synthRoot(), overlay, loaderfile.LoadOptions{})
+	val, err := loaderfile.BuildInstanceOverlayAt(ctx, moduleRoot, "./"+synthPkgDir, overlay, loaderfile.LoadOptions{})
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("synth.Instance: %w", err)
 	}
 	return val, nil
 }
 
-// buildOverlay assembles the in-memory load.Source overlay for the synthesized
-// instance package: the fabricated module file, the instance file, and (only when
-// Values is supplied) the rendered values file. Keys are absolute paths under
-// synthRoot so the loader treats them as the package's files.
-func buildOverlay(in InstanceInput, coreVersion string) (map[string]load.Source, error) {
-	root := synthRoot()
-	overlay := map[string]load.Source{
-		filepath.Join(root, "cue.mod", "module.cue"): load.FromString(renderModuleFile(in, coreVersion)),
-		filepath.Join(root, "instance.cue"):          load.FromString(renderInstanceFile(in, coreVersion)),
+// buildOverlay clones the acquired module's staged overlay and adds the
+// synthesized instance package's files (instance.cue, and values.cue when Values
+// is supplied) under the reserved synthPkgDir subdirectory of the module's
+// staged root. It returns the module root (the load.Config.ModuleRoot, so the
+// module's own cue.mod/module.cue governs the build) and the augmented overlay.
+//
+// The module's overlay is cloned, never mutated, so a module value can be
+// synthesized more than once.
+func buildOverlay(in InstanceInput, coreVersion string) (string, map[string]load.Source, error) {
+	src := in.Module.Source
+	overlay := make(map[string]load.Source, len(src.Overlay)+2)
+	for k, v := range src.Overlay {
+		overlay[k] = v
 	}
+
+	pkgRoot := filepath.Join(src.Root, synthPkgDir)
+	overlay[filepath.Join(pkgRoot, "instance.cue")] = load.FromString(renderInstanceFile(in, coreVersion))
 
 	valuesSrc, err := renderValuesFile(in)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if valuesSrc != nil {
-		overlay[filepath.Join(root, "values.cue")] = load.FromBytes(valuesSrc)
+		overlay[filepath.Join(pkgRoot, "values.cue")] = load.FromBytes(valuesSrc)
 	}
 
-	return overlay, nil
+	return src.Root, overlay, nil
 }

@@ -10,41 +10,11 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// synthLanguageVersion is the CUE language version stamped into the fabricated
-// cue.mod/module.cue. It tracks the kernel-pinned toolchain (and the workspace
-// testdata module) so the synthesized package evaluates under the same language
-// semantics as authored instance packages.
-const synthLanguageVersion = "v0.17.0-alpha.1"
-
 // corePath is the module path of the OPM core schema the synthesized instance
 // imports. The import major is derived from the caller-resolved core version
-// (currently @v1); the fabricated module.cue pins the concrete resolved
-// version so evaluation is reproducible.
+// (currently @v1); the concrete core version the import resolves to comes from
+// the module's own cue.mod/module.cue (design D4), not from a fabricated pin.
 const corePath = "opmodel.dev/core"
-
-// renderModuleFile produces the fabricated cue.mod/module.cue for the
-// synthesized instance package. It declares two deps — the resolved core schema
-// version and the caller's module at its own path@version — so CUE resolves
-// both imports through the normal registry/cache path (the same dependency-
-// fabrication approach proven in opm/helper/loader/registry, which overlays a
-// module.cue and lets CUE drive transitive resolution).
-//
-// coreVersion is the version the caller's *schema.Cache resolved (e.g.
-// "v0.5.0"); pinning it keeps the synth build reproducible rather than floating
-// to whatever @v0 happens to resolve to at evaluation time.
-func renderModuleFile(in InstanceInput, coreVersion string) string {
-	modImport := moduleImportPath(in.Module)
-	modVersion := in.Module.Metadata.Version
-
-	var b strings.Builder
-	b.WriteString("module: \"synth.opmodel.dev/instance@v0\"\n")
-	fmt.Fprintf(&b, "language: version: %q\n", synthLanguageVersion)
-	b.WriteString("deps: {\n")
-	fmt.Fprintf(&b, "\t%q: v: %q\n", corePath+"@"+major(coreVersion), normalizeVersion(coreVersion))
-	fmt.Fprintf(&b, "\t%q: v: %q\n", modImport+"@"+major(modVersion), normalizeVersion(modVersion))
-	b.WriteString("}\n")
-	return b.String()
-}
 
 // moduleImportPath returns the CUE registry module path the synthesized package
 // imports the module by. Per the OPM module publishing convention
@@ -81,6 +51,11 @@ func moduleSnakeName(m *module.Module) string {
 // module enters the single build with its full type-embedding chain intact and
 // the schema's `unifiedModule = #module & {#config: values}` performs the
 // values merge in CUE.
+//
+// Because this file is overlaid INSIDE the module's own staged main module, the
+// `opmModule` import (the module's own path@major) resolves LOCALLY to the
+// module's root package, and `core` resolves from the module's own tidied
+// cue.mod/module.cue — no fabricated dependency declaration is involved.
 //
 // Was: renderReleaseFile
 func renderInstanceFile(in InstanceInput, coreVersion string) string {
@@ -153,10 +128,4 @@ func major(version string) string {
 		v = v[:i]
 	}
 	return "v" + v
-}
-
-// normalizeVersion returns version with a single leading "v" (CUE dep versions
-// are "vX.Y.Z"). It is idempotent whether the input already carries the prefix.
-func normalizeVersion(version string) string {
-	return "v" + strings.TrimPrefix(version, "v")
 }

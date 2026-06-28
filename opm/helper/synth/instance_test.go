@@ -150,6 +150,26 @@ func TestInstance_RejectsNilSchemaCache(t *testing.T) {
 		"want ErrMissingSchemaCache, got %v", err)
 }
 
+// instance-synthesis spec — synth.Instance constructs the instance inside the
+// module's own staged source tree, so a module that was not acquired with
+// source (HasSource() is false) is rejected with ErrMissingSource rather than
+// silently fetching. testModule builds a source-free *module.Module, exercising
+// exactly that precondition.
+func TestInstance_RejectsMissingSource(t *testing.T) {
+	ctx := sharedCtx
+	mod := testModule(t, ctx, baseModuleFixture)
+	require.False(t, mod.HasSource(), "fixture module must be source-free for this guard")
+	_, err := synth.Instance(ctx, synth.InstanceInput{
+		Module:      mod,
+		Name:        "demo",
+		Namespace:   "ns",
+		SchemaCache: newCache(t),
+	})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, synth.ErrMissingSource),
+		"want ErrMissingSource, got %v", err)
+}
+
 // expectedInstanceUUID computes the canonical instance UUID through CUE so the
 // derived-field tests stay in lockstep with the schema's definition. Failing
 // this assertion is the drift sentinel for module_instance.cue.

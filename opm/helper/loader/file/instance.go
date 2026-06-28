@@ -53,7 +53,7 @@ func LoadInstancePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cu
 	// Filesystem source: overlay nil selects on-disk loading in the shared
 	// build-and-shape-gate step (the same step synth.Instance drives with an
 	// in-memory overlay).
-	return buildAndShapeGate(ctx, absDir, nil, registryEnv(opts.Registry), instanceSpec)
+	return buildAndShapeGate(ctx, absDir, ".", nil, registryEnv(opts.Registry), instanceSpec)
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if

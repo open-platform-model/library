@@ -10,9 +10,7 @@ package registry
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"cuelang.org/go/cue"
@@ -21,6 +19,7 @@ import (
 	"cuelang.org/go/mod/module"
 
 	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
+	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
 )
 
 // LoadOptions configures the registry module loader. Mirrors
@@ -59,28 +58,54 @@ type LoadOptions struct {
 // (the opm/apiversion package was removed). The process environment is never
 // mutated. Parse failures on caller input are wrapped rather than panicked.
 func LoadModulePackage(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (cue.Value, error) {
+	res, err := LoadModulePackageWithSource(ctx, cueCtx, modPath, version, opts)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	return res.Value, nil
+}
+
+// StagedSource bundles a registry-loaded module's built value with the staged
+// source tree the build used: the deterministic synthetic root every overlay
+// key sits under, plus the load.Config.Overlay carrying the module's files
+// (including its own cue.mod/module.cue). A consumer can reuse Root + Overlay to
+// build a follow-on package INSIDE the module's own main module — letting the
+// module's already-tidied cue.mod/module.cue drive transitive resolution —
+// without a second registry fetch (Principle V, CUE-native resolution).
+type StagedSource struct {
+	Value   cue.Value
+	Root    string
+	Overlay map[string]load.Source
+}
+
+// LoadModulePackageWithSource loads a published #Module exactly as
+// LoadModulePackage does (same fetch, main-module staging, shape gate) and
+// additionally returns the staged source (Root + Overlay) the build used, so
+// callers can reuse it. The returned Overlay is the build's own map; callers
+// that mutate it (e.g. to overlay additional files) MUST clone it first.
+func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (StagedSource, error) {
 	mv, err := module.NewVersion(modPath, version)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
+		return StagedSource{}, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
 	}
 
 	env := registryEnv(opts.Registry)
 
 	reg, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("building module registry resolver: %w", err)
+		return StagedSource{}, fmt.Errorf("building module registry resolver: %w", err)
 	}
 
 	// Fetch downloads if necessary and returns the extracted module's source
 	// location (the modcache returns {FS: OSDirFS(extractDir), Dir: "."}).
 	loc, err := reg.Fetch(ctx, mv)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("fetching module %s: %w", mv, err)
+		return StagedSource{}, fmt.Errorf("fetching module %s: %w", mv, err)
 	}
 
-	synthRoot, overlay, err := overlayFromSource(loc, modPath, version)
+	synthRoot, overlay, err := stage.OverlayFromSource(loc, modPath, version)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("staging module %s in overlay: %w", mv, err)
+		return StagedSource{}, fmt.Errorf("staging module %s in overlay: %w", mv, err)
 	}
 
 	// Overlay (with FS left nil), NOT load.Config.FS. The spike confirmed that
@@ -99,76 +124,22 @@ func LoadModulePackage(ctx context.Context, cueCtx *cue.Context, modPath, versio
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {
-		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in module %s, found %d: %w", mv, len(instances), shape.ErrInvalidPackage)
+		return StagedSource{}, fmt.Errorf("expected exactly one CUE package in module %s, found %d: %w", mv, len(instances), shape.ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, fmt.Errorf("loading module package %s: %w", mv, instances[0].Err)
+		return StagedSource{}, fmt.Errorf("loading module package %s: %w", mv, instances[0].Err)
 	}
 
 	val := cueCtx.BuildInstance(instances[0])
 	if err := val.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("building module package %s: %w", mv, err)
+		return StagedSource{}, fmt.Errorf("building module package %s: %w", mv, err)
 	}
 
 	if err := shape.Gate(val, shape.ModuleSpec); err != nil {
-		return cue.Value{}, fmt.Errorf("validating module package %s: %w", mv, err)
+		return StagedSource{}, fmt.Errorf("validating module package %s: %w", mv, err)
 	}
 
-	return val, nil
-}
-
-// overlayFromSource reads every file in the fetched module's source location
-// into a load.Config.Overlay keyed under a deterministic synthetic absolute
-// root, returning that root and the overlay. The root is derived from
-// path@version and need not exist on the real filesystem; the loader treats the
-// overlaid files as if present there (and all parent dirs as existing).
-func overlayFromSource(loc module.SourceLoc, modPath, version string) (string, map[string]load.Source, error) {
-	synthRoot := syntheticRoot(modPath, version)
-	overlay := map[string]load.Source{}
-
-	root := loc.Dir
-	if root == "" {
-		root = "."
-	}
-
-	err := fs.WalkDir(loc.FS, root, func(p string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		data, err := fs.ReadFile(loc.FS, p)
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", p, err)
-		}
-		// loc.FS uses io/fs slash paths; compute the path relative to the
-		// module root and rebase it under the synthetic OS root.
-		rel := p
-		if root != "." {
-			rel = strings.TrimPrefix(strings.TrimPrefix(p, root), "/")
-		}
-		key := filepath.Join(synthRoot, filepath.FromSlash(rel))
-		overlay[key] = load.FromBytes(data)
-		return nil
-	})
-	if err != nil {
-		return "", nil, err
-	}
-	if len(overlay) == 0 {
-		return "", nil, fmt.Errorf("fetched module source is empty: %w", shape.ErrInvalidPackage)
-	}
-	return synthRoot, overlay, nil
-}
-
-// syntheticRoot returns a deterministic absolute path used as the in-memory
-// module root for the overlay. It is derived purely from path@version (no
-// randomness, no clock) so the load is reproducible, and is sanitized into a
-// single path segment so it never collides with real source on disk.
-func syntheticRoot(modPath, version string) string {
-	repl := strings.NewReplacer("/", "_", ":", "_", "@", "_", "+", "_")
-	safe := repl.Replace(modPath + "@" + version)
-	return string(filepath.Separator) + filepath.Join("opm-registry-module", safe)
+	return StagedSource{Value: val, Root: synthRoot, Overlay: overlay}, nil
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if

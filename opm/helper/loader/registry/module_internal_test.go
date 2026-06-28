@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 )
 
@@ -55,7 +56,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	octx := cuecontext.New()
 
 	// Positive: Overlay (FS nil) — the catalog dep resolves.
-	synthRoot, overlay, err := overlayFromSource(loc, modPath+"@v0", "v0.0.2")
+	synthRoot, overlay, err := stage.OverlayFromSource(loc, modPath+"@v0", "v0.0.2")
 	require.NoError(t, err)
 	overlayInsts := load.Instances([]string{"."}, &load.Config{
 		Dir: synthRoot, ModuleRoot: synthRoot, Overlay: overlay, Env: env,

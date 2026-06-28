@@ -32,12 +32,12 @@ type ComponentSummary struct {
 
 	// ResourceFQNs are the FQNs of resource types declared by the component.
 	// Sorted for deterministic output.
-	// Example: ["opmodel.dev/opm/v1alpha1/resources/workload/container@v1"]
+	// Example: ["opmodel.dev/catalogs/opm/resources/container@v1"]
 	ResourceFQNs []string
 
 	// TraitFQNs are the FQNs of traits declared by the component.
 	// Sorted for deterministic output.
-	// Example: ["opmodel.dev/opm/v1alpha1/traits/network/expose@v1"]
+	// Example: ["opmodel.dev/catalogs/opm/traits/expose@v1"]
 	TraitFQNs []string
 }
 

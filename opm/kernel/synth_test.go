@@ -58,10 +58,11 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 	}}, nil)
 
 	k := kernel.New(kernel.WithRegistry(reg))
-	modVal, err := k.LoadModuleFromRegistry(context.Background(), modPath+"@v0", "v"+version)
-	require.NoErrorf(t, err, "loading published module %s@v%s", modPath, version)
-	mod, err := k.NewModuleFromValue(modVal)
-	require.NoError(t, err)
+	// Acquire WITH source: synth builds the instance inside the module's own
+	// staged root, so the module must carry its source.
+	mod, err := k.AcquireModuleFromRegistry(context.Background(), modPath+"@v0", "v"+version)
+	require.NoErrorf(t, err, "acquiring published module %s@v%s", modPath, version)
+	require.True(t, mod.HasSource(), "acquired module must carry staged source for synth")
 	return k, mod
 }
 
