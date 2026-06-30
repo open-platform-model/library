@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.4](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-06-30)
+
+
+### Features
+
+* **inventory:** add runtime-neutral shared inventory package ([#34](https://github.com/open-platform-model/library/issues/34)) ([27acbfa](https://github.com/open-platform-model/library/commit/27acbfac1d2c1c555e847fc54de8a31bb4838a12))
+
 ## [1.0.0-alpha.3](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.2...v1.0.0-alpha.3) (2026-06-28)
 
 
