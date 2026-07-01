@@ -42,11 +42,15 @@
       package`, referencing D31 and PR #34 / commit `27acbfa`, with a
       `BREAKING CHANGE:` footer and a `Migration: revert-library-inventory-pkg`
       trailer. Branch first (not on `main`).
-- [ ] 6.2 Open the PR; do not merge without explicit go-ahead.
-- [ ] 6.3 After merge, archive this OpenSpec change
+- [x] 6.2 Open the PR; do not merge without explicit go-ahead. Opened as
+      https://github.com/open-platform-model/library/pull/36, merged by the
+      user as `738a694`.
+- [x] 6.3 After merge, archive this OpenSpec change
       (`openspec/changes/archive/YYYY-MM-DD-revert-library-inventory-pkg/`),
       syncing the `REMOVED` delta so `openspec/specs/inventory/` is gone from
-      the main spec tree.
-- [ ] 6.4 Update `enhancements/0006/planned-changes.md` (A3 row: `reverted-pending`
+      the main spec tree. (The delta was already applied directly in the PR
+      itself — `openspec/specs/inventory/spec.md` was deleted in the same
+      commit — so archiving here is a move-only operation, no further sync.)
+- [x] 6.4 Update `enhancements/0006/planned-changes.md` (A3 row: `reverted-pending`
       → `reverted`, with the real PR/commit + this change's slug) and append a
       `history` event to `enhancements/0006/config.yaml`.
