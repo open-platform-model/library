@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-alpha.5](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-07-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **inventory:** opm/inventory (InventoryEntry, NewEntryFromResource, IdentityEqual, K8sIdentityEqual, ComputeStaleSet, ComputeDigest, ApplyComponentRenameSafetyCheck, the pre-apply collision predicate) is removed from the public opm/ surface. No known importer; each frontend keeps its own local inventory logic.
+
+### Reverts
+
+* **inventory:** remove runtime-neutral shared inventory package ([#36](https://github.com/open-platform-model/library/issues/36)) ([738a694](https://github.com/open-platform-model/library/commit/738a6946dcb8377e281eb644fb3aeefe5cd5c9b1))
+
+
+### Documentation
+
+* **openspec:** archive revert-library-inventory-pkg ([d5badb7](https://github.com/open-platform-model/library/commit/d5badb767d74d524e157b1e211a6bf1ed217aa7d))
+
 ## [1.0.0-alpha.4](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-06-30)
 
 
