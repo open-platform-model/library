@@ -1131,3 +1131,29 @@ Read absent-FQN and unify diagnostics off the `MatchPlan`:
 +     fmt.Printf("%s @ %s: %v\n", u.Component, u.FQN, u.Cause)
 + }
 ```
+
+### Removed — `revert-library-inventory-pkg` (BREAKING)
+
+- **The entire `opm/inventory` package is deleted.** `InventoryEntry`,
+  `NewEntryFromResource`, `IdentityEqual`, `K8sIdentityEqual`,
+  `ComputeStaleSet`, `ComputeDigest`, `ApplyComponentRenameSafetyCheck`, and the
+  pre-apply collision predicate all leave the public `opm/` surface. The
+  package shipped in `1.0.0-alpha.4` (enhancement 0006 slice A3) as the
+  intended shared implementation of entry-identity/digest/stale-set/prune-safety
+  logic for both the CLI and the operator; decision D31 (`enhancements/0006`)
+  found only the `InventoryEntry` wire shape is actually cross-actor-critical,
+  and that shape is already carried by the `ModuleInstance` CRD schema plus the
+  kernel's render-digest parity — not by sharing this Go package. The other
+  functions are per-actor policy that were never cross-compared.
+- Drops the `k8s.io/apimachinery` dependency (and its transitive closure) — it
+  was added solely for this package.
+- **Blast radius: none known.** No repo in this workspace ever imported this
+  package — `opm-operator/go.mod` remained pinned to `library v1.0.0-alpha.3`
+  (predating it), and `cli` never added the dependency. Recorded here as
+  breaking per Principle VI regardless, since the public API surface changed
+  on a tagged release.
+
+**Migration:** none. There is no known importer to migrate. A future consumer
+needing the `InventoryEntry` shape reads it off the `ModuleInstance` CRD's
+`status.inventory` field; each frontend keeps its own local identity/digest/
+stale-set/collision logic (`cli/pkg/inventory`, `opm-operator/internal/inventory`).
