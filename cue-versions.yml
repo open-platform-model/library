@@ -7,5 +7,5 @@
 # the catalog_opm repo; the library only consumes it from GHCR. The
 # cue:catalog:drift guard checks that fixtures track the latest published tag.
 testdata/modules/web_app:
-  version: v1.0.7
-  checksum: c08b56b126db366264ac3c0311bfafe112b3906490d674f7e29d5c4c889cc904
+  version: v1.0.11
+  checksum: 9de878d9dda456d91a773a014b37f29bb8be7691da7c7e00a95d58a651d7f91e
