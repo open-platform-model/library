@@ -3,7 +3,8 @@
 **Status:** RESOLVED and PUBLISHED. Fixed by `core` commit `68e4520`
 (*feat(module): make #Module identity author-supplied (fix self-cycle
 re-admission)*), shipped in the `core@v0.5.0` release (2026-06-16). Verified
-2026-06-17 against the pinned toolchain (`cuelang.org/go v0.17.0-alpha.1`).
+2026-06-17 against the toolchain pinned at the time (`cuelang.org/go v0.17.0-alpha.1`;
+the library pins v0.17.1 since 2026-07-16).
 Consumers on `core@v0` ≥ `v0.5.0` get the fix automatically; anything still
 pinned to `v0.4.0` (e.g. the `opm-kind-demo` registry) hits the old failure.
 **Affects:** `Instance` CRs whose `instance.cue` imports a published `#Module`
@@ -43,7 +44,8 @@ shape works, the imported shape did not.
 
 The toolchain matters: a `cue` CLI at `v0.17.0-alpha.2`+ adds a *separate*
 spurious closedness error (see `cue-closedness-regression-alpha2.md`), which
-masks this one. Reproduce on `v0.17.0-alpha.1` — the version the kernel pins —
+masks this one. Reproduce on `v0.17.0-alpha.1` — the version the kernel pinned
+when this was measured —
 so the result is unambiguous.
 
 ```bash

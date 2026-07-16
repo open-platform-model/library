@@ -30,7 +30,9 @@ and `cue.dev/x/k8s.io@v0`.
 ```bash
 export CUE_REGISTRY='opmodel.dev=localhost:5000+insecure,registry.cue.works'
 
-# Match the library's pinned CUE version exactly — install the alpha.1 CLI:
+# This repro was measured on v0.17.0-alpha.1, the library's pin at the time.
+# (The library pins v0.17.1 since 2026-07-16; alpha.1 is kept here so the
+# recorded results below reproduce exactly.)
 GOBIN=/tmp/cuebin go install cuelang.org/go/cmd/cue@v0.17.0-alpha.1
 
 cue mod tidy                                  # populate transitive deps
@@ -43,7 +45,8 @@ cue mod tidy                                  # populate transitive deps
 ## Result
 
 All render `containers` **concretely** and `cue vet -c` passes — on the *same*
-CUE version (`v0.17.0-alpha.1`) the Go library uses. The Go kernel, fed the
+CUE version (`v0.17.0-alpha.1`) the Go library used at the time of this
+investigation. The Go kernel, fed the
 identical transformer + component + context, produced
 `list.Concat: non-concrete value _` until the fix. The fix (kernel) reads the
 `#transform` from the open `MaterializedPlatform.Composed` map instead of out of

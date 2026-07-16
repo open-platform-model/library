@@ -148,7 +148,7 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0-alpha.1\"\ndeps: \"opmodel.dev/core@v1\": v: %q\n",
+			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: \"opmodel.dev/core@v1\": v: %q\n",
 			f.Path+"@v0", coreVersionOr(f.CoreVersion),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
@@ -169,7 +169,7 @@ func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0-alpha.1\"\n%s",
+			"module: %q\nlanguage: version: \"v0.17.0\"\n%s",
 			m.Path+"@v0", deps.String(),
 		)}
 		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}

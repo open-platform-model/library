@@ -87,7 +87,7 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 ### Dimension 7: Supply Chain & Build
 
-- `cuelang.org/go v0.17.0-alpha.1` is an **alpha** SDK pin on the security-critical evaluation path — flag the alpha dependency and track for a stable upgrade
+- `cuelang.org/go` is pinned to the stable `v0.17.1` on the security-critical evaluation path (the former `v0.17.0-alpha.1` alpha pin was retired 2026-07-16) — flag any regression back to a prerelease SDK
 - `go.sum` present and integrity-checked; module deps pinned; transitive OCI plumbing (`cuelabs.dev/go/oci/ociregistry`, `opencontainers/*`, `golang.org/x/net`, `golang.org/x/oauth2`) reviewed for known CVEs
 - `crypto/sha256` used for the cache key (fine); confirm no `math/rand` used for any security-relevant value
 - CI workflows (`.github/workflows/`) use least-privilege `permissions:` and pin third-party actions to commit SHAs; `Taskfile.yml` build inputs are not unpinned

@@ -131,7 +131,7 @@ values: {}
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(instanceSrc), 0o644))
 
 	moduleSrc := fmt.Sprintf(`module: "authored.opmodel.dev/instance@v0"
-language: version: "v0.17.0-alpha.1"
+language: version: "v0.17.0"
 deps: {
 	"opmodel.dev/core@v1": v: "v1.0.0-alpha.1"
 	%q: v: %q
