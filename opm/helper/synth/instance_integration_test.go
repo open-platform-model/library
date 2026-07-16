@@ -451,7 +451,7 @@ metadata: {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(instanceSrc), 0o644))
 	// A cue.mod/module.cue pinning core + the module is required for the import.
 	moduleSrc := `module: "authored.opmodel.dev/instance@v0"
-language: version: "v0.17.0-alpha.1"
+language: version: "v0.17.0"
 deps: {
 	"opmodel.dev/core@v1": v: "v1.0.0-alpha.1"
 	"` + importPath + `": v: "v0.1.0"

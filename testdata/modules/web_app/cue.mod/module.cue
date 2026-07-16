@@ -1,6 +1,6 @@
 module: "opmodel.dev/library/testdata/modules/web-app@v1"
 language: {
-	version: "v0.17.0-alpha.1"
+	version: "v0.17.0"
 }
 source: {
 	kind: "self"
