@@ -111,7 +111,11 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 		Description: "Default Kubernetes Platform — subscribes to the opm core catalog",
 		Type:        "kubernetes",
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			path: {},
+			// Mirrors the range in modules/opm_platform/platform.cue. Both
+			// sides resolve the same catalog version or the two materialized
+			// platforms compose different transformer FQNs and the comparison
+			// below fails. Move them together.
+			path: {Filter: &synth.FilterSpec{Range: "1.0.0-alpha.1"}},
 		},
 	})
 	require.NoError(t, err)
