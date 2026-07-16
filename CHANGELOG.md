@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.7](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-07-16)
+
+
+### Miscellaneous Chores
+
+* adopt CUE v0.17.1 toolchain and add a closedness canary ([#40](https://github.com/open-platform-model/library/issues/40)) ([56ec296](https://github.com/open-platform-model/library/commit/56ec2967e6fedd896a1714761262afabc952cec1))
+
 ## [1.0.0-alpha.6](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-07-16)
 
 
