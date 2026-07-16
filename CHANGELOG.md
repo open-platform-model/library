@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.6](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-07-16)
+
+
+### Miscellaneous Chores
+
+* update cue v0.17 findings, migrate web_app fixture to catalog@v1 ([#38](https://github.com/open-platform-model/library/issues/38)) ([fb9f835](https://github.com/open-platform-model/library/commit/fb9f8358412d358c53f106be29b52f59b335d014))
+
 ## [1.0.0-alpha.5](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-07-01)
 
 
