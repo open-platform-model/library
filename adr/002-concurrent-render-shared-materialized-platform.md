@@ -6,6 +6,12 @@ Accepted — records the findings of the `spike-concurrent-render-v0170` change 
 
 The v0.16-landable half of this decision is implemented by the `concurrent-render-recontract` OpenSpec change (`openspec/changes/concurrent-render-recontract/`): the compile pipeline now builds in the caller Kernel's `*cue.Context` and consumes the materialized platform as read-only input, removing both platform-sourced `Value.Context()` sites. The v0.17 pin, the Goroutine-Safety-Contract / MaterializedPlatform spec rewrites, and the permanent concurrent `-race` regression test remain a gated follow-up (blocked on a stable/accepted-risk v0.17 and re-published v0.17-parseable catalogs).
 
+**Update 2026-07-16 — both gating preconditions are now discharged.** The library pins the stable `cuelang.org/go v0.17.1` (no alpha-risk acceptance needed), and the published catalog (`opmodel.dev/catalogs/opm@v1`) declares `language.version v0.17.0` and parses under v0.17. The prose below describing the workspace as "on `v0.16.1`" and v0.17 as "currently alpha" is a historical record of the decision context, not current state.
+
+One caveat the original gating did not anticipate: v0.17 carries an unfixed evaluator closedness regression (`docs/design/cue-closedness-regression-alpha2.md`). Adoption is safe only because the catalog encodes the hoisted-guard workaround. That does not affect this ADR's conclusion — the concurrency findings are independent — but it means "v0.17 is stable" and "v0.17 is bug-free" are not the same claim.
+
+The remaining follow-up (spec rewrites + the permanent `-race` regression test) is now unblocked and still outstanding.
+
 ## Context
 
 The `opm-operator` rewrite onto the kernel needs to render many `ModuleRelease`s concurrently against a single, long-lived `*MaterializedPlatform` — materialize once (per Platform-CR generation), reuse across all releases. Every other operator need is already satisfied by the library (Kernel lifetime, `sync.Once` schema cache, `Materialize` + concurrency-safe `LRU`). The render path is the one gap.

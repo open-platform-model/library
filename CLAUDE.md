@@ -75,6 +75,15 @@ The kernel accepts exactly:
 
 Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUDE.md`. A local CUE registry at `localhost:5000` is expected for publish/integration tests.
 
+### CUE toolchain pin
+
+Two independent knobs — do not conflate them:
+
+- **SDK** — `cuelang.org/go` in `go.mod`, currently **`v0.17.1`**. Because Go uses MVS, every embedder (`cli`, `opm-operator`) resolves *at least* this version; the library effectively sets their CUE floor.
+- **Declared `language.version`** — what the CUE modules here (`modules/opm_platform`, `testdata/**`, and the literals in `opm/internal/registrytest`) declare, currently **`v0.17.0`**. This is a *consumer* floor: a module declaring `vX` is rejected by every `cue` older than `vX`. Declare `v0.17.0` — the minimum enabling `cue.mod/local-module.cue` — not `v0.17.1`, which would lock out v0.17.0 tools for no gain.
+
+**`v0.17.x` carries an unfixed evaluator closedness regression** (`docs/design/cue-closedness-regression-alpha2.md`). The pin is safe only because the catalog encodes the hoisted-guard workaround; `opm/kernel/cue_closedness_regression_test.go` is the canary that fails when upstream fixes it. Do not treat a passing suite as evidence the bug is gone.
+
 ### Schema cache lifetime contract
 
 The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves

@@ -1,10 +1,18 @@
 # CUE closedness regression: `v0.17.0-alpha.2`+ rejects valid optional nested-struct fields
 
 Status: Investigation / upstream bug report (2026-06-16). **Re-verified against
-the official `v0.17.0` release on 2026-07-04 — the regression is NOT fixed; it
-shipped in the final release.** Affects the OPM CUE toolchain choice. **Not** an
-OPM schema or catalog defect — the same sources validate cleanly on `v0.16.0`
-and `v0.17.0-alpha.1`.
+`v0.17.1` on 2026-07-16 — still NOT fixed.** `v0.17.1` closed and fixed
+[cue-lang/cue#4423](https://github.com/cue-lang/cue/issues/4423) *as filed*, but
+that is a different symptom; OPM's symptom survives unchanged and is not yet
+reported upstream (see [Root cause + upstream status](#root-cause--upstream-status)).
+**Not** an OPM schema or catalog defect — the same sources validate cleanly on
+`v0.16.0` and `v0.17.0-alpha.1`.
+
+**The toolchain has since moved to `v0.17.1` (2026-07-16), i.e. onto an affected
+version.** Rendering is green only because the catalog carries the hoisted-guard
+workaround. That workaround is now load-bearing rather than precautionary — do
+not retire it. `opm/kernel/cue_closedness_regression_test.go` is the live canary
+that will fail when upstream finally fixes this.
 
 ## Summary
 
@@ -13,13 +21,16 @@ spurious `field not allowed` (closedness) errors for **optional nested struct
 fields that are explicitly declared in the closed schema**. The same modules
 validate cleanly on `v0.16.0` and `v0.17.0-alpha.1`. The regression was
 introduced between `alpha.1` and `alpha.2` and **persists through `alpha.3`,
-`rc.1`, and the official `v0.17.0` release** (confirmed 2026-07-04). It is
-reproducible both via the `cue` CLI and via the Go kernel at module-build time.
+`rc.1`, the official `v0.17.0` release, and `v0.17.1`** (confirmed 2026-07-16).
+It is reproducible both via the `cue` CLI and via the Go kernel at module-build
+time.
 
-This matters because the OPM kernel (`library`, `opm-operator`) pins
-`cuelang.org/go v0.17.0-alpha.1`. A bump to `alpha.2`/`alpha.3` would make the Go
-evaluator reject real catalog-backed modules at render time — exactly what the
-CLI does today.
+This used to matter because the kernel pinned the last clean toolchain
+(`v0.17.0-alpha.1`). Since 2026-07-16 the kernel pins `v0.17.1`, an affected
+version, so the *only* thing preventing the evaluator from rejecting real
+catalog-backed modules at render time is the hoisted-guard form in
+`catalog_opm/src/blueprints/workload/*.cue`. Reverting those guards breaks
+rendering immediately.
 
 ## Version matrix
 
@@ -33,12 +44,33 @@ Measured with isolated binaries (`GOBIN=… go install cuelang.org/go/cmd/cue@<v
 | `v0.17.0-alpha.3`  | **FAIL** (`field not allowed`)             | FAIL (`field not allowed`)     |
 | `v0.17.0-rc.1`     | **FAIL** (`field not allowed`)             | —                              |
 | `v0.17.0` (final)  | **FAIL** (`field not allowed`)             | —                              |
+| `v0.17.1`          | **FAIL** (`field not allowed`)             | —                              |
 
 **2026-07-04 re-run** used the current module deps (`opmodel.dev/catalogs/opm@v1.0.0-alpha`,
 `opmodel.dev/core@v1.0.0-alpha.1`; the earlier `@v0.5.2` catalog is gone from the
 registry). The trigger construct survived the catalog `v0.5.2 → v1.0.0-alpha`
-bump — the left-column result is unchanged from the original investigation, and
-`alpha.1` remains the newest clean toolchain.
+bump — the left-column result is unchanged from the original investigation.
+
+**2026-07-16 re-run (`v0.17.1`)** required rebuilding the trigger, because the
+catalog now ships the hoisted-guard workaround and therefore no longer carries
+it. The pre-workaround blueprint was restored from `catalog_opm` commit `c0cd3ec`
+and wired into the `web_app` fixture via `cue.mod/local-module.cue`. Result:
+`alpha.1` clean, `v0.17.0` FAIL, `v0.17.1` FAIL — `alpha.1` remains the newest
+clean toolchain even though the project has deliberately moved past it.
+
+Two measurement traps cost real time here; heed them on any re-run:
+
+- **The CUE module cache is keyed by `module@version`, not by registry.**
+  Publishing different content under the same `module@version` to a different
+  registry resolves the *stale cached copy* instead, silently. Use a fresh
+  `CUE_CACHE_DIR` per measurement (the cache lives at `~/.cache/cue`, not
+  `~/.cache/cuelang`), or replace the dep with `cue.mod/local-module.cue`, which
+  bypasses the cache entirely.
+- **`language.version` does not gate this bug** — varied independently on both the
+  main module and the dependency, with no effect. Only the tool/SDK version
+  matters. (This retroactively invalidates the premise of `core` commit
+  `40daf05`, which pinned `language.version` to `alpha.1` believing it would
+  avoid the bug; that pin was inert and has since been reverted.)
 
 † The metadata-self-cycle column is a **separate, real** OPM schema bug (a
 `#Module.metadata` self-reference), fixed independently and orthogonal to this
@@ -209,15 +241,49 @@ Validated: catalog vet + the `web_app` repro module clean on both `alpha.1` and
 stands until a fixed catalog version is published and the operator/CLI/kernel
 matrix is re-run against it.
 
-### Minimal in-package reproductions do NOT trigger it
+### Minimal in-package reproduction — SUPERSEDED 2026-07-16: one exists
 
-Several reduced, single-package models of the above (a `close({...})` with the
-same propagation `scaling: spec.statelessWorkload.scaling`, including a
-comprehension over a `#traits` map) evaluate **cleanly on alpha.3**. The trigger
-therefore appears to require the real multi-layer, cross-package closed-type
-embedding (core `#Component` → catalog `#Trait`/`#Blueprint` → `#ScalingSchema`),
-not just the surface shape. This narrows the regression to closedness propagation
-across module/definition boundaries rather than a single local pattern.
+This section previously concluded that reduced single-package models evaluate
+cleanly and that the trigger "requires the real multi-layer, cross-package closed-type
+embedding … not just the surface shape". **That conclusion was wrong** — it
+reflected reductions that dropped a load-bearing element, not an inherent need
+for cross-package structure.
+
+A single-file, dependency-free reproduction now lives at
+`docs/design/repro-cue-closedness/` and is asserted by
+`opm/kernel/cue_closedness_regression_test.go`. No core, no catalog, no registry,
+no `close()`:
+
+```cue
+#Inner: {b?: {n: int}}
+#Base: {#parts: {...}, out: {for _, p in #parts {p}}}
+#Derived: #Base & {
+	#parts: only: a: #Inner
+	out: {
+		a: #Inner
+		if out.a.b != _|_ {a: {}}   // CONDITION traverses a struct-typed field of closed #Inner
+	}
+}
+x: {#Derived, out: a: b: n: 2}     // v0.17.0/v0.17.1: "x.out.a.b: field not allowed"
+```
+
+Six elements are individually load-bearing — removing any one makes it clean on
+every version. This is what earlier reductions kept losing:
+
+1. `b` must be **struct-typed** (a scalar `b: int` is exempt).
+2. `#Inner` must be a **definition** (closedness must originate somewhere).
+3. `#Base` must build `out` via a **field comprehension**.
+4. `#Derived` must extend it via **unification** (`#Base & {…}`), not inline.
+5. The **condition** is the trigger, not the body (the body never mentions `b`).
+6. A **concrete usage** is required; definitions alone do not trigger it.
+
+Notably `close()` is **not** required — the real catalog's `spec: close({_allFields})`
+is incidental — and neither is optionality (`b: {n: int}` reproduces too).
+
+Element 1 independently explains the field-level pattern seen in the real
+catalog: the error names `scaling` and `updateStrategy` (structs) but never
+`restartPolicy` (a scalar enum). Two independent lines of evidence agreeing is
+the strongest signal the rule is right.
 
 ## Go-kernel confirmation (2026-07-04)
 
@@ -232,18 +298,43 @@ after measurement):
 | `v0.17.0-alpha.1`  | **PASS**                                                            |
 | `v0.17.0` (final)  | **FAIL** — `building module package from …/testdata/modules/web_app: #components.web.spec.statelessWorkload.scaling: field not allowed (and 1 more errors)` |
 
+**That canary is now dead (2026-07-16).** It resolves the *published* catalog,
+and the published catalog now carries the hoisted-guard workaround — so the
+trigger it depended on is gone. Measured: it PASSES on `v0.17.0`, the known-bad
+version. It can no longer distinguish a fixed CUE from a broken one and must not
+be used as a bump gate; it green-lit `v0.17.1` while proving nothing.
+
+Its replacement is `opm/kernel/cue_closedness_regression_test.go`, which
+evaluates the trigger shape directly (no registry, no catalog) and asserts the
+bug is still present. Verified to discriminate: PASS on `v0.17.1` (bug present),
+FAIL on `v0.17.0-alpha.1` (bug absent).
+
 `opm/materialize` package tests pass on both pins — that path fills already-built
 values rather than re-validating the closed component spec, so it does not
 re-trigger the closedness check. The regression bites specifically where the Go
 kernel **builds/validates** a catalog-backed `#Module` (`Kernel.Validate` /
 `ValidateRealConfig`), i.e. the exact render-time path a pin bump would break.
-(Two other kernel tests fail independently of the CUE version: the pre-existing
-catalog FQN version-skew in `TestFlow_WebApp_OnOpmPlatform`.)
+(The `TestFlow_WebApp_OnOpmPlatform` catalog FQN version-skew referenced here was
+resolved by the 2026-07-16 fixture migration to `catalogs/opm@v1` (#38); the full
+suite is green on both pins as of that change.)
 
 ## Root cause + upstream status (2026-07-04)
 
 **Upstream issue: [cue-lang/cue#4423](https://github.com/cue-lang/cue/issues/4423)**
-("Field not allowed regression in v0.17.0", opened 2026-07-02, `NeedsInvestigation`).
+("Field not allowed regression in v0.17.0", opened 2026-07-02). **Closed COMPLETED
+2026-07-10 and fixed in `v0.17.1` — but only for the symptom as filed, which is
+not ours.** Verified 2026-07-16:
+
+| reproduction | `v0.16.1` | `alpha.1` | `v0.17.0` | `v0.17.1` |
+| --- | --- | --- | --- | --- |
+| upstream's, as filed (`adding field … not allowed as field set was already referenced`) | clean | clean | FAIL | **fixed** |
+| OPM's (`… field not allowed`) | clean | clean | FAIL | **still FAILS** |
+
+Different error strings, different code paths — two distinct bugs that were
+conflated because they bisect to the same commit and both arrived in alpha.2.
+The `v0.17.1` release notes naming #4423 therefore do **not** mean OPM is clear.
+**OPM's symptom has not been reported upstream.** The single-file reproduction in
+`docs/design/repro-cue-closedness/` is ready to file as-is.
 The reporter's repro is the same shape as ours — an `if type == "RollingUpdate"`
 guard inside a closed k8s `#Deployment.spec.strategy` — and their `git bisect`
 lands on commit `339485ddf008` (2026-05-09):
@@ -275,32 +366,48 @@ completion work.
 
 ## Impact on OPM
 
-- **Today:** none at runtime. The kernel (`library`/`opm-operator`) pins
-  `cuelang.org/go v0.17.0-alpha.1`, which is clean. Only a developer running a
-  newer `cue` CLI locally sees the false errors (and may misdiagnose a module as
-  broken — this happened during the
+- **Today (since 2026-07-16):** none at runtime, but for a different reason than
+  before. The kernel (`library`/`opm-operator`) now pins `cuelang.org/go v0.17.1`
+  — an **affected** version. Rendering is green solely because the catalog no
+  longer contains the trigger: all five workload blueprints use the hoisted-guard
+  form. The safety margin is the workaround, not the toolchain.
+- **If the workaround is reverted:** the evaluator immediately rejects every
+  catalog-backed module using the workload blueprints with `scaling`/
+  `updateStrategy` set — real rendering breaks, not just the CLI. This is why
+  `catalog_opm`'s authoring rule is permanent and why the canary exists.
+- **Historically (pre-2026-07-16):** the kernel pinned the clean `alpha.1`, so
+  only a developer running a newer `cue` CLI locally saw the false errors — and
+  could misdiagnose a module as broken, which happened during the
   [release-vs-modulerelease render-divergence](../../../opm-operator/docs/design/release-vs-modulerelease-render-divergence.md)
-  investigation).
-- **On a toolchain bump:** if `cuelang.org/go` is bumped to `alpha.2`+ before this
-  is fixed upstream, the Go evaluator will reject every catalog-backed module that
-  uses the workload blueprints with `scaling`/`updateStrategy` set — i.e. real
-  rendering breaks, not just the CLI.
+  investigation.
 
 ## Recommendations
 
-1. **Stay on `cuelang.org/go v0.17.0-alpha.1`** in `library`/`opm-operator`
-   `go.mod`. The official `v0.17.0` did **not** fix this — do not bump to it.
-2. **Before any future bump past alpha.1**, re-run the matrix above (and the
-   operator's `task dev:test:local` render integration tests) against the
-   candidate version. `TestIntegration_Live_ValidateRealConfig` in
-   `opm/kernel` is the fastest Go-level canary.
-3. **Report upstream** to `cuelang.org/go` — the reproduction now points at a
-   *released* version, so this is a shipped regression, not a pre-release
-   wart. Offer to bisect alpha.1→alpha.2 if maintainers want a narrower range.
-   Watch for a `v0.17.1`/`v0.18` fix and re-test then.
-4. For local CLI work in this workspace, use a `cue` CLI at `v0.17.0-alpha.1`
-   (matches the kernel) or `v0.16.0`; do not trust closedness errors from
-   `alpha.2` through `v0.17.0`.
+Superseded 2026-07-16. Recommendation 1 previously read "Stay on
+`cuelang.org/go v0.17.0-alpha.1` … do not bump"; the project has deliberately
+moved to `v0.17.1` on the strength of the workaround, accepting that the bug is
+still live. Current guidance:
+
+1. **Never revert the hoisted-guard form** in `catalog_opm/src/blueprints/workload/*.cue`.
+   It is the only thing keeping the toolchain's live bug off OPM's rendering
+   path. Treat `catalog_opm/docs/cue-guard-closedness-workaround.md` as a
+   permanent authoring rule, not a temporary patch.
+2. **The bump gate is `opm/kernel/cue_closedness_regression_test.go`**, not
+   `TestIntegration_Live_ValidateRealConfig` (dead — see above). When the canary
+   starts failing, upstream has fixed OPM's symptom: at that point re-run this
+   matrix, then retire the authoring rule, the reproducer, and the canary
+   together.
+3. **Report OPM's symptom upstream.** #4423 is closed, so this will not be picked
+   up as part of it. `docs/design/repro-cue-closedness/` is a single-file,
+   dependency-free reproduction ready to file.
+4. For local CLI work, a `cue` CLI at `v0.17.1` matches the kernel. Closedness
+   errors from `alpha.2` onward remain untrustworthy on the *pre-workaround*
+   shape — if a module trips `field not allowed` on a nested struct field the
+   schema clearly declares, suspect this bug before suspecting the module, and
+   check whether an in-`spec` guard crept in.
+5. When measuring across CUE versions, use a fresh `CUE_CACHE_DIR` and prefer
+   `cue.mod/local-module.cue` for dep replacement — see the version-matrix
+   section for why the cache will otherwise lie to you.
 
 ## References
 

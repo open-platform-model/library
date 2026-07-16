@@ -340,7 +340,7 @@ Run against the real `deployment-transformer@0.5.2` repro:
 | Fill `#component`/`#context` at **full paths** in the platform value (no `LookupPath` detach) | ❌ still fails |
 | `Unify` conjunct instead of `FillPath` | ❌ still fails (originally read as "proves §10.3"; actually just propagates the already-corrupted value — see §11) |
 | Rebuild `#transform` via `Syntax(Final)`→`BuildExpr` **before** filling `#component` | ❌ still fails (Syntax captures the already-broken reference) |
-| Upgrade `cuelang.org/go` v0.17.0-alpha.1 → alpha.3 | ⚠️ blocked: alpha.3 tightens closedness and breaks the fixtures (`#components.web.spec.statelessWorkload.scaling: field not allowed`) before this code path is reached — a separate coordinated upgrade |
+| Upgrade `cuelang.org/go` v0.17.0-alpha.1 → alpha.3 | ✅ done 2026-07-16 via the coordinated bump to **v0.17.1**. The blocker noted here (`#components.web.spec.statelessWorkload.scaling: field not allowed`) is the closedness regression, still unfixed upstream; it no longer bites because the catalog adopted the hoisted-guard workaround. See `cue-closedness-regression-alpha2.md`. |
 | **Re-fill each output-local hidden field with its direct-lookup value** | ✅ **works** |
 
 The working fix (`FIX6` in the throwaway instrumentation): after filling `#component`/`#context`,
