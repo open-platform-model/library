@@ -2,10 +2,11 @@
 // regression that the catalog's hoisted-guard authoring rule works around.
 //
 // It is deliberately INVALID on affected CUE versions: `cue vet ./...` here is
-// expected to fail with "x.out.a.b: field not allowed". The Go canary
-// TestCUEClosednessRegression_StillPresent asserts that failure. Nothing else
-// evaluates this module — it sits outside CUE_MODULE_GLOBS so `task cue:vet`
-// does not discover it.
+// expected to fail with "x.out.a.b: field not allowed". This module is the
+// ready-to-file upstream report; the Go canary asserting the failure lives in
+// opm/internal/cueregression/closedness_test.go with the same body embedded as
+// a string (keep the two in sync). Nothing evaluates this module — it sits
+// outside CUE_MODULE_GLOBS so `task cue:vet` does not discover it.
 //
 // Measured (fresh CUE_CACHE_DIR per run, 2026-07-16):
 //
