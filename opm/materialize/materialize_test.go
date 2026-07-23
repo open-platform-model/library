@@ -146,6 +146,39 @@ func TestMaterialize_RangeAllowDeny(t *testing.T) {
 	}
 }
 
+// A range carrying a pre-release identifier admits the whole pre-release
+// family, and the resolved (highest-survivor) version is the -dev.* CI tag:
+// dev.* out-sorts alpha.* of the same base version under standard SemVer
+// identifier comparison. This is the enhancement 0006 OQ18 mechanism — an open
+// ">=X.Y.Z-alpha" subscription range resolves CI dev tags over alpha releases.
+// These assertions pin the *current* semantics; if OQ18's resolution changes
+// them, this is the test that changes with it.
+func TestMaterialize_PrereleaseRangeResolvesDevOverAlpha(t *testing.T) {
+	versions := []string{"1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-dev.1784212239.g0c11c12"}
+	path := registrytest.UniquePath(t, "cat")
+	var fixtures []registrytest.CatalogFixture
+	for _, v := range versions {
+		fixtures = append(fixtures, registrytest.CatalogFixture{Path: path, Version: v,
+			Body: registrytest.BuildCatalog(path, v, registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})})
+	}
+	registry := registrytest.NewCatalogRegistry(t, fixtures...)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, filter: {range: ">=1.0.0-alpha"}} }`, path))
+
+	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.NoError(t, err)
+
+	// All three pre-releases survive the admitting range...
+	var want []string
+	for _, v := range versions {
+		want = append(want, path+"/transformers/deployment@"+v)
+	}
+	assert.ElementsMatch(t, want, composedFQNs(mp.Transformers))
+
+	// ...and the dev tag is the resolved version, out-sorting both alphas.
+	assert.Equal(t, "1.0.0-dev.1784212239.g0c11c12", mp.Resolved[path])
+}
+
 // 6.3a — divergent same-FQN bodies across two catalogs surface as a
 // MaterializeError.
 func TestMaterialize_DivergentFQNConflicts(t *testing.T) {
