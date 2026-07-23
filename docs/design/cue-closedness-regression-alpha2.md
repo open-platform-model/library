@@ -11,8 +11,8 @@ reported upstream (see [Root cause + upstream status](#root-cause--upstream-stat
 **The toolchain has since moved to `v0.17.1` (2026-07-16), i.e. onto an affected
 version.** Rendering is green only because the catalog carries the hoisted-guard
 workaround. That workaround is now load-bearing rather than precautionary — do
-not retire it. `opm/kernel/cue_closedness_regression_test.go` is the live canary
-that will fail when upstream finally fixes this.
+not retire it. `opm/internal/cueregression/closedness_test.go` is the live
+canary pair that will fail when upstream finally fixes this.
 
 ## Summary
 
@@ -250,9 +250,10 @@ reflected reductions that dropped a load-bearing element, not an inherent need
 for cross-package structure.
 
 A single-file, dependency-free reproduction now lives at
-`docs/design/repro-cue-closedness/` and is asserted by
-`opm/kernel/cue_closedness_regression_test.go`. No core, no catalog, no registry,
-no `close()`:
+`docs/design/repro-cue-closedness/` (ready to file upstream) and is asserted —
+as an embedded string, hermetically — by
+`opm/internal/cueregression/closedness_test.go`. No core, no catalog, no
+registry, no `close()`:
 
 ```cue
 #Inner: {b?: {n: int}}
@@ -304,10 +305,13 @@ trigger it depended on is gone. Measured: it PASSES on `v0.17.0`, the known-bad
 version. It can no longer distinguish a fixed CUE from a broken one and must not
 be used as a bump gate; it green-lit `v0.17.1` while proving nothing.
 
-Its replacement is `opm/kernel/cue_closedness_regression_test.go`, which
-evaluates the trigger shape directly (no registry, no catalog) and asserts the
-bug is still present. Verified to discriminate: PASS on `v0.17.1` (bug present),
-FAIL on `v0.17.0-alpha.1` (bug absent).
+Its replacement is `opm/internal/cueregression/closedness_test.go`, which
+evaluates the trigger shape directly from an embedded string (no registry, no
+catalog, no filesystem) and asserts the bug is still present, plus a hoisted-form
+twin asserting the workaround shape stays clean. The original single-canary form
+(`opm/kernel/cue_closedness_regression_test.go`, since superseded) was verified
+to discriminate: PASS on `v0.17.1` (bug present), FAIL on `v0.17.0-alpha.1` (bug
+absent).
 
 `opm/materialize` package tests pass on both pins — that path fills already-built
 values rather than re-validating the closed component spec, so it does not
@@ -392,11 +396,12 @@ still live. Current guidance:
    It is the only thing keeping the toolchain's live bug off OPM's rendering
    path. Treat `catalog_opm/docs/cue-guard-closedness-workaround.md` as a
    permanent authoring rule, not a temporary patch.
-2. **The bump gate is `opm/kernel/cue_closedness_regression_test.go`**, not
-   `TestIntegration_Live_ValidateRealConfig` (dead — see above). When the canary
-   starts failing, upstream has fixed OPM's symptom: at that point re-run this
-   matrix, then retire the authoring rule, the reproducer, and the canary
-   together.
+2. **The bump gate is `opm/internal/cueregression/closedness_test.go`**, not
+   `TestIntegration_Live_ValidateRealConfig` (dead — see above). When the
+   trigger-form canary starts failing, upstream has fixed OPM's symptom: at that
+   point re-run this matrix, then retire the authoring rule, the reproducer, and
+   the canary together. The hoisted-form twin failing instead means the
+   workaround shape itself broke — do not adopt that CUE version.
 3. **Report OPM's symptom upstream.** #4423 is closed, so this will not be picked
    up as part of it. `docs/design/repro-cue-closedness/` is a single-file,
    dependency-free reproduction ready to file.

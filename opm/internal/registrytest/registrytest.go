@@ -147,9 +147,11 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 	for _, f := range fixtures {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
+		// The module's major suffix must match the published version's major.
+		major, _, _ := strings.Cut(f.Version, ".")
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
 			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: \"opmodel.dev/core@v1\": v: %q\n",
-			f.Path+"@v0", coreVersionOr(f.CoreVersion),
+			f.Path+"@v"+major, coreVersionOr(f.CoreVersion),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
 			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v1\"\n\nc.#Catalog\n" + f.Body,

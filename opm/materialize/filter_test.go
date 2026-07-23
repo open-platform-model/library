@@ -95,6 +95,20 @@ func TestFilterVersions(t *testing.T) {
 			filter:    &subscriptionFilter{Range: ">=0.5.0 <0.6.0", Allow: []string{"0.6.0-dev.1"}},
 			want:      []string{"v0.5.0", "v0.5.1", "v0.6.0-dev.1"},
 		},
+		{
+			name:      "range carrying a pre-release identifier opts pre-releases in",
+			published: []string{"v0.5.0", "v0.6.0-dev.1", "v0.6.0"},
+			filter:    &subscriptionFilter{Range: ">=0.6.0-dev.0 <0.7.0"},
+			want:      []string{"v0.6.0-dev.1", "v0.6.0"},
+		},
+		{
+			// The enhancement 0006 OQ18 shape: an open pre-release range admits
+			// the whole -alpha/-dev family, CI dev tags included.
+			name:      "pre-release range admits mixed alpha and dev families",
+			published: []string{"v1.0.0-alpha", "v1.0.0-alpha.1", "v1.0.0-dev.1784212239.g0c11c12"},
+			filter:    &subscriptionFilter{Range: ">=1.0.0-alpha"},
+			want:      []string{"v1.0.0-alpha", "v1.0.0-alpha.1", "v1.0.0-dev.1784212239.g0c11c12"},
+		},
 	}
 
 	for _, tt := range tests {
