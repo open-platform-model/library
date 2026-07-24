@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.8](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.7...v1.0.0-alpha.8) (2026-07-23)
+
+
+### Documentation
+
+* **openspec:** draft closedness-canary-and-filter-tests change ([#42](https://github.com/open-platform-model/library/issues/42)) ([a013ff6](https://github.com/open-platform-model/library/commit/a013ff65a82e59192bf25663f5e978621bc69702))
+
 ## [1.0.0-alpha.7](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-07-16)
 
 
