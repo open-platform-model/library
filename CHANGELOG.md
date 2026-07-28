@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.9](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.8...v1.0.0-alpha.9) (2026-07-28)
+
+
+### Documentation
+
+* forbid AI attribution and session links in commits and PRs ([314d6fd](https://github.com/open-platform-model/library/commit/314d6fdfb57e312d0fd4b26fa292b3650a7b849c))
+
 ## [1.0.0-alpha.8](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.7...v1.0.0-alpha.8) (2026-07-23)
 
 
