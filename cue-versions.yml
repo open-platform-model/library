@@ -1,11 +1,13 @@
 # OPM CUE Module Version Registry
 # Format: <key>: {version: vMAJOR.MINOR.PATCH[, checksum: sha256]}
 #
-# Entries here are in-repo test fixtures: verified (never published) by cue.yml
-# and checksum-tracked by publish:smart. The OPM core catalog
+# Entries here are in-repo test fixtures, checksum-tracked by publish:smart.
+# They publish under the testing.opmodel.dev prefix, never under opmodel.dev —
+# that namespace is for real artifacts, and a fixture sitting in it is one more
+# path the owner-scoping migration has to account for. The OPM core catalog
 # (opmodel.dev/catalogs/opm) is NOT listed — it is authored and published from
 # the catalog_opm repo; the library only consumes it from GHCR. The
 # cue:catalog:drift guard checks that fixtures track the latest published tag.
 testdata/modules/web_app:
-  version: v1.0.11
+  version: v1.0.0
   checksum: 9de878d9dda456d91a773a014b37f29bb8be7691da7c7e00a95d58a651d7f91e

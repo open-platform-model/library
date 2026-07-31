@@ -1,4 +1,4 @@
-module: "opmodel.dev/library/testdata/modules/web-app@v1"
+module: "testing.opmodel.dev/modules/web_app@v1"
 language: {
 	version: "v0.17.0"
 }
