@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.10](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.9...v1.0.0-alpha.10) (2026-07-31)
+
+
+### Bug Fixes
+
+* **testdata:** publish the web_app fixture under testing.opmodel.dev ([#47](https://github.com/open-platform-model/library/issues/47)) ([c89470f](https://github.com/open-platform-model/library/commit/c89470fb2883352e63a17561f09490d50f5153c9))
+
 ## [1.0.0-alpha.9](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.8...v1.0.0-alpha.9) (2026-07-28)
 
 
