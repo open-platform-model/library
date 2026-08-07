@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.11](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.10...v1.0.0-alpha.11) (2026-08-07)
+
+
+### Documentation
+
+* forbid bare at-sign mentions in GitHub-destined text ([5b37fe2](https://github.com/open-platform-model/library/commit/5b37fe246aea3111685feab9f5b1ce84723b0b2c))
+
 ## [1.0.0-alpha.10](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.9...v1.0.0-alpha.10) (2026-07-31)
 
 
