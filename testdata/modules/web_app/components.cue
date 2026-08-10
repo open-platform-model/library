@@ -1,9 +1,9 @@
 package web_app
 
 import (
-	tr "testing.opmodel.dev/catalogs/opm/traits"
-	bp "testing.opmodel.dev/catalogs/opm/blueprints"
-	res "testing.opmodel.dev/catalogs/opm/resources"
+	tr "opmodel.dev/catalogs/opm/traits"
+	bp_workload "opmodel.dev/catalogs/opm/blueprints/workload"
+	res "opmodel.dev/catalogs/opm/resources"
 )
 
 // One stateless web component. Attaches:
@@ -14,22 +14,20 @@ import (
 //   - Expose trait           → satisfies ServiceTransformer's required trait
 //     FQN, so the component pairs deployment-transformer, service-transformer,
 //     and http-route-transformer in a single match cycle
-//   - StatelessWorkload blueprint → demonstrates Blueprint composition; its
-//     spec.statelessWorkload field is satisfied alongside the direct primitives.
-//     Blueprints import FLAT from …/blueprints (enhancement 0010 D42).
+//   - StatelessWorkloadBlueprint → demonstrates Blueprint composition; its
+//     spec.statelessWorkload field is satisfied alongside the direct primitives
 //
 // The "core.opmodel.dev/workload-type": "stateless" label is what the
 // DeploymentTransformer's requiredLabels matches against. It is set
-// explicitly here because the matcher reads component metadata.labels until
-// the library-match-labels slice flips the read to matchLabels (transitional
-// invariant 2 of library-core-retarget).
+// explicitly here so the matcher selects deployment-transformer over the
+// other workload transformers (statefulset / daemonset / job / cronjob).
 #components: {
 	web: {
 		metadata: {
 			name: "web"
 			labels: "core.opmodel.dev/workload-type": "stateless"
 		}
-		bp.#StatelessWorkload
+		bp_workload.#StatelessWorkload
 		tr.#HttpRoute
 		tr.#Expose
 

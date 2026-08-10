@@ -22,27 +22,30 @@ import (
 
 // TestFlow_ImportedModule_SynthToCompile is the end-to-end imported-module
 // render coverage (task 4.4 / spec ADDED requirement "Imported-module render
-// coverage exists"): a real published module — referenced by IMPORT, named at
-// its snake_case path leaf per core v2's D8 identity rule — is synthesized
-// into a #ModuleInstance and run through Match + Compile to concrete
+// coverage exists"): a real published module — referenced by IMPORT, with a
+// hyphenated name so the nameSnakeCase address derivation is exercised — is
+// synthesized into a #ModuleInstance and run through Match + Compile to concrete
 // resources. An authored instance.cue importing the SAME module is compiled too,
 // and both MUST yield the same Compiled set (single-build parity through
 // Kernel.Compile, not merely at the instance-value level).
 //
 // Hermetic: the module + catalog are served from an in-memory registry;
-// opmodel.dev/core@v2.0.0-alpha.4 resolves from the warm workspace cache, matching the
+// opmodel.dev/core@v1.0.0-alpha.1 resolves from the warm workspace cache, matching the
 // other registrytest-backed integration tests in this package.
 func TestFlow_ImportedModule_SynthToCompile(t *testing.T) {
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
 	metaPath := registrytest.UniquePath(t, "modules")
-	const snake = "web_app" // v2 module names are snake_case, and the path leaf
+	const modName = "web-app" // hyphenated → published at the snake_case leaf
+	const snake = "web_app"
 	modPath := metaPath + "/" + snake
-	containerFQN := resFQN(catPath, "container")
+	containerFQN := fmt.Sprintf("%s/resources/container@%s", catPath, version)
 
 	// Catalog: one transformer requiring the `container` resource, emitting a
-	// single Deployment (core v2, the registry-writer default).
+	// single Deployment. Pinned to core@v0.6.0 so the transformer's required
+	// #Resource and the module's inline #Resource share one core closedness.
 	cat := standardCatalog(catPath, version)
+	cat.CoreVersion = "v1.0.0-alpha.1"
 
 	// Module: a single component `web` declaring an inline #Resource keyed by the
 	// catalog's container FQN (the matcher pairs on that key). No catalog import
@@ -54,22 +57,22 @@ debugValues: {}
 		metadata: name: "web"
 		#resources: %q: {
 			kind: "Resource"
-			metadata: {name: "container", modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}
+			metadata: {name: "container", modulePath: %q, version: %q}
 			spec: container: {image: "nginx"}
 		}
 	}
 }
-`, containerFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, containerFQN)
+`, containerFQN, catPath+"/resources", version)
 
 	var modFile strings.Builder
 	fmt.Fprintf(&modFile, "package %s\n\n", snake)
-	modFile.WriteString("import core \"opmodel.dev/core@v2\"\n\n")
+	modFile.WriteString("import core \"opmodel.dev/core@v1\"\n\n")
 	modFile.WriteString("core.#Module\n")
-	fmt.Fprintf(&modFile, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", snake, modPath+"@v0", version)
+	fmt.Fprintf(&modFile, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", modName, metaPath, version)
 	modFile.WriteString(modBody)
 
 	registryMapping := registrytest.NewModuleRegistry(t,
-		[]registrytest.ModuleFixture{{Path: modPath, Version: version, File: modFile.String()}},
+		[]registrytest.ModuleFixture{{Path: modPath, Version: version, File: modFile.String(), CoreVersion: "v1.0.0-alpha.1"}},
 		[]registrytest.CatalogFixture{cat},
 	)
 
@@ -78,9 +81,9 @@ debugValues: {}
 
 	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@v0", "v"+version)
 	require.NoErrorf(t, err, "acquiring published module %s", modPath)
-	require.Equal(t, "web_app", mod.Metadata.Name)
+	require.Equal(t, "web-app", mod.Metadata.Name)
 
-	mp, err := materializePlatform(t, k, version, catPath)
+	mp, err := materializePlatform(t, k, catPath)
 	require.NoError(t, err, "materializing platform subscribed to the catalog")
 
 	// ── synth path ───────────────────────────────────────────────────────
@@ -111,7 +114,7 @@ debugValues: {}
 	instanceSrc := fmt.Sprintf(`package instance
 
 import (
-	core "opmodel.dev/core@v2"
+	core "opmodel.dev/core@v1"
 	opmModule %q
 )
 
@@ -130,7 +133,7 @@ values: {}
 	moduleSrc := fmt.Sprintf(`module: "authored.opmodel.dev/instance@v0"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.4"
+	"opmodel.dev/core@v1": v: "v1.0.0-alpha.1"
 	%q: v: %q
 }
 `, importPath, "v"+version)

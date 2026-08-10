@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/format"
 
 	"github.com/open-platform-model/library/opm/module"
@@ -17,23 +16,16 @@ import (
 // the module's own cue.mod/module.cue (design D4), not from a fabricated pin.
 const corePath = "opmodel.dev/core"
 
-// moduleImportPath returns the CUE registry module path — major suffix
-// included — the synthesized package imports the module by.
-//
-// A core-v2 module's metadata.modulePath IS that path verbatim (enhancement
-// 0010 D1: fqn = modulePath = the import path; nothing is recombined), so a
-// major-suffixed modulePath passes through untouched. A v1-era module's
-// modulePath is the major-free parent path; per the v1 publishing convention
-// (enhancements/0003) the address is composed from it, the snake_case name
-// leaf, and the version's major. Using nameSnakeCase (not the kebab
-// metadata.name) is what makes the composed address derivable for v1 modules
-// whose name carries hyphens (e.g. "zot-registry-ttl" published at
-// ".../zot_registry_ttl").
+// moduleImportPath returns the CUE registry module path the synthesized package
+// imports the module by. Per the OPM module publishing convention
+// (enhancements/0003), a module is published at
+// metadata.modulePath + "/" + metadata.nameSnakeCase, and its CUE package name
+// equals nameSnakeCase — so a bare import of "<path>@<major>" resolves to it.
+// Using nameSnakeCase (not the kebab metadata.name) is what makes the address
+// derivable for modules whose name carries hyphens (e.g. "zot-registry-ttl"
+// published at ".../zot_registry_ttl").
 func moduleImportPath(m *module.Module) string {
-	if _, _, ok := ast.SplitPackageVersion(m.Metadata.ModulePath); ok {
-		return m.Metadata.ModulePath
-	}
-	return m.Metadata.ModulePath + "/" + moduleSnakeName(m) + "@" + major(m.Metadata.Version)
+	return m.Metadata.ModulePath + "/" + moduleSnakeName(m)
 }
 
 // moduleSnakeName returns the module's snake_case name. It prefers the
@@ -67,7 +59,7 @@ func moduleSnakeName(m *module.Module) string {
 //
 // Was: renderReleaseFile
 func renderInstanceFile(in InstanceInput, coreVersion string) string {
-	modImport := moduleImportPath(in.Module)
+	modImport := moduleImportPath(in.Module) + "@" + major(in.Module.Metadata.Version)
 
 	var b strings.Builder
 	b.WriteString("package instance\n\n")

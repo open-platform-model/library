@@ -16,7 +16,6 @@ import (
 
 	"github.com/open-platform-model/library/opm/compile"
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
-	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -24,25 +23,23 @@ import (
 // TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match → Plan
 // → Compile pipeline against the on-disk fixture pair:
 //
-//   - testdata/modules/web_app   (a core@v2 #Module consuming fixture-catalog
-//     primitives: Container resource, HttpRoute / Scaling / RestartPolicy /
-//     Expose traits, StatelessWorkload blueprint)
+//   - testdata/modules/web_app   (a core@v1 #Module consuming opm primitives:
+//     Container resource, HttpRoute / Scaling / RestartPolicy / Expose traits,
+//     StatelessWorkloadBlueprint)
 //   - modules/opm_platform       (the canonical Kubernetes #Platform that
-//     subscribes to testing.opmodel.dev/catalogs/opm via a path-keyed
-//     #registry)
+//     subscribes to opmodel.dev/catalogs/opm via a path-keyed #registry)
 //
-// The platform's subscription is materialized against the fixture catalog
-// (modules/opm_catalog, served from the in-process registry), then a
-// #ModuleInstance is built from the module's debugValues and driven through
-// Match / Plan / Compile. Transformer FQNs are asserted by substring so the
-// test survives catalog version bumps.
+// The platform's subscription is materialized against the published catalog
+// (opmodel.dev/catalogs/opm@0.1.0), then a #ModuleInstance is built from the
+// module's debugValues and driven through Match / Plan / Compile. Transformer
+// FQNs are asserted by substring so the test survives catalog version bumps.
 //
-// Skips under -short or when GHCR is unreachable (the core schema resolves
-// from GHCR on a cold cache); OPM_FLOW_TEST_FORCE=1 turns the skip into a
-// hard failure.
+// Re-enabled by enhancement 0001's library slice (the catalog repackage +
+// #Subscription fixture restore). Skips under -short or when GHCR is
+// unreachable; OPM_FLOW_TEST_FORCE=1 turns the skip into a hard failure.
 func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	if testing.Short() {
-		t.Skip("flow integration test pulls the core schema from GHCR on a cold cache; skipping under -short")
+		t.Skip("flow integration test pulls the catalog + core schema from GHCR; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
@@ -50,13 +47,8 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	platformDir := filepath.Join(libraryRoot, "modules", "opm_platform")
 	moduleDir := filepath.Join(libraryRoot, "testdata", "modules", "web_app")
 
-	// The fixture catalog is served from the in-process registry (CI stays
-	// GHCR-only for opmodel.dev/*; testing.opmodel.dev never leaves the
-	// process).
-	registry := registrytest.NewDiskRegistry(t, registrytest.DiskFixture{
-		Dir:     filepath.Join(libraryRoot, "modules", "opm_catalog"),
-		Version: "1.0.0",
-	})
+	registry := flowRegistry()
+	t.Setenv("CUE_REGISTRY", registry)
 
 	k := kernel.New()
 	ctx := context.Background()
@@ -68,7 +60,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err, "constructing module.Module from CUE value")
 	require.NotNil(t, mod)
-	require.Equal(t, "web_app", mod.Metadata.Name)
+	require.Equal(t, "web-app", mod.Metadata.Name)
 
 	// ── Load + materialize the Platform ──────────────────────────────
 	platVal, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
@@ -219,6 +211,20 @@ metadata: {
 }
 
 // ── Shared helpers for the flow integration tests ────────────────────
+
+// flowRegistry returns the CUE registry mapping the flow tests resolve imports
+// through. It honors an externally-set CUE_REGISTRY (set by
+// `task cue:test:flow` and CI), falling back to schema.PublicRegistry, which
+// resolves the whole opmodel.dev prefix — the core@v1 schema *and* the
+// opmodel.dev/catalogs/opm catalog — from GHCR, with cue.dev/x/k8s.io falling
+// through to registry.cue.works. Pulling the catalog from GHCR (rather than a
+// laptop-only localhost:5000) is what lets these tests run in CI.
+func flowRegistry() string {
+	if v := os.Getenv("CUE_REGISTRY"); v != "" {
+		return v
+	}
+	return schema.PublicRegistry
+}
 
 // matchPairsToMap groups MatchedPair entries by component name for ergonomic
 // containment assertions.

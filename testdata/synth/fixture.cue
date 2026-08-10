@@ -9,13 +9,13 @@
 // existing synth tests assume these exact values.
 package synthtest
 
-import core "opmodel.dev/core@v2"
+import core "opmodel.dev/core@v1"
 
 module: {
 	core.#Module
 	metadata: {
 		name:       "demo"
-		modulePath: "example.com/demo@v0"
+		modulePath: "example.com/demo"
 		version:    "0.1.0"
 	}
 	#components: {}

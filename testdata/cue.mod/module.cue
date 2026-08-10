@@ -3,7 +3,7 @@ language: {
 	version: "v0.17.0"
 }
 deps: {
-	"opmodel.dev/core@v2": {
-		v: "v2.0.0-alpha.4"
+	"opmodel.dev/core@v1": {
+		v: "v1.0.0-alpha.1"
 	}
 }

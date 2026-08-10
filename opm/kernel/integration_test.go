@@ -50,10 +50,10 @@ func TestIntegration_Materialize(t *testing.T) {
 		path := registrytest.UniquePath(t, "cat")
 		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
 
-		mp, err := materializePlatform(t, k, "0.1.0", path)
+		mp, err := materializePlatform(t, k, path)
 		require.NoError(t, err)
 		require.NotNil(t, mp)
-		assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")], "resolved version recorded")
+		assert.Equal(t, "0.1.0", mp.Resolved[path], "resolved version recorded")
 		assert.True(t,
 			mp.Matchers.LookupPath(cue.ParsePath("resources")).Exists(),
 			"materialized platform carries #matchers")
@@ -66,9 +66,9 @@ func TestIntegration_Materialize(t *testing.T) {
 			standardCatalog(path, "0.2.0"),
 		)
 
-		mp, err := materializePlatform(t, k, "0.2.0", path)
+		mp, err := materializePlatform(t, k, path)
 		require.NoError(t, err)
-		assert.Equal(t, "0.2.0", mp.Resolved[subKey(path, "0.2.0")], "highest SemVer selected")
+		assert.Equal(t, "0.2.0", mp.Resolved[path], "no filter → highest SemVer")
 	})
 
 	t.Run("unresolvable path errors with catalog kind", func(t *testing.T) {
@@ -76,19 +76,19 @@ func TestIntegration_Materialize(t *testing.T) {
 		missing := registrytest.UniquePath(t, "missing")
 		k := newKernelWithCatalogs(t, standardCatalog(published, "0.1.0"))
 
-		_, err := materializePlatform(t, k, "0.1.0", missing)
+		_, err := materializePlatform(t, k, missing)
 		require.Error(t, err)
 		var me *oerrors.MaterializeError
 		require.ErrorAs(t, err, &me)
 		assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
-		assert.Equal(t, subKey(missing, "0.1.0"), me.Subscription)
+		assert.Equal(t, missing, me.Subscription)
 	})
 }
 
 func TestIntegration_MatchPlanCompile(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-	mp, err := materializePlatform(t, k, "0.1.0", path)
+	mp, err := materializePlatform(t, k, path)
 	require.NoError(t, err)
 
 	inst := buildInstance(t, k, path, "0.1.0", "", "",
@@ -150,7 +150,7 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 func TestIntegration_Compile_UnmatchedComponentErrors(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-	mp, err := materializePlatform(t, k, "0.1.0", path)
+	mp, err := materializePlatform(t, k, path)
 	require.NoError(t, err)
 
 	// "web" declares a resource short-name the catalog does not publish.
@@ -169,20 +169,18 @@ func TestIntegration_Compile_UnmatchedComponentErrors(t *testing.T) {
 
 func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
-	// Catalog publishes the container contract at ContractAPIVersion ("v1");
-	// the component below demands the same contract at an unpublished level.
+	// Catalog publishes 0.2.0 only; the component below demands the 0.1.0 FQN.
 	k := newKernelWithCatalogs(t, standardCatalog(path, "0.2.0"))
-	mp, err := materializePlatform(t, k, "0.2.0", path)
+	mp, err := materializePlatform(t, k, path)
 	require.NoError(t, err)
 
-	demanded := path + "/resources/container@v9"
-	inst := buildInstance(t, k, path, "0.2.0", "", "",
-		compSpec{name: "web", resourceKeys: []string{demanded}},
+	inst := buildInstance(t, k, path, "0.1.0", "", "",
+		compSpec{name: "web", resources: []string{"container"}},
 	)
 
 	plan, err := k.Match(context.Background(), kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 	require.NoError(t, err)
-	require.NotEmpty(t, plan.Missing, "demanded FQN at an unpublished contract level is a hard miss")
+	require.NotEmpty(t, plan.Missing, "demanded FQN at an unpublished version is a hard miss")
 
 	var found *oerrors.MissingFQN
 	for i := range plan.Missing {
@@ -192,7 +190,7 @@ func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {
 		}
 	}
 	require.NotNil(t, found, "missing FQN recorded for web")
-	assert.Equal(t, demanded, found.FQN)
-	// The published contract level shares modulePath/name → surfaced as an alternative.
-	assert.Contains(t, found.Alternatives, resFQN(path, "container"))
+	assert.Equal(t, resFQN(path, "container", "0.1.0"), found.FQN)
+	// The published 0.2.0 FQN shares modulePath/name → surfaced as an alternative.
+	assert.Contains(t, found.Alternatives, resFQN(path, "container", "0.2.0"))
 }
