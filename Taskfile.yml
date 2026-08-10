@@ -40,11 +40,12 @@ vars:
   CUE_GHCR_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 
   # GHCR repo holding the published OPM catalog, and the fixtures whose catalog
-  # pin the drift check verifies against the latest published tag.
+  # pin the drift check verifies against the latest published tag. Empty since
+  # the core@v2 retarget: mainline fixtures consume the in-repo fixture catalog
+  # (modules/opm_catalog, testing.opmodel.dev/catalogs/opm@v1) until 0010's
+  # catalogs-republish ships a v2-built real catalog to track again.
   CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
-  CATALOG_FIXTURE_MODULES: |
-    testdata/modules/web_app
-    modules/opm_platform
+  CATALOG_FIXTURE_MODULES: ""
 
 tasks:
   default:
@@ -211,10 +212,24 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # A module declaring a testing.opmodel.dev/* DEP resolves it from the
+        # local registry (Registry Policy rule 3). When that registry is not
+        # running — CI stays GHCR-only — such modules are skipped here; the Go
+        # flow tests cover them from the in-process registry instead. Publish
+        # the fixture catalog locally (task cue:publish PATH=modules/opm_catalog)
+        # for full standalone vet coverage.
+        local_registry_up=""
+        if curl -fsS --max-time 2 http://localhost:5000/v2/ >/dev/null 2>&1; then
+          local_registry_up=1
+        fi
         while IFS= read -r glob; do
           [ -z "$glob" ] && continue
           for dir in $glob; do
             [ -f "${dir}/cue.mod/module.cue" ] || continue
+            if [ -z "$local_registry_up" ] && grep -Eq '^\s*"testing\.opmodel\.dev/[^"]*":' "${dir}/cue.mod/module.cue"; then
+              echo "Skipping ${dir} (testing.opmodel.dev dep; local registry not running — covered by the Go flow tests)"
+              continue
+            fi
             echo "Validating ${dir}{{if eq .CONCRETE "true"}} (concrete){{end}}..."
             (cd "$dir" && cue vet {{.VET_FLAGS}} ./...)
           done
@@ -402,11 +417,12 @@ tasks:
       Drives `TestFlow_WebApp_OnOpmPlatform` in opm/kernel/flow_integration_test.go.
 
       The test loads:
-        - testdata/modules/web_app/   (consumer #Module using opm primitives)
+        - testdata/modules/web_app/   (consumer #Module using fixture-catalog primitives)
         - modules/opm_platform/        (canonical Kubernetes #Platform)
-      and runs Match → Plan → Compile end-to-end. CUE imports (the catalog and
-      core schema) resolve from GHCR; the test skips with a clear message if
-      ghcr.io is unreachable.
+      and runs Match → Plan → Compile end-to-end. The fixture catalog
+      (modules/opm_catalog) is served from an in-process registry the test
+      stands up itself; the core schema resolves from GHCR on a cold cache,
+      and the test skips with a clear message if ghcr.io is unreachable.
 
       Force-run (turn the skip into a hard failure) by setting
       OPM_FLOW_TEST_FORCE=1.

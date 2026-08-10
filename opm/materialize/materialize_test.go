@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -17,9 +18,17 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// 6.1 — happy path: a single enabled subscription, no filter. Highest version
-// is pulled, #composedTransformers + #matchers are filled, and the resolved
-// version is recorded.
+// subKey returns the v2 #registry key for path at version — the
+// major-suffixed form Materialize records in Resolved and on
+// MaterializeError.Subscription.
+func subKey(path, version string) string {
+	major, _, _ := strings.Cut(version, ".")
+	return path + "@v" + major
+}
+
+// 6.1 — happy path: a single enabled subscription. The highest published
+// version is pulled, #composedTransformers + #matchers are filled, and the
+// resolved version is recorded under the subscription key.
 func TestMaterialize_HappyPath(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	registry := registrytest.NewCatalogRegistry(t,
@@ -29,29 +38,31 @@ func TestMaterialize_HappyPath(t *testing.T) {
 			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
 	)
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, path))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.2.0"} }`, subKey(path, "0.2.0")))
 
 	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 
-	// Highest version (0.2.0) selected with no filter.
-	assert.Equal(t, "0.2.0", mp.Resolved[path])
+	// Highest version (0.2.0) selected.
+	assert.Equal(t, "0.2.0", mp.Resolved[subKey(path, "0.2.0")])
 
-	// Composed transformer reachable on the native Transformers surface.
+	// Composed transformer reachable on the native Transformers surface
+	// (implementation FQNs stay build-keyed under v2).
 	txFQN := path + "/transformers/deployment@0.2.0"
 	composedKeys := composedFQNs(mp.Transformers)
 	assert.Equal(t, []string{txFQN}, composedKeys, "Transformers indexes the stamped FQN")
 
-	// Reverse index: resource FQN → transformer.
-	resFQN := path + "/resources/container@0.2.0"
+	// Reverse index: resource contract FQN → transformer (contract FQNs are
+	// apiVersion-keyed under v2).
+	resFQN := path + "/resources/container@" + registrytest.ContractAPIVersion
 	ri := mp.Matchers.LookupPath(cue.ParsePath("resources")).LookupPath(cue.MakePath(cue.Str(resFQN)))
 	require.True(t, ri.Exists(), "Matchers.resources[%s] present", resFQN)
 	n, err := ri.Len().Int64()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n, "one transformer references the resource")
 
-	// Reverse index: trait FQN → transformer.
-	traitFQN := path + "/traits/replicas@0.2.0"
+	// Reverse index: trait contract FQN → transformer.
+	traitFQN := path + "/traits/replicas@" + registrytest.ContractAPIVersion
 	ti := mp.Matchers.LookupPath(cue.ParsePath("traits")).LookupPath(cue.MakePath(cue.Str(traitFQN)))
 	assert.True(t, ti.Exists(), "Matchers.traits[%s] present", traitFQN)
 }
@@ -68,7 +79,7 @@ func TestMaterialize_DoesNotFillClosedPlatform(t *testing.T) {
 			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
 	)
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, path))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"} }`, subKey(path, "0.1.0")))
 
 	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
@@ -99,85 +110,12 @@ func composedFQNs(composed cue.Value) []string {
 	return keys
 }
 
-// 6.2 — range / allow / deny survivor selection.
-func TestMaterialize_RangeAllowDeny(t *testing.T) {
-	tests := []struct {
-		name       string
-		filterBody string
-		wantVers   []string // bare versions expected in the composed map
-	}{
-		{
-			name:       "range restricts",
-			filterBody: `filter: {range: ">=0.1.0 <0.2.0"}`,
-			wantVers:   []string{"0.1.0", "0.1.1"},
-		},
-		{
-			name:       "deny excludes in-range",
-			filterBody: `filter: {range: ">=0.1.0 <0.2.0", deny: ["0.1.1"]}`,
-			wantVers:   []string{"0.1.0"},
-		},
-		{
-			name:       "allow includes out-of-range",
-			filterBody: `filter: {range: ">=0.1.0 <0.2.0", allow: ["0.2.0"]}`,
-			wantVers:   []string{"0.1.0", "0.1.1", "0.2.0"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := registrytest.UniquePath(t, "cat")
-			var fixtures []registrytest.CatalogFixture
-			for _, v := range []string{"0.1.0", "0.1.1", "0.2.0"} {
-				fixtures = append(fixtures, registrytest.CatalogFixture{Path: path, Version: v,
-					Body: registrytest.BuildCatalog(path, v, registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})})
-			}
-			registry := registrytest.NewCatalogRegistry(t, fixtures...)
-			octx := cuecontext.New()
-			p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, %s} }`, path, tt.filterBody))
-
-			mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
-			require.NoError(t, err)
-
-			var want []string
-			for _, v := range tt.wantVers {
-				want = append(want, path+"/transformers/deployment@"+v)
-			}
-			assert.ElementsMatch(t, want, composedFQNs(mp.Transformers))
-		})
-	}
-}
-
-// A range carrying a pre-release identifier admits the whole pre-release
-// family, and the resolved (highest-survivor) version is the -dev.* CI tag:
-// dev.* out-sorts alpha.* of the same base version under standard SemVer
-// identifier comparison. This is the enhancement 0006 OQ18 mechanism — an open
-// ">=X.Y.Z-alpha" subscription range resolves CI dev tags over alpha releases.
-// These assertions pin the *current* semantics; if OQ18's resolution changes
-// them, this is the test that changes with it.
-func TestMaterialize_PrereleaseRangeResolvesDevOverAlpha(t *testing.T) {
-	versions := []string{"1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-dev.1784212239.g0c11c12"}
-	path := registrytest.UniquePath(t, "cat")
-	var fixtures []registrytest.CatalogFixture
-	for _, v := range versions {
-		fixtures = append(fixtures, registrytest.CatalogFixture{Path: path, Version: v,
-			Body: registrytest.BuildCatalog(path, v, registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})})
-	}
-	registry := registrytest.NewCatalogRegistry(t, fixtures...)
-	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, filter: {range: ">=1.0.0-alpha"}} }`, path))
-
-	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
-	require.NoError(t, err)
-
-	// All three pre-releases survive the admitting range...
-	var want []string
-	for _, v := range versions {
-		want = append(want, path+"/transformers/deployment@"+v)
-	}
-	assert.ElementsMatch(t, want, composedFQNs(mp.Transformers))
-
-	// ...and the dev tag is the resolved version, out-sorting both alphas.
-	assert.Equal(t, "1.0.0-dev.1784212239.g0c11c12", mp.Resolved[path])
-}
+// NOTE (library-core-retarget): the platform-driven range/allow/deny and
+// prerelease-range tests were removed with the v2 retarget — core v2's
+// #Subscription carries a required scalar `version` and no `filter`, so those
+// platforms are no longer authorable. The Go-side filterVersions semantics
+// (which survive until the subscription-collapse slice deletes them) stay
+// pinned at the unit level in filter_test.go.
 
 // 6.3a — divergent same-FQN bodies across two catalogs surface as a
 // MaterializeError.
@@ -188,11 +126,11 @@ func TestMaterialize_DivergentFQNConflicts(t *testing.T) {
 #transformers: {
 	%q: {
 		kind: "ComponentTransformer"
-		metadata: {name: "shared", description: %q}
+		metadata: {name: "shared", description: %q, fqn: %q}
 		#transform: output: {}
 	}
 }
-`, path, sharedKey, desc)
+`, path+"@v0", sharedKey, desc, sharedKey)
 	}
 	pathA := registrytest.UniquePath(t, "cata")
 	pathB := registrytest.UniquePath(t, "catb")
@@ -201,7 +139,8 @@ func TestMaterialize_DivergentFQNConflicts(t *testing.T) {
 		registrytest.CatalogFixture{Path: pathB, Version: "0.1.0", Body: body(pathB, "from B")},
 	)
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: true} }`, pathA, pathB))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"}, %q: {enable: true, version: "0.1.0"} }`,
+		subKey(pathA, "0.1.0"), subKey(pathB, "0.1.0")))
 
 	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.Error(t, err)
@@ -219,14 +158,14 @@ func TestMaterialize_UnresolvablePath(t *testing.T) {
 	)
 	missing := registrytest.UniquePath(t, "missing")
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true} }`, missing))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"} }`, subKey(missing, "0.1.0")))
 
 	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.Error(t, err)
 	var me *oerrors.MaterializeError
 	require.True(t, errors.As(err, &me), "unresolvable path surfaces as MaterializeError: %v", err)
 	assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
-	assert.Equal(t, missing, me.Subscription)
+	assert.Equal(t, subKey(missing, "0.1.0"), me.Subscription)
 }
 
 // 6.4 — enable:false is skipped; Materialize is idempotent and does not mutate
@@ -241,13 +180,14 @@ func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
 			registrytest.TxFixture{Name: "service", Resources: []string{"port"}})},
 	)
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true}, %q: {enable: false} }`, enabled, disabled))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"}, %q: {enable: false, version: "0.1.0"} }`,
+		subKey(enabled, "0.1.0"), subKey(disabled, "0.1.0")))
 
 	mp1, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 
 	// Disabled subscription contributes nothing.
-	assert.NotContains(t, mp1.Resolved, disabled, "disabled subscription not resolved")
+	assert.NotContains(t, mp1.Resolved, subKey(disabled, "0.1.0"), "disabled subscription not resolved")
 	keys1 := composedFQNs(mp1.Transformers)
 	assert.Equal(t, []string{enabled + "/transformers/deployment@0.1.0"}, keys1)
 	assert.NotContains(t, keys1, disabled+"/transformers/service@0.1.0")

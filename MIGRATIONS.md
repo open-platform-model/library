@@ -404,6 +404,19 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 
 ## Unreleased — Breaking
 
+### Changed — `library-core-retarget` (BREAKING)
+
+- **`schema.DefaultSchemaModule` is now `"opmodel.dev/core@v2"`** (was `"opmodel.dev/core@v1"`). No signature changes anywhere in `opm/` — the value of one constant moves, and with it what a zero-value `schema.OCILoader` (and thus a default-configured `Kernel`) resolves. The floating-major mechanism is unchanged: the bare major expands through the loader's `.latest` mechanism and resolves the highest published version within v2 (today `v2.0.0-alpha.4`; SemVer prerelease ordering keeps `v2.0.0-0.dev.*` snapshots below every `v2.0.0-alpha.N`).
+- **Why it is breaking:** core v2's `#Module` / `#ModuleInstance` / `#Catalog` / `#Platform` shapes reject v1-authored artifacts — v2 identity is `modulePath` with a mandatory `@vN` suffix (= fqn = import path), snake_case module names equal to the path leaf, apiVersion-keyed contract FQNs, and subscriptions carrying a required scalar `version:` with no `filter` (`#SubscriptionFilter` no longer exists).
+- **Stay on v1:** pin the schema explicitly — `kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}))`. The v1 line is retired (final tag `v1.1.0-alpha.1`) but remains published on GHCR.
+- **Rollback** is the same rewrite in reverse: retarget the constant to the v1 line's final tag (`v1.1.0-alpha.1`) and move the fixture fleet back with it.
+- **Strictly input-extending seam adaptations** shipped alongside the constant (no behaviour change for any input expressible under v1):
+  - `materialize.pullCatalog` splits a subscription key's `@vN` major off before composing the load ID (v2 `#registry` keys carry the major; v1 keys never could).
+  - `synth`'s module-import derivation passes a major-suffixed `metadata.modulePath` through verbatim (v2: the modulePath IS the import path); v1 parent-path composition is byte-identical.
+  - `materialize/cache.Key` normalizes the v2 scalar `version` alongside the v1 filter fields (`omitempty`, so v1 platforms keep their historical keys).
+- **Transitional (owned by later 0010 slices):** the kernel still resolves subscriptions by highest-published-stable and matches on component `metadata.labels`; the fixture catalog publishes exactly one version per subscription and duplicates its matching key into `metadata.labels`, so both interim behaviours agree with the v2 semantics until `library-subscription-collapse` and `library-match-labels` land. `synth.FilterSpec` still exists but is refused by the v2 schema ("field not allowed"); it is removed by the subscription-collapse slice.
+- **Downstream:** `cli` and `opm-operator` adopt via their own retarget slices (`cli-coordinate-adoption`, `operator-library-retarget`); neither consumes this release until then.
+
 ### Removed — `federate-materialize-transformers` (BREAKING)
 
 - **`materialize.MaterializedPlatform.Composed` and `materialize.MaterializedPlatform.Package`

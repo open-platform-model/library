@@ -27,15 +27,16 @@ func newSynthKernel(t *testing.T) *kernel.Kernel {
 }
 
 // publishSynthModule publishes a #Module (bodyFields is the text after the
-// metadata block) to an in-memory registry pinned to core@v0.6.0, then returns
-// a Kernel wired to that registry plus the module loaded back through
-// Kernel.LoadModuleFromRegistry. This mirrors how a frontend acquires a module
-// before synthesizing an instance: synth.Instance imports the module by its
-// canonical registry path (metadata.modulePath/nameSnakeCase), so the module
-// MUST be resolvable from a registry — a locally-built value no longer works.
+// metadata block) to an in-memory registry against the default (v2) core,
+// then returns a Kernel wired to that registry plus the module loaded back
+// through Kernel.LoadModuleFromRegistry. This mirrors how a frontend acquires
+// a module before synthesizing an instance: synth.Instance imports the module
+// by its registry path, so the module MUST be resolvable from a registry — a
+// locally-built value no longer works.
 //
-// Per the publishing convention, the module is published at the snake_case leaf
-// with a snake_case CUE package; metadata.name keeps its kebab form.
+// Per core v2's identity rules (D8), the module is published at its
+// snake_case leaf, metadata.name IS that leaf, and metadata.modulePath is the
+// full module path with the major suffix.
 func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel.Kernel, *module.Module) {
 	t.Helper()
 
@@ -45,16 +46,15 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 
 	var file strings.Builder
 	fmt.Fprintf(&file, "package %s\n\n", snake)
-	file.WriteString("import core \"opmodel.dev/core@v1\"\n\n")
+	file.WriteString("import core \"opmodel.dev/core@v2\"\n\n")
 	file.WriteString("core.#Module\n")
-	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", name, metaPath, version)
+	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", snake, modPath+"@v0", version)
 	file.WriteString(bodyFields)
 
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{{
-		Path:        modPath,
-		Version:     version,
-		File:        file.String(),
-		CoreVersion: "v1.0.0-alpha.1",
+		Path:    modPath,
+		Version: version,
+		File:    file.String(),
 	}}, nil)
 
 	k := kernel.New(kernel.WithRegistry(reg))

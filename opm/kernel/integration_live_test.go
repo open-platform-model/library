@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -16,20 +17,24 @@ import (
 // TestIntegration_Live_ValidateRealConfig loads the real web_app fixture from
 // disk and validates its authored debugValues against its real #config schema.
 //
-// This is the live counterpart to the hermetic Validate cases: it exercises the
-// filesystem loader (LoadModulePackage) and validation against the published
-// core@v1 schema and real catalog primitives — paths the in-memory harness
-// deliberately bypasses. Gated like the flow tests: skipped under -short or when
-// GHCR is unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
+// This is the live counterpart to the hermetic Validate cases: it exercises
+// the filesystem loader (LoadModulePackage) and validation against the
+// published core@v2 schema and the fixture catalog's primitives — paths the
+// in-memory harness deliberately bypasses. Gated like the flow tests: skipped
+// under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1 makes the
+// skip a failure.
 func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 	if testing.Short() {
-		t.Skip("live integration test pulls the catalog + core schema from GHCR; skipping under -short")
+		t.Skip("live integration test pulls the core schema from GHCR on a cold cache; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
-	moduleDir := filepath.Join(repoLibraryRoot(t), "testdata", "modules", "web_app")
-	registry := flowRegistry()
-	t.Setenv("CUE_REGISTRY", registry)
+	libraryRoot := repoLibraryRoot(t)
+	moduleDir := filepath.Join(libraryRoot, "testdata", "modules", "web_app")
+	registry := registrytest.NewDiskRegistry(t, registrytest.DiskFixture{
+		Dir:     filepath.Join(libraryRoot, "modules", "opm_catalog"),
+		Version: "1.0.0",
+	})
 
 	k := kernel.New()
 	ctx := context.Background()
@@ -39,7 +44,7 @@ func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err)
-	require.Equal(t, "web-app", mod.Metadata.Name)
+	require.Equal(t, "web_app", mod.Metadata.Name)
 
 	debugValues := modVal.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
