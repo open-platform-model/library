@@ -45,6 +45,11 @@ func Key(p *platform.Platform) (string, error) {
 				ns.Enable = b
 			}
 		}
+		if ver := sub.LookupPath(cue.ParsePath("version")); ver.Exists() {
+			if s, e := ver.String(); e == nil {
+				ns.Version = s
+			}
+		}
 		if fv := sub.LookupPath(cue.ParsePath("filter")); fv.Exists() {
 			if r := fv.LookupPath(cue.ParsePath("range")); r.Exists() {
 				if s, e := r.String(); e == nil {
@@ -73,10 +78,14 @@ func Key(p *platform.Platform) (string, error) {
 }
 
 // normSub is the canonical, JSON-stable projection of one #Subscription used
-// for key derivation.
+// for key derivation. Version is core v2's scalar build selector; the filter
+// fields are the v1 form. Each is omitted when absent, so a platform authored
+// against either core line hashes only the fields it can express — v1
+// platforms keep their historical keys byte-identical.
 type normSub struct {
-	Enable bool     `json:"enable"`
-	Range  string   `json:"range,omitempty"`
-	Allow  []string `json:"allow,omitempty"`
-	Deny   []string `json:"deny,omitempty"`
+	Enable  bool     `json:"enable"`
+	Version string   `json:"version,omitempty"`
+	Range   string   `json:"range,omitempty"`
+	Allow   []string `json:"allow,omitempty"`
+	Deny    []string `json:"deny,omitempty"`
 }
