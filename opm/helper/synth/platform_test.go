@@ -107,15 +107,10 @@ func TestPlatform_SchemaWithoutPlatform(t *testing.T) {
 		"want ErrPlatformSchemaUnavailable, got %v", err)
 }
 
-// Core v2 deleted #SubscriptionFilter (enhancement 0010 D14): a FilterSpec
-// rendered against the v2 schema surfaces as a "field not allowed"
-// unification error rather than a silently-ignored field. FilterSpec itself
-// is removed by the subscription-collapse slice; until then this pins the
-// transitional behavior.
-func TestPlatform_SubscriptionFilterRejectedByV2Schema(t *testing.T) {
+func TestPlatform_SubscriptionWithFilterRange(t *testing.T) {
 	ctx := sharedCtx
-	const path = "opmodel.dev/catalogs/opm@v1"
-	_, err := synth.Platform(ctx, synth.PlatformInput{
+	const path = "opmodel.dev/catalogs/opm"
+	plat, err := synth.Platform(ctx, synth.PlatformInput{
 		Name:        "demo",
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
@@ -123,13 +118,18 @@ func TestPlatform_SubscriptionFilterRejectedByV2Schema(t *testing.T) {
 			path: {Filter: &synth.FilterSpec{Range: ">=1.0.0 <2.0.0"}},
 		},
 	})
-	require.Error(t, err, "a filter block must be refused by the v2 #Subscription shape")
-	assert.Contains(t, err.Error(), "field not allowed")
+	require.NoError(t, err)
+
+	rng, err := plat.LookupPath(cue.MakePath(
+		cue.Def("registry"), cue.Str(path), cue.Str("filter"), cue.Str("range"),
+	)).String()
+	require.NoError(t, err)
+	assert.Equal(t, ">=1.0.0 <2.0.0", rng)
 }
 
 func TestPlatform_EnableOmittedDefaultsTrue(t *testing.T) {
 	ctx := sharedCtx
-	const path = "opmodel.dev/catalogs/opm@v1"
+	const path = "opmodel.dev/catalogs/opm"
 	plat, err := synth.Platform(ctx, synth.PlatformInput{
 		Name:        "demo",
 		Type:        "kubernetes",
@@ -149,7 +149,7 @@ func TestPlatform_EnableOmittedDefaultsTrue(t *testing.T) {
 
 func TestPlatform_EnableExplicitFalse(t *testing.T) {
 	ctx := sharedCtx
-	const path = "opmodel.dev/catalogs/opm@v1"
+	const path = "opmodel.dev/catalogs/opm"
 	plat, err := synth.Platform(ctx, synth.PlatformInput{
 		Name:        "demo",
 		Type:        "kubernetes",
@@ -188,7 +188,7 @@ func TestPlatform_MaterializationSlotsUnset(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			"opmodel.dev/catalogs/opm@v1": {Enable: boolPtr(true)},
+			"opmodel.dev/catalogs/opm": {Enable: boolPtr(true)},
 		},
 	})
 	require.NoError(t, err)

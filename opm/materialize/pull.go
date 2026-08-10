@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/load"
 )
 
@@ -18,16 +17,7 @@ import (
 // platform value built with the same context. version is the `v`-prefixed
 // module version (e.g. "v0.1.0"). Build/load failures return a plain error;
 // the caller wraps them as a MaterializeError with subscription context.
-//
-// path is the subscription key. A core-v2 key carries the catalog's major
-// ("…/opm@v1" — v2's #ModulePathType requires the suffix); the standalone
-// package loader takes "<major-free path>@<full version>", so the suffix is
-// split off before the load ID is composed. Major-free (core-v1) keys pass
-// through unchanged.
 func pullCatalog(octx *cue.Context, env []string, path, version string) (cue.Value, error) {
-	if prefix, _, ok := ast.SplitPackageVersion(path); ok {
-		path = prefix
-	}
 	loadID := path + "@" + version
 	cfg := &load.Config{Env: env}
 	instances := load.Instances([]string{loadID}, cfg)

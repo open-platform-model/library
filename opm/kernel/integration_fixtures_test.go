@@ -28,26 +28,21 @@ import (
 
 // compSpec describes one component to author into an instance: its name, the
 // short names of the catalog resources/traits it declares, and its labels.
-// resourceKeys lists verbatim resource-FQN keys to author IN ADDITION to the
-// generated ones — for tests that need a demanded key the catalog does not
-// publish (e.g. a different contract level).
 type compSpec struct {
-	name         string
-	resources    []string
-	traits       []string
-	resourceKeys []string
-	labels       map[string]string
+	name      string
+	resources []string
+	traits    []string
+	labels    map[string]string
 }
 
-// resFQN / traitFQN reproduce the contract FQNs registrytest.BuildCatalog
-// keys v2 members under — apiVersion-keyed (enhancement 0010 D4), so the
-// catalog's build version does not appear in them.
-func resFQN(path, name string) string {
-	return fmt.Sprintf("%s/resources/%s@%s", path, name, registrytest.ContractAPIVersion)
+// resFQN / traitFQN reproduce the FQNs registrytest.BuildCatalog stamps so
+// instance components key against the same strings the matcher index uses.
+func resFQN(path, name, version string) string {
+	return fmt.Sprintf("%s/resources/%s@%s", path, name, version)
 }
 
-func traitFQN(path, name string) string {
-	return fmt.Sprintf("%s/traits/%s@%s", path, name, registrytest.ContractAPIVersion)
+func traitFQN(path, name, version string) string {
+	return fmt.Sprintf("%s/traits/%s@%s", path, name, version)
 }
 
 // newKernelWithCatalogs stands up an in-memory registry serving the given
@@ -59,31 +54,18 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 	return kernel.New(kernel.WithRegistry(registry))
 }
 
-// subscribe builds a #registry body subscribing (enabled) to each path at
-// version. The map key carries the catalog's major (v2 #ModulePathType), and
-// the required scalar `version` names the build — the fixture registries
-// publish exactly one version per path, so the kernel's interim
-// highest-stable resolution selects the same build the scalar names.
-func subscribe(version string, paths ...string) string {
-	major, _, _ := strings.Cut(version, ".")
+// subscribe builds a #registry body subscribing (enabled) to each path.
+func subscribe(paths ...string) string {
 	var b strings.Builder
 	b.WriteString("{")
 	for i, p := range paths {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		fmt.Fprintf(&b, "%q: {enable: true, version: %q}", p+"@v"+major, version)
+		fmt.Fprintf(&b, "%q: {enable: true}", p)
 	}
 	b.WriteString("}")
 	return b.String()
-}
-
-// subKey returns the #registry key subscribe writes for path at version —
-// the major-suffixed form Materialize records in Resolved and on
-// MaterializeError.Subscription.
-func subKey(path, version string) string {
-	major, _, _ := strings.Cut(version, ".")
-	return path + "@v" + major
 }
 
 // buildInstance assembles a hermetic *module.Instance: an embedded #module (with
@@ -112,16 +94,13 @@ func buildInstance(
 		// closedness. "{...}" stays open and absorbs the required shape.
 		cb.WriteString("\t\t#resources: {\n")
 		for _, r := range c.resources {
-			fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", resFQN(catPath, r))
-		}
-		for _, key := range c.resourceKeys {
-			fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", key)
+			fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", resFQN(catPath, r, version))
 		}
 		cb.WriteString("\t\t}\n")
 		if len(c.traits) > 0 {
 			cb.WriteString("\t\t#traits: {\n")
 			for _, tr := range c.traits {
-				fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", traitFQN(catPath, tr))
+				fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", traitFQN(catPath, tr, version))
 			}
 			cb.WriteString("\t\t}\n")
 		}
@@ -199,10 +178,9 @@ func cueVal(t *testing.T, k *kernel.Kernel, src, filename string) cue.Value {
 	return v
 }
 
-// materialize subscribes the kernel to the given catalog paths at version and
-// materializes.
-func materializePlatform(t *testing.T, k *kernel.Kernel, version string, paths ...string) (*materialize.MaterializedPlatform, error) {
+// materialize subscribes the kernel to the given catalog paths and materializes.
+func materializePlatform(t *testing.T, k *kernel.Kernel, paths ...string) (*materialize.MaterializedPlatform, error) {
 	t.Helper()
-	plat := registrytest.BuildPlatform(t, k.CueContext(), subscribe(version, paths...))
+	plat := registrytest.BuildPlatform(t, k.CueContext(), subscribe(paths...))
 	return k.Materialize(context.Background(), plat)
 }

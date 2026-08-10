@@ -62,7 +62,7 @@ func (systemClock) Now() time.Time { return time.Now() }
 //   - Tracer:      a no-op OpenTelemetry tracer
 //   - Clock:       wall-clock time via [time.Now]
 //   - SchemaCache: a fresh [*schema.Cache] backed by zero-value
-//     [schema.OCILoader]; resolves opmodel.dev/core@v2 against
+//     [schema.OCILoader]; resolves opmodel.dev/core@v1 against
 //     CUE_REGISTRY / CUE_CACHE_DIR from the process environment
 //
 // New never returns nil. The returned Kernel is NOT safe for concurrent
@@ -82,7 +82,7 @@ func New(opts ...Option) *Kernel {
 		opt(k)
 	}
 	// One Cache per Kernel. WithSchemaLoader sets schemaLoader; absent
-	// the option, the zero-value OCILoader resolves opmodel.dev/core@v2
+	// the option, the zero-value OCILoader resolves opmodel.dev/core@v1
 	// against the process environment.
 	loader := k.schemaLoader
 	if loader == nil {
@@ -126,7 +126,7 @@ func WithClock(c Clock) Option {
 
 // WithSchemaLoader configures the [schema.Loader] used to populate the
 // kernel's [*schema.Cache]. Omitting this option defaults to a
-// zero-value [schema.OCILoader] that resolves opmodel.dev/core@v2 via
+// zero-value [schema.OCILoader] that resolves opmodel.dev/core@v1 via
 // CUE_REGISTRY / CUE_CACHE_DIR from the process environment.
 //
 // The Kernel wraps the supplied Loader in a fresh Cache; callers cannot

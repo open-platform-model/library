@@ -98,7 +98,7 @@ The two tracks are independent: within an OPM schema major (`@v0`), additive sha
 
 ## OPM schema resolution
 
-The library does NOT vendor or embed the OPM core schema. At runtime the kernel resolves `opmodel.dev/core@v2` through CUE's module system against `CUE_REGISTRY`, then memoizes the built `cue.Value` in a per-`Kernel` `*schema.Cache`.
+The library does NOT vendor or embed the OPM core schema. At runtime the kernel resolves `opmodel.dev/core@v1` through CUE's module system against `CUE_REGISTRY`, then memoizes the built `cue.Value` in a per-`Kernel` `*schema.Cache`.
 
 Key pieces:
 
@@ -137,7 +137,7 @@ task check
 
 - `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
 - `openspec/config.yaml` — normative constitution source.
-- `opmodel.dev/core@v2` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
+- `opmodel.dev/core@v1` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/` — flow diagrams and pipeline notes (`kernel-validate-flow.md`, `compile-pipeline-known-gaps.md`).
 - `enhancements/` — long-form design proposals (kernel redesign, compiler/runtime split, platform construct, module context, claims).

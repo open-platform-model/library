@@ -8,7 +8,7 @@ The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.
 
 - Go 1.22+
 - A CUE module containing a `Module` artifact (and optionally a `ModuleInstance` artifact and a `Platform` artifact).
-- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v2`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
+- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v1`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
 
 ## Configure CUE_REGISTRY
 
@@ -26,7 +26,7 @@ os.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 // → "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 ```
 
-Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v2` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
+Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v1` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
 
 ## Construct a kernel
 
@@ -44,18 +44,18 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first method that
 
 ### Pin a specific schema version
 
-`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v2`. To pin a reproducible version:
+`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v1`. To pin a reproducible version:
 
 ```go
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-alpha.4",
+    Module: "opmodel.dev/core@v0.3.0",
 }))
 
 // After any schema-touching call:
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
-// → "v2.0.0-alpha.4"
+// → "v0.3.0"
 ```
 
 ## Load a module package

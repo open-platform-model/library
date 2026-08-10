@@ -11,7 +11,6 @@ import (
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/helper/synth"
-	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
@@ -58,8 +57,7 @@ func TestKernel_SynthesizePlatform_DefaultSchemaCache(t *testing.T) {
 // the kernel-filled materialization slots unset. No catalog round-trip occurs.
 func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 	k := newSynthKernel(t)
-	// v2 #registry keys carry the catalog's major (#ModulePathType).
-	const path = "opmodel.dev/catalogs/opm@v1"
+	const path = "opmodel.dev/catalogs/opm"
 
 	plat, err := k.SynthesizePlatform(context.Background(), synth.PlatformInput{
 		Name:        "demo",
@@ -88,40 +86,36 @@ func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 // TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded asserts that the
 // *platform.Platform produced by SynthesizePlatform feeds Kernel.Materialize
 // exactly as a file-loaded platform of the same content does. It synthesizes a
-// platform subscribing to the fixture catalog (served from the in-process
-// registry) and materializes both the synthesized and the on-disk fixture
-// (modules/opm_platform), asserting they resolve to the same catalog version
-// and the same composed-transformer set.
+// platform subscribing to the published opm catalog and materializes both the
+// synthesized and the on-disk fixture (modules/opm_platform), asserting they
+// resolve to the same catalog version and the same composed-transformer set.
 //
-// Skips under -short or when GHCR is unreachable (the core schema resolves
-// from GHCR on a cold cache), matching the gating in the file-driven flow
-// tests.
+// Skips under -short or when GHCR is unreachable, matching the gating in the
+// file-driven flow tests.
 func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 	if testing.Short() {
-		t.Skip("flow integration test pulls the core schema from GHCR on a cold cache; skipping under -short")
+		t.Skip("flow integration test pulls the catalog + core schema from GHCR; skipping under -short")
 	}
 	skipUnlessRegistry(t)
 
-	libraryRoot := repoLibraryRoot(t)
-	registry := registrytest.NewDiskRegistry(t, registrytest.DiskFixture{
-		Dir:     filepath.Join(libraryRoot, "modules", "opm_catalog"),
-		Version: "1.0.0",
-	})
+	registry := flowRegistry()
+	t.Setenv("CUE_REGISTRY", registry)
 
 	k := kernel.New()
 	ctx := context.Background()
-	const path = "testing.opmodel.dev/catalogs/opm@v1"
+	const path = "opmodel.dev/catalogs/opm"
 
 	// ── Synthesize the platform from typed inputs ────────────────────
 	synthPlat, err := k.SynthesizePlatform(ctx, synth.PlatformInput{
 		Name:        "k8s-default",
-		Description: "Default Kubernetes Platform — subscribes to the library's fixture catalog",
+		Description: "Default Kubernetes Platform — subscribes to the opm core catalog",
 		Type:        "kubernetes",
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			// An empty spec: enable defaults true and the fixture registry
-			// publishes exactly one version, so resolution matches the
-			// version-pinned on-disk fixture (transitional invariant 1).
-			path: {},
+			// Mirrors the range in modules/opm_platform/platform.cue. Both
+			// sides resolve the same catalog version or the two materialized
+			// platforms compose different transformer FQNs and the comparison
+			// below fails. Move them together.
+			path: {Filter: &synth.FilterSpec{Range: "1.0.0-alpha.1"}},
 		},
 	})
 	require.NoError(t, err)
@@ -132,6 +126,7 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 	require.NotNil(t, synthMP)
 
 	// ── Load + materialize the on-disk fixture for comparison ────────
+	libraryRoot := repoLibraryRoot(t)
 	platformDir := filepath.Join(libraryRoot, "modules", "opm_platform")
 	fileVal, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
 	require.NoErrorf(t, err, "loading platform fixture from %s", platformDir)
