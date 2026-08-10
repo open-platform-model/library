@@ -3,7 +3,7 @@
 // and the OCI-backed schema loader.
 //
 // Schema is unversioned at the package level. The library consumes exactly
-// one OPM CUE schema package — opmodel.dev/core@v1, resolved through CUE's
+// one OPM CUE schema package — opmodel.dev/core@v2, resolved through CUE's
 // module system against CUE_REGISTRY. There is no in-tree schema mirror.
 //
 // # Path inventory
@@ -29,7 +29,7 @@
 // # Schema loader and cache
 //
 // Loader is the strategy interface for resolving the schema; OCILoader is
-// the sole public implementation, fetching opmodel.dev/core@v1 through
+// the sole public implementation, fetching opmodel.dev/core@v2 through
 // CUE's module system. Cache memoizes a single Loader.Load per instance
 // (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
 //

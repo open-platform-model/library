@@ -145,7 +145,7 @@ Two independent knobs — do not conflate them:
 ### Schema cache lifetime contract
 
 The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
-`opmodel.dev/core@v1` against `CUE_REGISTRY`) and memoized in a
+`opmodel.dev/core@v2` against `CUE_REGISTRY`) and memoized in a
 `*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
 
 - **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
@@ -191,7 +191,7 @@ and registry rules:
 - **Inputs are not mutated; failures fail-fast** as `*oerrors.MaterializeError`
   (`Kind: "catalog"`) naming the offending subscription path and version.
 - Tests stand up an in-memory OCI registry (`mod/modregistrytest`) with inline
-  `#Catalog` fixtures while resolving `opmodel.dev/core@v1` from the warm
+  `#Catalog` fixtures while resolving `opmodel.dev/core@v2` from the warm
   workspace cache — no test-only `Loader` backdoor; the production
   resolver→client→loader path runs unchanged.
 
@@ -217,7 +217,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v1`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v0`, authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`; mainline tests consume the in-repo fixture catalog (`modules/opm_catalog`, `testing.opmodel.dev/catalogs/opm@v1`) — served in-process by Go tests, from `localhost:5000` by local diagnostic flows — because no v2-built real catalog exists until 0010's catalogs-republish. Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps
@@ -271,17 +271,17 @@ Kernel.Compile                 → *kernel.CompileResult
 
 ### OPM schema versioning
 
-The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v1` for the floating major, `opmodel.dev/core@v0.X.Y` for a pinned release.
+The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v2` for the floating major, `opmodel.dev/core@v2.X.Y[-pre]` for a pinned release.
 
 Operators wanting reproducibility pin the schema version explicitly:
 
 ```go
-k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v0.3.0"}))
+k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-alpha.4"}))
 ```
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call.
 
-A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema` and `opm/compile` adapts to the new paths, and downstream consumers re-pin. Within a major (`@v0`), additive schema changes are absorbed transparently by floating-major resolution.
+A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema` and `opm/compile` adapts to the new paths, and downstream consumers re-pin. Within a major, additive schema changes are absorbed transparently by floating-major resolution.
 
 Two independent compat tracks, never confuse:
 
