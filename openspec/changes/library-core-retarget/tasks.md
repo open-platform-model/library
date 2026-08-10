@@ -11,9 +11,10 @@
 
 ## 2. Fixture catalog + publish plumbing (green pre-step)
 
-- [ ] 2.1 Author the on-disk fixture catalog under the `testing.opmodel.dev` prefix beside `modules/opm_platform`: core v2, one transformer + the resources/traits `web_app` demands, a flat `blueprints/` package (D42), `apiVersion!`/`catalogVersion!`/authored transformer `fqn!`, explicit `metadata.labels` mirroring `matchLabels` (transitional invariant 2, see design).
-- [ ] 2.2 `registrytest`: add a disk-tree publish helper (read a fixture module directory into the `modregistrytest` MapFS) so tests serve the on-disk catalog in-process; route the `testing.opmodel.dev` prefix to the in-process host in the test `CUE_REGISTRY` mapping.
-- [ ] 2.3 `cue vet` the fixture catalog standalone (v2 core resolves from GHCR); wire it into `task cue:*` fixture checks; exactly one version is ever published per test registry (transitional invariant 1).
+- [x] 2.1 Author the on-disk fixture catalog under the `testing.opmodel.dev` prefix beside `modules/opm_platform`: core v2, one transformer + the resources/traits `web_app` demands, a flat `blueprints/` package (D42), `apiVersion!`/`catalogVersion!`/authored transformer `fqn!`, explicit `metadata.labels` mirroring `matchLabels` (transitional invariant 2, see design). (Landed as `modules/opm_catalog` with the four transformers the flow tests pair against: deployment, service, http-route, configmap.)
+- [x] 2.2 `registrytest`: add a disk-tree publish helper (read a fixture module directory into the `modregistrytest` MapFS) so tests serve the on-disk catalog in-process; route the `testing.opmodel.dev` prefix to the in-process host in the test `CUE_REGISTRY` mapping.
+- [x] 2.3 `cue vet` the fixture catalog standalone (v2 core resolves from GHCR); wire it into `task cue:*` fixture checks (auto-discovered via `modules/*` glob); exactly one version is ever published per test registry (transitional invariant 1).
+- [x] 2.4 `materialize/pull.go`: split a subscription key's `@vN` major off before composing the load ID (`ast.SplitPackageVersion`) — v2 keys carry the major and the composed `…@vN@vX.Y.Z` form is unloadable; major-free v1 keys pass through unchanged. Discovered during apply; see design "Subscription-key major handling at pull". `task test` stays green pre-flip.
 
 ## 3. The atomic flip (one commit)
 
@@ -34,5 +35,5 @@
 ## 5. Verify & record
 
 - [ ] 5.1 `task check` (fmt, vet, lint, test) clean.
-- [ ] 5.2 Confirm no behaviour change outside the default flip: `git diff` over `opm/` touches only `schema/loader.go`'s constant, doc comments, and `internal/` test plumbing.
+- [ ] 5.2 Confirm no behaviour change outside the default flip: `git diff` over `opm/` touches only `schema/loader.go`'s constant, `materialize/pull.go`'s subscription-key major decomposition (task 2.4), doc comments, and `internal/` test plumbing.
 - [ ] 5.3 Record back in `enhancements/0010/`: slice `library-core-retarget` → `done` with `openspec_ref`, a `history` event, and the D42 one-site deviation noted (plan concern says two sites; one moved).

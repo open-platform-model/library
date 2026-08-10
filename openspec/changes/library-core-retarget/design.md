@@ -47,6 +47,13 @@ The runtime retarget is one constant. Everything else is making the test fleet c
 2. **The fixture catalog authors `metadata.labels` explicitly alongside `matchLabels`.** The matcher keeps reading `metadata.labels`; `library-match-labels` later flips the read and drops the duplication.
 **Rationale**: Both invariants are deletions-in-waiting owned by named downstream slices; encoding them in fixtures (not in `opm/` code) keeps this change behaviour-free.
 
+### Subscription-key major handling at pull (discovered during apply)
+
+**Context**: v2's `#ModulePathType` requires the `@vN` suffix, and `#Platform.#registry` keys take that type, so every v2 platform subscription key carries its catalog's major. `materialize.pullCatalog` composes `<key>@<version>`; with a suffixed key that yields `…opm@v1@v1.0.0`, which `load.Instances` rejects ("does not specify a valid semantic version" — measured against cue v0.17.1). `enumerateVersions` needs no change: `modregistry.ModuleVersions` accepts the suffixed form natively and filters tags to that major.
+**Explored**: (a) keying the platform major-free — inexpressible: `#registry` is pattern-constrained inside a closed definition, so a major-free key is `field not allowed` (measured); (b) deferring to `library-subscription-collapse` — impossible: the mainline flow/materialize tests must materialize a v2 platform in THIS change.
+**Decision**: `pullCatalog` splits the key's `@vN` suffix off (via `ast.SplitPackageVersion`) before composing the load ID. A few lines in `opm/materialize/pull.go`; no signature changes.
+**Rationale**: Strictly input-extending. Under core v1 the subscription-key type admitted no `@vN` suffix, so every previously-expressible key is major-free and passes through byte-identical — the proposal's "no behaviour change" claim survives for all previously-valid inputs; the change gives semantics only to keys that were previously unloadable. The `library-subscription-collapse` slice needs the same decomposition and inherits it. This amends the proposal's "subscription-resolution code paths are untouched" and widens task 5.2's expected `opm/` diff by this one file.
+
 ## Technical Notes
 
 ### The atomic step

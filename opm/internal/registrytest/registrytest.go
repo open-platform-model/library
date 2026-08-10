@@ -15,11 +15,16 @@ package registrytest
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/require"
 
@@ -33,6 +38,13 @@ import (
 // while opmodel.dev (core@v1) still resolves from the public registry / warm
 // workspace cache.
 const CatalogPrefix = "test.example"
+
+// TestingPrefix is the module-path prefix the workspace's on-disk fixture
+// modules live under (Registry Policy: testing.opmodel.dev routes to the
+// local registry for local flows). Tests route it to the in-process registry
+// so on-disk fixtures — e.g. the modules/opm_catalog fixture catalog — are
+// resolvable without a local registry container.
+const TestingPrefix = "testing.opmodel.dev"
 
 // CatalogFixture is one (path, version) catalog module published into the
 // in-memory registry. Body is the catalog package body that follows the bare
@@ -150,6 +162,65 @@ func NewModuleRegistry(t *testing.T, modules []ModuleFixture, catalogs []Catalog
 	return buildRegistry(t, mapfs)
 }
 
+// DiskFixture is one on-disk CUE module directory published into the
+// in-memory registry. The module path (major suffix included) is read from
+// the tree's cue.mod/module.cue; Version is the bare SemVer the tree is
+// published at. Exactly one version per path is published — the
+// library-core-retarget transitional invariant that keeps highest-stable
+// resolution and the v2 scalar `version:` in agreement.
+type DiskFixture struct {
+	Dir     string // module root (the directory containing cue.mod/)
+	Version string // bare SemVer, e.g. "1.0.0"
+}
+
+// NewDiskRegistry stands up an in-memory OCI registry serving the given
+// on-disk module trees (e.g. the modules/opm_catalog fixture catalog),
+// configuring CUE_REGISTRY / CUE_CACHE_DIR exactly like [NewCatalogRegistry].
+// Returns the CUE_REGISTRY mapping string.
+func NewDiskRegistry(t *testing.T, fixtures ...DiskFixture) string {
+	t.Helper()
+
+	mapfs := fstest.MapFS{}
+	for _, f := range fixtures {
+		addDiskTree(t, mapfs, f)
+	}
+	return buildRegistry(t, mapfs)
+}
+
+// addDiskTree copies the CUE module rooted at f.Dir into mapfs following the
+// modregistrytest fixture layout ("<path with / → _>_v<version>/…"), reading
+// the module path from the tree's cue.mod/module.cue.
+func addDiskTree(t *testing.T, mapfs fstest.MapFS, f DiskFixture) {
+	t.Helper()
+
+	modData, err := os.ReadFile(filepath.Join(f.Dir, "cue.mod", "module.cue"))
+	require.NoErrorf(t, err, "reading %s/cue.mod/module.cue", f.Dir)
+	mf, err := modfile.Parse(modData, "cue.mod/module.cue")
+	require.NoErrorf(t, err, "parsing %s/cue.mod/module.cue", f.Dir)
+	path, _, _ := ast.SplitPackageVersion(mf.Module)
+
+	prefix := strings.ReplaceAll(path, "/", "_") + "_v" + f.Version
+	err = filepath.WalkDir(f.Dir, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, relErr := filepath.Rel(f.Dir, p)
+		if relErr != nil {
+			return relErr
+		}
+		data, readErr := os.ReadFile(p)
+		if readErr != nil {
+			return readErr
+		}
+		mapfs[prefix+"/"+filepath.ToSlash(rel)] = &fstest.MapFile{Data: data}
+		return nil
+	})
+	require.NoErrorf(t, err, "walking module tree %s", f.Dir)
+}
+
 // addCatalogs writes the modregistrytest fixture files for each catalog into
 // mapfs.
 func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
@@ -201,11 +272,13 @@ func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 	require.NoError(t, err, "stand up in-memory registry")
 	t.Cleanup(reg.Close)
 
-	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core@v1
-	// already extracted there) and seeds CUE_REGISTRY with PublicRegistry;
-	// the combined mapping below adds the in-process host.
+	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core already
+	// extracted there) and seeds CUE_REGISTRY with PublicRegistry; the
+	// combined mapping below routes both test prefixes to the in-process
+	// host and leaves every other path on the public registry.
 	schematest.SetEnv(t)
-	registry := CatalogPrefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
+	registry := CatalogPrefix + "=" + reg.Host() + "+insecure," +
+		TestingPrefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
 	t.Setenv("CUE_REGISTRY", registry)
 	return registry
 }
