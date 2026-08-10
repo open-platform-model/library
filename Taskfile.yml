@@ -20,13 +20,17 @@ vars:
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
-  # The OPM core schema lives in its own repo and is published to GHCR; the
-  # workspace-local registry holds only the catalogs/fixtures. The more
-  # specific opmodel.dev/core prefix resolves the schema from GHCR while every
-  # other opmodel.dev module (catalogs, test fixtures) resolves from localhost.
-  # testing.opmodel.dev must map alongside opmodel.dev: test fixtures publish
-  # under it, and an unmapped prefix falls through to registry.cue.works.
+  # All-local mapping, forced in-script by the publish tasks only (Registry
+  # Policy rule 2, root CLAUDE.md — local publish is a gated exception). Both
+  # opmodel.dev and testing.opmodel.dev route to localhost so the workspace
+  # fixtures (modules/opm_platform, testdata/**) publish locally; an unmapped
+  # prefix would fall through to registry.cue.works.
   CUE_LOCAL_REGISTRY: "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
+
+  # Canonical read mapping (Registry Policy, root CLAUDE.md): opmodel.dev/*
+  # resolves from GHCR; testing.opmodel.dev/* from the local registry. Used by
+  # the discover/fmt/vet/tidy tasks — no local registry needed for reads.
+  CUE_CANONICAL_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
   # All-GHCR mapping (mirrors schema.PublicRegistry in opm/schema/loader.go).
   # The OPM core schema and the opmodel.dev/catalogs/opm catalog both live in
@@ -165,7 +169,7 @@ tasks:
   cue:discover:
     desc: List all discovered CUE modules
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_CANONICAL_REGISTRY}}"
     cmds:
       - |
         set -euo pipefail
@@ -184,7 +188,7 @@ tasks:
   cue:fmt:
     desc: Format CUE files in all discovered modules
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_CANONICAL_REGISTRY}}"
     cmds:
       - |
         set -euo pipefail
@@ -203,7 +207,7 @@ tasks:
       CONCRETE: '{{.CONCRETE | default "false"}}'
       VET_FLAGS: '{{if eq .CONCRETE "true"}}-c{{end}}'
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_CANONICAL_REGISTRY}}"
     cmds:
       - |
         set -euo pipefail
@@ -219,7 +223,7 @@ tasks:
   cue:tidy:
     desc: Tidy dependencies in all discovered CUE modules
     env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
+      CUE_REGISTRY: "{{.CUE_CANONICAL_REGISTRY}}"
     cmds:
       - |
         set -euo pipefail
@@ -460,8 +464,6 @@ tasks:
     vars:
       PATH: '{{.PATH | default ""}}'
       VERSION: '{{.VERSION | default ""}}'
-    env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
     preconditions:
       - sh: '[ -n "{{.PATH}}" ]'
         msg: "PATH is required. Usage: task cue:publish PATH=<module-dir>"
@@ -470,6 +472,10 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Force the local mapping regardless of ambient CUE_REGISTRY so a shell
+        # carrying the canonical GHCR mapping can never publish to GHCR from a
+        # laptop (Registry Policy rule 2).
+        export CUE_REGISTRY="${OPM_PUBLISH_REGISTRY:-{{.CUE_LOCAL_REGISTRY}}}"
         DIR="{{.PATH}}"
         if [ ! -f "${DIR}/cue.mod/module.cue" ]; then
           echo "Module not found: ${DIR}" >&2
@@ -483,7 +489,7 @@ tasks:
             VERSION="{{.CUE_DEFAULT_VERSION}}"
           fi
         fi
-        echo "Publishing ${DIR}@${VERSION} to {{.CUE_LOCAL_REGISTRY}}..."
+        echo "Publishing ${DIR}@${VERSION} to ${CUE_REGISTRY}..."
         (cd "${DIR}" && cue mod publish "${VERSION}")
         echo "Published ${DIR}@${VERSION}"
 
@@ -511,8 +517,6 @@ tasks:
     vars:
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
       TYPE: '{{.TYPE | default "patch"}}'
-    env:
-      CUE_REGISTRY: "{{.CUE_LOCAL_REGISTRY}}"
     preconditions:
       - sh: command -v yq >/dev/null 2>&1
         msg: "yq is required"
@@ -524,6 +528,10 @@ tasks:
       - |
         #!/usr/bin/env bash
         set -euo pipefail
+        # Force the local mapping regardless of ambient CUE_REGISTRY so a shell
+        # carrying the canonical GHCR mapping can never publish to GHCR from a
+        # laptop (Registry Policy rule 2).
+        export CUE_REGISTRY="${OPM_PUBLISH_REGISTRY:-{{.CUE_LOCAL_REGISTRY}}}"
 
         VERSION_FILE="{{.CUE_VERSION_FILE}}"
         DRY_RUN="{{.DRY_RUN}}"

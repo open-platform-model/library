@@ -126,7 +126,12 @@ The kernel accepts exactly:
 
 ## Environment Notes
 
-Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUDE.md`. A local CUE registry at `localhost:5000` is expected for publish/integration tests.
+Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUDE.md` (Registry Policy: `opmodel.dev/*` reads resolve from GHCR). No local registry is needed for `cue:discover` / `cue:fmt` / `cue:vet` / `cue:tidy` / `cue:check` / the Go test suite — CI runs all of it against GHCR.
+
+The local registry at `localhost:5000` is required only for:
+
+- `task cue:publish` / `task cue:publish:smart` — local fixture/catalog publishes; gated, run only on explicit user request (Registry Policy rule 2). The tasks force the local mapping in-script.
+- A few older tests that hardcode a localhost mapping (`opm/materialize/composed_open_test.go`, `opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`). New tests must use the in-process registry in `opm/internal/registrytest` instead — the kernel integration tests show the pattern.
 
 ### CUE toolchain pin
 
