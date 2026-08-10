@@ -4,10 +4,10 @@
 
 ## 1. Major-aware fixture writers (green pre-step, re-land)
 
-- [ ] 1.1 `registrytest.addCatalogs`: derive the core dep line's major and the emitted `import c "opmodel.dev/core@vN"` from `coreVersionOr(f.CoreVersion)` — emitted import and declared dep MUST agree. Existing v1-pinned callers unchanged.
-- [ ] 1.2 `registrytest.addModules`: same derivation for the deps line; module-path major suffix derived from the fixture's version instead of hardcoded `@v0`.
-- [ ] 1.3 `registrytest.BuildModuleFile` / `BuildCatalog`: accept the core major (or full version) as input; keep v1 defaults for now so the suite stays green.
-- [ ] 1.4 Run `task test` — all green with defaults still on v1.
+- [x] 1.1 `registrytest.addCatalogs`: derive the core dep line's major and the emitted `import c "opmodel.dev/core@vN"` from `coreVersionOr(f.CoreVersion)` — emitted import and declared dep MUST agree. Existing v1-pinned callers unchanged.
+- [x] 1.2 `registrytest.addModules`: same derivation for the deps line; module-path major suffix derived from the fixture's version instead of hardcoded `@v0`.
+- [x] 1.3 `registrytest.BuildModuleFile` / `BuildCatalog`: accept the core major (or full version) as input; keep v1 defaults for now so the suite stays green.
+- [x] 1.4 Run `task test` — all green with defaults still on v1.
 
 ## 2. Address-seam adaptations (green pre-step; three re-land, one new)
 
