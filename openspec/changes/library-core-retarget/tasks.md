@@ -28,13 +28,13 @@
 
 ## 4. Kept tests + docs (green post-steps)
 
-- [ ] 4.1 Verify untouched-and-green: `composed_open_test` (v0.5.2 canary), `instance_integration_test` v1-pinned family incl. the library#31 regression (deep `blueprints/workload` import at `:154` stays — recorded D42 deviation), `docs/design/repro-hidden-field/`.
-- [ ] 4.2 Doc-comment sweep: `kernel.go`, `schema/doc.go`, `schema/cache.go`, `materialize/doc.go`, `schematest`/`registrytest` package docs — `core@v1` citations → `core@v2`.
-- [ ] 4.3 `CLAUDE.md` (§ CUE/registry notes citing `core@v1`) and `Taskfile.yml` fixture/publish comments updated.
-- [ ] 4.4 `MIGRATIONS.md` `## Unreleased — Breaking` entry `### Changed — \`library-core-retarget\``: default schema module is now core v2; pin `OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}` to stay on v1; rollback = reverse rewrite to `v1.1.0-alpha.1`. PR carries `Migration: library-core-retarget`.
+- [x] 4.1 Verify untouched-and-green: `composed_open_test` (v0.5.2 canary), `instance_integration_test` v1-pinned family incl. the library#31 regression (deep `blueprints/workload` import at `:154` stays — recorded D42 deviation), `docs/design/repro-hidden-field/`. (`git diff main` over those paths is empty; all pass.)
+- [x] 4.2 Doc-comment sweep: `kernel.go`, `schema/doc.go`, `schema/cache.go`, `materialize/doc.go`, `schematest`/`registrytest` package docs — `core@v1` citations → `core@v2`. (Plus `README.md` and `docs/getting-started.md`, which also cite the default.)
+- [x] 4.3 `CLAUDE.md` (§ CUE/registry notes citing `core@v1`) and `Taskfile.yml` fixture/publish comments updated (drift fixture list emptied — no fixture consumes the real catalog until catalogs-republish).
+- [x] 4.4 `MIGRATIONS.md` `## Unreleased — Breaking` entry `### Changed — \`library-core-retarget\``: default schema module is now core v2; pin `OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}` to stay on v1; rollback = reverse rewrite to `v1.1.0-alpha.1`. PR carries `Migration: library-core-retarget`.
 
 ## 5. Verify & record
 
-- [ ] 5.1 `task check` (fmt, vet, lint, test) clean.
-- [ ] 5.2 Confirm no behaviour change outside the default flip: `git diff` over `opm/` touches only `schema/loader.go`'s constant, `materialize/pull.go`'s subscription-key major decomposition (task 2.4), doc comments, and `internal/` test plumbing.
-- [ ] 5.3 Record back in `enhancements/0010/`: slice `library-core-retarget` → `done` with `openspec_ref`, a `history` event, and the D42 one-site deviation noted (plan concern says two sites; one moved).
+- [x] 5.1 `task check` (fmt, vet, lint, test) clean — golangci-lint reports 0 issues, full suite green.
+- [x] 5.2 Confirm no behaviour change outside the default flip: `git diff` over non-test `opm/` touches only `schema/loader.go`'s constant, the three strictly input-extending v2-seam adaptations recorded in design (`materialize/pull.go`, `helper/synth/render.go`, `materialize/cache/key.go`), doc comments, and `internal/` test plumbing.
+- [x] 5.3 Record back in `enhancements/0010/`: slice `library-core-retarget` → `done` with `openspec_ref: "library/library-core-retarget"`, a `history` event covering the landing, the D42 one-site resolution, the seam adaptations, the fixture catalog, and the two transitional invariants (branch `0010-library-core-retarget-done` in the enhancements repo).
