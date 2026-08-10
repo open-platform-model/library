@@ -109,6 +109,15 @@ func coreVersionOr(v string) string {
 	return "v" + strings.TrimPrefix(v, "v")
 }
 
+// coreDep returns the major-qualified core module path for a full core version:
+// "v1.0.0-alpha.1" → "opmodel.dev/core@v1". The emitted import line and the
+// declared dep are both derived from it so they can never disagree on the
+// major.
+func coreDep(coreVersion string) string {
+	major, _, _ := strings.Cut(coreVersion, ".")
+	return "opmodel.dev/core@" + major
+}
+
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
 // catalog fixtures and configures CUE_REGISTRY / CUE_CACHE_DIR for the test
 // scope: the test prefix routes to the in-process host (+insecure), while
@@ -149,12 +158,13 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
 		// The module's major suffix must match the published version's major.
 		major, _, _ := strings.Cut(f.Version, ".")
+		core := coreVersionOr(f.CoreVersion)
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: \"opmodel.dev/core@v1\": v: %q\n",
-			f.Path+"@v"+major, coreVersionOr(f.CoreVersion),
+			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: %q: v: %q\n",
+			f.Path+"@v"+major, coreDep(core), core,
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
-			"package " + pkg + "\n\nimport c \"opmodel.dev/core@v1\"\n\nc.#Catalog\n" + f.Body,
+			"package " + pkg + "\n\nimport c \"" + coreDep(core) + "\"\n\nc.#Catalog\n" + f.Body,
 		)}
 	}
 }
@@ -165,14 +175,17 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 	for _, m := range modules {
 		dir := strings.ReplaceAll(m.Path, "/", "_") + "_v" + m.Version
+		core := coreVersionOr(m.CoreVersion)
 		var deps strings.Builder
-		fmt.Fprintf(&deps, "deps: \"opmodel.dev/core@v1\": v: %q\n", coreVersionOr(m.CoreVersion))
+		fmt.Fprintf(&deps, "deps: %q: v: %q\n", coreDep(core), core)
 		for p, v := range m.Deps {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
+		// The module's major suffix must match the published version's major.
+		major, _, _ := strings.Cut(m.Version, ".")
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
 			"module: %q\nlanguage: version: \"v0.17.0\"\n%s",
-			m.Path+"@v0", deps.String(),
+			m.Path+"@v"+major, deps.String(),
 		)}
 		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}
 	}
@@ -202,14 +215,25 @@ func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 // identity metadata. When catalogImport is non-empty the module imports that
 // major-qualified catalog path and references its metadata under debugValues
 // (an open field), forcing the loader to resolve the catalog as a transitive
-// dependency. pkg is the package clause name.
+// dependency. pkg is the package clause name. The emitted core import derives
+// its major from [defaultCoreVersion]; use [BuildModuleFileCore] to pin
+// another core version.
 func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
+	return BuildModuleFileCore(defaultCoreVersion, pkg, name, modulePath, catalogImport)
+}
+
+// BuildModuleFileCore is [BuildModuleFile] with an explicit core version (a
+// full version like "v1.0.0-alpha.1" or a bare major like "v1"); the emitted
+// core import derives its major from it, matching the dep the fixture writer
+// declares for the same CoreVersion.
+func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport string) string {
+	dep := coreDep(coreVersionOr(coreVersion))
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", pkg)
 	if catalogImport == "" {
-		b.WriteString("import c \"opmodel.dev/core@v1\"\n\n")
+		fmt.Fprintf(&b, "import c %q\n\n", dep)
 	} else {
-		b.WriteString("import (\n\tc \"opmodel.dev/core@v1\"\n")
+		fmt.Fprintf(&b, "import (\n\tc %q\n", dep)
 		fmt.Fprintf(&b, "\tcat %q\n)\n\n", catalogImport)
 	}
 	b.WriteString("c.#Module\n")
@@ -227,8 +251,17 @@ func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
 // fixtures. The #Catalog pattern stamps each transformer's metadata.modulePath
 // ("<path>/transformers") and version; this only authors name, description, the
 // required-primitive maps, and the transform output (from [TxFixture.Output],
-// defaulting to an empty struct).
+// defaulting to an empty struct). The body shape follows the catalog member
+// shape of the core major derived from [defaultCoreVersion]; use
+// [BuildCatalogCore] to author against another core version.
 func BuildCatalog(path, version string, txs ...TxFixture) string {
+	return BuildCatalogCore(defaultCoreVersion, path, version, txs...)
+}
+
+// BuildCatalogCore is [BuildCatalog] with an explicit core version (full
+// version or bare major), selecting the catalog member shape of that core
+// major.
+func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path, version)
 	b.WriteString("#transformers: {\n")
