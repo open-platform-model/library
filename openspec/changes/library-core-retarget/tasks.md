@@ -18,12 +18,13 @@
 
 ## 3. The atomic flip (one commit)
 
-- [ ] 3.1 `schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2"`; `registrytest.defaultCoreVersion = "v2.0.0-alpha.4"`; writer defaults from 1.3 flip to v2.
-- [ ] 3.2 `testdata/cue.mod/module.cue` + `testdata/synth/fixture.cue`: core v2 dep, v2 metadata shape (`modulePath` with `@vN`, snake leaf name).
-- [ ] 3.3 `testdata/modules/web_app/`: core v2; catalog dep re-pointed to the fixture catalog; `components.cue` blueprint import flattened (D42 site #1); metadata to v2 shape.
-- [ ] 3.4 `modules/opm_platform/platform.cue` + `cue.mod`: core v2; subscription re-keyed to the fixture catalog path; `filter: range:` → required scalar `version:`.
-- [ ] 3.5 Kernel flow/synth tests (`flow_integration_test`, `flow_synth_*`, `synth_test`, `synth_platform_test`): `CoreVersion` pins and inline deps text (`flow_synth_imported_test.go:136`) to `v2.0.0-alpha.4`; fixture bodies to v2 shape; catalog references from `opmodel.dev/catalogs/opm` to the fixture catalog.
-- [ ] 3.6 Run `task test` — mainline suite green on v2.
+- [x] 3.0 v2 identity-shape seams (discovered during apply, see design): `synth.moduleImportPath` passes a major-suffixed `modulePath` through verbatim (D1) instead of composing parent+leaf; `cache.Key` normalizes the v2 scalar `version` alongside the v1 filter fields. Both strictly input-extending — v1 inputs keep byte-identical behaviour.
+- [x] 3.1 `schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2"`; `registrytest.defaultCoreVersion = "v2.0.0-alpha.4"`; writer defaults from 1.3 flip to v2 (v2 catalog bodies key contracts by `ContractAPIVersion`, author `apiVersion`/`catalogVersion`/`fqn`).
+- [x] 3.2 `testdata/cue.mod/module.cue` + `testdata/synth/fixture.cue`: core v2 dep, v2 metadata shape (`modulePath` with `@vN`, snake leaf name).
+- [x] 3.3 `testdata/modules/web_app/`: core v2; catalog dep re-pointed to the fixture catalog; `components.cue` blueprint import flattened (D42 site #1); metadata to v2 shape (`web_app` snake name, full `modulePath`, version `1.0.0`).
+- [x] 3.4 `modules/opm_platform/platform.cue` + `cue.mod`: core v2; subscription re-keyed to the fixture catalog path (major-suffixed, per v2 `#ModulePathType`); `filter: range:` → required scalar `version:`.
+- [x] 3.5 Kernel flow/synth tests (`flow_integration_test`, `flow_synth_*`, `synth_test`, `synth_platform_test`) plus the materialize/loader/cache harnesses: v2 pins and fixture bodies; subscription bodies re-keyed with `version:`; contract FQNs apiVersion-keyed; flow tests serve the fixture catalog from the in-process registry (`NewDiskRegistry`). The two platform-driven filter tests (range/allow/deny, prerelease-range) were removed — v2 cannot author a `filter`; Go-side semantics stay pinned in `filter_test.go`. `TestPlatform_SubscriptionWithFilterRange` became `TestPlatform_SubscriptionFilterRejectedByV2Schema`. `Taskfile.yml` `cue:vet` skips modules with `testing.opmodel.dev` deps when the local registry is down (CI stays GHCR-only; the Go flow tests cover them in-process).
+- [x] 3.6 Run `task test` — mainline suite green on v2 (verified incl. flow tests, `task cue:check`/`cue:tidy` with and without the local registry, and `cue:test:flow:inspect` against a locally-published fixture catalog).
 
 ## 4. Kept tests + docs (green post-steps)
 

@@ -106,11 +106,17 @@ type ModuleFixture struct {
 	CoreVersion string
 }
 
-// defaultCoreVersion is the opmodel.dev/core@v1 version registrytest fixtures
+// defaultCoreVersion is the opmodel.dev/core version registrytest fixtures
 // declare when ModuleFixture.CoreVersion / CatalogFixture.CoreVersion are
-// empty. It preserves the historical pin so callers predating the override are
-// unaffected.
-const defaultCoreVersion = "v1.0.0-alpha.1"
+// empty. It tracks the library's default schema line (core v2, matching
+// [schema.DefaultSchemaModule]); historical tests pin earlier versions
+// explicitly.
+const defaultCoreVersion = "v2.0.0-alpha.4"
+
+// ContractAPIVersion is the contract level every generated v2 fixture
+// primitive declares. Core v2 keys contracts by the primitive's own
+// apiVersion (enhancement 0010 D4), not by the catalog's build version.
+const ContractAPIVersion = "v1"
 
 // coreVersionOr returns v normalized to a leading "v", or defaultCoreVersion
 // when v is empty.
@@ -126,8 +132,22 @@ func coreVersionOr(v string) string {
 // declared dep are both derived from it so they can never disagree on the
 // major.
 func coreDep(coreVersion string) string {
+	return "opmodel.dev/core@" + coreMajor(coreVersion)
+}
+
+// coreMajor returns the bare major of a (normalized) core version:
+// "v2.0.0-alpha.4" → "v2"; a bare major ("v2") passes through.
+func coreMajor(coreVersion string) string {
 	major, _, _ := strings.Cut(coreVersion, ".")
-	return "opmodel.dev/core@" + major
+	return major
+}
+
+// coreIsV2 reports whether coreVersion sits on the v2 line or later — the
+// shape watershed for generated fixture bodies (v1-era metadata carries
+// `version`; v2 carries `apiVersion`/`catalogVersion`/authored `fqn`).
+func coreIsV2(coreVersion string) bool {
+	major := coreMajor(coreVersion)
+	return major != "v0" && major != "v1"
 }
 
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
@@ -299,8 +319,14 @@ func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
 // full version like "v1.0.0-alpha.1" or a bare major like "v1"); the emitted
 // core import derives its major from it, matching the dep the fixture writer
 // declares for the same CoreVersion.
+//
+// The metadata shape follows the core major: on v2, modulePath is the FULL
+// module path (major suffix included — pass "…/modules/hello@v0") and name
+// MUST be its snake_case leaf; on v1, modulePath is the major-free parent
+// path (v1's metadata semantics).
 func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport string) string {
-	dep := coreDep(coreVersionOr(coreVersion))
+	core := coreVersionOr(coreVersion)
+	dep := coreDep(core)
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", pkg)
 	if catalogImport == "" {
@@ -333,23 +359,42 @@ func BuildCatalog(path, version string, txs ...TxFixture) string {
 
 // BuildCatalogCore is [BuildCatalog] with an explicit core version (full
 // version or bare major), selecting the catalog member shape of that core
-// major.
+// major: v1-era members carry `version` in metadata and version-keyed
+// contract FQNs; v2 members carry `apiVersion`/`catalogVersion`/authored
+// `fqn` and contract FQNs keyed by [ContractAPIVersion] (transformer keys
+// stay build-keyed in both).
 func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) string {
+	v2 := coreIsV2(coreVersionOr(coreVersion))
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path, version)
+	if v2 {
+		major, _, _ := strings.Cut(version, ".")
+		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
+	} else {
+		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path, version)
+	}
 	b.WriteString("#transformers: {\n")
 	for _, tx := range txs {
 		fqn := fmt.Sprintf("%s/transformers/%s@%s", path, tx.Name, version)
 		fmt.Fprintf(&b, "\t%q: {\n", fqn)
 		b.WriteString("\t\tkind: \"ComponentTransformer\"\n")
-		fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t}\n", tx.Name, tx.Name+" transformer")
+		if v2 {
+			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t\tfqn:         %q\n\t\t}\n", tx.Name, tx.Name+" transformer", fqn)
+		} else {
+			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t}\n", tx.Name, tx.Name+" transformer")
+		}
 		if len(tx.Resources) > 0 {
 			b.WriteString("\t\trequiredResources: {\n")
 			for _, r := range tx.Resources {
-				rfqn := fmt.Sprintf("%s/resources/%s@%s", path, r, version)
+				rfqn := contractFQN(v2, path, "resources", r, version)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", rfqn)
 				b.WriteString("\t\t\t\tkind: \"Resource\"\n")
-				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", r, path+"/resources", version)
+				if v2 {
+					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}\n",
+						r, path+"/resources", ContractAPIVersion, version, rfqn)
+				} else {
+					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", r, path+"/resources", version)
+				}
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(r))
 				b.WriteString("\t\t\t}\n")
 			}
@@ -358,10 +403,16 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 		if len(tx.Traits) > 0 {
 			b.WriteString("\t\trequiredTraits: {\n")
 			for _, tr := range tx.Traits {
-				trfqn := fmt.Sprintf("%s/traits/%s@%s", path, tr, version)
+				trfqn := contractFQN(v2, path, "traits", tr, version)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", trfqn)
 				b.WriteString("\t\t\t\tkind: \"Trait\"\n")
-				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
+				if v2 {
+					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}\n",
+						tr, path+"/traits", ContractAPIVersion, version, trfqn)
+					b.WriteString("\t\t\t\toptional: bool | *true\n")
+				} else {
+					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
+				}
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(tr))
 				b.WriteString("\t\t\t\tappliesTo: []\n")
 				b.WriteString("\t\t\t}\n")
@@ -377,6 +428,18 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 	}
 	b.WriteString("}\n")
 	return b.String()
+}
+
+// contractFQN returns the FQN a generated fixture catalog keys a primitive
+// under: build-version-keyed on the v1 line, [ContractAPIVersion]-keyed on v2
+// (enhancement 0010 D4). Test harnesses authoring components against
+// generated catalogs mirror the v2 form so demanded keys match the matcher
+// index.
+func contractFQN(v2 bool, path, kind, name, version string) string {
+	if v2 {
+		return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, ContractAPIVersion)
+	}
+	return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, version)
 }
 
 // specField returns the camelCase field name core's #Resource / #Trait require

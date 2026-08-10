@@ -54,6 +54,11 @@ The runtime retarget is one constant. Everything else is making the test fleet c
 **Decision**: `pullCatalog` splits the key's `@vN` suffix off (via `ast.SplitPackageVersion`) before composing the load ID. A few lines in `opm/materialize/pull.go`; no signature changes.
 **Rationale**: Strictly input-extending. Under core v1 the subscription-key type admitted no `@vN` suffix, so every previously-expressible key is major-free and passes through byte-identical — the proposal's "no behaviour change" claim survives for all previously-valid inputs; the change gives semantics only to keys that were previously unloadable. The `library-subscription-collapse` slice needs the same decomposition and inherits it. This amends the proposal's "subscription-resolution code paths are untouched" and widens task 5.2's expected `opm/` diff by this one file.
 
+Two sibling seams surfaced while flipping the mainline suite, resolved by the same strictly-input-extending rule:
+
+1. **`synth.moduleImportPath` (`opm/helper/synth/render.go`)** — composed the module import as `metadata.modulePath + "/" + nameSnakeCase + "@" + major(version)`, correct for v1's parent-path semantics and doubly wrong for v2 (whose `modulePath` IS the full major-suffixed import path, D1). A major-suffixed `modulePath` now passes through verbatim; major-free (v1) paths keep the composed form byte-identical.
+2. **`cache.Key` (`opm/materialize/cache/key.go`)** — normalized `enable` + `filter{range,allow,deny}` only, so two v2 platforms differing solely in the scalar `version` would share a cache key and a version bump could serve a stale materialization. `version` joins the normalized projection with `omitempty`, so v1 platforms (which cannot express it) keep their historical keys byte-identical.
+
 ## Technical Notes
 
 ### The atomic step

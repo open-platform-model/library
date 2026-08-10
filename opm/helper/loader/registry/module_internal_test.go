@@ -40,7 +40,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	}
 	mod := registrytest.ModuleFixture{
 		Path: modPath, Version: "0.0.2",
-		File: registrytest.BuildModuleFile("hello", "hello", modMetaPath, catPath+"@v0"),
+		File: registrytest.BuildModuleFile("hello", "hello", modPath+"@v0", catPath+"@v0"),
 		Deps: map[string]string{catPath + "@v0": "0.1.0"},
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})

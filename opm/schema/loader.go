@@ -12,9 +12,12 @@ import (
 )
 
 // DefaultSchemaModule is the module identifier used by [OCILoader.Load] when
-// [OCILoader.Module] is empty. The default tracks the v0 major; CUE resolves
-// the floating major to the latest v0.x.y available at first-load time.
-const DefaultSchemaModule = "opmodel.dev/core@v1"
+// [OCILoader.Module] is empty. The default tracks the v2 major; the bare
+// major is expanded through the loader's ".latest" mechanism, resolving the
+// highest published version within v2 at first-load time (SemVer prerelease
+// ordering applies, so a v2.0.0-0.dev.* snapshot never outranks a
+// v2.0.0-alpha.N tag).
+const DefaultSchemaModule = "opmodel.dev/core@v2"
 
 // PublicRegistry is the documented CUE_REGISTRY mapping for resolving the
 // OPM core schema from its canonical GHCR location with a fallback to
@@ -49,7 +52,7 @@ type Loader interface {
 // overrides are plumbed into [load.Config.Env] for the single load call.
 type OCILoader struct {
 	// Module is the schema module identifier. Empty means
-	// [DefaultSchemaModule] ("opmodel.dev/core@v1").
+	// [DefaultSchemaModule] ("opmodel.dev/core@v2").
 	//
 	// A bare major form ("…@v0") is automatically expanded to "…@v0.latest"
 	// before calling [load.Instances]; CUE's standalone-package loader
