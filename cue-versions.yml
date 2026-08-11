@@ -7,7 +7,9 @@
 # path the owner-scoping migration has to account for. The OPM core catalog
 # (opmodel.dev/catalogs/opm) is NOT listed — it is authored and published from
 # the catalog_opm repo; the library only consumes it from GHCR. The
-# cue:catalog:drift guard checks that fixtures track the latest published tag.
+# cue:catalog:drift guard checks that fixture pins track the latest published
+# tag on their own major line (stable-first, falling back to the highest
+# prerelease on a prerelease-only line such as v2 before catalogs-republish).
 testdata/modules/web_app:
   version: v1.0.0
   checksum: 9de878d9dda456d91a773a014b37f29bb8be7691da7c7e00a95d58a651d7f91e
