@@ -244,7 +244,9 @@ func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
 // BuildModuleFileCore is [BuildModuleFile] with an explicit core version (a
 // full version like "v1.0.0-alpha.1" or a bare major like "v1"); the emitted
 // core import derives its major from it, matching the dep the fixture writer
-// declares for the same CoreVersion.
+// declares for the same CoreVersion. No caller passes an explicit version
+// today (pinned-fixture tests hand-author their module text instead); kept
+// for pinned-fixture authors and the next major crossing.
 //
 // The metadata shape follows the core major: on v2, modulePath is the FULL
 // module path (major suffix included — pass "…/modules/hello@v0") and name
@@ -288,7 +290,9 @@ func BuildCatalog(path, version string, txs ...TxFixture) string {
 // major: v1-era members carry `version` in metadata and version-keyed
 // contract FQNs; v2 members carry `apiVersion`/`catalogVersion`/authored
 // `fqn` and contract FQNs keyed by [ContractAPIVersion] (transformer keys
-// stay build-keyed in both).
+// stay build-keyed in both). No caller passes an explicit version today, so
+// the v1 branch is exercised only through history; kept for pinned-fixture
+// authors and the next major crossing.
 func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) string {
 	v2 := coreIsV2(coreVersionOr(coreVersion))
 

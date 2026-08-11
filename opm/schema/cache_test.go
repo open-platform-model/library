@@ -2,6 +2,7 @@ package schema_test
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -132,8 +133,10 @@ func TestCache_ResolvedVersionEmptyBeforeGet(t *testing.T) {
 }
 
 // TestCache_ResolvedVersionAfterOCIGet asserts that ResolvedVersion
-// returns a v0.x.y semver after a successful OCILoader-backed Get.
-// This exercises the loadVersioned hook in opm/schema/loader.go.
+// returns a semver within the default (v2) major after a successful
+// OCILoader-backed Get. This exercises the loadVersioned hook in
+// opm/schema/loader.go and pins the schema-dispatch scenario
+// "ResolvedVersion reports the v2 resolution".
 func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
 	schematest.SetEnv(t)
 	cache := &schema.Cache{Loader: schema.OCILoader{}}
@@ -148,10 +151,8 @@ func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
 		t.Skip("CUE SDK did not surface a parseable version in build.Instance.Root; " +
 			"ResolvedVersion is diagnostic-only, skip when unavailable")
 	}
-	assert.True(t,
-		len(ver) >= len("v0.0.0") && ver[0] == 'v',
-		"ResolvedVersion must look like a semver (got %q)", ver,
-	)
+	assert.True(t, strings.HasPrefix(ver, "v2."),
+		"default schema line resolves within the v2 major (got %q)", ver)
 }
 
 // TestCache_ResolvedVersionStaysEmptyOnFailedLoad asserts that a failed

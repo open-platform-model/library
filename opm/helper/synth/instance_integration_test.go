@@ -118,14 +118,17 @@ func publishImportableModule(t *testing.T, ctx *cue.Context, coreVersion string)
 	return publishModuleWithBody(t, ctx, coreVersion, "hello", "0.0.2", "")
 }
 
-// regressionCatalogModule is the published OPM catalog the #31 regression
-// fixture imports. It is the SAME catalog the workspace fixtures track and CI
-// resolves from GHCR (see testdata/modules/web_app and the Taskfile catalog
-// drift check), so the fixture depends only on the catalog — never on a
-// pre-published consumer module from another repo.
+// regressionCatalogModule pins the published catalog build the #31 regression
+// was captured against (the catalogs/opm v0 line, still published on GHCR —
+// tags name fixed bytes permanently), resolved from GHCR in CI so the fixture
+// depends only on the catalog — never on a pre-published consumer module from
+// another repo. Deliberately NOT the catalog line the mainline fixtures track
+// since the core-v2 retarget: moving this pin would change what the
+// regression guards. See the library-core-retarget design's "Which tests keep
+// their v1 pins".
 const (
 	regressionCatalogModule  = "opmodel.dev/catalogs/opm@v0"
-	regressionCatalogVersion = "v0.6.0" // tracks testdata/modules/web_app's pin
+	regressionCatalogVersion = "v0.6.0"
 )
 
 // publishCatalogImportingModule publishes a #Module whose SOURCE imports the
