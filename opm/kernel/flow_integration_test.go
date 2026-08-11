@@ -122,6 +122,28 @@ metadata: {
 
 		gotPairs := matchPairsToMap(plan.MatchedPairs())
 
+		// DEBUG (temporary): dump the two sides of the match.
+		t.Logf("DEBUG resolved: %v", mp.Resolved)
+		t.Logf("DEBUG composed transformer keys: %v", transformerKeys(t, mp.Transformers))
+		for _, kind := range []string{"resources", "traits"} {
+			m := mp.Matchers.LookupPath(cue.ParsePath(kind))
+			it, ferr := m.Fields()
+			t.Logf("DEBUG matcher %s fields err: %v", kind, ferr)
+			for ferr == nil && it.Next() {
+				t.Logf("DEBUG matcher %s key: %s", kind, it.Selector().Unquoted())
+			}
+		}
+		for _, comp := range []string{"web", "config"} {
+			for _, kind := range []string{"resources", "traits"} {
+				cv := inst.Package.LookupPath(cue.MakePath(cue.Def("components"), cue.Str(comp), cue.Def(kind)))
+				it, ferr := cv.Fields()
+				t.Logf("DEBUG component %s #%s exists=%v err=%v", comp, kind, cv.Exists(), ferr)
+				for ferr == nil && it.Next() {
+					t.Logf("DEBUG component %s #%s key: %s", comp, kind, it.Selector().Unquoted())
+				}
+			}
+		}
+
 		// The deployment-transformer fires for the stateless web component
 		// (Container resource + workload-type=stateless label gate); the
 		// service-transformer fires because the web component carries the
