@@ -1,11 +1,11 @@
 # schema-dispatch Specification
 
 ## Purpose
-Defines the single-schema dispatch surface that replaces the retired multi-`apiVersion` binding registry. The library consumes exactly one OPM CUE schema (`opmodel.dev/core@v0`) resolved at runtime via CUE's module system and exposes its paths, metadata decoders, transformer-context builder, and a caller-configurable `Loader` plus per-Kernel `*schema.Cache` in `opm/schema`. Callers no longer detect schema versions, look up bindings, or carry `APIVersion` on artifact structs.
+Defines the single-schema dispatch surface that replaces the retired multi-`apiVersion` binding registry. The library consumes exactly one OPM CUE schema (`opmodel.dev/core@v2`) resolved at runtime via CUE's module system and exposes its paths, metadata decoders, transformer-context builder, and a caller-configurable `Loader` plus per-Kernel `*schema.Cache` in `opm/schema`. Callers no longer detect schema versions, look up bindings, or carry `APIVersion` on artifact structs.
 ## Requirements
 ### Requirement: Single OPM schema, externally resolved, with no apiVersion field
 
-The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v1` (or a caller-pinned exact version within the v1 major), resolved through CUE's module system against `CUE_REGISTRY`. The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other in-tree location. The schema package MUST NOT define a top-level `#ApiVersion` constant. Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform`, `#Resource`, `#Trait`) MUST NOT carry an `apiVersion` field.
+The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v2` (or a caller-pinned exact version, in any major, via `OCILoader.Module`), resolved through CUE's module system against `CUE_REGISTRY`. The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other in-tree location. The schema package MUST NOT define a top-level `#ApiVersion` constant. Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform`, `#Resource`, `#Trait`) MUST NOT carry an `apiVersion` field.
 
 #### Scenario: No in-tree schema source
 
@@ -16,12 +16,39 @@ The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@
 #### Scenario: Schema resolved via module identifier
 
 - **WHEN** the kernel's `*schema.Cache` is populated for the first time
-- **THEN** the underlying load goes through `cue/load.Instances` against the configured module identifier (default `"opmodel.dev/core@v1"`)
+- **THEN** the underlying load goes through `cue/load.Instances` against the configured module identifier (default `"opmodel.dev/core@v2"`)
 - **AND** the resolved value's `LookupPath(cue.ParsePath("#ModuleInstance"))` exists
 
 #### Scenario: Evaluated module has no apiVersion field
+
 - **WHEN** an artifact authored against the library schema is loaded and evaluated
 - **THEN** `apiVersion` on the artifact root does not exist
+
+#### Scenario: Default resolves within the v2 major
+
+- **WHEN** `(schema.OCILoader{}).Load(ctx)` runs with no `Module` override
+- **THEN** the bare major `"opmodel.dev/core@v2"` is expanded through the loader's existing bare-major mechanism and resolves to the highest published version within the v2 major
+- **AND** SemVer prerelease ordering applies, so a `v2.0.0-0.dev.*` snapshot tag never outranks a `v2.0.0-alpha.N` tag
+
+#### Scenario: Caller-pinned earlier major still loads
+
+- **WHEN** `(schema.OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}).Load(ctx)` is called
+- **THEN** the loader resolves exactly that version and returns its schema value
+- **AND** no code path upgrades or rewrites the caller's pin
+
+### Requirement: DefaultSchemaModule constant
+
+`schema.DefaultSchemaModule` SHALL be `"opmodel.dev/core@v2"`. `OCILoader.Load` with an empty `Module` field SHALL resolve this identifier. Doc comments citing the default module identifier (`opm/kernel`, `opm/schema`, `opm/materialize`) SHALL cite the v2 identifier.
+
+#### Scenario: Empty Module resolves the v2 default
+
+- **WHEN** `(schema.OCILoader{Registry: "opmodel.dev=ghcr.io/open-platform-model"}).Load(ctx)` is called with `Module` unset
+- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v2"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
+
+#### Scenario: ResolvedVersion reports the v2 resolution
+
+- **WHEN** `cache.Get(ctx)` succeeds against the default `opmodel.dev/core@v2` resolving to `v2.0.0-alpha.4`
+- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.4"`
 
 ### Requirement: Schema Loader interface
 
@@ -46,7 +73,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 
 `OCILoader.Load(ctx)` SHALL:
 
-- Resolve `Module` to `"opmodel.dev/core@v1"` when the field is empty.
+- Resolve `Module` to `"opmodel.dev/core@v2"` (`DefaultSchemaModule`) when the field is empty.
 - Resolve `Registry` to the value derived from `os.Environ`'s `CUE_REGISTRY` when the field is empty.
 - Resolve `CacheDir` to the value derived from `os.Environ`'s `CUE_CACHE_DIR` (or CUE's default when that is also empty) when the field is empty.
 - Invoke `cuelang.org/go/cue/load.Instances([]string{module}, &load.Config{Env: derivedEnv})` with the resolved values plumbed into `Env`.
@@ -57,7 +84,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 #### Scenario: Zero-value OCILoader resolves defaults
 
 - **WHEN** `(schema.OCILoader{}).Load(ctx)` is called in an environment with `CUE_REGISTRY` and `CUE_CACHE_DIR` set
-- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v1"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
+- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v2"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
 
 #### Scenario: Explicit overrides take precedence over env
 
@@ -97,7 +124,7 @@ The library MUST NOT cache the `Loader`'s result at package scope. There SHALL b
 
 ### Requirement: Cache exposes the resolved schema version
 
-`(*Cache).ResolvedVersion() string` SHALL return the schema module version that the underlying Loader resolved during the first successful Load (e.g., `"v1.0.0-alpha.1"` when the default `opmodel.dev/core@v1` resolved to `v1.0.0-alpha.1`). Before the first successful Load, `ResolvedVersion()` SHALL return the empty string.
+`(*Cache).ResolvedVersion() string` SHALL return the schema module version that the underlying Loader resolved during the first successful Load (e.g., `"v2.0.0-alpha.4"` when the default `opmodel.dev/core@v2` resolved to `v2.0.0-alpha.4`). Before the first successful Load, `ResolvedVersion()` SHALL return the empty string.
 
 #### Scenario: ResolvedVersion is empty before Get
 
@@ -106,8 +133,8 @@ The library MUST NOT cache the `Loader`'s result at package scope. There SHALL b
 
 #### Scenario: ResolvedVersion returns the resolved tag after Get
 
-- **WHEN** `cache.Get(ctx)` succeeds against `opmodel.dev/core@v1` resolving to `v1.0.0-alpha.1`
-- **THEN** `cache.ResolvedVersion()` returns `"v1.0.0-alpha.1"`
+- **WHEN** `cache.Get(ctx)` succeeds against `opmodel.dev/core@v2` resolving to `v2.0.0-alpha.4`
+- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.4"`
 
 #### Scenario: ResolvedVersion stays empty after failed Load
 
