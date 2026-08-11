@@ -35,6 +35,6 @@
 
 ## 5. Verify & record
 
-- [ ] 5.1 `task check` (fmt, vet, lint, test) clean; `task cue:check` clean against GHCR with no local registry running.
-- [ ] 5.2 Confirm no behaviour change for v1 inputs: `git diff` over `opm/` touches only `schema/loader.go`'s constant, doc comments, the four seam sites (each guarded on v2-only input shapes), and `internal/` test plumbing.
-- [ ] 5.3 Record back in `enhancements/0010/`: slice `library-core-retarget` → `done` with a `history` event; note any deviations from this redo's own plan.
+- [x] 5.1 `task check` (fmt, vet, lint, test) clean; `task cue:check` clean against GHCR with no local registry running.
+- [x] 5.2 Confirm no behaviour change for v1 inputs: `git diff` over `opm/` touches only `schema/loader.go`'s constant, doc comments, the four seam sites (each guarded on v2-only input shapes), and `internal/` test plumbing.
+- [x] 5.3 Record back in `enhancements/0010/`: slice `library-core-retarget` → `done` with a `history` event; note any deviations from this redo's own plan.
