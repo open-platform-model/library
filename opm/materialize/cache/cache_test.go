@@ -85,24 +85,25 @@ func TestLRU_ZeroCapacityDisabled(t *testing.T) {
 }
 
 // TestKey_StableAcrossSemanticallyIdenticalRegistries asserts the derived key
-// is invariant to field ordering, enable defaulting, and allow/deny ordering.
+// is invariant to subscription ordering, field ordering, and enable
+// defaulting, and moves when the subscribed version does.
 func TestKey_StableAcrossSemanticallyIdenticalRegistries(t *testing.T) {
 	octx := cuecontext.New()
 
 	pA := buildPlatform(t, octx, `{
-		"test.example/a": {enable: true}
-		"test.example/b": {filter: {range: ">=1.0.0", allow: ["1.2.0", "1.1.0"]}}
+		"test.example/a@v1": {enable: true, version: "1.0.0"}
+		"test.example/b@v1": {version: "1.2.0", enable: true}
 	}`)
 	// Same meaning, authored differently: subscription order swapped, enable
-	// omitted (defaults true), allow list reordered, filter fields reordered.
+	// omitted (defaults true), field order swapped.
 	pB := buildPlatform(t, octx, `{
-		"test.example/b": {filter: {allow: ["1.1.0", "1.2.0"], range: ">=1.0.0"}}
-		"test.example/a": {}
+		"test.example/b@v1": {enable: true, version: "1.2.0"}
+		"test.example/a@v1": {version: "1.0.0"}
 	}`)
-	// Different meaning: a's range narrowed.
+	// Different meaning: b subscribes a different build.
 	pC := buildPlatform(t, octx, `{
-		"test.example/a": {enable: true}
-		"test.example/b": {filter: {range: ">=2.0.0", allow: ["1.2.0", "1.1.0"]}}
+		"test.example/a@v1": {enable: true, version: "1.0.0"}
+		"test.example/b@v1": {version: "1.5.0", enable: true}
 	}`)
 
 	keyA, err := cache.Key(pA)
@@ -113,5 +114,5 @@ func TestKey_StableAcrossSemanticallyIdenticalRegistries(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, keyA, keyB, "semantically-identical registries share a key")
-	assert.NotEqual(t, keyA, keyC, "a different filter yields a different key")
+	assert.NotEqual(t, keyA, keyC, "a different subscribed version yields a different key")
 }

@@ -30,7 +30,7 @@ func TestKernel_LoadModuleFromRegistry(t *testing.T) {
 	}
 	mod := registrytest.ModuleFixture{
 		Path: modPath, Version: "0.0.2",
-		File: registrytest.BuildModuleFile("hello", "hello", modMetaPath, catPath+"@v0"),
+		File: registrytest.BuildModuleFile("hello", "hello", modPath+"@v0", catPath+"@v0"),
 		Deps: map[string]string{catPath + "@v0": "0.1.0"},
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})
@@ -44,7 +44,7 @@ func TestKernel_LoadModuleFromRegistry(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, m.Metadata)
 	assert.Equal(t, "hello", m.Metadata.Name)
-	assert.Equal(t, modMetaPath, m.Metadata.ModulePath)
+	assert.Equal(t, modPath+"@v0", m.Metadata.ModulePath)
 	assert.Equal(t, "0.0.2", m.Metadata.Version)
 
 	// The value-returning path does not carry staged source.
@@ -69,7 +69,7 @@ func TestKernel_AcquireModuleFromRegistry(t *testing.T) {
 	}
 	mod := registrytest.ModuleFixture{
 		Path: modPath, Version: "0.0.2",
-		File: registrytest.BuildModuleFile("hello", "hello", modMetaPath, catPath+"@v0"),
+		File: registrytest.BuildModuleFile("hello", "hello", modPath+"@v0", catPath+"@v0"),
 		Deps: map[string]string{catPath + "@v0": "0.1.0"},
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})

@@ -41,15 +41,13 @@ func TestFlow_ImportedModule_CatalogSubpackageImport_SynthToCompile(t *testing.T
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
 	metaPath := registrytest.UniquePath(t, "modules")
-	const modName = "web-app"
-	const snake = "web_app"
+	const snake = "web_app" // v2 module names are snake_case, and the path leaf
 	modPath := metaPath + "/" + snake
-	containerFQN := fmt.Sprintf("%s/resources/container@%s", catPath, version)
+	containerFQN := resFQN(catPath, "container")
 
 	// Catalog: a deployment transformer requiring `container`, emitting a
 	// Deployment (same fixture the non-importing flow test uses).
 	cat := standardCatalog(catPath, version)
-	cat.CoreVersion = "v1.0.0-alpha.1"
 
 	// Module: its SOURCE imports the catalog package (the #31 trigger) and
 	// references it load-bearingly through debugValues (an open field, so the
@@ -61,29 +59,28 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 		metadata: name: "web"
 		#resources: %q: {
 			kind: "Resource"
-			metadata: {name: "container", modulePath: %q, version: %q}
+			metadata: {name: "container", modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}
 			spec: container: {image: "nginx"}
 		}
 	}
 }
-`, containerFQN, catPath+"/resources", version)
+`, containerFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, containerFQN)
 
 	var modFile strings.Builder
 	fmt.Fprintf(&modFile, "package %s\n\n", snake)
 	modFile.WriteString("import (\n")
-	modFile.WriteString("\tcore \"opmodel.dev/core@v1\"\n")
+	modFile.WriteString("\tcore \"opmodel.dev/core@v2\"\n")
 	fmt.Fprintf(&modFile, "\tcat %q\n", catPath+"@v0")
 	modFile.WriteString(")\n\n")
 	modFile.WriteString("core.#Module\n")
-	fmt.Fprintf(&modFile, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", modName, metaPath, version)
+	fmt.Fprintf(&modFile, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", snake, modPath+"@v0", version)
 	modFile.WriteString(modBody)
 
 	registryMapping := registrytest.NewModuleRegistry(t,
 		[]registrytest.ModuleFixture{{
-			Path:        modPath,
-			Version:     version,
-			File:        modFile.String(),
-			CoreVersion: "v1.0.0-alpha.1",
+			Path:    modPath,
+			Version: version,
+			File:    modFile.String(),
 			// The module's own cue.mod/module.cue declares the catalog dep — this
 			// is the tidied closure synth now reuses.
 			Deps: map[string]string{catPath + "@v0": version},
@@ -99,7 +96,7 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 	require.NoErrorf(t, err, "acquiring catalog-importing module %s", modPath)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source")
 
-	mp, err := materializePlatform(t, k, catPath)
+	mp, err := materializePlatform(t, k, version, catPath)
 	require.NoError(t, err, "materializing platform subscribed to the catalog")
 
 	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{

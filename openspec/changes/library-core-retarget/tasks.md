@@ -19,12 +19,12 @@
 
 ## 3. The atomic flip (one commit)
 
-- [ ] 3.1 `schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2"`; `registrytest.defaultCoreVersion = "v2.0.0-alpha.4"` (raise to alpha.5 if cut by then); writer defaults from 1.3 flip to v2.
-- [ ] 3.2 `testdata/cue.mod/module.cue` + `testdata/synth/fixture.cue`: core v2 dep, v2 metadata shape (`modulePath` with `@vN`, snake leaf name).
-- [ ] 3.3 `testdata/modules/web_app/`: core v2; catalog dep re-pointed to the real `opmodel.dev/catalogs/opm@v2` at the newest consolidated tag (≥ `v2.0.0-alpha.2`); imports move to the D49 versioned packages (`…/blueprints/v1beta1`, `…/traits/v1beta1`, `…/resources/v1beta1`); metadata to v2 shape.
-- [ ] 3.4 `modules/opm_platform/platform.cue` + `cue.mod`: core v2; subscription re-keyed to the major-suffixed `opmodel.dev/catalogs/opm@v2`; `filter: range:` → required scalar `version:` pinned to the same newest tag as 3.3 (transitional invariant 1 — the pin MUST track the newest tag on the v2 line until library-acquire-and-subscription makes it load-bearing).
-- [ ] 3.5 Kernel flow/synth tests (`flow_integration_test`, `flow_synth_*`, `synth_test`, `synth_platform_test`, `integration_*`): `CoreVersion` pins and inline deps text to the 3.1 version; fixture bodies to v2 shape; in-process `registrytest` catalog fixtures stay hermetic; platform-driven filter tests removed (v2 has no filter) while Go-side filter semantics stay pinned in `filter_test.go` until library-acquire-and-subscription deletes them.
-- [ ] 3.6 Run `task test` — mainline suite green on v2; run the registry-touching flow test against GHCR (`OPM_FLOW_TEST_FORCE=1`) so the real-catalog materialization path is exercised, not skipped.
+- [x] 3.1 `schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2"`; `registrytest.defaultCoreVersion = "v2.0.0-alpha.4"` (raise to alpha.5 if cut by then); writer defaults from 1.3 flip to v2.
+- [x] 3.2 `testdata/cue.mod/module.cue` + `testdata/synth/fixture.cue`: core v2 dep, v2 metadata shape (`modulePath` with `@vN`, snake leaf name).
+- [x] 3.3 `testdata/modules/web_app/`: core v2; catalog dep re-pointed to the real `opmodel.dev/catalogs/opm@v2` at the newest consolidated tag (≥ `v2.0.0-alpha.2`); imports move to the D49 versioned packages (`…/blueprints/v1beta1`, `…/traits/v1beta1`, `…/resources/v1beta1`); metadata to v2 shape.
+- [x] 3.4 `modules/opm_platform/platform.cue` + `cue.mod`: core v2; subscription re-keyed to the major-suffixed `opmodel.dev/catalogs/opm@v2`; `filter: range:` → required scalar `version:` pinned to the same newest tag as 3.3 (transitional invariant 1 — the pin MUST track the newest tag on the v2 line until library-acquire-and-subscription makes it load-bearing).
+- [x] 3.5 Kernel flow/synth tests (`flow_integration_test`, `flow_synth_*`, `synth_test`, `synth_platform_test`, `integration_*`): `CoreVersion` pins and inline deps text to the 3.1 version; fixture bodies to v2 shape; in-process `registrytest` catalog fixtures stay hermetic; platform-driven filter tests removed (v2 has no filter) while Go-side filter semantics stay pinned in `filter_test.go` until library-acquire-and-subscription deletes them.
+- [x] 3.6 Run `task test` — mainline suite green on v2; run the registry-touching flow test against GHCR (`OPM_FLOW_TEST_FORCE=1`) so the real-catalog materialization path is exercised, not skipped.
 
 ## 4. Kept tests + docs (green post-steps)
 
