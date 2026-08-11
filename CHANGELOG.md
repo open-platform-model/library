@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.0.0-alpha.12](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.11...v1.0.0-alpha.12) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **schema:** retarget the default core schema to core v2 (second landing) ([#54](https://github.com/open-platform-model/library/issues/54))
+* **schema:** retarget the default core schema to core v2 ([#52](https://github.com/open-platform-model/library/issues/52))
+* **schema:** retarget the default core schema to core v2 ([#51](https://github.com/open-platform-model/library/issues/51))
+
+### Features
+
+* **schema:** retarget the default core schema to core v2 ([#51](https://github.com/open-platform-model/library/issues/51)) ([9199bdf](https://github.com/open-platform-model/library/commit/9199bdfaeaa26e8061a1a0c49dd1416adeb9ceab))
+* **schema:** retarget the default core schema to core v2 (second landing) ([#54](https://github.com/open-platform-model/library/issues/54)) ([bdb9ac6](https://github.com/open-platform-model/library/commit/bdb9ac660c9e1fecd792b46743521256367e8f14))
+
+
+### Reverts
+
+* **schema:** retarget the default core schema to core v2 ([#52](https://github.com/open-platform-model/library/issues/52)) ([329cbc1](https://github.com/open-platform-model/library/commit/329cbc1eadb3f5d2f10ff6def7c40eeaa0bee981))
+
+
+### Documentation
+
+* allow plain Claude co-author trailer; keep session-ID ban ([bf8595d](https://github.com/open-platform-model/library/commit/bf8595d4cc91b51e2c27fba6a204ef63d6454283))
+* **openspec:** rewrite library-core-retarget for the redo ([#53](https://github.com/open-platform-model/library/issues/53)) ([28e0acd](https://github.com/open-platform-model/library/commit/28e0acdb72ea9a9c3e3139562e34d992b1e2eecf))
+
+
+### Miscellaneous Chores
+
+* **registry:** resolve reads from ghcr, gate local publish ([012f4fe](https://github.com/open-platform-model/library/commit/012f4feb016267c604cadfbf1631d9bf61273031))
+
 ## [1.0.0-alpha.11](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.10...v1.0.0-alpha.11) (2026-08-07)
 
 
