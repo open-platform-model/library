@@ -11,11 +11,11 @@
 
 ## 2. Address-seam adaptations (green pre-step; three re-land, one new)
 
-- [ ] 2.1 `materialize` pull (re-land): split a major-suffixed `#registry` key before composing the load ID — `…@v2@v2.0.0-alpha.2` is rejected as an invalid ID; major-free keys pass through unchanged.
-- [ ] 2.2 `materialize` enumeration (new): scope the published-version list to the key's major when the subscription key carries `@vN`, before `filterVersions` runs; a major-free key enumerates the whole repo as today. Unit-test against a mixed-major published list modelled on the real repo (stable v0 tags + v1/v2 prereleases): a `@v2` key with no filter MUST select the highest v2 alpha, never `v0.6.0`; a major-free key MUST keep selecting `v0.6.0`.
-- [ ] 2.3 `helper/synth` (re-land): a v2 `modulePath` is the full major-suffixed import path — pass it through verbatim instead of composing parent path + snake leaf + version major; v1 inputs byte-identical.
-- [ ] 2.4 `materialize/cache.Key` (re-land): the scalar subscription `version` joins the normalized projection so two v2 platforms differing only in it get distinct keys; v1 inputs byte-identical.
-- [ ] 2.5 Run `task test` — all green, defaults still on v1.
+- [x] 2.1 `materialize` pull (re-land): split a major-suffixed `#registry` key before composing the load ID — `…@v2@v2.0.0-alpha.2` is rejected as an invalid ID; major-free keys pass through unchanged.
+- [x] 2.2 `materialize` enumeration (new): scope the published-version list to the key's major when the subscription key carries `@vN`, before `filterVersions` runs; a major-free key enumerates the whole repo as today. Unit-test against a mixed-major published list modelled on the real repo (stable v0 tags + v1/v2 prereleases): a `@v2` key with no filter MUST select the highest v2 alpha, never `v0.6.0`; a major-free key MUST keep selecting `v0.6.0`.
+- [x] 2.3 `helper/synth` (re-land): a v2 `modulePath` is the full major-suffixed import path — pass it through verbatim instead of composing parent path + snake leaf + version major; v1 inputs byte-identical.
+- [x] 2.4 `materialize/cache.Key` (re-land): the scalar subscription `version` joins the normalized projection so two v2 platforms differing only in it get distinct keys; v1 inputs byte-identical.
+- [x] 2.5 Run `task test` — all green, defaults still on v1.
 
 ## 3. The atomic flip (one commit)
 
