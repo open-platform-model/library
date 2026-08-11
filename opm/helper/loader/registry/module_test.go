@@ -23,7 +23,7 @@ func lookupString(t *testing.T, v cue.Value, path string) string {
 	return s
 }
 
-// 5.1 + 5.2 — a published core@v1 module that imports a catalog loads by
+// 5.1 + 5.2 — a published core@v2 module that imports a catalog loads by
 // path@version with its author-set, self-referential metadata intact (the
 // fields that regressed under the operator's wrapper approach), and its
 // transitive catalog dependency resolves through the in-memory Overlay load.
@@ -40,7 +40,7 @@ func TestLoadModulePackage_HappyPathAndTransitiveDeps(t *testing.T) {
 	}
 	mod := registrytest.ModuleFixture{
 		Path: modPath, Version: "0.0.2",
-		File: registrytest.BuildModuleFile("hello", "hello", modMetaPath, catPath+"@v0"),
+		File: registrytest.BuildModuleFile("hello", "hello", modPath+"@v0", catPath+"@v0"),
 		Deps: map[string]string{catPath + "@v0": "0.1.0"},
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})
@@ -54,11 +54,12 @@ func TestLoadModulePackage_HappyPathAndTransitiveDeps(t *testing.T) {
 
 	// Self-referential metadata is preserved (no "field not allowed").
 	assert.Equal(t, "hello", lookupString(t, val, "metadata.name"))
-	assert.Equal(t, modMetaPath, lookupString(t, val, "metadata.modulePath"))
+	assert.Equal(t, modPath+"@v0", lookupString(t, val, "metadata.modulePath"))
 	assert.Equal(t, "0.0.2", lookupString(t, val, "metadata.version"))
 
-	// Transitive catalog dependency resolved through the Overlay load.
-	assert.Equal(t, catPath, lookupString(t, val, "debugValues.catalogModulePath"),
+	// Transitive catalog dependency resolved through the Overlay load. A v2
+	// catalog's metadata.modulePath carries its major suffix.
+	assert.Equal(t, catPath+"@v0", lookupString(t, val, "debugValues.catalogModulePath"),
 		"module's imported catalog must resolve via the module's own cue.mod/module.cue")
 
 	// The loader does not mutate process environment state (Principle I).

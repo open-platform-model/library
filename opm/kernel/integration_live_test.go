@@ -16,11 +16,12 @@ import (
 // TestIntegration_Live_ValidateRealConfig loads the real web_app fixture from
 // disk and validates its authored debugValues against its real #config schema.
 //
-// This is the live counterpart to the hermetic Validate cases: it exercises the
-// filesystem loader (LoadModulePackage) and validation against the published
-// core@v1 schema and real catalog primitives — paths the in-memory harness
-// deliberately bypasses. Gated like the flow tests: skipped under -short or when
-// GHCR is unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
+// This is the live counterpart to the hermetic Validate cases: it exercises
+// the filesystem loader (LoadModulePackage) and validation against the
+// published core@v2 schema and the real catalogs/opm v2 primitives — paths
+// the in-memory harness deliberately bypasses. Gated like the flow tests:
+// skipped under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1
+// makes the skip a failure.
 func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live integration test pulls the catalog + core schema from GHCR; skipping under -short")
@@ -39,7 +40,7 @@ func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err)
-	require.Equal(t, "web-app", mod.Metadata.Name)
+	require.Equal(t, "web_app", mod.Metadata.Name)
 
 	debugValues := modVal.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")

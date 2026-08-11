@@ -32,7 +32,7 @@ func testdataSynthDir(t *testing.T) string {
 }
 
 // testModule loads a #Module from a synthtest/ fixture for the guard tests. The
-// fixture imports "opmodel.dev/core@v1" which resolves through
+// fixture imports "opmodel.dev/core@v2" which resolves through
 // testdata/cue.mod/module.cue's deps against CUE_REGISTRY (configured by
 // schematest.SetEnv). Guard tests only need a well-formed *module.Module to feed
 // the required-input checks; they return before any synthesized build runs, so
@@ -80,13 +80,13 @@ func (s stubOwner) CueContext() *cue.Context { return s.ctx }
 const baseModuleFixture = `
 package synthtest
 
-import core "opmodel.dev/core@v1"
+import core "opmodel.dev/core@v2"
 
 module: {
 	core.#Module
 	metadata: {
 		name:       "demo"
-		modulePath: "example.com/demo"
+		modulePath: "example.com/demo@v0"
 		version:    "0.1.0"
 	}
 	#components: {}

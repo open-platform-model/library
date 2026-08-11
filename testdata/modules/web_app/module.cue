@@ -1,20 +1,23 @@
-// web_app — a core@v1 #Module that consumes opm Resources, Traits, and
-// Blueprints. Drives the plan / match / compile integration tests against
-// the opm_platform fixture (which subscribes to opmodel.dev/catalogs/opm).
+// web_app — a core@v2 #Module that consumes opm Resources, Traits, and
+// Blueprints from the consolidated catalogs/opm v2 line. Drives the
+// plan / match / compile integration tests against the opm_platform fixture
+// (which subscribes to opmodel.dev/catalogs/opm).
 package web_app
 
 import (
-	m "opmodel.dev/core@v1"
-	res "opmodel.dev/catalogs/opm/resources"
+	m "opmodel.dev/core@v2"
+	res "opmodel.dev/catalogs/opm/resources/v1beta1"
 )
 
 m.#Module
 
 metadata: {
-	modulePath:  "opmodel.dev/library/testdata/modules"
-	name:        "web-app"
-	version:     "0.1.0"
-	description: "Stateless web application fixture exercising opm primitives end-to-end"
+	// v2 identity: modulePath is the FULL module path, major included, and
+	// name is its snake_case leaf (enhancement 0010 D1/D8).
+	modulePath:  "testing.opmodel.dev/modules/web_app@v1"
+	name:        "web_app"
+	version:     "1.0.0"
+	description: "Stateless web application fixture exercising fixture-catalog primitives end-to-end"
 }
 
 #config: {

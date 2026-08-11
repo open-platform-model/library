@@ -78,3 +78,12 @@ Per core v2 (`v2.0.0-alpha.4`) and catalog_opm's D49 layout:
 ### Public-surface delta
 
 `schema.DefaultSchemaModule` (value only) and the doc comments that cite it (`kernel.go`, `schema/doc.go`, `materialize/doc.go`, `schema/cache.go` example). No signature or type changes anywhere in `opm/`. The major-scoped enumeration and the other three seam adaptations are internal behaviour under the `platform-materialization` and `instance-synthesis` capabilities, visible only to inputs that were inexpressible before core v2.
+
+### Apply-time findings (2026-08-11)
+
+Two deviations from this design's own plan surfaced during implementation; both are also recorded in 0010's history.
+
+1. **The fourth seam adaptation required no new resolution logic.** `cuelang.org/go`'s `modregistry.ModuleVersions` already scopes a major-suffixed path to its major (it splits the suffix and filters tags on `semver.Major`), so materialize's existing pass-through of the raw subscription key into `enumerateVersions` *is* the scoping. What landed is the locking unit test (`TestEnumerate_MajorSuffixScopesSelection`, mixed-major published list modelled on the real repo) and the `enumerate.go` doc rewrite. The `platform-materialization` spec delta's scenarios hold verbatim; only the imagined diff was wrong.
+2. **`web_app` authors `updateStrategy.rollingUpdate` explicitly** (`maxUnavailable`/`maxSurge` 1) although `#UpdateStrategySchema` marks the field optional: `catalog_opm`'s deployment-transformer dereferences `#component.spec.updateStrategy.rollingUpdate` unguarded whenever `type` is `"RollingUpdate"`, so a schema-legal omission fails transform execution with an empty-disjunction error. Latent `catalog_opm` bug to fix catalog-side (same idiom the transformer's own `_updateStrategy` warning comment documents); the fixture accommodation is annotated at the authoring site and reverts when the guard lands.
+
+Verification additionally repaired the `cue:catalog:drift` Taskfile check — previously vacuous (jq key hardcoded to the v0 dep form; stable-only tag filter) — so it now enforces transitional invariant 1: both `web_app`'s dep pin and `opm_platform`'s `#registry` scalar `version:` are compared against the newest tag on their own major line, stable-first with a prerelease fallback mirroring `filter.go`'s `highestStable`.

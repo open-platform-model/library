@@ -57,7 +57,8 @@ func TestKernel_SynthesizePlatform_DefaultSchemaCache(t *testing.T) {
 // the kernel-filled materialization slots unset. No catalog round-trip occurs.
 func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 	k := newSynthKernel(t)
-	const path = "opmodel.dev/catalogs/opm"
+	// v2 #registry keys carry the catalog's major (#ModulePathType).
+	const path = "opmodel.dev/catalogs/opm@v1"
 
 	plat, err := k.SynthesizePlatform(context.Background(), synth.PlatformInput{
 		Name:        "demo",
@@ -86,9 +87,10 @@ func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 // TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded asserts that the
 // *platform.Platform produced by SynthesizePlatform feeds Kernel.Materialize
 // exactly as a file-loaded platform of the same content does. It synthesizes a
-// platform subscribing to the published opm catalog and materializes both the
-// synthesized and the on-disk fixture (modules/opm_platform), asserting they
-// resolve to the same catalog version and the same composed-transformer set.
+// platform subscribing to the published catalogs/opm v2 line and materializes
+// both the synthesized and the on-disk fixture (modules/opm_platform),
+// asserting they resolve to the same catalog version and the same
+// composed-transformer set.
 //
 // Skips under -short or when GHCR is unreachable, matching the gating in the
 // file-driven flow tests.
@@ -103,19 +105,20 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 
 	k := kernel.New()
 	ctx := context.Background()
-	const path = "opmodel.dev/catalogs/opm"
+	const path = "opmodel.dev/catalogs/opm@v2"
 
 	// ── Synthesize the platform from typed inputs ────────────────────
 	synthPlat, err := k.SynthesizePlatform(ctx, synth.PlatformInput{
 		Name:        "k8s-default",
-		Description: "Default Kubernetes Platform — subscribes to the opm core catalog",
+		Description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v2 line",
 		Type:        "kubernetes",
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			// Mirrors the range in modules/opm_platform/platform.cue. Both
-			// sides resolve the same catalog version or the two materialized
-			// platforms compose different transformer FQNs and the comparison
-			// below fails. Move them together.
-			path: {Filter: &synth.FilterSpec{Range: "1.0.0-alpha.1"}},
+			// An empty spec: enable defaults true, and the major-suffixed key
+			// scopes resolution to the prerelease-only v2 line, whose
+			// no-filter fallback selects the highest alpha — the same build
+			// the version-pinned on-disk fixture names (transitional
+			// invariant 1).
+			path: {},
 		},
 	})
 	require.NoError(t, err)

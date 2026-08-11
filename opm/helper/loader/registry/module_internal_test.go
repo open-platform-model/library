@@ -40,7 +40,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	}
 	mod := registrytest.ModuleFixture{
 		Path: modPath, Version: "0.0.2",
-		File: registrytest.BuildModuleFile("hello", "hello", modMetaPath, catPath+"@v0"),
+		File: registrytest.BuildModuleFile("hello", "hello", modPath+"@v0", catPath+"@v0"),
 		Deps: map[string]string{catPath + "@v0": "0.1.0"},
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})
@@ -75,7 +75,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	require.Error(t, fsErr, "FS-pinned load must fail on a transitive dependency")
 	// With FS pinned to the single fetched module FS, every import is read
 	// through that one FS — so the FIRST dependency outside it is unresolvable.
-	// In-library that is opmodel.dev/core@v1 (resolved from the module cache by
+	// In-library that is opmodel.dev/core@v2 (resolved from the module cache by
 	// the Overlay load above, but invisible through the pinned FS); the catalog
 	// would fail the same way. The footgun signature is "cannot find package".
 	assert.Contains(t, fsErr.Error(), "cannot find package",

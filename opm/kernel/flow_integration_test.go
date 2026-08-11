@@ -23,20 +23,22 @@ import (
 // TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match → Plan
 // → Compile pipeline against the on-disk fixture pair:
 //
-//   - testdata/modules/web_app   (a core@v1 #Module consuming opm primitives:
-//     Container resource, HttpRoute / Scaling / RestartPolicy / Expose traits,
-//     StatelessWorkloadBlueprint)
+//   - testdata/modules/web_app   (a core@v2 #Module consuming opm primitives
+//     from the consolidated catalogs/opm v2 line: Container resource,
+//     HttpRoute / Scaling / RestartPolicy / Expose traits, StatelessWorkload
+//     blueprint via D49 versioned imports)
 //   - modules/opm_platform       (the canonical Kubernetes #Platform that
-//     subscribes to opmodel.dev/catalogs/opm via a path-keyed #registry)
+//     subscribes to the major-suffixed opmodel.dev/catalogs/opm v2 line via a
+//     path-keyed #registry)
 //
 // The platform's subscription is materialized against the published catalog
-// (opmodel.dev/catalogs/opm@0.1.0), then a #ModuleInstance is built from the
-// module's debugValues and driven through Match / Plan / Compile. Transformer
-// FQNs are asserted by substring so the test survives catalog version bumps.
+// (opmodel.dev/catalogs/opm, v2 line from GHCR), then a #ModuleInstance is
+// built from the module's debugValues and driven through Match / Plan /
+// Compile. Transformer FQNs are asserted by substring so the test survives
+// catalog version bumps.
 //
-// Re-enabled by enhancement 0001's library slice (the catalog repackage +
-// #Subscription fixture restore). Skips under -short or when GHCR is
-// unreachable; OPM_FLOW_TEST_FORCE=1 turns the skip into a hard failure.
+// Skips under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1
+// turns the skip into a hard failure.
 func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	if testing.Short() {
 		t.Skip("flow integration test pulls the catalog + core schema from GHCR; skipping under -short")
@@ -60,7 +62,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err, "constructing module.Module from CUE value")
 	require.NotNil(t, mod)
-	require.Equal(t, "web-app", mod.Metadata.Name)
+	require.Equal(t, "web_app", mod.Metadata.Name)
 
 	// ── Load + materialize the Platform ──────────────────────────────
 	platVal, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
@@ -215,7 +217,7 @@ metadata: {
 // flowRegistry returns the CUE registry mapping the flow tests resolve imports
 // through. It honors an externally-set CUE_REGISTRY (set by
 // `task cue:test:flow` and CI), falling back to schema.PublicRegistry, which
-// resolves the whole opmodel.dev prefix — the core@v1 schema *and* the
+// resolves the whole opmodel.dev prefix — the core@v2 schema *and* the
 // opmodel.dev/catalogs/opm catalog — from GHCR, with cue.dev/x/k8s.io falling
 // through to registry.cue.works. Pulling the catalog from GHCR (rather than a
 // laptop-only localhost:5000) is what lets these tests run in CI.
