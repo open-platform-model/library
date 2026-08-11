@@ -46,5 +46,5 @@ The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@
 
 #### Scenario: ResolvedVersion reports the v2 resolution
 
-- **WHEN** `cache.Get(ctx)` succeeds against the default `opmodel.dev/core@v2` resolving to `v2.0.0-alpha.4`
-- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.4"`
+- **WHEN** `cache.Get(ctx)` succeeds against the default `opmodel.dev/core@v2`
+- **THEN** `cache.ResolvedVersion()` returns the resolved tag, a version within the v2 major (`v2.0.0-alpha.4` at authoring; a later complete alpha as the line advances)
