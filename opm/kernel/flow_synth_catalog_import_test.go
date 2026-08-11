@@ -34,7 +34,7 @@ import (
 //
 // The Compile step also exercises design D4's within-major safety: the instance
 // is built against the MODULE's own core (from its cue.mod/module.cue) and then
-// processed/compiled under the kernel's SchemaCache core; both are core@v1, so
+// processed/compiled under the kernel's SchemaCache core; both are core@v2, so
 // they unify. (Cross-patch core skew is not constructible in this hermetic
 // harness, which serves a single core version.)
 func TestFlow_ImportedModule_CatalogSubpackageImport_SynthToCompile(t *testing.T) {

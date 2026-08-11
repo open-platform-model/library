@@ -28,10 +28,10 @@
 
 ## 4. Kept tests + docs (green post-steps)
 
-- [ ] 4.1 Verify untouched-and-green: `composed_open_test` (v0.5.2 canary), `instance_integration_test` v1-pinned family incl. the library#31 regression (deep `blueprints/workload` import at `:154` stays — recorded D42 deviation, not reopened by D49), `docs/design/repro-hidden-field/`.
-- [ ] 4.2 Doc-comment sweep: `kernel.go`, `schema/doc.go`, `schema/cache.go`, `materialize/doc.go`, `enumerate.go` (the "regardless of major" comment now describes only major-free keys), `schematest`/`registrytest` package docs — `core@v1` citations → `core@v2`.
-- [ ] 4.3 `CLAUDE.md` (§ CUE/registry notes citing `core@v1` and `catalogs/opm@v0`) and `Taskfile.yml` fixture comments updated; no vet-skip guard or `testing.opmodel.dev` routing appears anywhere.
-- [ ] 4.4 `MIGRATIONS.md` `## Unreleased — Breaking` entry `### Changed — \`library-core-retarget\``: default schema module is now core v2; pin `OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}` to stay on v1; rollback = reverse rewrite to `v1.1.0-alpha.1`. PR carries `Migration: library-core-retarget`.
+- [x] 4.1 Verify untouched-and-green: `composed_open_test` (v0.5.2 canary), `instance_integration_test` v1-pinned family incl. the library#31 regression (deep `blueprints/workload` import at `:154` stays — recorded D42 deviation, not reopened by D49), `docs/design/repro-hidden-field/`.
+- [x] 4.2 Doc-comment sweep: `kernel.go`, `schema/doc.go`, `schema/cache.go`, `materialize/doc.go`, `enumerate.go` (the "regardless of major" comment now describes only major-free keys), `schematest`/`registrytest` package docs — `core@v1` citations → `core@v2`.
+- [x] 4.3 `CLAUDE.md` (§ CUE/registry notes citing `core@v1` and `catalogs/opm@v0`) and `Taskfile.yml` fixture comments updated; no vet-skip guard or `testing.opmodel.dev` routing appears anywhere.
+- [x] 4.4 `MIGRATIONS.md` `## Unreleased — Breaking` entry `### Changed — \`library-core-retarget\``: default schema module is now core v2; pin `OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}` to stay on v1; rollback = reverse rewrite to `v1.1.0-alpha.1`. PR carries `Migration: library-core-retarget`.
 
 ## 5. Verify & record
 
