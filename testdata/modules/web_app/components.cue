@@ -46,17 +46,12 @@ import (
 				}
 				scaling: {count: #config.replicas}
 				restartPolicy: "Always"
-				// rollingUpdate is authored explicitly: the catalog's
-				// deployment-transformer dereferences it unguarded whenever
-				// type is "RollingUpdate", so omitting it (legal per
-				// #UpdateStrategySchema) fails transform execution.
-				updateStrategy: {
-					type: "RollingUpdate"
-					rollingUpdate: {
-						maxUnavailable: 1
-						maxSurge:       1
-					}
-				}
+				// The optional rollingUpdate substruct is deliberately
+				// omitted (legal per #UpdateStrategySchema): since catalog
+				// 2.0.0-alpha.3 the deployment-transformer guards the
+				// dereference, so this exercises the schema-legal omission
+				// end-to-end through the flow tests.
+				updateStrategy: type: "RollingUpdate"
 			}
 
 			expose: {
