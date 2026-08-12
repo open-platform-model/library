@@ -1,8 +1,7 @@
-# platform-materialization Specification
+# platform-materialization — Delta
 
-## Purpose
-TBD - created by archiving change add-platform-materialize. Update Purpose after archive.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Subscription Resolution
 
 The Materialize operation SHALL walk the platform `#registry` (path-keyed `[#ModulePathType]: #Subscription`) and, for each subscription with `enable: true`, pull exactly the build named by the subscription's required scalar `version`. A subscription with `enable: false` SHALL be skipped and contribute no transformers. Resolution SHALL be a pure function of committed source: no range solving, no allow/deny arbitration, no highest-stable default, no maturity inference — a prerelease is selected by being written down.
@@ -28,39 +27,6 @@ Before any registry I/O, the named version's SemVer major SHALL be checked again
 - **WHEN** the named version does not exist in the registry
 - **THEN** Materialize fails that subscription with an error naming the missing version
 - **AND** the error lists the published versions within the key's major, obtained by enumeration performed only on this failure path
-
-### Requirement: Catalog Identity Verification
-
-After pulling a subscribed catalog build, Materialize SHALL verify that the artifact lives where its metadata says it lives: the catalog's declared `metadata.modulePath` SHALL equal the subscription key (direct string comparison of the two `@vN`-suffixed paths), and the catalog's declared `metadata.version` SHALL equal the version pulled. A disagreement SHALL fail that subscription with a typed identity error naming both the declared and the fetched value, wrapped in the materialize failure for the offending subscription.
-
-#### Scenario: Address mismatch detected at the catalog read
-
-- **WHEN** a pulled catalog's `metadata.modulePath` differs from the subscription key it was pulled by
-- **THEN** Materialize fails that subscription with a typed error carrying both values
-
-#### Scenario: Version mismatch detected at the catalog read
-
-- **WHEN** a pulled catalog's `metadata.version` differs from the version named by the subscription
-- **THEN** Materialize fails that subscription with a typed error carrying both values
-
-### Requirement: Transformer Indexing
-
-For each selected catalog build, the Materialize operation SHALL read the build's `#Catalog.#transformers` map and index every entry by its stamped FQN into a composed transformer map, and SHALL build a `#matchers.{resources,traits}` reverse index mapping each required/optional primitive FQN to the list of transformers that reference it.
-
-#### Scenario: Reverse index populated
-
-- **WHEN** a selected catalog exposes a transformer requiring resource FQN `<r>`
-- **THEN** the materialized `#matchers.resources[<r>]` list contains that transformer
-
-#### Scenario: Identical builds collapse
-
-- **WHEN** two selected builds expose byte-identical transformer bodies at the same FQN
-- **THEN** they collapse to a single composed-map entry via CUE unification
-
-#### Scenario: Divergent builds conflict
-
-- **WHEN** two selected builds expose divergent transformer bodies at the same FQN
-- **THEN** Materialize returns a `MaterializeError` wrapping the CUE conflict
 
 ### Requirement: MaterializedPlatform Output Shape
 
@@ -116,31 +82,24 @@ Under the v0.17 CUE toolchain, the returned `*MaterializedPlatform` SHALL be saf
 
 > Note: the prior `MaterializedPlatform.Composed` field (the open map the executor was required to read instead of `Package`) and `MaterializedPlatform.Package` (the closed twin onto which the composed map was filled) are removed. Their roles are replaced respectively by `Transformers` (the canonical transform surface, concrete by construction) and `Source.Package` (the closed spec, read only for `#registry`/metadata/diagnostics). The *Transforms render concrete off the native surface* scenario is the observable guarantee that the closedness corruption is eliminated structurally rather than worked around.
 
-### Requirement: MaterializeError Diagnostic
+## REMOVED Requirements
 
-A pull, decode, or indexing failure SHALL surface as a `MaterializeError` carrying a `Kind` discriminator (`"catalog"` for subscription failures; `"core-schema"` reserved for schema-load failures per D24), the subscription path, the attempted version, and the wrapped cause.
+### Requirement: Version Enumeration and Filtering
 
-#### Scenario: Unresolvable subscription path
+**Reason**: 0010 D14 — `#SubscriptionFilter` does not exist in core v2 and the no-filter highest-stable default is deleted with it; selection reads the authored scalar. Version enumeration survives only as a failure diagnostic (see the modified Subscription Resolution requirement); the filtering pipeline (`range` ∧ `allow` ∧ `deny`), its prerelease opt-in rules, and the highest-stable fallback are gone.
 
-- **WHEN** a subscribed path cannot be resolved against the registry
-- **THEN** Materialize returns a `MaterializeError` with `Kind == "catalog"` naming the subscription path
+## ADDED Requirements
 
-#### Scenario: Cause is unwrappable
+### Requirement: Catalog Identity Verification
 
-- **WHEN** a `MaterializeError` is returned
-- **THEN** the wrapped cause is reachable via `errors.Unwrap`
+After pulling a subscribed catalog build, Materialize SHALL verify that the artifact lives where its metadata says it lives: the catalog's declared `metadata.modulePath` SHALL equal the subscription key (direct string comparison of the two `@vN`-suffixed paths), and the catalog's declared `metadata.version` SHALL equal the version pulled. A disagreement SHALL fail that subscription with a typed identity error naming both the declared and the fetched value, wrapped in the materialize failure for the offending subscription.
 
-### Requirement: Opt-In Materialize Cache
+#### Scenario: Address mismatch detected at the catalog read
 
-The library SHALL provide a `opm/materialize/cache` package exposing a `MaterializeCache` interface (`Get(key string) (*MaterializedPlatform, bool)` and `Put(key string, mp *MaterializedPlatform)`), a reference implementation, and a key-derivation helper over the platform `#registry` subtree. The `Kernel` SHALL NOT hold a materialize cache; consumers wire their own.
+- **WHEN** a pulled catalog's `metadata.modulePath` differs from the subscription key it was pulled by
+- **THEN** Materialize fails that subscription with a typed error carrying both values
 
-#### Scenario: Reference cache round-trips
+#### Scenario: Version mismatch detected at the catalog read
 
-- **WHEN** a consumer constructs the reference cache and `Put`s a materialized platform under a derived key
-- **THEN** a subsequent `Get` with the same key returns it
-
-#### Scenario: Kernel holds no cache
-
-- **WHEN** a developer inspects the `Kernel` struct
-- **THEN** it has no materialize-cache field
-
+- **WHEN** a pulled catalog's `metadata.version` differs from the version named by the subscription
+- **THEN** Materialize fails that subscription with a typed error carrying both values
