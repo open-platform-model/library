@@ -116,3 +116,21 @@ func TestKey_StableAcrossSemanticallyIdenticalRegistries(t *testing.T) {
 	assert.Equal(t, keyA, keyB, "semantically-identical registries share a key")
 	assert.NotEqual(t, keyA, keyC, "a different subscribed version yields a different key")
 }
+
+// TestKey_ByteIdenticalAcrossFilterFieldTrim pins a v2 platform's key to the
+// value the PRE-TRIM code path produced (golden captured before normSub
+// dropped the v1 filter fields): a v2 subscription could never populate
+// range/allow/deny, so removing them must not move any live key — no cache
+// invalidation on upgrade.
+func TestKey_ByteIdenticalAcrossFilterFieldTrim(t *testing.T) {
+	octx := cuecontext.New()
+	p := buildPlatform(t, octx, `{
+		"test.example/a@v1": {enable: true, version: "1.0.0"}
+		"test.example/b@v1": {version: "1.2.0"}
+	}`)
+
+	key, err := cache.Key(p)
+	require.NoError(t, err)
+	assert.Equal(t, "e4d33d74239acc7ac19a69c0e415cd73661067d0d5500671f6db929cdf278d3c", key,
+		"v2 platform key must be byte-identical to the pre-trim golden")
+}
