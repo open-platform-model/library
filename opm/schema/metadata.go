@@ -42,6 +42,12 @@ type InstanceMetadata struct {
 	// Namespace is the target namespace.
 	Namespace string `json:"namespace"`
 
+	// FQN is the instance's OWN fully qualified name
+	// (registryPath:name:namespace), defined by core v2 on
+	// #ModuleInstance.metadata and decoded via the schema.MetadataFQN path.
+	// Distinct from the source module's FQN (InstanceView.ModuleFQN).
+	FQN string `json:"fqn,omitempty"`
+
 	// UUID is the instance identity UUID.
 	// Computed by CUE as SHA1(OPMNamespace, moduleUUID:name:namespace).
 	UUID string `json:"uuid"`
@@ -83,6 +89,10 @@ type InstanceView interface {
 	InstanceName() string
 	Namespace() string
 	InstanceUUID() string
+	// InstanceFQN is the instance's own metadata.fqn
+	// (registryPath:name:namespace, core v2) — the value the transformer
+	// context's #moduleInstanceMetadata.fqn carries (0010 D41).
+	InstanceFQN() string
 	ModuleFQN() string
 	ModuleVersion() string
 	Labels() map[string]string

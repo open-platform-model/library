@@ -546,7 +546,7 @@ func TestCompileModuleInstance_RendersContextViaSchema(t *testing.T) {
 	// and a tier=web label.
 	instanceSpec := ctx.CompileString(`
 kind: "ModuleInstance"
-metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
+metadata: { name: "demo", namespace: "ns", fqn: "reg.example/modules:demo:ns", uuid: "u-inst" }
 components: {
 	web: {
 		metadata: {
@@ -563,7 +563,7 @@ components: {
 
 	inst := &module.Instance{
 		Metadata: &module.InstanceMetadata{
-			Name: "demo", Namespace: "ns", UUID: "u-inst",
+			Name: "demo", Namespace: "ns", FQN: "reg.example/modules:demo:ns", UUID: "u-inst",
 			Labels: map[string]string{"k": "v"},
 		},
 		Package: instanceSpec,
@@ -591,6 +591,7 @@ type: "kubernetes"
 				kind: "echo"
 				runtime: #context.#runtimeName
 				instance: #context.#moduleInstanceMetadata.name
+				instanceFQN: #context.#moduleInstanceMetadata.fqn
 				component: #context.#componentMetadata.name
 			}
 		}
@@ -622,6 +623,12 @@ type: "kubernetes"
 	instance, err := got.LookupPath(cue.ParsePath("instance")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "demo", instance)
+	// D41: the context block carries the instance's OWN fqn
+	// (registryPath:name:namespace), not the source module's.
+	instanceFQN, err := got.LookupPath(cue.ParsePath("instanceFQN")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "reg.example/modules:demo:ns", instanceFQN,
+		"#moduleInstanceMetadata.fqn must carry the instance's own registryPath:name:namespace")
 	component, err := got.LookupPath(cue.ParsePath("component")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web", component)

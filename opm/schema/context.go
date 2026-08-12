@@ -54,9 +54,14 @@ func BuildTransformerContext(
 	}
 
 	mim := ModuleInstanceContextData{
-		Name:        inst.InstanceName(),
-		Namespace:   inst.Namespace(),
-		FQN:         inst.ModuleFQN(),
+		Name:      inst.InstanceName(),
+		Namespace: inst.Namespace(),
+		// The instance's OWN fqn (registryPath:name:namespace, core v2) —
+		// not the source module's (0010 D41).
+		FQN: inst.InstanceFQN(),
+		// The declared module version. Post library-acquire-and-subscription
+		// it is acquire-verified against the fetched tag (D9), so declared
+		// and resolved are proven equal — no separate source needed.
 		Version:     inst.ModuleVersion(),
 		UUID:        inst.InstanceUUID(),
 		Labels:      inst.Labels(),
