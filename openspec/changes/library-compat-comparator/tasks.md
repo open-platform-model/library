@@ -33,7 +33,7 @@
 
 - [x] 5.1 New spec delta `specs/catalog-compatibility/spec.md` (ADDED requirements: Compatibility Comparison, Level Classification, Predecessor Selection, Provenance Stripping — scenarios per design).
 - [x] 5.2 `CLAUDE.md` § Repository Layout gains `opm/compat/`; remove or correct the stale `opm/apiversion/` line while touching the block. `CONSTITUTION.md` III package list gains the compat entry.
-- [x] 5.3 No `MIGRATIONS.md` entry (additive, MINOR). Commit as `feat(compat): …`.
+- [x] 5.3 ~~No `MIGRATIONS.md` entry (additive, MINOR)~~ — reversed at verification (report W1, user decision 2026-08-12): the file's own maintenance rule stages `## Unreleased — Additive` entries for `feat:` additions worth a note, and a new public package qualifies; `### Added — library-compat-comparator` entry added (no migration required — purely additive). Commits as `feat(compat): …`.
 
 ## 6. Verify & record
 

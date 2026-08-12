@@ -13,6 +13,11 @@ This file records the evolution of the library's public Go API and the OPM schem
 
 ## Unreleased — Additive
 
+### Added — `library-compat-comparator`
+
+- **New public package `opm/compat`** — publish-side catalog compatibility as pure `cue.Value` logic (no I/O, no schema-cache dependency): `Check` / `CheckAtLevel` (enhancement 0010 D27's additive-only comparison walk, level-aware per D34, with violations and failures on separate channels), `Level` / `ParseLevel` / `Enforced` / `CompareAPIVersions` (the `vNalphaM | vNbetaM | vN` ladder, grammar-aligned with core's `#APIVersionType`; total, transitive kube-aware ordering), `HighestStable` (predecessor selection, moved verbatim from `opm/materialize`'s internals), and `StripProvenance` (0010 D30's `metadata.catalogVersion` + `metadata.description` strip). Intended consumers: the 0011 publish gate, `opm catalog registry check --compat`, and `library-matching`'s unify rung.
+- **No migration required.** No existing signature changes; `opm/materialize`'s observable behavior is unchanged — its unfiltered-subscription selection now delegates to `compat.HighestStable` internally.
+
 ### Added — `synth-instance-in-module-root`
 
 - **New `Kernel.AcquireModuleFromRegistry(ctx, modPath, version) (*module.Module, error)`.** It performs the same fetch + main-module staging + shape gate as `Kernel.LoadModuleFromRegistry`, but returns a decoded `*module.Module` whose new `Source` field (`module.Source{Root, Overlay}`) carries the module's staged source tree (including its own already-tidied `cue.mod/module.cue`). `Kernel.LoadModuleFromRegistry` is **unchanged** (still returns a source-free `cue.Value`).
