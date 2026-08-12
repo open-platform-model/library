@@ -173,12 +173,16 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
 
 `Materialize` (`opm/materialize`, reachable as `(*Kernel).Materialize`)
 resolves a `#Platform`'s `#registry` subscriptions into a sealed
-`*MaterializedPlatform` (composed transformers + `#matchers` filled). Lifetime
+`*MaterializedPlatform` (composed transformers + `#matchers` filled). Each
+enabled subscription pulls exactly the build its authored `version!` names
+(0010 D14) and verifies the pulled catalog's declared identity against the
+subscription coordinate (D11/D9, `oerrors.IdentityError`); enumeration runs
+only when a pull fails, to report what IS published. Lifetime
 and registry rules:
 
 - **Explicit and caller-driven — the kernel holds no materialize cache**
-  (Principle I). Every `Materialize` call performs registry I/O (version
-  enumeration + OCI pulls). Long-running consumers that want memoization wire
+  (Principle I). Every `Materialize` call performs registry I/O (one OCI pull
+  per enabled subscription). Long-running consumers that want memoization wire
   their own `opm/materialize/cache.MaterializeCache` (reference `LRU` +
   `Key(*platform.Platform)` over the `#registry` subtree). Invalidation policy
   is theirs: the operator keys it on a CR generation; the CLI opts out and

@@ -13,9 +13,9 @@ import "github.com/Masterminds/semver/v3"
 // gated primitive against the last published build carrying it, and this
 // picks which build that is. Selection is pure — enumerating and fetching the
 // candidate are the caller's. Moved verbatim from opm/materialize's
-// filterVersions path (0010 D14 deletes that file; the unfiltered-subscription
-// semantics it implemented there are unchanged and still route through here
-// until then).
+// since-deleted filterVersions path (0010 D14): subscription resolution now
+// reads the authored version! scalar and performs no selection, so the
+// publish gate is this function's only consumer.
 func HighestStable(published []string) string {
 	for i := len(published) - 1; i >= 0; i-- {
 		sv, err := semver.NewVersion(published[i])
