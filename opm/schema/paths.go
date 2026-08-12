@@ -68,6 +68,12 @@ var (
 	// Component's spec at CUE-evaluation time (see component.cue _allFields).
 	// By the time the renderer sees a Component, blueprints are already
 	// merged. Walking #blueprints separately would double-count.
+	// MatchLabels is the component's MATCHING identity (0010 D36) — the
+	// derived union of its attached primitives' matchLabels. The matcher
+	// reads this, and only this, for label predicates; metadata.labels is
+	// descriptive and stays readable by non-matching consumers (component
+	// summaries, the transformer render context).
+	MatchLabels         = cue.ParsePath("matchLabels")
 	MetadataLabels      = cue.ParsePath("metadata.labels")
 	MetadataAnnotations = cue.ParsePath("metadata.annotations")
 	MetadataFQN         = cue.ParsePath("metadata.fqn")

@@ -83,7 +83,8 @@ type: "kubernetes"
 `)
 	components := ctx.CompileString(`
 "web": {
-	metadata: { labels: { tier: "web" } }
+	metadata: { labels: {} }
+	matchLabels: { tier: "web" }
 	#resources: { "opmodel.dev/r/echo@v0": {} }
 }
 `)
@@ -98,6 +99,48 @@ type: "kubernetes"
 	assert.Equal(t, "opmodel.dev/p/k8s/x@v0", pairs[0].TransformerFQN)
 	assert.Empty(t, plan.Missing)
 	assert.Empty(t, plan.Unify)
+}
+
+// TestMatch_DescriptiveLabelsAloneDoNotMatch pins the D36 flip: a key present
+// only in the component's descriptive metadata.labels — not in matchLabels —
+// no longer satisfies a candidate's requiredLabels.
+func TestMatch_DescriptiveLabelsAloneDoNotMatch(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"opmodel.dev/p/k8s/x@v0": {
+		metadata: { fqn: "opmodel.dev/p/k8s/x@v0" }
+		requiredLabels: { tier: "web" }
+		requiredResources: { "opmodel.dev/r/echo@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"opmodel.dev/r/echo@v0": [#composedTransformers["opmodel.dev/p/k8s/x@v0"]]
+	}
+	traits: {}
+}
+`)
+	// The tier key lives only in metadata.labels; matchLabels is empty.
+	components := ctx.CompileString(`
+"web": {
+	metadata: { labels: { tier: "web" } }
+	matchLabels: {}
+	#resources: { "opmodel.dev/r/echo@v0": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	assert.Empty(t, plan.MatchedPairs(), "descriptive labels alone must not satisfy requiredLabels")
+	assert.Contains(t, plan.Unmatched, "web")
 }
 
 // TestMatch_ExactVersionBearingFQN is the D3 matcher-contract guard: when the
@@ -437,11 +480,11 @@ type: "kubernetes"
 `)
 	components := ctx.CompileString(`
 "web": {
-	metadata: { labels: { "workload-type": "stateless" } }
+	matchLabels: { "workload-type": "stateless" }
 	#resources: { "example.com/r/container@v0": {} }
 }
 "db": {
-	metadata: { labels: { "workload-type": "stateful" } }
+	matchLabels: { "workload-type": "stateful" }
 	#resources: { "example.com/r/container@v0": {} }
 }
 `)
@@ -553,6 +596,7 @@ components: {
 			name: "web"
 			labels: { tier: "web" }
 		}
+		matchLabels: { tier: "web" }
 		#resources: {
 			"example.com/r/echo@v0": {}
 		}

@@ -26,8 +26,9 @@ type ComponentSummary struct {
 	// Name is the component name.
 	Name string
 
-	// Labels are the component-level labels from metadata.labels.
-	// Example: {"core.opmodel.dev/workload-type": "stateless"}
+	// Labels are the component's descriptive labels from metadata.labels,
+	// shown as-is for display. Matching does NOT read these — the matcher
+	// reads the component's derived matchLabels (0010 D36).
 	Labels map[string]string
 
 	// ResourceFQNs are the FQNs of resource types declared by the component.
@@ -193,7 +194,8 @@ func extractComponentSummaries(schemaComponents cue.Value) []ComponentSummary {
 
 		summary := ComponentSummary{Name: compName}
 
-		// Extract metadata.labels (optional field).
+		// Extract metadata.labels (optional field) — descriptive display data;
+		// matching reads matchLabels, not this (0010 D36).
 		if labelsVal := compVal.LookupPath(schema.MetadataLabels); labelsVal.Exists() {
 			var labels map[string]string
 			if err := labelsVal.Decode(&labels); err == nil {

@@ -104,6 +104,9 @@ func buildInstance(
 	for _, c := range comps {
 		fmt.Fprintf(&cb, "\t%q: {\n", c.name)
 		fmt.Fprintf(&cb, "\t\tmetadata: { name: %q, labels: %s }\n", c.name, labelsLiteral(c.labels))
+		// matchLabels mirrors what core derives from attached primitives; the
+		// hermetic harness authors it directly (matching reads it, 0010 D36).
+		fmt.Fprintf(&cb, "\t\tmatchLabels: %s\n", labelsLiteral(c.labels))
 		// Bodies are written open ("{...}"): #resources / #traits are CUE
 		// definitions, which recursively close nested structs. The always-unify
 		// matcher rung unifies each body with the transformer's required

@@ -70,6 +70,7 @@ components: {
 			name: "web"
 			labels: { tier: "web" }
 		}
+		matchLabels: { tier: "web" }
 		#resources: {
 			"example.com/r/echo@v0": {}
 		}

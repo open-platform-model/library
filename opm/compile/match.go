@@ -108,7 +108,10 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 	for compIter.Next() {
 		compName := compIter.Selector().Unquoted()
 		compVal := compIter.Value()
-		labels := labelPairs(compVal.LookupPath(schema.MetadataLabels))
+		// Matching reads the component's matchLabels — the derived union of
+		// its attached primitives' matching keys (0010 D36). metadata.labels
+		// is descriptive and is NOT consulted here.
+		labels := labelPairs(compVal.LookupPath(schema.MatchLabels))
 		resources := fieldKeys(compVal.LookupPath(schema.ComponentResources))
 		traits := fieldKeys(compVal.LookupPath(schema.ComponentTraits))
 		resourceSet := stringSet(resources)
@@ -524,7 +527,7 @@ func fieldKeys(v cue.Value) []string {
 }
 
 // missingMapLabels compares required labels in a transformer against
-// the "key=value" pairs present in a component's metadata.labels.
+// the "key=value" pairs present in a component's matchLabels set.
 func missingMapLabels(required cue.Value, have map[string]struct{}) []string {
 	iter, err := required.Fields(cue.Optional(true))
 	if err != nil {
