@@ -47,10 +47,10 @@ vars:
   CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
   CATALOG_FIXTURE_MODULES: |
     testdata/modules/web_app
-  # Platform fixture whose #registry scalar `version:` pin must track the
-  # newest tag on the catalog's line (library-core-retarget transitional
-  # invariant 1, until library-acquire-and-subscription makes the pin
-  # load-bearing kernel-side).
+  # Platform fixture whose #registry scalar `version:` names the exact build
+  # Materialize pulls (0010 D14 — the pin is load-bearing). The drift check
+  # only verifies the named tag exists on GHCR; bumping it is an ordinary
+  # fixture update, any published tag in the key's major.
   CATALOG_PLATFORM_FIXTURE: "modules/opm_platform"
 
 tasks:
@@ -318,27 +318,26 @@ tasks:
         printf "${BOLD}Done.${RESET}\n"
 
   cue:catalog:drift:
-    desc: Fail if any fixture pins an opmodel.dev/catalogs/opm version behind the latest GHCR release on its line
+    desc: Fail if any fixture pins an opmodel.dev/catalogs/opm version that is not published on GHCR
     summary: |
       Queries GHCR (anonymously) for the published opmodel.dev/catalogs/opm
-      tags, then compares each fixture's pin against the latest tag ON THE
-      FIXTURE'S OWN PINNED MAJOR LINE. Two kinds of pin are checked:
+      tags, then checks each fixture's pinned version EXISTS in the published
+      list. Two kinds of pin are checked:
 
         - cue.mod dep pins (CATALOG_FIXTURE_MODULES), keyed
           "opmodel.dev/catalogs/opm@vN" — any major.
         - the platform fixture's #registry scalar `version:`
-          (CATALOG_PLATFORM_FIXTURE) — the carrier of library-core-retarget's
-          transitional invariant 1: it MUST track the newest tag on the
-          catalog's line until library-acquire-and-subscription makes the pin
-          load-bearing kernel-side.
+          (CATALOG_PLATFORM_FIXTURE).
 
-      "Latest" mirrors the kernel's own selection rule (opm/compat/predecessor.go
-      HighestStable, called by materialize's filterVersions): the highest
-      stable tag within the major; when the line
-      is prerelease-only (the v2 line until 0010's catalogs-republish), the
-      highest prerelease. CI -0.dev.* snapshot tags are always ignored.
-      Exits non-zero on drift. Remediate with `task cue:deps:update` (dep
-      pins) and by bumping the platform fixture's `version:` by hand.
+      The pin is load-bearing (0010 D14, landed by
+      library-acquire-and-subscription): the kernel pulls exactly the named
+      build, so the only drift that can break the suite is a pin that names a
+      build the registry does not serve. Bumping a pin is an ordinary fixture
+      update, not a drift-check obligation — this task no longer mirrors any
+      kernel selection rule (there is none to mirror).
+      Exits non-zero when a pin is unpublished. Remediate with
+      `task cue:deps:update` (dep pins) and by fixing the platform fixture's
+      `version:` by hand.
 
       Usage:
         task cue:catalog:drift
@@ -372,39 +371,16 @@ tasks:
           exit 1
         fi
 
-        # latest_on_line MAJOR — the newest tag within one major line,
-        # mirroring the kernel's selection rule (opm/compat/predecessor.go
-        # HighestStable): highest stable if any exists, else highest
-        # prerelease. CI -0.dev.* snapshot tags never count.
-        latest_on_line() {
-          local major="$1" line stable
-          line=$(echo "$tags" | sed 's/^v//' | grep -E "^${major}\." | grep -v -- '-0\.dev\.' || true)
-          if [ -z "$line" ]; then
-            return 1
-          fi
-          stable=$(echo "$line" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1 || true)
-          if [ -n "$stable" ]; then
-            echo "$stable"
-          else
-            echo "$line" | sort -V | tail -1
-          fi
-        }
-
-        # check NAME PINNED — compare a bare-semver pin against the latest
-        # tag on its own major line; sets drift=1 on mismatch.
+        # check NAME PINNED — the pin is load-bearing (0010 D14): the kernel
+        # pulls exactly the named build, so the check is existence, not
+        # currency. Sets drift=1 when the pinned tag is not published.
         drift=0
         check() {
-          local name="$1" pinned="$2" major latest
-          major="${pinned%%.*}"
-          if ! latest=$(latest_on_line "$major"); then
-            echo -e "    ${name}: ${RED}v${pinned} — no published tags on the v${major} line${RESET}"
-            drift=1
-            return
-          fi
-          if [ "$pinned" = "$latest" ]; then
-            echo -e "    ${name}: ${GREEN}v${pinned} (current on the v${major} line)${RESET}"
+          local name="$1" pinned="$2"
+          if echo "$tags" | grep -qx "v${pinned}"; then
+            echo -e "    ${name}: ${GREEN}v${pinned} (published)${RESET}"
           else
-            echo -e "    ${name}: ${RED}v${pinned} — behind latest v${latest} on the v${major} line${RESET}"
+            echo -e "    ${name}: ${RED}v${pinned} — not published${RESET}"
             drift=1
           fi
         }
@@ -425,9 +401,8 @@ tasks:
           check "$dir" "$pinned"
         done <<< '{{.CATALOG_FIXTURE_MODULES}}'
 
-        # 2. The platform fixture's #registry scalar version pins
-        # (library-core-retarget transitional invariant 1). cue eval needs
-        # the core dep resolved, so make sure a registry mapping is set.
+        # 2. The platform fixture's #registry scalar version pins. cue eval
+        # needs the core dep resolved, so make sure a registry mapping is set.
         export CUE_REGISTRY="${CUE_REGISTRY:-{{.CUE_GHCR_REGISTRY}}}"
         plat="{{.CATALOG_PLATFORM_FIXTURE}}"
         subs=$( (cd "$plat" && cue eval . -e '#registry' --out json) \
@@ -442,10 +417,10 @@ tasks:
         done <<< "$subs"
 
         if [ "$drift" -ne 0 ]; then
-          echo -e "${RED}${BOLD}Catalog drift detected.${RESET} Run ${BOLD}task cue:deps:update${RESET} for dep pins; bump the platform fixture's version: by hand." >&2
+          echo -e "${RED}${BOLD}Unpublished catalog pin detected.${RESET} Run ${BOLD}task cue:deps:update${RESET} for dep pins; fix the platform fixture's version: by hand." >&2
           exit 1
         fi
-        echo -e "${GREEN}All fixtures track the latest published catalog on their lines.${RESET}"
+        echo -e "${GREEN}All fixture pins name published catalog builds.${RESET}"
 
   cue:check:
     desc: Run cue:fmt and cue:vet across all discovered modules

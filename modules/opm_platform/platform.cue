@@ -25,13 +25,10 @@ type: "kubernetes"
 
 // Path-keyed subscription: the map key is the catalog's CUE module path,
 // major suffix included (v2 #ModulePathType). The scalar `version` names the
-// exact build to materialize (enhancement 0010 D37 — no filter, no range).
-// Transitional invariant 1 (library-core-retarget): the pin MUST track the
-// newest tag on the catalog's v2 line — the kernel's interim highest-stable
-// resolution ignores the scalar and, on the major-scoped prerelease-only v2
-// list, falls back to the highest alpha, which must be the same build the
-// scalar names. library-acquire-and-subscription makes the pin load-bearing
-// and removes this fragility.
+// exact build to materialize (enhancement 0010 D14/D37 — no filter, no
+// range). The pin is LOAD-BEARING: the kernel pulls exactly this build, so
+// bumping it is an ordinary fixture update — pick any published tag in the
+// key's major (`task cue:catalog:drift` verifies it exists on GHCR).
 #registry: {
 	"opmodel.dev/catalogs/opm@v2": {
 		enable:  true
