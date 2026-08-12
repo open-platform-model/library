@@ -549,6 +549,69 @@ type: "kubernetes"
 	assert.Contains(t, plan.Unmatched, "web")
 }
 
+// TestMatch_AlternativesOrderTotalAndStable covers D34/D4: the measured
+// pathological triple (v1alpha1, v2, v10) — non-transitive under the old
+// per-pair SemVer rule switch — sorts identically regardless of the order the
+// matcher index enumerates it, following the kube-aware ladder (alpha < GA,
+// then major).
+func TestMatch_AlternativesOrderTotalAndStable(t *testing.T) {
+	tf := func(v string) string {
+		return `
+		"example.com/p/t` + v + `@v0": {
+			metadata: { fqn: "example.com/p/t` + v + `@v0" }
+			requiredLabels: {}
+			requiredResources: { "example.com/r/container@` + v + `": {} }
+			requiredTraits: {}
+			optionalTraits: {}
+		}`
+	}
+	bucket := func(v string) string {
+		return `
+		"example.com/r/container@` + v + `": [#composedTransformers["example.com/p/t` + v + `@v0"]]`
+	}
+
+	permutations := [][]string{
+		{"v1alpha1", "v2", "v10"},
+		{"v10", "v1alpha1", "v2"},
+		{"v2", "v10", "v1alpha1"},
+	}
+	want := []string{
+		"example.com/r/container@v1alpha1", // alpha sorts before every GA
+		"example.com/r/container@v2",
+		"example.com/r/container@v10",
+	}
+	for _, perm := range permutations {
+		ctx := cuecontext.New()
+		mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {`+tf(perm[0])+tf(perm[1])+tf(perm[2])+`
+}
+#matchers: {
+	resources: {`+bucket(perm[0])+bucket(perm[1])+bucket(perm[2])+`
+	}
+	traits: {}
+}
+`)
+		// Demand an unpublished level of the same contract base.
+		components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/container@v9": {} }
+}
+`)
+		require.NoError(t, components.Err())
+
+		plan, err := compile.Match(components, mp, "demo")
+		require.NoError(t, err)
+		require.Len(t, plan.Missing, 1)
+		assert.Equal(t, want, plan.Missing[0].Alternatives,
+			"ordering must be identical for input permutation %v", perm)
+	}
+}
+
 // TestMatch_MultipleMissesAccumulated covers the one-pass, no-fail-fast
 // accumulation: two components each demand a distinct absent FQN, so the plan
 // carries two MissingFQN entries (one per (instance, component, fqn)).

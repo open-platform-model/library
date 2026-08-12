@@ -28,8 +28,8 @@
 
 ## 4. The comparator (D34/D4)
 
-- [ ] 4.1 `compile/match.go`: alternatives ordering delegates to `compat.CompareAPIVersions`; function renamed to its contract-key role; SemVer path retained only where build keys are ordered.
-- [ ] 4.2 Test: the measured pathological triple (`v1alpha1`, `v2`, `v10`) sorts identically from any input order.
+- [x] 4.1 `compile/match.go`: alternatives ordering delegates to `compat.CompareAPIVersions`; function renamed to its contract-key role; SemVer path retained only where build keys are ordered.
+- [x] 4.2 Test: the measured pathological triple (`v1alpha1`, `v2`, `v10`) sorts identically from any input order.
 
 ## 5. The single-provider guard (D32/D37)
 

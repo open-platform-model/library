@@ -10,9 +10,10 @@ import (
 // transformer is found but its requiredLabels are not satisfied.
 //
 // One MissingFQN is recorded per (Instance, Component, FQN) triple. Alternatives
-// lists every primitive FQN sharing the same modulePath/name at other SemVers
-// that the platform did materialize, sorted by SemVer — a hint that a different
-// version of the same primitive is available.
+// lists every primitive FQN sharing the same modulePath/name at other versions
+// that the platform did materialize, in contract-key order (the kube-aware
+// apiVersion ladder, 0010 D34/D4) — a hint that a different version of the
+// same primitive is available.
 type MissingFQN struct {
 	// Instance is the ModuleInstance name the demanding component belongs to.
 	// Was: Release

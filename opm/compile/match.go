@@ -39,8 +39,8 @@ import (
 
 	"cuelang.org/go/cue"
 	cueerrors "cuelang.org/go/cue/errors"
-	"github.com/Masterminds/semver/v3"
 
+	"github.com/open-platform-model/library/opm/compat"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/schema"
@@ -336,9 +336,10 @@ func isProvenancePath(p []string) bool {
 // alternativesFor walks the matchers index keys (the primitive-FQN universe the
 // platform's transformers require) and returns every FQN other than missingFQN
 // that shares the same modulePath/name — the FQN substring before the final
-// "@" — sorted by SemVer. Per D2 this surfaces "a transformer exists for a
-// different version of this primitive". The full same-name set is returned;
-// trimming to truly-adjacent versions is a frontend presentation nuance.
+// "@" — in contract-key order (kube-aware apiVersion ladder, D34/D4). Per D2
+// this surfaces "a transformer exists for a different version of this
+// primitive". The full same-name set is returned; trimming to truly-adjacent
+// versions is a frontend presentation nuance.
 func alternativesFor(matchersIndex cue.Value, missingFQN string) []string {
 	if !matchersIndex.Exists() {
 		return nil
@@ -358,7 +359,7 @@ func alternativesFor(matchersIndex cue.Value, missingFQN string) []string {
 			alts = append(alts, key)
 		}
 	}
-	sortFQNsBySemVer(alts)
+	sortContractKeys(alts)
 	return alts
 }
 
@@ -379,18 +380,18 @@ func fqnVersion(fqn string) string {
 	return ""
 }
 
-// sortFQNsBySemVer sorts FQNs ascending by their "@<version>" suffix parsed as
-// SemVer (Masterminds tolerates a leading "v"). FQNs whose version does not
-// parse fall back to lexical order.
-func sortFQNsBySemVer(fqns []string) {
+// sortContractKeys sorts contract keys ascending by their "@<apiVersion>"
+// suffix under compat.CompareAPIVersions — the total, transitive kube-aware
+// ladder ordering (D34/D4). Same-apiVersion keys tie-break lexically on the
+// full FQN. The predecessor here (sortFQNsBySemVer) switched comparison rule
+// per pair and was measured non-transitive: v1alpha1 < v2, v2 < v10 and
+// v10 < v1alpha1 all held at once, so the same three FQNs sorted differently
+// depending on input order. Build keys (the other D4 key shape) would be
+// SemVer-ordered instead, but no match-site call orders build keys today.
+func sortContractKeys(fqns []string) {
 	sort.Slice(fqns, func(i, j int) bool {
-		vi, ei := semver.NewVersion(fqnVersion(fqns[i]))
-		vj, ej := semver.NewVersion(fqnVersion(fqns[j]))
-		if ei == nil && ej == nil {
-			if vi.Equal(vj) {
-				return fqns[i] < fqns[j]
-			}
-			return vi.LessThan(vj)
+		if c := compat.CompareAPIVersions(fqnVersion(fqns[i]), fqnVersion(fqns[j])); c != 0 {
+			return c < 0
 		}
 		return fqns[i] < fqns[j]
 	})
