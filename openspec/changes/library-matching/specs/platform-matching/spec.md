@@ -1,6 +1,6 @@
 # platform-matching — Delta
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Label Predicate
 
@@ -21,20 +21,6 @@ The matcher SHALL build a component's label set from the component's `matchLabel
 - **WHEN** a transformer executes
 - **THEN** its context's component metadata still carries `metadata.labels`, not `matchLabels`
 
-### Requirement: Always-Unify Before Pairing
-
-The matcher SHALL, before testing the predicate, unify the component's demanded definition with the candidate's required definition for every intersecting contract key, validating without requiring concreteness, and record a typed unify error for any divergence. Diagnostics located at exactly the provenance denylist — `metadata.catalogVersion` and `metadata.description`, directly under any `metadata` block — SHALL be excluded from the verdict and from the recorded cause; the closed definition SHALL remain in the comparison. Identity fields and labels remain compared. The typed error's structural fields (component, contract key) are the routing surface; surviving diagnostics keep their document positions.
-
-#### Scenario: Provenance divergence does not fail unification
-
-- **WHEN** the demanded and required definitions differ only in `metadata.catalogVersion` or `metadata.description`
-- **THEN** the rung records no unify error
-
-#### Scenario: Substantive divergence still refused
-
-- **WHEN** the two definitions disagree on a `spec` field's domain
-- **THEN** a typed unify error is recorded naming the component and contract key
-
 ### Requirement: Alternatives Ordering
 
 Diagnostic alternatives (contract keys sharing a base with an unresolved demand) SHALL be ordered by a total, transitive comparator over the `vNalphaM | vNbetaM | vN` apiVersion ladder. The ordering SHALL be identical regardless of input order.
@@ -43,8 +29,6 @@ Diagnostic alternatives (contract keys sharing a base with an unresolved demand)
 
 - **WHEN** alternatives carry apiVersions `v1alpha1`, `v2`, and `v10`
 - **THEN** the reported order is the same for every input permutation
-
-## ADDED Requirements
 
 ### Requirement: Unresolved Demand Failure
 
@@ -83,6 +67,36 @@ An unhandled trait's effect SHALL be governed by its effective `optional` value 
 
 - **WHEN** a trait's `optional` is not concrete
 - **THEN** the trait is treated as load-bearing and the diagnostic names the unstated posture
+
+## MODIFIED Requirements
+
+### Requirement: Always-Unify Before Pairing
+
+The matcher SHALL, before testing the predicate, unify the component's demanded definition with the candidate's required definition for every intersecting contract key, validating without requiring concreteness, and record a typed unify error for any divergence. Diagnostics located at exactly the provenance denylist — `metadata.catalogVersion` and `metadata.description`, directly under any `metadata` block — SHALL be excluded from the verdict and from the recorded cause; the closed definition SHALL remain in the comparison. Identity fields and labels remain compared. The typed error's structural fields (component, contract key) are the routing surface; surviving diagnostics keep their document positions.
+
+#### Scenario: Provenance divergence does not fail unification
+
+- **WHEN** the demanded and required definitions differ only in `metadata.catalogVersion` or `metadata.description`
+- **THEN** the rung records no unify error
+
+#### Scenario: Substantive divergence still refused
+
+- **WHEN** the two definitions disagree on a `spec` field's domain
+- **THEN** a typed unify error is recorded naming the component and contract key
+
+### Requirement: Structured Missing-FQN Diagnostic
+
+A missing FQN SHALL be reported as a structured `MissingFQN` value carrying the instance name, component name, the missing FQN, and a list of alternative FQNs sharing the same `modulePath`/`name` at other versions materialized on the platform, ordered by the total contract-key comparator (see Alternatives Ordering). `Match` SHALL accumulate every miss in one pass and expose them on the `MatchPlan`. The `MissingFQN` record is retained for compatibility; the load-bearing diagnosis is the unresolved-demand set.
+
+#### Scenario: Alternatives surfaced
+
+- **WHEN** a component demands `<path>/<name>@v9` which is absent, but the platform materialized `<path>/<name>@v1`
+- **THEN** the `MissingFQN.Alternatives` for that miss contains `<path>/<name>@v1`
+
+#### Scenario: Multiple misses accumulated
+
+- **WHEN** two components each demand a different absent FQN
+- **THEN** the `MatchPlan` carries two `MissingFQN` entries, one per `(instance, component, fqn)`
 
 ## REMOVED Requirements
 

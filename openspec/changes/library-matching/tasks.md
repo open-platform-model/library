@@ -42,9 +42,9 @@
 
 ## 7. Specs, docs, migrations
 
-- [ ] 7.1 Spec deltas: `platform-matching` (MODIFIED label predicate, always-unify, alternatives ordering; ADDED unresolved-demand + trait-posture requirements; REMOVED Defensive Ambiguity Handling and the stale `MissingFQN` "release name" wording); `platform-materialization` (ADDED Single-Provider Guard).
-- [ ] 7.2 `MIGRATIONS.md` `## Unreleased — Breaking` entry per design (four bullets + recipes); `Migration: library-matching` trailer if the guard workflow is live.
-- [ ] 7.3 `docs/design/compile-pipeline-known-gaps.md`: unresolved-demand gap closed; ambiguity-collapse history note updated.
+- [x] 7.1 Spec deltas: `platform-matching` (MODIFIED label predicate, always-unify, alternatives ordering; ADDED unresolved-demand + trait-posture requirements; REMOVED Defensive Ambiguity Handling and the stale `MissingFQN` "release name" wording); `platform-materialization` (ADDED Single-Provider Guard).
+- [x] 7.2 `MIGRATIONS.md` `## Unreleased — Breaking` entry per design (four bullets + recipes); `Migration: library-matching` trailer if the guard workflow is live.
+- [x] 7.3 `docs/design/compile-pipeline-known-gaps.md`: unresolved-demand gap closed; ambiguity-collapse history note updated.
 
 ## 8. Verify & record
 
