@@ -33,8 +33,8 @@
 
 ## 5. The single-provider guard (D32/D37)
 
-- [ ] 5.1 `materialize/index.go`: during the existing walk, read `fulfilment` off each **required** embedded contract copy; accumulate provider-fulfilled keys → owning catalogs; error on two catalogs for one key (`MaterializeError` naming both paths + key) and on embedded copies disagreeing on `fulfilment`.
-- [ ] 5.2 `index_test.go` / registrytest: two-catalog provider-fulfilled conflict; same key catalog-fulfilled with many providers passes; disagreement case.
+- [x] 5.1 `materialize/index.go`: during the existing walk, read `fulfilment` off each **required** embedded contract copy; accumulate provider-fulfilled keys → owning catalogs; error on two catalogs for one key (`MaterializeError` naming both paths + key) and on embedded copies disagreeing on `fulfilment`.
+- [x] 5.2 `index_test.go` / registrytest: two-catalog provider-fulfilled conflict; same key catalog-fulfilled with many providers passes; disagreement case.
 
 ## 6. Own-graph test (D10)
 

@@ -32,9 +32,15 @@ type catalogBuild struct {
 // their bodies agree; divergent bodies surface as a MaterializeError wrapping
 // the CUE conflict (spec: Transformer Indexing). Output ordering is stable
 // (FQN-sorted) so repeated materializations are byte-identical.
+//
+// The walk also runs the single-provider guard (0010 D32/D37): for every
+// required contract key any embedded copy declares `fulfilment: "provider"`,
+// at most one subscribed catalog may supply a transformer for it, and
+// embedded copies must agree on a key's fulfilment. See providerGuard.
 func indexCatalogs(octx *cue.Context, builds []catalogBuild) (composed cue.Value, matchers cue.Value, err error) {
 	// 1. Build the composed map, collapsing / conflicting on shared FQNs.
 	composedByFQN := map[string]cue.Value{}
+	guard := newProviderGuard()
 	for _, b := range builds {
 		txs := b.Value.LookupPath(schema.Transformers)
 		if !txs.Exists() {
@@ -50,6 +56,9 @@ func indexCatalogs(octx *cue.Context, builds []catalogBuild) (composed cue.Value
 		for it.Next() {
 			fqn := it.Selector().Unquoted()
 			tx := it.Value()
+			if gerr := guard.observe(b, tx); gerr != nil {
+				return cue.Value{}, cue.Value{}, gerr
+			}
 			existing, seen := composedByFQN[fqn]
 			if !seen {
 				composedByFQN[fqn] = tx
@@ -73,6 +82,9 @@ func indexCatalogs(octx *cue.Context, builds []catalogBuild) (composed cue.Value
 			}
 			composedByFQN[fqn] = unified
 		}
+	}
+	if gerr := guard.check(); gerr != nil {
+		return cue.Value{}, cue.Value{}, gerr
 	}
 
 	// 2. Build the reverse index from the deduped composed map: each
@@ -116,6 +128,117 @@ func indexCatalogs(octx *cue.Context, builds []catalogBuild) (composed cue.Value
 	}
 
 	return composed, matchers, nil
+}
+
+// providerGuard is the single-provider guard (0010 D32 as corrected by D37).
+// It keys on a contract's DECLARED fulfilment, read off the provider's
+// embedded required copy — the only place materialize can reach a contract's
+// definition, since #Catalog exposes no primitive maps. Counted are required
+// demands only (requiredResources / requiredTraits); optional consumption is
+// not supply. Catalog provenance is structural (catalogBuild.Subscription),
+// never parsed back out of an FQN.
+//
+// Open acknowledgment (recorded in the change design): the embedded copy is
+// the provider's CLAIM about the contract, not the declaring catalog's word —
+// a lying provider shows the guard the lie. The disagreement error below is
+// the partial mitigation until core exposes catalog primitive maps.
+type providerGuard struct {
+	// fulfilment records each key's stated fulfilment; source records the
+	// subscription whose copy first stated it, for divergence attribution.
+	fulfilment map[string]string
+	source     map[string]string
+
+	// providers maps each provider-fulfilled key to the set of subscribed
+	// catalogs supplying a transformer that requires it.
+	providers map[string]map[string]bool
+}
+
+func newProviderGuard() *providerGuard {
+	return &providerGuard{
+		fulfilment: map[string]string{},
+		source:     map[string]string{},
+		providers:  map[string]map[string]bool{},
+	}
+}
+
+// observe reads the declared fulfilment off every REQUIRED embedded contract
+// copy of tx, failing fast on copies that disagree for one key (divergent
+// contract definitions — unifying them would mask a catalog bug).
+func (g *providerGuard) observe(b catalogBuild, tx cue.Value) error {
+	for _, path := range []cue.Path{schema.TransformerRequiredResources, schema.TransformerRequiredTraits} {
+		m := tx.LookupPath(path)
+		if !m.Exists() {
+			continue
+		}
+		it, err := m.Fields()
+		if err != nil {
+			continue
+		}
+		for it.Next() {
+			key := it.Selector().Unquoted()
+			declared, stated := declaredFulfilment(it.Value())
+			if !stated {
+				// No concrete fulfilment on this copy (schema-bypassing
+				// synthetic builds): nothing to guard on.
+				continue
+			}
+			if prev, seen := g.fulfilment[key]; seen && prev != declared {
+				return &oerrors.MaterializeError{
+					Kind: oerrors.MaterializeKindCatalog, Subscription: b.Subscription, Version: b.Version,
+					Cause: fmt.Errorf(
+						"contract %q: embedded copies disagree on fulfilment: %q (from %q) vs %q (from %q)",
+						key, prev, g.source[key], declared, b.Subscription),
+				}
+			} else if !seen {
+				g.fulfilment[key] = declared
+				g.source[key] = b.Subscription
+			}
+			if declared == "provider" {
+				if g.providers[key] == nil {
+					g.providers[key] = map[string]bool{}
+				}
+				g.providers[key][b.Subscription] = true
+			}
+		}
+	}
+	return nil
+}
+
+// check refuses a materialization in which transformers from more than one
+// subscribed catalog supply one provider-fulfilled contract key. Iteration is
+// key-sorted so the refusal is deterministic.
+func (g *providerGuard) check() error {
+	for _, key := range sortedKeys(g.providers) {
+		subs := sortedKeys(g.providers[key])
+		if len(subs) < 2 {
+			continue
+		}
+		return &oerrors.MaterializeError{
+			Kind: oerrors.MaterializeKindCatalog, Subscription: subs[1],
+			Cause: fmt.Errorf(
+				"contract %q declares fulfilment \"provider\" but is supplied by transformers from %d catalogs (%q and %q): a platform must carry exactly one provider for it",
+				key, len(subs), subs[0], subs[1]),
+		}
+	}
+	return nil
+}
+
+// declaredFulfilment reads the concrete fulfilment off an embedded contract
+// copy, resolving the schema's default (*"catalog" | "provider"). stated is
+// false when the field is absent or non-concrete with no default.
+func declaredFulfilment(copy cue.Value) (fulfilment string, stated bool) {
+	v := copy.LookupPath(cue.ParsePath("fulfilment"))
+	if !v.Exists() {
+		return "", false
+	}
+	if d, ok := v.Default(); ok {
+		v = d
+	}
+	s, err := v.String()
+	if err != nil {
+		return "", false
+	}
+	return s, true
 }
 
 // mapKeys returns the concrete string field labels of the map at path on v,

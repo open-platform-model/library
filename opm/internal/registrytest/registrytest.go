@@ -68,6 +68,12 @@ type TxFixture struct {
 	// states on every trait. Use "bool | *false" for a load-bearing posture
 	// and "bool" for the unstated-posture (fail-closed) case.
 	TraitOptional map[string]string
+
+	// Fulfilment overrides the `fulfilment` declared on a required
+	// resource's or trait's embedded copy, keyed by short name. An absent
+	// key authors nothing, leaving the core schema default (*"catalog").
+	// Use "provider" to exercise the single-provider guard (0010 D32/D37).
+	Fulfilment map[string]string
 }
 
 // UniquePath returns a globally-unique catalog module path for the current
@@ -339,6 +345,9 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
 						r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
 					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
+					if f := tx.Fulfilment[r]; f != "" {
+						fmt.Fprintf(&b, "\t\t\t\tfulfilment: %q\n", f)
+					}
 				} else {
 					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", r, path+"/resources", version)
 				}
@@ -363,6 +372,9 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 						posture = "bool | *true"
 					}
 					fmt.Fprintf(&b, "\t\t\t\toptional: %s\n", posture)
+					if f := tx.Fulfilment[tr]; f != "" {
+						fmt.Fprintf(&b, "\t\t\t\tfulfilment: %q\n", f)
+					}
 				} else {
 					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
 				}
