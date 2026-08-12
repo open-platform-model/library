@@ -60,13 +60,23 @@ type MatchPlan struct {
 
 	// Missing holds the hard "no transformer requires this FQN" diagnostics,
 	// one per (instance, component, fqn). Distinct from UnhandledTraits, which
-	// flags a component trait that no matched transformer consumes (soft).
+	// flags a component trait that no matched transformer consumes. Kept for
+	// compatibility and fed as before; the load-bearing diagnosis is
+	// Unresolved.
 	Missing []oerrors.MissingFQN
 
 	// Unify holds the always-unify-rung failures: a component primitive body
 	// that conflicts with a candidate transformer's required body at the same
 	// FQN. The conflicting candidate is not paired.
 	Unify []oerrors.UnifyError
+
+	// Unresolved holds every demand the platform failed to resolve (0010
+	// D28): a demanded resource with an empty bucket or with every candidate
+	// disqualified, and an unhandled trait whose effective optional posture
+	// is load-bearing (false, or fail-closed unstated). Plan-for-execution
+	// and Compile fail on a non-empty set; Match stays phase-only and
+	// returns the full diagnosis.
+	Unresolved []oerrors.UnresolvedDemand
 }
 
 // MatchedPair is a single (component, transformer) pair that matched.
@@ -123,12 +133,18 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 		traitHandled := map[string]struct{}{}
 		// unify is evaluated once per (component, candidate); cache the verdict
 		// so a transformer demanded via several FQNs is not re-unified (and does
-		// not record duplicate UnifyErrors).
+		// not record duplicate UnifyErrors). unifyErrs keeps the per-candidate
+		// failures for UnresolvedDemand.Disqualified attribution.
 		unifyChecked := map[string]bool{}
 		unifyOK := map[string]bool{}
+		unifyErrs := map[string][]oerrors.UnifyError{}
 
-		// walk processes one demanded FQN: lookup → unify → predicate.
-		walk := func(matchersIndex cue.Value, fqn string, isTrait bool) {
+		// walk processes one demanded FQN: lookup → unify → predicate. The
+		// returned outcome feeds D28's demand resolution: whether some
+		// candidate in the demand's bucket paired, and the unify causes of the
+		// candidates that fell out.
+		walk := func(matchersIndex cue.Value, fqn string, isTrait bool) demandOutcome {
+			out := demandOutcome{}
 			candidates, exists := bucketTransformers(matchersIndex, fqn)
 			if !exists {
 				plan.Missing = append(plan.Missing, oerrors.MissingFQN{
@@ -137,8 +153,9 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 					FQN:          fqn,
 					Alternatives: alternativesFor(matchersIndex, fqn),
 				})
-				return
+				return out
 			}
+			out.hadCandidates = true
 			for _, cand := range candidates {
 				tfFQN, ferr := cand.LookupPath(schema.MetadataFQN).String()
 				if ferr != nil {
@@ -146,28 +163,47 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 				}
 				if !unifyChecked[tfFQN] {
 					unifyChecked[tfFQN] = true
+					before := len(plan.Unify)
 					unifyOK[tfFQN] = runUnify(plan, compName, compVal, cand)
+					unifyErrs[tfFQN] = append([]oerrors.UnifyError(nil), plan.Unify[before:]...)
 				}
 				if !unifyOK[tfFQN] {
+					out.disqualified = append(out.disqualified, unifyErrs[tfFQN]...)
 					continue
 				}
 				if !candidateSatisfied(cand, labels, resourceSet, traitSet) {
 					continue
 				}
+				out.satisfied = true
 				pairTransformer(plan, compName, tfFQN, composed, labels, matched)
 				if isTrait {
 					traitHandled[fqn] = struct{}{}
 				}
 			}
+			return out
 		}
 
 		// Resource demand walk, then trait demand walk. matched is keyed by
-		// transformer FQN so a transformer demanded via several FQNs pairs once.
+		// transformer FQN so a transformer demanded via several FQNs pairs
+		// once. Every declared resource is a required demand (D28): an empty
+		// bucket or an all-candidates-disqualified bucket is unresolved.
+		// Trait outcomes are kept — their resolution also depends on matched
+		// transformers' optionalTraits, folded in below.
+		traitOutcomes := map[string]demandOutcome{}
 		for _, fqn := range resources {
-			walk(matchersResources, fqn, false)
+			out := walk(matchersResources, fqn, false)
+			if !out.satisfied {
+				plan.Unresolved = append(plan.Unresolved, oerrors.UnresolvedDemand{
+					Component:    compName,
+					FQN:          fqn,
+					Kind:         "resource",
+					Alternatives: alternativesFor(matchersResources, fqn),
+					Disqualified: out.disqualified,
+				})
+			}
 		}
 		for _, fqn := range traits {
-			walk(matchersTraits, fqn, true)
+			traitOutcomes[fqn] = walk(matchersTraits, fqn, true)
 		}
 
 		if len(matched) == 0 {
@@ -181,16 +217,67 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 				traitHandled[fqn] = struct{}{}
 			}
 		}
+		// An unhandled trait's fate is its effective optional posture (D28):
+		// effectively optional degrades to a warning (UnhandledTraits);
+		// load-bearing — or fail-closed unstated — joins Unresolved.
 		for _, fqn := range traits {
-			if _, ok := traitHandled[fqn]; !ok {
-				plan.UnhandledTraits[compName] = append(plan.UnhandledTraits[compName], fqn)
+			if _, ok := traitHandled[fqn]; ok {
+				continue
 			}
+			optional, stated := traitOptional(compVal, fqn)
+			if stated && optional {
+				plan.UnhandledTraits[compName] = append(plan.UnhandledTraits[compName], fqn)
+				continue
+			}
+			plan.Unresolved = append(plan.Unresolved, oerrors.UnresolvedDemand{
+				Component:       compName,
+				FQN:             fqn,
+				Kind:            "trait",
+				Alternatives:    alternativesFor(matchersTraits, fqn),
+				Disqualified:    traitOutcomes[fqn].disqualified,
+				UnstatedPosture: !stated,
+			})
 		}
 		sort.Strings(plan.UnhandledTraits[compName])
 	}
 
 	sort.Strings(plan.Unmatched)
 	return plan, nil
+}
+
+// demandOutcome is walk's per-demand verdict, feeding D28's resolution rules.
+type demandOutcome struct {
+	// satisfied: some candidate in the demand's bucket survived unify and
+	// predicate (it paired, or was already paired via another demand).
+	satisfied bool
+
+	// hadCandidates: the bucket existed and was non-empty (state (b) when
+	// nothing satisfied, state (a) otherwise).
+	hadCandidates bool
+
+	// disqualified carries the unify causes of candidates that fell out.
+	disqualified []oerrors.UnifyError
+}
+
+// traitOptional reads the effective `optional` posture off the component's
+// trait attachment (#traits[fqn].optional): the declaring catalog's default
+// unified with any attachment-site override. Returns stated=false when the
+// field is absent or not concrete (no default to resolve) — the fail-closed
+// case D28 treats as load-bearing, so an un-gated catalog that states no
+// posture cannot silently weaken a render.
+func traitOptional(compVal cue.Value, fqn string) (optional, stated bool) {
+	v := compVal.LookupPath(cue.MakePath(cue.Def("traits"), cue.Str(fqn), cue.Str("optional")))
+	if !v.Exists() {
+		return false, false
+	}
+	if d, ok := v.Default(); ok {
+		v = d
+	}
+	b, err := v.Bool()
+	if err != nil {
+		return false, false
+	}
+	return b, true
 }
 
 // bucketTransformers reads matchersIndex[FQN] and returns the candidate
@@ -521,8 +608,10 @@ func (p *MatchPlan) NonMatchedPairs() []NonMatchedPair {
 	return pairs
 }
 
-// Warnings returns warnings for traits not handled by any matched
-// transformer. Those trait values will be ignored in rendering.
+// Warnings returns warnings for EFFECTIVELY-OPTIONAL traits not handled by
+// any matched transformer (D28). Those trait values will be ignored in
+// rendering. Load-bearing unhandled traits are not warnings — they sit in
+// Unresolved and fail Plan/Compile.
 //
 // UnhandledTraits is intentionally distinct from MatchPlan.Missing: a trait is
 // "unhandled" when no matched transformer consumes it (the trait FQN may still

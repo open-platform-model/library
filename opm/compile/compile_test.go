@@ -549,6 +549,58 @@ type: "kubernetes"
 	assert.Contains(t, plan.Unmatched, "web")
 }
 
+// TestMatch_AllCandidatesDisqualifiedIsUnresolved covers D28 state (b): the
+// demanded resource's bucket holds a candidate, but it falls out at the unify
+// rung — the demand is unresolved and the diagnostic carries the recorded
+// disqualification cause.
+func TestMatch_AllCandidatesDisqualifiedIsUnresolved(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+
+	require.Len(t, plan.Unresolved, 1, "an all-candidates-disqualified resource demand is unresolved")
+	d := plan.Unresolved[0]
+	assert.Equal(t, "web", d.Component)
+	assert.Equal(t, "example.com/r/container@v1", d.FQN)
+	assert.Equal(t, "resource", d.Kind)
+	require.Len(t, d.Disqualified, 1, "the unify cause travels with the demand")
+	assert.Equal(t, "example.com/r/container@v1", d.Disqualified[0].FQN)
+}
+
+// TestMatch_EmptyBucketRecordsUnresolvedResource covers D28 state (a): a
+// demanded resource with no bucket at all is unresolved (beside the
+// compatibility MissingFQN record).
+func TestMatch_EmptyBucketRecordsUnresolvedResource(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {}
+#matchers: { resources: {}, traits: {} }
+`)
+	components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/a@v1": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unresolved, 1)
+	assert.Equal(t, "resource", plan.Unresolved[0].Kind)
+	assert.Empty(t, plan.Unresolved[0].Disqualified, "no candidates existed")
+	require.Len(t, plan.Missing, 1, "Missing stays fed for compatibility")
+}
+
 // TestMatch_AlternativesOrderTotalAndStable covers D34/D4: the measured
 // pathological triple (v1alpha1, v2, v10) — non-transitive under the old
 // per-pair SemVer rule switch — sorts identically regardless of the order the
@@ -1279,12 +1331,14 @@ type: "kubernetes"
 }
 `)
 	// "web" carries the echo resource (matches) and the extra trait (its only
-	// candidate transformer needs label need:"yes", which web lacks).
+	// candidate transformer needs label need:"yes", which web lacks). The
+	// attachment states an effectively-optional posture — that is what keeps
+	// the unhandled trait a warning rather than an unresolved demand (D28).
 	inst := instanceWithComponents(t, ctx, `{
 	web: {
 		metadata: { name: "web", labels: {} }
 		#resources: { "`+echoResFQN+`": {} }
-		#traits: { "`+extraTraitFQN+`": {} }
+		#traits: { "`+extraTraitFQN+`": { optional: true } }
 	}
 }`)
 

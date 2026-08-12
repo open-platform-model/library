@@ -37,6 +37,14 @@ type compSpec struct {
 	traits       []string
 	resourceKeys []string
 	labels       map[string]string
+
+	// traitPostures maps a trait short name to the `optional` posture literal
+	// authored on its attachment, mirroring what the real schema derives from
+	// the catalog default unified with any attachment-site override. An
+	// absent key authors "bool | *true" (the registrytest catalog default);
+	// use "bool | *false" for load-bearing and "bool" for the
+	// unstated-posture (fail-closed) case.
+	traitPostures map[string]string
 }
 
 // resFQN / traitFQN reproduce the contract FQNs registrytest.BuildCatalog
@@ -123,7 +131,11 @@ func buildInstance(
 		if len(c.traits) > 0 {
 			cb.WriteString("\t\t#traits: {\n")
 			for _, tr := range c.traits {
-				fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", traitFQN(catPath, tr))
+				posture := c.traitPostures[tr]
+				if posture == "" {
+					posture = "bool | *true"
+				}
+				fmt.Fprintf(&cb, "\t\t\t%q: {optional: %s, ...}\n", traitFQN(catPath, tr), posture)
 			}
 			cb.WriteString("\t\t}\n")
 		}

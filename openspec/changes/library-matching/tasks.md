@@ -21,10 +21,10 @@
 
 ## 3. Demand resolution (D28 + D4 diagnostics)
 
-- [ ] 3.1 `opm/errors`: `UnresolvedDemand` (value type, fields per design) + `UnresolvedDemandsError` aggregate with `Unwrap() []error`; tests pin shape and `errors.As` walkability.
-- [ ] 3.2 `compile/match.go`: state (a) empty bucket and state (b) all-candidates-disqualified accumulate `UnresolvedDemand` (resources always; traits per posture) with `Alternatives` in `compat.CompareAPIVersions` order and `Disqualified` carrying the recorded `UnifyError`s.
-- [ ] 3.3 Trait posture: read effective `optional` off the attachment value; non-concrete fails closed with the unstated-posture diagnostic; `Warnings()` carries only effectively-optional unhandled traits. `registrytest` knobs: `*false` posture + no-posture.
-- [ ] 3.4 `compile/module.go` + `kernel`: `Plan`/`Compile` fail on `len(plan.Unresolved) > 0` beside `UnmatchedComponentsError` (both reported when both apply); `Match` stays phase-only. Kernel integration tests for: undemandable resource fails Compile; non-optional unhandled trait fails; optional trait warns; different-apiVersion alternative named in the error.
+- [x] 3.1 `opm/errors`: `UnresolvedDemand` (value type, fields per design) + `UnresolvedDemandsError` aggregate with `Unwrap() []error`; tests pin shape and `errors.As` walkability.
+- [x] 3.2 `compile/match.go`: state (a) empty bucket and state (b) all-candidates-disqualified accumulate `UnresolvedDemand` (resources always; traits per posture) with `Alternatives` in `compat.CompareAPIVersions` order and `Disqualified` carrying the recorded `UnifyError`s.
+- [x] 3.3 Trait posture: read effective `optional` off the attachment value; non-concrete fails closed with the unstated-posture diagnostic; `Warnings()` carries only effectively-optional unhandled traits. `registrytest` knobs: `*false` posture + no-posture.
+- [x] 3.4 `compile/module.go` + `kernel`: `Plan`/`Compile` fail on `len(plan.Unresolved) > 0` beside `UnmatchedComponentsError` (both reported when both apply); `Match` stays phase-only. Kernel integration tests for: undemandable resource fails Compile; non-optional unhandled trait fails; optional trait warns; different-apiVersion alternative named in the error.
 
 ## 4. The comparator (D34/D4)
 

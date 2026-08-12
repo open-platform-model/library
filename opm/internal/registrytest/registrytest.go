@@ -61,6 +61,13 @@ type TxFixture struct {
 	Resources []string
 	Traits    []string
 	Output    string // optional inline #transform.output literal; "" → "{}"
+
+	// TraitOptional overrides the `optional` posture literal authored on a
+	// required trait's embedded copy, keyed by trait short name. An absent
+	// key authors "bool | *true" — the advisory default the real catalog
+	// states on every trait. Use "bool | *false" for a load-bearing posture
+	// and "bool" for the unstated-posture (fail-closed) case.
+	TraitOptional map[string]string
 }
 
 // UniquePath returns a globally-unique catalog module path for the current
@@ -351,7 +358,11 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
 						tr, path+"/traits", ContractAPIVersion, version, trfqn, PrimitiveMatchKey, tr)
 					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, tr)
-					b.WriteString("\t\t\t\toptional: bool | *true\n")
+					posture := tx.TraitOptional[tr]
+					if posture == "" {
+						posture = "bool | *true"
+					}
+					fmt.Fprintf(&b, "\t\t\t\toptional: %s\n", posture)
 				} else {
 					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
 				}
