@@ -38,7 +38,7 @@
 
 ## 6. Own-graph test (D10)
 
-- [ ] 6.1 Integration fixture: platform catalog publishes a divergent definition for a contract key the module's own dependency also defines; assert `UnifyError` reports the divergence and rendered output follows the module-side definition (fails if module and platform ever share one resolution). Cite the 04-graduation gate in the test comment.
+- [x] 6.1 Integration fixture: platform catalog publishes a divergent definition for a contract key the module's own dependency also defines; assert `UnifyError` reports the divergence and rendered output follows the module-side definition (fails if module and platform ever share one resolution). Cite the 04-graduation gate in the test comment.
 
 ## 7. Specs, docs, migrations
 
