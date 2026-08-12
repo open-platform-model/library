@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+
+	"github.com/open-platform-model/library/opm/compat"
 )
 
 // subscriptionFilter is the Go projection of a #SubscriptionFilter. Range is
@@ -45,7 +47,7 @@ func filterVersions(published []string, f *subscriptionFilter) ([]string, error)
 		return nil, nil
 	}
 	if f.isEmpty() {
-		return []string{highestStable(published)}, nil
+		return []string{compat.HighestStable(published)}, nil
 	}
 
 	selected := make(map[string]bool, len(published))
@@ -101,25 +103,6 @@ func filterVersions(published []string, f *subscriptionFilter) ([]string, error)
 		}
 	}
 	return out, nil
-}
-
-// highestStable returns the highest published stable (non-pre-release) version.
-// published is the registry's `v`-prefixed, SemVer-ascending list. Pre-release
-// tags (e.g. v0.6.0-dev.*) are skipped so an unfiltered subscription resolves to
-// the latest *released* catalog — matching the drift check's stable-only
-// semantics. If no stable version exists, the highest overall is returned so a
-// pre-release-only catalog still materializes.
-func highestStable(published []string) string {
-	for i := len(published) - 1; i >= 0; i-- {
-		sv, err := semver.NewVersion(published[i])
-		if err != nil {
-			continue
-		}
-		if sv.Prerelease() == "" {
-			return published[i]
-		}
-	}
-	return published[len(published)-1]
 }
 
 // matchingPublished returns the published versions SemVer-equal to want
