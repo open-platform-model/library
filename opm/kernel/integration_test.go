@@ -19,8 +19,9 @@ import (
 // in-memory catalogs, with no localhost:5000 dependency. The live, real-catalog
 // flow lives in flow_integration_test.go (gated by skipUnlessRegistry).
 //
-// Divergent-FQN, range/allow/deny, and disabled-subscription resolution are
-// covered at the materialize-package level (opm/materialize/materialize_test.go);
+// Divergent-FQN, named-version-absent, major-disagreement, identity-mismatch,
+// and disabled-subscription resolution are covered at the materialize-package
+// level (opm/materialize/materialize_test.go);
 // this harness focuses on the kernel surface and the Match→Compile path.
 
 // standardCatalog is the common two-transformer catalog: "deployment" requires
@@ -59,16 +60,18 @@ func TestIntegration_Materialize(t *testing.T) {
 			"materialized platform carries #matchers")
 	})
 
-	t.Run("highest version selected", func(t *testing.T) {
+	t.Run("authored version selected among several published", func(t *testing.T) {
 		path := registrytest.UniquePath(t, "cat")
 		k := newKernelWithCatalogs(t,
 			standardCatalog(path, "0.1.0"),
 			standardCatalog(path, "0.2.0"),
 		)
 
-		mp, err := materializePlatform(t, k, "0.2.0", path)
+		// The authored scalar — not the highest published (0.2.0) — is pulled
+		// (0010 D14: the platform file IS the resolution).
+		mp, err := materializePlatform(t, k, "0.1.0", path)
 		require.NoError(t, err)
-		assert.Equal(t, "0.2.0", mp.Resolved[subKey(path, "0.2.0")], "highest SemVer selected")
+		assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")], "authored version resolved")
 	})
 
 	t.Run("unresolvable path errors with catalog kind", func(t *testing.T) {

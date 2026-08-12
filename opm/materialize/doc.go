@@ -8,12 +8,19 @@
 // Materialize is the kernel step that fills those slots. For each enabled
 // subscription it:
 //
-//  1. enumerates the published versions of the subscribed catalog path;
-//  2. narrows them Go-side by the subscription filter — range ∧ allow ∧ deny,
-//     parsed as SemVer constraints because CUE cannot evaluate range syntax;
-//  3. pulls each surviving version through cue/load against the configured
-//     OCI registry;
-//  4. reads each build's #Catalog.#transformers map; and
+//  1. reads the authored `version!` scalar — the single build the
+//     subscription materializes (0010 D14: catalog selection is a pure
+//     function of committed source; the platform file IS the resolution) —
+//     and checks it sits in the subscription key's major;
+//  2. pulls exactly that build through cue/load against the configured OCI
+//     registry (the happy path makes no enumeration round-trip; when the
+//     pull fails, the published list is enumerated lazily to enrich the
+//     error);
+//  3. verifies the pulled catalog's declared identity — metadata.modulePath
+//     against the subscription key, metadata.version against the pulled tag
+//     (D11/D9: the kernel is the version label's verifier, never its
+//     source);
+//  4. reads the build's #Catalog.#transformers map; and
 //  5. indexes every transformer by its stamped FQN into a composed transformer
 //     map, plus a #matchers reverse index over the primitive FQNs those
 //     transformers reference.

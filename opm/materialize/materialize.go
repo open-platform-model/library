@@ -3,9 +3,11 @@ package materialize
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/platform"
@@ -14,9 +16,11 @@ import (
 
 // Materialize realizes a #Platform's path-keyed catalog subscriptions into a
 // sealed [MaterializedPlatform]. It walks p's #registry; for each enabled
-// subscription it enumerates published versions, narrows them by the
-// subscription filter (range ∧ allow ∧ deny), pulls each survivor against the
-// supplied registry, and indexes the selected catalogs' #transformers into a
+// subscription it reads the authored `version!` scalar (0010 D14: the platform
+// file IS the resolution), checks the named build sits in the subscription
+// key's major, pulls exactly that build against the supplied registry,
+// verifies the pulled catalog's declared identity against the subscription
+// coordinate (D11/D9), and indexes the catalogs' #transformers into a
 // composed transformer map plus a #matchers reverse index. Both are exposed as
 // native first-class fields ([MaterializedPlatform.Transformers] /
 // [MaterializedPlatform.Matchers]) — they are NOT filled onto the closed
@@ -31,7 +35,8 @@ import (
 // Inputs are not mutated: p.Package is read-only and never filled.
 // Failures surface as [oerrors.MaterializeError] (Kind "catalog") naming the
 // offending subscription path and version. Materialize fails fast on the
-// first failing subscription (design.md Q3).
+// first failing subscription (design.md Q3). An identity mismatch carries an
+// [oerrors.IdentityError] as Cause, reachable via errors.As.
 func Materialize(ctx context.Context, owner CueContextOwner, registry string, p *platform.Platform) (*MaterializedPlatform, error) {
 	if owner == nil || owner.CueContext() == nil {
 		return nil, fmt.Errorf("materialize: nil cue.Context owner")
@@ -60,40 +65,28 @@ func Materialize(ctx context.Context, owner CueContextOwner, registry string, p 
 		if !subscriptionEnabled(subVal) {
 			continue
 		}
-		filter := decodeFilter(subVal)
 
-		published, err := enumerateVersions(ctx, env, sub)
+		ver, err := subscriptionVersion(subVal)
 		if err != nil {
 			return nil, &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Cause: err}
 		}
-		if len(published) == 0 {
-			return nil, &oerrors.MaterializeError{
-				Kind: oerrors.MaterializeKindCatalog, Subscription: sub,
-				Cause: fmt.Errorf("no published versions for subscription path"),
-			}
+		if err := majorAgrees(sub, ver); err != nil {
+			return nil, &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Version: ver, Cause: err}
 		}
 
-		survivors, err := filterVersions(published, filter)
+		cv, err := pullCatalog(octx, env, sub, "v"+ver)
 		if err != nil {
-			return nil, &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Cause: err}
-		}
-		if len(survivors) == 0 {
 			return nil, &oerrors.MaterializeError{
-				Kind: oerrors.MaterializeKindCatalog, Subscription: sub,
-				Cause: fmt.Errorf("filter selected no versions from %v", published),
+				Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Version: ver,
+				Cause: pullFailureDiagnostic(ctx, env, sub, ver, err),
 			}
+		}
+		if err := verifyCatalogIdentity(cv, sub, ver); err != nil {
+			return nil, &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Version: ver, Cause: err}
 		}
 
-		for _, ver := range survivors {
-			bare := strings.TrimPrefix(ver, "v")
-			cv, err := pullCatalog(octx, env, sub, ver)
-			if err != nil {
-				return nil, &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Subscription: sub, Version: bare, Cause: err}
-			}
-			builds = append(builds, catalogBuild{Subscription: sub, Version: bare, Value: cv})
-		}
-		// Highest survivor is the resolved version recorded for diagnostics.
-		resolved[sub] = strings.TrimPrefix(survivors[len(survivors)-1], "v")
+		builds = append(builds, catalogBuild{Subscription: sub, Version: ver, Value: cv})
+		resolved[sub] = ver
 	}
 
 	composed, matchers, err := indexCatalogs(octx, builds)
@@ -124,24 +117,95 @@ func subscriptionEnabled(sub cue.Value) bool {
 	return b
 }
 
-// decodeFilter projects a #Subscription's optional filter into a
-// *subscriptionFilter, or nil when no filter is authored.
-func decodeFilter(sub cue.Value) *subscriptionFilter {
-	fv := sub.LookupPath(cue.ParsePath("filter"))
-	if !fv.Exists() {
-		return nil
+// subscriptionVersion reads a #Subscription's required `version!` scalar —
+// the single build the subscription materializes (D14). Core v2's schema
+// requires it; an absent or non-concrete version is an authoring error.
+func subscriptionVersion(sub cue.Value) (string, error) {
+	v := sub.LookupPath(cue.ParsePath("version"))
+	if !v.Exists() {
+		return "", fmt.Errorf("subscription has no version (core v2's #Subscription requires version!)")
 	}
-	f := &subscriptionFilter{}
-	if r := fv.LookupPath(cue.ParsePath("range")); r.Exists() {
-		if s, err := r.String(); err == nil {
-			f.Range = s
+	s, err := v.String()
+	if err != nil {
+		return "", fmt.Errorf("subscription version is not a concrete string: %w", err)
+	}
+	return s, nil
+}
+
+// majorAgrees checks the named build sits in the subscription key's major —
+// the one rule D14 leaves in resolution, mirroring the target schema's
+// _majorAgrees (majors compared as strings, no numeric ordering). key is the
+// subscription's #ModulePathType key; version is the authored bare SemVer. A
+// key with no @vN suffix is an error: core v2's #ModulePathType requires the
+// suffix, so this is defensive, not a supported path.
+func majorAgrees(key, version string) error {
+	_, major, ok := ast.SplitPackageVersion(key)
+	if !ok {
+		return fmt.Errorf("subscription key %q carries no @vN major suffix", key)
+	}
+	want := strings.TrimPrefix(major, "v")
+	if got, _, _ := strings.Cut(version, "."); got != want {
+		return fmt.Errorf("authored version %q is outside the subscription key's major %q", version, major)
+	}
+	return nil
+}
+
+// verifyCatalogIdentity compares the pulled catalog's declared identity
+// against the coordinate it was fetched by (D11; version clause D9):
+// metadata.modulePath must equal the subscription key (both @vN-suffixed —
+// direct string comparison, no recomposition) and metadata.version must equal
+// the version just pulled. Partially redundant with majorAgrees by design —
+// that check validates the author's consistency before any I/O; this one
+// validates the artifact's honesty after. A mismatch returns an
+// [oerrors.IdentityError]; the caller wraps it in a *MaterializeError.
+func verifyCatalogIdentity(cv cue.Value, sub, ver string) error {
+	coordinate := sub + " v" + ver
+
+	declaredPath, err := cv.LookupPath(cue.ParsePath("metadata.modulePath")).String()
+	if err != nil {
+		return fmt.Errorf("reading catalog metadata.modulePath of %s: %w", coordinate, err)
+	}
+	if declaredPath != sub {
+		return oerrors.IdentityError{
+			Artifact:   "catalog",
+			Field:      "path",
+			Declared:   declaredPath,
+			Fetched:    sub,
+			Coordinate: coordinate,
 		}
 	}
-	if a := fv.LookupPath(cue.ParsePath("allow")); a.Exists() {
-		_ = a.Decode(&f.Allow)
+
+	declaredVersion, err := cv.LookupPath(cue.ParsePath("metadata.version")).String()
+	if err != nil {
+		return fmt.Errorf("reading catalog metadata.version of %s: %w", coordinate, err)
 	}
-	if d := fv.LookupPath(cue.ParsePath("deny")); d.Exists() {
-		_ = d.Decode(&f.Deny)
+	if declaredVersion != ver {
+		return oerrors.IdentityError{
+			Artifact:   "catalog",
+			Field:      "version",
+			Declared:   declaredVersion,
+			Fetched:    ver,
+			Coordinate: coordinate,
+		}
 	}
-	return f
+
+	return nil
+}
+
+// pullFailureDiagnostic enriches a failed pull of a named build with what IS
+// published (D14 keeps `published` as a diagnostic surface; the happy path
+// makes no enumeration round-trip). Enumeration runs only here — lazily, on
+// failure. The published list is scoped to the subscription key's major
+// (enumerateVersions' documented scoping). When enumeration itself fails, or
+// the named build IS in the list (the pull failed for another reason), the
+// original pull error stands alone.
+func pullFailureDiagnostic(ctx context.Context, env []string, sub, ver string, pullErr error) error {
+	published, enumErr := enumerateVersions(ctx, env, sub)
+	if enumErr != nil {
+		return pullErr
+	}
+	if !slices.Contains(published, "v"+ver) {
+		return fmt.Errorf("named build \"v%s\" is not published; published in this major: %v: %w", ver, published, pullErr)
+	}
+	return pullErr
 }

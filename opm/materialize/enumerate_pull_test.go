@@ -2,6 +2,7 @@ package materialize
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -13,14 +14,14 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// TestEnumerate_MajorSuffixScopesSelection locks the fourth address-seam
-// adaptation (library-core-retarget): a major-suffixed subscription key scopes
-// enumeration — and therefore the no-filter default selection — to its major,
-// while a major-free key keeps today's whole-repo behaviour. The published
-// list models the real catalogs/opm repo: stable v0 tags beside v1/v2
-// prereleases. Without scoping, a v2 key's no-filter default would select
-// stable v0.6.0 — a core-v0 catalog pulled into a v2 platform.
-func TestEnumerate_MajorSuffixScopesSelection(t *testing.T) {
+// TestEnumerate_MajorSuffixScopesDiagnosticList locks enumeration's
+// major-scoping in its post-D14 role: enumeration is DIAGNOSTIC-ONLY (it never
+// selects — the authored version! does), and the published list shown to the
+// user when a named build is missing is scoped to the subscription key's
+// major, so a v2 key's diagnostic never mixes in another line's versions. The
+// published set models the real catalogs/opm repo: stable v0 tags beside
+// v1/v2 prereleases.
+func TestEnumerate_MajorSuffixScopesDiagnosticList(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	var fixtures []registrytest.CatalogFixture
 	for _, v := range []string{"0.5.2", "0.6.0", "1.0.0-alpha.9", "2.0.0-alpha.1", "2.0.0-alpha.2"} {
@@ -31,24 +32,29 @@ func TestEnumerate_MajorSuffixScopesSelection(t *testing.T) {
 	registry := registrytest.NewCatalogRegistry(t, fixtures...)
 	env := resolverEnv(registry)
 
-	// A @v2 key enumerates only the v2 line; the no-filter default falls back
-	// to the highest alpha on the prerelease-only scope. Stable v0.6.0 is
-	// never a candidate.
+	// A @v2 key lists only the v2 line — stable v0.6.0 never appears in a v2
+	// subscription's diagnostic.
 	scoped, err := enumerateVersions(context.Background(), env, path+"@v2")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"v2.0.0-alpha.1", "v2.0.0-alpha.2"}, scoped, "@v2 key lists only v2 versions")
-	survivors, err := filterVersions(scoped, nil)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"v2.0.0-alpha.2"}, survivors, "no-filter default selects the highest v2 alpha")
 
-	// A major-free key keeps whole-repo enumeration and the stable default.
+	// A major-free key (core-v1 form) keeps whole-repo enumeration.
 	all, err := enumerateVersions(context.Background(), env, path)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"v0.5.2", "v0.6.0", "v1.0.0-alpha.9", "v2.0.0-alpha.1", "v2.0.0-alpha.2"}, all,
 		"major-free key lists every published version")
-	survivors, err = filterVersions(all, nil)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"v0.6.0"}, survivors, "no-filter default keeps selecting the highest stable")
+
+	// The wired diagnostic path: a missing named build reports the scoped
+	// list; a build present in the list leaves the pull error untouched.
+	pullErr := fmt.Errorf("module not found")
+	enriched := pullFailureDiagnostic(context.Background(), env, path+"@v2", "2.0.0-alpha.9", pullErr)
+	assert.ErrorIs(t, enriched, pullErr, "diagnostic wraps the original pull error")
+	assert.Contains(t, enriched.Error(), "not published")
+	assert.Contains(t, enriched.Error(), "v2.0.0-alpha.2", "diagnostic carries the major-scoped published list")
+	assert.NotContains(t, enriched.Error(), "v0.6.0", "another line's versions never appear")
+
+	same := pullFailureDiagnostic(context.Background(), env, path+"@v2", "2.0.0-alpha.2", pullErr)
+	assert.Equal(t, pullErr, same, "a published named build leaves the pull error unenriched")
 }
 
 // TestSpike_EnumeratePullRealCatalog de-risks the still-open item from

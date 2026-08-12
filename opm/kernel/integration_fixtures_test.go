@@ -61,9 +61,8 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 
 // subscribe builds a #registry body subscribing (enabled) to each path at
 // version. The map key carries the catalog's major (v2 #ModulePathType), and
-// the required scalar `version` names the build — the fixture registries
-// publish exactly one version per path, so the kernel's interim
-// highest-stable resolution selects the same build the scalar names.
+// the required scalar `version` names the exact build Materialize pulls
+// (0010 D14: the authored version IS the resolution).
 func subscribe(version string, paths ...string) string {
 	major, _, _ := strings.Cut(version, ".")
 	var b strings.Builder

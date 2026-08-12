@@ -26,9 +26,11 @@ func subKey(path, version string) string {
 	return path + "@v" + major
 }
 
-// 6.1 — happy path: a single enabled subscription. The highest published
-// version is pulled, #composedTransformers + #matchers are filled, and the
-// resolved version is recorded under the subscription key.
+// 6.1 — happy path: a single enabled subscription. The authored `version!` is
+// the selection (D14: the platform file IS the resolution) — a HIGHER version
+// is published alongside it and must NOT be chosen. #composedTransformers +
+// #matchers are filled and the authored version is recorded under the
+// subscription key: the assertion is contract, not coincidence.
 func TestMaterialize_HappyPath(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	registry := registrytest.NewCatalogRegistry(t,
@@ -38,19 +40,20 @@ func TestMaterialize_HappyPath(t *testing.T) {
 			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}, Traits: []string{"replicas"}})},
 	)
 	octx := cuecontext.New()
-	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.2.0"} }`, subKey(path, "0.2.0")))
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"} }`, subKey(path, "0.1.0")))
 
 	mp, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
 	require.NoError(t, err)
 
-	// Highest version (0.2.0) selected.
-	assert.Equal(t, "0.2.0", mp.Resolved[subKey(path, "0.2.0")])
+	// The authored version — not the highest published (0.2.0) — is resolved.
+	assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")])
 
 	// Composed transformer reachable on the native Transformers surface
-	// (implementation FQNs stay build-keyed under v2).
-	txFQN := path + "/transformers/deployment@0.2.0"
+	// (implementation FQNs stay build-keyed under v2), keyed by the authored
+	// build only.
+	txFQN := path + "/transformers/deployment@0.1.0"
 	composedKeys := composedFQNs(mp.Transformers)
-	assert.Equal(t, []string{txFQN}, composedKeys, "Transformers indexes the stamped FQN")
+	assert.Equal(t, []string{txFQN}, composedKeys, "Transformers indexes the stamped FQN of the authored build")
 
 	// Reverse index: resource contract FQN → transformer (contract FQNs are
 	// apiVersion-keyed under v2).
@@ -110,12 +113,102 @@ func composedFQNs(composed cue.Value) []string {
 	return keys
 }
 
-// NOTE (library-core-retarget): the platform-driven range/allow/deny and
-// prerelease-range tests were removed with the v2 retarget — core v2's
-// #Subscription carries a required scalar `version` and no `filter`, so those
-// platforms are no longer authorable. The Go-side filterVersions semantics
-// (which survive until the subscription-collapse slice deletes them) stay
-// pinned at the unit level in filter_test.go.
+// D14 — an authored version absent from the registry fails materialize, and
+// the error is enriched (lazy enumeration) with what IS published in the
+// key's major. Previously the float silently selected something else — that
+// silent divergence is the defect this change removes.
+func TestMaterialize_NamedVersionAbsent(t *testing.T) {
+	path := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: registrytest.BuildCatalog(path, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})},
+	)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.2.0"} }`, subKey(path, "0.2.0")))
+
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.Error(t, err)
+	var me *oerrors.MaterializeError
+	require.True(t, errors.As(err, &me), "absent named build surfaces as MaterializeError: %v", err)
+	assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
+	assert.Equal(t, subKey(path, "0.2.0"), me.Subscription)
+	assert.Equal(t, "0.2.0", me.Version)
+	assert.Contains(t, err.Error(), "not published", "error names the missing build")
+	assert.Contains(t, err.Error(), "v0.1.0", "error carries the published list")
+}
+
+// D14 — the named build must sit in the subscription key's major; a
+// disagreement fails before any registry I/O.
+func TestMaterialize_MajorDisagreement(t *testing.T) {
+	path := registrytest.UniquePath(t, "cat")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: registrytest.BuildCatalog(path, "0.1.0",
+			registrytest.TxFixture{Name: "deployment", Resources: []string{"container"}})},
+	)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "1.0.0"} }`, path+"@v0"))
+
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.Error(t, err)
+	var me *oerrors.MaterializeError
+	require.True(t, errors.As(err, &me), "major disagreement surfaces as MaterializeError: %v", err)
+	assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
+	assert.Equal(t, path+"@v0", me.Subscription)
+	assert.Equal(t, "1.0.0", me.Version)
+	assert.Contains(t, err.Error(), "outside the subscription key's major")
+}
+
+// D11/D9 — a pulled catalog whose metadata lies about its identity (here: a
+// stale metadata.version, the measured jellyfin defect class) is refused with
+// a typed IdentityError wrapped in the MaterializeError, reachable via
+// errors.As.
+func TestMaterialize_IdentityMismatch(t *testing.T) {
+	path := registrytest.UniquePath(t, "cat")
+	body := fmt.Sprintf("metadata: {\n\tmodulePath:  %q\n\tversion:     \"0.2.0\"\n\tdescription: \"stale version label\"\n}\n#transformers: {}\n", path+"@v0")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: body},
+	)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"} }`, subKey(path, "0.1.0")))
+
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.Error(t, err)
+
+	var me *oerrors.MaterializeError
+	require.True(t, errors.As(err, &me), "identity mismatch surfaces as MaterializeError: %v", err)
+	assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "IdentityError reachable through the MaterializeError wrap: %v", err)
+	assert.Equal(t, "catalog", ie.Artifact)
+	assert.Equal(t, "version", ie.Field)
+	assert.Equal(t, "0.2.0", ie.Declared)
+	assert.Equal(t, "0.1.0", ie.Fetched)
+}
+
+// D11 — a pulled catalog whose metadata declares a different modulePath than
+// the subscription key it was pulled by is refused with a typed IdentityError
+// (Field "path") wrapped in the MaterializeError.
+func TestMaterialize_IdentityPathMismatch(t *testing.T) {
+	path := registrytest.UniquePath(t, "cat")
+	other := registrytest.UniquePath(t, "other")
+	body := fmt.Sprintf("metadata: {\n\tmodulePath:  %q\n\tversion:     \"0.1.0\"\n\tdescription: \"wrong address\"\n}\n#transformers: {}\n", other+"@v0")
+	registry := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{Path: path, Version: "0.1.0", Body: body},
+	)
+	octx := cuecontext.New()
+	p := registrytest.BuildPlatform(t, octx, fmt.Sprintf(`{ %q: {enable: true, version: "0.1.0"} }`, subKey(path, "0.1.0")))
+
+	_, err := Materialize(context.Background(), registrytest.NewCtxOwner(octx), registry, p)
+	require.Error(t, err)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "IdentityError reachable through the MaterializeError wrap: %v", err)
+	assert.Equal(t, "catalog", ie.Artifact)
+	assert.Equal(t, "path", ie.Field)
+	assert.Equal(t, other+"@v0", ie.Declared)
+	assert.Equal(t, subKey(path, "0.1.0"), ie.Fetched)
+}
 
 // 6.3a — divergent same-FQN bodies across two catalogs surface as a
 // MaterializeError.
