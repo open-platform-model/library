@@ -89,7 +89,7 @@ Read these on entry:
 
 ```text
 opm/
-  apiversion/                 Version type + Detect(cue.Value) reads apiVersion off any artifact
+  compat/                     Publish-side catalog compatibility: D27 comparison walk, D34 level ladder, predecessor selection, D30 provenance strip (pure, no I/O)
   core/                       Platform-neutral primitives: Compiled, Resource, Identity
   errors/                     Sentinels + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
