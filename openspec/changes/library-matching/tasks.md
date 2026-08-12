@@ -48,5 +48,5 @@
 
 ## 8. Verify & record
 
-- [ ] 8.1 `task check` clean; GHCR flow test forced.
-- [ ] 8.2 Record back in `enhancements/0010/`: slice → `done` + history event; note the catalog follow-on (duplicate `metadata.labels` droppable from catalog primitives once this ships; component-side labels stay for render reads) and the unlanded `opm.opmodel.dev/workload-type` rename for the catalog repo.
+- [x] 8.1 `task check` clean; GHCR flow test forced.
+- [x] 8.2 Record back in `enhancements/0010/`: slice → `done` + history event; note the catalog follow-on (duplicate `metadata.labels` droppable from catalog primitives once this ships; component-side labels stay for render reads) and the unlanded `opm.opmodel.dev/workload-type` rename for the catalog repo.
