@@ -332,8 +332,9 @@ tasks:
           catalog's line until library-acquire-and-subscription makes the pin
           load-bearing kernel-side.
 
-      "Latest" mirrors the kernel's own selection rule (materialize/filter.go
-      highestStable): the highest stable tag within the major; when the line
+      "Latest" mirrors the kernel's own selection rule (opm/compat/predecessor.go
+      HighestStable, called by materialize's filterVersions): the highest
+      stable tag within the major; when the line
       is prerelease-only (the v2 line until 0010's catalogs-republish), the
       highest prerelease. CI -0.dev.* snapshot tags are always ignored.
       Exits non-zero on drift. Remediate with `task cue:deps:update` (dep
@@ -372,8 +373,8 @@ tasks:
         fi
 
         # latest_on_line MAJOR — the newest tag within one major line,
-        # mirroring the kernel's selection rule (materialize/filter.go
-        # highestStable): highest stable if any exists, else highest
+        # mirroring the kernel's selection rule (opm/compat/predecessor.go
+        # HighestStable): highest stable if any exists, else highest
         # prerelease. CI -0.dev.* snapshot tags never count.
         latest_on_line() {
           local major="$1" line stable

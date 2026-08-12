@@ -298,7 +298,7 @@ Standard Go grouping with blank lines between groups: stdlib → external (incl.
 
 ### Commit style
 
-Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `provider`, `render`, `kernel`, `errors` (plus `api`, `apiversion`, `compile`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
+Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `compat`, `compile`, `materialize`, `platform`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
 
 **Commit attribution: NONE.** Never add `Co-Authored-By: Claude`, a `Claude-Session:` trailer, a claude.ai session URL, or a "Generated with …" footer to a commit or PR. See the Attribution section below.
 

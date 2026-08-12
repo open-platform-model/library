@@ -123,7 +123,7 @@ func StripProvenance(v cue.Value) (cue.Value, error)
 
 ### Edge coverage beyond the 14 cases
 
-The experiment dispatches on `StructKind` vs leaf. The shipped tests MUST additionally cover: list values at a leaf, a disjunction of structs (walked as leaf — forward subsume; a case documenting the consequence), hidden fields (excluded — `cue.All()` does not include them; documented), and closedness preservation through `StripProvenance` (both spec-body styles, per experiment 03's finding 1).
+The experiment dispatches on `StructKind` vs leaf. The shipped tests MUST additionally cover: list values at a leaf, a disjunction of structs (walked as leaf — forward subsume; a case documenting the consequence), hidden fields (excluded — measured during implementation: `cue.All()` *does* include them in iteration, contrary to this design's original claim, so the walk skips `HiddenLabel` selectors explicitly; documented), and closedness preservation through `StripProvenance` (both spec-body styles, per experiment 03's finding 1). Two further measured facts, pinned by test: open-list element narrowing (`[...string]` → `[...int]`) is invisible to CUE subsumption under every option combination in v0.17.1 (only fixed-length list narrowing reports), and a pure default change reports twice at one path (`default changed` + `domain narrowed`) because the leaf subsume stays raw/default-sensitive to catch a domain narrowed to its own prior default.
 
 ### Known deferrals (owned by cli-catalog-gates)
 
