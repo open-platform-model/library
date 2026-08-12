@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -293,6 +294,152 @@ type: "kubernetes"
 	require.True(t, errors.As(plan.Unify[0].Cause, &cueErr),
 		"UnifyError.Cause must be walkable to a CUE error")
 	assert.Contains(t, plan.Unify[0].Cause.Error(), "conflicting values")
+}
+
+// unifyRungPlatform builds a one-transformer platform whose required body for
+// the container FQN is spliced in verbatim — the harness for the D30 strip
+// tests below.
+func unifyRungPlatform(t *testing.T, ctx *cue.Context, requiredBody string) *materialize.MaterializedPlatform {
+	t.Helper()
+	pv := ctx.CompileString(`
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+`+requiredBody+`
+#composedTransformers: {
+	"example.com/p/c@v0": {
+		metadata: { fqn: "example.com/p/c@v0" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/container@v1": #RequiredContainer }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"example.com/r/container@v1": [#composedTransformers["example.com/p/c@v0"]]
+	}
+	traits: {}
+}
+`, cue.Filename("platform_fixture.cue"))
+	require.NoError(t, pv.Err())
+	plat := &platform.Platform{
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
+	}
+	return &materialize.MaterializedPlatform{
+		Source:       plat,
+		Transformers: pv.LookupPath(schema.ComposedTransformers),
+		Matchers:     pv.LookupPath(schema.Matchers),
+	}
+}
+
+// unifyRungComponents builds the single-component demand side for the D30
+// strip tests, with the container body spliced in verbatim.
+func unifyRungComponents(t *testing.T, ctx *cue.Context, componentBody string) cue.Value {
+	t.Helper()
+	components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/container@v1": `+componentBody+` }
+}
+`, cue.Filename("component_fixture.cue"))
+	require.NoError(t, components.Err())
+	return components
+}
+
+// TestMatch_ProvenanceDivergenceUnifiesClean covers D26/D30: the demanded and
+// required definitions differ ONLY in metadata.catalogVersion and
+// metadata.description — provenance that diverges across catalog builds by
+// construction. The rung excludes exactly those fields' diagnostics from the
+// verdict, so it records no unify error and the pair matches.
+func TestMatch_ProvenanceDivergenceUnifiesClean(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0", description: "newer build" }, spec: { image: string } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0", description: "older build" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	assert.Empty(t, plan.Unify, "provenance-only divergence must not fail the rung")
+	require.Len(t, plan.MatchedPairs(), 1)
+}
+
+// TestMatch_SubstantiveDivergenceStillRefused covers the other half of D30:
+// with provenance also diverging, a genuine spec divergence still raises a
+// UnifyError — the exclusion covers exactly the denylist, nothing else.
+func TestMatch_SubstantiveDivergenceStillRefused(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1, "spec divergence must survive the provenance exclusion")
+	assert.Equal(t, "web", plan.Unify[0].Component)
+	assert.Equal(t, "example.com/r/container@v1", plan.Unify[0].FQN)
+	assert.Empty(t, plan.MatchedPairs())
+	assert.NotContains(t, plan.Unify[0].Cause.Error(), "catalogVersion",
+		"provenance diagnostics are excluded from the recorded cause")
+}
+
+// TestMatch_ClosedDefinitionRetained covers D27 enforcement at the rung: the
+// required side is a CLOSED definition; the module sets a field the
+// definition closes out. The exclusion touches only provenance-located
+// diagnostics, so the closedness refusal survives.
+func TestMatch_ClosedDefinitionRetained(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0", description: "d" }, spec: { image: string } }`)
+	// The module-set field is one the definition closes out, beside a
+	// metadata block the strip must reach.
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0", description: "d" }, spec: { image: "nginx", extra: "boom" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1, "closed definition must still refuse the extra field")
+	assert.Equal(t, "example.com/r/container@v1", plan.Unify[0].FQN)
+	assert.Contains(t, plan.Unify[0].Cause.Error(), "not allowed")
+}
+
+// TestMatch_UnifyErrorKeepsFieldsAndPositions pins the rung's diagnostic
+// surface: UnifyError's structural fields (Component, FQN) are the routing
+// surface, and — because the D30 exclusion operates on the verdict rather
+// than round-tripping the operands — the surviving CUE cause keeps its
+// document positions.
+func TestMatch_UnifyErrorKeepsFieldsAndPositions(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1)
+
+	ue := plan.Unify[0]
+	assert.Equal(t, "web", ue.Component, "structural component field survives")
+	assert.Equal(t, "example.com/r/container@v1", ue.FQN, "structural FQN field survives")
+
+	var cueErr cueerrors.Error
+	require.True(t, errors.As(ue.Cause, &cueErr), "CUE cause stays walkable")
+	filenames := map[string]bool{}
+	for _, e := range cueerrors.Errors(cueErr) {
+		positions := append([]token.Pos{e.Position()}, e.InputPositions()...)
+		for _, pos := range positions {
+			if pos.IsValid() {
+				filenames[pos.Filename()] = true
+			}
+		}
+	}
+	assert.Contains(t, filenames, "component_fixture.cue",
+		"the surviving cause keeps document positions (no operand round-trip)")
 }
 
 // TestMatch_AbsentFQNRecordsMissingWithAlternatives covers the lookup rung: a

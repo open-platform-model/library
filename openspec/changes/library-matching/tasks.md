@@ -13,9 +13,11 @@
 
 ## 2. The load-bearing unify rung (D26/D30/D27)
 
-- [ ] 2.1 `compile/match.go`: strip both operands via `compat.StripProvenance` — component value once per component, required-side once per transformer FQN (memoised beside the unify-verdict cache).
-- [ ] 2.2 Tests: two fixtures differing only in `catalogVersion`/`description` unify clean; a genuine spec divergence still raises `UnifyError`; closed-definition retention (module sets a field the definition closes out → still refused post-strip).
-- [ ] 2.3 Assert the D30 cost knowingly: one test pins that `UnifyError.{Component,FQN}` survive while the message carries no file position.
+> Mechanism revised at implementation (see design): `compat.StripProvenance` cannot rebuild kernel-side operands, so the rung excludes provenance-located diagnostics from the unify verdict instead of stripping the operands.
+
+- [x] 2.1 `compile/match.go`: exclude diagnostics at `metadata.catalogVersion`/`metadata.description` (any metadata block) from the unify verdict and the recorded cause (`excludeProvenance`); no operand round-trip, no memoisation needed.
+- [x] 2.2 Tests: two fixtures differing only in `catalogVersion`/`description` unify clean; a genuine spec divergence still raises `UnifyError` (with provenance conflicts absent from the cause); closed-definition retention (module sets a field the definition closes out → still refused).
+- [x] 2.3 Pin the diagnostic surface: `UnifyError.{Component,FQN}` survive and — cost reversal vs D30's strip — surviving causes keep document positions.
 
 ## 3. Demand resolution (D28 + D4 diagnostics)
 

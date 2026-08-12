@@ -23,7 +23,7 @@ The matcher SHALL build a component's label set from the component's `matchLabel
 
 ### Requirement: Always-Unify Before Pairing
 
-The matcher SHALL, before testing the predicate, unify the component's demanded definition with the candidate's required definition for every intersecting contract key, validating without requiring concreteness, and record a typed unify error for any divergence. Both operands SHALL first be stripped of exactly the provenance denylist — `metadata.catalogVersion` and `metadata.description` — via the shared provenance strip, with the strip reaching definitions as well as instances and preserving closedness; the closed definition SHALL remain in the comparison. Identity fields and labels remain compared. Unify diagnostics after the strip carry no document position; the typed error's structural fields (component, contract key) are the routing surface.
+The matcher SHALL, before testing the predicate, unify the component's demanded definition with the candidate's required definition for every intersecting contract key, validating without requiring concreteness, and record a typed unify error for any divergence. Diagnostics located at exactly the provenance denylist — `metadata.catalogVersion` and `metadata.description`, directly under any `metadata` block — SHALL be excluded from the verdict and from the recorded cause; the closed definition SHALL remain in the comparison. Identity fields and labels remain compared. The typed error's structural fields (component, contract key) are the routing surface; surviving diagnostics keep their document positions.
 
 #### Scenario: Provenance divergence does not fail unification
 

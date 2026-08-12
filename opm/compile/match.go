@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
+	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/Masterminds/semver/v3"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
@@ -227,9 +228,14 @@ func bucketTransformers(matchersIndex cue.Value, fqn string) ([]cue.Value, bool)
 // runUnify is the always-unify rung. It unifies the component's primitive
 // bodies against the candidate transformer's required primitive bodies for
 // every FQN present in BOTH sides — the full intersection, per D1, not only the
-// FQN that triggered the bucket lookup. A conflict appends an oerrors.UnifyError
-// carrying the verbatim CUE cause and returns false, so the caller skips
-// predicate evaluation for the candidate.
+// FQN that triggered the bucket lookup. Diagnostics located at the D30
+// provenance denylist (metadata.catalogVersion, metadata.description, in any
+// metadata block) are excluded from the verdict — cross-build provenance
+// diverges by construction and must not fail the rung; everything else,
+// including closedness refusals from the closed definition (D27), still
+// disqualifies. A conflict appends an oerrors.UnifyError carrying the
+// surviving CUE cause and returns false, so the caller skips predicate
+// evaluation for the candidate.
 func runUnify(plan *MatchPlan, compName string, compVal, cand cue.Value) bool {
 	// Evaluate both intersections (no short-circuit) so every conflicting FQN
 	// is recorded, then combine the verdicts.
@@ -245,8 +251,9 @@ func runUnify(plan *MatchPlan, compName string, compVal, cand cue.Value) bool {
 // unifyIntersection unifies have[FQN] against required[FQN] for each FQN in
 // required that is also present in have. Validation uses cue.Concrete(false):
 // matching happens pre-render on schema bodies, so structural agreement (not
-// fully-concrete values) is the correct bar (Q3). Returns false if any FQN
-// conflicts, recording one UnifyError per conflict.
+// fully-concrete values) is the correct bar (Q3). Diagnostics at provenance
+// paths are excluded from the verdict (D30, see excludeProvenance). Returns
+// false if any FQN conflicts, recording one UnifyError per conflict.
 func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Value) bool {
 	if !required.Exists() {
 		return true
@@ -265,15 +272,65 @@ func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Valu
 			continue
 		}
 		if vErr := cv.Unify(iter.Value()).Validate(cue.Concrete(false)); vErr != nil {
+			cause := excludeProvenance(vErr)
+			if cause == nil {
+				// Provenance-only divergence — not a conflict (D26/D30).
+				continue
+			}
 			plan.Unify = append(plan.Unify, oerrors.UnifyError{
 				Component: compName,
 				FQN:       fqn,
-				Cause:     vErr,
+				Cause:     cause,
 			})
 			ok = false
 		}
 	}
 	return ok
+}
+
+// excludeProvenance implements the rung's D30 exclusion: it drops every CUE
+// diagnostic located at a metadata block's catalogVersion or description —
+// provenance that changes per catalog release by construction (D25), so a
+// definition and an instance from different builds always disagree there —
+// and returns the surviving cause, or nil when every diagnostic was
+// provenance-only.
+//
+// The exclusion operates on the unify VERDICT rather than on the operands:
+// compat.StripProvenance's syntax round-trip (the publish-side mechanism)
+// cannot rebuild kernel-side schema-derived operands — their export carries
+// let-bound references to core helper definitions that InlineImports cannot
+// make self-contained — and every export profile that does rebuild them
+// (Eval, Final) opens closed definitions, which would silently void the D27
+// closed-definition comparison. Excluding provenance-located diagnostics from
+// the verdict is equivalent under D25 (nothing derives from the denylisted
+// fields) and keeps both closedness and document positions.
+func excludeProvenance(vErr error) error {
+	var kept []cueerrors.Error
+	for _, e := range cueerrors.Errors(vErr) {
+		if isProvenancePath(e.Path()) {
+			continue
+		}
+		kept = append(kept, e)
+	}
+	if len(kept) == 0 {
+		return nil
+	}
+	var out cueerrors.Error
+	for _, e := range kept {
+		out = cueerrors.Append(out, e)
+	}
+	return out
+}
+
+// isProvenancePath reports whether a diagnostic path names a D30-denylisted
+// field directly under a metadata block — the "every metadata block" literal
+// rule, at any depth.
+func isProvenancePath(p []string) bool {
+	n := len(p)
+	if n < 2 || p[n-2] != "metadata" {
+		return false
+	}
+	return p[n-1] == "catalogVersion" || p[n-1] == "description"
 }
 
 // alternativesFor walks the matchers index keys (the primitive-FQN universe the
