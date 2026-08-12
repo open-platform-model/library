@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	registry "github.com/open-platform-model/library/opm/helper/loader/registry"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
@@ -102,6 +103,99 @@ func TestLoadModulePackage_MissingRequiredField(t *testing.T) {
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, loaderfile.ErrMissingRequiredField), "want ErrMissingRequiredField, got %v", err)
+}
+
+// D11 — a module whose metadata declares a different modulePath than the one
+// it was fetched by is rejected with a typed IdentityError naming both values.
+func TestLoadModulePackage_IdentityPathMismatch(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	otherPath := base + "/other@v0"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + otherPath + "\", version: \"0.0.1\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, err := registry.LoadModulePackage(
+		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
+		registry.LoadOptions{Registry: reg})
+	require.Error(t, err)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
+	assert.Equal(t, "module", ie.Artifact)
+	assert.Equal(t, "path", ie.Field)
+	assert.Equal(t, otherPath, ie.Declared)
+	assert.Equal(t, modPath+"@v0", ie.Fetched)
+}
+
+// D11, older-line carve-out — a core-v0/v1-shaped module declares the
+// major-free PARENT path (the enhancements/0003 publishing convention; the
+// v0/v1 schema cannot express the major-suffixed form). The identity check
+// verifies the convention instead of full-path equality, preserving the
+// "Self-referential core@v0 metadata is preserved" scenario.
+func TestLoadModulePackage_IdentityMajorFreeParentPath(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + base + "\", version: \"0.0.1\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, err := registry.LoadModulePackage(
+		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
+		registry.LoadOptions{Registry: reg})
+	require.NoError(t, err, "major-free parent-path declaration must satisfy the identity check")
+}
+
+// D11, older-line carve-out — a major-free declaration that is NOT the fetched
+// path's parent is still a lie and is refused.
+func TestLoadModulePackage_IdentityMajorFreeParentMismatch(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + base + "/elsewhere\", version: \"0.0.1\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, err := registry.LoadModulePackage(
+		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
+		registry.LoadOptions{Registry: reg})
+	require.Error(t, err)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
+	assert.Equal(t, "path", ie.Field)
+	assert.Equal(t, base+"/elsewhere", ie.Declared)
+	assert.Equal(t, modPath+"@v0", ie.Fetched)
+}
+
+// D9 — a module whose metadata declares a different version than the tag it
+// was fetched by is rejected with a typed IdentityError naming both values
+// (the "three published jellyfin artifacts carried one label value" defect).
+func TestLoadModulePackage_IdentityVersionMismatch(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"9.9.9\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, err := registry.LoadModulePackage(
+		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
+		registry.LoadOptions{Registry: reg})
+	require.Error(t, err)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
+	assert.Equal(t, "module", ie.Artifact)
+	assert.Equal(t, "version", ie.Field)
+	assert.Equal(t, "9.9.9", ie.Declared)
+	assert.Equal(t, "0.0.1", ie.Fetched)
 }
 
 // 5.4 — an unresolvable path@version surfaces a wrapped fetch/load error

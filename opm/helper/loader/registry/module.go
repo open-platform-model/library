@@ -18,6 +18,7 @@ import (
 	"cuelang.org/go/mod/modconfig"
 	"cuelang.org/go/mod/module"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
 	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
 )
@@ -139,7 +140,88 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 		return StagedSource{}, fmt.Errorf("validating module package %s: %w", mv, err)
 	}
 
+	if err := verifyModuleIdentity(val, modPath, version); err != nil {
+		return StagedSource{}, err
+	}
+
 	return StagedSource{Value: val, Root: synthRoot, Overlay: overlay}, nil
+}
+
+// verifyModuleIdentity compares the acquired module's declared identity
+// against the coordinate it was fetched by (0010 D11; version clause D9): the
+// declared metadata.modulePath must agree with the requested major-qualified
+// path, and the declared metadata.version must equal the fetched tag with the
+// `v` prefix stripped. The shape gate has already guaranteed both fields
+// present and concrete (shape.ModuleSpec.RequiredConcreteFields), so the check
+// cannot misfire on absence. A mismatch returns a bare oerrors.IdentityError
+// naming both values. Sitting after the gate in LoadModulePackageWithSource,
+// the one insertion covers LoadModulePackage and every caller above it
+// (Kernel.AcquireModuleFromRegistry, CLI, operator) — D11's one implementation.
+//
+// The path clause is verified per the metadata's own core line. A core-v2
+// module declares the full major-suffixed path — strict string equality with
+// the fetched path. A core-v0/v1 module CANNOT express that form: its
+// metadata.modulePath is the major-free parent path the module is published
+// under (metadata.modulePath + "/" + snake_case(name) — the enhancements/0003
+// convention, preserved by the "Self-referential core@v0 metadata" spec
+// scenario), so for a major-free declaration the fetched path must sit
+// directly under the declared parent.
+func verifyModuleIdentity(val cue.Value, modPath, version string) error {
+	coordinate := modPath + " " + version
+
+	declaredPath, err := val.LookupPath(cue.ParsePath("metadata.modulePath")).String()
+	if err != nil {
+		return fmt.Errorf("reading metadata.modulePath of %s: %w", coordinate, err)
+	}
+	pathAgrees := declaredPath == modPath
+	if !strings.Contains(declaredPath, "@") {
+		// Major-free declaration (v0/v1 metadata shape): verify the
+		// publishing convention instead of full-path equality.
+		pathAgrees = declaredPath == parentPath(modPath)
+	}
+	if !pathAgrees {
+		return oerrors.IdentityError{
+			Artifact:   "module",
+			Field:      "path",
+			Declared:   declaredPath,
+			Fetched:    modPath,
+			Coordinate: coordinate,
+		}
+	}
+
+	declaredVersion, err := val.LookupPath(cue.ParsePath("metadata.version")).String()
+	if err != nil {
+		return fmt.Errorf("reading metadata.version of %s: %w", coordinate, err)
+	}
+	if fetched := strings.TrimPrefix(version, "v"); declaredVersion != fetched {
+		return oerrors.IdentityError{
+			Artifact:   "module",
+			Field:      "version",
+			Declared:   declaredVersion,
+			Fetched:    fetched,
+			Coordinate: coordinate,
+		}
+	}
+
+	return nil
+}
+
+// parentPath returns the major-free parent of a major-qualified module path:
+// "example.com/modules/hello@v0" → "example.com/modules". It is the inverse of
+// the enhancements/0003 publishing convention (module published at
+// metadata.modulePath + "/" + snake_case(name)) used to verify a core-v0/v1
+// module's major-free metadata.modulePath. A path with no parent segment
+// returns "" (which can never equal a non-empty declared path).
+func parentPath(modPath string) string {
+	base := modPath
+	if i := strings.LastIndex(base, "@"); i >= 0 {
+		base = base[:i]
+	}
+	i := strings.LastIndex(base, "/")
+	if i < 0 {
+		return ""
+	}
+	return base[:i]
 }
 
 // registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if
