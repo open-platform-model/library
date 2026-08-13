@@ -155,7 +155,6 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 				})
 				return out
 			}
-			out.hadCandidates = true
 			for _, cand := range candidates {
 				tfFQN, ferr := cand.LookupPath(schema.MetadataFQN).String()
 				if ferr != nil {
@@ -246,14 +245,12 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 }
 
 // demandOutcome is walk's per-demand verdict, feeding D28's resolution rules.
+// The empty-bucket / all-disqualified distinction (states (a)/(b)) is carried
+// by disqualified and the parallel MissingFQN record, not by a separate flag.
 type demandOutcome struct {
 	// satisfied: some candidate in the demand's bucket survived unify and
 	// predicate (it paired, or was already paired via another demand).
 	satisfied bool
-
-	// hadCandidates: the bucket existed and was non-empty (state (b) when
-	// nothing satisfied, state (a) otherwise).
-	hadCandidates bool
 
 	// disqualified carries the unify causes of candidates that fell out.
 	disqualified []oerrors.UnifyError
