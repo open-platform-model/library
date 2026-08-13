@@ -48,17 +48,6 @@ For each demanded FQN, the matcher SHALL look up the FQN in the materialized pla
 - **THEN** the matcher records one `MissingFQN` entry on the `MatchPlan` for that `(release, component, fqn)` triple
 - **AND** the matcher continues processing the remaining demanded FQNs (no fail-fast)
 
-### Requirement: Defensive Ambiguity Handling
-
-If a `Platform.#matchers.resources[FQN]` or `Platform.#matchers.traits[FQN]` lookup returns more than one candidate (which catalog 014 D13 forbids at the platform layer), the matcher SHALL flag the FQN as ambiguous and not pair the component with any candidate.
-
-#### Scenario: Multi-candidate FQN
-
-- **WHEN** a Platform somehow produces a list of two or more candidates for a single FQN
-- **THEN** the matcher does not select a winner
-- **AND** the FQN appears as ambiguous in the `MatchPlan`
-- **AND** an error or warning explains the violation of catalog 014 D13
-
 ### Requirement: Execute Resolves Transformers by FQN
 
 The Execute phase SHALL resolve each matched pair's transformer by looking up the transformer's FQN in `Platform.#composedTransformers` via the binding's `Paths().ComposedTransformers` constant.
@@ -106,38 +95,31 @@ Every test fixture that constructed `*provider.Provider` SHALL be migrated to co
 
 ### Requirement: Always-Unify Before Pairing
 
-Before pairing a candidate transformer with a component, the matcher SHALL unify the component's primitive value with the transformer's required primitive value for every FQN present in BOTH `component.#resources` and `transformer.requiredResources` (and the analogous `#traits` / `requiredTraits` intersection), not only the FQN that triggered the bucket lookup. A unification failure SHALL prevent the pairing and SHALL be recorded as a `UnifyError`.
+The matcher SHALL, before testing the predicate, unify the component's demanded definition with the candidate's required definition for every intersecting contract key, validating without requiring concreteness, and record a typed unify error for any divergence. Diagnostics located at exactly the provenance denylist — `metadata.catalogVersion` and `metadata.description`, directly under any `metadata` block — SHALL be excluded from the verdict and from the recorded cause; the closed definition SHALL remain in the comparison. Identity fields and labels remain compared. The typed error's structural fields (component, contract key) are the routing surface; surviving diagnostics keep their document positions.
 
-#### Scenario: Bodies agree
+#### Scenario: Provenance divergence does not fail unification
 
-- **WHEN** a component's resource at `<fqn>` unifies cleanly with the transformer's `requiredResources[<fqn>]`
-- **THEN** the matcher proceeds to predicate evaluation for that candidate
+- **WHEN** the demanded and required definitions differ only in `metadata.catalogVersion` or `metadata.description`
+- **THEN** the rung records no unify error
 
-#### Scenario: Bodies diverge
+#### Scenario: Substantive divergence still refused
 
-- **WHEN** a component's resource at `<fqn>` conflicts with the transformer's `requiredResources[<fqn>]`
-- **THEN** the matcher records a `UnifyError` for that `(component, fqn)`
-- **AND** does not pair the candidate transformer
-
-#### Scenario: Second required primitive diverges
-
-- **WHEN** a transformer requires both `<fqn-A>` and `<fqn-B>`, and the component agrees on `<fqn-A>` but conflicts on `<fqn-B>`
-- **THEN** a `UnifyError` is recorded for `<fqn-B>`
-- **AND** the pairing is rejected
+- **WHEN** the two definitions disagree on a `spec` field's domain
+- **THEN** a typed unify error is recorded naming the component and contract key
 
 ### Requirement: Structured Missing-FQN Diagnostic
 
-A missing FQN SHALL be reported as a structured `MissingFQN` value carrying the release name, component name, the missing FQN, and a list of alternative FQNs sharing the same `modulePath`/`name` at other SemVers materialized on the platform. `Match` SHALL accumulate every miss in one pass and expose them on the `MatchPlan`.
+A missing FQN SHALL be reported as a structured `MissingFQN` value carrying the instance name, component name, the missing FQN, and a list of alternative FQNs sharing the same `modulePath`/`name` at other versions materialized on the platform, ordered by the total contract-key comparator (see Alternatives Ordering). `Match` SHALL accumulate every miss in one pass and expose them on the `MatchPlan`. The `MissingFQN` record is retained for compatibility; the load-bearing diagnosis is the unresolved-demand set.
 
 #### Scenario: Alternatives surfaced
 
-- **WHEN** a component demands `<path>/<name>@1.0.0` which is absent, but the platform materialized `<path>/<name>@1.1.0`
-- **THEN** the `MissingFQN.Alternatives` for that miss contains `<path>/<name>@1.1.0`
+- **WHEN** a component demands `<path>/<name>@v9` which is absent, but the platform materialized `<path>/<name>@v1`
+- **THEN** the `MissingFQN.Alternatives` for that miss contains `<path>/<name>@v1`
 
 #### Scenario: Multiple misses accumulated
 
 - **WHEN** two components each demand a different absent FQN
-- **THEN** the `MatchPlan` carries two `MissingFQN` entries, one per `(release, component, fqn)`
+- **THEN** the `MatchPlan` carries two `MissingFQN` entries, one per `(instance, component, fqn)`
 
 ### Requirement: Structured Unify-Error Diagnostic
 
@@ -149,3 +131,68 @@ A unification failure SHALL be reported as a structured `UnifyError` carrying th
 - **THEN** the `UnifyError.Cause` is the CUE error reporting `conflicting values` with `file:line` positions, unmodified
 - **AND** it is reachable via `errors.As` for `cuelang.org/go/cue/errors.Error`
 
+### Requirement: Label Predicate
+
+The matcher SHALL build a component's label set from the component's `matchLabels` field — the derived union of its attached primitives' matching keys — and SHALL test each candidate transformer's `requiredLabels` against that set. The matcher SHALL NOT read `metadata.labels` for matching; descriptive labels remain readable by non-matching consumers (component summaries, the transformer render context), whose reads are unchanged.
+
+#### Scenario: matchLabels satisfies requiredLabels
+
+- **WHEN** a component's attached primitives contribute `matchLabels` satisfying a candidate's `requiredLabels`
+- **THEN** the candidate pairs
+
+#### Scenario: Descriptive labels alone do not match
+
+- **WHEN** a component carries a key only in `metadata.labels` and a candidate requires it
+- **THEN** the candidate does not pair on that key
+
+#### Scenario: Render context unchanged
+
+- **WHEN** a transformer executes
+- **THEN** its context's component metadata still carries `metadata.labels`, not `matchLabels`
+
+### Requirement: Alternatives Ordering
+
+Diagnostic alternatives (contract keys sharing a base with an unresolved demand) SHALL be ordered by a total, transitive comparator over the `vNalphaM | vNbetaM | vN` apiVersion ladder. The ordering SHALL be identical regardless of input order.
+
+#### Scenario: Pathological triple sorts stably
+
+- **WHEN** alternatives carry apiVersions `v1alpha1`, `v2`, and `v10`
+- **THEN** the reported order is the same for every input permutation
+
+### Requirement: Unresolved Demand Failure
+
+Every resource a component declares is a required demand. A demanded resource for which the platform's matcher index holds no candidate, or for which every candidate is disqualified (by unification or by predicate), SHALL be reported as a typed unresolved-demand diagnostic carrying the component, the contract key, the same-base alternatives the platform does implement, and — when candidates existed — the per-candidate disqualification causes. The plan phase SHALL return the full diagnosis; the plan-for-execution and compile phases SHALL fail on any unresolved demand through a typed aggregate error. The diagnostic SHALL distinguish "nothing on this platform implements this contract" (no alternatives) from "implemented at a different apiVersion" (alternatives listed).
+
+#### Scenario: Undemandable resource fails compile
+
+- **WHEN** a component demands a resource contract no subscribed catalog provides
+- **THEN** compile fails with an unresolved-demand error naming the component and key with no alternatives
+
+#### Scenario: Different apiVersion named
+
+- **WHEN** the platform implements the same contract base at a different apiVersion only
+- **THEN** the unresolved-demand error lists those keys as alternatives
+
+#### Scenario: All candidates disqualified is fatal
+
+- **WHEN** candidates exist but every one fails unification or the predicate
+- **THEN** compile fails with an unresolved-demand error carrying the disqualification causes
+
+### Requirement: Trait Posture
+
+An unhandled trait's effect SHALL be governed by its effective `optional` value read from the component's trait attachment (the declaring catalog's default unified with any attachment-site override): effectively optional degrades to a warning; effectively load-bearing fails exactly as an unresolved resource. A non-concrete `optional` — a catalog that states no posture — SHALL fail closed, treated as load-bearing, with a diagnostic naming the unstated posture.
+
+#### Scenario: Optional trait warns
+
+- **WHEN** an unhandled trait's effective `optional` is true
+- **THEN** the render proceeds and the trait is reported as a warning
+
+#### Scenario: Load-bearing trait fails
+
+- **WHEN** an unhandled trait's effective `optional` is false
+- **THEN** compile fails with an unresolved-demand error for the trait
+
+#### Scenario: Unstated posture fails closed
+
+- **WHEN** a trait's `optional` is not concrete
+- **THEN** the trait is treated as load-bearing and the diagnostic names the unstated posture
