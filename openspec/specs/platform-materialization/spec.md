@@ -5,92 +5,43 @@ TBD - created by archiving change add-platform-materialize. Update Purpose after
 ## Requirements
 ### Requirement: Subscription Resolution
 
-The Materialize operation SHALL walk the platform `#registry` (path-keyed `[#ModulePathType]: #Subscription`) and, for each subscription with `enable: true`, resolve the catalog builds selected by its filter against the configured OCI registry. A subscription with `enable: false` SHALL be skipped and contribute no transformers.
+The Materialize operation SHALL walk the platform `#registry` (path-keyed `[#ModulePathType]: #Subscription`) and, for each subscription with `enable: true`, pull exactly the build named by the subscription's required scalar `version`. A subscription with `enable: false` SHALL be skipped and contribute no transformers. Resolution SHALL be a pure function of committed source: no range solving, no allow/deny arbitration, no highest-stable default, no maturity inference — a prerelease is selected by being written down.
 
-A subscription key MAY carry a major suffix (`path@vN`, the core-v2 `#ModulePathType` form). A major-suffixed key SHALL scope every step of resolution — version enumeration, filtering, and selection — to published versions within major `N`, and the suffix SHALL be split off before the key participates in load-instance composition (a `path@vN@vX.Y.Z` load ID is invalid). A major-free key SHALL resolve against the path's full published version list, exactly as before this change.
+Before any registry I/O, the named version's SemVer major SHALL be checked against the subscription key's `@vN` suffix; disagreement SHALL fail that subscription with a typed error. A subscription key without a major suffix SHALL be an error.
 
-An enabled subscription with no `filter` SHALL select the highest published **stable** (non-pre-release) SemVer within its resolution scope. Pre-release versions (those carrying a SemVer pre-release identifier, e.g. `0.6.0-dev.*`) SHALL NOT be selected by the no-filter default. When the resolution scope contains *only* pre-release versions, the no-filter default SHALL fall back to the highest version in scope so the path still materializes.
+`MaterializedPlatform.Resolved` SHALL record, per subscription, the version the platform named — a diagnostic record of what the source said, which is identical to what was materialized.
 
-#### Scenario: Enabled subscription with no filter
+#### Scenario: Named build pulled
 
-- **WHEN** a platform subscribes to a catalog path with `enable: true` and no `filter`
-- **THEN** Materialize selects the highest published stable SemVer within the subscription's resolution scope and pulls it
-- **AND** the catalog's transformers are indexed
+- **WHEN** a platform subscribes to `opmodel.dev/catalogs/opm@v2` with `version: "2.0.0-alpha.3"`
+- **THEN** Materialize pulls exactly that build and indexes its transformers
+- **AND** performs no version enumeration
 
-#### Scenario: Major-suffixed key scopes resolution to its major
+#### Scenario: Major disagreement refused before I/O
 
-- **WHEN** a subscription key is `opmodel.dev/catalogs/opm@v2` and the path has published stable `0.6.0` plus pre-releases `1.0.0-alpha.9`, `2.0.0-alpha.1`, `2.0.0-alpha.2`
-- **THEN** Materialize enumerates only the v2 versions
-- **AND** the no-filter default selects `2.0.0-alpha.2` via the pre-release-only fallback
-- **AND** stable `0.6.0` is never a candidate
+- **WHEN** a subscription key carries `@v2` and names `version: "1.4.0"`
+- **THEN** Materialize fails that subscription with an error naming both the key's major and the version
+- **AND** no registry operation is performed for it
 
-#### Scenario: Major-free key keeps whole-path resolution
+#### Scenario: Named build not published
 
-- **WHEN** a subscription key carries no major suffix and the path has published the same mixed-major list
-- **THEN** Materialize enumerates every published version regardless of major
-- **AND** the no-filter default selects stable `0.6.0`
+- **WHEN** the named version does not exist in the registry
+- **THEN** Materialize fails that subscription with an error naming the missing version
+- **AND** the error lists the published versions within the key's major, obtained by enumeration performed only on this failure path
 
-#### Scenario: Major-suffixed key composes a valid load ID
+### Requirement: Catalog Identity Verification
 
-- **WHEN** a major-suffixed subscription resolves version `2.0.0-alpha.2`
-- **THEN** the catalog is pulled via a load ID composed from the bare path and the version
-- **AND** no `…@v2@v2.0.0-alpha.2` form reaches the module loader
+After pulling a subscribed catalog build, Materialize SHALL verify that the artifact lives where its metadata says it lives: the catalog's declared `metadata.modulePath` SHALL equal the subscription key (direct string comparison of the two `@vN`-suffixed paths), and the catalog's declared `metadata.version` SHALL equal the version pulled. A disagreement SHALL fail that subscription with a typed identity error naming both the declared and the fetched value, wrapped in the materialize failure for the offending subscription.
 
-#### Scenario: Pre-release excluded from the no-filter default
+#### Scenario: Address mismatch detected at the catalog read
 
-- **WHEN** a path has published `0.5.0`, `0.5.1`, and a pre-release `0.6.0-dev.1` and the subscription has no `filter`
-- **THEN** Materialize selects `0.5.1`
-- **AND** does not select `0.6.0-dev.1`
+- **WHEN** a pulled catalog's `metadata.modulePath` differs from the subscription key it was pulled by
+- **THEN** Materialize fails that subscription with a typed error carrying both values
 
-#### Scenario: Pre-release-only scope falls back
+#### Scenario: Version mismatch detected at the catalog read
 
-- **WHEN** every published version in a no-filter subscription's resolution scope is a pre-release
-- **THEN** Materialize selects the highest pre-release in scope so the path still materializes
-
-#### Scenario: Disabled subscription skipped
-
-- **WHEN** a subscription sets `enable: false`
-- **THEN** Materialize pulls no builds from that path
-- **AND** no transformers from that path appear in the materialized index
-
-### Requirement: Version Enumeration and Filtering
-
-For each subscription path, the Materialize operation SHALL enumerate the published versions via the registry's version listing, then narrow the candidate set Go-side in this order (D10): `filter.range` (a SemVer constraint expression) restricts the set, `filter.allow` force-includes specific versions, `filter.deny` force-excludes specific versions. Range expressions SHALL be parsed with a SemVer constraint library because CUE cannot evaluate range syntax. The `v`-prefixed module version form returned by the registry SHALL be normalized against the bare-SemVer catalog FQN form.
-
-Pre-release versions are selectable only by explicit opt-in: a `filter.allow` entry naming the exact pre-release version, or a `filter.range` whose constraint itself contains a pre-release identifier (standard SemVer-constraint semantics, under which an ordinary constraint does not admit pre-releases). The no-filter default never admits a pre-release except via the pre-release-only fallback above. Within an admitting range, pre-release families order by standard SemVer identifier comparison — in particular `dev.*` identifiers sort above `alpha.*` identifiers of the same base version.
-
-#### Scenario: Range restricts the candidate set
-
-- **WHEN** a subscription filter is `range: ">=0.1.0 <0.2.0"` and the path has published `0.1.0`, `0.1.1`, `0.2.0`
-- **THEN** Materialize selects `0.1.0` and `0.1.1`
-- **AND** excludes `0.2.0`
-
-#### Scenario: Deny excludes an in-range version
-
-- **WHEN** `filter.deny` lists a version that `filter.range` would otherwise admit
-- **THEN** the denied version is absent from the survivor set
-
-#### Scenario: Allow includes an out-of-range version
-
-- **WHEN** `filter.allow` lists a version outside `filter.range`
-- **THEN** the allowed version is present in the survivor set
-
-#### Scenario: Allow opts a pre-release in
-
-- **WHEN** `filter.allow` names an exact published pre-release version
-- **THEN** that pre-release is present in the survivor set even though the no-filter default would exclude it
-
-#### Scenario: Range carrying a pre-release identifier opts pre-releases in
-
-- **WHEN** a subscription filter is `range: ">=0.6.0-dev.0 <0.7.0"` and the path has published `0.5.0`, `0.6.0-dev.1`, `0.6.0`
-- **THEN** Materialize selects `0.6.0-dev.1` and `0.6.0`
-- **AND** excludes `0.5.0`
-
-#### Scenario: Dev pre-releases out-sort alpha pre-releases within an admitting range
-
-- **WHEN** a subscription filter is `range: ">=1.0.0-alpha"` and the path has published `1.0.0-alpha`, `1.0.0-alpha.1`, and a CI tag `1.0.0-dev.1784212239.g0c11c12`
-- **THEN** all three versions are in the survivor set
-- **AND** the resolved (highest) version is the `1.0.0-dev.*` tag
+- **WHEN** a pulled catalog's `metadata.version` differs from the version named by the subscription
+- **THEN** Materialize fails that subscription with a typed error carrying both values
 
 ### Requirement: Transformer Indexing
 
@@ -117,7 +68,7 @@ The Materialize operation SHALL return a `*MaterializedPlatform` that exposes th
 
 The Materialize operation SHALL NOT `FillPath` the composed transformer map or the matcher index onto the closed `c.#Platform` value, and the returned `*MaterializedPlatform` SHALL NOT expose a `Composed` field nor a `Package` field for these purposes. The original closed platform spec (carrying `#registry`, metadata) SHALL remain reachable via `Source.Package` for diagnostics and registry inspection. As a consequence of building the surfaces natively (rather than filling them into a closed value), reading a transformer's `#transform` directly off `Transformers` — including output-local hidden fields — SHALL evaluate to concrete values; no separate open map and no read-from-`Package` prohibition is required.
 
-Selection of multiple versions of the same catalog `path@major` (e.g. a `range` admitting `0.5.0` and `0.5.1`) SHALL be preserved: each selected version's transformers are indexed under their distinct version-bearing FQNs and remain independently reachable in `Transformers`.
+Composition of multiple builds of the same catalog path SHALL be preserved: each `path@major` subscription key names exactly one build (D14), so multiple builds of one path arrive as distinct major-line subscriptions (e.g. `…@v1` and `…@v2`), and each pulled build's transformers are indexed under their distinct version-bearing FQNs and remain independently reachable in `Transformers`.
 
 The native surfaces SHALL be consumed by the compile pipeline as **read-only input** — looked up and filled-*from* — and SHALL NOT be used as the owner of the compile build context (which is sourced from the caller Kernel; see the `kernel-runtime` capability).
 
@@ -142,8 +93,8 @@ Under the v0.17 CUE toolchain, the returned `*MaterializedPlatform` SHALL be saf
 
 #### Scenario: Multi-version composition preserved
 
-- **WHEN** a subscription filter selects two versions of the same catalog path (e.g. `0.5.0` and `0.5.1`)
-- **THEN** `mp.Transformers` contains a distinct entry for each version's transformers under its version-bearing FQN
+- **WHEN** a platform subscribes to two majors of the same catalog path (e.g. `…@v1` naming `1.4.0` and `…@v2` naming `2.0.0`)
+- **THEN** `mp.Transformers` contains a distinct entry for each build's transformers under its version-bearing FQN
 - **AND** both are independently reachable for matching by exact FQN
 
 #### Scenario: Idempotent and non-mutating
@@ -193,3 +144,21 @@ The library SHALL provide a `opm/materialize/cache` package exposing a `Material
 - **WHEN** a developer inspects the `Kernel` struct
 - **THEN** it has no materialize-cache field
 
+### Requirement: Single-Provider Guard
+
+While building the reverse matcher index, Materialize SHALL read each transformer's required contract definitions' declared `fulfilment` and, for every contract key declared `fulfilment: "provider"` by any provider, refuse a materialization in which transformers from more than one subscribed catalog supply that key. The refusal SHALL be a typed materialize error naming both catalog paths and the contract key, using the structurally-known catalog provenance (never parsed back out of an FQN). Embedded contract copies that disagree on `fulfilment` for one key SHALL also be refused as divergent contract definitions. Contract keys with `fulfilment: "catalog"` (the default) MAY be supplied by any number of transformers from any number of catalogs.
+
+#### Scenario: Second provider refused
+
+- **WHEN** two subscribed catalogs each supply a transformer requiring a contract declared `fulfilment: "provider"`
+- **THEN** Materialize fails with an error naming both catalog paths and the key
+
+#### Scenario: Catalog-fulfilled plurality allowed
+
+- **WHEN** many transformers across catalogs require a contract with default fulfilment
+- **THEN** Materialize succeeds and all candidates are indexed
+
+#### Scenario: Divergent fulfilment refused
+
+- **WHEN** two embedded copies of one contract key disagree on `fulfilment`
+- **THEN** Materialize fails naming the key and both sources

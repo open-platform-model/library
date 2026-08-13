@@ -56,8 +56,10 @@ type MaterializedPlatform struct {
 	Matchers cue.Value
 
 	// Resolved maps each enabled subscription path to the bare SemVer that
-	// Materialize recorded for it. When a filter selects several versions
-	// (all of which are pulled and indexed), this is the highest survivor.
-	// Diagnostic-only: callers SHOULD log it but MUST NOT branch behavior on it.
+	// Materialize recorded for it. It records what the platform SAID — the
+	// authored version! scalar, verified against the pulled artifact (D14 +
+	// D11/D9) — not what the kernel chose: those are the same value by
+	// construction. Diagnostic-only: callers SHOULD log it but MUST NOT
+	// branch behavior on it.
 	Resolved map[string]string
 }

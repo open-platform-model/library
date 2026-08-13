@@ -2,6 +2,20 @@
 
 Both findings below are fixed. This document is kept for the historical record — the analysis, the reproduction steps, and the fix discussion remain useful context for future work on the matcher / executor.
 
+**2026-08 addendum (`library-matching`, enhancement 0010):** the successor gap
+to Finding 1's history — unresolved demands silently ignored (`plan.Missing`
+written but never consumed in production; a bucket whose candidates all fell
+out recorded nothing; only a fully-unmatched component stopped `Compile`) — is
+closed by D28: every declared resource is a required demand, unresolved
+demands and load-bearing unhandled traits fail `Plan`/`Compile` through the
+typed `UnresolvedDemandsError`, and only effectively-optional unhandled traits
+remain warnings. The ambiguity story also reached its final form (D32/D37):
+multi-candidate buckets are legitimate for catalog-fulfilled contracts (all
+satisfied candidates pair, as Finding 1's fix established), and exclusivity
+exists only for provider-fulfilled contracts, enforced structurally by the
+single-provider guard at materialize — the spec's interim "Defensive Ambiguity
+Handling" requirement is removed.
+
 Two correctness gaps in the Match → Compile path, surfaced by the on-disk integration fixture (`testdata/modules/web_app` + `modules/opm_platform`) and the inspection harness `cmd/flow-inspect`. Both block end-to-end deployment via the canonical opm transformers; one of them (Finding 2) breaks every render call regardless of fixture, the other (Finding 1) breaks any component that triggers more than one transformer at the same required-resource FQN.
 
 This document captures the observed behaviour, the source-line evidence, and the fix surface so the remediation work has a single anchor instead of re-deriving the analysis from scratch.

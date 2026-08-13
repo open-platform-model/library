@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"cuelang.org/go/cue"
 
@@ -16,8 +15,8 @@ import (
 // Key derives a stable cache key from a platform's #registry subtree — the
 // input that fully determines materialization (Q2: registry-only). The key is
 // invariant to field ordering and to enable defaulting (an explicit
-// `enable: true` hashes the same as the default), and to allow/deny list
-// ordering, so two semantically-identical registries map to the same key.
+// `enable: true` hashes the same as the default), so two
+// semantically-identical registries map to the same key.
 //
 // The whole-spec alternative (hashing metadata too) was rejected: metadata
 // does not affect the materialized transformer index, so keying on it would
@@ -50,21 +49,6 @@ func Key(p *platform.Platform) (string, error) {
 				ns.Version = s
 			}
 		}
-		if fv := sub.LookupPath(cue.ParsePath("filter")); fv.Exists() {
-			if r := fv.LookupPath(cue.ParsePath("range")); r.Exists() {
-				if s, e := r.String(); e == nil {
-					ns.Range = s
-				}
-			}
-			if a := fv.LookupPath(cue.ParsePath("allow")); a.Exists() {
-				_ = a.Decode(&ns.Allow)
-			}
-			if d := fv.LookupPath(cue.ParsePath("deny")); d.Exists() {
-				_ = d.Decode(&ns.Deny)
-			}
-		}
-		sort.Strings(ns.Allow)
-		sort.Strings(ns.Deny)
 		norm[it.Selector().Unquoted()] = ns
 	}
 
@@ -78,14 +62,12 @@ func Key(p *platform.Platform) (string, error) {
 }
 
 // normSub is the canonical, JSON-stable projection of one #Subscription used
-// for key derivation. Version is core v2's scalar build selector; the filter
-// fields are the v1 form. Each is omitted when absent, so a platform authored
-// against either core line hashes only the fields it can express — v1
-// platforms keep their historical keys byte-identical.
+// for key derivation. Version is core v2's scalar build selector. The v1-era
+// filter fields (range/allow/deny) were dropped with the subscription
+// collapse (0010 D14): a v2 subscription could never populate them, so v2
+// keys are byte-identical before and after the trim, and v1 platforms stopped
+// loading at the core retarget.
 type normSub struct {
-	Enable  bool     `json:"enable"`
-	Version string   `json:"version,omitempty"`
-	Range   string   `json:"range,omitempty"`
-	Allow   []string `json:"allow,omitempty"`
-	Deny    []string `json:"deny,omitempty"`
+	Enable  bool   `json:"enable"`
+	Version string `json:"version,omitempty"`
 }

@@ -55,3 +55,47 @@ func TestUnifyError_VerbatimCueCauseReachable(t *testing.T) {
 	var asCue cueerrors.Error
 	require.True(t, errors.As(ue, &asCue), "UnifyError must be walkable to cuelang.org/go/cue/errors.Error")
 }
+
+func TestUnresolvedDemand_Shape(t *testing.T) {
+	// No alternatives: the contract is unimplemented on this platform.
+	bare := oerrors.UnresolvedDemand{Component: "web", FQN: "example.com/r/volume@v1", Kind: "resource"}
+	assert.Contains(t, bare.Error(), `component "web"`)
+	assert.Contains(t, bare.Error(), "unresolved resource demand")
+	assert.Contains(t, bare.Error(), "nothing on this platform implements this contract")
+
+	// Alternatives present: the D4 different-apiVersion diagnostic.
+	alt := oerrors.UnresolvedDemand{
+		Component:    "web",
+		FQN:          "example.com/r/volume@v1",
+		Kind:         "resource",
+		Alternatives: []string{"example.com/r/volume@v2"},
+	}
+	assert.Contains(t, alt.Error(), "implemented at a different apiVersion")
+	assert.Contains(t, alt.Error(), "example.com/r/volume@v2")
+
+	// Disqualified candidates and the fail-closed posture are named.
+	disq := oerrors.UnresolvedDemand{
+		Component:       "web",
+		FQN:             "example.com/t/backup@v1",
+		Kind:            "trait",
+		Disqualified:    []oerrors.UnifyError{{Component: "web", FQN: "example.com/t/backup@v1"}},
+		UnstatedPosture: true,
+	}
+	assert.Contains(t, disq.Error(), "1 candidate(s) disqualified")
+	assert.Contains(t, disq.Error(), "no optional posture")
+}
+
+func TestUnresolvedDemandsError_UnwrapWalkable(t *testing.T) {
+	agg := &oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{
+		{Component: "web", FQN: "example.com/r/a@v1", Kind: "resource"},
+		{Component: "db", FQN: "example.com/t/b@v1", Kind: "trait"},
+	}}
+	assert.Contains(t, agg.Error(), "2 unresolved demand(s)")
+	assert.Contains(t, agg.Error(), `component "web"`)
+	assert.Contains(t, agg.Error(), `component "db"`)
+
+	// errors.As reaches the value-typed demand through the aggregate.
+	var d oerrors.UnresolvedDemand
+	require.True(t, errors.As(agg, &d))
+	assert.Equal(t, "web", d.Component, "errors.As finds the first demand")
+}

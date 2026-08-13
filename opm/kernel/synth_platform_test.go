@@ -65,7 +65,7 @@ func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: k.SchemaCache(),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			path: {},
+			path: {Version: "1.0.0"},
 		},
 	})
 	require.NoError(t, err)
@@ -106,6 +106,9 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 	k := kernel.New()
 	ctx := context.Background()
 	const path = "opmodel.dev/catalogs/opm@v2"
+	// The same build modules/opm_platform/platform.cue pins — the pin is
+	// load-bearing (D14), so the two platforms name one catalog.
+	const pinnedCatalogVersion = "2.0.0-alpha.3"
 
 	// ── Synthesize the platform from typed inputs ────────────────────
 	synthPlat, err := k.SynthesizePlatform(ctx, synth.PlatformInput{
@@ -113,12 +116,10 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 		Description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v2 line",
 		Type:        "kubernetes",
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			// An empty spec: enable defaults true, and the major-suffixed key
-			// scopes resolution to the prerelease-only v2 line, whose
-			// no-filter fallback selects the highest alpha — the same build
-			// the version-pinned on-disk fixture names (transitional
-			// invariant 1).
-			path: {},
+			// The authored version IS the resolution (0010 D14): pin the same
+			// build the on-disk fixture (modules/opm_platform) names, so both
+			// paths materialize the identical catalog.
+			path: {Version: pinnedCatalogVersion},
 		},
 	})
 	require.NoError(t, err)
@@ -127,6 +128,10 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 	synthMP, err := k.Materialize(ctx, synthPlat)
 	require.NoError(t, err, "materializing the synthesized platform against the published catalog")
 	require.NotNil(t, synthMP)
+
+	// The synthesized platform materializes exactly the named build.
+	assert.Equal(t, pinnedCatalogVersion, synthMP.Resolved[path],
+		"synthesized platform must materialize the authored version")
 
 	// ── Load + materialize the on-disk fixture for comparison ────────
 	libraryRoot := repoLibraryRoot(t)

@@ -1,0 +1,229 @@
+package compat
+
+import (
+	"testing"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// compileX compiles src and returns the #X definition, the shape every case
+// in the reference experiment (0011/experiments/03-d27-compat-gate) uses.
+func compileX(t *testing.T, ctx *cue.Context, src string) cue.Value {
+	t.Helper()
+	v := ctx.CompileString(src).LookupPath(cue.ParsePath("#X"))
+	require.NoError(t, v.Err(), "compiling %q", src)
+	return v
+}
+
+type wantViolation struct {
+	path, kind string
+}
+
+func toWant(vs []Violation) []wantViolation {
+	var out []wantViolation
+	for _, v := range vs {
+		out = append(out, wantViolation{v.Path, v.Kind})
+	}
+	return out
+}
+
+// TestCheck ports the 14 experiment cases — every change class D27 names,
+// nested variants, and the two label cases OQ16 turns on — plus edge cases
+// beyond the experiment's dispatch. A nil want means the change is legal.
+//
+// The "change default" class reports twice at the same path: the explicit
+// default comparison fires KindDefaultChanged, and the raw-mode leaf subsume
+// — which must stay default-sensitive so a domain narrowed to its own default
+// is caught — also fails there. Both reports are asserted; grouping them for
+// presentation is the CLI's rendering work.
+func TestCheck(t *testing.T) {
+	tests := []struct {
+		name, prev, next string
+		want             []wantViolation
+	}{
+		// The 14 experiment cases.
+		{"add optional field", `#X: {x: string}`, `#X: {x: string, y?: string}`, nil},
+		{"add defaulted field", `#X: {x: string}`, `#X: {x: string, y: string | *"z"}`, nil},
+		{"add required field", `#X: {x: string}`, `#X: {x: string, y: string}`,
+			[]wantViolation{{"y", KindFieldAddedStrict}}},
+		{"remove field", `#X: {x: string, y: string}`, `#X: {x: string}`,
+			[]wantViolation{{"y", KindFieldRemoved}}},
+		{"widen disjunction", `#X: {t: "a"|"b"}`, `#X: {t: "a"|"b"|"c"}`, nil},
+		{"narrow disjunction", `#X: {t: "a"|"b"|"c"}`, `#X: {t: "a"|"b"}`,
+			[]wantViolation{{"t", KindDomainNarrowed}}},
+		{"change concrete value", `#X: {t: "a"}`, `#X: {t: "b"}`,
+			[]wantViolation{{"t", KindDomainNarrowed}}},
+		{"change default", `#X: {t: string | *"a"}`, `#X: {t: string | *"b"}`,
+			[]wantViolation{{"t", KindDefaultChanged}, {"t", KindDomainNarrowed}}},
+		{"identical", `#X: {x: string, t: "a"|"b"}`, `#X: {x: string, t: "a"|"b"}`, nil},
+		{"nested field removed", `#X: {s: {a: string, b: string}}`, `#X: {s: {a: string}}`,
+			[]wantViolation{{"s.b", KindFieldRemoved}}},
+		{"nested option widened", `#X: {s: {t: "a"}}`, `#X: {s: {t: "a"|"b"}}`, nil},
+		{"label disjunction narrowed",
+			`#X: {metadata: labels: "wt": "stateless"|"stateful"|"daemon"}`,
+			`#X: {metadata: labels: "wt": "stateless"|"stateful"}`,
+			[]wantViolation{{"metadata.labels.wt", KindDomainNarrowed}}},
+		{"label value changed",
+			`#X: {metadata: labels: "wt": "stateful"}`,
+			`#X: {metadata: labels: "wt": "daemon"}`,
+			[]wantViolation{{"metadata.labels.wt", KindDomainNarrowed}}},
+		{"label key added (optional)",
+			`#X: {metadata: labels: {}}`, `#X: {metadata: labels: "tier"?: string}`, nil},
+
+		// Edges beyond the experiment's dispatch.
+		{"list leaf unchanged", `#X: {xs: [...string]}`, `#X: {xs: [...string]}`, nil},
+		{"list leaf narrowed (fixed length)", `#X: {xs: [string]}`, `#X: {xs: [int]}`,
+			[]wantViolation{{"xs", KindDomainNarrowed}}},
+		// Known upstream blind spot, pinned deliberately: CUE's Subsume treats
+		// open lists as mutually subsuming regardless of element type, under
+		// every option combination (measured against v0.17.1). Element-domain
+		// narrowing inside `[...T]` is therefore not detected at a leaf. If a
+		// CUE upgrade starts reporting it, this case fails and the pin — plus
+		// the package doc — should be updated to celebrate.
+		{"open list element narrowed is not detected", `#X: {xs: [...string]}`, `#X: {xs: [...int]}`, nil},
+		{"struct disjunction branch added", `#X: {s: {a: string}}`, `#X: {s: {a: string} | {b: string}}`, nil},
+		{"struct disjunction branch removed", `#X: {s: {a: string} | {b: string}}`, `#X: {s: {a: string}}`,
+			[]wantViolation{{"s", KindDomainNarrowed}}},
+		{"hidden field removed is not reported", `#X: {x: string, _h: int}`, `#X: {x: string}`, nil},
+		{"hidden field added is not reported", `#X: {x: string}`, `#X: {x: string, _h: int}`, nil},
+		{"required-marker field removed", `#X: {x: string, y!: string}`, `#X: {x: string}`,
+			[]wantViolation{{"y", KindFieldRemoved}}},
+		{"optional field removed", `#X: {x: string, y?: string}`, `#X: {x: string}`,
+			[]wantViolation{{"y", KindFieldRemoved}}},
+
+		// The default branches the design pins (non-concrete handling).
+		{"default removed", `#X: {t: string | *"a"}`, `#X: {t: string}`,
+			[]wantViolation{{"t", KindDefaultRemoved}}},
+		{"non-concrete defaults equivalent", `#X: {t: *string | int}`, `#X: {t: *string | int}`, nil},
+		{"non-concrete defaults asymmetric", `#X: {t: *string | int}`, `#X: {t: *"a" | int}`,
+			[]wantViolation{{"t", KindDefaultChanged}, {"t", KindDomainNarrowed}}},
+		{"concrete-to-non-concrete default", `#X: {t: *"a" | string}`, `#X: {t: *string | "a"}`,
+			[]wantViolation{{"t", KindDefaultChanged}}},
+	}
+
+	ctx := cuecontext.New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prev := compileX(t, ctx, tt.prev)
+			next := compileX(t, ctx, tt.next)
+			got := Check(prev, next)
+			assert.Equal(t, tt.want, toWant(got))
+		})
+	}
+}
+
+// TestCheckDefaultRendering pins the Old/New rendering 0011's refusal
+// message 9 consumes: `t: default changed ("a" -> "b")`.
+func TestCheckDefaultRendering(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, `#X: {t: string | *"a"}`)
+	next := compileX(t, ctx, `#X: {t: string | *"b"}`)
+
+	got := Check(prev, next)
+	require.NotEmpty(t, got)
+	require.Equal(t, KindDefaultChanged, got[0].Kind)
+	assert.Equal(t, `"a"`, got[0].Old)
+	assert.Equal(t, `"b"`, got[0].New)
+
+	removed := Check(prev, compileX(t, ctx, `#X: {t: string}`))
+	require.NotEmpty(t, removed)
+	require.Equal(t, KindDefaultRemoved, removed[0].Kind)
+	assert.Equal(t, `"a"`, removed[0].Old)
+	assert.Equal(t, "", removed[0].New)
+}
+
+// TestCheckDomainNarrowedCarriesSubsumeError pins that KindDomainNarrowed's
+// New carries the CUE subsumption diagnostic verbatim.
+func TestCheckDomainNarrowedCarriesSubsumeError(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, `#X: {t: "a"|"b"|"c"}`)
+	next := compileX(t, ctx, `#X: {t: "a"|"b"}`)
+
+	got := Check(prev, next)
+	require.Len(t, got, 1)
+	assert.NotEmpty(t, got[0].New, "subsume error text must be carried verbatim")
+	assert.Empty(t, got[0].Old)
+}
+
+func TestCheckAtLevel(t *testing.T) {
+	ctx := cuecontext.New()
+	// Incompatible operands: a field removal, refused at every enforced level.
+	prev := compileX(t, ctx, `#X: {x: string, y: string}`)
+	next := compileX(t, ctx, `#X: {x: string}`)
+
+	t.Run("alpha is not gated", func(t *testing.T) {
+		for _, av := range []string{"v1alpha1", "v1alpha2"} {
+			vs, err := CheckAtLevel(av, prev, next)
+			require.NoError(t, err)
+			assert.Nil(t, vs, "alpha promises nothing (D34)")
+		}
+	})
+
+	t.Run("beta and GA are gated", func(t *testing.T) {
+		want := Check(prev, next)
+		require.NotEmpty(t, want)
+		for _, av := range []string{"v1beta1", "v1", "v2"} {
+			vs, err := CheckAtLevel(av, prev, next)
+			require.NoError(t, err)
+			assert.Equal(t, want, vs)
+		}
+	})
+
+	t.Run("unparseable apiVersion is an error, not a violation", func(t *testing.T) {
+		for _, av := range []string{"v1alpha", "1.2.0", "", "V1"} {
+			vs, err := CheckAtLevel(av, prev, next)
+			require.ErrorIs(t, err, ErrUnparseableAPIVersion, "apiVersion %q", av)
+			assert.Nil(t, vs)
+		}
+	})
+
+	t.Run("non-struct top-level operands are an error", func(t *testing.T) {
+		leaf := compileX(t, ctx, `#X: string`)
+		vs, err := CheckAtLevel("v1", leaf, next)
+		require.ErrorIs(t, err, ErrNotStruct)
+		assert.Nil(t, vs)
+
+		vs, err = CheckAtLevel("v1", prev, leaf)
+		require.ErrorIs(t, err, ErrNotStruct)
+		assert.Nil(t, vs)
+	})
+}
+
+// The measured Subsume/Fields options are load-bearing (design: "MUST be
+// preserved with a test asserting each"). Each test below fails if its option
+// is dropped from the walk.
+
+// TestOptionAllIsLoadBearing: without cue.All() on field iteration, optional
+// fields are invisible and this removal goes unreported.
+func TestOptionAllIsLoadBearing(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, `#X: {x: string, y?: string}`)
+	next := compileX(t, ctx, `#X: {x: string}`)
+	assert.Equal(t, []wantViolation{{"y", KindFieldRemoved}}, toWant(Check(prev, next)))
+}
+
+// TestOptionSchemaIsLoadBearing: an optional field dropped inside a
+// disjunction branch. The branch pair is walked as a leaf, and under
+// cue.Schema() the subsumption accepts it — this is the documented consequence
+// of leaf treatment for struct disjunctions. Without cue.Schema() the case
+// reports a spurious domain narrowing and this test fails.
+func TestOptionSchemaIsLoadBearing(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, `#X: {s: {a?: int} | string}`)
+	next := compileX(t, ctx, `#X: {s: {} | string}`)
+	assert.Empty(t, Check(prev, next))
+}
+
+// TestOptionRawIsLoadBearing: a domain narrowed to its own prior default.
+// Without cue.Raw() the subsumption resolves prev toward its default and the
+// narrowing from `string` to `"a"` goes unreported.
+func TestOptionRawIsLoadBearing(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, `#X: {t: string | *"a"}`)
+	next := compileX(t, ctx, `#X: {t: "a"}`)
+	got := toWant(Check(prev, next))
+	assert.Contains(t, got, wantViolation{"t", KindDomainNarrowed})
+}

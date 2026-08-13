@@ -57,8 +57,11 @@ func (k *Kernel) Match(_ context.Context, in MatchInput) (*MatchPlan, error) {
 }
 
 // Plan runs Validate + Match + Execute (dry-run) and returns a
-// [*PlanResult] containing component summaries, unmatched FQNs, ambiguous
-// FQNs, and warnings. It does NOT return rendered values.
+// [*PlanResult] containing component summaries, unmatched components,
+// the full match diagnosis, and warnings. It does NOT return rendered
+// values. Like Compile, Plan fails on unresolved demands (0010 D28) —
+// via [*oerrors.UnresolvedDemandsError] — and on unmatched components;
+// only [Kernel.Match] returns the diagnosis without failing on it.
 //
 // Internally Plan reuses [Compile] and discards the rendered slice. This
 // keeps Plan and Compile pinned to a single execution path so a Plan that

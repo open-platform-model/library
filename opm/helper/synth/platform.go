@@ -54,21 +54,12 @@ type SubscriptionSpec struct {
 	// the unset-vs-supplied distinction synth.Instance draws for its inputs.
 	Enable *bool
 
-	// Filter maps onto #Subscription.filter. nil → no filter rendered.
-	Filter *FilterSpec
-}
-
-// FilterSpec is the typed form of #SubscriptionFilter. Each field is rendered
-// only when non-empty, mirroring writeStringMap in instance.go.
-type FilterSpec struct {
-	// Range is the SemVer constraint expression (filter.range). Omitted when "".
-	Range string
-
-	// Allow force-includes specific versions (filter.allow). Omitted when empty.
-	Allow []string
-
-	// Deny force-excludes specific versions (filter.deny). Omitted when empty.
-	Deny []string
+	// Version maps onto #Subscription.version — the single build the
+	// subscription materializes (0010 D14: the platform file IS the
+	// resolution). REQUIRED: Platform returns an error naming the
+	// subscription path when it is empty, because the kernel reads this
+	// scalar — a versionless subscription would fail at materialize.
+	Version string
 }
 
 // Platform sentinel errors. These mirror the Instance set but carry
@@ -90,6 +81,13 @@ var (
 	// ErrPlatformSchemaUnavailable is returned when the caller-supplied
 	// SchemaCache resolves but does not expose #Platform.
 	ErrPlatformSchemaUnavailable = errors.New("synth.Platform: schema unavailable")
+
+	// ErrSubscriptionMissingVersion is returned when a SubscriptionSpec
+	// carries an empty Version. Early validation at the write side (the only
+	// in-repo producer of the subscription shape) beats a materialize-time
+	// failure at the read side: the kernel resolves exactly the authored
+	// version (0010 D14), so a versionless subscription can never materialize.
+	ErrSubscriptionMissingVersion = errors.New("synth.Platform: subscription Version is required")
 )
 
 // Platform builds a #Platform CUE value by unifying PlatformInput against the
@@ -115,6 +113,11 @@ func Platform(ctx *cue.Context, in PlatformInput) (cue.Value, error) {
 	}
 	if in.SchemaCache == nil {
 		return cue.Value{}, ErrPlatformMissingSchemaCache
+	}
+	for path, sub := range in.Subscriptions {
+		if sub.Version == "" {
+			return cue.Value{}, fmt.Errorf("%w: subscription %q", ErrSubscriptionMissingVersion, path)
+		}
 	}
 
 	schemaPkg, err := in.SchemaCache.Get(ctx)
@@ -166,8 +169,8 @@ func renderPlatformSource(in PlatformInput) string {
 
 // writeRegistry writes the "#registry: { ... }" block when subs is non-empty.
 // Each subscription emits `enable` only when explicitly set (Enable != nil),
-// letting the schema's `*true` default stand otherwise, and emits a `filter`
-// block only when the FilterSpec carries at least one non-empty field.
+// letting the schema's `*true` default stand otherwise, and always emits the
+// required `version` scalar (Platform refused an empty one before rendering).
 func writeRegistry(sb *strings.Builder, subs map[string]SubscriptionSpec) {
 	if len(subs) == 0 {
 		return
@@ -178,39 +181,8 @@ func writeRegistry(sb *strings.Builder, subs map[string]SubscriptionSpec) {
 		if sub.Enable != nil {
 			fmt.Fprintf(sb, "\t\t\tenable: %t\n", *sub.Enable)
 		}
-		writeFilter(sb, sub.Filter)
+		fmt.Fprintf(sb, "\t\t\tversion: %q\n", sub.Version)
 		sb.WriteString("\t\t}\n")
 	}
 	sb.WriteString("\t}\n")
-}
-
-// writeFilter writes a "filter: { ... }" block when f carries at least one
-// non-empty field. Empty-string Range and empty Allow/Deny slices are simply
-// not rendered, mirroring writeStringMap.
-func writeFilter(sb *strings.Builder, f *FilterSpec) {
-	if f == nil || (f.Range == "" && len(f.Allow) == 0 && len(f.Deny) == 0) {
-		return
-	}
-	sb.WriteString("\t\t\tfilter: {\n")
-	if f.Range != "" {
-		fmt.Fprintf(sb, "\t\t\t\trange: %q\n", f.Range)
-	}
-	writeStringList(sb, "\t\t\t\t", "allow", f.Allow)
-	writeStringList(sb, "\t\t\t\t", "deny", f.Deny)
-	sb.WriteString("\t\t\t}\n")
-}
-
-// writeStringList writes a "<field>: [ ... ]" block when list is non-empty.
-func writeStringList(sb *strings.Builder, indent, field string, list []string) {
-	if len(list) == 0 {
-		return
-	}
-	fmt.Fprintf(sb, "%s%s: [", indent, field)
-	for i, v := range list {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		fmt.Fprintf(sb, "%q", v)
-	}
-	sb.WriteString("]\n")
 }

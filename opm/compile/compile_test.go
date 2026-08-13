@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -83,7 +84,8 @@ type: "kubernetes"
 `)
 	components := ctx.CompileString(`
 "web": {
-	metadata: { labels: { tier: "web" } }
+	metadata: { labels: {} }
+	matchLabels: { tier: "web" }
 	#resources: { "opmodel.dev/r/echo@v0": {} }
 }
 `)
@@ -98,6 +100,48 @@ type: "kubernetes"
 	assert.Equal(t, "opmodel.dev/p/k8s/x@v0", pairs[0].TransformerFQN)
 	assert.Empty(t, plan.Missing)
 	assert.Empty(t, plan.Unify)
+}
+
+// TestMatch_DescriptiveLabelsAloneDoNotMatch pins the D36 flip: a key present
+// only in the component's descriptive metadata.labels — not in matchLabels —
+// no longer satisfies a candidate's requiredLabels.
+func TestMatch_DescriptiveLabelsAloneDoNotMatch(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {
+	"opmodel.dev/p/k8s/x@v0": {
+		metadata: { fqn: "opmodel.dev/p/k8s/x@v0" }
+		requiredLabels: { tier: "web" }
+		requiredResources: { "opmodel.dev/r/echo@v0": {} }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"opmodel.dev/r/echo@v0": [#composedTransformers["opmodel.dev/p/k8s/x@v0"]]
+	}
+	traits: {}
+}
+`)
+	// The tier key lives only in metadata.labels; matchLabels is empty.
+	components := ctx.CompileString(`
+"web": {
+	metadata: { labels: { tier: "web" } }
+	matchLabels: {}
+	#resources: { "opmodel.dev/r/echo@v0": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	assert.Empty(t, plan.MatchedPairs(), "descriptive labels alone must not satisfy requiredLabels")
+	assert.Contains(t, plan.Unmatched, "web")
 }
 
 // TestMatch_ExactVersionBearingFQN is the D3 matcher-contract guard: when the
@@ -252,6 +296,152 @@ type: "kubernetes"
 	assert.Contains(t, plan.Unify[0].Cause.Error(), "conflicting values")
 }
 
+// unifyRungPlatform builds a one-transformer platform whose required body for
+// the container FQN is spliced in verbatim — the harness for the D30 strip
+// tests below.
+func unifyRungPlatform(t *testing.T, ctx *cue.Context, requiredBody string) *materialize.MaterializedPlatform {
+	t.Helper()
+	pv := ctx.CompileString(`
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+`+requiredBody+`
+#composedTransformers: {
+	"example.com/p/c@v0": {
+		metadata: { fqn: "example.com/p/c@v0" }
+		requiredLabels: {}
+		requiredResources: { "example.com/r/container@v1": #RequiredContainer }
+		requiredTraits: {}
+		optionalTraits: {}
+	}
+}
+#matchers: {
+	resources: {
+		"example.com/r/container@v1": [#composedTransformers["example.com/p/c@v0"]]
+	}
+	traits: {}
+}
+`, cue.Filename("platform_fixture.cue"))
+	require.NoError(t, pv.Err())
+	plat := &platform.Platform{
+		Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
+		Package:  pv,
+	}
+	return &materialize.MaterializedPlatform{
+		Source:       plat,
+		Transformers: pv.LookupPath(schema.ComposedTransformers),
+		Matchers:     pv.LookupPath(schema.Matchers),
+	}
+}
+
+// unifyRungComponents builds the single-component demand side for the D30
+// strip tests, with the container body spliced in verbatim.
+func unifyRungComponents(t *testing.T, ctx *cue.Context, componentBody string) cue.Value {
+	t.Helper()
+	components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/container@v1": `+componentBody+` }
+}
+`, cue.Filename("component_fixture.cue"))
+	require.NoError(t, components.Err())
+	return components
+}
+
+// TestMatch_ProvenanceDivergenceUnifiesClean covers D26/D30: the demanded and
+// required definitions differ ONLY in metadata.catalogVersion and
+// metadata.description — provenance that diverges across catalog builds by
+// construction. The rung excludes exactly those fields' diagnostics from the
+// verdict, so it records no unify error and the pair matches.
+func TestMatch_ProvenanceDivergenceUnifiesClean(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0", description: "newer build" }, spec: { image: string } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0", description: "older build" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	assert.Empty(t, plan.Unify, "provenance-only divergence must not fail the rung")
+	require.Len(t, plan.MatchedPairs(), 1)
+}
+
+// TestMatch_SubstantiveDivergenceStillRefused covers the other half of D30:
+// with provenance also diverging, a genuine spec divergence still raises a
+// UnifyError — the exclusion covers exactly the denylist, nothing else.
+func TestMatch_SubstantiveDivergenceStillRefused(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1, "spec divergence must survive the provenance exclusion")
+	assert.Equal(t, "web", plan.Unify[0].Component)
+	assert.Equal(t, "example.com/r/container@v1", plan.Unify[0].FQN)
+	assert.Empty(t, plan.MatchedPairs())
+	assert.NotContains(t, plan.Unify[0].Cause.Error(), "catalogVersion",
+		"provenance diagnostics are excluded from the recorded cause")
+}
+
+// TestMatch_ClosedDefinitionRetained covers D27 enforcement at the rung: the
+// required side is a CLOSED definition; the module sets a field the
+// definition closes out. The exclusion touches only provenance-located
+// diagnostics, so the closedness refusal survives.
+func TestMatch_ClosedDefinitionRetained(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0", description: "d" }, spec: { image: string } }`)
+	// The module-set field is one the definition closes out, beside a
+	// metadata block the strip must reach.
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0", description: "d" }, spec: { image: "nginx", extra: "boom" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1, "closed definition must still refuse the extra field")
+	assert.Equal(t, "example.com/r/container@v1", plan.Unify[0].FQN)
+	assert.Contains(t, plan.Unify[0].Cause.Error(), "not allowed")
+}
+
+// TestMatch_UnifyErrorKeepsFieldsAndPositions pins the rung's diagnostic
+// surface: UnifyError's structural fields (Component, FQN) are the routing
+// surface, and — because the D30 exclusion operates on the verdict rather
+// than round-tripping the operands — the surviving CUE cause keeps its
+// document positions.
+func TestMatch_UnifyErrorKeepsFieldsAndPositions(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unify, 1)
+
+	ue := plan.Unify[0]
+	assert.Equal(t, "web", ue.Component, "structural component field survives")
+	assert.Equal(t, "example.com/r/container@v1", ue.FQN, "structural FQN field survives")
+
+	var cueErr cueerrors.Error
+	require.True(t, errors.As(ue.Cause, &cueErr), "CUE cause stays walkable")
+	filenames := map[string]bool{}
+	for _, e := range cueerrors.Errors(cueErr) {
+		positions := append([]token.Pos{e.Position()}, e.InputPositions()...)
+		for _, pos := range positions {
+			if pos.IsValid() {
+				filenames[pos.Filename()] = true
+			}
+		}
+	}
+	assert.Contains(t, filenames, "component_fixture.cue",
+		"the surviving cause keeps document positions (no operand round-trip)")
+}
+
 // TestMatch_AbsentFQNRecordsMissingWithAlternatives covers the lookup rung: a
 // demanded FQN whose #matchers bucket is empty produces a hard MissingFQN, and
 // Alternatives surfaces the same-modulePath/name FQN materialized at another
@@ -359,6 +549,121 @@ type: "kubernetes"
 	assert.Contains(t, plan.Unmatched, "web")
 }
 
+// TestMatch_AllCandidatesDisqualifiedIsUnresolved covers D28 state (b): the
+// demanded resource's bucket holds a candidate, but it falls out at the unify
+// rung — the demand is unresolved and the diagnostic carries the recorded
+// disqualification cause.
+func TestMatch_AllCandidatesDisqualifiedIsUnresolved(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := unifyRungPlatform(t, ctx,
+		`#RequiredContainer: { metadata: { catalogVersion: "2.0.0" }, spec: { image: "redis" } }`)
+	components := unifyRungComponents(t, ctx,
+		`{ metadata: { catalogVersion: "1.0.0" }, spec: { image: "nginx" } }`)
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+
+	require.Len(t, plan.Unresolved, 1, "an all-candidates-disqualified resource demand is unresolved")
+	d := plan.Unresolved[0]
+	assert.Equal(t, "web", d.Component)
+	assert.Equal(t, "example.com/r/container@v1", d.FQN)
+	assert.Equal(t, "resource", d.Kind)
+	require.Len(t, d.Disqualified, 1, "the unify cause travels with the demand")
+	assert.Equal(t, "example.com/r/container@v1", d.Disqualified[0].FQN)
+}
+
+// TestMatch_EmptyBucketRecordsUnresolvedResource covers D28 state (a): a
+// demanded resource with no bucket at all is unresolved (beside the
+// compatibility MissingFQN record).
+func TestMatch_EmptyBucketRecordsUnresolvedResource(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {}
+#matchers: { resources: {}, traits: {} }
+`)
+	components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/a@v1": {} }
+}
+`)
+	require.NoError(t, components.Err())
+
+	plan, err := compile.Match(components, mp, "demo")
+	require.NoError(t, err)
+	require.Len(t, plan.Unresolved, 1)
+	assert.Equal(t, "resource", plan.Unresolved[0].Kind)
+	assert.Empty(t, plan.Unresolved[0].Disqualified, "no candidates existed")
+	require.Len(t, plan.Missing, 1, "Missing stays fed for compatibility")
+}
+
+// TestMatch_AlternativesOrderTotalAndStable covers D34/D4: the measured
+// pathological triple (v1alpha1, v2, v10) — non-transitive under the old
+// per-pair SemVer rule switch — sorts identically regardless of the order the
+// matcher index enumerates it, following the kube-aware ladder (alpha < GA,
+// then major).
+func TestMatch_AlternativesOrderTotalAndStable(t *testing.T) {
+	tf := func(v string) string {
+		return `
+		"example.com/p/t` + v + `@v0": {
+			metadata: { fqn: "example.com/p/t` + v + `@v0" }
+			requiredLabels: {}
+			requiredResources: { "example.com/r/container@` + v + `": {} }
+			requiredTraits: {}
+			optionalTraits: {}
+		}`
+	}
+	bucket := func(v string) string {
+		return `
+		"example.com/r/container@` + v + `": [#composedTransformers["example.com/p/t` + v + `@v0"]]`
+	}
+
+	permutations := [][]string{
+		{"v1alpha1", "v2", "v10"},
+		{"v10", "v1alpha1", "v2"},
+		{"v2", "v10", "v1alpha1"},
+	}
+	want := []string{
+		"example.com/r/container@v1alpha1", // alpha sorts before every GA
+		"example.com/r/container@v2",
+		"example.com/r/container@v10",
+	}
+	for _, perm := range permutations {
+		ctx := cuecontext.New()
+		mp := materialized(t, ctx, `
+kind: "Platform"
+metadata: { name: "k8s" }
+type: "kubernetes"
+#registry: {}
+#composedTransformers: {`+tf(perm[0])+tf(perm[1])+tf(perm[2])+`
+}
+#matchers: {
+	resources: {`+bucket(perm[0])+bucket(perm[1])+bucket(perm[2])+`
+	}
+	traits: {}
+}
+`)
+		// Demand an unpublished level of the same contract base.
+		components := ctx.CompileString(`
+"web": {
+	matchLabels: {}
+	#resources: { "example.com/r/container@v9": {} }
+}
+`)
+		require.NoError(t, components.Err())
+
+		plan, err := compile.Match(components, mp, "demo")
+		require.NoError(t, err)
+		require.Len(t, plan.Missing, 1)
+		assert.Equal(t, want, plan.Missing[0].Alternatives,
+			"ordering must be identical for input permutation %v", perm)
+	}
+}
+
 // TestMatch_MultipleMissesAccumulated covers the one-pass, no-fail-fast
 // accumulation: two components each demand a distinct absent FQN, so the plan
 // carries two MissingFQN entries (one per (instance, component, fqn)).
@@ -437,11 +742,11 @@ type: "kubernetes"
 `)
 	components := ctx.CompileString(`
 "web": {
-	metadata: { labels: { "workload-type": "stateless" } }
+	matchLabels: { "workload-type": "stateless" }
 	#resources: { "example.com/r/container@v0": {} }
 }
 "db": {
-	metadata: { labels: { "workload-type": "stateful" } }
+	matchLabels: { "workload-type": "stateful" }
 	#resources: { "example.com/r/container@v0": {} }
 }
 `)
@@ -546,13 +851,14 @@ func TestCompileModuleInstance_RendersContextViaSchema(t *testing.T) {
 	// and a tier=web label.
 	instanceSpec := ctx.CompileString(`
 kind: "ModuleInstance"
-metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
+metadata: { name: "demo", namespace: "ns", fqn: "reg.example/modules:demo:ns", uuid: "u-inst" }
 components: {
 	web: {
 		metadata: {
 			name: "web"
 			labels: { tier: "web" }
 		}
+		matchLabels: { tier: "web" }
 		#resources: {
 			"example.com/r/echo@v0": {}
 		}
@@ -563,7 +869,7 @@ components: {
 
 	inst := &module.Instance{
 		Metadata: &module.InstanceMetadata{
-			Name: "demo", Namespace: "ns", UUID: "u-inst",
+			Name: "demo", Namespace: "ns", FQN: "reg.example/modules:demo:ns", UUID: "u-inst",
 			Labels: map[string]string{"k": "v"},
 		},
 		Package: instanceSpec,
@@ -591,6 +897,7 @@ type: "kubernetes"
 				kind: "echo"
 				runtime: #context.#runtimeName
 				instance: #context.#moduleInstanceMetadata.name
+				instanceFQN: #context.#moduleInstanceMetadata.fqn
 				component: #context.#componentMetadata.name
 			}
 		}
@@ -622,6 +929,12 @@ type: "kubernetes"
 	instance, err := got.LookupPath(cue.ParsePath("instance")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "demo", instance)
+	// D41: the context block carries the instance's OWN fqn
+	// (registryPath:name:namespace), not the source module's.
+	instanceFQN, err := got.LookupPath(cue.ParsePath("instanceFQN")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "reg.example/modules:demo:ns", instanceFQN,
+		"#moduleInstanceMetadata.fqn must carry the instance's own registryPath:name:namespace")
 	component, err := got.LookupPath(cue.ParsePath("component")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "web", component)
@@ -1018,12 +1331,14 @@ type: "kubernetes"
 }
 `)
 	// "web" carries the echo resource (matches) and the extra trait (its only
-	// candidate transformer needs label need:"yes", which web lacks).
+	// candidate transformer needs label need:"yes", which web lacks). The
+	// attachment states an effectively-optional posture — that is what keeps
+	// the unhandled trait a warning rather than an unresolved demand (D28).
 	inst := instanceWithComponents(t, ctx, `{
 	web: {
 		metadata: { name: "web", labels: {} }
 		#resources: { "`+echoResFQN+`": {} }
-		#traits: { "`+extraTraitFQN+`": {} }
+		#traits: { "`+extraTraitFQN+`": { optional: true } }
 	}
 }`)
 

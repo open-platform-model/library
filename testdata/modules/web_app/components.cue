@@ -18,11 +18,14 @@ import (
 //     spec.statelessWorkload field is satisfied alongside the direct primitives.
 //     Imports name the apiVersion level (…/blueprints/v1beta1, 0010 D49).
 //
-// The "core.opmodel.dev/workload-type": "stateless" label is what the
-// DeploymentTransformer's requiredLabels matches against. It is set
-// explicitly here because the matcher reads component metadata.labels until
-// the library-match-labels slice flips the read to matchLabels (transitional
-// invariant 2 of library-core-retarget).
+// Matching reads the component's derived matchLabels (0010 D36) — the
+// StatelessWorkload blueprint's matchLabels carry the
+// "core.opmodel.dev/workload-type": "stateless" key the
+// DeploymentTransformer's requiredLabels selects on. The explicit
+// metadata.labels duplicate below is DESCRIPTIVE and stays: render reads
+// (e.g. an hpa-style transformer's workload-type lookup off the component)
+// consume metadata.labels through the transformer context, which D36 keeps
+// on the descriptive field.
 #components: {
 	web: {
 		metadata: {

@@ -19,8 +19,9 @@ import (
 // in-memory catalogs, with no localhost:5000 dependency. The live, real-catalog
 // flow lives in flow_integration_test.go (gated by skipUnlessRegistry).
 //
-// Divergent-FQN, range/allow/deny, and disabled-subscription resolution are
-// covered at the materialize-package level (opm/materialize/materialize_test.go);
+// Divergent-FQN, named-version-absent, major-disagreement, identity-mismatch,
+// and disabled-subscription resolution are covered at the materialize-package
+// level (opm/materialize/materialize_test.go);
 // this harness focuses on the kernel surface and the Match→Compile path.
 
 // standardCatalog is the common two-transformer catalog: "deployment" requires
@@ -59,16 +60,18 @@ func TestIntegration_Materialize(t *testing.T) {
 			"materialized platform carries #matchers")
 	})
 
-	t.Run("highest version selected", func(t *testing.T) {
+	t.Run("authored version selected among several published", func(t *testing.T) {
 		path := registrytest.UniquePath(t, "cat")
 		k := newKernelWithCatalogs(t,
 			standardCatalog(path, "0.1.0"),
 			standardCatalog(path, "0.2.0"),
 		)
 
-		mp, err := materializePlatform(t, k, "0.2.0", path)
+		// The authored scalar — not the highest published (0.2.0) — is pulled
+		// (0010 D14: the platform file IS the resolution).
+		mp, err := materializePlatform(t, k, "0.1.0", path)
 		require.NoError(t, err)
-		assert.Equal(t, "0.2.0", mp.Resolved[subKey(path, "0.2.0")], "highest SemVer selected")
+		assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")], "authored version resolved")
 	})
 
 	t.Run("unresolvable path errors with catalog kind", func(t *testing.T) {
@@ -165,6 +168,131 @@ func TestIntegration_Compile_UnmatchedComponentErrors(t *testing.T) {
 	var uce *compile.UnmatchedComponentsError
 	require.ErrorAs(t, err, &uce)
 	assert.Contains(t, uce.Components, "web")
+}
+
+// TestIntegration_Compile_UnresolvedDemands covers D28's demand-resolution
+// gate on the public Kernel surface: undemandable resources and load-bearing
+// unhandled traits fail Compile with the typed aggregate; effectively-optional
+// unhandled traits stay warnings; the D4 different-apiVersion diagnostic names
+// the alternative. Match stays phase-only throughout (returns the diagnosis,
+// never fails on it).
+func TestIntegration_Compile_UnresolvedDemands(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("undemandable resource fails Compile", func(t *testing.T) {
+		path := registrytest.UniquePath(t, "cat")
+		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
+		mp, err := materializePlatform(t, k, "0.1.0", path)
+		require.NoError(t, err)
+
+		inst := buildInstance(t, k, path, "0.1.0", "", "",
+			compSpec{name: "web", resources: []string{"container", "does-not-exist"}},
+		)
+
+		// Match is phase-only: the diagnosis is returned, not failed.
+		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
+		require.NoError(t, err)
+		require.NotEmpty(t, plan.Unresolved)
+
+		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+		require.Error(t, err)
+		var agg *oerrors.UnresolvedDemandsError
+		require.ErrorAs(t, err, &agg)
+		var demand oerrors.UnresolvedDemand
+		require.ErrorAs(t, err, &demand)
+		assert.Equal(t, "web", demand.Component)
+		assert.Equal(t, "resource", demand.Kind)
+		assert.Contains(t, demand.FQN, "does-not-exist")
+		assert.Empty(t, demand.Alternatives, "no other version of this contract exists")
+	})
+
+	t.Run("load-bearing unhandled trait fails Compile", func(t *testing.T) {
+		path := registrytest.UniquePath(t, "cat")
+		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
+		mp, err := materializePlatform(t, k, "0.1.0", path)
+		require.NoError(t, err)
+
+		inst := buildInstance(t, k, path, "0.1.0", "", "",
+			compSpec{
+				name:          "web",
+				resources:     []string{"container"},
+				traits:        []string{"backup"},
+				traitPostures: map[string]string{"backup": "bool | *false"},
+			},
+		)
+
+		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+		require.Error(t, err)
+		var demand oerrors.UnresolvedDemand
+		require.ErrorAs(t, err, &demand)
+		assert.Equal(t, "trait", demand.Kind)
+		assert.Contains(t, demand.FQN, "backup")
+		assert.False(t, demand.UnstatedPosture, "posture was stated, just load-bearing")
+	})
+
+	t.Run("unstated posture fails closed", func(t *testing.T) {
+		path := registrytest.UniquePath(t, "cat")
+		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
+		mp, err := materializePlatform(t, k, "0.1.0", path)
+		require.NoError(t, err)
+
+		inst := buildInstance(t, k, path, "0.1.0", "", "",
+			compSpec{
+				name:          "web",
+				resources:     []string{"container"},
+				traits:        []string{"backup"},
+				traitPostures: map[string]string{"backup": "bool"},
+			},
+		)
+
+		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+		require.Error(t, err)
+		var demand oerrors.UnresolvedDemand
+		require.ErrorAs(t, err, &demand)
+		assert.True(t, demand.UnstatedPosture)
+		assert.Contains(t, err.Error(), "no optional posture")
+	})
+
+	t.Run("optional unhandled trait warns", func(t *testing.T) {
+		path := registrytest.UniquePath(t, "cat")
+		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
+		mp, err := materializePlatform(t, k, "0.1.0", path)
+		require.NoError(t, err)
+
+		inst := buildInstance(t, k, path, "0.1.0", "", "",
+			compSpec{
+				name:      "web",
+				resources: []string{"container"},
+				traits:    []string{"backup"}, // default posture: bool | *true
+			},
+		)
+
+		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+		require.NoError(t, err, "an effectively-optional unhandled trait must not fail")
+		require.NotEmpty(t, out.Warnings)
+		assert.Contains(t, out.Warnings[0], "backup")
+	})
+
+	t.Run("different apiVersion named as alternative", func(t *testing.T) {
+		path := registrytest.UniquePath(t, "cat")
+		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
+		mp, err := materializePlatform(t, k, "0.1.0", path)
+		require.NoError(t, err)
+
+		demanded := path + "/resources/container@v9"
+		inst := buildInstance(t, k, path, "0.1.0", "", "",
+			compSpec{name: "web", resourceKeys: []string{demanded}},
+		)
+
+		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+		require.Error(t, err)
+		var demand oerrors.UnresolvedDemand
+		require.ErrorAs(t, err, &demand)
+		assert.Equal(t, demanded, demand.FQN)
+		assert.Contains(t, demand.Alternatives, resFQN(path, "container"),
+			"the published contract level is named as an alternative")
+		assert.Contains(t, err.Error(), "different apiVersion")
+	})
 }
 
 func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {

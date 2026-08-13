@@ -14,6 +14,7 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/opm/core"
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -26,8 +27,9 @@ type ComponentSummary struct {
 	// Name is the component name.
 	Name string
 
-	// Labels are the component-level labels from metadata.labels.
-	// Example: {"core.opmodel.dev/workload-type": "stateless"}
+	// Labels are the component's descriptive labels from metadata.labels,
+	// shown as-is for display. Matching does NOT read these — the matcher
+	// reads the component's derived matchLabels (0010 D36).
 	Labels map[string]string
 
 	// ResourceFQNs are the FQNs of resource types declared by the component.
@@ -120,12 +122,24 @@ func (r *Module) Execute(
 		return nil, fmt.Errorf("match plan is required")
 	}
 
-	// Error on unmatched components — these cannot be rendered.
+	// Gate on the plan's diagnosis (D28): unresolved demands and unmatched
+	// components both stop execution, through one exit path. Both are
+	// reported when both apply — the aggregates join, and each stays
+	// reachable via errors.As.
+	var gate []error
+	if len(plan.Unresolved) > 0 {
+		gate = append(gate, &oerrors.UnresolvedDemandsError{
+			Demands: plan.Unresolved,
+		})
+	}
 	if len(plan.Unmatched) > 0 {
-		return nil, &UnmatchedComponentsError{
+		gate = append(gate, &UnmatchedComponentsError{
 			Components: plan.Unmatched,
 			Matches:    plan.Matches,
-		}
+		})
+	}
+	if len(gate) > 0 {
+		return nil, errors.Join(gate...)
 	}
 
 	// Phase 2 — execution (CUE #transform per pair).
@@ -193,7 +207,8 @@ func extractComponentSummaries(schemaComponents cue.Value) []ComponentSummary {
 
 		summary := ComponentSummary{Name: compName}
 
-		// Extract metadata.labels (optional field).
+		// Extract metadata.labels (optional field) — descriptive display data;
+		// matching reads matchLabels, not this (0010 D36).
 		if labelsVal := compVal.LookupPath(schema.MetadataLabels); labelsVal.Exists() {
 			var labels map[string]string
 			if err := labelsVal.Decode(&labels); err == nil {

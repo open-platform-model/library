@@ -44,14 +44,21 @@ The package `opm/helper/synth` SHALL expose `Platform(ctx *cue.Context, in Platf
 - **WHEN** the supplied `SchemaCache` resolves but the package does not expose `#Platform`
 - **THEN** `Platform` returns an error satisfying `errors.Is(err, ErrPlatformSchemaUnavailable)`
 
-### Requirement: Subscriptions and filters map onto the registry
+### Requirement: Subscription Synthesis
 
-`PlatformInput` SHALL carry an optional typed `Subscriptions` map keyed by catalog module path. Each entry SHALL map onto one `#registry` subscription: an optional `Enable` (pointer-typed so an omitted value defers to the schema's `*true` default rather than forcing `false`) and an optional `Filter` carrying `Range`, `Allow`, and `Deny`. A path that violates `#ModulePathType` SHALL surface as a CUE unification error from `Platform`.
+A synthesized platform's registry subscription SHALL carry a required scalar `version` naming the single build the subscription materializes, matching core v2's `#Subscription` shape. The synthesis input (`SubscriptionSpec`) SHALL require a non-empty `Version` and SHALL NOT be able to express a filter — the filter vocabulary (`range`, `allow`, `deny`) does not exist in core v2 and the synthesis surface no longer carries it. `Platform` SHALL refuse a subscription with an empty `Version` at synthesis time with an error naming the subscription path.
 
-#### Scenario: Subscription with filter
+#### Scenario: Version emitted
 
-- **WHEN** `Platform` is called with a subscription at `"opmodel.dev/catalogs/opm"` whose `Filter.Range` is `">=1.0.0 <2.0.0"`
-- **THEN** the returned value has `#registry["opmodel.dev/catalogs/opm"].filter.range` equal to `">=1.0.0 <2.0.0"`
+- **WHEN** a platform is synthesized with a subscription `{Version: "2.0.0-alpha.3"}` for `opmodel.dev/catalogs/opm@v2`
+- **THEN** the synthesized CUE carries `version: "2.0.0-alpha.3"` under that registry key
+- **AND** the synthesized platform materializes exactly that build
+
+#### Scenario: Empty version refused at synthesis
+
+- **WHEN** a subscription is synthesized with an empty `Version`
+- **THEN** `Platform` returns an error naming the subscription path
+- **AND** no platform value is produced
 
 #### Scenario: Enable omitted defers to schema default
 

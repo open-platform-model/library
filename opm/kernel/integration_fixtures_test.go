@@ -37,6 +37,14 @@ type compSpec struct {
 	traits       []string
 	resourceKeys []string
 	labels       map[string]string
+
+	// traitPostures maps a trait short name to the `optional` posture literal
+	// authored on its attachment, mirroring what the real schema derives from
+	// the catalog default unified with any attachment-site override. An
+	// absent key authors "bool | *true" (the registrytest catalog default);
+	// use "bool | *false" for load-bearing and "bool" for the
+	// unstated-posture (fail-closed) case.
+	traitPostures map[string]string
 }
 
 // resFQN / traitFQN reproduce the contract FQNs registrytest.BuildCatalog
@@ -61,9 +69,8 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 
 // subscribe builds a #registry body subscribing (enabled) to each path at
 // version. The map key carries the catalog's major (v2 #ModulePathType), and
-// the required scalar `version` names the build — the fixture registries
-// publish exactly one version per path, so the kernel's interim
-// highest-stable resolution selects the same build the scalar names.
+// the required scalar `version` names the exact build Materialize pulls
+// (0010 D14: the authored version IS the resolution).
 func subscribe(version string, paths ...string) string {
 	major, _, _ := strings.Cut(version, ".")
 	var b strings.Builder
@@ -105,6 +112,9 @@ func buildInstance(
 	for _, c := range comps {
 		fmt.Fprintf(&cb, "\t%q: {\n", c.name)
 		fmt.Fprintf(&cb, "\t\tmetadata: { name: %q, labels: %s }\n", c.name, labelsLiteral(c.labels))
+		// matchLabels mirrors what core derives from attached primitives; the
+		// hermetic harness authors it directly (matching reads it, 0010 D36).
+		fmt.Fprintf(&cb, "\t\tmatchLabels: %s\n", labelsLiteral(c.labels))
 		// Bodies are written open ("{...}"): #resources / #traits are CUE
 		// definitions, which recursively close nested structs. The always-unify
 		// matcher rung unifies each body with the transformer's required
@@ -121,7 +131,11 @@ func buildInstance(
 		if len(c.traits) > 0 {
 			cb.WriteString("\t\t#traits: {\n")
 			for _, tr := range c.traits {
-				fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", traitFQN(catPath, tr))
+				posture := c.traitPostures[tr]
+				if posture == "" {
+					posture = "bool | *true"
+				}
+				fmt.Fprintf(&cb, "\t\t\t%q: {optional: %s, ...}\n", traitFQN(catPath, tr), posture)
 			}
 			cb.WriteString("\t\t}\n")
 		}

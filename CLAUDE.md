@@ -89,7 +89,7 @@ Read these on entry:
 
 ```text
 opm/
-  apiversion/                 Version type + Detect(cue.Value) reads apiVersion off any artifact
+  compat/                     Publish-side catalog compatibility: D27 comparison walk, D34 level ladder, predecessor selection, D30 provenance strip (pure, no I/O)
   core/                       Platform-neutral primitives: Compiled, Resource, Identity
   errors/                     Sentinels + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
@@ -173,12 +173,16 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
 
 `Materialize` (`opm/materialize`, reachable as `(*Kernel).Materialize`)
 resolves a `#Platform`'s `#registry` subscriptions into a sealed
-`*MaterializedPlatform` (composed transformers + `#matchers` filled). Lifetime
+`*MaterializedPlatform` (composed transformers + `#matchers` filled). Each
+enabled subscription pulls exactly the build its authored `version!` names
+(0010 D14) and verifies the pulled catalog's declared identity against the
+subscription coordinate (D11/D9, `oerrors.IdentityError`); enumeration runs
+only when a pull fails, to report what IS published. Lifetime
 and registry rules:
 
 - **Explicit and caller-driven — the kernel holds no materialize cache**
-  (Principle I). Every `Materialize` call performs registry I/O (version
-  enumeration + OCI pulls). Long-running consumers that want memoization wire
+  (Principle I). Every `Materialize` call performs registry I/O (one OCI pull
+  per enabled subscription). Long-running consumers that want memoization wire
   their own `opm/materialize/cache.MaterializeCache` (reference `LRU` +
   `Key(*platform.Platform)` over the `#registry` subtree). Invalidation policy
   is theirs: the operator keys it on a CR generation; the CLI opts out and
@@ -298,7 +302,7 @@ Standard Go grouping with blank lines between groups: stdlib → external (incl.
 
 ### Commit style
 
-Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `provider`, `render`, `kernel`, `errors` (plus `api`, `apiversion`, `compile`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
+Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `compat`, `compile`, `materialize`, `platform`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
 
 **Commit attribution: NONE.** Never add `Co-Authored-By: Claude`, a `Claude-Session:` trailer, a claude.ai session URL, or a "Generated with …" footer to a commit or PR. See the Attribution section below.
 

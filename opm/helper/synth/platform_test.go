@@ -107,12 +107,15 @@ func TestPlatform_SchemaWithoutPlatform(t *testing.T) {
 		"want ErrPlatformSchemaUnavailable, got %v", err)
 }
 
-// Core v2 deleted #SubscriptionFilter (enhancement 0010 D14): a FilterSpec
-// rendered against the v2 schema surfaces as a "field not allowed"
-// unification error rather than a silently-ignored field. FilterSpec itself
-// is removed by the subscription-collapse slice; until then this pins the
-// transitional behavior.
-func TestPlatform_SubscriptionFilterRejectedByV2Schema(t *testing.T) {
+// Core v2 deleted #SubscriptionFilter (enhancement 0010 D14) and the
+// subscription-collapse slice removed FilterSpec from the Go surface — a
+// filter can no longer be expressed at the Go boundary at all (the CUE-schema
+// rejection the transitional test pinned stays covered by the schema itself).
+// What synthesis now enforces instead: the required version scalar. An empty
+// Version is refused at synthesis, naming the subscription path — early
+// validation at the write side beats a silent empty materialize at the read
+// side.
+func TestPlatform_RejectsEmptySubscriptionVersion(t *testing.T) {
 	ctx := sharedCtx
 	const path = "opmodel.dev/catalogs/opm@v1"
 	_, err := synth.Platform(ctx, synth.PlatformInput{
@@ -120,11 +123,29 @@ func TestPlatform_SubscriptionFilterRejectedByV2Schema(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			path: {Filter: &synth.FilterSpec{Range: ">=1.0.0 <2.0.0"}},
+			path: {}, // no Version
 		},
 	})
-	require.Error(t, err, "a filter block must be refused by the v2 #Subscription shape")
-	assert.Contains(t, err.Error(), "field not allowed")
+	require.Error(t, err, "an empty subscription Version must be refused at synthesis")
+	assert.True(t, errors.Is(err, synth.ErrSubscriptionMissingVersion),
+		"want ErrSubscriptionMissingVersion, got %v", err)
+	assert.Contains(t, err.Error(), path, "error must name the offending subscription path")
+}
+
+// The guard fires before any schema fetch — a versionless subscription with a
+// nil-loader cache still returns the version sentinel.
+func TestPlatform_VersionGuardBeforeSchemaFetch(t *testing.T) {
+	_, err := synth.Platform(sharedCtx, synth.PlatformInput{
+		Name:        "demo",
+		Type:        "kubernetes",
+		SchemaCache: &schema.Cache{Loader: emptySchemaLoader{ctx: sharedCtx}},
+		Subscriptions: map[string]synth.SubscriptionSpec{
+			"opmodel.dev/catalogs/opm@v1": {},
+		},
+	})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, synth.ErrSubscriptionMissingVersion),
+		"version guard must precede the schema fetch, got %v", err)
 }
 
 func TestPlatform_EnableOmittedDefaultsTrue(t *testing.T) {
@@ -135,7 +156,7 @@ func TestPlatform_EnableOmittedDefaultsTrue(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			path: {}, // Enable nil → schema default *true
+			path: {Version: "1.0.0"}, // Enable nil → schema default *true
 		},
 	})
 	require.NoError(t, err)
@@ -145,6 +166,12 @@ func TestPlatform_EnableOmittedDefaultsTrue(t *testing.T) {
 	)).Bool()
 	require.NoError(t, err)
 	assert.True(t, enable, "omitted Enable must resolve to the schema default true")
+
+	version, err := plat.LookupPath(cue.MakePath(
+		cue.Def("registry"), cue.Str(path), cue.Str("version"),
+	)).String()
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", version, "the authored version scalar must render onto the subscription")
 }
 
 func TestPlatform_EnableExplicitFalse(t *testing.T) {
@@ -155,7 +182,7 @@ func TestPlatform_EnableExplicitFalse(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			path: {Enable: boolPtr(false)},
+			path: {Enable: boolPtr(false), Version: "1.0.0"},
 		},
 	})
 	require.NoError(t, err)
@@ -173,7 +200,7 @@ func TestPlatform_InvalidCatalogPath(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			"NOT A VALID MODULE PATH": {Enable: boolPtr(true)},
+			"NOT A VALID MODULE PATH": {Enable: boolPtr(true), Version: "1.0.0"},
 		},
 	})
 	require.Error(t, err, "a key violating #ModulePathType must surface as a unification error")
@@ -188,7 +215,7 @@ func TestPlatform_MaterializationSlotsUnset(t *testing.T) {
 		Type:        "kubernetes",
 		SchemaCache: newCache(t),
 		Subscriptions: map[string]synth.SubscriptionSpec{
-			"opmodel.dev/catalogs/opm@v1": {Enable: boolPtr(true)},
+			"opmodel.dev/catalogs/opm@v1": {Enable: boolPtr(true), Version: "1.0.0"},
 		},
 	})
 	require.NoError(t, err)

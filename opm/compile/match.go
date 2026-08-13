@@ -38,8 +38,9 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
-	"github.com/Masterminds/semver/v3"
+	cueerrors "cuelang.org/go/cue/errors"
 
+	"github.com/open-platform-model/library/opm/compat"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/schema"
@@ -59,13 +60,23 @@ type MatchPlan struct {
 
 	// Missing holds the hard "no transformer requires this FQN" diagnostics,
 	// one per (instance, component, fqn). Distinct from UnhandledTraits, which
-	// flags a component trait that no matched transformer consumes (soft).
+	// flags a component trait that no matched transformer consumes. Kept for
+	// compatibility and fed as before; the load-bearing diagnosis is
+	// Unresolved.
 	Missing []oerrors.MissingFQN
 
 	// Unify holds the always-unify-rung failures: a component primitive body
 	// that conflicts with a candidate transformer's required body at the same
 	// FQN. The conflicting candidate is not paired.
 	Unify []oerrors.UnifyError
+
+	// Unresolved holds every demand the platform failed to resolve (0010
+	// D28): a demanded resource with an empty bucket or with every candidate
+	// disqualified, and an unhandled trait whose effective optional posture
+	// is load-bearing (false, or fail-closed unstated). Plan-for-execution
+	// and Compile fail on a non-empty set; Match stays phase-only and
+	// returns the full diagnosis.
+	Unresolved []oerrors.UnresolvedDemand
 }
 
 // MatchedPair is a single (component, transformer) pair that matched.
@@ -108,7 +119,10 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 	for compIter.Next() {
 		compName := compIter.Selector().Unquoted()
 		compVal := compIter.Value()
-		labels := labelPairs(compVal.LookupPath(schema.MetadataLabels))
+		// Matching reads the component's matchLabels — the derived union of
+		// its attached primitives' matching keys (0010 D36). metadata.labels
+		// is descriptive and is NOT consulted here.
+		labels := labelPairs(compVal.LookupPath(schema.MatchLabels))
 		resources := fieldKeys(compVal.LookupPath(schema.ComponentResources))
 		traits := fieldKeys(compVal.LookupPath(schema.ComponentTraits))
 		resourceSet := stringSet(resources)
@@ -119,12 +133,18 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 		traitHandled := map[string]struct{}{}
 		// unify is evaluated once per (component, candidate); cache the verdict
 		// so a transformer demanded via several FQNs is not re-unified (and does
-		// not record duplicate UnifyErrors).
+		// not record duplicate UnifyErrors). unifyErrs keeps the per-candidate
+		// failures for UnresolvedDemand.Disqualified attribution.
 		unifyChecked := map[string]bool{}
 		unifyOK := map[string]bool{}
+		unifyErrs := map[string][]oerrors.UnifyError{}
 
-		// walk processes one demanded FQN: lookup → unify → predicate.
-		walk := func(matchersIndex cue.Value, fqn string, isTrait bool) {
+		// walk processes one demanded FQN: lookup → unify → predicate. The
+		// returned outcome feeds D28's demand resolution: whether some
+		// candidate in the demand's bucket paired, and the unify causes of the
+		// candidates that fell out.
+		walk := func(matchersIndex cue.Value, fqn string, isTrait bool) demandOutcome {
+			out := demandOutcome{}
 			candidates, exists := bucketTransformers(matchersIndex, fqn)
 			if !exists {
 				plan.Missing = append(plan.Missing, oerrors.MissingFQN{
@@ -133,7 +153,7 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 					FQN:          fqn,
 					Alternatives: alternativesFor(matchersIndex, fqn),
 				})
-				return
+				return out
 			}
 			for _, cand := range candidates {
 				tfFQN, ferr := cand.LookupPath(schema.MetadataFQN).String()
@@ -142,28 +162,47 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 				}
 				if !unifyChecked[tfFQN] {
 					unifyChecked[tfFQN] = true
+					before := len(plan.Unify)
 					unifyOK[tfFQN] = runUnify(plan, compName, compVal, cand)
+					unifyErrs[tfFQN] = append([]oerrors.UnifyError(nil), plan.Unify[before:]...)
 				}
 				if !unifyOK[tfFQN] {
+					out.disqualified = append(out.disqualified, unifyErrs[tfFQN]...)
 					continue
 				}
 				if !candidateSatisfied(cand, labels, resourceSet, traitSet) {
 					continue
 				}
+				out.satisfied = true
 				pairTransformer(plan, compName, tfFQN, composed, labels, matched)
 				if isTrait {
 					traitHandled[fqn] = struct{}{}
 				}
 			}
+			return out
 		}
 
 		// Resource demand walk, then trait demand walk. matched is keyed by
-		// transformer FQN so a transformer demanded via several FQNs pairs once.
+		// transformer FQN so a transformer demanded via several FQNs pairs
+		// once. Every declared resource is a required demand (D28): an empty
+		// bucket or an all-candidates-disqualified bucket is unresolved.
+		// Trait outcomes are kept — their resolution also depends on matched
+		// transformers' optionalTraits, folded in below.
+		traitOutcomes := map[string]demandOutcome{}
 		for _, fqn := range resources {
-			walk(matchersResources, fqn, false)
+			out := walk(matchersResources, fqn, false)
+			if !out.satisfied {
+				plan.Unresolved = append(plan.Unresolved, oerrors.UnresolvedDemand{
+					Component:    compName,
+					FQN:          fqn,
+					Kind:         "resource",
+					Alternatives: alternativesFor(matchersResources, fqn),
+					Disqualified: out.disqualified,
+				})
+			}
 		}
 		for _, fqn := range traits {
-			walk(matchersTraits, fqn, true)
+			traitOutcomes[fqn] = walk(matchersTraits, fqn, true)
 		}
 
 		if len(matched) == 0 {
@@ -177,16 +216,65 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 				traitHandled[fqn] = struct{}{}
 			}
 		}
+		// An unhandled trait's fate is its effective optional posture (D28):
+		// effectively optional degrades to a warning (UnhandledTraits);
+		// load-bearing — or fail-closed unstated — joins Unresolved.
 		for _, fqn := range traits {
-			if _, ok := traitHandled[fqn]; !ok {
-				plan.UnhandledTraits[compName] = append(plan.UnhandledTraits[compName], fqn)
+			if _, ok := traitHandled[fqn]; ok {
+				continue
 			}
+			optional, stated := traitOptional(compVal, fqn)
+			if stated && optional {
+				plan.UnhandledTraits[compName] = append(plan.UnhandledTraits[compName], fqn)
+				continue
+			}
+			plan.Unresolved = append(plan.Unresolved, oerrors.UnresolvedDemand{
+				Component:       compName,
+				FQN:             fqn,
+				Kind:            "trait",
+				Alternatives:    alternativesFor(matchersTraits, fqn),
+				Disqualified:    traitOutcomes[fqn].disqualified,
+				UnstatedPosture: !stated,
+			})
 		}
 		sort.Strings(plan.UnhandledTraits[compName])
 	}
 
 	sort.Strings(plan.Unmatched)
 	return plan, nil
+}
+
+// demandOutcome is walk's per-demand verdict, feeding D28's resolution rules.
+// The empty-bucket / all-disqualified distinction (states (a)/(b)) is carried
+// by disqualified and the parallel MissingFQN record, not by a separate flag.
+type demandOutcome struct {
+	// satisfied: some candidate in the demand's bucket survived unify and
+	// predicate (it paired, or was already paired via another demand).
+	satisfied bool
+
+	// disqualified carries the unify causes of candidates that fell out.
+	disqualified []oerrors.UnifyError
+}
+
+// traitOptional reads the effective `optional` posture off the component's
+// trait attachment (#traits[fqn].optional): the declaring catalog's default
+// unified with any attachment-site override. Returns stated=false when the
+// field is absent or not concrete (no default to resolve) — the fail-closed
+// case D28 treats as load-bearing, so an un-gated catalog that states no
+// posture cannot silently weaken a render.
+func traitOptional(compVal cue.Value, fqn string) (optional, stated bool) {
+	v := compVal.LookupPath(cue.MakePath(cue.Def("traits"), cue.Str(fqn), cue.Str("optional")))
+	if !v.Exists() {
+		return false, false
+	}
+	if d, ok := v.Default(); ok {
+		v = d
+	}
+	b, err := v.Bool()
+	if err != nil {
+		return false, false
+	}
+	return b, true
 }
 
 // bucketTransformers reads matchersIndex[FQN] and returns the candidate
@@ -224,9 +312,14 @@ func bucketTransformers(matchersIndex cue.Value, fqn string) ([]cue.Value, bool)
 // runUnify is the always-unify rung. It unifies the component's primitive
 // bodies against the candidate transformer's required primitive bodies for
 // every FQN present in BOTH sides — the full intersection, per D1, not only the
-// FQN that triggered the bucket lookup. A conflict appends an oerrors.UnifyError
-// carrying the verbatim CUE cause and returns false, so the caller skips
-// predicate evaluation for the candidate.
+// FQN that triggered the bucket lookup. Diagnostics located at the D30
+// provenance denylist (metadata.catalogVersion, metadata.description, in any
+// metadata block) are excluded from the verdict — cross-build provenance
+// diverges by construction and must not fail the rung; everything else,
+// including closedness refusals from the closed definition (D27), still
+// disqualifies. A conflict appends an oerrors.UnifyError carrying the
+// surviving CUE cause and returns false, so the caller skips predicate
+// evaluation for the candidate.
 func runUnify(plan *MatchPlan, compName string, compVal, cand cue.Value) bool {
 	// Evaluate both intersections (no short-circuit) so every conflicting FQN
 	// is recorded, then combine the verdicts.
@@ -242,8 +335,9 @@ func runUnify(plan *MatchPlan, compName string, compVal, cand cue.Value) bool {
 // unifyIntersection unifies have[FQN] against required[FQN] for each FQN in
 // required that is also present in have. Validation uses cue.Concrete(false):
 // matching happens pre-render on schema bodies, so structural agreement (not
-// fully-concrete values) is the correct bar (Q3). Returns false if any FQN
-// conflicts, recording one UnifyError per conflict.
+// fully-concrete values) is the correct bar (Q3). Diagnostics at provenance
+// paths are excluded from the verdict (D30, see excludeProvenance). Returns
+// false if any FQN conflicts, recording one UnifyError per conflict.
 func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Value) bool {
 	if !required.Exists() {
 		return true
@@ -262,10 +356,15 @@ func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Valu
 			continue
 		}
 		if vErr := cv.Unify(iter.Value()).Validate(cue.Concrete(false)); vErr != nil {
+			cause := excludeProvenance(vErr)
+			if cause == nil {
+				// Provenance-only divergence — not a conflict (D26/D30).
+				continue
+			}
 			plan.Unify = append(plan.Unify, oerrors.UnifyError{
 				Component: compName,
 				FQN:       fqn,
-				Cause:     vErr,
+				Cause:     cause,
 			})
 			ok = false
 		}
@@ -273,12 +372,58 @@ func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Valu
 	return ok
 }
 
+// excludeProvenance implements the rung's D30 exclusion: it drops every CUE
+// diagnostic located at a metadata block's catalogVersion or description —
+// provenance that changes per catalog release by construction (D25), so a
+// definition and an instance from different builds always disagree there —
+// and returns the surviving cause, or nil when every diagnostic was
+// provenance-only.
+//
+// The exclusion operates on the unify VERDICT rather than on the operands:
+// compat.StripProvenance's syntax round-trip (the publish-side mechanism)
+// cannot rebuild kernel-side schema-derived operands — their export carries
+// let-bound references to core helper definitions that InlineImports cannot
+// make self-contained — and every export profile that does rebuild them
+// (Eval, Final) opens closed definitions, which would silently void the D27
+// closed-definition comparison. Excluding provenance-located diagnostics from
+// the verdict is equivalent under D25 (nothing derives from the denylisted
+// fields) and keeps both closedness and document positions.
+func excludeProvenance(vErr error) error {
+	var kept []cueerrors.Error
+	for _, e := range cueerrors.Errors(vErr) {
+		if isProvenancePath(e.Path()) {
+			continue
+		}
+		kept = append(kept, e)
+	}
+	if len(kept) == 0 {
+		return nil
+	}
+	var out cueerrors.Error
+	for _, e := range kept {
+		out = cueerrors.Append(out, e)
+	}
+	return out
+}
+
+// isProvenancePath reports whether a diagnostic path names a D30-denylisted
+// field directly under a metadata block — the "every metadata block" literal
+// rule, at any depth.
+func isProvenancePath(p []string) bool {
+	n := len(p)
+	if n < 2 || p[n-2] != "metadata" {
+		return false
+	}
+	return p[n-1] == "catalogVersion" || p[n-1] == "description"
+}
+
 // alternativesFor walks the matchers index keys (the primitive-FQN universe the
 // platform's transformers require) and returns every FQN other than missingFQN
 // that shares the same modulePath/name — the FQN substring before the final
-// "@" — sorted by SemVer. Per D2 this surfaces "a transformer exists for a
-// different version of this primitive". The full same-name set is returned;
-// trimming to truly-adjacent versions is a frontend presentation nuance.
+// "@" — in contract-key order (kube-aware apiVersion ladder, D34/D4). Per D2
+// this surfaces "a transformer exists for a different version of this
+// primitive". The full same-name set is returned; trimming to truly-adjacent
+// versions is a frontend presentation nuance.
 func alternativesFor(matchersIndex cue.Value, missingFQN string) []string {
 	if !matchersIndex.Exists() {
 		return nil
@@ -298,7 +443,7 @@ func alternativesFor(matchersIndex cue.Value, missingFQN string) []string {
 			alts = append(alts, key)
 		}
 	}
-	sortFQNsBySemVer(alts)
+	sortContractKeys(alts)
 	return alts
 }
 
@@ -319,18 +464,18 @@ func fqnVersion(fqn string) string {
 	return ""
 }
 
-// sortFQNsBySemVer sorts FQNs ascending by their "@<version>" suffix parsed as
-// SemVer (Masterminds tolerates a leading "v"). FQNs whose version does not
-// parse fall back to lexical order.
-func sortFQNsBySemVer(fqns []string) {
+// sortContractKeys sorts contract keys ascending by their "@<apiVersion>"
+// suffix under compat.CompareAPIVersions — the total, transitive kube-aware
+// ladder ordering (D34/D4). Same-apiVersion keys tie-break lexically on the
+// full FQN. The predecessor here (sortFQNsBySemVer) switched comparison rule
+// per pair and was measured non-transitive: v1alpha1 < v2, v2 < v10 and
+// v10 < v1alpha1 all held at once, so the same three FQNs sorted differently
+// depending on input order. Build keys (the other D4 key shape) would be
+// SemVer-ordered instead, but no match-site call orders build keys today.
+func sortContractKeys(fqns []string) {
 	sort.Slice(fqns, func(i, j int) bool {
-		vi, ei := semver.NewVersion(fqnVersion(fqns[i]))
-		vj, ej := semver.NewVersion(fqnVersion(fqns[j]))
-		if ei == nil && ej == nil {
-			if vi.Equal(vj) {
-				return fqns[i] < fqns[j]
-			}
-			return vi.LessThan(vj)
+		if c := compat.CompareAPIVersions(fqnVersion(fqns[i]), fqnVersion(fqns[j])); c != 0 {
+			return c < 0
 		}
 		return fqns[i] < fqns[j]
 	})
@@ -460,8 +605,10 @@ func (p *MatchPlan) NonMatchedPairs() []NonMatchedPair {
 	return pairs
 }
 
-// Warnings returns warnings for traits not handled by any matched
-// transformer. Those trait values will be ignored in rendering.
+// Warnings returns warnings for EFFECTIVELY-OPTIONAL traits not handled by
+// any matched transformer (D28). Those trait values will be ignored in
+// rendering. Load-bearing unhandled traits are not warnings — they sit in
+// Unresolved and fail Plan/Compile.
 //
 // UnhandledTraits is intentionally distinct from MatchPlan.Missing: a trait is
 // "unhandled" when no matched transformer consumes it (the trait FQN may still
@@ -524,7 +671,7 @@ func fieldKeys(v cue.Value) []string {
 }
 
 // missingMapLabels compares required labels in a transformer against
-// the "key=value" pairs present in a component's metadata.labels.
+// the "key=value" pairs present in a component's matchLabels set.
 func missingMapLabels(required cue.Value, have map[string]struct{}) []string {
 	iter, err := required.Fields(cue.Optional(true))
 	if err != nil {
