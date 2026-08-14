@@ -304,6 +304,8 @@ Standard Go grouping with blank lines between groups: stdlib → external (incl.
 
 Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `compat`, `compile`, `materialize`, `platform`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first.
 
+**Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
+
 **Commit attribution: NONE.** Never add `Co-Authored-By: Claude`, a `Claude-Session:` trailer, a claude.ai session URL, or a "Generated with …" footer to a commit or PR. See the Attribution section below.
 
 ## Working Style for Agents
