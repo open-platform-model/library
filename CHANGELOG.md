@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-alpha.13](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.12...v1.0.0-alpha.13) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* synth.SubscriptionSpec drops Filter for a required Version; unresolved resource demands and non-optional unhandled traits now fail Plan and Compile; matching reads matchLabels instead of metadata.labels. See MIGRATIONS.md for migration recipes.
+
+### Features
+
+* compat comparator, scalar subscriptions, load-bearing matching ([#59](https://github.com/open-platform-model/library/issues/59)) ([80afd09](https://github.com/open-platform-model/library/commit/80afd096bf5d8014326366d7e0defa0cf6e234a2))
+
 ## [1.0.0-alpha.12](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.11...v1.0.0-alpha.12) (2026-08-11)
 
 
