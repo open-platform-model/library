@@ -306,7 +306,7 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 
 **Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
 
-**Commit attribution: NONE.** Never add `Co-Authored-By: Claude`, a `Claude-Session:` trailer, a claude.ai session URL, or a "Generated with …" footer to a commit or PR. See the Attribution section below.
+**Commit attribution: plain co-author line only.** The single permitted (optional) form is `Co-Authored-By: Claude <noreply@anthropic.com>` — never a `Claude-Session:` trailer, a claude.ai session URL, a "Generated with …" footer, or any embellished variant. See the Attribution section at the top of this file.
 
 ## Working Style for Agents
 
