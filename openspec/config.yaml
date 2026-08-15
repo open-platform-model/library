@@ -157,3 +157,9 @@ rules:
     - Group tasks by affected package (see CLAUDE.md for the current package set).
     - Each task should be independently testable.
     - Include validation gates as final tasks (`task fmt`, `task vet`, `task lint`, `task test`).
+    - "NEVER include delivery operations as tasks: no committing, pushing, branching,
+      opening or merging PRs, tagging, cutting releases, and no commit-message or PR-body
+      hygiene checks. tasks.md covers implementation and verification only — delivery
+      happens afterwards under the repo's normal git workflow and needs no spelling out.
+      Sole exception: a change whose stated deliverable is itself a release or publishing
+      operation; there those steps ARE the implementation."
