@@ -37,6 +37,8 @@ The library SHALL provide a pure comparison (`opm/compat.Check`) that, given a p
 - **WHEN** the new definition only adds an option to a disjunction or adds an optional field
 - **THEN** `Check` reports no violations
 
+Known limitation (measured 2026-08-16, cue v0.17.1, against `catalog_opm/src` vs its published history): the leaf subsume false-positives `domain narrowed` on byte-identical operands whose schema carries a `matchN` validator or a pending comprehension (e.g. an `if`-guard over a not-yet-concrete field) — 33 of 66 unchanged real members reported violations. The CLI's publish gate compensates by short-circuiting members whose emitted syntax is identical modulo the D30 provenance fields, so the walk only runs over members that actually changed; a changed member whose schema carries those constructs can still report noise. A comparator-level fix is unowned.
+
 ### Requirement: Level Classification
 
 The library SHALL classify a primitive's `apiVersion` on the `vNalphaM | vNbetaM | vN` ladder (`opm/compat.ParseLevel`) using the exact grammar of core's `#APIVersionType`, and SHALL expose whether a level is enforced (`Enforced`: beta and GA yes, alpha no). The level-aware entry point (`CheckAtLevel`) SHALL return no violations and no error for an alpha `apiVersion` without evaluating the operands, and SHALL return an error — not a violation — for an `apiVersion` the grammar rejects. The library SHALL provide a total, transitive ordering over valid `apiVersion` strings (`CompareAPIVersions`).
@@ -63,7 +65,9 @@ The library SHALL classify a primitive's `apiVersion` on the `vNalphaM | vNbetaM
 
 ### Requirement: Predecessor Selection
 
-The library SHALL provide predecessor selection over a published-version list (`opm/compat.HighestStable`): given the registry's `v`-prefixed SemVer-ascending list, it SHALL return the highest stable (non-prerelease) version, skipping unparseable entries, and SHALL fall back to the highest version overall when no stable version exists. Selection SHALL be pure — enumeration and fetching are the caller's.
+The library SHALL provide a stable-preferring version selector over a published-version list (`opm/compat.HighestStable`): given the registry's `v`-prefixed SemVer-ascending list, it SHALL return the highest stable (non-prerelease) version, skipping unparseable entries, and SHALL fall back to the highest version overall when no stable version exists. Selection SHALL be pure — enumeration and fetching are the caller's.
+
+This selector is NOT the compatibility gate's predecessor selection. 0011 D23 (amending D9) settled that the publish gate's predecessor is found by the literal rule — scan published versions strictly below the effective version, same major, prereleases included, newest first, each member resolving against the newest build carrying its `name` at its `apiVersion` — implemented gate-side in the CLI over the registry's version enumeration; a stable-preferring selector coincides with that rule only on a prerelease-only history. `HighestStable` is the *float* selector: its first true caller is template resolution's version selection (`cli-template-modules`), which is why it stays.
 
 #### Scenario: Stable preferred over higher prerelease
 
@@ -88,3 +92,5 @@ The library SHALL provide a provenance strip (`opm/compat.StripProvenance`) impl
 
 - **WHEN** the input value's definition declares `catalogVersion!`
 - **THEN** the stripped value does not carry an unsatisfiable required field
+
+Known limitation (measured 2026-08-16, cue v0.17.1): the inline-imports round-trip is not self-contained for members typed against core — the emitted syntax references core's hidden `#KebabToPascal` helper (reached via `metadata.#definitionName`) without inlining it, and the rebuild fails with `reference "#KebabToPascal" not found`. Every real catalog member is core-typed, so the strip currently works only on values whose imports carry no hidden-definition helpers. The CLI's publish gate applies the D30 denylist as a violation-path filter over `Check`'s output instead (same fields, same direct-children-of-metadata scope). The unify-rung consumer (library-matching) should measure before relying on the strip for core-typed members.

@@ -9,13 +9,19 @@ import "github.com/Masterminds/semver/v3"
 // returned so a pre-release-only path still resolves. Unparseable entries are
 // skipped.
 //
-// This is 0011 D9's predecessor selection: the publish gate compares each
-// gated primitive against the last published build carrying it, and this
-// picks which build that is. Selection is pure — enumerating and fetching the
-// candidate are the caller's. Moved verbatim from opm/materialize's
-// since-deleted filterVersions path (0010 D14): subscription resolution now
-// reads the authored version! scalar and performs no selection, so the
-// publish gate is this function's only consumer.
+// This is the FLOAT selector — "give me the latest released build" — and it
+// is deliberately NOT the compatibility gate's predecessor selection. An
+// earlier revision of this comment claimed it was; 0011 D23 (amending D9)
+// corrected that: the publish gate's predecessor is found by D9's literal
+// rule — scan published versions strictly below the effective version, same
+// major, prereleases included, newest first — implemented gate-side in the
+// CLI, because a stable-preferring selector coincides with that rule only on
+// a prerelease-only history and would miss breaks that prerelease pinners
+// (0010 D14-blessed) can see. Selection here is pure — enumerating and
+// fetching the candidate are the caller's. Moved verbatim from
+// opm/materialize's since-deleted filterVersions path (0010 D14). Its first
+// true caller is template resolution's version selection
+// (cli-template-modules), which is why it stays.
 func HighestStable(published []string) string {
 	for i := len(published) - 1; i >= 0; i-- {
 		sv, err := semver.NewVersion(published[i])
