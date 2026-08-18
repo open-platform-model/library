@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.14](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.13...v1.0.0-alpha.14) (2026-08-15)
+
+
+### Miscellaneous Chores
+
+* **openspec:** deny delivery-operation tasks in tasks.md ([#61](https://github.com/open-platform-model/library/issues/61)) ([34c67e0](https://github.com/open-platform-model/library/commit/34c67e00d76459dfe70819bf125a3f221984a69d))
+
 ## [1.0.0-alpha.13](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.12...v1.0.0-alpha.13) (2026-08-14)
 
 
