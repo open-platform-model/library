@@ -3,6 +3,7 @@ package kernel_test
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -165,9 +166,12 @@ func compareRendered(kernel, oracle []cue.Value) string {
 			return fmt.Sprintf("object[%d]: oracle value does not encode: %v", i, err)
 		}
 		if ek != eo {
-			class := "values differ beyond field order"
-			if equalModuloOrder(ek, eo) {
-				class = "ordering-only divergence: same fields and values, different field order (0019 D14)"
+			class := "values differ beyond ordering"
+			switch {
+			case equalModuloOrder(ek, eo):
+				class = "ordering-only divergence: same fields and values, different struct field order (0019 D14)"
+			case equalModuloAllOrder(ek, eo):
+				class = "ordering-only divergence: same fields and values, different list element order (0019 D14)"
 			}
 			return fmt.Sprintf("object[%d] differs at %s (%s)\n  kernel: %s\n  oracle: %s",
 				i, firstDiffPath(kernel[i], oracle[i]), class, ek, eo)
@@ -235,6 +239,40 @@ func equalModuloOrder(a, b string) bool {
 	ca, errA := json.Marshal(va)
 	cb, errB := json.Marshal(vb)
 	return errA == nil && errB == nil && string(ca) == string(cb)
+}
+
+// equalModuloAllOrder is equalModuloOrder with list element order disregarded
+// as well (elements compared as a multiset of their canonical encodings).
+// Classification only; the comparison itself never ignores order.
+func equalModuloAllOrder(a, b string) bool {
+	var va, vb any
+	if json.Unmarshal([]byte(a), &va) != nil || json.Unmarshal([]byte(b), &vb) != nil {
+		return false
+	}
+	ca, errA := json.Marshal(sortLists(va))
+	cb, errB := json.Marshal(sortLists(vb))
+	return errA == nil && errB == nil && string(ca) == string(cb)
+}
+
+func sortLists(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = sortLists(e)
+		}
+		return x
+	case []any:
+		keys := make([]string, len(x))
+		for i, e := range x {
+			x[i] = sortLists(e)
+			b, _ := json.Marshal(x[i])
+			keys[i] = string(b)
+		}
+		sort.Slice(x, func(i, j int) bool { return keys[i] < keys[j] })
+		return x
+	default:
+		return v
+	}
 }
 
 // assertParity is checkParity as a test assertion, logging a reproduced

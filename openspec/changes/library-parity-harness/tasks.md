@@ -8,6 +8,8 @@
 - [x] 2.1 Create `testdata/parity/cue.mod/module.cue` (`testing.opmodel.dev/library-parity@v0`, pins core `v2.0.0-alpha.4` and catalogs/opm `v2.0.0-alpha.3`), and copy `web_app/` and `opm_platform/` in with source-naming headers (design D2).
 - [x] 2.2 Author `instance/instance.cue` (`#module: web_app` by import, `web-app-demo`/`default`, values from the experiment) and `oracle/render.cue` from experiment 01's glue; `cue vet -c ./oracle` exits 0 against GHCR with the workspace `CUE_REGISTRY` mapping.
 
+- [x] 2.3 Add the guarded-env `worker` component (experiment 07's shape) to the parity `web_app` copy so D14's finalization hoisting is observable on a shipped transformer.
+
 ## 3. Shipped-catalog cases (opm/kernel/parity_harness_test.go)
 
 - [x] 3.1 Kernel side: load `web_app`, `opm_platform`, materialize, `LoadInstancePackage(instance/)`, `ProcessModuleInstance`, `Compile`; gate with `-short` skip, `skipUnlessRegistry`, `OPM_FLOW_TEST_FORCE` (design D1).

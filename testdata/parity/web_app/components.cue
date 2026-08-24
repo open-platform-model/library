@@ -1,6 +1,8 @@
-// COPY of testdata/modules/web_app/components.cue for the render-parity harness. Kept byte-identical to its
-// source apart from this header; both pin the same published core and
-// catalog builds. Edit the source, then refresh this copy.
+// COPY of testdata/modules/web_app/components.cue for the render-parity harness, extended
+// with the `worker` component and its #config fields (guarded-env fixture for
+// 0019 D14). Everything else is byte-identical to the source; both pin the
+// same published core and catalog builds. Edit the source, then refresh the
+// shared part of this copy.
 
 package web_app
 
@@ -101,6 +103,44 @@ import (
 					"FLAG_C": "on"
 				}
 			}
+		}
+	}
+
+	// Third component, parity-only: the guarded-env shape experiment 07
+	// measured as the one that reorders under finalization (0019 D14). The
+	// env MAP is assembled from three sources, plainly declared fields, a
+	// feature-guarded block and a comprehension over #config.extraEnv, and
+	// the deployment transformer converts it to the Kubernetes env LIST, so
+	// any hoisting of comprehension-produced fields reaches rendered bytes.
+	worker: {
+		metadata: {
+			name: "worker"
+			labels: "core.opmodel.dev/workload-type": "stateless"
+		}
+		bp.#StatelessWorkload
+
+		let _env = {
+			SERVICE_NAME: {name: "SERVICE_NAME", value: "worker"}
+			SERVICE_PORT: {name: "SERVICE_PORT", value: "\(#config.port)"}
+			if #config.metrics {
+				METRICS_ENABLED: {name: "METRICS_ENABLED", value: "true"}
+				METRICS_PATH: {name: "METRICS_PATH", value: "/metrics"}
+			}
+			for k, v in #config.extraEnv {
+				(k): {name: k, value: v}
+			}
+			POD_NAME: {name: "POD_NAME", fieldRef: fieldPath: "metadata.name"}
+		}
+
+		spec: statelessWorkload: {
+			container: {
+				name:  "worker"
+				image: #config.image
+				env:   _env
+			}
+			scaling: {count: 1}
+			restartPolicy: "Always"
+			updateStrategy: type: "RollingUpdate"
 		}
 	}
 }

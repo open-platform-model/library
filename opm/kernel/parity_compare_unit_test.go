@@ -67,10 +67,18 @@ func TestParityCompareRendered(t *testing.T) {
 		[]cue.Value{obj(`{kind: "A", n: 2}`)},
 	)
 	assert.Contains(t, changed, "object[0] differs at .n")
-	assert.Contains(t, changed, "beyond field order")
+	assert.Contains(t, changed, "beyond ordering")
 
-	// List element order is never disregarded, even by the classifier.
+	// List element order: the struct-order classifier keeps it, the
+	// all-order classifier disregards it; the comparison never does.
 	assert.False(t, equalModuloOrder(`{"l":[1,2]}`, `{"l":[2,1]}`))
+	assert.True(t, equalModuloAllOrder(`{"l":[{"n":"a"},{"n":"b"}]}`, `{"l":[{"n":"b"},{"n":"a"}]}`))
+	assert.False(t, equalModuloAllOrder(`{"l":[1,2]}`, `{"l":[1,3]}`))
+	listOnly := compareRendered(
+		[]cue.Value{obj(`{env: [{name: "A"}, {name: "B"}]}`)},
+		[]cue.Value{obj(`{env: [{name: "B"}, {name: "A"}]}`)},
+	)
+	assert.Contains(t, listOnly, "different list element order")
 	assert.True(t, equalModuloOrder(`{"a":1,"b":{"y":1,"x":2}}`, `{"b":{"x":2,"y":1},"a":1}`))
 }
 
