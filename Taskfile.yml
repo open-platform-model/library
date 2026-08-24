@@ -17,6 +17,7 @@ vars:
   CUE_MODULE_GLOBS: |
     modules/*
     testdata/modules/*
+    testdata/parity
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
