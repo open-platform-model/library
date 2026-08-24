@@ -109,7 +109,7 @@ adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
 modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
-testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod)
+testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  Flow diagrams + pipeline gap notes
 MIGRATIONS.md                 Pre-release API evolution + breaking-change recipes
@@ -225,7 +225,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo vendors CUE modules under `modules/opm_platform` and `testdata/modules/*` for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v2`, the consolidated line authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm_platform`, `testdata/modules/*` and `testdata/parity` (the pure-CUE render oracle the parity harness compares the kernel against; enhancement 0019 D1) for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v2`, the consolidated line authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps
