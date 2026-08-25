@@ -359,7 +359,7 @@ The `Kernel` SHALL expose `(k *Kernel) Materialize(ctx context.Context, p *platf
 
 ### Requirement: Compile sources its cue.Context from the caller Kernel
 
-The compile pipeline (Finalize → Match → Execute, driven by `Kernel.Compile`) SHALL build every value it constructs — the finalized data components, the per-pair transformer `#context.*` view, and the rendered output — using the **caller Kernel's** owned `*cue.Context` (the instance returned by `k.CueContext()`). It SHALL NOT derive the build context from the materialized platform (`mp.Package.Context()` / `platform.Package.Context()`). The materialized platform's `Package` is read as input (the `FillPath` argument and cross-read source), not as the owner of the build context.
+The compile pipeline (Match → Execute, driven by `Kernel.Compile`) SHALL build every value it constructs — the per-pair transformer `#context.*` view and the rendered output — using the **caller Kernel's** owned `*cue.Context` (the instance returned by `k.CueContext()`). It SHALL NOT derive the build context from the materialized platform (`mp.Package.Context()` / `platform.Package.Context()`). The materialized platform's `Package` is read as input (the `FillPath` argument and cross-read source), not as the owner of the build context. The pipeline does not finalize components for execution; `#component` is filled from the instance's evaluated components value directly.
 
 #### Scenario: Compiled output builds in the Kernel's cue.Context
 
@@ -368,7 +368,7 @@ The compile pipeline (Finalize → Match → Execute, driven by `Kernel.Compile`
 
 #### Scenario: Pipeline does not call Value.Context on the platform
 
-- **WHEN** the compile pipeline finalizes components and executes transformers
+- **WHEN** the compile pipeline builds the transformer context and executes transformers
 - **THEN** it obtains its `*cue.Context` from the caller Kernel
 - **AND** it does not call `Value.Context()` on the materialized platform's `Package`
 
