@@ -115,7 +115,7 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 - **WHEN** a caller invokes `k.Validate(ctx, ValidateInput{Module, ModuleInstance, Values})`
 - **THEN** the kernel performs Tier-2 schema validation of `Values` against `Module.Package`'s `#config` by calling `k.ValidateConfig` internally
 - **AND** returns nil on success or a CUE-native error wrapped with `fmt.Errorf("module %q: %w", name, err)` on failure
-- **AND** does not perform matching, execution, or finalization
+- **AND** does not perform matching or execution
 
 #### Scenario: Match phase method
 
@@ -126,13 +126,13 @@ The `Kernel` SHALL expose four phase-explicit methods, each accepting a phase-sp
 #### Scenario: Plan phase method
 
 - **WHEN** a caller invokes `k.Plan(ctx, PlanInput{Module, ModuleInstance, Values, Platform, RuntimeName})`
-- **THEN** the kernel runs the full Compile pipeline (Validate + Match + Execute + Finalize) and returns a `*PlanResult` containing component summaries, unmatched FQNs, ambiguous FQNs, and warnings
+- **THEN** the kernel runs the full Compile pipeline (Validate + Match + Execute) and returns a `*PlanResult` containing component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 - **AND** does not return rendered values
 
 #### Scenario: Compile phase method
 
 - **WHEN** a caller invokes `k.Compile(ctx, CompileInput{Module, ModuleInstance, Values, Platform, RuntimeName})`
-- **THEN** the kernel runs the full pipeline (Validate + Match + Execute + Finalize) and returns a `*CompileResult` containing `Compiled []*core.Compiled`, component summaries, unmatched FQNs, ambiguous FQNs, and warnings
+- **THEN** the kernel runs the full pipeline (Validate + Match + Execute) and returns a `*CompileResult` containing `Compiled []*core.Compiled`, component summaries, unmatched FQNs, ambiguous FQNs, and warnings
 
 ### Requirement: Phase Input Structs
 
@@ -290,20 +290,14 @@ The canonical Go implementation of values validation (full, partial, and detaile
 - **THEN** no free function with that name exists
 - **AND** the canonical compile entry point is `(*Kernel).Compile`
 
-### Requirement: Utility Methods on Kernel
+### Requirement: No Utility Methods on Kernel
 
-The Kernel SHALL expose `DetectAPIVersion(v cue.Value) (apiversion.Version, error)` and `Finalize(v cue.Value) (cue.Value, error)` as methods.
+The Kernel SHALL expose only the pipeline it runs (acquire, load, process, validate, match, plan, compile) and SHALL NOT expose a finalization, constraint-stripping or other value-utility method.
 
-#### Scenario: DetectAPIVersion delegates to apiversion package
+#### Scenario: No finalization method on the Kernel
 
-- **WHEN** a caller invokes `k.DetectAPIVersion(v)`
-- **THEN** the result is identical to calling `apiversion.Detect(v)` directly
-- **AND** the method exists for discovery purposes (callers find the operation through the Kernel anchor)
-
-#### Scenario: Finalize uses kernel cue.Context
-
-- **WHEN** a caller invokes `k.Finalize(v)`
-- **THEN** the function performs schema-constraint stripping (existing `render.FinalizeValue` behavior) using the Kernel's `cue.Context`
+- **WHEN** a consumer inspects the exported methods of `Kernel` and the exported identifiers of `opm/compile`
+- **THEN** neither `Finalize` nor `FinalizeValue` exists, and `compile.Module.Execute` accepts one components value
 
 ### Requirement: Kernel.LoadSourceFromFile auto-unwraps the values field
 
