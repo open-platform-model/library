@@ -14,10 +14,10 @@ import (
 // executeTransforms runs the CUE #transform for each matched (component, transformer)
 // pair in the plan and returns the rendered values.
 //
-// schemaComponents is the original (non-finalized) components value — used for
-// reading definition fields (metadata.labels, metadata.annotations) for #context.
-// dataComponents is the finalized, constraint-free components value — used for
-// FillPath injection into transformer #transform without schema conflicts.
+// schemaComponents is the instance's evaluated components value: the same value
+// Match reads. Each pair's #component is filled from it with every field class
+// intact (definitions such as #names, hidden fields, constraints), and #context
+// metadata is read from it (0019 D1).
 //
 // Execution is sequential: *cue.Context is not goroutine-safe.
 // Resources are returned in the deterministic order produced by MatchedPairs().
@@ -28,7 +28,6 @@ func executeTransforms(
 	plan *MatchPlan,
 	composedVal cue.Value,
 	schemaComponents cue.Value,
-	dataComponents cue.Value,
 	inst *module.Instance,
 	runtimeName string,
 ) ([]*core.Compiled, []string, []error) {
@@ -43,7 +42,7 @@ func executeTransforms(
 		default:
 		}
 
-		res, pairWarnings, err := executePair(cueCtx, composedVal, schemaComponents, dataComponents, inst, pair, runtimeName)
+		res, pairWarnings, err := executePair(cueCtx, composedVal, schemaComponents, inst, pair, runtimeName)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -64,16 +63,18 @@ func executeTransforms(
 //
 // The flow:
 //  1. Look up the transformer's #transform from the composed map (by FQN).
-//  2. Look up the component from dataComponents (already finalized — no constraints).
-//  3. FillPath #component with the data component value directly (no materialize needed).
-//  4. FillPath #context.* fields (#moduleInstanceMetadata, #componentMetadata, #runtimeName).
-//     Metadata is read from schemaComponents which preserves definition fields.
+//  2. Look up the component in schemaComponents, the instance's evaluated
+//     components value as Match reads it (no finalized copy).
+//  3. FillPath #component with that value as-is: definition fields (#names,
+//     #instance, ...), hidden fields and constraints all reach the transformer,
+//     exactly as plain CUE unification would give them (0019 D1).
+//  4. FillPath #context.* fields (#moduleInstanceMetadata, #componentMetadata, #runtimeName),
+//     read from the same component value.
 //  5. Look up and decode the output field.
 func executePair(
 	cueCtx *cue.Context,
 	composedVal cue.Value,
 	schemaComponents cue.Value,
-	dataComponents cue.Value,
 	inst *module.Instance,
 	pair MatchedPair,
 	runtimeName string,
@@ -93,20 +94,15 @@ func executePair(
 		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform error: %w", compName, tfFQN, err)
 	}
 
-	// Retrieve the finalized (constraint-free) component value from dataComponents.
-	// No materialize() round-trip needed — components were finalized at load time.
-	dataComp := dataComponents.LookupPath(cue.MakePath(cue.Str(compName)))
-	if !dataComp.Exists() {
-		return nil, nil, fmt.Errorf("component %q not found in data components value", compName)
+	// Retrieve the component from the evaluated components value: the one
+	// value Match read, with every field class preserved.
+	schemaComp := schemaComponents.LookupPath(cue.MakePath(cue.Str(compName)))
+	if !schemaComp.Exists() {
+		return nil, nil, fmt.Errorf("component %q not found in components value", compName)
 	}
 
-	// Retrieve the schema component value for metadata extraction (#context injection).
-	// schemaComponents preserves definition fields that are stripped by finalization.
-	schemaComp := schemaComponents.LookupPath(cue.MakePath(cue.Str(compName)))
-
-	// Inject #component using the finalized data value — safe for FillPath without
-	// schema constraint conflicts.
-	unified := transformVal.FillPath(schema.Component, dataComp)
+	// Inject #component with the evaluated value directly (0019 D1).
+	unified := transformVal.FillPath(schema.Component, schemaComp)
 	if err := unified.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: filling #component: %w", compName, tfFQN, err)
 	}

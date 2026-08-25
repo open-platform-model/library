@@ -10,7 +10,7 @@ import (
 )
 
 // compileModuleInstance is the canonical compile pipeline implementation. It
-// runs the full Match → Finalize → Execute sequence against the supplied
+// runs the Match → Execute sequence against the supplied
 // instance and platform and returns the resulting [*compile.CompileResult].
 //
 // Callers go through [Kernel.Compile] (which adds Tier-2 validation in front
@@ -39,15 +39,13 @@ func (k *Kernel) compileModuleInstance(
 		return nil, fmt.Errorf("instance %q: no components field in instance spec", inst.Metadata.Name)
 	}
 
-	dataComponents, err := compile.FinalizeValue(k.cueCtx, schemaComponents)
-	if err != nil {
-		return nil, fmt.Errorf("finalizing components: %w", err)
-	}
-
 	plan, err := compile.Match(schemaComponents, mp, inst.Metadata.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, inst, schemaComponents, dataComponents, plan)
+	// One components value through the pipeline: Match read schemaComponents
+	// and every pair's #component is filled from it (0019 D1). The second
+	// argument is Execute's deprecated dataComponents; it is ignored.
+	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, inst, schemaComponents, schemaComponents, plan)
 }

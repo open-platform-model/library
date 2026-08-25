@@ -32,9 +32,9 @@ import (
 //     path-keyed #registry)
 //
 // The platform's subscription is materialized against the published catalog
-// (opmodel.dev/catalogs/opm, v2 line from GHCR), then a #ModuleInstance is
-// built from the module's debugValues and driven through Match / Plan /
-// Compile. Transformer FQNs are asserted by substring so the test survives
+// (opmodel.dev/catalogs/opm, v2 line from GHCR), then the fixture's
+// import-authored #ModuleInstance (testdata/modules/web_app/instance) is
+// loaded, processed and driven through Match / Plan / Compile. Transformer FQNs are asserted by substring so the test survives
 // catalog version bumps.
 //
 // Skips under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1
@@ -77,40 +77,33 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	require.NoError(t, err, "materializing platform against the published catalog")
 	require.NotNil(t, mp)
 
-	// ── Build a #ModuleInstance referencing the loaded Module ─────────
+	// ── Load + process the #ModuleInstance ───────────────────────────
 	//
-	// The instance skeleton is a plain CUE literal — CompileString has no
-	// cue.mod context and cannot resolve registry-backed imports; the schema
-	// constraints and the auto-fanned `components` field are filled below by
-	// FillPath against the loaded module value. Mirrors cmd/flow-inspect.
-	debugValues := modVal.LookupPath(schema.DebugValues)
-	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
+	// The instance is an import-authored package inside the fixture module
+	// (testdata/modules/web_app/instance): it names the module by import,
+	// so every component's #instance and #names resolve and core derives
+	// metadata.uuid from the instance fqn (0019 D3).
+	instVal, err := k.LoadInstancePackage(ctx, filepath.Join(moduleDir, "instance"), loader.LoadOptions{Registry: registry})
+	require.NoErrorf(t, err, "loading instance package from %s", moduleDir)
 
-	instanceSkeleton := k.CueContext().CompileString(`
-kind: "ModuleInstance"
-metadata: {
-	name:      "web-app-demo"
-	namespace: "default"
-	uuid:      "11111111-2222-5333-8444-555555555555"
-}
-`, cue.Filename("instance.cue"))
-	require.NoError(t, instanceSkeleton.Err(), "compiling instance skeleton")
-
-	unifiedModule := modVal.FillPath(schema.Config, debugValues)
-	require.NoErrorf(t, unifiedModule.Err(), "filling values into module #config")
-	moduleComponents := unifiedModule.LookupPath(cue.ParsePath("#components"))
-	require.True(t, moduleComponents.Exists(), "module must expose #components after values are unified")
-
-	instanceSpec := instanceSkeleton.
-		FillPath(schema.Module, modVal).
-		FillPath(schema.Values, debugValues).
-		FillPath(schema.Components, moduleComponents)
-	require.NoErrorf(t, instanceSpec.Err(), "building instance spec from module value")
-
-	inst, err := k.ProcessModuleInstance(ctx, instanceSpec, *mod, debugValues)
+	inst, err := k.ProcessModuleInstance(ctx, instVal, *mod, cue.Value{})
 	require.NoError(t, err, "processing module instance")
 	require.NotNil(t, inst)
 	require.Equal(t, "web-app-demo", inst.Metadata.Name)
+
+	// The processed instance resolves what the old LookupPath+FillPath
+	// skeleton severed: the computed names and the derived uuid.
+	fqdn := inst.MatchComponents().LookupPath(cue.ParsePath("web.#names.dns.fqdn"))
+	require.NoError(t, fqdn.Err(), "web.#names.dns.fqdn must resolve on the processed instance")
+	fqdnStr, err := fqdn.String()
+	require.NoError(t, err)
+	assert.Equal(t, "web.default.svc.cluster.local", fqdnStr)
+	// The v5 uuid core derives from the instance fqn; the parity oracle
+	// derives the same value for the same name and namespace
+	// (testdata/parity/instance), which is what makes the two fixtures'
+	// rendered names directly comparable.
+	assert.Equal(t, "bf5b9c54-bf4a-5cad-8cb7-77d4d526a16a", inst.InstanceUUID(),
+		"metadata.uuid must be the v5 uuid core derives from the instance fqn")
 
 	const runtimeName = "opm-test"
 

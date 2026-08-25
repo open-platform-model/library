@@ -70,11 +70,11 @@ loaderfile.LoadInstancePackage  ->  cue.Value (release artifact)
 Kernel.ProcessModuleInstance    ->  *module.Instance          (validated, concrete)
 Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenance)
         |
-        +-- compile.FinalizeValue   strip schema constraints from components
         +-- compile.Match           component <-> transformer pairing (paired output)
         +-- compile.Module.Execute  per-pair transformer execution
                 |
-                +-- FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
+                +-- FillPath #component with the evaluated component (definitions intact; 0019 D1)
+                +-- FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
                 +-- decode `output` (kind-based dispatch: ListKind | StructKind)
                 +-- emit []*core.Compiled carrying Instance/Component/Transformer FQN provenance
 ```

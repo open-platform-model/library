@@ -269,10 +269,10 @@ The free-function entry points (`compile.CompileModuleInstance`, `compile.Proces
 loaderfile.LoadInstancePackage  → cue.Value
 Kernel.ProcessModuleInstance    → *module.Instance (validated, concrete)
 Kernel.Compile                 → *kernel.CompileResult
-        compile.FinalizeValue       strip schema constraints from components
         compile.Match               component ↔ transformer pairing
         compile.Module.Execute      per-pair transformer execution
-              FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
+              FillPath #component with the evaluated component (definitions, hidden fields, constraints intact; 0019 D1)
+              FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
               decode `output` (ListKind | StructKind dispatch)
               emit []*core.Compiled with Instance/Component/Transformer FQN provenance
 ```

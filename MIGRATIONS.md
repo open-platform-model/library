@@ -13,6 +13,12 @@ This file records the evolution of the library's public Go API and the OPM schem
 
 ## Unreleased — Additive
 
+### Changed — `library-component-fill`
+
+- **Transformers now receive the evaluated component.** `Kernel.Compile` fills each pair's `#transform.#component` with the instance's components value as evaluated (the same value `Match` reads), no longer with a `FinalizeValue` copy. Definition fields (`#names`, `#instance`, `#resources`, `#traits`, `#blueprints`), hidden fields and constraints reach the transformer exactly as plain CUE unification would give them (enhancement 0019 D1/D3). A transformer that re-declares `#component: _` can now read `#component.#names.dns.fqdn` and friends.
+- **Rendered field order follows CUE's natural order (0019 D14).** The finalized copy re-emitted the component through `Syntax(cue.Final())`, which hoists comprehension-produced fields ahead of plainly declared ones; that reordering is gone. For a module whose container env (or any map the transformer converts to a list) is assembled from plain fields, guarded blocks and comprehensions, the rendered list now keeps declaration order. Values are unchanged; consumers see one server-side-apply diff on the first reconcile of such a module and nothing afterwards. No action required.
+- **`compile.Module.Execute`'s `dataComponents` argument is ignored and deprecated.** The signature is unchanged; pass `schemaComponents` for both arguments. The parameter, `compile.FinalizeValue` and `Kernel.Finalize` are removed together in the `library-finalize-removal` MAJOR (0019 step 4).
+
 ### Added — `library-compat-comparator`
 
 - **New public package `opm/compat`** — publish-side catalog compatibility as pure `cue.Value` logic (no I/O, no schema-cache dependency): `Check` / `CheckAtLevel` (enhancement 0010 D27's additive-only comparison walk, level-aware per D34, with violations and failures on separate channels), `Level` / `ParseLevel` / `Enforced` / `CompareAPIVersions` (the `vNalphaM | vNbetaM | vN` ladder, grammar-aligned with core's `#APIVersionType`; total, transitive kube-aware ordering), `HighestStable` (predecessor selection, moved verbatim from `opm/materialize`'s internals), and `StripProvenance` (0010 D30's `metadata.catalogVersion` + `metadata.description` strip). Intended consumers: the 0011 publish gate, `opm catalog registry check --compat`, and `library-matching`'s unify rung.
@@ -457,7 +463,7 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
   surface the matcher/executor read from changes.
 - **Blast radius:** in-repo only. The sole readers of the old fields were
   `opm/compile/match.go`, `opm/compile/execute.go` / `module.go`, and
-  `cmd/flow-inspect` (all updated in lockstep). `cli/` and `opm-operator/` treat
+  the since-removed `cmd/flow-inspect` diagnostic (all updated in lockstep). `cli/` and `opm-operator/` treat
   `*MaterializedPlatform` as an opaque handle (constructed via
   `Kernel.Materialize`, passed to `Kernel.Compile`) and read none of its fields —
   no external break.
