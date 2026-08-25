@@ -1182,6 +1182,26 @@ func TestExecute_ComponentMissingInComponents(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found in components value")
 }
 
+// TestExecute_InstanceValueMissing covers the guard on the #moduleInstance
+// fill: an Instance whose Package is the zero value (only reachable by
+// bypassing every kernel entry point) is refused with a named error rather
+// than surfacing a CUE bottom as a transformer error (library-instance-fill
+// design D2).
+func TestExecute_InstanceValueMissing(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
+	good := echoInstance(t, ctx)
+
+	sc := good.MatchComponents()
+	plan, err := compile.Match(sc, mp, good.Metadata.Name)
+	require.NoError(t, err)
+
+	bare := &module.Instance{Metadata: good.Metadata} // Package left zero
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), bare, sc, sc, plan)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "instance value missing")
+}
+
 // TestExecute_DataComponentsIgnored pins the deprecated dataComponents
 // argument as ignored: #component is filled from the components value Match
 // read, so a bogus second argument changes nothing (0019 D1).
