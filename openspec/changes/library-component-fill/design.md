@@ -69,4 +69,4 @@ Code change plus fixture; no artifact publishes. Rollback is a revert. If D5's e
 
 ## Open Questions
 
-- Whether the `worker` env hoisting is retired by this slice or by `library-finalize-removal`. Answered by running the harness (D5); it changes which slice carries the migration note, not what is built.
+- ~~Whether the `worker` env hoisting is retired by this slice or by `library-finalize-removal`.~~ Answered on the first run (2026-08-25): once no transformer receives a finalized value the kernel's env order equals the oracle's declaration order, so the `worker env order is hoisted by finalization` subtest, `divergenceFinalizeHoisting` and `envNames` were deleted here, the worker row keeps only `divergenceContextLabelOrder`, and the D14 migration note landed in `MIGRATIONS.md` under `## Unreleased — Additive`. `names-probe :: web` agreed on the same run and lost its `ExpectedDivergence`. Every shipped row still diverged by label order only, none by value (D4's corruption guard held).

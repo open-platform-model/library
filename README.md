@@ -51,8 +51,6 @@ opm/
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
     synth/                Instance / Platform synthesis from typed inputs (no file / no bytes)
   internal/               Test-only cross-package internals (schematest, registrytest)
-cmd/
-  flow-inspect/           Internal diagnostic CLI for the compile pipeline
 adr/                      Architecture decision records
 enhancements/             Long-form design proposals (umbrella + slices)
 openspec/                 OpenSpec proposals, specs, archives
@@ -70,11 +68,11 @@ loaderfile.LoadInstancePackage  ->  cue.Value (release artifact)
 Kernel.ProcessModuleInstance    ->  *module.Instance          (validated, concrete)
 Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenance)
         |
-        +-- compile.FinalizeValue   strip schema constraints from components
         +-- compile.Match           component <-> transformer pairing (paired output)
         +-- compile.Module.Execute  per-pair transformer execution
                 |
-                +-- FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
+                +-- FillPath #component with the evaluated component (definitions intact; 0019 D1)
+                +-- FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
                 +-- decode `output` (kind-based dispatch: ListKind | StructKind)
                 +-- emit []*core.Compiled carrying Instance/Component/Transformer FQN provenance
 ```

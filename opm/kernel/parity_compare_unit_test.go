@@ -88,7 +88,7 @@ func TestParityCheck_Contract(t *testing.T) {
 	other := []cue.Value{ctx.CompileString(`{kind: "B"}`)}
 	base := parityCase{Name: "c", Component: "web", Transformer: "t", Equality: equalityOutputFieldsOnly}
 	expecting := base
-	expecting.ExpectedDivergence = "FinalizeValue strips #names from #component"
+	expecting.ExpectedDivergence = "sample divergence recorded for this contract test"
 
 	t.Run("agreement passes when no divergence is expected", func(t *testing.T) {
 		assert.NoError(t, checkParity(base, parityRender{Objects: same}, parityRender{Objects: same}))

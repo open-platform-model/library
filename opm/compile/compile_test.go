@@ -1162,9 +1162,9 @@ func TestExecute_TransformNotFoundInComposed(t *testing.T) {
 	assert.Contains(t, err.Error(), "#transform not found")
 }
 
-// TestExecute_ComponentMissingInDataComponents covers the branch where a matched
-// component is absent from the finalized data components passed to Execute.
-func TestExecute_ComponentMissingInDataComponents(t *testing.T) {
+// TestExecute_ComponentMissingInComponents covers the branch where a matched
+// component is absent from the components value passed to Execute.
+func TestExecute_ComponentMissingInComponents(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
 	inst := echoInstance(t, ctx)
@@ -1173,13 +1173,36 @@ func TestExecute_ComponentMissingInDataComponents(t *testing.T) {
 	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
 
-	// Deliberately pass empty data components — the plan still references "web".
-	emptyDC := ctx.CompileString(`{}`)
-	require.NoError(t, emptyDC.Err())
+	// Deliberately pass empty components — the plan still references "web".
+	empty := ctx.CompileString(`{}`)
+	require.NoError(t, empty.Err())
 
-	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, emptyDC, plan)
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, empty, empty, plan)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found in data components value")
+	assert.Contains(t, err.Error(), "not found in components value")
+}
+
+// TestExecute_DataComponentsIgnored pins the deprecated dataComponents
+// argument as ignored: #component is filled from the components value Match
+// read, so a bogus second argument changes nothing (0019 D1).
+func TestExecute_DataComponentsIgnored(t *testing.T) {
+	ctx := cuecontext.New()
+	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { name: #component.metadata.name } }`)
+	inst := echoInstance(t, ctx)
+
+	sc := inst.MatchComponents()
+	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
+	require.NoError(t, err)
+
+	bogus := ctx.CompileString(`{web: metadata: name: "bogus"}`)
+	require.NoError(t, bogus.Err())
+
+	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, bogus, plan)
+	require.NoError(t, err)
+	require.Len(t, out.Compiled, 1)
+	name, err := out.Compiled[0].Value.LookupPath(cue.ParsePath("name")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "web", name)
 }
 
 // TestExecute_PerPairErrorsAccumulated covers executeTransforms collecting

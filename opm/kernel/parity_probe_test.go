@@ -44,10 +44,11 @@ type parityProbe struct {
 var parityProbes = []parityProbe{
 	{
 		parityCase: parityCase{
-			Name:               "names-probe :: web",
-			Component:          "web",
-			Equality:           equalityOutputFieldsOnly,
-			ExpectedDivergence: "FinalizeValue strips definition fields, so #component.#names is absent inside #transform (opm/compile/finalize.go; 0019 D1/D3)",
+			// Agrees since library-component-fill: #component is filled with
+			// the evaluated component, definitions included (0019 D1/D3).
+			Name:      "names-probe :: web",
+			Component: "web",
+			Equality:  equalityOutputFieldsOnly,
 		},
 		transform: `{
 			#component: _

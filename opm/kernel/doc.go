@@ -100,8 +100,8 @@
 //   - [Kernel.Plan] — Validate + Match + summaries. Returns
 //     [*PlanResult]; does NOT produce rendered values. This is the
 //     verb every frontend's "plan" / "preview" subcommand wants.
-//   - [Kernel.Compile] — full pipeline (Validate + Match + Execute +
-//     Finalize). Returns [*CompileResult] containing rendered values
+//   - [Kernel.Compile] — full pipeline (Validate + Match + Execute).
+//     Returns [*CompileResult] containing rendered values
 //     plus provenance. This is the terminal output and the verb every
 //     frontend's "apply" / "render" subcommand wants.
 //

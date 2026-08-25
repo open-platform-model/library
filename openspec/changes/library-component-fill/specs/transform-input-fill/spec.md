@@ -21,7 +21,7 @@ When the kernel executes a matched (component, transformer) pair, it SHALL fill 
 #### Scenario: Shipped transformers are unaffected
 
 - **WHEN** a transformer reads no definition field
-- **THEN** its rendered output is byte-identical to the output before this change, for every shipped catalog transformer
+- **THEN** its rendered output is identical to the output before this change modulo CUE natural field order (0019 D14), for every shipped catalog transformer; the parity harness classifies every shipped pair as agreeing or ordering-only, never as differing in value
 
 ### Requirement: Matching and execution read one components value
 

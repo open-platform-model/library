@@ -91,7 +91,7 @@ func (k *Kernel) Plan(ctx context.Context, in PlanInput) (*PlanResult, error) {
 	}, nil
 }
 
-// Compile runs the full pipeline (Validate + Match + Execute + Finalize)
+// Compile runs the full pipeline (Validate + Match + Execute)
 // and returns a [*CompileResult] containing rendered values, component
 // summaries, unmatched FQNs, and warnings.
 //

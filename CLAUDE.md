@@ -59,7 +59,7 @@ it is permanent, outward-facing, and it reaches a third party who never opted in
 
 ## Purpose
 
-This repo is the **OPM kernel** — the reference Go runtime for Open Platform Model. Consumed as a Go library by every front-end (`cli/`, `opm-operator/`, planned Crossplane composition fn). The repo ships no binary; the only `main` package is `cmd/flow-inspect`, an internal diagnostic CLI.
+This repo is the **OPM kernel** — the reference Go runtime for Open Platform Model. Consumed as a Go library by every front-end (`cli/`, `opm-operator/`, planned Crossplane composition fn). The repo ships no binary and has no `main` package.
 
 ## Repository Rules
 
@@ -104,7 +104,6 @@ opm/
     loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
     synth/                    Instance(...) + Platform(...) → cue.Value from typed inputs (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
-cmd/flow-inspect/             Internal diagnostic CLI (only main pkg in repo)
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
@@ -245,7 +244,6 @@ task cue:test                                   # runs TestSchemaFixtures (table
 task cue:test:run CASE=<schemaCase.name>        # single fixture subtest
 task cue:test:eval FIXTURE=<file.cue>           # bypass Go harness — `cue eval -t test ./testdata/<f>`
 task cue:test:flow                              # plan→match→compile integration test (skips if registry unreachable; OPM_FLOW_TEST_FORCE=1 to require it)
-task cue:test:flow:inspect [STAGES=plan,...]    # pretty-print each pipeline stage via cmd/flow-inspect
 ```
 
 ## Coding Standards
@@ -269,10 +267,10 @@ The free-function entry points (`compile.CompileModuleInstance`, `compile.Proces
 loaderfile.LoadInstancePackage  → cue.Value
 Kernel.ProcessModuleInstance    → *module.Instance (validated, concrete)
 Kernel.Compile                 → *kernel.CompileResult
-        compile.FinalizeValue       strip schema constraints from components
         compile.Match               component ↔ transformer pairing
         compile.Module.Execute      per-pair transformer execution
-              FillPath #component, #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
+              FillPath #component with the evaluated component (definitions, hidden fields, constraints intact; 0019 D1)
+              FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
               decode `output` (ListKind | StructKind dispatch)
               emit []*core.Compiled with Instance/Component/Transformer FQN provenance
 ```

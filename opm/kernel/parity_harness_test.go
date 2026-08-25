@@ -94,42 +94,6 @@ func TestParity_ShippedCatalog(t *testing.T) {
 			assertParity(t, c, kernelRender(out, compileErr, p), oracleRender(oracle, p))
 		})
 	}
-
-	// D14 instrument: the env hoisting on its own, independent of the label
-	// order that shares the worker row. library-finalize-removal turns this
-	// green and must then delete it.
-	t.Run("worker env order is hoisted by finalization", func(t *testing.T) {
-		p := compile.MatchedPair{ComponentName: "worker", TransformerFQN: shippedCatalogPrefix + "deployment-transformer@2.0.0-alpha.3"}
-		kr, or := kernelRender(out, compileErr, p), oracleRender(oracle, p)
-		require.NoError(t, kr.Err)
-		require.NoError(t, or.Err)
-		require.Len(t, kr.Objects, 1)
-		require.Len(t, or.Objects, 1)
-		kernelEnv, oracleEnv := envNames(t, kr.Objects[0]), envNames(t, or.Objects[0])
-		assert.Equal(t, []string{"SERVICE_NAME", "SERVICE_PORT", "METRICS_ENABLED", "METRICS_PATH", "POD_NAME", "LOG_FORMAT", "REGION"}, oracleEnv,
-			"oracle keeps declaration order: plain fields, guarded block, comprehension, plain field")
-		assert.ElementsMatch(t, oracleEnv, kernelEnv, "same env entries on both sides")
-		require.NotEqualf(t, oracleEnv, kernelEnv,
-			"expected divergence %q no longer reproduces: the kernel's env order now matches CUE's. Delete this subtest and drop divergenceFinalizeHoisting from the worker row (0019 D4).", divergenceFinalizeHoisting)
-		t.Logf("expected divergence reproduces (%s): kernel %v, oracle %v", firstLine(divergenceFinalizeHoisting), kernelEnv, oracleEnv)
-	})
-}
-
-// envNames returns the container env entry names of a rendered Deployment
-// in rendered order.
-func envNames(t *testing.T, deployment cue.Value) []string {
-	t.Helper()
-	env := deployment.LookupPath(cue.ParsePath("spec.template.spec.containers[0].env"))
-	require.True(t, env.Exists(), "deployment must carry containers[0].env")
-	iter, err := env.List()
-	require.NoError(t, err)
-	var names []string
-	for iter.Next() {
-		n, err := iter.Value().LookupPath(cue.ParsePath("name")).String()
-		require.NoError(t, err)
-		names = append(names, n)
-	}
-	return names
 }
 
 // divergenceContextLabelOrder names the one divergence the shipped group
@@ -141,16 +105,6 @@ func envNames(t *testing.T, deployment cue.Value) []string {
 // order (0019 D14: the natural order is the contract). Retired by the D12
 // projection slice, when #context stops being built in Go.
 const divergenceContextLabelOrder = "Go-built #context re-emits label maps sorted (opm/schema/context.go); CUE keeps evaluation order (0019 D12/D14)"
-
-// divergenceFinalizeHoisting is the second measured divergence, on the
-// guarded-env `worker` component only (added 2026-08-24 as the D14 fixture):
-// finalize.go re-emits the component through Syntax(cue.Final()), which
-// hoists comprehension-produced fields ahead of plainly-declared ones, and
-// the deployment transformer's env map-to-list conversion carries that
-// order into the rendered object (kernel: METRICS_* before SERVICE_*;
-// oracle: declaration order). Retired by library-finalize-removal, the
-// slice that removes the strip; that slice also owns D14's migration note.
-const divergenceFinalizeHoisting = "FinalizeValue hoists comprehension-produced env fields ahead of plainly-declared ones (opm/compile/finalize.go Syntax(cue.Final())); CUE keeps declaration order (0019 D14)"
 
 const shippedCatalogPrefix = "opmodel.dev/catalogs/opm/transformers/"
 
@@ -192,16 +146,16 @@ var shippedCases = []parityCase{
 		ExpectedDivergence: divergenceContextLabelOrder,
 	},
 	{
-		// Two causes on one row: the label order every deployment shows, and
-		// the env hoisting only this guarded-env component shows. The row
-		// stays red until BOTH are retired; assertEnvOrderHoisted below is
-		// the finer instrument for the second.
+		// The guarded-env component. Its second cause, the finalization
+		// hoisting of comprehension-produced env entries, was retired by
+		// library-component-fill (no transformer receives a finalized value
+		// any more); only the label order every deployment shows remains.
 		Name:               "worker :: deployment-transformer",
 		Instance:           "testdata/parity/instance",
 		Component:          "worker",
 		Transformer:        shippedCatalogPrefix + "deployment-transformer@2.0.0-alpha.3",
 		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder + "; and " + divergenceFinalizeHoisting,
+		ExpectedDivergence: divergenceContextLabelOrder,
 	},
 	{
 		Name:        "worker :: hpa-transformer",

@@ -139,14 +139,10 @@ Apply the relevant subset based on in-scope code.
 
 ### CUE Evaluation Specifics
 
-- Finalization (`FinalizeValue`) strips `#`-definitions and constraints before user data is filled — the central constraint-bypass guard
+- `#component` is filled with the evaluated component as-is (definitions and constraints intact, enhancement 0019 D1); constraint enforcement is CUE unification itself, so audit the fill sites, not a strip step
 - `FillPath` targets are fixed, schema-defined paths (`#component`, `#context.*`) — not attacker-controlled paths
 - Output lookup uses the transformer-declared `schema.Output` path, not a user-supplied selector
 - Import resolution confined to declared module deps; no dynamic/user-driven import
-
-### Diagnostic CLI (`cmd/flow-inspect/`)
-
-- Loads fixtures from `testdata/` with a `-library` path and `-stages` flag; hardcoded local registry — confirm it is a dev-only diagnostic that doesn't ship in a sensitive context; low risk but note arg/path handling
 
 ---
 
@@ -162,7 +158,7 @@ Apply the relevant subset based on in-scope code.
 
    Launch Explore subagents (parallelize where independent). Each returns findings with **file path**, **line number(s)**, **what the issue is**, **why it matters**, and **severity**.
 
-3. **Apply technology-specific checks** (Go kernel, CUE evaluation specifics, flow-inspect).
+3. **Apply technology-specific checks** (Go kernel, CUE evaluation specifics).
 
 4. **Deduplicate, rank, and generate report.**
 
