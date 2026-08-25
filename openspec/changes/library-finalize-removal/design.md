@@ -38,7 +38,7 @@ Parameter renamed from `schemaComponents` to `components`; doc comment says it i
 
 ### D3: Spec delta is REMOVED plus ADDED for the utility requirement, MODIFIED for the phase methods
 
-`openspec validate` refuses a MODIFIED block that drops a scenario, so "Utility Methods on Kernel" is REMOVED (reason and migration recorded) and a `DetectAPIVersion`-only requirement is ADDED with a negative scenario pinning the absence of any finalization method. "Phase-Explicit Methods on Kernel" is MODIFIED in full with the stale "+ Finalize" wording removed.
+`openspec validate` refuses a MODIFIED block that drops a scenario, so "Utility Methods on Kernel" is REMOVED (reason and migration recorded) and a "No Utility Methods on Kernel" requirement is ADDED with a negative scenario pinning the absence of any finalization method (`DetectAPIVersion`, the block's other method, was already gone with the `opm/apiversion` package; the old text was stale). "Phase-Explicit Methods on Kernel" is MODIFIED in full with the stale "+ Finalize" wording removed.
 
 ### D4: The security-audit skill states the post-0019 boundary once, consistently
 

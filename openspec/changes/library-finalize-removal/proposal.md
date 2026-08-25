@@ -19,7 +19,7 @@ _None._
 
 ### Modified Capabilities
 
-- `kernel-runtime`: requirement "Utility Methods on Kernel" loses `Finalize` (REMOVED and re-added as a `DetectAPIVersion`-only requirement, since a MODIFIED block cannot drop a scenario); requirement "Phase-Explicit Methods on Kernel" loses the "+ Finalize" wording from its Plan and Compile scenarios (behaviour already matches; the text is stale since step 2).
+- `kernel-runtime`: requirement "Utility Methods on Kernel" loses `Finalize` (REMOVED, its `DetectAPIVersion` half being stale since the `opm/apiversion` package was dropped, and replaced by an ADDED "No Utility Methods on Kernel" requirement, since a MODIFIED block cannot drop a scenario); requirement "Phase-Explicit Methods on Kernel" loses the "+ Finalize" wording from its Plan and Compile scenarios (behaviour already matches; the text is stale since step 2).
 
 ## Impact
 

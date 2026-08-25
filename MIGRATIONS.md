@@ -423,7 +423,7 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 ### Removed — `library-finalize-removal` (BREAKING)
 
 - **`compile.FinalizeValue` is removed** (`opm/compile/finalize.go` deleted). It rebuilt a value from `Syntax(cue.Final())`, stripping definitions and constraints; since `library-component-fill` nothing on the render path called it, and its continued existence kept a removed mechanism documented as a security boundary. **Migration:** there is no replacement on the kernel; transformers receive the evaluated value with constraints intact (enhancement 0019 D1). A caller that wants a constraint-free data copy for its own purposes inlines the two lines (`v.Syntax(cue.Final())` as `ast.Expr`, then `cueCtx.BuildExpr`).
-- **`Kernel.Finalize` is removed.** It was a thin wrapper over `compile.FinalizeValue`. **Migration:** as above; `Kernel.DetectAPIVersion` is the only utility method left on the kernel.
+- **`Kernel.Finalize` is removed.** It was a thin wrapper over `compile.FinalizeValue`. **Migration:** as above; the kernel exposes no value-utility methods (`DetectAPIVersion` left earlier with the `opm/apiversion` package).
 - **`compile.Module.Execute` loses its fourth argument:** `Execute(ctx, inst, components, plan)` replaces `Execute(ctx, inst, schemaComponents, dataComponents, plan)`. The dropped `dataComponents` was deprecated and ignored since `library-component-fill`. **Migration:** delete the fourth argument; `components` is the instance's evaluated components value (`inst.MatchComponents()`), the same one `Match` reads. `cli` and `opm-operator` reach rendering only through `Kernel.Compile` / `Kernel.Plan` and need no code change beyond re-pinning.
 
 ### Changed — `library-matching`
