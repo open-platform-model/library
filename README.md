@@ -51,8 +51,6 @@ opm/
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
     synth/                Instance / Platform synthesis from typed inputs (no file / no bytes)
   internal/               Test-only cross-package internals (schematest, registrytest)
-cmd/
-  flow-inspect/           Internal diagnostic CLI for the compile pipeline
 adr/                      Architecture decision records
 enhancements/             Long-form design proposals (umbrella + slices)
 openspec/                 OpenSpec proposals, specs, archives
