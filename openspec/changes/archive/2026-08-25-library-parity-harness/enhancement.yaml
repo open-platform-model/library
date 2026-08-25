@@ -2,5 +2,5 @@
 # See enhancements/schema.cue #ChangeDeclaration.
 implements:
   - enhancement: "0019"
-    decisions: [D1, D4, D14]
+    decisions: [D1, D14]
     resolves: []
