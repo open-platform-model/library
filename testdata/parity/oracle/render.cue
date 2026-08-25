@@ -87,8 +87,9 @@ package oracle
 	}
 
 	// ---- Phase 3: execute, one unification per matched pair -------------
-	// All three inputs core declares on #transform are supplied, including
-	// #moduleInstance, which the kernel has never filled.
+	// All three inputs core declares on #transform are supplied, whole:
+	// #moduleInstance is the instance as imported, siblings included, the
+	// same value the kernel fills since library-instance-fill (0019 D3, D11).
 	rendered: {
 		for p in pairs {
 			"\(p.component) :: \(p.transformer)": (#transformers[p.transformer].#transform & {

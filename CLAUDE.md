@@ -269,6 +269,7 @@ Kernel.ProcessModuleInstance    → *module.Instance (validated, concrete)
 Kernel.Compile                 → *kernel.CompileResult
         compile.Match               component ↔ transformer pairing
         compile.Module.Execute      per-pair transformer execution
+              FillPath #moduleInstance with the whole evaluated instance (0019 D3)
               FillPath #component with the evaluated component (definitions, hidden fields, constraints intact; 0019 D1)
               FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
               decode `output` (ListKind | StructKind dispatch)
