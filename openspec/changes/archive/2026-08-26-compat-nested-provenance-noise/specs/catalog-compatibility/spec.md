@@ -55,4 +55,4 @@ The walk SHALL apply 0010 D30's provenance denylist at every depth: the direct c
 - **WHEN** the new definition drops an element from a list
 - **THEN** `Check` reports `domain narrowed` at the list's path
 
-Known limitation (measured 2026-08-16, cue v0.17.1; narrowed 2026-08-26): a leaf that both changed and carries a `matchN` validator or a pending comprehension may still report `domain narrowed` spuriously, because the forward subsume cannot evaluate the pending construct. Unchanged leaves no longer report. A comparator-level fix for the changed-leaf residue is unowned.
+Known limitation (measured 2026-08-16, cue v0.17.1; narrowed 2026-08-26): a leaf that both changed and carries a `matchN` validator or a pending comprehension is judged by the forward subsume alone, which cannot evaluate those constructs: narrowing `matchN`'s alternatives is not detected and widening them reports `domain narrowed` spuriously. Unchanged leaves no longer report. A comparator-level fix for the changed-leaf residue is unowned.
