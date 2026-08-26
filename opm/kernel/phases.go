@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"cuelang.org/go/cue"
-
 	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -140,12 +138,6 @@ func moduleFromInstance(k *Kernel, inst *module.Instance) (*module.Module, error
 		return nil, fmt.Errorf("instance %q: embedded #module reference not found at %q", instanceDisplayName(inst), schema.Module)
 	}
 	return module.NewModuleFromValue(k, embedded)
-}
-
-// Finalize converts v to its finalized, constraint-free form using the
-// kernel's [*cue.Context]. See [compile.FinalizeValue].
-func (k *Kernel) Finalize(v cue.Value) (cue.Value, error) {
-	return compile.FinalizeValue(k.cueCtx, v)
 }
 
 func instanceDisplayName(inst *module.Instance) string {

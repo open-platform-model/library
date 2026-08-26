@@ -7,7 +7,7 @@ argument-hint: "[path-or-feature]"
 
 Perform a security audit of the OPM library (kernel) codebase. Reports findings ranked by severity — never modifies code.
 
-The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts and runs them through a load → validate → materialize → compile → execute pipeline. Unlike most Go libraries, **the core risk is CUE evaluation of untrusted, user-authored content** (artifact CUE and, indirectly, the data filled into catalog transformer `#transform` expressions). There is deliberately **no shell, no `text/template`, no process model, and no logging** (CONSTITUTION). So the audit centers on: does untrusted input ever bypass shape-gating or finalization; is pulled registry content trusted without verification; and is the single-CUE-context concurrency contract upheld.
+The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts and runs them through a load → validate → materialize → compile → execute pipeline. Unlike most Go libraries, **the core risk is CUE evaluation of untrusted, user-authored content** (artifact CUE and, indirectly, the data filled into catalog transformer `#transform` expressions). There is deliberately **no shell, no `text/template`, no process model, and no logging** (CONSTITUTION). So the audit centers on: does untrusted input ever bypass shape-gating or escape CUE unification's constraint enforcement at the transformer fill sites; is pulled registry content trusted without verification; and is the single-CUE-context concurrency contract upheld.
 
 **Input**: Optionally specify a target after the command:
 
@@ -27,7 +27,7 @@ The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts
 
 ## Audit Dimensions
 
-Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against the in-scope code. Skip dimensions structurally irrelevant to the target (e.g., skip Registry Trust when auditing only `opm/compile/finalize.go`).
+Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against the in-scope code. Skip dimensions structurally irrelevant to the target (e.g., skip Registry Trust when auditing only `opm/compile/execute.go`).
 
 ### Dimension 1: Artifact Input Validation & Shape-Gating
 
@@ -46,11 +46,11 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 - Transformers are sourced from the **trusted catalog** (`Platform.#composedTransformers`), never from user artifact input — confirm no path lets a Module/Instance supply or override a `#transform`
 - `FillPath` injection of `#component` and `#context.*` is non-mutating / purely functional (no in-place mutation of shared CUE values)
-- `FinalizeValue()` strips definition fields and constraints before filling, so user-supplied concrete data **cannot bypass or redefine** schema constraints (constraint-injection); confirm every user→transformer data path goes through finalization
+- The value a transformer receives is filled as evaluated, at fixed schema paths (`#moduleInstance`, `#component`, `#context.*`), with definitions and constraints intact (enhancement 0019 D1). User data **cannot redefine** schema constraints because the filled value keeps them and CUE unification refuses a conflicting field (the pure-CUE control's `field not allowed`); there is no Go-side strip, finalize or rebuild step between evaluation and fill. Audit the fill sites in `executePair`, the closedness guards (`opm/materialize/composed_open_test.go`, `opm/compile` `TestMatch_ClosedDefinitionRetained`, the `opm/internal/cueregression` canary pair) and the parity harness (`parity_*_test.go`), the tripwire against a Go-side transformation being reintroduced
 - Transformer output evaluation (`unified.LookupPath(schema.Output)`) handles both StructKind and ListKind without trusting attacker-controlled shape to drive unbounded expansion
 - No path where user CUE can reference/import arbitrary external packages or registries during evaluation (import surface confined to declared, trusted deps)
 - CUE evaluation produces **data, not code** — verify no generated output is later `exec`'d, templated, or eval'd elsewhere
-- Key files: `opm/compile/execute.go`, `opm/compile/finalize.go`, `opm/compile/match.go`, `opm/compile/module.go`
+- Key files: `opm/compile/execute.go`, `opm/compile/match.go`, `opm/compile/module.go`, `opm/kernel/parity_*_test.go`
 
 ### Dimension 3: Loader Path Handling
 
@@ -100,11 +100,11 @@ Apply when scope is project-wide or covers a significant subsystem.
 **Trust boundary identification**:
 - Trusted: the OPM core schema and catalog modules (pulled from the registry, pinned), the kernel itself
 - Untrusted: user-authored Module / ModuleInstance / Platform CUE content
-- The boundary is crossed at load (shape-gate), at validation (schema), and at compile (finalize → fill → evaluate)
+- The boundary is crossed at load (shape-gate), at validation (schema), and at compile (fill → evaluate)
 
 **Confused deputy assessment**:
 - Can untrusted artifact content induce the kernel to pull an attacker-chosen catalog/module, or supply its own transformer?
-- Can artifact content escape schema constraints via incomplete finalization?
+- Can artifact content escape schema constraints at a fill site (a fill path that is not fixed, or a filled value that lost its constraints)?
 - Can artifact content steer a filesystem path or registry target?
 
 **STRIDE assessment** — for each pipeline stage crossing the boundary:
@@ -112,14 +112,14 @@ Apply when scope is project-wide or covers a significant subsystem.
 | Threat | Question |
 |--------|----------|
 | **Spoofing** | Can a pulled module/catalog be substituted (no digest verification)? Can an artifact masquerade as a different kind past the shape gate? |
-| **Tampering** | Can user data redefine schema constraints (finalization bypass)? Can a pulled artifact be tampered between fetch and use? |
+| **Tampering** | Can user data redefine schema constraints (a fill that bypasses unification's closedness)? Can a pulled artifact be tampered between fetch and use? |
 | **Repudiation** | (Largely N/A — kernel is library-level, no audit log by design; note this.) |
 | **Information Disclosure** | Can artifact contents/secrets leak via returned errors or diagnostics? |
 | **Denial of Service** | Can a malicious artifact trigger unbounded CUE recursion, comprehension blow-up, or huge list output? Goroutine/cache races? |
 | **Elevation of Privilege** | Can untrusted CUE reach trusted transformer execution or registry authority it shouldn't? |
 
 **Defense in depth**:
-- Shape-gate + schema validation + finalization + trusted-catalog sourcing layer up — no single one is the sole barrier
+- Shape-gate + schema validation + unification at fixed fill paths + trusted-catalog sourcing layer up — no single one is the sole barrier
 - Kernel neutrality (no global state, no process mutation) limits blast radius across embedders (`cli`, `opm-operator`)
 
 ---
@@ -134,13 +134,13 @@ Apply the relevant subset based on in-scope code.
 - All errors checked on security-sensitive calls (load, decode, validate, evaluate) — no silent `_`
 - No `os.Setenv`/global state mutation (kernel neutrality); env plumbed via config slices
 - No `exec`, no `text/template`, no `os/exec`, no reflection-based deserialization of untrusted payloads (confirm these absences hold)
-- CUE value handling: deep operations don't mutate shared/cached values; finalization applied before fills
+- CUE value handling: deep operations don't mutate shared/cached values; fills are `FillPath` at fixed schema paths, never a rebuilt value
 - `context.Context` cancellation honored on long evaluations where the API exposes it
 
 ### CUE Evaluation Specifics
 
-- `#component` is filled with the evaluated component as-is (definitions and constraints intact, enhancement 0019 D1); constraint enforcement is CUE unification itself, so audit the fill sites, not a strip step
-- `FillPath` targets are fixed, schema-defined paths (`#component`, `#context.*`) — not attacker-controlled paths
+- `#moduleInstance` and `#component` are filled with the evaluated instance and component as-is (definitions and constraints intact, enhancement 0019 D1/D3); constraint enforcement is CUE unification itself, so audit the fill sites, not a strip step (none exists)
+- `FillPath` targets are fixed, schema-defined paths (`#moduleInstance`, `#component`, `#context.*`) — not attacker-controlled paths
 - Output lookup uses the transformer-declared `schema.Output` path, not a user-supplied selector
 - Import resolution confined to declared module deps; no dynamic/user-driven import
 
@@ -176,7 +176,7 @@ Apply the relevant subset based on in-scope code.
 
 | Severity | Definition | Examples |
 |----------|-----------|----------|
-| **CRITICAL** | Exploitable vulnerability, constraint/validation bypass, or trusted-execution escape. Must be addressed before release. | A path letting user artifact CUE supply/override a `#transform`, user data reaching evaluation without finalization (constraint bypass), a route reaching compile/execute without shape-gating, untrusted artifact steering an attacker-chosen registry/module pull, a panic-triggering artifact that crashes embedders |
+| **CRITICAL** | Exploitable vulnerability, constraint/validation bypass, or trusted-execution escape. Must be addressed before release. | A path letting user artifact CUE supply/override a `#transform`, user data filled at an attacker-influenced path or with its constraints dropped (constraint bypass), a route reaching compile/execute without shape-gating, untrusted artifact steering an attacker-chosen registry/module pull, a panic-triggering artifact that crashes embedders |
 | **WARNING** | Security weakness with material impact, or best-practice violation that increases attack surface. Should be addressed in the current cycle. | No digest/signature verification of pulled modules (registry substitution), unbounded CUE recursion/fan-out DoS path, a Kernel shared across goroutines, errors that dump full artifact values, alpha CUE SDK on the eval path, loader path that follows symlinks out of root |
 | **SUGGESTION** | Defense-in-depth improvement, hardening recommendation, or theoretical risk with low current exploitability. Address when convenient. | Add an evaluation depth/timeout guard, pin schema to a specific version not just `@v0`, add fuzz tests for the shape gate, tighten an already-validated decode path, document the no-audit-log boundary |
 
@@ -253,10 +253,10 @@ Apply the relevant subset based on in-scope code.
 ## Guardrails
 
 - **NEVER make code changes** — this skill is analysis and reporting only
-- **The CUE-evaluation boundary is the point** — prioritize whether untrusted artifact CUE can bypass shape-gating, schema validation, or finalization, or reach trusted transformer/registry authority
+- **The CUE-evaluation boundary is the point** — prioritize whether untrusted artifact CUE can bypass shape-gating, schema validation, or unification at the fill sites, or reach trusted transformer/registry authority
 - **Delegate deep analysis to Explore subagents** — protect the main context window from the volume of file reads and grep operations
 - **>= 80% confidence threshold** — if uncertain, state it explicitly and suggest investigation rather than assert a vulnerability
-- **Always include Positive Observations** — kernel neutrality, no-shell/no-template/no-log discipline, and finalization-before-fill are real strengths; confirm them
+- **Always include Positive Observations** — kernel neutrality, no-shell/no-template/no-log discipline, and fill-as-evaluated with the parity harness as tripwire are real strengths; confirm them
 - **Always include Skipped / Out of Scope** — many runtime dimensions (web auth, container) genuinely don't apply to a pure library; say so
 - **Include code evidence** — every CRITICAL and WARNING cites a `file:line` and shows the relevant pattern
 - **Be specific in recommendations** — name the file/line and the concrete change (e.g., "verify pulled catalog digest in `opm/materialize/pull.go:22` before evaluation")

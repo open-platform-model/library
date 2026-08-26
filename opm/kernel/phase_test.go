@@ -2,6 +2,7 @@ package kernel_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -300,21 +301,11 @@ func TestRender_ModuleResult_Aliased(t *testing.T) {
 	_ = mr
 }
 
-func TestKernel_Finalize(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`{
-	replicas: int & >0
-	replicas: 3
-	name: "demo"
-}`)
-	require.NoError(t, v.Err())
-
-	got, err := k.Finalize(v)
-	require.NoError(t, err)
-	require.True(t, got.Exists())
-
-	// After finalization the constraint is gone — the value is concrete.
-	replicas, err := got.LookupPath(cue.ParsePath("replicas")).Int64()
-	require.NoError(t, err)
-	assert.Equal(t, int64(3), replicas)
+// TestKernel_NoFinalizeMethod pins the absence of any finalization step on
+// the kernel (spec kernel-runtime: "No finalization method on the Kernel";
+// enhancement 0019 D1). Transformer inputs are filled as evaluated; a
+// Finalize method reappearing here is a deliberate act, not drift.
+func TestKernel_NoFinalizeMethod(t *testing.T) {
+	_, found := reflect.TypeOf(&kernel.Kernel{}).MethodByName("Finalize")
+	assert.False(t, found, "*kernel.Kernel must not expose a Finalize method (0019 D1)")
 }
