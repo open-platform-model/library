@@ -187,7 +187,10 @@ func TestStripProvenanceEnablesComparison(t *testing.T) {
 	prev := compileOut(t, ctx, primitiveSrc("1.0.0"))
 	next := compileOut(t, ctx, primitiveSrc("1.1.0"))
 
-	require.NotEmpty(t, Check(prev, next), "unstripped operands must report — provenance differs")
+	// Check applies the D30 denylist itself at every metadata depth, so the
+	// unstripped operands are already clean; the strip remains the unify
+	// rung's tool and must not change the verdict.
+	assert.Empty(t, Check(prev, next), "the walk skips provenance without the strip")
 
 	sprev, err := StripProvenance(prev)
 	require.NoError(t, err)

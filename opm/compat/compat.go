@@ -1,10 +1,12 @@
 package compat
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/format"
 )
 
 // Violation is one breach of 0010 D27's additive-only rule, located by the
@@ -76,11 +78,27 @@ func CheckAtLevel(apiVersion string, prev, next cue.Value) ([]Violation, error) 
 // Structs recurse; leaves get a forward subsume, where it is correct for the
 // value domain; defaults are compared explicitly at every level, because
 // subsume is blind to them in both directions.
+//
+// Three rules keep the walk from reporting non-changes (measured on
+// catalog_opm PR 51, cli issue 165):
+//
+//   - 0010 D30's provenance fields are skipped at every depth: catalogVersion
+//     and description directly under any field named metadata, so a member
+//     reference embedded in another member (appliesTo, composedResources)
+//     does not report the referenced member's per-release provenance.
+//   - Closed lists of equal length are walked element-wise (paths name[i]),
+//     so those embedded references reach the rule above; any other list pair
+//     is a leaf.
+//   - A leaf whose emitted syntax is byte-identical on both sides reports
+//     nothing: it cannot have narrowed, and the forward subsume false-positives
+//     on unchanged leaves carrying matchN or a pending comprehension.
 func Check(prev, next cue.Value) []Violation {
-	return walk("", prev, next, nil)
+	return walk("", prev, next, false, nil)
 }
 
-func walk(path string, prev, next cue.Value, acc []Violation) []Violation {
+// walk compares one position. underMetadata is true when path names a direct
+// child of a field called metadata, which is where D30's denylist applies.
+func walk(path string, prev, next cue.Value, underMetadata bool, acc []Violation) []Violation {
 	// Defaults first, at every level — no subsume direction can see them.
 	acc = checkDefaults(path, prev, next, acc)
 
@@ -92,8 +110,20 @@ func walk(path string, prev, next cue.Value, acc []Violation) []Violation {
 		pit, perr := prev.Fields(cue.All())
 		nit, nerr := next.Fields(cue.All())
 		if perr == nil && nerr == nil {
-			return walkStruct(path, pit, nit, next, acc)
+			return walkStruct(path, pit, nit, next, underMetadata, acc)
 		}
+	}
+
+	if out, ok := walkList(path, prev, next, acc); ok {
+		return out
+	}
+
+	// An unchanged leaf cannot have narrowed. Syntax(cue.All()) expands
+	// references (a changed definition behind a reference renders
+	// differently), so byte equality is a sound "unchanged" signal; rendering
+	// failure falls through to the subsume.
+	if leafIdentical(prev, next) {
+		return acc
 	}
 
 	// Leaf: the new domain must accept everything the old one did — widening
@@ -118,7 +148,7 @@ func isWalkableStruct(v cue.Value) bool {
 	return op != cue.OrOp
 }
 
-func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, acc []Violation) []Violation {
+func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, underMetadata bool, acc []Violation) []Violation {
 	seen := map[string]bool{}
 
 	for pit.Next() {
@@ -127,13 +157,16 @@ func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, acc []Viola
 			continue // hidden fields are not contract surface
 		}
 		name := fieldName(sel)
+		if underMetadata && provenanceDenylist[name] {
+			continue // D30: per-release provenance, never contract surface
+		}
 		seen[name] = true
 		nv := next.LookupPath(cue.MakePath(lookupSelector(sel)))
 		if !nv.Exists() {
 			acc = append(acc, Violation{Path: join(path, name), Kind: KindFieldRemoved})
 			continue
 		}
-		acc = walk(join(path, name), pit.Value(), nv, acc)
+		acc = walk(join(path, name), pit.Value(), nv, name == "metadata", acc)
 	}
 
 	for nit.Next() {
@@ -142,7 +175,7 @@ func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, acc []Viola
 			continue
 		}
 		name := fieldName(sel)
-		if seen[name] {
+		if seen[name] || (underMetadata && provenanceDenylist[name]) {
 			continue
 		}
 		// An added field must be optional or carry a default — a new
@@ -154,6 +187,49 @@ func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, acc []Viola
 		}
 	}
 	return acc
+}
+
+// walkList walks two closed lists of equal length element-wise, paths
+// name[i], and reports ok=false for any other pair (open lists, differing
+// lengths, non-lists), which the caller judges as a leaf. Element-wise is the
+// member-reference case (appliesTo, composedResources); D27 states no list
+// semantics, so addition and removal keep their subsume verdict.
+func walkList(path string, prev, next cue.Value, acc []Violation) ([]Violation, bool) {
+	if prev.IncompleteKind() != cue.ListKind || next.IncompleteKind() != cue.ListKind {
+		return acc, false
+	}
+	if prev.Allows(cue.AnyIndex) || next.Allows(cue.AnyIndex) {
+		return acc, false // open list: no fixed elements to pair
+	}
+	pn, perr := prev.Len().Int64()
+	nn, nerr := next.Len().Int64()
+	if perr != nil || nerr != nil || pn != nn {
+		return acc, false
+	}
+	pit, perr := prev.List()
+	nit, nerr := next.List()
+	if perr != nil || nerr != nil {
+		return acc, false
+	}
+	for i := 0; pit.Next() && nit.Next(); i++ {
+		acc = walk(fmt.Sprintf("%s[%d]", path, i), pit.Value(), nit.Value(), false, acc)
+	}
+	return acc, true
+}
+
+// leafIdentical reports whether two leaves emit byte-identical syntax under
+// cue.All(). Both operands come from the same conventions, so an unchanged
+// leaf formats identically; a rendering failure is treated as "different".
+func leafIdentical(prev, next cue.Value) bool {
+	pb, err := format.Node(prev.Syntax(cue.All()))
+	if err != nil {
+		return false
+	}
+	nb, err := format.Node(next.Syntax(cue.All()))
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(pb, nb)
 }
 
 // checkDefaults enforces default immutability (D27). Defaults are compared
