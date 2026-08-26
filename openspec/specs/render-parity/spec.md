@@ -61,17 +61,17 @@ A case MAY carry an expected divergence naming the kernel behaviour that causes 
 
 ### Requirement: Probe transformers expose definition and instance inputs
 
-The parity fixtures SHALL include transformers that read `#component.#names` and `#moduleInstance` respectively, so that whether the kernel supplies those inputs is observable in rendered output. On landing, the cases pairing these probes SHALL record the kernel's failure to supply them as expected divergences.
+The parity fixtures SHALL include transformers that read `#component.#names` and `#moduleInstance` respectively, so that whether the kernel supplies those inputs is observable in rendered output. Each probe case SHALL pin the value the oracle renders for the probed input, and SHALL carry no expected divergence: the kernel supplies both inputs, and a case that stops agreeing fails the harness.
 
 #### Scenario: Names probe under the oracle
 
 - **WHEN** the names probe is unified with a component whose `#names.dns.fqdn` is computed
 - **THEN** the oracle renders an object carrying that fqdn concretely
 
-#### Scenario: Instance probe under the kernel today
+#### Scenario: Instance probe agrees
 
-- **WHEN** the instance probe is rendered through the kernel before the `#moduleInstance` fill lands
-- **THEN** the kernel side fails to render the pair, and the case's expected divergence names the unfilled input
+- **WHEN** the instance probe is rendered through the kernel and through the oracle
+- **THEN** both render an object carrying the instance's name and namespace concretely, and the harness reports the case as agreeing
 
 ### Requirement: Matched pair sets agree, with one stated exemption
 

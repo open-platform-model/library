@@ -19,11 +19,12 @@ import (
 
 // Probe group of the render-parity harness (spec render-parity: "Probe
 // transformers expose definition and instance inputs"). No shipped
-// transformer reads a definition field, so the definition strip and the
-// unfilled #moduleInstance are invisible in the shipped group. Each probe
-// here is one transformer whose output carries exactly the input in
-// question; under pure-CUE unification it renders concretely, under the
-// kernel it does not, and that is recorded as the row's expected divergence.
+// transformer reads a definition field or #moduleInstance, so whether the
+// kernel supplies them is invisible in the shipped group. Each probe here is
+// one transformer whose output carries exactly the input in question; the
+// oracle pins the value, and the kernel must agree. Both rows recorded an
+// expected divergence on landing (the definition strip, the unfilled
+// #moduleInstance) and both were retired by 0019's Phase A fills.
 //
 // Everything is served from the in-memory registry (catalog, probe module,
 // and the oracle glue itself, published from testdata/parity/oracle/render.cue
@@ -63,10 +64,11 @@ var parityProbes = []parityProbe{
 	},
 	{
 		parityCase: parityCase{
-			Name:               "instance-probe :: web",
-			Component:          "web",
-			Equality:           equalityOutputFieldsOnly,
-			ExpectedDivergence: "#moduleInstance is never filled by the kernel (opm/compile/execute.go executePair; 0019 D3, library#65)",
+			// Agrees since library-instance-fill: #moduleInstance is filled
+			// with the whole evaluated instance (0019 D3, library#65).
+			Name:      "instance-probe :: web",
+			Component: "web",
+			Equality:  equalityOutputFieldsOnly,
 		},
 		transform: `{
 			#moduleInstance: _

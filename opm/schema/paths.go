@@ -50,10 +50,13 @@ var (
 	TransformerRequiredTraits    = cue.ParsePath("requiredTraits")
 	TransformerOptionalTraits    = cue.ParsePath("optionalTraits")
 
-	// Inside #transform.
-	Component = cue.ParsePath("#component")
-	Context   = cue.MakePath(cue.Def("context"))
-	Output    = cue.ParsePath("output")
+	// Inside #transform: the three inputs the runtime fills per matched
+	// pair (core: "The runtime supplies all three inputs concretely") and
+	// the output it reads.
+	ModuleInstance = cue.ParsePath("#moduleInstance")
+	Component      = cue.ParsePath("#component")
+	Context        = cue.MakePath(cue.Def("context"))
+	Output         = cue.ParsePath("output")
 
 	// Sub-paths of #context filled per (instance, component, transformer) pair.
 	// Was: ContextModuleReleaseMetadata

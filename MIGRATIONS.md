@@ -13,6 +13,11 @@ This file records the evolution of the library's public Go API and the OPM schem
 
 ## Unreleased — Additive
 
+### Changed — `library-instance-fill`
+
+- **Transformers now receive `#moduleInstance`.** `Kernel.Compile` fills each pair's `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `metadata`, `values`, `#module` and every component, siblings included (enhancement 0019 D3, D11; closes library#65). A transformer that re-declares `#moduleInstance: _` now renders instead of failing with an empty-disjunction error. Reading sibling components through it is reachable but discouraged by contract (D11): it forfeits per-pair error attribution, and first-party catalog transformers must not do it. No shipped transformer reads the slot, so rendered output is unchanged.
+- **New `schema.ModuleInstance` path constant** (`#moduleInstance`) beside `schema.Component` and `schema.Context`. Additive.
+
 ### Changed — `library-component-fill`
 
 - **Transformers now receive the evaluated component.** `Kernel.Compile` fills each pair's `#transform.#component` with the instance's components value as evaluated (the same value `Match` reads), no longer with a `FinalizeValue` copy. Definition fields (`#names`, `#instance`, `#resources`, `#traits`, `#blueprints`), hidden fields and constraints reach the transformer exactly as plain CUE unification would give them (enhancement 0019 D1/D3). A transformer that re-declares `#component: _` can now read `#component.#names.dns.fqdn` and friends.

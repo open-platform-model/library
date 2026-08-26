@@ -63,14 +63,18 @@ func executeTransforms(
 //
 // The flow:
 //  1. Look up the transformer's #transform from the composed map (by FQN).
-//  2. Look up the component in schemaComponents, the instance's evaluated
+//  2. FillPath #moduleInstance with the instance's evaluated #ModuleInstance
+//     value, whole: metadata, values, #module and every component, siblings
+//     included (0019 D3, D11). The component filled in step 4 is a sub-value
+//     of it; the self-referential read renders without a cycle.
+//  3. Look up the component in schemaComponents, the instance's evaluated
 //     components value as Match reads it (no finalized copy).
-//  3. FillPath #component with that value as-is: definition fields (#names,
+//  4. FillPath #component with that value as-is: definition fields (#names,
 //     #instance, ...), hidden fields and constraints all reach the transformer,
 //     exactly as plain CUE unification would give them (0019 D1).
-//  4. FillPath #context.* fields (#moduleInstanceMetadata, #componentMetadata, #runtimeName),
+//  5. FillPath #context.* fields (#moduleInstanceMetadata, #componentMetadata, #runtimeName),
 //     read from the same component value.
-//  5. Look up and decode the output field.
+//  6. Look up and decode the output field.
 func executePair(
 	cueCtx *cue.Context,
 	composedVal cue.Value,
@@ -94,6 +98,18 @@ func executePair(
 		return nil, nil, fmt.Errorf("component %q / transformer %q: #transform error: %w", compName, tfFQN, err)
 	}
 
+	// Inject #moduleInstance with the whole evaluated instance (0019 D3).
+	// inst.Package is zero only when a caller bypassed every kernel entry
+	// point; refuse here rather than let FillPath surface a bottom as a
+	// transformer error.
+	if inst == nil || !inst.Package.Exists() {
+		return nil, nil, fmt.Errorf("component %q / transformer %q: instance value missing", compName, tfFQN)
+	}
+	unified := transformVal.FillPath(schema.ModuleInstance, inst.Package)
+	if err := unified.Err(); err != nil {
+		return nil, nil, fmt.Errorf("component %q / transformer %q: filling #moduleInstance: %w", compName, tfFQN, err)
+	}
+
 	// Retrieve the component from the evaluated components value: the one
 	// value Match read, with every field class preserved.
 	schemaComp := schemaComponents.LookupPath(cue.MakePath(cue.Str(compName)))
@@ -102,7 +118,7 @@ func executePair(
 	}
 
 	// Inject #component with the evaluated value directly (0019 D1).
-	unified := transformVal.FillPath(schema.Component, schemaComp)
+	unified = unified.FillPath(schema.Component, schemaComp)
 	if err := unified.Err(); err != nil {
 		return nil, nil, fmt.Errorf("component %q / transformer %q: filling #component: %w", compName, tfFQN, err)
 	}
