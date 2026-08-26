@@ -97,7 +97,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	require.NoError(t, fqdn.Err(), "web.#names.dns.fqdn must resolve on the processed instance")
 	fqdnStr, err := fqdn.String()
 	require.NoError(t, err)
-	assert.Equal(t, "web.default.svc.cluster.local", fqdnStr)
+	assert.Equal(t, "web-app-demo-web.default.svc.cluster.local", fqdnStr)
 	// The v5 uuid core derives from the instance fqn; the parity oracle
 	// derives the same value for the same name and namespace
 	// (testdata/parity/instance), which is what makes the two fixtures'
