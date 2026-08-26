@@ -60,7 +60,7 @@ var parityProbes = []parityProbe{
 			}
 		}`,
 		field: "fqdn",
-		want:  "web.default.svc.cluster.local",
+		want:  "probe-demo-web.default.svc.cluster.local",
 	},
 	{
 		parityCase: parityCase{
@@ -128,7 +128,7 @@ func runParityProbe(t *testing.T, glue string, probe parityProbe) {
 	writeFile(t, filepath.Join(dir, "cue.mod", "module.cue"), fmt.Sprintf(`module: "testing.opmodel.dev/library-parity-probe@v0"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.4"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.6"
 	%q: v: %q
 	%q: v: %q
 	%q: v: %q
