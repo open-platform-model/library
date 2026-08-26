@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.16](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.15...v1.0.0-alpha.16) (2026-08-26)
+
+
+### Features
+
+* **compat:** skip nested provenance, walk lists, silence identical leaves ([#74](https://github.com/open-platform-model/library/issues/74)) ([3de7ac2](https://github.com/open-platform-model/library/commit/3de7ac2a2fda51e5daeb09b7a48154807dd28df9))
+
 ## [1.0.0-alpha.15](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.14...v1.0.0-alpha.15) (2026-08-26)
 
 
