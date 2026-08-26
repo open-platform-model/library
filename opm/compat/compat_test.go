@@ -1,6 +1,7 @@
 package compat
 
 import (
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -75,8 +76,31 @@ func TestCheck(t *testing.T) {
 
 		// Edges beyond the experiment's dispatch.
 		{"list leaf unchanged", `#X: {xs: [...string]}`, `#X: {xs: [...string]}`, nil},
-		{"list leaf narrowed (fixed length)", `#X: {xs: [string]}`, `#X: {xs: [int]}`,
+		{"closed list element narrowed", `#X: {xs: [string]}`, `#X: {xs: [int]}`,
+			[]wantViolation{{"xs[0]", KindDomainNarrowed}}},
+		{"closed list element removed", `#X: {xs: [string, int]}`, `#X: {xs: [string]}`,
 			[]wantViolation{{"xs", KindDomainNarrowed}}},
+		{"closed list nested field removed", `#X: {xs: [{a: string, b: int}]}`, `#X: {xs: [{a: string}]}`,
+			[]wantViolation{{"xs[0].b", KindFieldRemoved}}},
+		{"matchN leaf unchanged", `#X: {s: matchN(1, [string, int])}`, `#X: {s: matchN(1, [string, int])}`, nil},
+		// Known upstream blind spot, pinned deliberately (measured against
+		// v0.17.1, identical before and after the identical-leaf rule): the
+		// subsume cannot evaluate matchN, so narrowing its alternatives is not
+		// detected and widening them false-positives. The identical-leaf rule
+		// removes only the unchanged case. If a CUE upgrade starts judging
+		// matchN, these two cases fail and the pin should be updated.
+		{"matchN alternatives narrowed is not detected", `#X: {s: matchN(1, [string, int])}`, `#X: {s: matchN(1, [string])}`, nil},
+		{"matchN alternatives widened false-positives", `#X: {s: matchN(1, [string])}`, `#X: {s: matchN(1, [string, int])}`,
+			[]wantViolation{{"s", KindDomainNarrowed}}},
+		{"root provenance skipped",
+			`#X: {metadata: {name: "t", catalogVersion: "1.0.0", description: "a"}}`,
+			`#X: {metadata: {name: "t", catalogVersion: "1.1.0", description: "b"}}`, nil},
+		{"provenance skipped under nested metadata only",
+			`#X: {a: {metadata: {catalogVersion: "1.0.0"}}, catalogVersion: "1.0.0"}`,
+			`#X: {a: {metadata: {catalogVersion: "1.1.0"}}, catalogVersion: "1.1.0"}`,
+			[]wantViolation{{"catalogVersion", KindDomainNarrowed}}},
+		{"provenance removal under metadata not reported",
+			`#X: {metadata: {name: "t", description: "a"}}`, `#X: {metadata: {name: "t"}}`, nil},
 		// Known upstream blind spot, pinned deliberately: CUE's Subsume treats
 		// open lists as mutually subsuming regardless of element type, under
 		// every option combination (measured against v0.17.1). Element-domain
@@ -226,4 +250,77 @@ func TestOptionRawIsLoadBearing(t *testing.T) {
 	next := compileX(t, ctx, `#X: {t: "a"}`)
 	got := toWant(Check(prev, next))
 	assert.Contains(t, got, wantViolation{"t", KindDomainNarrowed})
+}
+
+// The member-reference shapes measured on catalog_opm PR 51 (cli issue 165):
+// a trait's appliesTo and a blueprint's composedResources embed whole
+// members, whose metadata.catalogVersion differs between builds by
+// construction. Before the walk applied D30 at depth, the list leaf's
+// subsume named the nested catalogVersion and refused an unchanged member.
+func memberRefSrc(version, nameField string) string {
+	return `
+#Container: {
+	kind: "Resource"
+	metadata: {
+		name: "container", apiVersion: "v1beta1"
+		catalogVersion: *"` + version + `" | string
+		description: "A container"
+		fqn: "x/resources/container@v1beta1"
+	}
+	spec: {image!: string, ports?: [...int]}
+}
+#Scaling: {
+	kind: "Trait"
+	metadata: {name: "scaling", apiVersion: "v1beta1", catalogVersion: "` + version + `", description: "d"}
+	spec: scaling: {replicas: int | *1}
+}
+#X: {
+	kind: "Blueprint"
+	metadata: {name: "expose", apiVersion: "v1beta1", catalogVersion: "` + version + `", description: "d"}
+	appliesTo:         [#Container]
+	composedResources: [#Container, #Container]
+	composedTraits:    [#Scaling]
+	spec: expose: {` + nameField + `}
+}
+`
+}
+
+func TestCheckMemberReferencesIgnoreProvenance(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, memberRefSrc("1.0.0", "name?: string"))
+	next := compileX(t, ctx, memberRefSrc("1.1.0", "name?: string"))
+	assert.Empty(t, Check(prev, next))
+}
+
+func TestCheckMemberReferencesStillReportRealChanges(t *testing.T) {
+	ctx := cuecontext.New()
+	prev := compileX(t, ctx, memberRefSrc("1.0.0", "name?: string"))
+	next := compileX(t, ctx, memberRefSrc("1.1.0", `name?: =~"^[a-z]+$"`))
+	// Exactly the genuine tightening, nothing from the references.
+	assert.Equal(t, []wantViolation{{"spec.expose.name", KindDomainNarrowed}}, toWant(Check(prev, next)))
+
+	// A change inside a referenced member reports at the element path.
+	broken := strings.Replace(memberRefSrc("1.1.0", "name?: string"), "ports?: [...int]", "", 1)
+	got := toWant(Check(prev, compileX(t, ctx, broken)))
+	assert.Contains(t, got, wantViolation{"appliesTo[0].spec.ports", KindFieldRemoved})
+	assert.Contains(t, got, wantViolation{"composedResources[1].spec.ports", KindFieldRemoved})
+}
+
+// The #Image shape: a struct of if-guards over not-yet-concrete siblings,
+// unchanged on both sides, must be silent at every path.
+func TestCheckGuardedStructUnchanged(t *testing.T) {
+	const src = `
+#Image: {
+	repository: string
+	tag:        string | *""
+	digest:     string | *""
+	if digest != "" && tag != "" {reference: "\(repository):\(tag)@\(digest)"}
+	if digest != "" && tag == "" {reference: "\(repository)@\(digest)"}
+	if digest == "" && tag != "" {reference: "\(repository):\(tag)"}
+	if digest == "" && tag == "" {reference: repository}
+}
+#X: {spec: container: {image!: #Image, updateStrategy: *"RollingUpdate" | "OnDelete"}}
+`
+	ctx := cuecontext.New()
+	assert.Empty(t, Check(compileX(t, ctx, src), compileX(t, ctx, src)))
 }

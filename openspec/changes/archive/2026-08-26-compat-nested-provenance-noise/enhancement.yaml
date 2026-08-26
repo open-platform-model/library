@@ -1,0 +1,6 @@
+# D26 records the comparator noise as a delivery item of the same amendment;
+# this change is the library half of that landing.
+implements:
+  - enhancement: "0011"
+    decisions: [D26]
+    resolves: []
