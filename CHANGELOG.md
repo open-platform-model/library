@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.0-alpha.15](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.14...v1.0.0-alpha.15) (2026-08-26)
+
+
+### Features
+
+* **compile:** fill #component from the evaluated components value ([#70](https://github.com/open-platform-model/library/issues/70)) ([093119d](https://github.com/open-platform-model/library/commit/093119d7c83e59c276dba189bec2aa97afbb9d8a))
+* **compile:** fill #moduleInstance with the whole evaluated instance ([#71](https://github.com/open-platform-model/library/issues/71)) ([c951799](https://github.com/open-platform-model/library/commit/c95179957b960360a1277bb2c597f21b78adb163))
+* **openspec:** wire enhancement delivery-log declarations into the workflow ([11da9b0](https://github.com/open-platform-model/library/commit/11da9b0379095c464ffd16cfbe664c1325fe7b79))
+
+
+### Documentation
+
+* **openspec:** archive library-parity-harness and library-component-fill ([5bdb845](https://github.com/open-platform-model/library/commit/5bdb845689d3cd5eed70ac634251644bd913b8d1))
+* **openspec:** drop D4 from archived 0019 declarations, it is excused in no_work ([0ad1807](https://github.com/open-platform-model/library/commit/0ad180745d704c1ec9a04882a89c18247bbcf50c))
+
+
+### Miscellaneous Chores
+
+* **deps:** bump core to v2.0.0-alpha.6 and repin the parity fixtures ([#73](https://github.com/open-platform-model/library/issues/73)) ([0e5a7d5](https://github.com/open-platform-model/library/commit/0e5a7d5891a83cbb12a61aa6ea9430dad06a8ada))
+* **openspec:** regenerate skills to 1.9.0, preserving local additions ([b386b31](https://github.com/open-platform-model/library/commit/b386b31f77391ecd7686fa3db2c9fe0ecc9b7601))
+
 ## [1.0.0-alpha.14](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.13...v1.0.0-alpha.14) (2026-08-15)
 
 
