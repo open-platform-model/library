@@ -45,7 +45,6 @@ func (k *Kernel) compileModuleInstance(
 	}
 
 	// One components value through the pipeline: Match read schemaComponents
-	// and every pair's #component is filled from it (0019 D1). The second
-	// argument is Execute's deprecated dataComponents; it is ignored.
-	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, inst, schemaComponents, schemaComponents, plan)
+	// and every pair's #component is filled from it (0019 D1).
+	return compile.NewModule(k.cueCtx, mp, runtimeName).Execute(ctx, inst, schemaComponents, plan)
 }

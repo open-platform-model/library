@@ -95,7 +95,7 @@ opm/
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
   module/                     *module.Module / *module.Instance types + value-validation accessors
   platform/                   *platform.Platform — kernel's sole match/execute input
-  compile/                    finalize → match → execute → emit pipeline (no public entry; called via Kernel)
+  compile/                    match → execute → emit pipeline (no public entry; called via Kernel)
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadInstancePackage, LoadPlatformPackage
