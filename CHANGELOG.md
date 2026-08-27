@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.18](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.17...v1.0.0-alpha.18) (2026-08-27)
+
+
+### Miscellaneous Chores
+
+* **deps:** bump catalogs/opm to v2.0.0-alpha.6 and re-pin the parity harness ([#77](https://github.com/open-platform-model/library/issues/77)) ([588a638](https://github.com/open-platform-model/library/commit/588a638201e72083cea36055becfe996df414c36))
+
 ## [1.0.0-alpha.17](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.16...v1.0.0-alpha.17) (2026-08-27)
 
 
