@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.17](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.16...v1.0.0-alpha.17) (2026-08-27)
+
+
+### Miscellaneous Chores
+
+* **release:** re-trigger release-please after Actions outage ([262d266](https://github.com/open-platform-model/library/commit/262d2667871cdca7d9ad3e058aa94d40e2348a63))
+
 ## [1.0.0-alpha.16](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.15...v1.0.0-alpha.16) (2026-08-26)
 
 
