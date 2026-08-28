@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0-alpha.19](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.18...v1.0.0-alpha.19) (2026-08-28)
+
+
+### Bug Fixes
+
+* **loader:** name the default when an identity field is a defaulted disjunction ([#86](https://github.com/open-platform-model/library/issues/86)) ([66ab9d5](https://github.com/open-platform-model/library/commit/66ab9d5bae3b16a2a1dafd0246203c7d74f09cb8))
+
+
+### Documentation
+
+* **openspec:** archive loader-gate-defaulted-disjunction-diagnostic ([410b65b](https://github.com/open-platform-model/library/commit/410b65b04712c5408ee1b9d08838a96a977ea738))
+
 ## [1.0.0-alpha.18](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.17...v1.0.0-alpha.18) (2026-08-27)
 
 
