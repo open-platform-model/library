@@ -72,6 +72,8 @@ Required identity fields are those the schema never defaults:
 - Instance: `metadata.name`, `metadata.namespace`, and `#module` present with `#module.kind == "Module"`.
 - Platform: `metadata.name`, `type`, and every `#registry[id].#module` present with `#registry[id].#module.kind == "Module"`.
 
+A required identity field declared as a disjunction with a default (for example `#VersionType | *"1.0.1"`) is NOT concrete for the purpose of this gate: the gate judges the value as authored, before default finalization, and a default arm is a suggestion, not the value a release moved. When the gate rejects such a field, the error SHALL name the default arm's value and state that identity fields must be concrete literals, so the author is directed at the declaration rather than at the reference that copies it.
+
 The package SHALL expose `ErrInvalidPackage`, `ErrWrongKind`, and `ErrMissingRequiredField` as sentinel errors so frontends can branch programmatically. Existing loader signatures `(cue.Value, apiversion.Version, error)` SHALL be unchanged.
 
 #### Scenario: Wrong artifact type rejected
@@ -85,6 +87,13 @@ The package SHALL expose `ErrInvalidPackage`, `ErrWrongKind`, and `ErrMissingReq
 - **WHEN** a caller invokes `LoadModulePackage(ctx, dir, opts)` and the module package omits `metadata.name`
 - **THEN** the function returns an error wrapping `ErrMissingRequiredField`
 - **AND** the error identifies the field path `metadata.name`
+
+#### Scenario: Defaulted identity field rejected with the default named
+
+- **WHEN** a caller invokes `LoadModulePackage(ctx, dir, opts)` and the module package declares `metadata.version` as a disjunction with a default (for example `#VersionType | *"1.0.1"`) rather than a concrete literal
+- **THEN** the function returns an error wrapping `ErrMissingRequiredField`
+- **AND** the error identifies the field path `metadata.version`, names the default value `"1.0.1"`, and states that identity fields must be concrete literals
+- **AND** a concrete `metadata.version` referencing an identity package whose `Version` is a plain literal passes the gate
 
 #### Scenario: Instance embedding a non-module rejected
 
