@@ -25,11 +25,12 @@ type Violation struct {
 // diagnostic verbatim in New (no reformatting, consistent with UnifyError);
 // the default kinds carry the rendered defaults in Old/New.
 const (
-	KindFieldRemoved     = "field removed"
-	KindFieldAddedStrict = "field added without optional or default"
-	KindDefaultChanged   = "default changed"
-	KindDefaultRemoved   = "default removed"
-	KindDomainNarrowed   = "domain narrowed"
+	KindFieldRemoved      = "field removed"
+	KindFieldAddedStrict  = "field added without optional or default"
+	KindDefaultChanged    = "default changed"
+	KindDefaultRemoved    = "default removed"
+	KindDomainNarrowed    = "domain narrowed"
+	KindFieldMadeRequired = "field made required"
 )
 
 // Sentinel errors for [CheckAtLevel]'s error channel. A gate that cannot
@@ -149,7 +150,27 @@ func isWalkableStruct(v cue.Value) bool {
 }
 
 func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, underMetadata bool, acc []Violation) []Violation {
-	seen := map[string]bool{}
+	// The new side, by name, so the prior-side loop can compare selectors
+	// (constraint markers live on the selector, not the value) and the
+	// addition loop below needs no second iteration. Keyed by name on
+	// purpose: `y`, `y?` and `y!` are three constraint flavours of one label
+	// and must find each other, which a LookupPath by selector does not do
+	// (a plain selector misses optional and required fields).
+	type field struct {
+		sel cue.Selector
+		val cue.Value
+	}
+	added := map[string]field{}
+	var order []string
+	for nit.Next() {
+		sel := nit.Selector()
+		if sel.LabelType() == cue.HiddenLabel {
+			continue
+		}
+		name := fieldName(sel)
+		added[name] = field{sel: sel, val: nit.Value()}
+		order = append(order, name)
+	}
 
 	for pit.Next() {
 		sel := pit.Selector()
@@ -160,33 +181,50 @@ func walkStruct(path string, pit, nit *cue.Iterator, next cue.Value, underMetada
 		if underMetadata && provenanceDenylist[name] {
 			continue // D30: per-release provenance, never contract surface
 		}
-		seen[name] = true
-		nv := next.LookupPath(cue.MakePath(lookupSelector(sel)))
-		if !nv.Exists() {
+		nf, present := added[name]
+		delete(added, name)
+		if !present {
 			acc = append(acc, Violation{Path: join(path, name), Kind: KindFieldRemoved})
 			continue
 		}
-		acc = walk(join(path, name), pit.Value(), nv, name == "metadata", acc)
+		// An optional field that becomes required breaks every consumer
+		// that omitted it (0010 D27). Judged on the selectors: the leaf
+		// subsume below compares value domains and cannot see a constraint
+		// marker. A defaulted field that loses its default is the default
+		// rule's finding, not this one's.
+		if sel.ConstraintType()&cue.OptionalConstraint != 0 && required(nf.sel, nf.val) {
+			acc = append(acc, Violation{Path: join(path, name), Kind: KindFieldMadeRequired})
+		}
+		acc = walk(join(path, name), pit.Value(), nf.val, name == "metadata", acc)
 	}
 
-	for nit.Next() {
-		sel := nit.Selector()
-		if sel.LabelType() == cue.HiddenLabel {
-			continue
-		}
-		name := fieldName(sel)
-		if seen[name] || (underMetadata && provenanceDenylist[name]) {
+	for _, name := range order {
+		nf, ok := added[name]
+		if !ok || (underMetadata && provenanceDenylist[name]) {
 			continue
 		}
 		// An added field must be optional or carry a default — a new
 		// required field breaks every existing consumer.
-		optional := sel.ConstraintType()&cue.OptionalConstraint != 0
-		_, hasDefault := nit.Value().Default()
-		if !optional && !hasDefault {
+		if required(nf.sel, nf.val) {
 			acc = append(acc, Violation{Path: join(path, name), Kind: KindFieldAddedStrict})
 		}
 	}
 	return acc
+}
+
+// required reports 0010 D27's posture of a field: a `!` field, or a regular
+// field with no default, is required — a consumer must supply it. A `?` field
+// or a defaulted one is optional.
+func required(sel cue.Selector, v cue.Value) bool {
+	ct := sel.ConstraintType()
+	if ct&cue.OptionalConstraint != 0 {
+		return false
+	}
+	if ct&cue.RequiredConstraint != 0 {
+		return true
+	}
+	_, hasDefault := v.Default()
+	return !hasDefault
 }
 
 // walkList walks two closed lists of equal length element-wise, paths
@@ -264,16 +302,6 @@ func fieldName(sel cue.Selector) string {
 		return sel.Unquoted()
 	}
 	return sel.String()
-}
-
-// lookupSelector normalizes a selector for lookup in the other operand: a
-// plain selector does not find optional or required fields, so regular labels
-// look up in optional form, which finds all three constraint flavors.
-func lookupSelector(sel cue.Selector) cue.Selector {
-	if sel.LabelType() == cue.StringLabel {
-		return sel.Optional()
-	}
-	return sel
 }
 
 func render(v cue.Value) string { return fmt.Sprintf("%v", v) }
