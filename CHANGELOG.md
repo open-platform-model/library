@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.20](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.19...v1.0.0-alpha.20) (2026-08-28)
+
+
+### Features
+
+* **compat:** report an optional field made required ([#88](https://github.com/open-platform-model/library/issues/88)) ([6cc0988](https://github.com/open-platform-model/library/commit/6cc0988214d6aad53d14599247ce32ed607babdf))
+
 ## [1.0.0-alpha.19](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.18...v1.0.0-alpha.19) (2026-08-28)
 
 
