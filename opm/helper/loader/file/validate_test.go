@@ -41,6 +41,7 @@ func TestShapeGate_RejectsMalformedPackages(t *testing.T) {
 		load     loadFn
 		content  string
 		sentinel error
+		contains []string // substrings the message must carry, if any
 	}{
 		{
 			name: "module loaded from a platform package",
@@ -61,6 +62,30 @@ kind:       "Module"
 metadata: {modulePath: "example.com/modules", version: "0.1.0"}
 `,
 			sentinel: loader.ErrMissingRequiredField,
+		},
+		{
+			name: "module with a defaulted-disjunction metadata.version",
+			load: moduleLoad,
+			content: `
+package mod
+#T: string & =~"^\\d+\\.\\d+\\.\\d+"
+Version: #T | *"1.0.1"
+kind:    "Module"
+metadata: {name: "demo", modulePath: "example.com/modules", version: Version}
+`,
+			sentinel: loader.ErrMissingRequiredField,
+			contains: []string{`"metadata.version"`, `"1.0.1"`, "defaulted disjunction", "concrete literals"},
+		},
+		{
+			name: "module with an open (non-defaulted) metadata.version",
+			load: moduleLoad,
+			content: `
+package mod
+kind:       "Module"
+metadata: {name: "demo", modulePath: "example.com/modules", version: string}
+`,
+			sentinel: loader.ErrMissingRequiredField,
+			contains: []string{`"metadata.version" is not concrete`},
 		},
 		{
 			name: "instance with a non-module #module",
@@ -103,6 +128,9 @@ metadata: {name: "demo"}
 			err := tc.load(dir)
 			require.Error(t, err)
 			assert.True(t, errors.Is(err, tc.sentinel), "want %v, got %v", tc.sentinel, err)
+			for _, want := range tc.contains {
+				assert.Contains(t, err.Error(), want)
+			}
 		})
 	}
 }
@@ -127,6 +155,21 @@ func TestShapeGate_WellFormedArtifactsPass(t *testing.T) {
 package mod
 kind:       "Module"
 metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
+`)
+		val, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
+		require.NoError(t, err)
+		assert.True(t, val.Exists())
+	})
+
+	t.Run("module with a plain-literal identity value", func(t *testing.T) {
+		// The identity-package form: Version is a concrete literal and
+		// metadata.version references it. The counterpart of the
+		// defaulted-disjunction rejection above.
+		dir := writeTempModuleDir(t, `
+package mod
+Version: "1.0.1"
+kind:    "Module"
+metadata: {name: "demo", modulePath: "example.com/modules", version: Version}
 `)
 		val, err := loader.LoadModulePackage(cuecontext.New(), dir, loader.LoadOptions{})
 		require.NoError(t, err)
