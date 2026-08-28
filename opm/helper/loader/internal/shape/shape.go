@@ -4,9 +4,11 @@
 // The gate is the loader boundary's fast-fail structural check: it confirms an
 // artifact carries the right concrete kind and the identity fields the schema
 // never defaults, but deliberately stops short of full schema validation, which
-// is the Kernel/Binding layer's contract. Single-sourcing it here guarantees a
-// directory-loaded artifact and a registry-loaded artifact are validated
-// identically and fail with the same sentinel values.
+// is the Kernel/Binding layer's contract. "Concrete" is judged before default
+// finalization: an identity field authored as a defaulted disjunction is
+// refused, with the default named in the error. Single-sourcing it here
+// guarantees a directory-loaded artifact and a registry-loaded artifact are
+// validated identically and fail with the same sentinel values.
 //
 // It lives under opm/helper/loader/internal/ so it stays out of the library's
 // public SemVer surface (kernel neutrality) while remaining importable by both
@@ -132,12 +134,24 @@ func checkKind(val cue.Value, want string) error {
 // requireConcrete asserts the field at path exists and is concrete. String
 // fields must additionally be non-empty — an empty identity string is as
 // useless to downstream code as an absent one.
+//
+// Concreteness is judged on the value as authored, before default
+// finalization: a disjunction with a default (`#VersionType | *"1.0.1"`) is
+// NOT concrete here even though cue.Value.String and `cue eval` would resolve
+// it. A default arm is a suggestion a consumer may unify away, not the value a
+// release moved, and the identity fields this gate guards are exactly those
+// values. That case gets its own message naming the default, because the
+// generic "not concrete" points the author at the reference in module.cue
+// rather than at the declaration in identity/identity.cue.
 func requireConcrete(val cue.Value, path string) error {
 	f := val.LookupPath(cue.ParsePath(path))
 	if !f.Exists() {
 		return fmt.Errorf("required field %q is absent: %w", path, ErrMissingRequiredField)
 	}
 	if !f.IsConcrete() {
+		if d, ok := f.Default(); ok {
+			return fmt.Errorf("required field %q is a defaulted disjunction (default %v), not a concrete value: identity fields must be concrete literals: %w", path, d, ErrMissingRequiredField)
+		}
 		return fmt.Errorf("required field %q is not concrete: %w", path, ErrMissingRequiredField)
 	}
 	if f.Kind() == cue.StringKind {
