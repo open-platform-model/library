@@ -118,6 +118,33 @@ func TestCheck(t *testing.T) {
 		{"optional field removed", `#X: {x: string, y?: string}`, `#X: {x: string}`,
 			[]wantViolation{{"y", KindFieldRemoved}}},
 
+		// Posture transitions (0010 D27: an optional field must not become
+		// required). Judged on the selector; the value domain is judged
+		// separately, so a posture change that also narrows reports both.
+		{"optional made required (!)", `#X: {y?: string}`, `#X: {y!: string}`,
+			[]wantViolation{{"y", KindFieldMadeRequired}}},
+		{"optional made required (regular, no default)", `#X: {y?: string}`, `#X: {y: string}`,
+			[]wantViolation{{"y", KindFieldMadeRequired}}},
+		{"optional made required and narrowed", `#X: {y?: string}`, `#X: {y!: =~"^[a-z]"}`,
+			[]wantViolation{{"y", KindFieldMadeRequired}, {"y", KindDomainNarrowed}}},
+		// Not this rule's finding: the leaf subsume under cue.Raw is
+		// default-sensitive and reports the added default as narrowing
+		// (pre-existing verdict, same as "concrete-to-non-concrete default").
+		{"optional gains a default", `#X: {y?: string}`, `#X: {y: string | *"z"}`,
+			[]wantViolation{{"y", KindDomainNarrowed}}},
+		{"required made optional", `#X: {y!: string}`, `#X: {y?: string}`, nil},
+		{"regular gains a default", `#X: {y: string}`, `#X: {y: string | *"z"}`, nil},
+		{"regular gains the required marker", `#X: {x: string}`, `#X: {x!: string}`, nil},
+		{"required marker added as a new field", `#X: {x: string}`, `#X: {x: string, y!: string}`,
+			[]wantViolation{{"y", KindFieldAddedStrict}}},
+		// The incident this rule was written for: catalogs/opm alpha.5 ->
+		// alpha.6 #ExposeSchema.name (measured 2026-08-28 on the published
+		// builds; the transformer then read the field unconditionally).
+		{"expose name alpha.5 to alpha.6",
+			`#X: {ports: [string]: {targetPort: int}, type: "ClusterIP" | "NodePort", name?: string}`,
+			`#X: {ports: [string]: {targetPort: int}, type: "ClusterIP" | "NodePort", name!: =~"^[a-z]([a-z0-9-]*[a-z0-9])?$"}`,
+			[]wantViolation{{"name", KindFieldMadeRequired}, {"name", KindDomainNarrowed}}},
+
 		// The default branches the design pins (non-concrete handling).
 		{"default removed", `#X: {t: string | *"a"}`, `#X: {t: string}`,
 			[]wantViolation{{"t", KindDefaultRemoved}}},
