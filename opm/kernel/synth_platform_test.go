@@ -108,7 +108,7 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 	const path = "opmodel.dev/catalogs/opm@v2"
 	// The same build modules/opm_platform/platform.cue pins — the pin is
 	// load-bearing (D14), so the two platforms name one catalog.
-	const pinnedCatalogVersion = "2.0.0-alpha.3"
+	const pinnedCatalogVersion = "2.0.0"
 
 	// ── Synthesize the platform from typed inputs ────────────────────
 	synthPlat, err := k.SynthesizePlatform(ctx, synth.PlatformInput{
