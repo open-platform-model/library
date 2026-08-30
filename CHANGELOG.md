@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-alpha.21](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.20...v1.0.0-alpha.21) (2026-08-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compile:** remove FinalizeValue, Kernel.Finalize and Execute's dataComponents ([#91](https://github.com/open-platform-model/library/issues/91))
+
+### Code Refactoring
+
+* **compile:** remove FinalizeValue, Kernel.Finalize and Execute's dataComponents ([#91](https://github.com/open-platform-model/library/issues/91)) ([2707d73](https://github.com/open-platform-model/library/commit/2707d73510322641f2a033f3fbecb1808f335cab))
+
 ## [1.0.0-alpha.20](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.19...v1.0.0-alpha.20) (2026-08-28)
 
 
