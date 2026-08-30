@@ -72,7 +72,7 @@ Composition of multiple builds of the same catalog path SHALL be preserved: each
 
 The native surfaces SHALL be consumed by the compile pipeline as **read-only input** — looked up and filled-*from* — and SHALL NOT be used as the owner of the compile build context (which is sourced from the caller Kernel; see the `kernel-runtime` capability).
 
-Under the v0.17 CUE toolchain, the returned `*MaterializedPlatform` SHALL be safe for concurrent **read-only** consumption: a platform materialized once MAY be rendered against simultaneously by multiple Kernels' compile pipelines (one Kernel per goroutine) without a mutex and without re-materialization. This is the basis of the materialize-once-reuse-many model the Platform-CR design depends on. Concurrent consumers SHALL NOT mutate the shared `Transformers`/`Matchers`; the pipeline only looks up and fills *from* them, building results in each caller Kernel's own context.
+The returned `*MaterializedPlatform` is owned by the Kernel that built it and SHALL NOT be rendered against concurrently from more than one goroutine. The compile pipeline fills into values reached through `Transformers`, and a fill is a write to evaluation state: rendering the real catalog concurrently against one shared platform was measured racing (enhancement 0019 experiment 06). The earlier "safe for concurrent read-only consumption" clause and the materialize-once-reuse-many model it supported are retracted (ADR-002, superseded). Consumers SHALL serialize every use of a materialized platform, or materialize once per goroutine, until the shares-nothing render model (0019 D8) replaces this package.
 
 #### Scenario: Composed transformers reachable
 
@@ -108,11 +108,11 @@ Under the v0.17 CUE toolchain, the returned `*MaterializedPlatform` SHALL be saf
 - **WHEN** `Kernel.Compile` renders a release against a materialized platform
 - **THEN** the platform's `Transformers`/`Matchers` are read (looked up and filled-from) but the build context for the rendered output comes from the caller Kernel, not from `mp.Transformers.Context()`
 
-#### Scenario: Safe for concurrent read-only sharing across Kernels
+#### Scenario: Concurrent rendering against one platform is not supported
 
-- **WHEN** a single `*MaterializedPlatform` is materialized once and then rendered against concurrently by multiple per-goroutine Kernels under the v0.17 toolchain
-- **THEN** the shared `Transformers`/`Matchers` are consumed read-only by every concurrent compile without mutation or re-materialization
-- **AND** no data race occurs and each render produces the output correct for its own release
+- **WHEN** two goroutines each `Compile` against the same `*MaterializedPlatform` without serialization
+- **THEN** the behaviour is undefined (measured racing under `go test -race`)
+- **AND** the documentation directs consumers to serialize the render path or to materialize per goroutine
 
 > Note: the prior `MaterializedPlatform.Composed` field (the open map the executor was required to read instead of `Package`) and `MaterializedPlatform.Package` (the closed twin onto which the composed map was filled) are removed. Their roles are replaced respectively by `Transformers` (the canonical transform surface, concrete by construction) and `Source.Package` (the closed spec, read only for `#registry`/metadata/diagnostics). The *Transforms render concrete off the native surface* scenario is the observable guarantee that the closedness corruption is eliminated structurally rather than worked around.
 

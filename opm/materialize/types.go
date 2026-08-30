@@ -21,8 +21,10 @@ type CueContextOwner interface {
 
 // MaterializedPlatform is the sealed, post-realization view of a #Platform.
 // It is produced by [Materialize] and consumed by the matcher and executor.
-// Once returned it is treated as immutable and is safe for concurrent
-// read-only consumption.
+// Once returned it is treated as immutable by the kernel, but it is NOT safe
+// to render against from several goroutines at once: the executor fills into
+// values reached through Transformers, and a fill is a write to evaluation
+// state (see the opm/kernel package documentation, "Goroutine safety").
 //
 // The composed transformer map and the matcher reverse index are exposed as
 // first-class fields built natively in the owner *cue.Context. They are NOT

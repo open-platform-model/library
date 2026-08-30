@@ -53,7 +53,7 @@ The Kernel SHALL accept dependency-injection configuration through functional op
 
 A single `Kernel` SHALL NOT be used concurrently across its own method calls — the owned `*cue.Context` is driven single-threaded, and sharing one `Kernel` between goroutines can race inside CUE evaluation. Callers needing concurrent operations SHALL construct one `Kernel` per goroutine; the package documentation SHALL state this and provide a one-Kernel-per-goroutine example.
 
-Under the v0.17 CUE toolchain, a `*MaterializedPlatform` produced by one `Kernel` SHALL be safe to share **read-only** across goroutines and other Kernels: many per-goroutine Kernels MAY render distinct `ModuleInstance`s concurrently against a single platform that was materialized once, with no mutex and no re-materialization. This is sound because the compile pipeline builds every value it constructs in the **caller** Kernel's `*cue.Context` and only cross-*reads* the shared platform (see the "Compile sources its cue.Context from the caller Kernel" requirement). The package documentation SHALL describe this concurrent-render model and provide an example of rendering against a shared platform.
+A `*MaterializedPlatform` SHALL NOT be rendered against concurrently from more than one goroutine, whether through one Kernel or several. `Kernel.Compile` fills each transformer's `#transform` from the platform's `Transformers` value, and a fill is a write to that value's evaluation state, not a read: rendering the real catalog concurrently against one shared platform was measured racing (enhancement 0019 experiment 06: 2321 race-detector reports, 1540 with the platform pre-evaluated). The earlier shared-read-only contract (ADR-002) is retracted. The package documentation SHALL state this, SHALL name the two supported shapes (serialize every use of a materialized platform behind one mutex, or one Kernel plus one `Materialize` per goroutine), and SHALL NOT present concurrent rendering against one shared platform as supported until the shares-nothing render model (enhancement 0019 D8) lands.
 
 #### Scenario: Documentation states the contract
 
@@ -61,17 +61,15 @@ Under the v0.17 CUE toolchain, a `*MaterializedPlatform` produced by one `Kernel
 - **THEN** the documentation explicitly states that a single `Kernel` is not safe for concurrent use across its own method calls
 - **AND** the documentation provides an example showing one-Kernel-per-goroutine usage in a multi-worker scenario
 
-#### Scenario: Documentation states the shared-platform concurrency model
+#### Scenario: Documentation retracts the shared-platform model
 
 - **WHEN** a developer reads the godoc for the `Kernel` type
-- **THEN** the documentation states that, under the v0.17 toolchain, a `*MaterializedPlatform` materialized once is safe to be read concurrently by many per-goroutine Kernels' `Compile` calls without a mutex or re-materialization
-- **AND** the documentation provides an example of per-goroutine Kernels rendering against one shared materialized platform
+- **THEN** the documentation states that a `*MaterializedPlatform` is not safe to render against concurrently, cites the measurement, and shows the serialized form as the stopgap
 
-#### Scenario: Concurrent rendering against a shared platform is race-clean and correct
+#### Scenario: Race detector runs on the render packages
 
-- **WHEN** one Kernel materializes a platform once, and N other goroutines each construct their own Kernel and concurrently `Compile` a distinct `ModuleInstance` against that single shared `*MaterializedPlatform`, executed under the race detector
-- **THEN** no data race is reported
-- **AND** each goroutine's `CompileResult` contains the output expected for its own instance, with no cross-contamination between concurrent renders
+- **WHEN** the repository test task runs
+- **THEN** `opm/kernel` and `opm/compile` are additionally run under `go test -race`
 
 ### Requirement: Backward-Compatible Method Wrappers
 

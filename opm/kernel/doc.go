@@ -13,17 +13,23 @@
 // between goroutines can cause data races inside CUE evaluation. Callers that
 // need concurrency MUST construct one Kernel per goroutine.
 //
-// Under the CUE v0.17 toolchain, a [*materialize.MaterializedPlatform]
-// materialized once by one Kernel is safe to be read concurrently by many
-// per-goroutine Kernels' [Kernel.Compile] calls — with no mutex and no
-// re-materialization. This holds because the compile pipeline builds every
-// value it constructs in the caller Kernel's own [*cue.Context] and only
-// cross-*reads* the shared platform (it looks up and fills from the platform's
-// Package, never mutating it). This is the materialize-once-reuse-many model
-// the Platform-CR design depends on.
+// A [*materialize.MaterializedPlatform] is owned by the Kernel that built it
+// and is NOT safe to render against from several goroutines at once, whether
+// through one Kernel or many. [Kernel.Compile] fills each transformer's
+// #transform (FillPath of #moduleInstance, #component and #context), and
+// filling a value is a write to its evaluation state, not a read. Measured
+// against the real catalog (enhancement 0019, experiment 06): 2321
+// race-detector reports rendering concurrently against one shared platform,
+// 1540 with the platform fully pre-evaluated first. No wrong output was
+// observed; the behaviour is undefined. The earlier "materialize once, render
+// concurrently, no mutex" contract is retracted, and ADR-002 records the
+// supersession.
 //
-// The two facts compose: keep one Kernel per goroutine, but share a single
-// materialized platform across all of them read-only.
+// Until the shares-nothing render model of enhancement 0019 lands (D8: one
+// CUE build per render, in a context that does not outlive the render), a
+// consumer that renders from several goroutines MUST either serialize every
+// use of a materialized platform behind one mutex, or give each goroutine
+// its own Kernel and its own [Kernel.Materialize] call.
 //
 // # One-Kernel-per-goroutine example
 //
@@ -50,40 +56,28 @@
 //	    return nil
 //	}
 //
-// # Concurrent rendering against a shared platform
+// # Rendering from several goroutines
 //
-// One Kernel materializes a platform once; N goroutines each construct their
-// own Kernel and Compile a distinct instance against that single shared
-// platform. Per ADR-002 the speedup is real but sub-linear — the CUE evaluator
-// is allocator-bound and plateaus around four cores — so share for correctness
-// and memory footprint, not for linear throughput.
+// Serialize the render path, or materialize per goroutine. The mutex form is
+// the cheaper stopgap while a platform is expensive to materialize; it holds
+// the Kernel that built the platform and the platform itself behind one lock:
 //
-//	func renderConcurrent(ctx context.Context, shared *materialize.MaterializedPlatform, rels []*module.Instance) error {
-//	    var wg sync.WaitGroup
-//	    errs := make(chan error, len(rels))
-//	    for _, inst := range rels {
-//	        wg.Add(1)
-//	        go func(inst *module.Instance) {
-//	            defer wg.Done()
-//	            k := kernel.New() // one Kernel per goroutine
-//	            if _, err := k.Compile(ctx, kernel.CompileInput{
-//	                ModuleInstance: inst,
-//	                Platform:      shared, // materialized once elsewhere, read-only here
-//	                RuntimeName:   "opm-operator",
-//	            }); err != nil {
-//	                errs <- err
-//	            }
-//	        }(inst)
-//	    }
-//	    wg.Wait()
-//	    close(errs)
-//	    for err := range errs {
-//	        if err != nil {
-//	            return err
-//	        }
-//	    }
-//	    return nil
+//	var renderMu sync.Mutex // guards k0 and shared together
+//
+//	func renderOne(ctx context.Context, k0 *kernel.Kernel, shared *materialize.MaterializedPlatform, inst *module.Instance) error {
+//	    renderMu.Lock()
+//	    defer renderMu.Unlock()
+//	    _, err := k0.Compile(ctx, kernel.CompileInput{
+//	        ModuleInstance: inst,
+//	        Platform:       shared,
+//	        RuntimeName:    "opm-operator",
+//	    })
+//	    return err
 //	}
+//
+// The per-goroutine form costs one Materialize (registry I/O) per goroutine
+// and shares nothing, which is the model enhancement 0019 D8 makes the only
+// one.
 //
 // # Phase methods
 //
