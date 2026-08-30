@@ -42,7 +42,7 @@ opm/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — kernel's sole input for matching and execution
-  compile/                finalize -> match -> execute -> emit pipeline
+  compile/                match -> execute -> emit pipeline
   materialize/            Resolve a Platform's #registry subscriptions into a sealed MaterializedPlatform
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
     loader/file/          Filesystem loading (modules, releases, platforms)

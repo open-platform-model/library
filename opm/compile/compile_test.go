@@ -913,11 +913,9 @@ type: "kubernetes"
 
 	schemaComponents := inst.MatchComponents()
 	require.True(t, schemaComponents.Exists())
-	dataComponents, err := compile.FinalizeValue(ctx, schemaComponents)
-	require.NoError(t, err)
 	plan, err := compile.Match(schemaComponents, mp, inst.Metadata.Name)
 	require.NoError(t, err)
-	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, schemaComponents, dataComponents, plan)
+	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, schemaComponents, plan)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Compiled, 1, "expected one compiled item")
@@ -1017,7 +1015,7 @@ type: "kubernetes"
 `)
 }
 
-// runExecute drives MatchComponents → Finalize → Match → Execute against the
+// runExecute drives MatchComponents → Match → Execute against the
 // given platform and instance using a background context.
 func runExecute(t *testing.T, mp *materialize.MaterializedPlatform, inst *module.Instance) (*compile.CompileResult, error) {
 	t.Helper()
@@ -1031,11 +1029,9 @@ func runExecuteCtx(t *testing.T, ctx context.Context, mp *materialize.Materializ
 	cc := cuecontext.New()
 	sc := inst.MatchComponents()
 	require.True(t, sc.Exists())
-	dc, err := compile.FinalizeValue(cc, sc)
-	require.NoError(t, err)
 	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
-	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, inst, sc, dc, plan)
+	return compile.NewModule(cc, mp, "opm-cli").Execute(ctx, inst, sc, plan)
 }
 
 // TestExecute_ReadsTransformFromNativeTransformers is the wiring guard for the
@@ -1177,7 +1173,7 @@ func TestExecute_ComponentMissingInComponents(t *testing.T) {
 	empty := ctx.CompileString(`{}`)
 	require.NoError(t, empty.Err())
 
-	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, empty, empty, plan)
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, empty, plan)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in components value")
 }
@@ -1197,32 +1193,9 @@ func TestExecute_InstanceValueMissing(t *testing.T) {
 	require.NoError(t, err)
 
 	bare := &module.Instance{Metadata: good.Metadata} // Package left zero
-	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), bare, sc, sc, plan)
+	_, err = compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), bare, sc, plan)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "instance value missing")
-}
-
-// TestExecute_DataComponentsIgnored pins the deprecated dataComponents
-// argument as ignored: #component is filled from the components value Match
-// read, so a bogus second argument changes nothing (0019 D1).
-func TestExecute_DataComponentsIgnored(t *testing.T) {
-	ctx := cuecontext.New()
-	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { name: #component.metadata.name } }`)
-	inst := echoInstance(t, ctx)
-
-	sc := inst.MatchComponents()
-	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
-	require.NoError(t, err)
-
-	bogus := ctx.CompileString(`{web: metadata: name: "bogus"}`)
-	require.NoError(t, bogus.Err())
-
-	out, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, bogus, plan)
-	require.NoError(t, err)
-	require.Len(t, out.Compiled, 1)
-	name, err := out.Compiled[0].Value.LookupPath(cue.ParsePath("name")).String()
-	require.NoError(t, err)
-	assert.Equal(t, "web", name)
 }
 
 // TestExecute_PerPairErrorsAccumulated covers executeTransforms collecting
@@ -1312,23 +1285,21 @@ func TestExecute_NilGuards(t *testing.T) {
 	mp := echoPlatform(t, ctx, `#transform: { #component: _, #context: _, output: { ok: true } }`)
 	inst := echoInstance(t, ctx)
 	sc := inst.MatchComponents()
-	dc, err := compile.FinalizeValue(ctx, sc)
-	require.NoError(t, err)
 	plan, err := compile.Match(sc, mp, inst.Metadata.Name)
 	require.NoError(t, err)
 
 	t.Run("nil instance", func(t *testing.T) {
-		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), nil, sc, dc, plan)
+		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), nil, sc, plan)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "instance is required")
 	})
 	t.Run("nil platform", func(t *testing.T) {
-		_, err := compile.NewModule(ctx, nil, "opm-cli").Execute(context.Background(), inst, sc, dc, plan)
+		_, err := compile.NewModule(ctx, nil, "opm-cli").Execute(context.Background(), inst, sc, plan)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "platform is required")
 	})
 	t.Run("nil plan", func(t *testing.T) {
-		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, dc, nil)
+		_, err := compile.NewModule(ctx, mp, "opm-cli").Execute(context.Background(), inst, sc, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "match plan is required")
 	})

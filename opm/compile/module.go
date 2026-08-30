@@ -97,18 +97,16 @@ func NewModule(cueCtx *cue.Context, mp *materialize.MaterializedPlatform, runtim
 // Execute runs matched transformers against the provided component views and
 // returns rendered values, component summaries, and warnings.
 //
-// schemaComponents is the instance's evaluated components value (from
+// components is the instance's evaluated components value (from
 // inst.MatchComponents()), the same value Match reads. Each pair's #component
 // is filled from it with definition fields, hidden fields and constraints
-// intact (0019 D1); #context metadata is read from it as well.
-//
-// dataComponents is ignored. Deprecated: it is removed together with
-// [FinalizeValue] (0019 step 4); pass schemaComponents for both arguments.
+// intact (0019 D1); #context metadata is read from it as well. There is no
+// other components value: the kernel performs no finalization or other
+// Go-side transformation between evaluation and fill.
 func (r *Module) Execute(
 	ctx context.Context,
 	inst *module.Instance,
-	schemaComponents cue.Value,
-	dataComponents cue.Value,
+	components cue.Value,
 	plan *MatchPlan,
 ) (*CompileResult, error) {
 	if inst == nil {
@@ -148,12 +146,11 @@ func (r *Module) Execute(
 	// Phase 2 — execution (CUE #transform per pair).
 	// Passes the native composed transformer map (mp.Transformers), built in the
 	// owner context so #transforms — including output-local hidden fields —
-	// render concrete. schemaComponents is the one components value: #component
-	// is filled from it and #context metadata is read from it (0019 D1).
-	_ = dataComponents // deprecated, ignored; removed with FinalizeValue (0019 step 4)
+	// render concrete. components is the one components value: #component is
+	// filled from it and #context metadata is read from it (0019 D1).
 	compiled, warnings, errs := executeTransforms(
 		ctx, cueCtx, plan, r.platform.Transformers,
-		schemaComponents, inst,
+		components, inst,
 		r.runtimeName,
 	)
 	if len(errs) > 0 {
@@ -166,7 +163,7 @@ func (r *Module) Execute(
 	return &CompileResult{
 		Compiled:   nonNilCompiled(compiled),
 		MatchPlan:  plan,
-		Components: nonNilComponentSummaries(extractComponentSummaries(schemaComponents)),
+		Components: nonNilComponentSummaries(extractComponentSummaries(components)),
 		Unmatched:  []string{},
 		Warnings:   allWarnings,
 	}, nil

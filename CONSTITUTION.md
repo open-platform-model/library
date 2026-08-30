@@ -63,7 +63,7 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (load, validate, match, plan, compile, materialize)
 - `opm/module/` — module and release model, value-validation accessors
 - `opm/platform/` — platform artifact model (the kernel's match/execute input)
-- `opm/compile/` — compile pipeline (finalize, match, execute, emit)
+- `opm/compile/` — compile pipeline (match, execute, emit)
 - `opm/compat/` — publish-side catalog compatibility: the additive-only comparison walk, contract-level ladder, predecessor selection, provenance strip (pure `cue.Value` logic, no I/O)
 - `opm/materialize/` — resolve a platform's `#registry` subscriptions into a sealed `MaterializedPlatform`
 - `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `loader/bytes`, `synth`); a frontend MAY skip the entire tree
