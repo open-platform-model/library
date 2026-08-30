@@ -107,9 +107,14 @@ tasks:
   ## Tests
 
   test:
-    desc: Run unit tests
+    desc: Run unit tests, then the render packages under the race detector
     cmds:
       - go test ./...
+      # The render path fills into shared CUE values; run it under -race so a
+      # concurrency claim the docs make is at least checked on every push
+      # (the shared-platform claim went unchecked and was measured false,
+      # see ADR-002).
+      - go test -race ./opm/kernel/... ./opm/compile/...
 
   test:verbose:
     desc: Run unit tests with verbose output

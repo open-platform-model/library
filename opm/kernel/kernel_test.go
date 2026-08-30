@@ -319,21 +319,22 @@ metadata: {
 	}
 }
 
-// --- Concurrent-render regression (v0.17 shared-read-only-platform guarantee).
+// --- Cross-context compile smoke test (NOT a concurrency-safety guard).
 //
-// One dedicated Kernel K0 materializes a platform ONCE, in its own *cue.Context.
-// N goroutines then each construct their OWN Kernel and Compile a DISTINCT
-// ModuleInstance (built in that goroutine's context) against the single shared
-// K0 platform. This is the cross-context case TestKernel_GoroutineIsolation
-// never covers: there every goroutine's values live in one context, here the
-// platform value lives in K0's context while every rendered value is built in a
-// per-goroutine Kernel's context.
+// One dedicated Kernel K0 builds a platform in its own *cue.Context. N
+// goroutines then each construct their OWN Kernel and Compile a DISTINCT
+// ModuleInstance (built in that goroutine's context) against the K0 platform.
+// This covers the cross-context case TestKernel_GoroutineIsolation never
+// reaches: on CUE v0.16 the cross-context FillPath inside Execute panicked
+// "values are not from the same runtime"; v0.17 makes the combination legal.
 //
-// On CUE v0.16 the cross-context FillPath inside Execute panics "values are not
-// from the same runtime"; v0.17 makes the combination legal, race-safe, and
-// correct. Run under `go test -race` this is the permanent guard for the
-// materialize-once-reuse-many model (see openspec change
-// enable-concurrent-render-v017 and ADR-002).
+// It does NOT establish that rendering concurrently against a shared platform
+// is safe. The echo transformer below is an 8-line CompileString value with no
+// lazy evaluation graph, so there is nothing for concurrent fills to race on;
+// against the real catalog the same shape produces thousands of race-detector
+// reports (enhancement 0019 experiment 06), which is why the shared-platform
+// contract was retracted (ADR-002, superseded by 0019 D8). Keep this test as a
+// cross-context legality check only.
 
 // sharedEchoPlatform builds the echo-transformer platform (mirroring
 // newPhaseFixture's platform) in the supplied context. The returned platform is
@@ -427,11 +428,11 @@ components: {
 	}, nil
 }
 
-func TestKernel_ConcurrentRender_SharedPlatform(t *testing.T) {
+func TestKernel_CrossContextCompile_TrivialFixture(t *testing.T) {
 	const n = 8
 
-	// K0 materializes the shared platform ONCE, in its own context. No goroutine
-	// below ever touches k0 — it only reads the platform value k0 produced.
+	// K0 builds the platform in its own context. No goroutine below touches
+	// k0; each fills into the trivial platform value k0 produced.
 	k0 := kernel.New()
 	shared := sharedEchoPlatform(t, k0.CueContext())
 

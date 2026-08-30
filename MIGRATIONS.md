@@ -13,6 +13,12 @@ This file records the evolution of the library's public Go API and the OPM schem
 
 ## Unreleased — Additive
 
+### Changed — `retract-shared-platform-concurrency`
+
+- **Rendering concurrently against one `*MaterializedPlatform` is no longer a supported contract.** `opm/kernel`'s package documentation, `MaterializedPlatform`'s doc comment, the `kernel-runtime` and `platform-materialization` specs and ADR-002 previously stated that a platform materialized once could be rendered against by many per-goroutine Kernels with no mutex. Enhancement 0019 experiment 06 measured that shape racing under the race detector against the real catalog (2321 reports; 1540 after pre-evaluating the platform), because `Compile` fills into values reached through `Transformers` and a fill writes evaluation state. ADR-002 is marked superseded by 0019 D8 (shares-nothing renders). No Go signature changes.
+- **Migration for consumers that render from several goroutines:** serialize every use of a materialized platform (and the Kernel that built it) behind one mutex, or give each goroutine its own Kernel and its own `Materialize` call. `opm-operator`'s platform store is the first consumer; the CLI renders on one goroutine and is unaffected.
+- `task test` now also runs `opm/kernel` and `opm/compile` under `go test -race`.
+
 ### Changed — `library-instance-fill`
 
 - **Transformers now receive `#moduleInstance`.** `Kernel.Compile` fills each pair's `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `metadata`, `values`, `#module` and every component, siblings included (enhancement 0019 D3, D11; closes library#65). A transformer that re-declares `#moduleInstance: _` now renders instead of failing with an empty-disjunction error. Reading sibling components through it is reachable but discouraged by contract (D11): it forfeits per-pair error attribution, and first-party catalog transformers must not do it. No shipped transformer reads the slot, so rendered output is unchanged.
