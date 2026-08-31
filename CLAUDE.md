@@ -223,7 +223,7 @@ task tidy       # go mod tidy
 
 ### CUE-module tasks
 
-The repo vendors CUE modules under `modules/opm_platform`, `testdata/modules/*` and `testdata/parity` (the pure-CUE render oracle the parity harness compares the kernel against; enhancement 0019 D1) for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v2`, the consolidated line authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
+The repo vendors CUE modules under `modules/opm_platform`, `testdata/modules/*` and `testdata/parity` (the pure-CUE render oracle the parity harness compares the kernel against; enhancement 0019 D1) for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v4`, the consolidated line authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
 
 ```bash
 task cue:discover            # list discovered modules + deps

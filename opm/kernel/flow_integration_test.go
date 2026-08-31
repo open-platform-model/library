@@ -24,15 +24,15 @@ import (
 // Compile pipeline against the on-disk fixture pair:
 //
 //   - testdata/modules/web_app   (a core@v2 #Module consuming opm primitives
-//     from the consolidated catalogs/opm v2 line: Container resource,
+//     from the consolidated catalogs/opm v4 line: Container resource,
 //     HttpRoute / Scaling / RestartPolicy / Expose traits, StatelessWorkload
 //     blueprint via D49 versioned imports)
 //   - modules/opm_platform       (the canonical Kubernetes #Platform that
-//     subscribes to the major-suffixed opmodel.dev/catalogs/opm v2 line via a
+//     subscribes to the major-suffixed opmodel.dev/catalogs/opm v4 line via a
 //     path-keyed #registry)
 //
 // The platform's subscription is materialized against the published catalog
-// (opmodel.dev/catalogs/opm, v2 line from GHCR), then the fixture's
+// (opmodel.dev/catalogs/opm, v4 line from GHCR), then the fixture's
 // import-authored #ModuleInstance (testdata/modules/web_app/instance) is
 // loaded, processed and driven through Match / Compile. Transformer FQNs are
 // asserted by substring so the test survives catalog version bumps.

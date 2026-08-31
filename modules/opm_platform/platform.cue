@@ -1,5 +1,5 @@
 // Default Kubernetes Platform fixture. Subscribes to the consolidated
-// opmodel.dev/catalogs/opm v2 line via a #Subscription-shaped #registry. The
+// opmodel.dev/catalogs/opm v4 line via a #Subscription-shaped #registry. The
 // kernel's Materialize step resolves the subscription against the registry,
 // pulls the catalog build, and exposes the composed transformers / matcher
 // index as native fields on the MaterializedPlatform (Transformers /
@@ -18,7 +18,7 @@ c.#Platform
 
 metadata: {
 	name:        "k8s-default"
-	description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v2 line"
+	description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v4 line"
 }
 
 type: "kubernetes"
@@ -30,8 +30,8 @@ type: "kubernetes"
 // bumping it is an ordinary fixture update — pick any published tag in the
 // key's major (`task cue:catalog:drift` verifies it exists on GHCR).
 #registry: {
-	"opmodel.dev/catalogs/opm@v2": {
+	"opmodel.dev/catalogs/opm@v4": {
 		enable:  true
-		version: "2.0.0"
+		version: "4.0.1"
 	}
 }
