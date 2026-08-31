@@ -24,4 +24,4 @@ oracle.#Render & {
 // name the same catalog; a disagreement fails this package (0019 OQ3, made
 // executable). The kernel materializes from the platform's scalar; the
 // oracle imports from cue.mod, so this is what keeps the two on one build.
-_versionsAgree: catalog.metadata.version & plat.#registry["opmodel.dev/catalogs/opm@v2"].version
+_versionsAgree: catalog.metadata.version & plat.#registry["opmodel.dev/catalogs/opm@v4"].version

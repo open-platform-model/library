@@ -1,5 +1,5 @@
 // web_app — a core@v2 #Module that consumes opm Resources, Traits, and
-// Blueprints from the consolidated catalogs/opm v2 line. Drives the
+// Blueprints from the consolidated catalogs/opm v4 line. Drives the
 // plan / match / compile integration tests against the opm_platform fixture
 // (which subscribes to opmodel.dev/catalogs/opm).
 package web_app

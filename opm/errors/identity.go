@@ -26,7 +26,7 @@ type IdentityError struct {
 	Fetched string
 
 	// Coordinate is the full fetched coordinate for context,
-	// e.g. "opmodel.dev/catalogs/opm@v2 v2.0.0-alpha.3".
+	// e.g. "opmodel.dev/catalogs/opm@v4 v4.0.1".
 	Coordinate string
 }
 

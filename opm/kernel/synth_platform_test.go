@@ -87,7 +87,7 @@ func TestKernel_SynthesizePlatform_NoRegistryIO(t *testing.T) {
 // TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded asserts that the
 // *platform.Platform produced by SynthesizePlatform feeds Kernel.Materialize
 // exactly as a file-loaded platform of the same content does. It synthesizes a
-// platform subscribing to the published catalogs/opm v2 line and materializes
+// platform subscribing to the published catalogs/opm v4 line and materializes
 // both the synthesized and the on-disk fixture (modules/opm_platform),
 // asserting they resolve to the same catalog version and the same
 // composed-transformer set.
@@ -105,15 +105,15 @@ func TestFlow_SynthesizedPlatform_MaterializesLikeFileLoaded(t *testing.T) {
 
 	k := kernel.New()
 	ctx := context.Background()
-	const path = "opmodel.dev/catalogs/opm@v2"
+	const path = "opmodel.dev/catalogs/opm@v4"
 	// The same build modules/opm_platform/platform.cue pins — the pin is
 	// load-bearing (D14), so the two platforms name one catalog.
-	const pinnedCatalogVersion = "2.0.0"
+	const pinnedCatalogVersion = "4.0.1"
 
 	// ── Synthesize the platform from typed inputs ────────────────────
 	synthPlat, err := k.SynthesizePlatform(ctx, synth.PlatformInput{
 		Name:        "k8s-default",
-		Description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v2 line",
+		Description: "Default Kubernetes Platform — subscribes to the consolidated catalogs/opm v4 line",
 		Type:        "kubernetes",
 		Subscriptions: map[string]synth.SubscriptionSpec{
 			// The authored version IS the resolution (0010 D14): pin the same

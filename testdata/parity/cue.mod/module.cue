@@ -6,8 +6,8 @@ deps: {
 	"cue.dev/x/k8s.io@v0": {
 		v: "v0.11.0"
 	}
-	"opmodel.dev/catalogs/opm@v2": {
-		v: "v2.0.0"
+	"opmodel.dev/catalogs/opm@v4": {
+		v: "v4.0.1"
 	}
 	"opmodel.dev/core@v2": {
 		v: "v2.0.0-alpha.6"
