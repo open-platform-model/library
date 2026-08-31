@@ -233,7 +233,7 @@ func TestInstance_ImportedModule_ConstructsOnAuthorSuppliedCore(t *testing.T) {
 // the library now hard-targets core@v1: synth emits core.#ModuleInstance, which
 // is undefined in v0.4.0, so the construction fails for a different reason than
 // the self-cycle admission path it was meant to exercise. Supporting a
-// pre-rename core is explicitly out of scope. See MIGRATIONS.md.
+// pre-rename core is explicitly out of scope.
 
 // TestInstance_DerivedFields_FromSchema pins task 4.2: every field the schema
 // derives is unchanged under single-build construction — metadata.uuid is the

@@ -81,7 +81,7 @@ Read these on entry:
 - `CONSTITUTION.md` — design principles (full text).
 - `openspec/config.yaml` — normative constitution + OpenSpec artifact rules.
 - `README.md` — same big picture as below, slightly fuller prose.
-- `MIGRATIONS.md` — every pre-release API break with migration recipe.
+- `migrations/README.md` — migration-docs policy (per-change fragments, dormant until GA).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/compile-pipeline-known-gaps.md` — flow notes.
 
@@ -110,7 +110,7 @@ modules/                      Test-only CUE modules (opm, opm_platform) — fixt
 testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  Flow diagrams + pipeline gap notes
-MIGRATIONS.md                 Pre-release API evolution + breaking-change recipes
+migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
 .cue-cache/                   Gitignored workspace-local CUE module cache populated by tests
 ```
 
@@ -313,6 +313,6 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
   - **Architecture decision purely about library internals** — `adr/<NNN>-<slug>.md` (use `adr/TEMPLATE.md`).
   - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
 - Run `task check:fast` for iterative work, `task check` before merge.
-- When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers and update `MIGRATIONS.md`.
+- When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers. Pre-GA no migration fragment is written (consumers migrate in the same PR wave); from GA a breaking change requires `migrations/unreleased/<slug>.md` per `migrations/README.md`.
 - Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleInstance`, etc.).
 - "Load a published module by `path@version`" lives in the library (`opm/helper/loader/registry.LoadModulePackageWithSource`, surfaced as `Kernel.AcquireModuleFromRegistry`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, or dependency walks; call the loader. The shape gate is single-sourced in `loader/internal/shape` — extend it there, not per-loader.
