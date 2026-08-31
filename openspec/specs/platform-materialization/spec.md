@@ -3,6 +3,7 @@
 ## Purpose
 TBD - created by archiving change add-platform-materialize. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: Subscription Resolution
 
 The Materialize operation SHALL walk the platform `#registry` (path-keyed `[#ModulePathType]: #Subscription`) and, for each subscription with `enable: true`, pull exactly the build named by the subscription's required scalar `version`. A subscription with `enable: false` SHALL be skipped and contribute no transformers. Resolution SHALL be a pure function of committed source: no range solving, no allow/deny arbitration, no highest-stable default, no maturity inference — a prerelease is selected by being written down.
@@ -118,7 +119,7 @@ The returned `*MaterializedPlatform` is owned by the Kernel that built it and SH
 
 ### Requirement: MaterializeError Diagnostic
 
-A pull, decode, or indexing failure SHALL surface as a `MaterializeError` carrying a `Kind` discriminator (`"catalog"` for subscription failures; `"core-schema"` reserved for schema-load failures per D24), the subscription path, the attempted version, and the wrapped cause.
+A pull, decode, identity, or indexing failure SHALL surface as a `MaterializeError` carrying a `Kind` discriminator, the subscription path, the attempted version, and the wrapped cause. Exactly one kind exists, `"catalog"`; the library SHALL NOT reserve kinds for failures `Materialize` does not emit.
 
 #### Scenario: Unresolvable subscription path
 
@@ -130,19 +131,10 @@ A pull, decode, or indexing failure SHALL surface as a `MaterializeError` carryi
 - **WHEN** a `MaterializeError` is returned
 - **THEN** the wrapped cause is reachable via `errors.Unwrap`
 
-### Requirement: Opt-In Materialize Cache
+#### Scenario: One kind constant
 
-The library SHALL provide a `opm/materialize/cache` package exposing a `MaterializeCache` interface (`Get(key string) (*MaterializedPlatform, bool)` and `Put(key string, mp *MaterializedPlatform)`), a reference implementation, and a key-derivation helper over the platform `#registry` subtree. The `Kernel` SHALL NOT hold a materialize cache; consumers wire their own.
-
-#### Scenario: Reference cache round-trips
-
-- **WHEN** a consumer constructs the reference cache and `Put`s a materialized platform under a derived key
-- **THEN** a subsequent `Get` with the same key returns it
-
-#### Scenario: Kernel holds no cache
-
-- **WHEN** a developer inspects the `Kernel` struct
-- **THEN** it has no materialize-cache field
+- **WHEN** a developer inspects the exported identifiers of `opm/errors`
+- **THEN** `MaterializeKindCatalog` exists and `MaterializeKindCoreSchema` does not
 
 ### Requirement: Single-Provider Guard
 
