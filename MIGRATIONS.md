@@ -426,6 +426,17 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 
 ## Unreleased — Breaking
 
+### Removed — `library-phase-and-values-prune` (BREAKING)
+
+The kernel's phase surface shrinks to two verbs (`Match`, `Compile`); values are validated where they are applied, by `ProcessModuleInstance`. Neither `cli` nor `opm-operator` called any removed identifier (swept 2026-08-30); both compile unchanged. MAJOR by SemVer rule regardless (Principle VI).
+
+- **`Kernel.Plan`, `PlanInput`, `PlanResult` are removed.** `Plan` ran the full pipeline and discarded the rendered slice. **Migration:** call `Match` for the pairing diagnosis, or `Compile` and discard `Compiled`; component summaries, unmatched FQNs and warnings ride on `*CompileResult`.
+- **`Kernel.Validate` and `ValidateInput` are removed.** Its one caller was `Compile`, validating a `Values` field it never applied. **Migration:** validate values where they are applied — `k.ProcessModuleInstance(ctx, spec, mod, values)` (error framed `instance "<name>": `); for a check without the fill, `k.ValidateConfig(m.ConfigSchema(), values)`. Pass values into `ProcessModuleInstance` only when the instance package does not author them: filling the validated (schema-unified) value into an instance that already carries concrete `values:` can hit closedness (`field not allowed` on schema-injected optional fields) even when the passed values mirror the authored ones. For such an instance, validate with `k.ValidateConfig(r.ConfigSchema(), values)` and process with the zero `cue.Value`.
+- **`CompileInput.Values` is removed.** The field was validated and then ignored; `Compile` renders the instance as processed. **Migration:** pass values to `ProcessModuleInstance`; `CompileInput` keeps `ModuleInstance`, `Platform`, `RuntimeName`.
+- **The six typed wrappers `Kernel.ValidateModuleValues{,Partial,Detailed}` and `Kernel.ValidateInstanceValues{,Partial,Detailed}` are removed.** **Migration:** compose the accessor with the primitive — `k.ValidateConfig(m.ConfigSchema(), values)`, `k.ValidateConfigPartial(m.ConfigSchema(), values)`, `k.ValidateConfigDetailed(m.ConfigSchema(), sources, opts...)`, and the same spellings with `r.ConfigSchema()` for a `*module.Instance`.
+
+Kept, deliberately: `ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, `Source`, `ValidateOption`, `Partial()`, `LoadSourceFromFile` / `LoadSourceFromBytes` / `LoadSourceFromString`, and `Match`.
+
 ### Removed — `library-dead-symbol-sweep` (BREAKING)
 
 Every identifier below had zero references outside its own definition and tests (swept against library production code, `cli` and `opm-operator` on 2026-08-30); `cli` and `opm-operator` compile unchanged. The removals are MAJOR by SemVer rule regardless (Principle VI).

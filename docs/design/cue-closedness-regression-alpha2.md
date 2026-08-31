@@ -317,7 +317,9 @@ absent).
 values rather than re-validating the closed component spec, so it does not
 re-trigger the closedness check. The regression bites specifically where the Go
 kernel **builds/validates** a catalog-backed `#Module` (`Kernel.Validate` /
-`ValidateRealConfig`), i.e. the exact render-time path a pin bump would break.
+`ValidateRealConfig` at the time; validation now lives in
+`Kernel.ProcessModuleInstance` / `ValidateConfig`), i.e. the exact render-time
+path a pin bump would break.
 (The `TestFlow_WebApp_OnOpmPlatform` catalog FQN version-skew referenced here was
 resolved by the 2026-07-16 fixture migration to `catalogs/opm@v1` (#38); the full
 suite is green on both pins as of that change.)

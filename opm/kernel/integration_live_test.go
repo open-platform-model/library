@@ -45,7 +45,7 @@ func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 	debugValues := modVal.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
 
-	out, err := k.ValidateModuleValues(mod, debugValues)
+	out, err := k.ValidateConfig(mod.ConfigSchema(), debugValues)
 	require.NoError(t, err, "real debugValues must satisfy the real #config schema")
 	assert.True(t, out.Exists())
 }

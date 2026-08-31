@@ -15,7 +15,7 @@ import (
 )
 
 // This is the always-on, fully hermetic integration harness. It drives the
-// public Kernel API (Materialize → Validate → Match → Plan → Compile) against
+// public Kernel API (Materialize → Match → Compile) against
 // in-memory catalogs, with no localhost:5000 dependency. The live, real-catalog
 // flow lives in flow_integration_test.go (gated by skipUnlessRegistry).
 //
@@ -88,7 +88,7 @@ func TestIntegration_Materialize(t *testing.T) {
 	})
 }
 
-func TestIntegration_MatchPlanCompile(t *testing.T) {
+func TestIntegration_MatchCompile(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
 	mp, err := materializePlatform(t, k, "0.1.0", path)
@@ -110,25 +110,6 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 		assert.Empty(t, plan.Missing)
 	})
 
-	t.Run("Plan summarizes components", func(t *testing.T) {
-		pr, err := k.Plan(ctx, kernel.PlanInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.NoError(t, err)
-		assert.Empty(t, pr.Unmatched)
-		require.Len(t, pr.Components, 2)
-		byName := map[string]compile.ComponentSummary{}
-		for _, c := range pr.Components {
-			byName[c.Name] = c
-		}
-		assertContainsFQNSub(t, byName["web"].ResourceFQNs, "resources/container@", "web declares container")
-		assertContainsFQNSub(t, byName["config"].ResourceFQNs, "resources/config-maps@", "config declares config-maps")
-	})
-
-	t.Run("Plan requires runtime name", func(t *testing.T) {
-		_, err := k.Plan(ctx, kernel.PlanInput{ModuleInstance: inst, Platform: mp})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "RuntimeName must be non-empty")
-	})
-
 	t.Run("Compile dispatches struct and list outputs", func(t *testing.T) {
 		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
 		require.NoError(t, err)
@@ -141,6 +122,16 @@ func TestIntegration_MatchPlanCompile(t *testing.T) {
 		}
 		assert.Equal(t, 1, perComp["web"], "struct output → one Compiled")
 		assert.Equal(t, 2, perComp["config"], "two-element list output → two Compiled")
+
+		// Component summaries ride on the CompileResult (the retired Plan verb
+		// exposed the same slice).
+		require.Len(t, out.Components, 2)
+		byName := map[string]compile.ComponentSummary{}
+		for _, c := range out.Components {
+			byName[c.Name] = c
+		}
+		assertContainsFQNSub(t, byName["web"].ResourceFQNs, "resources/container@", "web declares container")
+		assertContainsFQNSub(t, byName["config"].ResourceFQNs, "resources/config-maps@", "config declares config-maps")
 	})
 
 	t.Run("Compile requires runtime name", func(t *testing.T) {

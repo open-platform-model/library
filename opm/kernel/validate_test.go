@@ -150,6 +150,72 @@ func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.
 	assert.True(t, filenames["b.cue"], "diagnostics MUST cite the originating Source.Origin (b.cue)")
 }
 
+// The composition tests below cover what the retired typed wrappers
+// (ValidateModuleValues* / ValidateInstanceValues*) used to: resolving
+// #config via the ConfigSchema() accessors and handing it to a primitive.
+
+func TestKernel_ValidateConfig_ComposedWithModuleConfigSchema(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
+	require.NoError(t, values.Err())
+	merged, err := k.ValidateConfig(f.mod.ConfigSchema(), values)
+	require.NoError(t, err)
+	assert.True(t, merged.Exists())
+
+	bad := k.CueContext().CompileString(`{ replicas: -1, name: "demo" }`)
+	require.NoError(t, bad.Err())
+	_, vErr := k.ValidateConfig(f.mod.ConfigSchema(), bad)
+	require.Error(t, vErr)
+
+	// Only replicas set; name missing — partial mode allows it, concrete fails.
+	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
+	require.NoError(t, partial.Err())
+	_, pErr := k.ValidateConfigPartial(f.mod.ConfigSchema(), partial)
+	require.NoError(t, pErr, "partial MUST allow missing required fields")
+	_, fullErr := k.ValidateConfig(f.mod.ConfigSchema(), partial)
+	require.Error(t, fullErr, "concrete check MUST flag missing required field")
+}
+
+func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	a, err := k.LoadSourceFromString("defaults.cue", "defaults", `replicas: 1`)
+	require.NoError(t, err)
+	b, err := k.LoadSourceFromString("user.cue", "user", `name: "prod"`)
+	require.NoError(t, err)
+
+	merged, vErr := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{a, b})
+	require.NoError(t, vErr)
+	assert.True(t, merged.Exists())
+}
+
+func TestKernel_ValidateConfig_ComposedWithInstanceConfigSchema(t *testing.T) {
+	k := kernel.New()
+	f := newPhaseFixture(t, k)
+
+	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
+	require.NoError(t, values.Err())
+	merged, err := k.ValidateConfig(f.inst.ConfigSchema(), values)
+	require.NoError(t, err)
+	assert.True(t, merged.Exists())
+
+	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
+	require.NoError(t, partial.Err())
+	_, pErr := k.ValidateConfigPartial(f.inst.ConfigSchema(), partial)
+	require.NoError(t, pErr)
+
+	a, err := k.LoadSourceFromString("a.cue", "a", `replicas: 2`)
+	require.NoError(t, err)
+	b, err := k.LoadSourceFromString("b.cue", "b", `name: "inst"`)
+	require.NoError(t, err)
+	layered, vErr := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{a, b}, kernel.Partial())
+	require.NoError(t, vErr)
+	assert.True(t, layered.Exists())
+}
+
 func TestKernel_ValidateConfigDetailed_PartialSkipsConcreteButRunsWalkDisallowed(t *testing.T) {
 	k := kernel.New()
 	// Closed schema requiring two fields. Stray field is disallowed.

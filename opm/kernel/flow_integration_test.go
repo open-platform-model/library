@@ -20,8 +20,8 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match → Plan
-// → Compile pipeline against the on-disk fixture pair:
+// TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match →
+// Compile pipeline against the on-disk fixture pair:
 //
 //   - testdata/modules/web_app   (a core@v2 #Module consuming opm primitives
 //     from the consolidated catalogs/opm v2 line: Container resource,
@@ -34,8 +34,8 @@ import (
 // The platform's subscription is materialized against the published catalog
 // (opmodel.dev/catalogs/opm, v2 line from GHCR), then the fixture's
 // import-authored #ModuleInstance (testdata/modules/web_app/instance) is
-// loaded, processed and driven through Match / Plan / Compile. Transformer FQNs are asserted by substring so the test survives
-// catalog version bumps.
+// loaded, processed and driven through Match / Compile. Transformer FQNs are
+// asserted by substring so the test survives catalog version bumps.
 //
 // Skips under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1
 // turns the skip into a hard failure.
@@ -135,21 +135,24 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		assert.Empty(t, plan.Unmatched, "every component should match at least one transformer")
 	})
 
-	// ── Phase 2: Plan ────────────────────────────────────────────────
-	t.Run("Plan", func(t *testing.T) {
-		planResult, err := k.Plan(ctx, kernel.PlanInput{
+	// ── Phase 2: Compile ─────────────────────────────────────────────
+	t.Run("Compile", func(t *testing.T) {
+		out, err := k.Compile(ctx, kernel.CompileInput{
 			ModuleInstance: inst,
 			Platform:       mp,
 			RuntimeName:    runtimeName,
 		})
 		require.NoError(t, err)
-		require.NotNil(t, planResult)
+		require.NotNil(t, out)
+		require.NotNil(t, out.MatchPlan)
+		assert.Empty(t, out.Unmatched)
+		require.NotEmpty(t, out.Compiled, "compile must emit at least one rendered item")
 
-		assert.Empty(t, planResult.Unmatched, "every component should match at least one transformer")
-
-		require.Len(t, planResult.Components, 2)
+		// Component summaries ride on the CompileResult (the retired Plan verb
+		// exposed the same slice).
+		require.Len(t, out.Components, 2)
 		byName := map[string]compile.ComponentSummary{}
-		for _, c := range planResult.Components {
+		for _, c := range out.Components {
 			byName[c.Name] = c
 		}
 
@@ -163,20 +166,6 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		configSummary, ok := byName["config"]
 		require.True(t, ok, "config component summary present")
 		assertContainsFQNSub(t, configSummary.ResourceFQNs, "resources/config-maps@", "config declares the config-maps resource")
-	})
-
-	// ── Phase 3: Compile ─────────────────────────────────────────────
-	t.Run("Compile", func(t *testing.T) {
-		out, err := k.Compile(ctx, kernel.CompileInput{
-			ModuleInstance: inst,
-			Platform:       mp,
-			RuntimeName:    runtimeName,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, out)
-		require.NotNil(t, out.MatchPlan)
-		assert.Empty(t, out.Unmatched)
-		require.NotEmpty(t, out.Compiled, "compile must emit at least one rendered item")
 
 		seenTransformers := map[string]int{}
 		seenComponents := map[string]int{}
