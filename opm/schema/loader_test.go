@@ -151,7 +151,7 @@ func TestOCILoader_DoesNotMutateProcessEnv(t *testing.T) {
 }
 
 // TestPublicRegistry_Value pins the documented registry mapping. Bumping
-// this requires a coordinated docs update (MIGRATIONS.md,
+// this requires a coordinated docs update (README.md,
 // docs/getting-started.md, CLAUDE.md).
 func TestPublicRegistry_Value(t *testing.T) {
 	const expected = "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"

@@ -30,7 +30,8 @@
 //
 // The opm/helper/platform subpackage (the Compose helper) was removed as
 // part of rewrite-match-materialized: platform realization now goes through
-// the subscription #registry plus (*Kernel).Materialize. See MIGRATIONS.md.
+// the subscription #registry plus (*Kernel).Materialize. See the
+// rewrite-match-materialized change in openspec/changes/archive/.
 //
 // Planned subpackages (added by their respective slices):
 //

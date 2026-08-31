@@ -26,7 +26,7 @@ os.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 // → "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 ```
 
-Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v2` module. See [`MIGRATIONS.md`](../MIGRATIONS.md) for the warm-cache deployment pattern.
+Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v2` module (run any schema-touching command once with registry access, then ship the populated cache directory).
 
 ## Construct a kernel
 
