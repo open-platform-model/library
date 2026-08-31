@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0-alpha.22](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.21...v1.0.0-alpha.22) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** prune phase surface to match and compile ([#96](https://github.com/open-platform-model/library/issues/96))
+* **library:** remove dead exported symbols with no consumers ([#95](https://github.com/open-platform-model/library/issues/95))
+
+### Documentation
+
+* **kernel:** retract the shared-platform concurrency promise ([#93](https://github.com/open-platform-model/library/issues/93)) ([0019aab](https://github.com/open-platform-model/library/commit/0019aab6f16de7d471701a76b068759f56f40351))
+* **migrations:** replace monolith with per-change migration fragments ([#97](https://github.com/open-platform-model/library/issues/97)) ([556d062](https://github.com/open-platform-model/library/commit/556d062703ee2311a9d3e6b63446f0aea7ee35fe))
+
+
+### Code Refactoring
+
+* **kernel:** prune phase surface to match and compile ([#96](https://github.com/open-platform-model/library/issues/96)) ([27baac6](https://github.com/open-platform-model/library/commit/27baac6b13a4c5a0653169dd071b5a39c7c2eb5b))
+* **library:** remove dead exported symbols with no consumers ([#95](https://github.com/open-platform-model/library/issues/95)) ([248d69d](https://github.com/open-platform-model/library/commit/248d69d220e54391ab16e4ca6461668f46b55c58))
+
 ## [1.0.0-alpha.21](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.20...v1.0.0-alpha.21) (2026-08-30)
 
 
