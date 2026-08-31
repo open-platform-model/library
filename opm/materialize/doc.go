@@ -36,5 +36,7 @@
 //
 // Materialize performs I/O (registry enumeration + OCI pulls) and is
 // explicit and caller-driven: the kernel holds no cache (Principle I).
-// Consumers that want memoization wire their own via opm/materialize/cache.
+// Consumers that want memoization key on whatever invalidation signal they
+// own (a CR generation, a file hash) and store the *MaterializedPlatform
+// themselves.
 package materialize

@@ -15,7 +15,6 @@ import (
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // subKey returns the v2 #registry key for path at version — the
@@ -91,9 +90,9 @@ func TestMaterialize_DoesNotFillClosedPlatform(t *testing.T) {
 	require.NotEmpty(t, composedFQNs(mp.Transformers), "Transformers must carry the composed map")
 
 	// ...while the closed platform spec stays unfilled.
-	assert.False(t, mp.Source.Package.LookupPath(schema.ComposedTransformers).Exists(),
+	assert.False(t, mp.Source.Package.LookupPath(cue.ParsePath("#composedTransformers")).Exists(),
 		"Source.Package.#composedTransformers must remain unfilled (never FillPath-ed onto the closed platform)")
-	assert.False(t, mp.Source.Package.LookupPath(schema.Matchers).Exists(),
+	assert.False(t, mp.Source.Package.LookupPath(cue.ParsePath("#matchers")).Exists(),
 		"Source.Package.#matchers must remain unfilled (never FillPath-ed onto the closed platform)")
 }
 
@@ -293,8 +292,8 @@ func TestMaterialize_DisabledIdempotentNonMutating(t *testing.T) {
 
 	// Non-mutating: the source platform is never filled — the federated surfaces
 	// live on MaterializedPlatform, not on the closed platform spec.
-	assert.Empty(t, mapKeys(p.Package, schema.ComposedTransformers),
+	assert.Empty(t, mapKeys(p.Package, cue.ParsePath("#composedTransformers")),
 		"input platform #composedTransformers must remain empty")
-	assert.Empty(t, mapKeys(mp1.Source.Package, schema.ComposedTransformers),
+	assert.Empty(t, mapKeys(mp1.Source.Package, cue.ParsePath("#composedTransformers")),
 		"Source.Package #composedTransformers must remain unfilled (federation, ADR-003)")
 }

@@ -74,10 +74,12 @@ func TestKernel_WithRegistryDoesNotMutateEnv(t *testing.T) {
 		"WithRegistry MUST NOT mutate process CUE_REGISTRY")
 }
 
-// TestKernel_HoldsNoMaterializeCache asserts the "Kernel holds no cache"
-// requirement structurally: no field on the Kernel struct references a
-// materialize cache type. Memoization is opt-in via opm/materialize/cache,
-// wired by consumers, never by the kernel (Principle I, D14).
+// TestKernel_HoldsNoMaterializeCache pins the "kernel holds no materialize
+// cache" posture (Principle I) structurally: no field on the Kernel struct
+// references a materialize cache type. The library ships no cache; a consumer
+// that wants memoization keys on an invalidation signal it owns and stores
+// the *MaterializedPlatform itself. A cache field reappearing here is a
+// deliberate act, not drift, and starts by rewriting this test.
 func TestKernel_HoldsNoMaterializeCache(t *testing.T) {
 	rt := reflect.TypeOf(*kernel.New())
 	for i := range rt.NumField() {

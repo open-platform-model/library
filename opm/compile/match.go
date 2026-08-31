@@ -379,15 +379,15 @@ func unifyIntersection(plan *MatchPlan, compName string, have, required cue.Valu
 // and returns the surviving cause, or nil when every diagnostic was
 // provenance-only.
 //
-// The exclusion operates on the unify VERDICT rather than on the operands:
-// compat.StripProvenance's syntax round-trip (the publish-side mechanism)
-// cannot rebuild kernel-side schema-derived operands — their export carries
-// let-bound references to core helper definitions that InlineImports cannot
-// make self-contained — and every export profile that does rebuild them
-// (Eval, Final) opens closed definitions, which would silently void the D27
-// closed-definition comparison. Excluding provenance-located diagnostics from
-// the verdict is equivalent under D25 (nothing derives from the denylisted
-// fields) and keeps both closedness and document positions.
+// The exclusion operates on the unify VERDICT rather than on the operands: a
+// syntax round-trip strip of the operands (once compat.StripProvenance, now
+// removed) cannot rebuild kernel-side schema-derived operands — their export
+// carries let-bound references to core helper definitions that InlineImports
+// cannot make self-contained — and every export profile that does rebuild
+// them (Eval, Final) opens closed definitions, which would silently void the
+// D27 closed-definition comparison. Excluding provenance-located diagnostics
+// from the verdict is equivalent under D25 (nothing derives from the
+// denylisted fields) and keeps both closedness and document positions.
 func excludeProvenance(vErr error) error {
 	var kept []cueerrors.Error
 	for _, e := range cueerrors.Errors(vErr) {

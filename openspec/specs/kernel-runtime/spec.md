@@ -3,6 +3,7 @@
 ## Purpose
 The `Kernel` struct is the public anchor type for the OPM kernel runtime. It owns the `*cue.Context` and the cross-cutting dependencies (logger, tracer, clock) used by every kernel operation, so downstream consumers (CLI, operator, Crossplane function) attach to a single mental anchor instead of importing the loader / module / render / validate packages individually. All future kernel-facing slices modify this capability.
 ## Requirements
+
 ### Requirement: Kernel Type and Construction
 
 The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function.
@@ -219,9 +220,9 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 ### Requirement: Compile Rename
 
-The compile pipeline's terminal verb SHALL be `Compile`. The canonical entry point is `(*Kernel).Compile`. The free function `compile.CompileModuleInstance` SHALL NOT exist after this change. The earlier `opm/render/process_module.go` / `render.ProcessModuleInstance` names SHALL NOT reappear inside `opm/compile/`.
+The compile pipeline's terminal verb SHALL be `Compile`. The canonical entry point is `(*Kernel).Compile`. The free function `compile.CompileModuleInstance` SHALL NOT exist. The earlier `opm/render/process_module.go` / `render.ProcessModuleInstance` names SHALL NOT reappear inside `opm/compile/`. The result type is `compile.CompileResult` (aliased as `kernel.CompileResult`); no other alias of it exists.
 
-Note: `(*Kernel).ProcessModuleInstance` (added by this change) names a different operation — module-instance validation, value-filling, and metadata decoding — distinct from the compile pipeline. The two names occupy different concepts and do not conflict.
+Note: `(*Kernel).ProcessModuleInstance` names a different operation, module-instance validation, value-filling, and metadata decoding, distinct from the compile pipeline. The two names occupy different concepts and do not conflict.
 
 #### Scenario: Canonical compile entry
 
@@ -236,12 +237,12 @@ Note: `(*Kernel).ProcessModuleInstance` (added by this change) names a different
 
 #### Scenario: ModuleResult aliased
 
-- **WHEN** a caller references `*render.ModuleResult`
-- **THEN** the type resolves to `*render.CompileResult` via a Go type alias
+- **WHEN** a developer searches `opm/compile` for `ModuleResult`
+- **THEN** the identifier does not exist; the result type is referenced as `CompileResult`
 
 ### Requirement: Canonical Implementations Live on Kernel
 
-The canonical Go implementation of values validation (full, partial, and detailed) and module-instance processing SHALL live on the `*Kernel` receiver in `opm/kernel/`. No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleInstance` free functions SHALL remain in the library; the `opm/validate/` and `opm/helper/values/` packages SHALL NOT exist after this change.
+The canonical Go implementation of values validation (full, partial, and detailed) and module-instance processing SHALL live on the `*Kernel` receiver in `opm/kernel/`. No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleInstance` free functions SHALL remain in the library; the `opm/validate/` and `opm/helper/values/` packages SHALL NOT exist.
 
 #### Scenario: ValidateConfig is a kernel method
 
@@ -263,24 +264,23 @@ The canonical Go implementation of values validation (full, partial, and detaile
 #### Scenario: ProcessModuleInstance is a kernel method
 
 - **WHEN** a caller invokes `k.ProcessModuleInstance(ctx, spec, mod, values)`
-- **THEN** the method validates `values` via the kernel's own `ValidateConfig`, fills the validated value into `spec`, asserts concreteness via `spec.Validate(cue.Concrete(true))` (CUE stdlib), decodes instance metadata via the binding, and returns a `*module.Instance`
+- **THEN** the method validates `values` via the kernel's own `ValidateConfig`, fills the validated value into `spec`, asserts concreteness via `spec.Validate(cue.Concrete(true))` (CUE stdlib), decodes instance metadata, and returns a `*module.Instance`
 - **AND** the method does not delegate to any deprecated free function
 
 #### Scenario: opm/validate package is gone
 
-- **WHEN** a developer runs `ls opm/validate/` after this change ships
+- **WHEN** a developer runs `ls opm/validate/`
 - **THEN** the directory does not exist
 
 #### Scenario: opm/helper/values package is gone
 
-- **WHEN** a developer runs `ls opm/helper/values/` after this change ships
+- **WHEN** a developer runs `ls opm/helper/values/`
 - **THEN** the directory does not exist
 
 #### Scenario: module.ParseModuleInstance free function is gone
 
-- **WHEN** a developer searches `opm/module/` for `ParseModuleInstance`
-- **THEN** no free function with that name exists
-- **AND** the only `ParseModuleInstance` symbol in the library is the deprecated method on `*Kernel` (see the deprecation requirement below)
+- **WHEN** a developer searches `opm/` for `ParseModuleInstance`
+- **THEN** no free function and no method with that name exists; `(*Kernel).ProcessModuleInstance` is the only spelling
 
 #### Scenario: compile.CompileModuleInstance free function is gone
 
@@ -369,35 +369,6 @@ The compile pipeline (Match → Execute, driven by `Kernel.Compile`) SHALL build
 - **WHEN** a single Kernel materializes a platform and then compiles an instance against it (the platform's `Package` was built in that same Kernel's `*cue.Context`)
 - **THEN** the rendered output is identical to the prior platform-context-sourced behavior, because the caller context and the platform context are the same instance
 
-### Requirement: LoadModuleFromRegistry Method on Kernel
-
-The `Kernel` SHALL expose `(k *Kernel) LoadModuleFromRegistry(ctx context.Context, modPath, version string) (cue.Value, error)` that loads a `#Module` published in an OCI registry, delegating to `opm/helper/loader/registry.LoadModulePackage` using the kernel's owned `*cue.Context` and configured registry (the `registry` field set via `WithRegistry`, inheriting `CUE_REGISTRY` from the process environment when unset). It SHALL return the raw module `cue.Value`, mirroring the existing `Kernel.LoadModulePackage` wrapper (which also returns `(cue.Value, error)`); callers decode it via `Kernel.NewModuleFromValue`. Adding this method SHALL NOT change the signatures of existing kernel methods.
-
-#### Scenario: Delegates to the registry loader
-
-- **WHEN** a caller invokes `k.LoadModuleFromRegistry(ctx, "testing.opmodel.dev/modules/hello@v0", "v0.0.2")`
-- **THEN** it returns the `cue.Value` produced by `opm/helper/loader/registry.LoadModulePackage` using the kernel's registry and context
-- **AND** the value decodes via `k.NewModuleFromValue` to a `*module.Module` with the author-set `metadata.name`, `metadata.version`, and `metadata.modulePath`
-
-#### Scenario: Existing method signatures unchanged
-
-- **WHEN** a developer reads `LoadModulePackage`, `Match`, `Plan`, and `Compile` after this slice
-- **THEN** their signatures are unchanged
-
-### Requirement: ParseModuleInstance Deprecated Alias
-
-`*Kernel` SHALL expose a deprecated `ParseModuleInstance` method that delegates to `ProcessModuleInstance` for one cycle to soften the rename for downstream callers.
-
-#### Scenario: Alias delegates to canonical method
-
-- **WHEN** a caller invokes `k.ParseModuleInstance(ctx, spec, mod, values)`
-- **THEN** the result is identical to invoking `k.ProcessModuleInstance(ctx, spec, mod, values)`
-
-#### Scenario: Alias carries deprecation marker
-
-- **WHEN** a developer reads the godoc for `(*Kernel).ParseModuleInstance`
-- **THEN** the comment begins with `// Deprecated:` and points to `(*Kernel).ProcessModuleInstance`
-
 ### Requirement: Kernel.SynthesizeInstance method
 
 The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in synth.InstanceInput) (*module.Instance, error)` that combines `synth.Instance` and `Kernel.ProcessModuleInstance` into a single call: it builds the instance spec by unifying inputs against the embedded schema, then validates the supplied values against the module's `#config`, fills the values into the spec, enforces concreteness, decodes instance metadata, and returns the constructed `*module.Instance`.
@@ -443,4 +414,3 @@ The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state 
 - **WHEN** a developer reads the `Kernel.SynthesizeInstance` godoc
 - **THEN** the file-driven mirror it names is `Kernel.LoadInstancePackage`
 - **AND** no reference to the removed `Kernel.LoadInstanceFile` remains
-

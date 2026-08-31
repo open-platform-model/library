@@ -15,8 +15,7 @@ import "cuelang.org/go/cue/load"
 //
 // Source is populated only when the module was acquired through the
 // source-carrying registry path (Kernel.AcquireModuleFromRegistry). It is nil
-// for modules constructed from a bare value (e.g. a unit-test CompileString or
-// the value-returning LoadModuleFromRegistry path).
+// for modules constructed from a bare value (e.g. a unit-test CompileString).
 type Source struct {
 	// Root is the synthetic absolute module root every Overlay key sits under.
 	// It is the load.Config.ModuleRoot a consumer builds against.

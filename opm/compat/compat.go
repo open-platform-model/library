@@ -9,6 +9,16 @@ import (
 	"cuelang.org/go/cue/format"
 )
 
+// provenanceDenylist is 0010 D30's exact set: the metadata fields that change
+// per catalog release by construction (D25 — provenance only) and are
+// therefore never contract surface. The comparison walk skips them directly
+// under any metadata field at every depth; nothing else is excluded —
+// identity fields and labels stay.
+var provenanceDenylist = map[string]bool{
+	"catalogVersion": true,
+	"description":    true,
+}
+
 // Violation is one breach of 0010 D27's additive-only rule, located by the
 // dotted path from the compared root. Violations are results, not errors
 // (opm/errors doctrine): the walk reports every breach it finds and never

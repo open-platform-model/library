@@ -14,8 +14,9 @@ import (
 //
 // It performs registry I/O (version enumeration + OCI pulls) and is explicit
 // and caller-driven: the kernel holds no materialize cache (Principle I).
-// Long-running consumers that want memoization wire their own cache via
-// opm/materialize/cache; short-lived ones rely on CUE's on-disk module cache.
+// Long-running consumers that want memoization store the result keyed on an
+// invalidation signal they own; short-lived ones rely on CUE's on-disk
+// module cache.
 //
 // Adding this method does not change the signatures of the existing phase
 // methods (Validate, Match, Plan, Compile), which still take

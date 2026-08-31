@@ -89,9 +89,9 @@ Read these on entry:
 
 ```text
 opm/
-  compat/                     Publish-side catalog compatibility: D27 comparison walk, D34 level ladder, predecessor selection, D30 provenance strip (pure, no I/O)
+  compat/                     Publish-side catalog compatibility: D27 comparison walk (with D30 provenance skip), D34 level ladder, predecessor selection (pure, no I/O)
   core/                       Platform-neutral primitives: Compiled, Resource, Identity
-  errors/                     Sentinels + grouped CUE diagnostics (alias as oerrors in consumers)
+  errors/                     Structured errors + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
   module/                     *module.Module / *module.Instance types + value-validation accessors
   platform/                   *platform.Platform — kernel's sole match/execute input
@@ -99,8 +99,7 @@ opm/
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadInstancePackage, LoadPlatformPackage
-    loader/registry/          Registry loader: LoadModulePackage (published #Module by path@version, via Fetch+Overlay)
-    loader/bytes/             In-memory loader — SKELETON ONLY, no exported funcs yet
+    loader/registry/          Registry loader: LoadModulePackageWithSource (published #Module by path@version, via Fetch+Overlay)
     loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
     synth/                    Instance(...) + Platform(...) → cue.Value from typed inputs (no files)
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
@@ -181,11 +180,11 @@ and registry rules:
 
 - **Explicit and caller-driven — the kernel holds no materialize cache**
   (Principle I). Every `Materialize` call performs registry I/O (one OCI pull
-  per enabled subscription). Long-running consumers that want memoization wire
-  their own `opm/materialize/cache.MaterializeCache` (reference `LRU` +
-  `Key(*platform.Platform)` over the `#registry` subtree). Invalidation policy
-  is theirs: the operator keys it on a CR generation; the CLI opts out and
-  relies on CUE's on-disk module cache.
+  per enabled subscription). Consumers that want memoization key on an
+  invalidation signal they own and store the `*MaterializedPlatform`
+  themselves: the operator keys one slot on a CR generation; the CLI opts out
+  and relies on CUE's on-disk module cache. The library ships no reference
+  cache.
 - **Registry config mirrors the schema loader.** `(*Kernel).WithRegistry` sets
   the `CUE_REGISTRY` mapping for catalog (and the materialize-path schema)
   resolution; absent it, the kernel inherits process `CUE_REGISTRY` and
@@ -318,4 +317,4 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 - Run `task check:fast` for iterative work, `task check` before merge.
 - When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers and update `MIGRATIONS.md`.
 - Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleInstance`, etc.).
-- "Load a published module by `path@version`" lives in the library (`opm/helper/loader/registry.LoadModulePackage`, surfaced as `Kernel.LoadModuleFromRegistry`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, or dependency walks; call the loader. The shape gate is single-sourced in `loader/internal/shape` — extend it there, not per-loader.
+- "Load a published module by `path@version`" lives in the library (`opm/helper/loader/registry.LoadModulePackageWithSource`, surfaced as `Kernel.AcquireModuleFromRegistry`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, or dependency walks; call the loader. The shape gate is single-sourced in `loader/internal/shape` — extend it there, not per-loader.

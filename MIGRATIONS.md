@@ -426,6 +426,21 @@ a band that includes pre-releases    filter.range: ">=0.6.0-0 <0.7.0" (pre-relea
 
 ## Unreleased — Breaking
 
+### Removed — `library-dead-symbol-sweep` (BREAKING)
+
+Every identifier below had zero references outside its own definition and tests (swept against library production code, `cli` and `opm-operator` on 2026-08-30); `cli` and `opm-operator` compile unchanged. The removals are MAJOR by SemVer rule regardless (Principle VI).
+
+- **`opm/errors`: the four sentinels `ErrValidation`, `ErrConnectivity`, `ErrPermission`, `ErrNotFound` and the `Wrap` helper are removed.** Replacement: none, no caller — the identically aliased `oerrors` in `cli` and `opm-operator` resolves to those repos' own `pkg/errors`, which is why the symbols looked used.
+- **`opm/errors.MaterializeKindCoreSchema` is removed.** It was reserved for a failure `Materialize` never emits. Replacement: none; `MaterializeError.Kind` has exactly one value, `MaterializeKindCatalog`.
+- **`opm/compile.ModuleResult` (deprecated alias) is removed.** Replacement: `compile.CompileResult` (aliased as `kernel.CompileResult`).
+- **`opm/schema`: `DecodeProviderMetadata` and `ProviderMetadata` are removed.** The provider artifact was retired with the platform construct; the kernel accepts exactly three artifacts. Replacement: none, no caller.
+- **`opm/schema`: the nine unread path variables `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`, `MatchersResources`, `MatchersTraits`, `ContextModuleInstanceMetadata`, `ContextComponentMetadata`, `ContextRuntimeName` are removed.** The matcher and executor read the composed map and reverse index off `MaterializedPlatform.Transformers` / `.Matchers`, never through a path on the platform value. Replacement: a caller that needs such a path builds it inline (`cue.ParsePath("#composedTransformers")`).
+- **`opm/schema.AnnotationDefaultNamespace` is removed** (`consts.go` deleted). The annotation key `module.opmodel.dev/default-namespace` remains declared on core's `#Module` and ADR-001 is unaffected. Replacement: a consumer that reads the annotation writes the key string itself, as for every other core-declared key.
+- **`opm/materialize/cache` is removed** (the `MaterializeCache` interface, the `LRU` reference implementation, `Key`). Replacement: none shipped — a consumer that wants memoization keys on an invalidation signal it owns (a CR generation, a file hash) and stores the `*MaterializedPlatform` itself; the kernel-holds-no-cache posture (Principle I) is unchanged.
+- **`opm/helper/loader/bytes` is removed.** The package exported nothing since it was scaffolded. Replacement: none, no caller.
+- **`opm/helper/loader/registry.LoadModulePackage` and `Kernel.LoadModuleFromRegistry` are removed.** The value-only path drops the staged source `synth.Instance` requires. Replacement: `registry.LoadModulePackageWithSource` / `Kernel.AcquireModuleFromRegistry`; read `StagedSource.Value` or `Module.Package` when only the value is wanted.
+- **`opm/compat.StripProvenance` is removed.** 0010 D30 stays implemented twice over: the comparison walk (`Check` / `CheckAtLevel`) skips the denylisted provenance fields at every depth, and the matcher's unify rung excludes provenance-located diagnostics from the verdict. Replacement: none — a consumer that wants a provenance-free copy of a value performs its own syntax round-trip.
+
 ### Removed — `library-finalize-removal` (BREAKING)
 
 - **`compile.FinalizeValue` is removed** (`opm/compile/finalize.go` deleted). It rebuilt a value from `Syntax(cue.Final())`, stripping definitions and constraints; since `library-component-fill` nothing on the render path called it, and its continued existence kept a removed mechanism documented as a security boundary. **Migration:** there is no replacement on the kernel; transformers receive the evaluated value with constraints intact (enhancement 0019 D1). A caller that wants a constraint-free data copy for its own purposes inlines the two lines (`v.Syntax(cue.Final())` as `ast.Expr`, then `cueCtx.BuildExpr`).

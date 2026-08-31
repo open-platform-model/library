@@ -11,12 +11,8 @@ const (
 	// MaterializeKindCatalog marks a subscription-resolution failure: a
 	// catalog path could not be enumerated, pulled, decoded, or its
 	// transformers conflicted. Subscription and Version are populated.
+	// It is the only kind Materialize emits.
 	MaterializeKindCatalog = "catalog"
-
-	// MaterializeKindCoreSchema is reserved for core-schema load failures
-	// surfaced through the same shape. Materialize does not yet emit it;
-	// when it does, Subscription is empty.
-	MaterializeKindCoreSchema = "core-schema"
 )
 
 // MaterializeError is a structured failure from the platform Materialize
@@ -24,11 +20,10 @@ const (
 // attempted/resolved version, and wraps the underlying cause so callers can
 // reach it via [errors.Unwrap] / [errors.As].
 type MaterializeError struct {
-	// Kind is one of MaterializeKindCatalog or MaterializeKindCoreSchema.
+	// Kind is MaterializeKindCatalog.
 	Kind string
 
-	// Subscription is the catalog subscription path that failed. Empty when
-	// Kind == MaterializeKindCoreSchema.
+	// Subscription is the catalog subscription path that failed.
 	Subscription string
 
 	// Version is the resolved or attempted version, when known.

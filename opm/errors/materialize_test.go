@@ -29,9 +29,9 @@ func TestMaterializeError_Format(t *testing.T) {
 			want: `materialize catalog: subscription "test.example/cat": boom`,
 		},
 		{
-			name: "core-schema, no subscription",
-			err:  &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCoreSchema, Cause: cause},
-			want: `materialize core-schema: boom`,
+			name: "no subscription",
+			err:  &oerrors.MaterializeError{Kind: oerrors.MaterializeKindCatalog, Cause: cause},
+			want: `materialize catalog: boom`,
 		},
 	}
 	for _, tt := range tests {

@@ -110,19 +110,3 @@ This selector is NOT the compatibility gate's predecessor selection. 0011 D23 (a
 
 - **WHEN** every entry is a prerelease
 - **THEN** `HighestStable` returns the highest entry
-
-### Requirement: Provenance Stripping
-
-The library SHALL provide a provenance strip (`opm/compat.StripProvenance`) implementing 0010 D30's denylist — exactly `metadata.catalogVersion` and `metadata.description` — via a syntax round-trip that reaches the definition as well as the instance, preserves closedness, and inlines imports so the result is self-contained. All other fields, including identity fields and labels, SHALL remain in the value.
-
-#### Scenario: Comparison across catalog releases
-
-- **WHEN** two builds of an identical primitive differ only in `metadata.catalogVersion`
-- **THEN** `Check` over the stripped operands reports no violations
-
-#### Scenario: Definition-side strip
-
-- **WHEN** the input value's definition declares `catalogVersion!`
-- **THEN** the stripped value does not carry an unsatisfiable required field
-
-Known limitation (measured 2026-08-16, cue v0.17.1): the inline-imports round-trip is not self-contained for members typed against core — the emitted syntax references core's hidden `#KebabToPascal` helper (reached via `metadata.#definitionName`) without inlining it, and the rebuild fails with `reference "#KebabToPascal" not found`. Every real catalog member is core-typed, so the strip currently works only on values whose imports carry no hidden-definition helpers. The CLI's publish gate applies the D30 denylist as a violation-path filter over `Check`'s output instead (same fields, same direct-children-of-metadata scope). The unify-rung consumer (library-matching) should measure before relying on the strip for core-typed members.

@@ -68,7 +68,7 @@ func TestTransformers_RenderConcreteWhereClosedPlatformDoesNot(t *testing.T) {
 	loadedPlatform := octx.BuildInstance(insts[0])
 	require.NoError(t, loadedPlatform.Err())
 	require.True(t, loadedPlatform.IsClosed(), "platform fixture must be a closed c.#Platform for this guard to be meaningful")
-	pkg := loadedPlatform.FillPath(schema.ComposedTransformers, composed)
+	pkg := loadedPlatform.FillPath(cue.ParsePath("#composedTransformers"), composed)
 
 	// A concrete component + context, as the executor fills them.
 	component := octx.CompileString(`{
@@ -109,7 +109,7 @@ func TestTransformers_RenderConcreteWhereClosedPlatformDoesNot(t *testing.T) {
 	require.True(t, txFromComposed.Exists())
 
 	txFromPackage := pkg.
-		LookupPath(schema.ComposedTransformers).
+		LookupPath(cue.ParsePath("#composedTransformers")).
 		LookupPath(cue.MakePath(cue.Str(fqn))).
 		LookupPath(schema.Transform)
 	require.True(t, txFromPackage.Exists())

@@ -3,8 +3,8 @@
 //
 // It is opt-in convenience under the opm/helper/ boundary: a frontend MAY skip
 // it and resolve registry modules another way. The recommended entry point is
-// Kernel.LoadModuleFromRegistry, which owns its *cue.Context and threads the
-// kernel's configured registry through the call.
+// Kernel.AcquireModuleFromRegistry, which owns its *cue.Context and threads
+// the kernel's configured registry through the call.
 package registry
 
 import (
@@ -36,36 +36,6 @@ type LoadOptions struct {
 	Registry string
 }
 
-// LoadModulePackage loads a #Module published in an OCI registry, identified by
-// its major-qualified module path (e.g. "example.com/modules/hello@v0") and
-// version (e.g. "v0.0.2"), and returns the raw cue.Value built in cueCtx.
-//
-// It fetches the module's source via CUE's native module machinery
-// (mod/modconfig) and loads it IN MEMORY AS THE MAIN MODULE: the fetched files
-// are injected through load.Config.Overlay under a deterministic synthetic
-// root, so the module's own cue.mod/module.cue drives transitive dependency
-// resolution and its kind/metadata are evaluated at the package root. No
-// wrapper package is synthesized and no temporary directory is written.
-//
-// The built value is validated with the same module shape gate as
-// opm/helper/loader/file (concrete kind == "Module"; concrete metadata.name,
-// metadata.modulePath, metadata.version), wrapping the shared
-// ErrInvalidPackage / ErrWrongKind / ErrMissingRequiredField sentinels. It does
-// NOT perform full schema validation, which remains the Kernel/Binding layer's
-// contract.
-//
-// Mirrors opm/helper/loader/file.LoadModulePackage's return shape
-// (cue.Value, error); apiVersion detection no longer lives at the loader layer
-// (the opm/apiversion package was removed). The process environment is never
-// mutated. Parse failures on caller input are wrapped rather than panicked.
-func LoadModulePackage(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (cue.Value, error) {
-	res, err := LoadModulePackageWithSource(ctx, cueCtx, modPath, version, opts)
-	if err != nil {
-		return cue.Value{}, err
-	}
-	return res.Value, nil
-}
-
 // StagedSource bundles a registry-loaded module's built value with the staged
 // source tree the build used: the deterministic synthetic root every overlay
 // key sits under, plus the load.Config.Overlay carrying the module's files
@@ -79,11 +49,29 @@ type StagedSource struct {
 	Overlay map[string]load.Source
 }
 
-// LoadModulePackageWithSource loads a published #Module exactly as
-// LoadModulePackage does (same fetch, main-module staging, shape gate) and
-// additionally returns the staged source (Root + Overlay) the build used, so
-// callers can reuse it. The returned Overlay is the build's own map; callers
-// that mutate it (e.g. to overlay additional files) MUST clone it first.
+// LoadModulePackageWithSource loads a #Module published in an OCI registry,
+// identified by its major-qualified module path (e.g.
+// "example.com/modules/hello@v0") and version (e.g. "v0.0.2"), and returns
+// the value built in cueCtx together with the staged source (Root + Overlay)
+// the build used, so callers can reuse it. A caller that wants only the
+// value reads StagedSource.Value. The returned Overlay is the build's own
+// map; callers that mutate it (e.g. to overlay additional files) MUST clone
+// it first.
+//
+// It fetches the module's source via CUE's native module machinery
+// (mod/modconfig) and loads it IN MEMORY AS THE MAIN MODULE: the fetched files
+// are injected through load.Config.Overlay under a deterministic synthetic
+// root, so the module's own cue.mod/module.cue drives transitive dependency
+// resolution and its kind/metadata are evaluated at the package root. No
+// wrapper package is synthesized and no temporary directory is written.
+//
+// The built value is validated with the same module shape gate as
+// opm/helper/loader/file (concrete kind == "Module"; concrete metadata.name,
+// metadata.modulePath, metadata.version), wrapping the shared
+// ErrInvalidPackage / ErrWrongKind / ErrMissingRequiredField sentinels. It does
+// NOT perform full schema validation, which remains the Kernel/Binding layer's
+// contract. The process environment is never mutated. Parse failures on
+// caller input are wrapped rather than panicked.
 func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (StagedSource, error) {
 	mv, err := module.NewVersion(modPath, version)
 	if err != nil {
@@ -155,8 +143,9 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 // present and concrete (shape.ModuleSpec.RequiredConcreteFields), so the check
 // cannot misfire on absence. A mismatch returns a bare oerrors.IdentityError
 // naming both values. Sitting after the gate in LoadModulePackageWithSource,
-// the one insertion covers LoadModulePackage and every caller above it
-// (Kernel.AcquireModuleFromRegistry, CLI, operator) — D11's one implementation.
+// the package's single entry, the check runs for every caller
+// (Kernel.AcquireModuleFromRegistry and the frontends behind it): D11's one
+// implementation.
 //
 // The path clause is verified per the metadata's own core line. A core-v2
 // module declares the full major-suffixed path — strict string equality with

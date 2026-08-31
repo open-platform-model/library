@@ -37,7 +37,7 @@ See `CONSTITUTION.md` for the full set of principles.
 ```
 opm/
   core/                   Platform-neutral primitives — Compiled, Resource, Identity
-  errors/                 Sentinels, structured errors, grouped CUE diagnostics
+  errors/                 Structured errors, grouped CUE diagnostics
   schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
   module/                 Module / Instance model and value-validation accessors
@@ -47,7 +47,6 @@ opm/
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
     loader/file/          Filesystem loading (modules, releases, platforms)
     loader/registry/      Load a published module from an OCI registry by path@version
-    loader/bytes/         In-memory loading (skeleton; deferred implementation)
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
     synth/                Instance / Platform synthesis from typed inputs (no file / no bytes)
   internal/               Test-only cross-package internals (schematest, registrytest)
@@ -113,7 +112,6 @@ Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a f
 Today this layer holds:
 
 - `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
-- `opm/helper/loader/bytes` — in-memory loader. **Skeleton only**, no exported functions yet. The full implementation lands when a concrete consumer (Crossplane composition fn, fuzzing harness) pulls on the design.
 - `opm/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
 - `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call.
 

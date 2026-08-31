@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
@@ -291,14 +290,6 @@ func TestKernel_Compile_FromInstanceOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	require.Len(t, out.Compiled, 1, "embedded #module on the instance is sufficient for Compile")
-}
-
-// TestRender_ModuleResult_Aliased verifies *compile.ModuleResult resolves to
-// *compile.CompileResult via the type alias.
-func TestRender_ModuleResult_Aliased(t *testing.T) {
-	var cr *compile.CompileResult
-	var mr *compile.ModuleResult = cr //nolint:staticcheck // SA1019: testing alias compatibility
-	_ = mr
 }
 
 // TestKernel_NoFinalizeMethod pins the absence of any finalization step on

@@ -3,6 +3,7 @@
 ## Purpose
 Defines the single-schema dispatch surface that replaces the retired multi-`apiVersion` binding registry. The library consumes exactly one OPM CUE schema (`opmodel.dev/core@v2`) resolved at runtime via CUE's module system and exposes its paths, metadata decoders, transformer-context builder, and a caller-configurable `Loader` plus per-Kernel `*schema.Cache` in `opm/schema`. Callers no longer detect schema versions, look up bindings, or carry `APIVersion` on artifact structs.
 ## Requirements
+
 ### Requirement: Single OPM schema, externally resolved, with no apiVersion field
 
 The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v2` (or a caller-pinned exact version, in any major, via `OCILoader.Module`), resolved through CUE's module system against `CUE_REGISTRY`. The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other in-tree location. The schema package MUST NOT define a top-level `#ApiVersion` constant. Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform`, `#Resource`, `#Trait`) MUST NOT carry an `apiVersion` field.
@@ -187,15 +188,20 @@ The library SHALL expose `opm/schema.PublicRegistry` as an exported string const
 - **THEN** `k.SchemaCache().Loader` equals the supplied OCILoader value
 
 ### Requirement: Path inventory exposed as package-level vars
-The library SHALL expose every CUE path used by the kernel, matcher, and renderer as exported package-level `cue.Path` variables in `opm/schema`. The variable names MUST match the artifact-domain term (e.g. `Metadata`, `Components`, `Config`, `Module`, `ModuleMetadata`, `DebugValues`, `Transformers`, `Registry`, `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`, `MatchersResources`, `MatchersTraits`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `Component`, `Context`, `Output`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`).
+The library SHALL expose every CUE path used by the kernel, matcher, and renderer as exported package-level `cue.Path` variables in `opm/schema`. The variable names MUST match the artifact-domain term (e.g. `Metadata`, `Components`, `Values`, `Config`, `Module`, `ModuleMetadataPath`, `DebugValues`, `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`). The inventory SHALL contain only paths some production code path reads; a path with no reader is removed, not retained for a possible consumer.
 
 #### Scenario: Consumer references a path directly
 - **WHEN** a kernel consumer needs the path to an instance's `components` field
 - **THEN** it imports `opm/schema` and references `schema.Components`
 - **AND** does not call any `Paths()` method or look up a binding
 
+#### Scenario: Platform view and context sub-paths are not exported
+- **WHEN** a developer inspects the exported identifiers of `opm/schema`
+- **THEN** none of `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`, `MatchersResources`, `MatchersTraits`, `ContextModuleInstanceMetadata`, `ContextComponentMetadata`, `ContextRuntimeName` exists
+- **AND** the matcher and executor read the composed map and reverse index off `MaterializedPlatform.Transformers` / `.Matchers`, never through a path on the platform value
+
 ### Requirement: Metadata decoders are free functions
-The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, `DecodeProviderMetadata`, and `DecodePlatformMetadata` as free functions in `opm/schema`. Each function MUST accept a raw `cue.Value` at the artifact root and return the canonical decoded metadata struct or a non-nil error.
+The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, and `DecodePlatformMetadata` as free functions in `opm/schema`, one per artifact the kernel accepts. Each function MUST accept a raw `cue.Value` at the artifact root and return the canonical decoded metadata struct or a non-nil error.
 
 #### Scenario: Decoding a module artifact
 - **WHEN** `schema.DecodeModuleMetadata(v)` is called with the root of a valid `#Module` value
@@ -205,13 +211,13 @@ The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, `Deco
 - **WHEN** `DecodeModuleMetadata`/`DecodeInstanceMetadata`/`DecodePlatformMetadata` is called with a value whose `metadata` field is absent
 - **THEN** it returns nil and an error stating "metadata field is required"
 
-#### Scenario: Provider metadata falls back to caller-supplied name
-- **WHEN** `DecodeProviderMetadata(v, "fallback")` is called with a provider whose `metadata` field is absent
-- **THEN** it returns `&ProviderMetadata{Name: "fallback"}` and a nil error
-
 #### Scenario: Platform metadata hoists top-level type
 - **WHEN** `DecodePlatformMetadata(v)` is called on a `#Platform` whose root has `type: "kubernetes"` alongside its `metadata` block
 - **THEN** the returned `PlatformMetadata.Type` is `"kubernetes"`
+
+#### Scenario: Provider metadata falls back to caller-supplied name
+- **WHEN** a developer inspects the exported identifiers of `opm/schema`
+- **THEN** neither `DecodeProviderMetadata` nor `ProviderMetadata` exists; the provider artifact was retired with the platform construct and the kernel accepts exactly three artifacts
 
 ### Requirement: Transformer-context builder
 The library SHALL expose `schema.BuildTransformerContext(ctx, rel, compName, schemaComp, runtimeName)` that constructs the `#TransformerContext` value for a single (instance, component, transformer) tuple. The caller's job is to fill the returned value at `schema.Context` on the unified transformer.
@@ -229,13 +235,6 @@ The function MUST accept any value implementing `schema.InstanceView` (`Instance
 #### Scenario: Bad metadata.labels surfaces as warning
 - **WHEN** the supplied `schemaComp` has a `metadata.labels` field that cannot be decoded as `map[string]string`
 - **THEN** the returned warnings slice contains a message naming the component and the labels field, and no error is returned
-
-### Requirement: Default-namespace annotation key
-The library SHALL expose `schema.AnnotationDefaultNamespace = "module.opmodel.dev/default-namespace"` as the canonical key for the advisory default-namespace annotation defined by ADR-001.
-
-#### Scenario: Constant value
-- **WHEN** code references `schema.AnnotationDefaultNamespace`
-- **THEN** it resolves to the string `"module.opmodel.dev/default-namespace"`
 
 ### Requirement: Loader helpers return only the loaded value
 `opm/helper/loader/file.LoadModulePackage`, `LoadInstancePackage`, and `LoadPlatformPackage` MUST have the signature `(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error)`. The previous `apiversion.Version` return is removed. Their `(*Kernel)` wrappers MUST follow the same signature.
@@ -267,4 +266,3 @@ The library SHALL expose `schema.AnnotationDefaultNamespace = "module.opmodel.de
 #### Scenario: NewModuleFromValue decodes metadata directly
 - **WHEN** `NewModuleFromValue(k, v)` is called with a valid `#Module` value
 - **THEN** the returned `*module.Module` has `Metadata` populated, no version-dispatch lookup occurs, and `Package == v`
-

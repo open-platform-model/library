@@ -27,21 +27,11 @@ var (
 	// the kernel never receives debugValues as a parameter.
 	DebugValues = cue.ParsePath("debugValues")
 
-	// Provider.
+	// Catalog.
 	Transformers = cue.ParsePath("#transformers")
 
-	// Platform. Five paths point at #registry and the four CUE-computed views
-	// over it. KnownResources / KnownTraits are retained in the inventory
-	// even though enhancement 0001's #Platform reshape drops the fields —
-	// downstream consumers may still query them via LookupPath, and a missing
-	// field yields a non-existent cue.Value rather than a hard error.
-	Registry             = cue.ParsePath("#registry")
-	KnownResources       = cue.ParsePath("#knownResources")
-	KnownTraits          = cue.ParsePath("#knownTraits")
-	ComposedTransformers = cue.ParsePath("#composedTransformers")
-	Matchers             = cue.ParsePath("#matchers")
-	MatchersResources    = cue.ParsePath("#matchers.resources")
-	MatchersTraits       = cue.ParsePath("#matchers.traits")
+	// Platform.
+	Registry = cue.ParsePath("#registry")
 
 	// Transformer body and matching predicates.
 	Transform                    = cue.ParsePath("#transform")
@@ -57,12 +47,6 @@ var (
 	Component      = cue.ParsePath("#component")
 	Context        = cue.MakePath(cue.Def("context"))
 	Output         = cue.ParsePath("output")
-
-	// Sub-paths of #context filled per (instance, component, transformer) pair.
-	// Was: ContextModuleReleaseMetadata
-	ContextModuleInstanceMetadata = cue.MakePath(cue.Def("context"), cue.Def("moduleInstanceMetadata"))
-	ContextComponentMetadata      = cue.MakePath(cue.Def("context"), cue.Def("componentMetadata"))
-	ContextRuntimeName            = cue.MakePath(cue.Def("context"), cue.Def("runtimeName"))
 
 	// Component sub-paths.
 	//
