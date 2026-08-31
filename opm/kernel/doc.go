@@ -81,26 +81,23 @@
 //
 // # Phase methods
 //
-// The kernel exposes four phase-explicit methods that mirror the OPM
+// The kernel exposes two phase-explicit methods that mirror the OPM
 // pipeline. Each accepts a phase-specific input struct and returns a
 // phase-appropriate result:
 //
-//   - [Kernel.Validate] — Tier-2 schema validation of values against
-//     the module's `#config`. Returns nil or an error wrapped with
-//     `module %q:` framing whose underlying tree is walkable as
-//     [cuelang.org/go/cue/errors.Error].
 //   - [Kernel.Match] — component / transformer pairing. Returns
 //     [*MatchPlan] without executing any transformer.
-//   - [Kernel.Plan] — Validate + Match + summaries. Returns
-//     [*PlanResult]; does NOT produce rendered values. This is the
-//     verb every frontend's "plan" / "preview" subcommand wants.
-//   - [Kernel.Compile] — full pipeline (Validate + Match + Execute).
-//     Returns [*CompileResult] containing rendered values
-//     plus provenance. This is the terminal output and the verb every
-//     frontend's "apply" / "render" subcommand wants.
+//   - [Kernel.Compile] — full pipeline (Match + Execute). Returns
+//     [*CompileResult] containing rendered values plus provenance.
+//     This is the terminal output and the verb every frontend's
+//     "apply" / "render" subcommand wants.
 //
-// CLI subcommands map naturally onto these methods (vet → Validate,
-// match → Match, plan → Plan, apply → Compile).
+// Both phases consume the instance as processed:
+// [Kernel.ProcessModuleInstance] is the validated entry point — it
+// validates user values against the module's `#config` schema (via
+// [Kernel.ValidateConfig]) and fills them before either phase runs.
+// A caller wanting a dry run calls Match for the pairing diagnosis, or
+// Compile and discards the rendered slice.
 //
 // # Configuration validation
 //
@@ -124,10 +121,9 @@
 // or print via [cuelang.org/go/cue/errors.Print]. Presentation belongs to
 // the frontend — the kernel does not ship a formatter.
 //
-// Typed convenience methods on the kernel resolve `#config` for the
-// caller: [Kernel.ValidateModuleValues] / [Kernel.ValidateInstanceValues]
-// (plus their `Partial` and `Detailed` counterparts) take a *module.Module
-// or *module.Instance and delegate to the corresponding primitive.
+// A caller holding a *module.Module or *module.Instance composes its
+// ConfigSchema() accessor with the primitive it wants, e.g.
+// k.ValidateConfig(m.ConfigSchema(), values).
 //
 // # Advanced: CueContext accessor
 //

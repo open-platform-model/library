@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
-	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -140,59 +139,6 @@ type: "kubernetes"
 	}
 }
 
-func TestKernel_Validate_OK(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
-	require.NoError(t, values.Err())
-
-	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleInstance: f.inst, Values: values,
-	})
-	require.NoError(t, err)
-}
-
-func TestKernel_Validate_NoValues(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleInstance: f.inst,
-	})
-	require.NoError(t, err)
-}
-
-func TestKernel_Validate_FailureWrapsModuleName(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	bad := k.CueContext().CompileString(`{ replicas: -1, name: "demo" }`)
-	require.NoError(t, bad.Err())
-
-	err := k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod, ModuleInstance: f.inst, Values: bad,
-	})
-	require.Error(t, err)
-	// Error MUST be framed with the module name and walkable as CUE-native.
-	assert.Contains(t, err.Error(), `module "`+f.inst.Metadata.Name+`":`,
-		"phase method MUST wrap with module-name framing")
-	assert.NotEmpty(t, cueerrors.Errors(err),
-		"wrapped error MUST remain walkable via cueerrors.Errors")
-}
-
-func TestKernel_Validate_RequiresInputs(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
-		ModuleInstance: f.inst,
-	}))
-	require.Error(t, k.Validate(context.Background(), kernel.ValidateInput{
-		Module: f.mod,
-	}))
-}
-
 func TestKernel_Match_OK(t *testing.T) {
 	k := kernel.New()
 	f := newPhaseFixture(t, k)
@@ -206,44 +152,6 @@ func TestKernel_Match_OK(t *testing.T) {
 	require.Len(t, pairs, 1)
 	assert.Equal(t, "web", pairs[0].ComponentName)
 	assert.Equal(t, "example.com/p/echo@v0", pairs[0].TransformerFQN)
-}
-
-func TestKernel_Plan_NoRendered(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	out, err := k.Plan(context.Background(), kernel.PlanInput{
-		ModuleInstance: f.inst, Platform: f.plat, RuntimeName: "opm-cli",
-	})
-	require.NoError(t, err)
-	require.NotNil(t, out)
-
-	// PlanResult does not expose a Compiled field — verify by reflection on
-	// the public surface that no such slice leaks through.
-	_ = out.MatchPlan
-	require.Len(t, out.Components, 1)
-	assert.Equal(t, "web", out.Components[0].Name)
-	assert.Empty(t, out.Unmatched)
-}
-
-func TestKernel_Plan_RequiresInputs(t *testing.T) {
-	k := kernel.New()
-	f := newPhaseFixture(t, k)
-
-	_, err := k.Plan(context.Background(), kernel.PlanInput{
-		Platform: f.plat, RuntimeName: "opm-cli",
-	})
-	require.Error(t, err, "ModuleInstance must be required")
-
-	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		ModuleInstance: f.inst, RuntimeName: "opm-cli",
-	})
-	require.Error(t, err, "Platform must be required")
-
-	_, err = k.Plan(context.Background(), kernel.PlanInput{
-		ModuleInstance: f.inst, Platform: f.plat,
-	})
-	require.Error(t, err, "RuntimeName must be required")
 }
 
 func TestKernel_Compile_OK(t *testing.T) {
@@ -299,4 +207,24 @@ func TestKernel_Compile_FromInstanceOnly(t *testing.T) {
 func TestKernel_NoFinalizeMethod(t *testing.T) {
 	_, found := reflect.TypeOf(&kernel.Kernel{}).MethodByName("Finalize")
 	assert.False(t, found, "*kernel.Kernel must not expose a Finalize method (0019 D1)")
+}
+
+// TestKernel_PrunedPhaseSurface pins the removals of
+// library-phase-and-values-prune: the kernel exposes exactly two phase verbs
+// (Match, Compile), values enter through ProcessModuleInstance, and the six
+// typed validation wrappers are gone. Any of these reappearing is a
+// deliberate act, not drift.
+func TestKernel_PrunedPhaseSurface(t *testing.T) {
+	kt := reflect.TypeOf(&kernel.Kernel{})
+	for _, name := range []string{
+		"Plan", "Validate",
+		"ValidateModuleValues", "ValidateModuleValuesPartial", "ValidateModuleValuesDetailed",
+		"ValidateInstanceValues", "ValidateInstanceValuesPartial", "ValidateInstanceValuesDetailed",
+	} {
+		_, found := kt.MethodByName(name)
+		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
+	}
+
+	_, found := reflect.TypeOf(kernel.CompileInput{}).FieldByName("Values")
+	assert.False(t, found, "CompileInput must not carry a Values field; values enter through ProcessModuleInstance")
 }

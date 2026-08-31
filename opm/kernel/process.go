@@ -41,7 +41,7 @@ func (k *Kernel) ProcessModuleInstance(_ context.Context, spec cue.Value, mod mo
 	if validated.Exists() {
 		spec = spec.FillPath(schema.Values, validated)
 		if err := spec.Err(); err != nil {
-			return nil, fmt.Errorf("filling values into instance spec: %w", err)
+			return nil, fmt.Errorf("instance %q: filling values into instance spec: %w", name, err)
 		}
 	}
 

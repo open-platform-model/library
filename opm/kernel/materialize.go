@@ -18,9 +18,9 @@ import (
 // invalidation signal they own; short-lived ones rely on CUE's on-disk
 // module cache.
 //
-// Adding this method does not change the signatures of the existing phase
-// methods (Validate, Match, Plan, Compile), which still take
-// *platform.Platform in this slice.
+// The phase methods (Match, Compile) accept only the materialized form:
+// callers MUST Materialize a *platform.Platform before invoking either
+// phase.
 func (k *Kernel) Materialize(ctx context.Context, p *platform.Platform) (*materialize.MaterializedPlatform, error) {
 	return materialize.Materialize(ctx, k, k.registry, p)
 }

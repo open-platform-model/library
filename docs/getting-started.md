@@ -1,6 +1,6 @@
 # Getting started
 
-This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, composing a Platform, and compiling a Instance down to rendered `*core.Compiled` values.
+This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, materializing a Platform, and compiling an Instance down to rendered `*core.Compiled` values.
 
 The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.Context` and threads cross-cutting dependencies (logger, tracer, clock) through every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use.
 
@@ -84,7 +84,7 @@ defaults, _ := k.LoadSourceFromString("embedded", "defaults", `replicas: 1`)
 user, _    := k.LoadSourceFromFile("./values.cue")
 prod, _    := k.LoadSourceFromFile("./prod.cue")
 
-userValues, vErr := k.ValidateModuleValuesDetailed(mod, []kernel.Source{
+userValues, vErr := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{
     defaults, user, prod,
 })
 if vErr != nil {
@@ -96,7 +96,7 @@ if vErr != nil {
 }
 ```
 
-See [`docs/design/kernel-validate-flow.md`](design/kernel-validate-flow.md) for the full validation primitives surface (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`).
+The full validation primitives surface is `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`, composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance` — see the `opm/kernel` package documentation.
 
 ## Load and process a release
 
@@ -115,38 +115,36 @@ if err != nil {
 
 If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeInstance` (from `opm/helper/synth`) instead. It unifies the typed inputs against the `#ModuleInstance` schema (resolved via the kernel's `*schema.Cache`) and chains into `ProcessModuleInstance` in one call. The kernel-owned cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across release synthesis and other schema-touching code.
 
-## Load and compose a Platform
+## Load and materialize a Platform
 
-The Platform is the kernel's matching and execution input. A *shell* is a `Platform` whose `#registry` is empty (or partial); `ComposePlatform` `FillPath`-injects each registered Module so the schema's computed views (`#composedTransformers`, `#matchers`, `#knownResources`, `#knownTraits`) resolve.
-
-Frontends that load a fully-authored `platform.cue` (with its registry already populated) can skip `ComposePlatform` and use `NewPlatformFromValue` directly.
+The Platform is the kernel's matching and execution input. Its `#registry` declares path-keyed catalog subscriptions; `Kernel.Materialize` pulls each enabled subscription's catalog build from the OCI registry and returns a sealed `*materialize.MaterializedPlatform` with the composed transformers and matcher index filled. The phase methods accept only the materialized form — a raw `*platform.Platform` is not a valid phase input.
 
 ```go
-shellVal, err := k.LoadPlatformPackage(ctx, "./platform/", loaderfile.LoadOptions{})
+platVal, err := k.LoadPlatformPackage(ctx, "./platform/", loaderfile.LoadOptions{})
 if err != nil {
     return err
 }
-shell, err := k.NewPlatformFromValue(shellVal)
+plat, err := k.NewPlatformFromValue(platVal)
 if err != nil {
     return err
 }
-plat, err := k.ComposePlatform(shell, []*module.Module{mod /* + others */})
+mp, err := k.Materialize(ctx, plat)
 if err != nil {
     return err
 }
 ```
 
+`Materialize` is explicit and caller-driven: every call performs registry I/O, and the kernel holds no materialize cache. Long-running consumers store the `*MaterializedPlatform` keyed on an invalidation signal they own; short-lived ones rely on CUE's on-disk module cache.
+
 ## Compile
 
-`Kernel.Compile` runs the match → finalize → execute → emit pipeline and returns rendered values with full provenance.
+`Kernel.Compile` runs the match → execute → emit pipeline and returns rendered values with full provenance. The instance is rendered as processed: values were validated and filled by `ProcessModuleInstance`, and `Compile` performs no validation pass of its own.
 
 ```go
 result, err := k.Compile(ctx, kernel.CompileInput{
-    Module:        mod,
     ModuleInstance: rel,
-    Values:        userValues,
-    Platform:      plat,
-    RuntimeName:   "opm-cli",
+    Platform:       mp,
+    RuntimeName:    "opm-cli",
 })
 if err != nil {
     return err
@@ -160,14 +158,14 @@ Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance.
 
 ## Phase-explicit entry points
 
-The kernel exposes four phase methods that map onto frontend subcommands:
+The kernel exposes two phase methods that map onto frontend subcommands:
 
 | Method            | Frontend subcommand | Purpose                                              |
 | ----------------- | ------------------- | ---------------------------------------------------- |
-| `Kernel.Validate` | `vet`               | Assert values against `#config`                      |
 | `Kernel.Match`    | `match`             | Pair components with transformers                    |
-| `Kernel.Plan`     | `plan` / `preview`  | Match + execute without final emission               |
 | `Kernel.Compile`  | `apply` / `render`  | Full pipeline — rendered `[]*core.Compiled`          |
+
+Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed. A dry run is `Match` (pairing diagnosis) or `Compile` with the rendered slice discarded.
 
 ## Removed entry points
 

@@ -20,36 +20,36 @@ func TestIntegration_Validate(t *testing.T) {
 
 	t.Run("module values ok", func(t *testing.T) {
 		mod := buildModule(t, k, `{ replicas: int | *1, image: string }`)
-		out, err := k.ValidateModuleValues(mod, cueVal(t, k, `{ replicas: 3, image: "nginx" }`, "values.cue"))
+		out, err := k.ValidateConfig(mod.ConfigSchema(), cueVal(t, k, `{ replicas: 3, image: "nginx" }`, "values.cue"))
 		require.NoError(t, err)
 		assert.True(t, out.Exists())
 	})
 
 	t.Run("type error rejected", func(t *testing.T) {
 		mod := buildModule(t, k, `{ replicas: int, image: string }`)
-		_, err := k.ValidateModuleValues(mod, cueVal(t, k, `{ replicas: "three", image: "n" }`, "values.cue"))
+		_, err := k.ValidateConfig(mod.ConfigSchema(), cueVal(t, k, `{ replicas: "three", image: "n" }`, "values.cue"))
 		require.Error(t, err)
 	})
 
 	t.Run("partial tolerates missing required field", func(t *testing.T) {
 		mod := buildModule(t, k, `{ replicas: int, image: string }`)
 		values := cueVal(t, k, `{ replicas: 2 }`, "values.cue") // image omitted
-		_, errFull := k.ValidateModuleValues(mod, values)
+		_, errFull := k.ValidateConfig(mod.ConfigSchema(), values)
 		require.Error(t, errFull, "full validation requires every field concrete")
-		_, errPartial := k.ValidateModuleValuesPartial(mod, values)
+		_, errPartial := k.ValidateConfigPartial(mod.ConfigSchema(), values)
 		require.NoError(t, errPartial, "partial validation tolerates missing fields")
 	})
 
 	t.Run("disallowed field under closed config", func(t *testing.T) {
 		mod := buildModule(t, k, `close({ replicas: int | *1 })`)
-		_, err := k.ValidateModuleValues(mod, cueVal(t, k, `{ replicas: 1, extra: true }`, "values.cue"))
+		_, err := k.ValidateConfig(mod.ConfigSchema(), cueVal(t, k, `{ replicas: 1, extra: true }`, "values.cue"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "field not allowed")
 	})
 
 	t.Run("no values is a noop", func(t *testing.T) {
 		mod := buildModule(t, k, `{ replicas: int | *1 }`)
-		out, err := k.ValidateModuleValues(mod, cue.Value{})
+		out, err := k.ValidateConfig(mod.ConfigSchema(), cue.Value{})
 		require.NoError(t, err)
 		assert.False(t, out.Exists(), "zero values → zero result, no error")
 	})

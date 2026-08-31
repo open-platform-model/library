@@ -35,7 +35,7 @@ The trust gate: all three artifact types must be validated before the kernel act
 
 - Every artifact (`Module`, `ModuleInstance`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleInstance), empty-string rejection
 - No bypass path: a code route that reaches `Compile`/`Materialize`/`Execute` without first passing `helper/loader/file/validate.go` shape-gating + full schema validation
-- Full schema validation (`Kernel.Validate*`) runs user values against the module `#config` schema **before** any execution
+- Full schema validation (`Kernel.ValidateConfig*`, invoked by `Kernel.ProcessModuleInstance`) runs user values against the module `#config` schema **before** any execution
 - Sentinel errors (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`) are returned so callers can branch — and validation fails closed (an unparseable/ambiguous artifact is rejected, not partially processed)
 - Decode steps (`opm/schema/decode.go`, `opm/module`, `opm/platform`) tolerate missing/extra fields safely (no panic on attacker-shaped CUE)
 - Key files: `opm/helper/loader/file/validate.go`, `opm/kernel/validate*.go`, `opm/schema/decode.go`

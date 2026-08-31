@@ -83,7 +83,7 @@ Read these on entry:
 - `README.md` — same big picture as below, slightly fuller prose.
 - `MIGRATIONS.md` — every pre-release API break with migration recipe.
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
-- `docs/design/kernel-validate-flow.md`, `docs/design/compile-pipeline-known-gaps.md` — flow notes.
+- `docs/design/compile-pipeline-known-gaps.md` — flow notes.
 
 ## Repository Layout
 
@@ -249,14 +249,12 @@ task cue:test:flow                              # plan→match→compile integra
 
 ### Kernel API surface
 
-`*kernel.Kernel` is the single entry point. Four phase-explicit methods map to frontend subcommands:
+`*kernel.Kernel` is the single entry point. Two phase-explicit methods map to frontend subcommands:
 
-- `Kernel.Validate` — vet
 - `Kernel.Match` — match components ↔ transformers via `Platform.#matchers`
-- `Kernel.Plan` — plan / preview
 - `Kernel.Compile` — apply / render → `*kernel.CompileResult` carrying `[]*core.Compiled`
 
-The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, plus typed shortcuts in `kernel/validate_typed.go`).
+Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed with no validation pass of its own. The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 `*core.Compiled` is terminal output — adapters in downstream impls wrap each one with a platform-specific `core.Resource` filling `core.Identity`. Don't push platform-native identity into the kernel.
 
