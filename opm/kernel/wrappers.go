@@ -17,27 +17,17 @@ func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string, opts loade
 	return loaderfile.LoadModulePackage(k.cueCtx, dirPath, opts)
 }
 
-// LoadModuleFromRegistry loads a #Module published in an OCI registry by its
-// major-qualified path (e.g. "example.com/modules/hello@v0") and version (e.g.
-// "v0.0.2"), using the kernel's [*cue.Context] and configured registry (set via
-// [WithRegistry], inheriting CUE_REGISTRY from the process environment when
-// unset). It returns the raw module [cue.Value]; callers decode it via
-// [Kernel.NewModuleFromValue], mirroring [Kernel.LoadModulePackage]'s two-step
-// load→decode contract. See [loaderregistry.LoadModulePackage].
-func (k *Kernel) LoadModuleFromRegistry(ctx context.Context, modPath, version string) (cue.Value, error) {
-	return loaderregistry.LoadModulePackage(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
-}
-
-// AcquireModuleFromRegistry loads a #Module published in an OCI registry (same
-// fetch + main-module staging + shape gate as [Kernel.LoadModuleFromRegistry])
-// and returns a decoded [*module.Module] whose staged source ([module.Source])
-// is populated, so the module can be reused as the main module of a follow-on
-// build — notably by [Kernel.SynthesizeInstance], which stages the instance
-// inside the module's own root so the module's already-tidied
-// cue.mod/module.cue drives transitive dependency resolution. Unlike the
-// two-step [Kernel.LoadModuleFromRegistry] → [Kernel.NewModuleFromValue] path
-// (which discards the staged source at the cue.Value boundary), this single
-// call preserves it without a second registry fetch.
+// AcquireModuleFromRegistry loads a #Module published in an OCI registry by
+// its major-qualified path (e.g. "example.com/modules/hello@v0") and version
+// (e.g. "v0.0.2"), using the kernel's [*cue.Context] and configured registry
+// (set via [WithRegistry], inheriting CUE_REGISTRY from the process
+// environment when unset). It returns a decoded [*module.Module] whose staged
+// source ([module.Source]) is populated, so the module can be reused as the
+// main module of a follow-on build — notably by [Kernel.SynthesizeInstance],
+// which stages the instance inside the module's own root so the module's
+// already-tidied cue.mod/module.cue drives transitive dependency resolution.
+// A caller that wants only the raw module value reads Module.Package.
+// See [loaderregistry.LoadModulePackageWithSource].
 func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
 	res, err := loaderregistry.LoadModulePackageWithSource(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
 	if err != nil {

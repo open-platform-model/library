@@ -60,7 +60,7 @@ log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
 
 ## Load a module package
 
-`LoadModulePackage` reads a CUE package directory and builds a `cue.Value`. `NewModuleFromValue` wraps it into a typed `*module.Module`. To load a module published in an OCI registry instead of from disk, use `k.LoadModuleFromRegistry(ctx, modPath, version)` (or `opm/helper/loader/registry.LoadModulePackage` directly) — it returns the same raw `cue.Value` for `NewModuleFromValue`.
+`LoadModulePackage` reads a CUE package directory and builds a `cue.Value`. `NewModuleFromValue` wraps it into a typed `*module.Module`. To load a module published in an OCI registry instead of from disk, use `k.AcquireModuleFromRegistry(ctx, modPath, version)` (or `opm/helper/loader/registry.LoadModulePackageWithSource` directly) — it returns a decoded `*module.Module` carrying its staged source, ready for synthesis; read `Module.Package` when only the raw value is wanted.
 
 ```go
 import loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"

@@ -59,15 +59,6 @@ type InstanceMetadata struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// ProviderMetadata is the canonical decoded provider-level metadata.
-type ProviderMetadata struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Version     string            `json:"version,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
 // PlatformMetadata is the canonical decoded platform-level metadata. Type is
 // the top-level #Platform.type field hoisted into the metadata projection so
 // callers see one Go-level identity record per Platform artifact.

@@ -15,9 +15,6 @@
 //   - loader/file  — filesystem-coupled loading of modules, instances, and
 //     providers from a CUE module directory or .cue file. Use when the
 //     frontend has access to a real filesystem.
-//   - loader/bytes — in-memory loading skeleton; full implementation
-//     deferred until a consumer (Crossplane composition fn, fuzzing
-//     harness, in-memory tests) demands it.
 //   - synth        — artifact synthesis from in-memory typed inputs.
 //     synth.Instance composes a #ModuleInstance CUE value by unifying
 //     (Module, name, namespace, values, labels, annotations) against the

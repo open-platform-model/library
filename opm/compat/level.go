@@ -1,8 +1,9 @@
 // Package compat implements publish-side catalog compatibility logic:
 // enhancement 0010 D27's additive-only comparison walk ([Check],
 // [CheckAtLevel]), the D34 contract-level ladder ([Level], [ParseLevel],
-// [CompareAPIVersions]), D9 predecessor selection ([HighestStable]), and the
-// D30 provenance strip ([StripProvenance]).
+// [CompareAPIVersions]), and D9 predecessor selection ([HighestStable]).
+// 0010 D30's provenance exclusion is built into the walk, which skips the
+// denylisted metadata fields at every depth.
 //
 // The package is pure logic: no I/O, no registry access, no schema-cache
 // dependency, no state. Callers compose it with member enumeration, predecessor

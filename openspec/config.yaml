@@ -92,7 +92,7 @@ context: |
   - Accept interfaces, return structs.
   - Context propagation for I/O, CUE evaluation, and longer workflows.
   - Wrap errors with context: `fmt.Errorf("loading module: %w", err)`.
-  - Reuse `opm/errors` types and sentinels where applicable.
+  - Reuse `opm/errors` types where applicable.
   - Prefer concrete types over `map[string]any`.
   - No package-level mutable state; build fresh CUE contexts at the boundary.
 

@@ -11,8 +11,8 @@
 //     inputs.
 //
 // Synth is a peer of opm/helper/loader, not a subpackage of it. The loader
-// tree (opm/helper/loader/file, opm/helper/loader/bytes) reads existing
-// artifact bytes from a source — filesystem or byte buffer. Synthesis is
+// tree (opm/helper/loader/file, opm/helper/loader/registry) reads existing
+// artifacts from a source — filesystem or registry. Synthesis is
 // creation from typed inputs: there is no file to parse, no bytes to decode.
 // Co-locating synth under loader would conflate verbs and force every reader
 // to ignore the package doc when interpreting the package path. Keeping them

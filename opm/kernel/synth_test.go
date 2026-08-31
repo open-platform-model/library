@@ -29,7 +29,7 @@ func newSynthKernel(t *testing.T) *kernel.Kernel {
 // publishSynthModule publishes a #Module (bodyFields is the text after the
 // metadata block) to an in-memory registry against the default (v2) core,
 // then returns a Kernel wired to that registry plus the module loaded back
-// through Kernel.LoadModuleFromRegistry. This mirrors how a frontend acquires
+// through Kernel.AcquireModuleFromRegistry. This mirrors how a frontend acquires
 // a module before synthesizing an instance: synth.Instance imports the module
 // by its registry path, so the module MUST be resolvable from a registry — a
 // locally-built value no longer works.

@@ -77,11 +77,6 @@ type CompileResult struct {
 	Warnings []string
 }
 
-// ModuleResult is an alias for [CompileResult].
-//
-// Deprecated: use [CompileResult].
-type ModuleResult = CompileResult
-
 // NewModule creates a Module for the given materialized platform and runtime
 // identity. cueCtx is the caller Kernel's owned build context — Execute builds
 // the transformer #context.* view and the rendered output in it, consuming mp.Transformers / mp.Matchers as read-only input (the

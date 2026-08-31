@@ -59,22 +59,3 @@ func DecodePlatformMetadata(v cue.Value) (*PlatformMetadata, error) {
 	}
 	return meta, nil
 }
-
-// DecodeProviderMetadata extracts ProviderMetadata from a #Provider value.
-// fallbackName is used when the artifact's metadata is absent or its name
-// field decoded as empty — typically the config map key under which the
-// provider was loaded.
-func DecodeProviderMetadata(v cue.Value, fallbackName string) (*ProviderMetadata, error) {
-	meta := &ProviderMetadata{Name: fallbackName}
-	metaVal := v.LookupPath(Metadata)
-	if !metaVal.Exists() {
-		return meta, nil
-	}
-	if err := metaVal.Decode(meta); err != nil {
-		return nil, fmt.Errorf("decoding provider metadata: %w", err)
-	}
-	if meta.Name == "" {
-		meta.Name = fallbackName
-	}
-	return meta, nil
-}

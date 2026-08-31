@@ -40,8 +40,8 @@ func materialized(t *testing.T, ctx *cue.Context, src string) *materialize.Mater
 	}
 	return &materialize.MaterializedPlatform{
 		Source:       plat,
-		Transformers: pv.LookupPath(schema.ComposedTransformers),
-		Matchers:     pv.LookupPath(schema.Matchers),
+		Transformers: pv.LookupPath(cue.ParsePath("#composedTransformers")),
+		Matchers:     pv.LookupPath(cue.ParsePath("#matchers")),
 	}
 }
 
@@ -330,8 +330,8 @@ type: "kubernetes"
 	}
 	return &materialize.MaterializedPlatform{
 		Source:       plat,
-		Transformers: pv.LookupPath(schema.ComposedTransformers),
-		Matchers:     pv.LookupPath(schema.Matchers),
+		Transformers: pv.LookupPath(cue.ParsePath("#composedTransformers")),
+		Matchers:     pv.LookupPath(cue.ParsePath("#matchers")),
 	}
 }
 

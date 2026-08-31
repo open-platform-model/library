@@ -14,10 +14,9 @@
 //
 // # Metadata decoders
 //
-// DecodeModuleMetadata, DecodeInstanceMetadata, DecodeProviderMetadata, and
-// DecodePlatformMetadata accept a raw artifact-root cue.Value and return the
-// canonical decoded struct. Missing metadata is fatal for module / instance /
-// platform; provider metadata falls back to a caller-supplied name.
+// DecodeModuleMetadata, DecodeInstanceMetadata, and DecodePlatformMetadata —
+// one per artifact the kernel accepts — take a raw artifact-root cue.Value
+// and return the canonical decoded struct. Missing metadata is fatal.
 //
 // # Transformer context
 //
