@@ -5,6 +5,7 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -31,7 +32,21 @@ type Platform struct {
 	// truth for every field reachable via opm/schema, including #registry
 	// and the computed views.
 	Package cue.Value `json:"-"`
+
+	// Source is the staged source tree the platform package was loaded from,
+	// so a follow-on build can import the platform as a package. It is
+	// stamped by Kernel.AcquirePlatformFromDir (on-disk mode, the loaded
+	// directory) and is nil for platforms constructed from a bare value
+	// (NewPlatformFromValue, Kernel.SynthesizePlatform). Nothing in
+	// Materialize, Match or Compile reads it.
+	Source *Source `json:"-"`
 }
+
+// Source is a re-export of [module.Source] so callers can keep working with
+// `platform.Source`, mirroring the [PlatformMetadata] re-export. One type
+// describes the staged source tree of every artifact; see [module.Source]
+// for the overlay and on-disk modes.
+type Source = module.Source
 
 // PlatformMetadata is a re-export of [schema.PlatformMetadata] so callers
 // can keep working with `platform.PlatformMetadata`.

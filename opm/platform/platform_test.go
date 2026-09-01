@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
 
@@ -70,4 +71,28 @@ type: "kubernetes"
 	require.NoError(t, err)
 	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
 	assert.Equal(t, want.Metadata.Type, got.Metadata.Type)
+}
+
+// TestNewPlatformFromValue_NoSource pins the platform-artifact scenario
+// "Value-constructed platform has no source": a platform built from a bare
+// cue.Value carries no staged source tree.
+func TestNewPlatformFromValue_NoSource(t *testing.T) {
+	k := kernel.New()
+	v := k.CueContext().CompileString(`
+kind: "Platform"
+metadata: name: "no-source"
+type: "kubernetes"
+`)
+	require.NoError(t, v.Err())
+
+	p, err := platform.NewPlatformFromValue(k, v)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.Nil(t, p.Source, "value-constructed platform must carry no Source")
+
+	// platform.Source aliases module.Source: assigning one type to the other
+	// needs no conversion.
+	p.Source = &module.Source{Root: "/x"}
+	var src *platform.Source = p.Source //nolint:staticcheck // the explicit type IS the assertion: alias identity
+	assert.Equal(t, "/x", src.Root)
 }
