@@ -44,3 +44,4 @@ None.
 - Code: `opm/module/source.go`, `opm/module/instance.go`, `opm/platform/platform.go`, `opm/helper/synth/instance.go`, `opm/kernel/synth.go`, `opm/kernel/wrappers.go` (or a new `opm/kernel/acquire.go`), plus tests beside each.
 - Docs: `opm/module/source.go` doc comments (broadened contract), `opm/helper/doc.go` and `opm/kernel/doc.go` untouched (no contract change yet); `CLAUDE.md` package notes untouched.
 - No CUE, no schema pin, no fixture changes.
+- Landed alongside, as an unrelated unblock in its own commit: `schema.DefaultSchemaModule` pinned to core 2.0.0-alpha.6, because 2.0.0-alpha.7 (released 2026-09-01) reshapes `#Platform.#registry` and broke the materialize tests on a clean `main`. The platform code follows the new shape in a later change, which restores the floating major.
