@@ -45,7 +45,8 @@ type InstanceMetadata struct {
 	// FQN is the instance's OWN fully qualified name
 	// (registryPath:name:namespace), defined by core v2 on
 	// #ModuleInstance.metadata and decoded via the schema.MetadataFQN path.
-	// Distinct from the source module's FQN (InstanceView.ModuleFQN).
+	// Distinct from the source module's FQN, which lives on the instance's
+	// Package at the module-metadata path.
 	FQN string `json:"fqn,omitempty"`
 
 	// UUID is the instance identity UUID.
@@ -84,7 +85,6 @@ type InstanceView interface {
 	// (registryPath:name:namespace, core v2) — the value the transformer
 	// context's #moduleInstanceMetadata.fqn carries (0010 D41).
 	InstanceFQN() string
-	ModuleFQN() string
 	ModuleVersion() string
 	Labels() map[string]string
 	Annotations() map[string]string

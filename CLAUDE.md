@@ -90,7 +90,7 @@ Read these on entry:
 ```text
 opm/
   compat/                     Publish-side catalog compatibility: D27 comparison walk (with D30 provenance skip), D34 level ladder, predecessor selection (pure, no I/O)
-  core/                       Platform-neutral primitives: Compiled, Resource, Identity
+  core/                       Platform-neutral primitives: Compiled (terminal output)
   errors/                     Structured errors + grouped CUE diagnostics (alias as oerrors in consumers)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
   module/                     *module.Module / *module.Instance types + value-validation accessors
@@ -256,7 +256,7 @@ task cue:test:flow                              # plan→match→compile integra
 
 Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed with no validation pass of its own. The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
-`*core.Compiled` is terminal output — adapters in downstream impls wrap each one with a platform-specific `core.Resource` filling `core.Identity`. Don't push platform-native identity into the kernel.
+`*core.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
 
 ### Compile pipeline (per release)
 

@@ -145,7 +145,6 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, out)
 		require.NotNil(t, out.MatchPlan)
-		assert.Empty(t, out.Unmatched)
 		require.NotEmpty(t, out.Compiled, "compile must emit at least one rendered item")
 
 		// Component summaries ride on the CompileResult (the retired Plan verb

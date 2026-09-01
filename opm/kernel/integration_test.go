@@ -107,14 +107,13 @@ func TestIntegration_MatchCompile(t *testing.T) {
 		assertContainsFQNSub(t, pairs["web"], "transformers/deployment@", "web → deployment")
 		assertContainsFQNSub(t, pairs["config"], "transformers/configmap@", "config → configmap")
 		assert.Empty(t, plan.Unmatched)
-		assert.Empty(t, plan.Missing)
+		assert.Empty(t, plan.Unresolved)
 	})
 
 	t.Run("Compile dispatches struct and list outputs", func(t *testing.T) {
 		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
 		require.NoError(t, err)
 		require.NotNil(t, out)
-		assert.Empty(t, out.Unmatched)
 
 		perComp := map[string]int{}
 		for _, c := range out.Compiled {
@@ -286,7 +285,7 @@ func TestIntegration_Compile_UnresolvedDemands(t *testing.T) {
 	})
 }
 
-func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {
+func TestIntegration_Match_UnresolvedDemandRecordsAlternatives(t *testing.T) {
 	path := registrytest.UniquePath(t, "cat")
 	// Catalog publishes the container contract at ContractAPIVersion ("v1");
 	// the component below demands the same contract at an unpublished level.
@@ -301,16 +300,16 @@ func TestIntegration_Match_MissingFQNRecordsAlternatives(t *testing.T) {
 
 	plan, err := k.Match(context.Background(), kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 	require.NoError(t, err)
-	require.NotEmpty(t, plan.Missing, "demanded FQN at an unpublished contract level is a hard miss")
+	require.NotEmpty(t, plan.Unresolved, "demanded FQN at an unpublished contract level is a hard miss")
 
-	var found *oerrors.MissingFQN
-	for i := range plan.Missing {
-		if plan.Missing[i].Component == "web" {
-			found = &plan.Missing[i]
+	var found *oerrors.UnresolvedDemand
+	for i := range plan.Unresolved {
+		if plan.Unresolved[i].Component == "web" {
+			found = &plan.Unresolved[i]
 			break
 		}
 	}
-	require.NotNil(t, found, "missing FQN recorded for web")
+	require.NotNil(t, found, "unresolved demand recorded for web")
 	assert.Equal(t, demanded, found.FQN)
 	// The published contract level shares modulePath/name → surfaced as an alternative.
 	assert.Contains(t, found.Alternatives, resFQN(path, "container"))

@@ -1,22 +1,14 @@
 package kernel
 
 import (
-	"io"
-	"log/slog"
-	"time"
-
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/open-platform-model/library/opm/schema"
 )
 
 // Kernel is the public anchor type for the OPM runtime. It owns a
-// [*cue.Context] for its lifetime and carries the cross-cutting
-// dependencies (logger, tracer, clock, schema cache) used by every
-// kernel operation.
+// [*cue.Context] and a [*schema.Cache] for its lifetime.
 //
 // Kernel is NOT safe for concurrent use across method calls — see the
 // package documentation for the one-Kernel-per-goroutine pattern.
@@ -28,9 +20,6 @@ import (
 // disk cache. The CUE module cache on disk is shared across Kernels.
 type Kernel struct {
 	cueCtx       *cue.Context
-	logger       *slog.Logger
-	tracer       trace.Tracer
-	clock        Clock
 	schemaLoader schema.Loader
 	schemaCache  *schema.Cache
 	registry     string
@@ -38,29 +27,15 @@ type Kernel struct {
 
 // Option configures a [Kernel] at construction time. Options compose via
 // the functional-options pattern; new options can be added in MINOR
-// instances without breaking existing call sites.
+// instances without breaking existing call sites. The provided options
+// are [WithSchemaLoader] and [WithRegistry]; the Kernel exposes no
+// injection slot that no kernel operation reads.
 type Option func(*Kernel)
-
-// Clock is the kernel's view of wall-clock time. The interface is
-// intentionally minimal: future slices may consult [Clock.Now] for
-// deterministic rendering when render becomes time-dependent. Pass a
-// fake [Clock] via [WithClock] in tests that need to pin time.
-type Clock interface {
-	Now() time.Time
-}
-
-// systemClock is the default [Clock] backed by [time.Now].
-type systemClock struct{}
-
-func (systemClock) Now() time.Time { return time.Now() }
 
 // New constructs a [Kernel] with default dependencies and applies the
 // supplied options. Defaults are:
 //
 //   - cue.Context: a fresh [cuecontext.New]
-//   - Logger:      a no-op [*slog.Logger] (writes are discarded)
-//   - Tracer:      a no-op OpenTelemetry tracer
-//   - Clock:       wall-clock time via [time.Now]
 //   - SchemaCache: a fresh [*schema.Cache] backed by zero-value
 //     [schema.OCILoader]; resolves opmodel.dev/core@v2 against
 //     CUE_REGISTRY / CUE_CACHE_DIR from the process environment
@@ -74,9 +49,6 @@ func (systemClock) Now() time.Time { return time.Now() }
 func New(opts ...Option) *Kernel {
 	k := &Kernel{
 		cueCtx: cuecontext.New(),
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		tracer: noop.NewTracerProvider().Tracer(""),
-		clock:  systemClock{},
 	}
 	for _, opt := range opts {
 		opt(k)
@@ -90,38 +62,6 @@ func New(opts ...Option) *Kernel {
 	}
 	k.schemaCache = &schema.Cache{Loader: loader}
 	return k
-}
-
-// WithLogger overrides the kernel's internal [*slog.Logger]. The logger
-// is used for kernel-internal diagnostics only; it is intentionally not
-// exposed back to callers.
-func WithLogger(l *slog.Logger) Option {
-	return func(k *Kernel) {
-		if l != nil {
-			k.logger = l
-		}
-	}
-}
-
-// WithTracer overrides the kernel's internal OpenTelemetry [trace.Tracer].
-// The tracer is used to emit spans for kernel operations once those slices
-// land; in this slice it is a passive slot.
-func WithTracer(t trace.Tracer) Option {
-	return func(k *Kernel) {
-		if t != nil {
-			k.tracer = t
-		}
-	}
-}
-
-// WithClock overrides the kernel's [Clock]. Use a fake clock in tests that
-// need time pinned to a specific instant.
-func WithClock(c Clock) Option {
-	return func(k *Kernel) {
-		if c != nil {
-			k.clock = c
-		}
-	}
 }
 
 // WithSchemaLoader configures the [schema.Loader] used to populate the

@@ -1,17 +1,17 @@
+// Package core defines the shared primitives of OPM-compiled artifacts.
+// Compiled is the kernel's terminal output: the compile package emits
+// *Compiled values carrying the rendered CUE value plus OPM provenance.
+// Platform-native identity for a compiled artifact is the frontend's
+// concern — each consumer wraps *Compiled in its own resource type.
 package core
 
 import (
 	"cuelang.org/go/cue"
 )
 
-// Compiled is the raw output of the OPM compile pipeline before any
-// platform wrapping. The compile package emits *Compiled values; adapters
-// translate them to platform-specific Resource implementations that
-// expose Identity().
-//
-// Compiled itself does NOT implement Resource — keeping the two apart
-// stops library code from accidentally reading platform-native fields and
-// keeps the kernel platform-neutral.
+// Compiled is the terminal output of the OPM compile pipeline. It carries
+// no platform-native fields — keeping platform vocabulary out of the
+// kernel keeps it platform-neutral.
 type Compiled struct {
 	// Value is the CUE value produced by the transformer. Concrete and
 	// fully evaluated — safe to encode directly to YAML or JSON.

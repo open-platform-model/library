@@ -98,7 +98,7 @@ type: "kubernetes"
 	require.Len(t, pairs, 1)
 	assert.Equal(t, "web", pairs[0].ComponentName)
 	assert.Equal(t, "opmodel.dev/p/k8s/x@v0", pairs[0].TransformerFQN)
-	assert.Empty(t, plan.Missing)
+	assert.Empty(t, plan.Unresolved)
 	assert.Empty(t, plan.Unify)
 }
 
@@ -197,7 +197,7 @@ type: "kubernetes"
 	require.Len(t, pairs, 1, "exactly one version-bearing transformer matches")
 	assert.Equal(t, "example.com/p/deployment-transformer@0.5.0", pairs[0].TransformerFQN,
 		"component embedding @0.5.0 matches only the @0.5.0 transformer, not @0.5.1")
-	assert.Empty(t, plan.Missing)
+	assert.Empty(t, plan.Unresolved)
 	assert.Empty(t, plan.Unify)
 }
 
@@ -442,11 +442,11 @@ func TestMatch_UnifyErrorKeepsFieldsAndPositions(t *testing.T) {
 		"the surviving cause keeps document positions (no operand round-trip)")
 }
 
-// TestMatch_AbsentFQNRecordsMissingWithAlternatives covers the lookup rung: a
-// demanded FQN whose #matchers bucket is empty produces a hard MissingFQN, and
-// Alternatives surfaces the same-modulePath/name FQN materialized at another
-// SemVer.
-func TestMatch_AbsentFQNRecordsMissingWithAlternatives(t *testing.T) {
+// TestMatch_AbsentFQNRecordsUnresolvedWithAlternatives covers the lookup rung:
+// a demanded FQN whose #matchers bucket is empty records an UnresolvedDemand,
+// and Alternatives surfaces the same-modulePath/name FQN materialized at
+// another SemVer.
+func TestMatch_AbsentFQNRecordsUnresolvedWithAlternatives(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := materialized(t, ctx, `
 kind: "Platform"
@@ -481,12 +481,12 @@ type: "kubernetes"
 	plan, err := compile.Match(components, mp, "demo")
 	require.NoError(t, err)
 
-	require.Len(t, plan.Missing, 1, "absent FQN must record exactly one MissingFQN")
-	miss := plan.Missing[0]
-	assert.Equal(t, "demo", miss.Instance)
-	assert.Equal(t, "web", miss.Component)
-	assert.Equal(t, "example.com/r/container@1.0.0", miss.FQN)
-	assert.Equal(t, []string{"example.com/r/container@1.1.0"}, miss.Alternatives)
+	require.Len(t, plan.Unresolved, 1, "absent FQN must record exactly one UnresolvedDemand")
+	d := plan.Unresolved[0]
+	assert.Equal(t, "web", d.Component)
+	assert.Equal(t, "example.com/r/container@1.0.0", d.FQN)
+	assert.Equal(t, "resource", d.Kind)
+	assert.Equal(t, []string{"example.com/r/container@1.1.0"}, d.Alternatives)
 
 	assert.Contains(t, plan.Unmatched, "web")
 }
@@ -573,8 +573,7 @@ func TestMatch_AllCandidatesDisqualifiedIsUnresolved(t *testing.T) {
 }
 
 // TestMatch_EmptyBucketRecordsUnresolvedResource covers D28 state (a): a
-// demanded resource with no bucket at all is unresolved (beside the
-// compatibility MissingFQN record).
+// demanded resource with no bucket at all is unresolved.
 func TestMatch_EmptyBucketRecordsUnresolvedResource(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := materialized(t, ctx, `
@@ -598,7 +597,6 @@ type: "kubernetes"
 	require.Len(t, plan.Unresolved, 1)
 	assert.Equal(t, "resource", plan.Unresolved[0].Kind)
 	assert.Empty(t, plan.Unresolved[0].Disqualified, "no candidates existed")
-	require.Len(t, plan.Missing, 1, "Missing stays fed for compatibility")
 }
 
 // TestMatch_AlternativesOrderTotalAndStable covers D34/D4: the measured
@@ -658,15 +656,15 @@ type: "kubernetes"
 
 		plan, err := compile.Match(components, mp, "demo")
 		require.NoError(t, err)
-		require.Len(t, plan.Missing, 1)
-		assert.Equal(t, want, plan.Missing[0].Alternatives,
+		require.Len(t, plan.Unresolved, 1)
+		assert.Equal(t, want, plan.Unresolved[0].Alternatives,
 			"ordering must be identical for input permutation %v", perm)
 	}
 }
 
 // TestMatch_MultipleMissesAccumulated covers the one-pass, no-fail-fast
 // accumulation: two components each demand a distinct absent FQN, so the plan
-// carries two MissingFQN entries (one per (instance, component, fqn)).
+// carries two UnresolvedDemand entries (one per (component, fqn)).
 func TestMatch_MultipleMissesAccumulated(t *testing.T) {
 	ctx := cuecontext.New()
 	mp := materialized(t, ctx, `
@@ -692,11 +690,10 @@ type: "kubernetes"
 	plan, err := compile.Match(components, mp, "demo")
 	require.NoError(t, err)
 
-	require.Len(t, plan.Missing, 2, "one MissingFQN per (component, fqn), accumulated in one pass")
+	require.Len(t, plan.Unresolved, 2, "one UnresolvedDemand per (component, fqn), accumulated in one pass")
 	byComp := map[string]string{}
-	for _, m := range plan.Missing {
-		assert.Equal(t, "demo", m.Instance)
-		byComp[m.Component] = m.FQN
+	for _, d := range plan.Unresolved {
+		byComp[d.Component] = d.FQN
 	}
 	assert.Equal(t, "example.com/r/a@v0", byComp["web"])
 	assert.Equal(t, "example.com/r/b@v0", byComp["db"])
