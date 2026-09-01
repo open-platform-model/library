@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-alpha.23](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.22...v1.0.0-alpha.23) (2026-09-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **library:** prune unread diagnostics, adapter contract and DI slots ([#99](https://github.com/open-platform-model/library/issues/99))
+
+### Code Refactoring
+
+* **library:** prune unread diagnostics, adapter contract and DI slots ([#99](https://github.com/open-platform-model/library/issues/99)) ([8be2c07](https://github.com/open-platform-model/library/commit/8be2c077cab663dcdaca3691625deeb6f685f3ae))
+
 ## [1.0.0-alpha.22](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.21...v1.0.0-alpha.22) (2026-08-31)
 
 
