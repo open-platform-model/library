@@ -118,7 +118,8 @@ The `Kernel` SHALL expose two phase-explicit methods, each accepting a phase-spe
 #### Scenario: Compile phase method
 
 - **WHEN** a caller invokes `k.Compile(ctx, CompileInput{ModuleInstance, Platform, RuntimeName})`
-- **THEN** the kernel runs Match then Execute against the instance's already-processed value and returns a `*CompileResult` containing `Compiled []*core.Compiled`, the `MatchPlan`, component summaries, unmatched components, and warnings
+- **THEN** the kernel runs Match then Execute against the instance's already-processed value and returns a `*CompileResult` containing `Compiled []*core.Compiled`, the `MatchPlan`, component summaries, and warnings
+- **AND** the `CompileResult` carries no top-level unmatched-components field: an unmatched component fails `Compile` through the typed gate, and the plan inside the result still records `MatchPlan.Unmatched`
 - **AND** performs no values validation of its own; the instance is rendered as processed
 
 #### Scenario: Validate phase method

@@ -222,7 +222,7 @@ The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, and `
 ### Requirement: Transformer-context builder
 The library SHALL expose `schema.BuildTransformerContext(ctx, rel, compName, schemaComp, runtimeName)` that constructs the `#TransformerContext` value for a single (instance, component, transformer) tuple. The caller's job is to fill the returned value at `schema.Context` on the unified transformer.
 
-The function MUST accept any value implementing `schema.InstanceView` (`InstanceName/Namespace/InstanceUUID/ModuleFQN/ModuleVersion/Labels/Annotations`). It MUST surface metadata-decode failures as non-fatal warnings rather than errors.
+The function MUST accept any value implementing `schema.InstanceView` (`InstanceName/Namespace/InstanceUUID/InstanceFQN/ModuleVersion/Labels/Annotations`); the interface SHALL NOT carry a `ModuleFQN` member (the context builder never read it, and the `#moduleInstanceMetadata.fqn` it fills is the instance's own `InstanceFQN`). It MUST surface metadata-decode failures as non-fatal warnings rather than errors.
 
 #### Scenario: Successful context construction
 - **WHEN** `BuildTransformerContext` is called with a non-nil context, a valid `InstanceView`, a non-empty `compName`, a schema-preserving component value, and a non-empty `runtimeName`

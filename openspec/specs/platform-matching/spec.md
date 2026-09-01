@@ -35,7 +35,7 @@ The matcher SHALL collect required Resource and Trait FQNs by walking each compo
 
 ### Requirement: Lookup via Platform.#matchers
 
-For each demanded FQN, the matcher SHALL look up the FQN in the materialized platform's `#matchers.resources[FQN]` (or `.traits[FQN]`) via the binding's `Paths().Matchers` constant. A demanded FQN whose bucket is empty SHALL produce a structured `MissingFQN` diagnostic rather than a soft warning.
+For each demanded FQN, the matcher SHALL look up the FQN in the materialized platform's `#matchers.resources[FQN]` (or `.traits[FQN]`) via the binding's `Paths().Matchers` constant. A demanded FQN whose bucket is empty SHALL be carried by the unresolved-demand set rather than a soft warning: for a resource demand (and for a load-bearing trait demand) the matcher records an `UnresolvedDemand` with empty `Disqualified` and the same-base alternatives; an effectively-optional trait demand degrades to the unhandled-trait warning.
 
 #### Scenario: FQN present in matchers
 
@@ -45,7 +45,7 @@ For each demanded FQN, the matcher SHALL look up the FQN in the materialized pla
 #### Scenario: FQN absent
 
 - **WHEN** a demanded resource FQN is absent from the materialized `#matchers.resources`
-- **THEN** the matcher records one `MissingFQN` entry on the `MatchPlan` for that `(release, component, fqn)` triple
+- **THEN** the matcher records one `UnresolvedDemand` for that `(component, fqn)` with `Kind: "resource"` and the platform's same-base alternatives
 - **AND** the matcher continues processing the remaining demanded FQNs (no fail-fast)
 
 ### Requirement: Execute Resolves Transformers by FQN
@@ -106,20 +106,6 @@ The matcher SHALL, before testing the predicate, unify the component's demanded 
 
 - **WHEN** the two definitions disagree on a `spec` field's domain
 - **THEN** a typed unify error is recorded naming the component and contract key
-
-### Requirement: Structured Missing-FQN Diagnostic
-
-A missing FQN SHALL be reported as a structured `MissingFQN` value carrying the instance name, component name, the missing FQN, and a list of alternative FQNs sharing the same `modulePath`/`name` at other versions materialized on the platform, ordered by the total contract-key comparator (see Alternatives Ordering). `Match` SHALL accumulate every miss in one pass and expose them on the `MatchPlan`. The `MissingFQN` record is retained for compatibility; the load-bearing diagnosis is the unresolved-demand set.
-
-#### Scenario: Alternatives surfaced
-
-- **WHEN** a component demands `<path>/<name>@v9` which is absent, but the platform materialized `<path>/<name>@v1`
-- **THEN** the `MissingFQN.Alternatives` for that miss contains `<path>/<name>@v1`
-
-#### Scenario: Multiple misses accumulated
-
-- **WHEN** two components each demand a different absent FQN
-- **THEN** the `MatchPlan` carries two `MissingFQN` entries, one per `(instance, component, fqn)`
 
 ### Requirement: Structured Unify-Error Diagnostic
 
