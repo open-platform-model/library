@@ -54,11 +54,12 @@ type Module struct {
 	// truth for every field reachable via opm/schema's path vars.
 	Package cue.Value `json:"-"`
 
-	// Source is the module's staged registry source tree (synthetic root +
-	// overlay), populated only when the module was acquired through the
-	// source-carrying registry path (Kernel.AcquireModuleFromRegistry). It is
-	// nil otherwise. Consumers that must build inside the module's own root
-	// (e.g. synth.Instance) gate on HasSource(). See source.go.
+	// Source is the module's staged source tree, populated only when the
+	// module was acquired through the source-carrying registry path
+	// (Kernel.AcquireModuleFromRegistry): always overlay mode, never on-disk.
+	// It is nil otherwise. Consumers that must build inside the module's own
+	// root (e.g. synth.Instance) gate on HasSource(). See [Source] for the
+	// full two-mode contract shared with Instance and Platform.
 	Source *Source `json:"-"`
 }
 

@@ -70,3 +70,21 @@ func TestInstance_ConfigSchema_NilReceiver(t *testing.T) {
 		assert.False(t, inst.ConfigSchema().Exists())
 	})
 }
+
+// TestNewInstanceFromValue_NoSource pins the artifact-types scenario
+// "Value-constructed instance has no source": an instance built from a bare
+// cue.Value carries no staged source tree.
+func TestNewInstanceFromValue_NoSource(t *testing.T) {
+	ctx := cuecontext.New()
+	v := ctx.CompileString(`
+kind: "ModuleInstance"
+metadata: { name: "demo", namespace: "ns" }
+#module: {kind: "Module"}
+`)
+	require.NoError(t, v.Err())
+
+	inst, err := module.NewInstanceFromValue(nil, v)
+	require.NoError(t, err)
+	require.NotNil(t, inst)
+	assert.Nil(t, inst.Source, "value-constructed instance must carry no Source")
+}
