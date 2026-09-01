@@ -135,25 +135,33 @@ const synthPkgDir = "opm-synth-instance"
 // and the standard module-instance.opmodel.dev/{name,uuid} labels are stamped.
 // Instance stamps only the caller-supplied fields and lets CUE derive the rest.
 //
+// Alongside the value, Instance returns the staged tree the build evaluated:
+// Root is the module's staged root, Pkg the reserved instance subdirectory,
+// Overlay the module's cloned overlay augmented with the synthesized files
+// (instance.cue, plus values.cue when Values was supplied). The overlay is the
+// clone the build used, never the module's own map, so the caller may retain
+// it and the module may be synthesized again. Kernel.SynthesizeInstance stamps
+// it onto the resulting Instance.Source. Every error path returns a nil tree.
+//
 // Was: Release
-func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error) {
+func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, *module.Source, error) {
 	if in.Module == nil {
-		return cue.Value{}, ErrMissingModule
+		return cue.Value{}, nil, ErrMissingModule
 	}
 	if in.Name == "" {
-		return cue.Value{}, ErrMissingName
+		return cue.Value{}, nil, ErrMissingName
 	}
 	if in.Namespace == "" {
-		return cue.Value{}, ErrMissingNamespace
+		return cue.Value{}, nil, ErrMissingNamespace
 	}
 	if in.SchemaCache == nil {
-		return cue.Value{}, ErrMissingSchemaCache
+		return cue.Value{}, nil, ErrMissingSchemaCache
 	}
 	if in.Module.Metadata == nil || in.Module.Metadata.ModulePath == "" || in.Module.Metadata.Version == "" {
-		return cue.Value{}, fmt.Errorf("%w: module has no modulePath/version identity to import by", ErrMissingModule)
+		return cue.Value{}, nil, fmt.Errorf("%w: module has no modulePath/version identity to import by", ErrMissingModule)
 	}
 	if !in.Module.HasSource() {
-		return cue.Value{}, ErrMissingSource
+		return cue.Value{}, nil, ErrMissingSource
 	}
 
 	// Resolve the schema to (a) confirm #ModuleInstance is present and (b) learn
@@ -165,19 +173,19 @@ func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error) {
 	// already-memoized schema fetch.
 	schemaPkg, err := in.SchemaCache.Get(ctx)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Instance: loading schema: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("synth.Instance: loading schema: %w", err)
 	}
 	if !schemaPkg.LookupPath(cue.ParsePath("#ModuleInstance")).Exists() {
-		return cue.Value{}, fmt.Errorf("%w: #ModuleInstance not found in resolved schema", ErrSchemaUnavailable)
+		return cue.Value{}, nil, fmt.Errorf("%w: #ModuleInstance not found in resolved schema", ErrSchemaUnavailable)
 	}
 	coreVersion := in.SchemaCache.ResolvedVersion()
 	if coreVersion == "" {
-		return cue.Value{}, fmt.Errorf("%w: resolved core schema version unavailable, cannot derive synth core import major", ErrSchemaUnavailable)
+		return cue.Value{}, nil, fmt.Errorf("%w: resolved core schema version unavailable, cannot derive synth core import major", ErrSchemaUnavailable)
 	}
 
 	moduleRoot, overlay, err := buildOverlay(in, coreVersion)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Instance: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("synth.Instance: %w", err)
 	}
 
 	// Evaluate the synthesized package through the SAME build-and-shape-gate
@@ -188,9 +196,9 @@ func Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error) {
 	// acquire the module).
 	val, err := loaderfile.BuildInstanceOverlayAt(ctx, moduleRoot, "./"+synthPkgDir, overlay, loaderfile.LoadOptions{})
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("synth.Instance: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("synth.Instance: %w", err)
 	}
-	return val, nil
+	return val, &module.Source{Root: moduleRoot, Pkg: synthPkgDir, Overlay: overlay}, nil
 }
 
 // buildOverlay clones the acquired module's staged overlay and adds the

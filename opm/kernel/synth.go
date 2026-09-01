@@ -30,6 +30,10 @@ import (
 // — should call [synth.Instance] directly with [Kernel.CueContext] and then
 // invoke [Kernel.ProcessModuleInstance] themselves.
 //
+// The returned instance carries [module.Instance.Source]: the staged tree
+// [synth.Instance] built, in overlay mode, with Pkg naming the reserved
+// instance subdirectory inside the module's staged root.
+//
 // in.Values is passed through to [Kernel.ProcessModuleInstance] unchanged.
 // The zero cue.Value means "no values supplied"; [Kernel.ProcessModuleInstance]
 // then fails the concreteness check unless every #config field has a
@@ -48,7 +52,7 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in synth.InstanceInput)
 	if in.SchemaCache == nil {
 		in.SchemaCache = k.schemaCache
 	}
-	spec, err := synth.Instance(k.cueCtx, in)
+	spec, src, err := synth.Instance(k.cueCtx, in)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
@@ -62,6 +66,10 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in synth.InstanceInput)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
+	// Stamp the staged tree synth built (the module's cloned overlay plus the
+	// synthesized instance package under its reserved subdirectory) so a
+	// follow-on build can import the instance as a package.
+	inst.Source = src
 	return inst, nil
 }
 

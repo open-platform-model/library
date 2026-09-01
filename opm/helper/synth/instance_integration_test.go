@@ -12,6 +12,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/load"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -203,7 +204,7 @@ func TestInstance_ImportedModule_ConstructsOnAuthorSuppliedCore(t *testing.T) {
 
 	mod, _ := publishImportableModule(t, ctx, "v1.0.0-alpha.1")
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "hello-inst",
 		Namespace:   "default",
@@ -254,7 +255,7 @@ func TestInstance_DerivedFields_FromSchema(t *testing.T) {
 debugValues: {}
 `)
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -299,7 +300,7 @@ func TestInstance_NamespaceChangesUUID(t *testing.T) {
 	cache := pinnedCache("v1.0.0-alpha.1")
 
 	uuidFor := func(ns string) string {
-		inst, err := synth.Instance(ctx, synth.InstanceInput{Module: mod, Name: "inst", Namespace: ns, SchemaCache: cache})
+		inst, _, err := synth.Instance(ctx, synth.InstanceInput{Module: mod, Name: "inst", Namespace: ns, SchemaCache: cache})
 		require.NoError(t, err)
 		u, err := inst.LookupPath(cue.ParsePath("metadata.uuid")).String()
 		require.NoError(t, err)
@@ -326,7 +327,7 @@ func TestInstance_EmptyValuesNotReplacedByDebugValues(t *testing.T) {
 debugValues: {sentinel: "from-debug"}
 `)
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -371,7 +372,7 @@ dbPassword: {
 `)
 	require.NoError(t, values.Err())
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -395,7 +396,7 @@ func TestInstance_BadNameFailsUnification(t *testing.T) {
 
 	mod, _ := publishImportableModule(t, ctx, "v1.0.0-alpha.1")
 
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "BAD-UPPER", // #NameType forbids uppercase
 		Namespace:   "default",
@@ -424,7 +425,7 @@ debugValues: {}
 `)
 
 	// synth path.
-	synthRel, err := synth.Instance(ctx, synth.InstanceInput{
+	synthRel, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "myrel",
 		Namespace:   "default",
@@ -506,7 +507,7 @@ func TestInstance_HyphenatedNameImportsBySnakeCase(t *testing.T) {
 	require.NoError(t, err, "core@v0.6.0 module must expose metadata.nameSnakeCase")
 	require.Equal(t, "web_app", snake)
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "web-app-inst",
 		Namespace:   "default",
@@ -544,7 +545,7 @@ func TestInstance_CatalogSubpackageImport_Regression(t *testing.T) {
 
 	mod, _ := publishCatalogImportingModule(t, ctx, "v1.0.0-alpha.1")
 
-	inst, err := synth.Instance(ctx, synth.InstanceInput{
+	inst, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "wl-inst",
 		Namespace:   "default",
@@ -559,4 +560,58 @@ func TestInstance_CatalogSubpackageImport_Regression(t *testing.T) {
 	kind, err := inst.LookupPath(cue.ParsePath("kind")).String()
 	require.NoError(t, err)
 	assert.Equal(t, "ModuleInstance", kind)
+}
+
+// instance-synthesis spec, "The staged tree matches the build": synth.Instance
+// returns the tree the single build evaluated — the module's staged root, the
+// reserved instance subdirectory, and the module's overlay cloned and
+// augmented with the synthesized files. The clone never aliases the module's
+// own overlay, so the caller may retain it and the module may be synthesized
+// again.
+func TestInstance_ReturnsStagedTree(t *testing.T) {
+	skipUnlessGHCR(t)
+	ctx := cuecontext.New()
+
+	mod, _ := publishModuleWithBody(t, ctx, "v1.0.0-alpha.1", "demo", "0.1.0",
+		"#components: {}\n#config: {greeting: string | *\"hello\"}\ndebugValues: {}\n")
+	cache := pinnedCache("v1.0.0-alpha.1")
+	moduleFiles := len(mod.Source.Overlay)
+
+	t.Run("with values", func(t *testing.T) {
+		values := ctx.CompileString(`greeting: "hi"`)
+		require.NoError(t, values.Err())
+
+		val, src, err := synth.Instance(ctx, synth.InstanceInput{
+			Module: mod, Name: "inst", Namespace: "default", SchemaCache: cache, Values: values,
+		})
+		require.NoError(t, err)
+		require.True(t, val.Exists())
+		require.NotNil(t, src, "successful synthesis must return the staged tree")
+
+		assert.Equal(t, mod.Source.Root, src.Root, "Root is the module's staged root")
+		assert.Equal(t, "opm-synth-instance", src.Pkg, "Pkg names the reserved instance subdirectory")
+		for path := range mod.Source.Overlay {
+			assert.Contains(t, src.Overlay, path, "every module file is present in the returned overlay")
+		}
+		pkgDir := filepath.Join(src.Root, src.Pkg)
+		assert.Contains(t, src.Overlay, filepath.Join(pkgDir, "instance.cue"))
+		assert.Contains(t, src.Overlay, filepath.Join(pkgDir, "values.cue"), "values.cue present when Values supplied")
+		assert.Len(t, src.Overlay, moduleFiles+2)
+
+		// The returned overlay is the clone, not the module's own map.
+		src.Overlay[filepath.Join(pkgDir, "probe.cue")] = load.FromString("")
+		assert.Len(t, mod.Source.Overlay, moduleFiles, "module overlay must not alias the returned tree")
+	})
+
+	t.Run("without values", func(t *testing.T) {
+		_, src, err := synth.Instance(ctx, synth.InstanceInput{
+			Module: mod, Name: "inst", Namespace: "default", SchemaCache: cache,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, src)
+		pkgDir := filepath.Join(src.Root, src.Pkg)
+		assert.Contains(t, src.Overlay, filepath.Join(pkgDir, "instance.cue"))
+		assert.NotContains(t, src.Overlay, filepath.Join(pkgDir, "values.cue"), "no values.cue without Values")
+		assert.Len(t, src.Overlay, moduleFiles+1)
+	})
 }
