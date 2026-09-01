@@ -30,6 +30,15 @@ type Instance struct {
 	// Source of truth for every field reachable via opm/schema, including
 	// the embedded #module reference at schema.Module.
 	Package cue.Value
+
+	// Source is the staged source tree the instance package was built from,
+	// so a follow-on build can import the instance as a package. It is
+	// stamped at exactly two sites: Kernel.SynthesizeInstance (overlay mode,
+	// the synthesized package inside the module's staged root) and
+	// Kernel.AcquireInstanceFromDir (on-disk mode, the loaded directory). It
+	// is nil for instances constructed from a bare value
+	// (NewInstanceFromValue, Kernel.ProcessModuleInstance called directly).
+	Source *Source
 }
 
 // InstanceMetadata is a re-export of [schema.InstanceMetadata] so callers can

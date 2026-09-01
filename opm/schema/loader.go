@@ -12,12 +12,16 @@ import (
 )
 
 // DefaultSchemaModule is the module identifier used by [OCILoader.Load] when
-// [OCILoader.Module] is empty. The default tracks the v2 major; the bare
-// major is expanded through the loader's ".latest" mechanism, resolving the
-// highest published version within v2 at first-load time (SemVer prerelease
-// ordering applies, so a v2.0.0-0.dev.* snapshot never outranks a
-// v2.0.0-alpha.N tag).
-const DefaultSchemaModule = "opmodel.dev/core@v2"
+// [OCILoader.Module] is empty.
+//
+// Pinned to core 2.0.0-alpha.6 for now: 2.0.0-alpha.7 reshapes the
+// #Platform.#registry subscription (version is no longer defaulted) and the
+// materialize path has not been adapted yet. Restore the floating major
+// ("opmodel.dev/core@v2", which the loader expands through its ".latest"
+// mechanism to the highest published version within v2, with SemVer
+// prerelease ordering so a v2.0.0-0.dev.* snapshot never outranks a
+// v2.0.0-alpha.N tag) once the platform code follows the new shape.
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.6"
 
 // PublicRegistry is the documented CUE_REGISTRY mapping for resolving the
 // OPM core schema from its canonical GHCR location with a fallback to

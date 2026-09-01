@@ -104,7 +104,7 @@ func newCache(t *testing.T) *schema.Cache {
 
 func TestInstance_RejectsNilModule(t *testing.T) {
 	ctx := sharedCtx
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Name:        "demo",
 		Namespace:   "ns",
 		SchemaCache: newCache(t),
@@ -116,7 +116,7 @@ func TestInstance_RejectsNilModule(t *testing.T) {
 func TestInstance_RejectsEmptyName(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Namespace:   "ns",
 		SchemaCache: newCache(t),
@@ -128,7 +128,7 @@ func TestInstance_RejectsEmptyName(t *testing.T) {
 func TestInstance_RejectsEmptyNamespace(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "demo",
 		SchemaCache: newCache(t),
@@ -140,7 +140,7 @@ func TestInstance_RejectsEmptyNamespace(t *testing.T) {
 func TestInstance_RejectsNilSchemaCache(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:    mod,
 		Name:      "demo",
 		Namespace: "ns",
@@ -159,7 +159,7 @@ func TestInstance_RejectsMissingSource(t *testing.T) {
 	ctx := sharedCtx
 	mod := testModule(t, ctx, baseModuleFixture)
 	require.False(t, mod.HasSource(), "fixture module must be source-free for this guard")
-	_, err := synth.Instance(ctx, synth.InstanceInput{
+	_, _, err := synth.Instance(ctx, synth.InstanceInput{
 		Module:      mod,
 		Name:        "demo",
 		Namespace:   "ns",
@@ -185,4 +185,20 @@ out: cue_uuid.SHA1(OPMNamespace, "` + moduleUUID + `:` + name + `:` + namespace 
 	s, err := v.LookupPath(cue.ParsePath("out")).String()
 	require.NoError(t, err)
 	return s
+}
+
+// instance-synthesis spec, "Failure returns no tree": every error path of
+// synth.Instance returns a nil staged tree alongside the error.
+func TestInstance_FailureReturnsNoTree(t *testing.T) {
+	ctx := sharedCtx
+	mod := testModule(t, ctx, baseModuleFixture)
+
+	_, src, err := synth.Instance(ctx, synth.InstanceInput{Module: mod, Namespace: "ns", SchemaCache: newCache(t)})
+	require.Error(t, err)
+	assert.Nil(t, src, "ErrMissingName path must return no tree")
+
+	_, src, err = synth.Instance(ctx, synth.InstanceInput{Module: mod, Name: "demo", Namespace: "ns", SchemaCache: newCache(t)})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, synth.ErrMissingSource))
+	assert.Nil(t, src, "ErrMissingSource path must return no tree")
 }

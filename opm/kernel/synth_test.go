@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -165,4 +166,44 @@ func TestKernel_SynthesizeInstance_UsesKernelContext(t *testing.T) {
 	require.NoError(t, probe.Err())
 	merged := inst.Package.Unify(probe)
 	require.NoError(t, merged.Err())
+}
+
+// instance-synthesis spec, "Synthesized instance carries the tree":
+// SynthesizeInstance stamps the tree synth.Instance built onto
+// Instance.Source — overlay mode, rooted at the module's staged root, with
+// the synthesized package under the reserved subdirectory.
+func TestKernel_SynthesizeInstance_CarriesSource(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
+	values := k.CueContext().CompileString(`sentinel: "from-values"`)
+	require.NoError(t, values.Err())
+
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    values,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, inst)
+
+	require.NotNil(t, inst.Source, "synthesized instance must carry its staged tree")
+	assert.Equal(t, mod.Source.Root, inst.Source.Root, "Root is the module's staged root")
+	assert.Equal(t, "opm-synth-instance", inst.Source.Pkg, "Pkg is the reserved instance subdirectory")
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(inst.Source.Root, inst.Source.Pkg, "instance.cue"))
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(inst.Source.Root, inst.Source.Pkg, "values.cue"))
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(inst.Source.Root, "cue.mod", "module.cue"),
+		"the module's own module file stays in the tree")
+}
+
+// The failure surface is unchanged: a synthesis that fails validation returns
+// no instance, so there is nothing to stamp.
+func TestKernel_SynthesizeInstance_FailureReturnsNoInstance(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0",
+		"#components: {}\n#config: {required!: string}\ndebugValues: {required: \"from-debug\"}\n")
+
+	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
+		Module: mod, Name: "myrel", Namespace: "default",
+	})
+	require.Error(t, err)
+	assert.Nil(t, inst)
 }
