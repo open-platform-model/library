@@ -1,7 +1,7 @@
 # kernel-runtime Specification
 
 ## Purpose
-The `Kernel` struct is the public anchor type for the OPM kernel runtime. It owns the `*cue.Context` and the cross-cutting dependencies (logger, tracer, clock) used by every kernel operation, so downstream consumers (CLI, operator, Crossplane function) attach to a single mental anchor instead of importing the loader / module / render / validate packages individually. All future kernel-facing slices modify this capability.
+The `Kernel` struct is the public anchor type for the OPM kernel runtime. It owns the `*cue.Context` and the schema cache used by every kernel operation, so downstream consumers (CLI, operator, Crossplane function) attach to a single mental anchor instead of importing the loader / module / render / validate packages individually. All future kernel-facing slices modify this capability.
 ## Requirements
 
 ### Requirement: Kernel Type and Construction
@@ -11,13 +11,13 @@ The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the s
 #### Scenario: Default construction
 
 - **WHEN** a caller invokes `kernel.New()` with no options
-- **THEN** a non-nil `*Kernel` is returned with a private `*cue.Context` constructed via `cuecontext.New()`, a no-op logger, and a real-time clock
+- **THEN** a non-nil `*Kernel` is returned with a private `*cue.Context` constructed via `cuecontext.New()` and a schema cache backed by the default OCI loader
 - **AND** subsequent calls to `k.CueContext()` return the same `*cue.Context` instance for the lifetime of the Kernel
 
 #### Scenario: Construction with options
 
-- **WHEN** a caller invokes `kernel.New(WithLogger(myLogger), WithClock(myClock))`
-- **THEN** the returned Kernel uses `myLogger` for all internal logging and `myClock` for any time-dependent operations
+- **WHEN** a caller invokes `kernel.New(WithSchemaLoader(myLoader), WithRegistry(mapping))`
+- **THEN** the returned Kernel resolves the core schema through `myLoader` and uses `mapping` for catalog and module resolution
 
 ### Requirement: cue.Context Encapsulation
 
@@ -35,20 +35,20 @@ The Kernel SHALL own its `*cue.Context` for the kernel's entire lifetime. The `*
 - **THEN** the same `*cue.Context` owned by the Kernel is returned
 - **AND** the doc comment marks the accessor as advanced and documents that values built with this context are safe to pass back into Kernel methods
 
-### Requirement: Functional Options Pattern
+### Requirement: Configuration Options
 
-The Kernel SHALL accept dependency-injection configuration through functional options of type `Option`. The slice SHALL provide at minimum `WithLogger`, `WithTracer`, and `WithClock` options.
-
-#### Scenario: WithLogger replaces the default logger
-
-- **WHEN** `kernel.New(WithLogger(custom))` is called
-- **THEN** all kernel-internal logging routes through `custom`
-- **AND** the no-op default is not used
+The Kernel SHALL accept configuration through functional options of type `Option`. The provided options SHALL be `WithSchemaLoader` and `WithRegistry`; the Kernel SHALL NOT expose an injection slot no kernel operation reads.
 
 #### Scenario: Adding new options preserves backward compatibility
 
 - **WHEN** a future slice adds a new option (e.g. `WithSchemaRegistry`)
 - **THEN** existing callers of `kernel.New(...)` continue to compile and run unchanged
+
+#### Scenario: No observability slots ahead of a reader
+
+- **WHEN** a developer inspects the `Kernel` struct and its options after this change
+- **THEN** no logger, tracer or clock field or option exists
+- **AND** the injection surface for the execution half is introduced by enhancement 0009 together with its first reader (revised 0009 D9)
 
 ### Requirement: Goroutine Safety Contract
 
