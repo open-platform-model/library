@@ -1,10 +1,12 @@
 // Package kernel exposes the OPM runtime as a single struct, [Kernel].
 //
-// Kernel owns its [*cue.Context] for its entire lifetime and threads
-// cross-cutting dependencies (logger, tracer, clock) through every operation.
-// Downstream binaries (CLI, controller, Crossplane function) construct one
-// Kernel per goroutine and call methods on it instead of importing the
-// individual loader / module / compile / validate packages.
+// Kernel owns its [*cue.Context] and its [*schema.Cache] for its entire
+// lifetime. Construction is [New] plus two options, [WithSchemaLoader]
+// and [WithRegistry]; the kernel exposes no injection slot that no
+// kernel operation reads. Downstream binaries (CLI, controller,
+// Crossplane function) construct one Kernel per goroutine and call
+// methods on it instead of importing the individual loader / module /
+// compile / validate packages.
 //
 // # Goroutine safety
 //

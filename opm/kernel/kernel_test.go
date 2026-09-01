@@ -4,18 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -23,11 +19,6 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 )
-
-// fakeClock returns a fixed time. Lets WithClock be observable from tests.
-type fakeClock struct{ now time.Time }
-
-func (f fakeClock) Now() time.Time { return f.now }
 
 func TestNew_Default(t *testing.T) {
 	k := kernel.New()
@@ -47,41 +38,6 @@ func TestNew_DistinctKernelsHaveDistinctContexts(t *testing.T) {
 	a := kernel.New()
 	b := kernel.New()
 	assert.NotSame(t, a.CueContext(), b.CueContext(), "each Kernel owns its own *cue.Context")
-}
-
-func TestNew_WithLogger(t *testing.T) {
-	custom := slog.New(slog.NewTextHandler(io.Discard, nil))
-	k := kernel.New(kernel.WithLogger(custom))
-	require.NotNil(t, k)
-	// Logger is intentionally not exposed; we exercise the option to confirm it
-	// applies without panicking and the kernel is otherwise usable.
-	assert.NotNil(t, k.CueContext())
-}
-
-func TestNew_WithTracer(t *testing.T) {
-	tr := noop.NewTracerProvider().Tracer("kernel-test")
-	k := kernel.New(kernel.WithTracer(tr))
-	require.NotNil(t, k)
-	assert.NotNil(t, k.CueContext())
-}
-
-func TestNew_WithClock(t *testing.T) {
-	pinned := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	k := kernel.New(kernel.WithClock(fakeClock{now: pinned}))
-	require.NotNil(t, k)
-	// Clock is internal; we exercise the option to confirm it is accepted.
-	assert.NotNil(t, k.CueContext())
-}
-
-func TestNew_NilOptionsAreIgnored(t *testing.T) {
-	// Passing nil dependencies to options should not replace defaults.
-	k := kernel.New(
-		kernel.WithLogger(nil),
-		kernel.WithTracer(nil),
-		kernel.WithClock(nil),
-	)
-	require.NotNil(t, k)
-	assert.NotNil(t, k.CueContext())
 }
 
 // --- Parity tests: each wrapper must produce results identical to the

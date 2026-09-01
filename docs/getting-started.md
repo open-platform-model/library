@@ -2,7 +2,7 @@
 
 This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, materializing a Platform, and compiling an Instance down to rendered `*core.Compiled` values.
 
-The recommended entry point is the `kernel.Kernel` struct, which owns its `*cue.Context` and threads cross-cutting dependencies (logger, tracer, clock) through every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use.
+The recommended entry point is the `kernel.Kernel` struct, which owns the `*cue.Context` and schema cache used by every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use.
 
 ## Prerequisites
 
@@ -34,11 +34,9 @@ Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, o
 import "github.com/open-platform-model/library/opm/kernel"
 
 k := kernel.New()
-// or:
-k := kernel.New(kernel.WithLogger(myLogger))
 ```
 
-`kernel.New` accepts functional options for logger, tracer, clock, and schema loader. None are required; defaults are no-op implementations.
+`kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required.
 
 The Kernel owns a single `*schema.Cache` for its lifetime. The first method that needs the schema (validation, release synthesis, compile) triggers one `OCILoader.Load` call; subsequent operations on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization.
 

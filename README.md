@@ -13,7 +13,7 @@ The kernel owns:
 The kernel does **not** own:
 
 - Process model, command flags, exit codes, stdout/stderr formatting (lives in CLI / controller).
-- Logging output (loggers are passed in by the caller).
+- Logging output (the kernel logs nothing; any logging lives with the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
 - Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
