@@ -124,9 +124,9 @@ metadata: {
 	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
 }
 
-// TestInstance_ModuleFQNFromPackage confirms ModuleFQN reads through the
-// schema's ModuleMetadataPath on Package rather than a cached struct field.
-func TestInstance_ModuleFQNFromPackage(t *testing.T) {
+// TestInstance_ModuleVersionFromPackage confirms ModuleVersion reads through
+// the schema's ModuleMetadataPath on Package rather than a cached struct field.
+func TestInstance_ModuleVersionFromPackage(t *testing.T) {
 	ctx := cuecontext.New()
 	v := ctx.CompileString(`
 kind: "ModuleInstance"
@@ -145,6 +145,5 @@ metadata: { name: "demo", namespace: "ns", uuid: "u" }
 		Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns"},
 		Package:  v,
 	}
-	assert.Equal(t, "example.com/m/demo-mod:1.2.3", inst.ModuleFQN())
 	assert.Equal(t, "1.2.3", inst.ModuleVersion())
 }

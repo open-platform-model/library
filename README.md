@@ -15,7 +15,7 @@ The kernel does **not** own:
 - Process model, command flags, exit codes, stdout/stderr formatting (lives in CLI / controller).
 - Logging output (loggers are passed in by the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
-- Platform-native identity beyond the `core.Identity` tuple — adapters wrap rendered values into platform-specific resources.
+- Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
 - Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
 
 ## Artifact types
@@ -36,7 +36,7 @@ See `CONSTITUTION.md` for the full set of principles.
 
 ```
 opm/
-  core/                   Platform-neutral primitives — Compiled, Resource, Identity
+  core/                   Platform-neutral primitives — Compiled (terminal output)
   errors/                 Structured errors, grouped CUE diagnostics
   schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
   kernel/                 Public Kernel struct — single entry point for the OPM runtime
@@ -79,7 +79,7 @@ Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenan
 
 The kernel exposes two phase-explicit methods that map onto frontend subcommands: `Kernel.Match` (match) and `Kernel.Compile` (apply / render). Values are validated where they are applied — `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed. The old free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods directly.
 
-`*core.Compiled` is the kernel's terminal output. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
+`*core.Compiled` is the kernel's terminal output. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
 ## Quick start
 

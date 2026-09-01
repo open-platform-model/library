@@ -38,7 +38,7 @@ type MaterializedPlatform struct {
 	// Source is the *platform.Platform this view was realized from. Its
 	// Source.Package is the closed c.#Platform spec, reachable for #registry,
 	// metadata, and diagnostics (a MaterializeError can name the originating
-	// platform; MissingFQN.alternatives may inspect it). It is NOT filled with
+	// platform; UnresolvedDemand.Alternatives may inspect it). It is NOT filled with
 	// the composed map or matcher index.
 	Source *platform.Platform
 

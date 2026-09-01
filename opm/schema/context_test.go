@@ -18,7 +18,6 @@ func (fakeInstance) InstanceName() string           { return "demo" }
 func (fakeInstance) Namespace() string              { return "ns" }
 func (fakeInstance) InstanceUUID() string           { return "u-inst" }
 func (fakeInstance) InstanceFQN() string            { return "reg.example/modules:demo:ns" }
-func (fakeInstance) ModuleFQN() string              { return "example.com/m/demo:1.0.0" }
 func (fakeInstance) ModuleVersion() string          { return "1.0.0" }
 func (fakeInstance) Labels() map[string]string      { return nil }
 func (fakeInstance) Annotations() map[string]string { return nil }

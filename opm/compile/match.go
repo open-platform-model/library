@@ -10,8 +10,10 @@
 // The algorithm is FQN-lookup → always-unify → predicate:
 //
 //  1. Lookup. A demanded FQN whose #matchers bucket is empty is a hard miss —
-//     recorded as a structured oerrors.MissingFQN (per (instance, component,
-//     fqn)), accumulated in one pass with no fail-fast.
+//     carried by the unresolved-demand set (an oerrors.UnresolvedDemand with
+//     empty Disqualified and the same-base alternatives; an effectively-
+//     optional trait degrades to an unhandled-trait warning), accumulated in
+//     one pass with no fail-fast.
 //  2. Always-unify (D6). For each candidate transformer in the bucket, unify
 //     the component's primitive body against the transformer's required body
 //     for every FQN present in BOTH component.#resources and
@@ -58,13 +60,6 @@ type MatchPlan struct {
 	Unmatched       []string
 	UnhandledTraits map[string][]string
 
-	// Missing holds the hard "no transformer requires this FQN" diagnostics,
-	// one per (instance, component, fqn). Distinct from UnhandledTraits, which
-	// flags a component trait that no matched transformer consumes. Kept for
-	// compatibility and fed as before; the load-bearing diagnosis is
-	// Unresolved.
-	Missing []oerrors.MissingFQN
-
 	// Unify holds the always-unify-rung failures: a component primitive body
 	// that conflicts with a candidate transformer's required body at the same
 	// FQN. The conflicting candidate is not paired.
@@ -95,10 +90,10 @@ type NonMatchedPair struct {
 
 // Match walks a consumer Module's components against a MaterializedPlatform's
 // #matchers index and returns a MatchPlan describing matched pairs, unmatched
-// components, structured missing-FQN diagnostics, and unify failures.
-// instanceName populates MissingFQN.Instance; a blank value is tolerated when
-// Match is called outside the kernel. The composed map comes from
-// mp.Transformers and the reverse index from mp.Matchers.{resources,traits}.
+// components, unresolved demands, and unify failures. instanceName is not read
+// by the algorithm (kept for kernel call-site parity); a blank value is
+// tolerated when Match is called outside the kernel. The composed map comes
+// from mp.Transformers and the reverse index from mp.Matchers.{resources,traits}.
 //
 //nolint:gocyclo // matching is naturally branchy but kept in one place
 func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceName string) (*MatchPlan, error) {
@@ -147,12 +142,6 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 			out := demandOutcome{}
 			candidates, exists := bucketTransformers(matchersIndex, fqn)
 			if !exists {
-				plan.Missing = append(plan.Missing, oerrors.MissingFQN{
-					Instance:     instanceName,
-					Component:    compName,
-					FQN:          fqn,
-					Alternatives: alternativesFor(matchersIndex, fqn),
-				})
 				return out
 			}
 			for _, cand := range candidates {
@@ -246,7 +235,7 @@ func Match(components cue.Value, mp *materialize.MaterializedPlatform, instanceN
 
 // demandOutcome is walk's per-demand verdict, feeding D28's resolution rules.
 // The empty-bucket / all-disqualified distinction (states (a)/(b)) is carried
-// by disqualified and the parallel MissingFQN record, not by a separate flag.
+// by disqualified (empty on an empty bucket), not by a separate flag.
 type demandOutcome struct {
 	// satisfied: some candidate in the demand's bucket survived unify and
 	// predicate (it paired, or was already paired via another demand).
@@ -279,7 +268,7 @@ func traitOptional(compVal cue.Value, fqn string) (optional, stated bool) {
 
 // bucketTransformers reads matchersIndex[FQN] and returns the candidate
 // transformer values in the bucket. exists is false when the FQN key is absent
-// or yields no candidates — the caller treats that as a hard MissingFQN. The
+// or yields no candidates — the caller treats that as an unresolved demand. The
 // materialized #matchers index stores each bucket as a list of transformer
 // struct values (see opm/materialize/index.go); a lone struct is tolerated
 // defensively.
@@ -610,10 +599,10 @@ func (p *MatchPlan) NonMatchedPairs() []NonMatchedPair {
 // rendering. Load-bearing unhandled traits are not warnings — they sit in
 // Unresolved and fail Plan/Compile.
 //
-// UnhandledTraits is intentionally distinct from MatchPlan.Missing: a trait is
-// "unhandled" when no matched transformer consumes it (the trait FQN may still
-// have a transformer on the platform), whereas a MissingFQN means no transformer
-// on the platform requires the FQN at all.
+// UnhandledTraits is intentionally distinct from the unresolved-demand set: a
+// trait is "unhandled" when no matched transformer consumes it (the trait FQN
+// may still have a transformer on the platform), whereas an empty-bucket
+// UnresolvedDemand means no transformer on the platform requires the FQN at all.
 func (p *MatchPlan) Warnings() []string {
 	if len(p.UnhandledTraits) == 0 {
 		return nil

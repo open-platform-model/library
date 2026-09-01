@@ -19,8 +19,3 @@ func (e *TransformError) Error() string {
 func (e *TransformError) Unwrap() error {
 	return e.Cause
 }
-
-// Component returns the component name where the error occurred.
-func (e *TransformError) Component() string {
-	return e.ComponentName
-}

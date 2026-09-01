@@ -57,8 +57,8 @@ type Module struct {
 type CompileResult struct {
 	// Compiled is the ordered list of compiled values from the pipeline.
 	// Each entry carries Component and Transformer provenance for inventory
-	// tracking. Adapters wrap each Compiled with a platform-specific
-	// core.Resource implementation.
+	// tracking. Wrapping each Compiled in a platform-specific resource type
+	// (and assigning platform identity) is the frontend's concern.
 	Compiled []*core.Compiled
 
 	// MatchPlan is the decoded result of matching components against transformers.
@@ -67,10 +67,6 @@ type CompileResult struct {
 
 	// Components is a per-component summary for verbose output, sorted by name.
 	Components []ComponentSummary
-
-	// Unmatched is the list of component FQNs that found no matching
-	// transformer.
-	Unmatched []string
 
 	// Warnings is a list of human-readable advisory messages (e.g. unhandled traits).
 	// A non-empty Warnings slice does NOT indicate failure.
@@ -159,7 +155,6 @@ func (r *Module) Execute(
 		Compiled:   nonNilCompiled(compiled),
 		MatchPlan:  plan,
 		Components: nonNilComponentSummaries(extractComponentSummaries(components)),
-		Unmatched:  []string{},
 		Warnings:   allWarnings,
 	}, nil
 }

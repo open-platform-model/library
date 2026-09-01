@@ -154,7 +154,7 @@ for _, r := range result.Compiled {
 }
 ```
 
-Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance. Adapters in downstream implementations wrap each `Compiled` with a platform-specific `core.Resource` that fills `core.Identity`.
+Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
 ## Phase-explicit entry points
 

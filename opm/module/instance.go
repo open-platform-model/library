@@ -99,19 +99,13 @@ func (r *Instance) InstanceUUID() string {
 
 // InstanceFQN returns the instance's OWN fully qualified name — metadata.fqn
 // (registryPath:name:namespace, core v2), decoded into the metadata cache.
-// Distinct from ModuleFQN, the source module's identity.
+// Distinct from the source module's identity, which remains reachable through
+// Package at the schema.ModuleMetadataPath path.
 func (r *Instance) InstanceFQN() string {
 	if r == nil || r.Metadata == nil {
 		return ""
 	}
 	return r.Metadata.FQN
-}
-
-// ModuleFQN returns the source module's fully qualified name. The value is
-// read from Package.LookupPath(schema.ModuleMetadataPath).fqn so that
-// Package remains the source of truth for module identity.
-func (r *Instance) ModuleFQN() string {
-	return r.lookupModuleMetadataString("fqn")
 }
 
 // ModuleVersion returns the source module's version, read from Package via
