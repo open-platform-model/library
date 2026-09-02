@@ -15,7 +15,7 @@ The library SHALL expose a `opm/helper/synth/` subpackage that produces OPM arti
 
 ### Requirement: synth.Instance function signature
 
-The `opm/helper/synth/` package SHALL expose a function `Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error)` that returns a `#ModuleInstance` artifact CUE value built by unifying the input fields against the `#ModuleInstance` schema definition resolved from the supplied `SchemaCache`.
+The `opm/helper/synth/` package SHALL expose a function `Instance(ctx *cue.Context, in InstanceInput) (cue.Value, *module.Source, error)` that returns a `#ModuleInstance` artifact CUE value built by unifying the input fields against the `#ModuleInstance` schema definition resolved from the supplied `SchemaCache`, alongside the staged source tree the build evaluated (see Requirement: Synthesis surfaces its staged tree).
 
 The `InstanceInput` struct SHALL carry: `Module *module.Module` (required), `Name string` (required), `Namespace string` (required), `SchemaCache *schema.Cache` (REQUIRED), `Values cue.Value` (optional; zero value means "no values supplied"), `Labels map[string]string` (optional), `Annotations map[string]string` (optional).
 
@@ -169,7 +169,7 @@ The instance source SHALL **import** the module's own package by its module path
 
 `synth.Instance` SHALL NOT inject the module via `cue.Scope` / a `userModule` field, and SHALL NOT pre-merge `Values` into the module's `#config` in Go. The values merge SHALL be performed by the schema in CUE (`#ModuleInstance`'s `unifiedModule = #module & {#config: values}`). The Go code SHALL fill only caller-supplied inputs and let CUE derive `metadata.uuid`, `components`, `opm-secrets`, and stamped labels.
 
-The public Go signature `Instance(ctx *cue.Context, in InstanceInput) (cue.Value, error)` and the `InstanceInput` field set SHALL be unchanged. For every input that succeeds today, the returned value SHALL be observably equivalent (same `metadata.uuid`, same `components`, same labels).
+The public Go signature is `Instance(ctx *cue.Context, in InstanceInput) (cue.Value, *module.Source, error)` and the `InstanceInput` field set SHALL be unchanged. For every input that succeeds today, the returned value SHALL be observably equivalent (same `metadata.uuid`, same `components`, same labels).
 
 #### Scenario: No scope or Go pre-merge in the construction path
 
@@ -225,3 +225,30 @@ Because the instance is built inside the module's staged main module, `synth.Ins
 - **THEN** `synth.Instance` resolves that indirect dependency via the module's tidied `cue.mod/module.cue`
 - **AND** synthesis succeeds without the caller supplying the transitive closure
 
+### Requirement: Synthesis surfaces its staged tree
+
+`synth.Instance` SHALL return, alongside the evaluated instance value, the staged source tree the single build evaluated: `Root` = the acquired module's staged root, `Pkg` = the reserved instance package subdirectory, `Overlay` = the module's cloned overlay augmented with the synthesized instance files (`instance.cue`, and `values.cue` when values were supplied). The returned overlay SHALL be the clone the build used, so repeated synthesis from one module remains safe and the caller may retain the tree without aliasing the module's own overlay.
+
+#### Scenario: The staged tree matches the build
+
+- **WHEN** `synth.Instance` succeeds
+- **THEN** the returned tree's `Root` equals the module's staged source root, its `Pkg` names the reserved instance subdirectory, and its `Overlay` contains every file of the module's overlay plus the synthesized instance file (plus the values file when values were supplied)
+
+#### Scenario: Failure returns no tree
+
+- **WHEN** `synth.Instance` fails (missing inputs, schema unavailable, build error)
+- **THEN** no staged tree is returned alongside the error
+
+### Requirement: Synthesized instances carry their source
+
+`Kernel.SynthesizeInstance` SHALL stamp the staged tree returned by `synth.Instance` onto the returned `*module.Instance.Source`. Its signature and validation behavior SHALL be unchanged: it still chains the validated entry point, and a caller that ignores `Source` observes exactly the prior behavior.
+
+#### Scenario: Synthesized instance carries the tree
+
+- **WHEN** a caller invokes `Kernel.SynthesizeInstance` successfully
+- **THEN** the returned `*Instance` has a non-nil `Source` whose `Overlay` holds the synthesized instance package inside the module's staged root
+
+#### Scenario: Behavior otherwise unchanged
+
+- **WHEN** an existing caller uses the returned instance without reading `Source`
+- **THEN** metadata, package value, validation outcomes and error surfaces are identical to the behavior before this change
