@@ -26,8 +26,14 @@ type glueDiagnostics struct {
 		Resources []string `json:"resources"`
 		Traits    []string `json:"traits"`
 	} `json:"bucketKeys"`
-	Resolved    bool       `json:"resolved"`
-	FailedPairs []gluePair `json:"failedPairs"`
+	Resolved       bool                 `json:"resolved"`
+	OverSubscribed []glueOverSubscribed `json:"overSubscribed"`
+	FailedPairs    []gluePair           `json:"failedPairs"`
+}
+
+type glueOverSubscribed struct {
+	Key      string   `json:"key"`
+	Catalogs []string `json:"catalogs"`
 }
 
 type gluePair struct {
@@ -126,6 +132,15 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDia
 	for c := range diag.UnhandledTraits {
 		sort.Strings(diag.UnhandledTraits[c])
 	}
+
+	// Single-provider guard rows (0010 D32/D37), key-sorted with sorted
+	// registry keys so the refusal is deterministic.
+	for _, o := range g.OverSubscribed {
+		catalogs := append([]string(nil), o.Catalogs...)
+		sort.Strings(catalogs)
+		diag.OverSubscribed = append(diag.OverSubscribed, oerrors.OverSubscribedContractError{Key: o.Key, Catalogs: catalogs})
+	}
+	sort.Slice(diag.OverSubscribed, func(i, j int) bool { return diag.OverSubscribed[i].Key < diag.OverSubscribed[j].Key })
 	return diag, nil
 }
 
@@ -137,13 +152,17 @@ func pairsOf(rows []gluePair) []RenderPair {
 	return out
 }
 
-// gateErrors is the fail-closed gate (0010 D28) as the kernel enforces it
-// from the decoded verdicts: unresolved demands and unmatched components both
-// refuse, through one exit path, each reachable via errors.As.
+// gateErrors is the fail-closed gate (0010 D28, D37) as the kernel enforces
+// it from the decoded verdicts: unresolved demands, unmatched components and
+// over-subscribed provider-fulfilled contracts all refuse, through one exit
+// path, each reachable via errors.As.
 func gateErrors(diag RenderDiagnostics) error {
 	var gate []error
 	if len(diag.Unresolved) > 0 {
 		gate = append(gate, &oerrors.UnresolvedDemandsError{Demands: diag.Unresolved})
+	}
+	for _, o := range diag.OverSubscribed {
+		gate = append(gate, o)
 	}
 	if len(diag.Unmatched) > 0 {
 		matches := map[string]map[string]compile.MatchResult{}

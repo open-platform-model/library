@@ -4,16 +4,16 @@ Three PRs in order (design.md § PR train). Task 0 gates PR 1's guard tasks (1.3
 
 ## 0. Prerequisite (outside this repo)
 
-- [ ] 0.1 Enhancement 0019 records the single-provider guard's post-federation home (glue row + gate assumed; see design.md). If the decision differs, replace tasks 1.3 to 1.5 with "delete without port" and drop the guard requirement from `specs/single-build-render/spec.md` before starting.
+- [x] 0.1 Enhancement 0019 records the single-provider guard's post-federation home (glue row + gate assumed; see design.md). If the decision differs, replace tasks 1.3 to 1.5 with "delete without port" and drop the guard requirement from `specs/single-build-render/spec.md` before starting.
 
 ## 1. PR 1: proof and guard (additive, `alpha.6` pin)
 
-- [ ] 1.1 `testdata/parity/opm_platform_next/`: the parity platform in `#CatalogEntry` form (`cue.mod` pinning `opmodel.dev/core@v2` at `v2.0.0-alpha.7` and `opmodel.dev/catalogs/opm@v4` at the build `opm_platform` subscribes to; `platform.cue` importing the catalog with one `#catalog:` entry).
-- [ ] 1.2 `opm/kernel/parity_cutover_test.go`: for every `parityCase`, render through `Compile` (existing path, `opm_platform`) and `Render` (`opm_platform_next`), assert `compareRendered` equality order-sensitively; record ordering-only cases per the harness's existing per-case mechanism. Must pass before PR 2 opens.
-- [ ] 1.3 `opm/internal/renderstage/render.cue.tmpl`: `overSubscribed` rows folded over the enabled `platform.#registry` entries (provider-fulfilled required keys mapped to the set of registry keys whose `#transformers` require them; rows where the set has more than one key), exported under `diagnostics`, and the gate extended with `len(overSubscribed) == 0`.
-- [ ] 1.4 `opm/errors`: `OverSubscribedContractError{Key, Catalogs}`; `opm/kernel/render_decode.go`: decode rows into `RenderDiagnostics.OverSubscribed` and the gate error.
-- [ ] 1.5 `testdata/render/scenarios`: a two-catalog over-subscription scenario (second `registrytest`-served catalog supplying a transformer requiring the same provider-fulfilled key); `render_test.go` cases: refused naming key and both paths; catalog-fulfilled plurality still renders.
-- [ ] 1.6 `task check` green; old suite untouched.
+- [x] 1.1 `testdata/parity/opm_platform_next/`: the parity platform in `#CatalogEntry` form (`cue.mod` pinning `opmodel.dev/core@v2` at `v2.0.0-alpha.7` and `opmodel.dev/catalogs/opm@v4` at the build `opm_platform` subscribes to; `platform.cue` importing the catalog with one `#catalog:` entry).
+- [x] 1.2 `opm/kernel/parity_cutover_test.go`: for every `parityCase`, render through `Compile` (existing path, `opm_platform`) and `Render` (`opm_platform_next`), assert `compareRendered` equality order-sensitively; record ordering-only cases per the harness's existing per-case mechanism. Must pass before PR 2 opens.
+- [x] 1.3 `opm/internal/renderstage/render.cue.tmpl`: `overSubscribed` rows folded over the enabled `platform.#registry` entries (provider-fulfilled required keys mapped to the set of registry keys whose `#transformers` require them; rows where the set has more than one key), exported under `diagnostics`, and the gate extended with `len(overSubscribed) == 0`.
+- [x] 1.4 `opm/errors`: `OverSubscribedContractError{Key, Catalogs}`; `opm/kernel/render_decode.go`: decode rows into `RenderDiagnostics.OverSubscribed` and the gate error.
+- [x] 1.5 `testdata/render/scenarios`: a two-catalog over-subscription scenario (second `registrytest`-served catalog supplying a transformer requiring the same provider-fulfilled key); `render_test.go` cases: refused naming key and both paths; catalog-fulfilled plurality still renders.
+- [x] 1.6 `task check` green; old suite untouched.
 
 ## 2. PR 2: the cutover (`feat(kernel)!:`)
 

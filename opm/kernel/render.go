@@ -123,15 +123,22 @@ type RenderDiagnostics struct {
 	// FailedPairs names matched pairs whose transformer output errored.
 	FailedPairs []RenderPair
 
+	// OverSubscribed is every provider-fulfilled contract key that
+	// transformers from more than one enabled registry entry require (the
+	// single-provider guard, 0010 D32/D37), key-sorted. Any row refuses the
+	// render through the gate.
+	OverSubscribed []oerrors.OverSubscribedContractError
+
 	// ResolvedVersions holds the per-path version rows, in path order.
 	ResolvedVersions []ResolvedVersion
 }
 
 // RenderError is a refusal after the build: the fail-closed gate (an
-// unresolved demand or an unmatched component), a failed pair, or a
-// non-concrete pair output. Diagnostics carries everything the build reported;
-// Err carries the typed causes ([*oerrors.UnresolvedDemandsError],
-// [*compile.UnmatchedComponentsError], [*oerrors.TransformError]), reachable
+// unresolved demand, an unmatched component or an over-subscribed
+// provider-fulfilled contract), a failed pair, or a non-concrete pair output.
+// Diagnostics carries everything the build reported; Err carries the typed
+// causes ([*oerrors.UnresolvedDemandsError], [*compile.UnmatchedComponentsError],
+// [oerrors.OverSubscribedContractError], [*oerrors.TransformError]), reachable
 // through errors.As.
 type RenderError struct {
 	Diagnostics RenderDiagnostics

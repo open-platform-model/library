@@ -17,3 +17,14 @@ thing that differs between them:
 
 Consumed on-disk (subpackage acquisition through `Kernel.AcquireInstanceFromDir`);
 never published; not discovered by the repo's CUE tasks.
+
+## Platforms (`testdata/render/platform*`)
+
+Each is its own CUE module in the D5 shape, importing the served catalogs:
+
+| Directory | Carries | Exercises |
+| --- | --- | --- |
+| `platform` | cat 0.1.0 | the happy path and every scenario above |
+| `platform_next` | cat 0.2.0 | older-than-platform skew (data, not a warning) |
+| `platform_two` | cat 0.1.0 + cat2 0.1.0 | catalog-fulfilled plurality: two catalogs supply the container contract and every candidate matches |
+| `platform_oversubscribed` | cat 0.1.0 + cat2 0.2.0 | the single-provider guard: two catalogs supply the provider-fulfilled gateway contract, refused in-build |
