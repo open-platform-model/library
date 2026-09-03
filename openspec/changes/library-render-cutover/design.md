@@ -72,11 +72,11 @@ Frontend call sites today: `cli/internal/platform/materialize.go` (`SynthesizePl
 **Decision**: `DefaultSchemaModule` becomes `opmodel.dev/core@v2.0.0-alpha.7` in PR 2, the same PR that deletes the old path; `opm/schema/loader_test.go`'s pin assertion moves with it. The workspace `task deps:update` bump for `library` is unblocked by PR 2 and performed as part of it (the deferred run `core-registry-import` named).
 **Rationale**: the flip and the deletion are one atomic fact; splitting them leaves a release that cannot render at all.
 
-### ADR-005 carries D8; ADR-002 and ADR-003 get headers, not rewrites
+### ADR-005 carries D8, ADR-006 carries D9; ADR-002 and ADR-003 get supersession headers, not rewrites
 
 **Context**: ADR-002 is already marked retracted in place (library PR 93); ADR-003's no-cross-build-fill principle stands while its federation rationale is stale.
-**Decision**: ADR-005 "Shares-nothing renders" records the two rules (own build, own context; context does not outlive the render), the rejected alternatives with their measurements (mutex: 2.5x to 5.5x throughput and 348 MB retained; per-worker platform copies: 41.9 MB to 581.8 MB per render), and the pool-sizing consequence. ADR-002's status line becomes "Superseded by ADR-005". ADR-003's status gains one paragraph retiring the federation premise (multi-version-per-major composition was deleted by 0010 D14; single-build is now the only tactic in use) and confirming the principle.
-**Rationale**: 0019 D8 asks for exactly this shape ("a superseded-by header on ADR-002, a new ADR carrying both rules"); rewriting the old ADRs would erase the record the headers point at.
+**Decision**: ADR-005 "Shares-nothing renders" records the two rules (own build, own context; context does not outlive the render), the rejected alternatives with their measurements (mutex: 2.5x to 5.5x throughput and 348 MB retained; per-worker platform copies: 41.9 MB to 581.8 MB per render), and the pool-sizing consequence. ADR-002's status line becomes "Superseded by ADR-005". ADR-006 "Artifacts are constructed in one CUE build" records D9 (every artifact the kernel constructs is one build that imports its inputs; no cross-build fill) with its measurements and the rejected federation and caller-context-fill tactics; ADR-003's status line becomes "Superseded by ADR-006". A first draft gave ADR-003 a confirming paragraph instead, on the reading that only its rationale was stale; that reading was wrong, because ADR-003's decision explicitly rejected the single-build-only framing that is now the rule, so the decision changed, not its context.
+**Rationale**: 0019 D8 asks for exactly this shape ("a superseded-by header on ADR-002, a new ADR carrying both rules"), and D9 is a separate decision with the same claim to a record; rewriting the old ADRs would erase the record the headers point at.
 
 ## Public surface changes (`opm/`)
 

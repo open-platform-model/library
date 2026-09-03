@@ -25,7 +25,7 @@ This change is `library-render-cutover`, the last library slice of 0019 Phase B.
 
 **PR 3, supersession and documentation (D8):**
 
-- ADR-005 states the two rules: each render is its own CUE build in its own `cue.Context`, and that context does not outlive the render; nothing built is shared between renders; concurrency is across renders, never within one; a render pool is sized by memory (61 MB + 7.75 MB per component, 0019 `06-operational.md`). ADR-002's status becomes "Superseded by ADR-005"; ADR-003's federation rationale is retired in place (the no-cross-build-fill principle stands; its multi-version-composition premise was deleted by 0010 D14).
+- ADR-005 states the two rules: each render is its own CUE build in its own `cue.Context`, and that context does not outlive the render; nothing built is shared between renders; concurrency is across renders, never within one; a render pool is sized by memory (61 MB + 7.75 MB per component, 0019 `06-operational.md`). ADR-002's status becomes "Superseded by ADR-005". ADR-006 states D9: every artifact the kernel constructs is one CUE build that imports its inputs, no cross-build fill; ADR-003's status becomes "Superseded by ADR-006" (its multi-version-composition premise was deleted by 0010 D14 and 0019 D5, and the single-build-only framing it rejected is now the rule).
 - `opm/kernel/doc.go` drops the materialize-era goroutine text and the mutex stopgap, documents `Render` as the phase surface, and states the shares-nothing contract; `README.md`, `docs/getting-started.md` and `CLAUDE.md` (the Materialize lifetime section, the layout table) follow.
 
 ## SemVer classification
