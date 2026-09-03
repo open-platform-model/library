@@ -58,7 +58,7 @@ type Loader interface {
 // overrides are plumbed into [load.Config.Env] for the single load call.
 type OCILoader struct {
 	// Module is the schema module identifier. Empty means
-	// [DefaultSchemaModule] ("opmodel.dev/core@v2").
+	// [DefaultSchemaModule], the pinned core release.
 	//
 	// A bare major form ("…@v0") is automatically expanded to "…@v0.latest"
 	// before calling [load.Instances]; CUE's standalone-package loader
