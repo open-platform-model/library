@@ -170,14 +170,12 @@ oracle.#Render & {
 	k := kernel.New(kernel.WithRegistry(mapping))
 
 	// ── kernel side ──────────────────────────────────────────────────
-	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@v0", "v"+version)
-	require.NoError(t, err, "acquiring the probe module")
+	// The instance is acquired source-carrying so the cutover proof below
+	// can hand the SAME processed instance to Render.
 	mp, err := materializePlatform(t, k, version, catPath)
 	require.NoError(t, err, "materializing the probe platform")
-	instVal, err := k.LoadInstancePackage(ctx, filepath.Join(dir, "instance"), loaderfile.LoadOptions{Registry: mapping})
-	require.NoError(t, err, "loading the probe instance package")
-	inst, err := k.ProcessModuleInstance(ctx, instVal, *mod, cue.Value{})
-	require.NoError(t, err)
+	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(dir, "instance"), loaderfile.LoadOptions{Registry: mapping})
+	require.NoError(t, err, "acquiring the probe instance package")
 	plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
 	require.NoError(t, err)
 	out, compileErr := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: parityRuntimeName})
@@ -204,6 +202,11 @@ oracle.#Render & {
 	c.Instance = "probe instance (t.TempDir)"
 	c.Transformer = txFQN
 	assertParity(t, c, kernelRender(out, compileErr, pair), oracleOut)
+
+	// Cutover proof (parity_cutover_test.go): the same probe, the same
+	// instance, through Render against a #CatalogEntry platform importing
+	// the same served catalog build.
+	assertCutover(t, c, kernelRender(out, compileErr, pair), renderProbe(t, k, dir, mapping, catPath, version, inst, pair))
 }
 
 // probeModuleFile is a one-component module declaring the probe catalog's
