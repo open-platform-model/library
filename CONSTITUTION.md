@@ -60,12 +60,11 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata decoders
 - `opm/core/` — shared domain primitives (resource identity, compiled output)
 - `opm/errors/` — structured errors and grouped CUE diagnostics (alias as `oerrors` in consumers)
-- `opm/kernel/` — public `Kernel` struct: the single runtime entry point (load, validate, match, plan, compile, materialize)
+- `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, load, process, validate, synthesize, render)
 - `opm/module/` — module and release model, value-validation accessors
-- `opm/platform/` — platform artifact model (the kernel's match/execute input)
-- `opm/compile/` — compile pipeline (match, execute, emit)
+- `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
 - `opm/compat/` — publish-side catalog compatibility: the additive-only comparison walk (which skips provenance metadata at every depth), contract-level ladder, predecessor selection (pure `cue.Value` logic, no I/O)
-- `opm/materialize/` — resolve a platform's `#registry` subscriptions into a sealed `MaterializedPlatform`
+- `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
 - `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `synth`); a frontend MAY skip the entire tree
 
 Validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) rather than a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
@@ -73,7 +72,7 @@ Validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfi
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 
 ```text
-loader -> module -> schema-validate -> compile -> core
+loader -> module -> schema-validate -> render -> core
 ```
 
 ---

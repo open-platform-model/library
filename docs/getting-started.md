@@ -1,14 +1,14 @@
 # Getting started
 
-This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, materializing a Platform, and compiling an Instance down to rendered `*core.Compiled` values.
+This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, acquiring an instance and a platform module, and rendering the instance down to `*core.Compiled` values.
 
-The recommended entry point is the `kernel.Kernel` struct, which owns the `*cue.Context` and schema cache used by every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use.
+The recommended entry point is the `kernel.Kernel` struct, which owns the `*cue.Context` and schema cache used by every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use. `Render` does not use that context: each render is its own CUE build in a fresh context that is dropped when the call returns, so concurrency is across renders, one Kernel per goroutine, with nothing shared (ADR-005).
 
 ## Prerequisites
 
 - Go 1.22+
-- A CUE module containing a `Module` artifact (and optionally a `ModuleInstance` artifact and a `Platform` artifact).
-- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v2`) at runtime through CUE's module system, and your own modules go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
+- A CUE module containing a `Module` artifact, a `ModuleInstance` package (or the typed inputs to synthesize one), and a Platform module: a CUE module whose `#registry` entries import their catalogs.
+- `CUE_REGISTRY` configured. The kernel resolves the OPM core schema (`opmodel.dev/core@v2`) at runtime through CUE's module system, and your own modules and catalogs go through the same mechanism. The library does NOT auto-set `CUE_REGISTRY`; configure it explicitly before constructing the Kernel.
 
 ## Configure CUE_REGISTRY
 
@@ -26,7 +26,7 @@ os.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 // → "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 ```
 
-Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v2` module (run any schema-touching command once with registry access, then ship the populated cache directory).
+Operators in air-gapped environments set `CUE_REGISTRY` to an internal mirror, or pre-seed `$CUE_CACHE_DIR` with the extracted `opmodel.dev/core@v2` module and the catalogs the platform imports (run any schema-touching command and one render once with registry access, then ship the populated cache directory).
 
 ## Construct a kernel
 
@@ -36,24 +36,24 @@ import "github.com/open-platform-model/library/opm/kernel"
 k := kernel.New()
 ```
 
-`kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required.
+`kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required. `WithRegistry` sets the registry mapping the render build uses for the platform's catalog imports and that `AcquireModuleFromRegistry` uses for module pulls; without it the kernel inherits the process `CUE_REGISTRY`. The mapping is plumbed into the load configuration only, never written back to the environment.
 
-The Kernel owns a single `*schema.Cache` for its lifetime. The first method that needs the schema (validation, release synthesis, compile) triggers one `OCILoader.Load` call; subsequent operations on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization.
+The Kernel owns a single `*schema.Cache` for its lifetime. The first method that needs the schema (validation, instance synthesis, instance processing) triggers one `OCILoader.Load` call; subsequent operations on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization. `Render` does not read the schema cache: the render build resolves core through the staged module's own `cue.mod`.
 
 ### Pin a specific schema version
 
-`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves the floating major `opmodel.dev/core@v2`. To pin a reproducible version:
+`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves `schema.DefaultSchemaModule` (the pinned core release the kernel was built against). To pin a different reproducible version:
 
 ```go
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-alpha.4",
+    Module: "opmodel.dev/core@v2.0.0-alpha.7",
 }))
 
 // After any schema-touching call:
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
-// → "v2.0.0-alpha.4"
+// → "v2.0.0-alpha.7"
 ```
 
 ## Load a module package
@@ -96,56 +96,90 @@ if vErr != nil {
 
 The full validation primitives surface is `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`, composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance` — see the `opm/kernel` package documentation.
 
-## Load and process a release
+## Acquire an instance
 
-Instances load as CUE packages (unified with module loading in commit `7c435f2`). The release's `Package` embeds the source `#module` reference; `ProcessModuleInstance` uses it to validate user values against `#module.#config` without a separate schema argument (Tier-2 safety net).
+`Render` imports the instance as a CUE package, so the instance must carry a `Source` (where its package lives). Two entry points produce one; both go through `ProcessModuleInstance`, the validated entry point, so the result is concrete and schema-checked.
 
-```go
-releaseVal, err := k.LoadInstancePackage(ctx, "./release/", loaderfile.LoadOptions{})
-if err != nil {
-    return err
-}
-rel, err := k.ProcessModuleInstance(ctx, releaseVal, *mod, userValues)
-if err != nil {
-    return err
-}
-```
-
-If your frontend has typed inputs in hand rather than a release package on disk, use `Kernel.SynthesizeInstance` (from `opm/helper/synth`) instead. It unifies the typed inputs against the `#ModuleInstance` schema (resolved via the kernel's `*schema.Cache`) and chains into `ProcessModuleInstance` in one call. The kernel-owned cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across release synthesis and other schema-touching code.
-
-## Load and materialize a Platform
-
-The Platform is the kernel's matching and execution input. Its `#registry` declares path-keyed catalog subscriptions; `Kernel.Materialize` pulls each enabled subscription's catalog build from the OCI registry and returns a sealed `*materialize.MaterializedPlatform` with the composed transformers and matcher index filled. The phase methods accept only the materialized form — a raw `*platform.Platform` is not a valid phase input.
+**From typed inputs** (a frontend that has the module and the values in hand): `Kernel.SynthesizeInstance` stages a virtual package that imports the module, writes the caller's values, and validates it in one build.
 
 ```go
-platVal, err := k.LoadPlatformPackage(ctx, "./platform/", loaderfile.LoadOptions{})
-if err != nil {
-    return err
-}
-plat, err := k.NewPlatformFromValue(platVal)
-if err != nil {
-    return err
-}
-mp, err := k.Materialize(ctx, plat)
-if err != nil {
-    return err
-}
-```
+import "github.com/open-platform-model/library/opm/helper/synth"
 
-`Materialize` is explicit and caller-driven: every call performs registry I/O, and the kernel holds no materialize cache. Long-running consumers store the `*MaterializedPlatform` keyed on an invalidation signal they own; short-lived ones rely on CUE's on-disk module cache.
-
-## Compile
-
-`Kernel.Compile` runs the match → execute → emit pipeline and returns rendered values with full provenance. The instance is rendered as processed: values were validated and filled by `ProcessModuleInstance`, and `Compile` performs no validation pass of its own.
-
-```go
-result, err := k.Compile(ctx, kernel.CompileInput{
-    ModuleInstance: rel,
-    Platform:       mp,
-    RuntimeName:    "opm-cli",
+inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
+    Module:    mod,
+    Name:      "web-app-demo",
+    Namespace: "default",
+    Values:    userValues,
 })
 if err != nil {
     return err
+}
+```
+
+The kernel-owned schema cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across instance synthesis and other schema-touching code.
+
+**From an authored package on disk** (a `ModuleInstance` package that is already fully concrete): `Kernel.AcquireInstanceFromDir` loads it through the shape gate, processes it with no extra values, and stamps its `Source`.
+
+```go
+inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", loaderfile.LoadOptions{})
+if err != nil {
+    return err
+}
+```
+
+`LoadInstancePackage` plus `ProcessModuleInstance` remain available for draft flows that want the raw value or supply values to an on-disk package, but an instance built that way carries no `Source` and cannot be rendered.
+
+## Acquire a platform module
+
+A platform is a CUE module on disk that imports its catalogs: every `#registry` entry embeds a catalog by import, and core derives the entry's version and the platform's `#composedTransformers` from it. The frontend writes that module (the CLI and the operator each generate theirs); the kernel acquires it with `Kernel.AcquirePlatformFromDir`, which loads the package through the platform shape gate and stamps its `Source`.
+
+```go
+plat, err := k.AcquirePlatformFromDir(ctx, "./platform/", loaderfile.LoadOptions{})
+if err != nil {
+    return err
+}
+```
+
+The shape gate refuses a `#registry` entry that embeds no catalog (the pre-0019 subscription shape with a `version` scalar) as `loaderfile.ErrMissingRequiredField`. There is no materialize step and no platform synthesis: the platform's catalogs are resolved by the render build, through `CUE_REGISTRY` or `WithRegistry`, exactly as any other CUE import.
+
+## Render
+
+`Kernel.Render` renders the instance against the platform as one CUE build: it stages a generated render module that imports both, builds it once in a fresh `cue.Context`, decodes the matching verdicts and the rendered output, and drops the context. Matching and transformer execution run inside the build as CUE; the instance is rendered as processed, and `Render` performs no validation pass of its own.
+
+```go
+import (
+    "errors"
+
+    oerrors "github.com/open-platform-model/library/opm/errors"
+)
+
+result, err := k.Render(ctx, kernel.RenderInput{
+    Instance:    inst,
+    Platform:    plat,
+    RuntimeName: "opm-cli",
+    // Skew: kernel.SkewWarn (default) renders against the platform's build and
+    // reports module-newer-than-platform catalog skew on result.Warnings;
+    // kernel.SkewRefuse fails before evaluation with *oerrors.SkewError.
+})
+if err != nil {
+    var rerr *kernel.RenderError
+    if errors.As(err, &rerr) {
+        // The build ran and the fail-closed gate refused: rerr.Diagnostics
+        // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
+        // UnhandledTraits, OverSubscribed, ResolvedVersions) and rerr.Err the
+        // typed cause (*oerrors.UnresolvedDemandsError,
+        // *oerrors.UnmatchedComponentsError, oerrors.OverSubscribedContractError,
+        // *oerrors.TransformError), reachable through errors.As.
+        var unmatched *oerrors.UnmatchedComponentsError
+        if errors.As(rerr.Err, &unmatched) {
+            // unmatched.Components, unmatched.Matches
+        }
+    }
+    return err
+}
+for _, w := range result.Warnings {
+    // advisory: unhandled optional traits, version skew under SkewWarn
+    _ = w
 }
 for _, r := range result.Compiled {
     // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
@@ -154,31 +188,54 @@ for _, r := range result.Compiled {
 
 Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
-## Phase-explicit entry points
+### Dry run
 
-The kernel exposes two phase methods that map onto frontend subcommands:
+There is no separate match verb. A dry run is `Render` with `Compiled` discarded: the build evaluates every matched pair regardless, and `result.Diagnostics` (or `rerr.Diagnostics` on a refusal) carries the pairing diagnosis.
 
-| Method            | Frontend subcommand | Purpose                                              |
-| ----------------- | ------------------- | ---------------------------------------------------- |
-| `Kernel.Match`    | `match`             | Pair components with transformers                    |
-| `Kernel.Compile`  | `apply` / `render`  | Full pipeline — rendered `[]*core.Compiled`          |
+```go
+result, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-cli"})
+var rerr *kernel.RenderError
+switch {
+case err == nil:
+    report(result.Diagnostics.Pairs, result.Diagnostics.Unmatched)
+case errors.As(err, &rerr):
+    report(rerr.Diagnostics.Pairs, rerr.Diagnostics.Unmatched)
+default:
+    return err // refused before evaluation: missing Source, uncovered path, skew under SkewRefuse
+}
+```
 
-Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed. A dry run is `Match` (pairing diagnosis) or `Compile` with the rendered slice discarded.
+## Entry points
+
+| Method                                | Frontend subcommand          | Purpose                                                                      |
+| ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `Kernel.AcquirePlatformFromDir`       | (platform load)              | Platform module from disk, `Source` stamped                                  |
+| `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped                       |
+| `Kernel.SynthesizeInstance`           | (typed inputs)               | Instance from module + values, validated, `Source` stamped                   |
+| `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*core.Compiled` plus `RenderDiagnostics`         |
+
+Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point behind both instance acquirers, and `Render` renders the instance as processed.
 
 ## Removed entry points
 
-The previous free-function entry points have all been removed. If you have old code calling any of these, migrate to the `*Kernel` methods listed in the table above:
+The previous entry points have all been removed. If you have old code calling any of these, migrate to the `*Kernel` methods listed in the table above:
 
-| Removed                         | Replacement                                  |
-| ------------------------------- | -------------------------------------------- |
-| `compile.CompileModuleInstance`  | `(*Kernel).Compile`                          |
-| `compile.ProcessModuleInstance`  | `(*Kernel).ProcessModuleInstance`             |
-| `module.ParseModuleInstance`     | `(*Kernel).ProcessModuleInstance`             |
-| `loaderfile.LoadInstanceFile`    | `loaderfile.LoadInstancePackage` (now a pkg)  |
-| `opm/loader/` shim              | `opm/helper/loader/file`                     |
+| Removed                                          | Replacement                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------- |
+| `(*Kernel).Compile`, `kernel.CompileInput`       | `(*Kernel).Render`, `kernel.RenderInput`                                    |
+| `(*Kernel).Match`, `kernel.MatchInput`           | `(*Kernel).Render`; read `RenderDiagnostics.Pairs` / `.Unmatched`           |
+| `(*Kernel).Materialize`, `opm/materialize`       | `(*Kernel).AcquirePlatformFromDir`; the render build resolves the catalogs  |
+| `(*Kernel).SynthesizePlatform`, `synth.Platform` | Write the platform as a CUE module importing its catalogs; acquire it       |
+| `compile.UnmatchedComponentsError`               | `oerrors.UnmatchedComponentsError` (same shape)                             |
+| `compile.CompileModuleInstance`                  | `(*Kernel).Render`                                                          |
+| `compile.ProcessModuleInstance`                  | `(*Kernel).ProcessModuleInstance`                                           |
+| `module.ParseModuleInstance`                     | `(*Kernel).ProcessModuleInstance`                                           |
+| `loaderfile.LoadInstanceFile`                    | `loaderfile.LoadInstancePackage` (now a pkg)                                |
+| `opm/loader/` shim                               | `opm/helper/loader/file`                                                    |
 
 ## Further reading
 
-- [`README.md`](../README.md) — kernel scope, layout, multi-version support.
+- [`README.md`](../README.md) — kernel scope, layout, the render pipeline.
 - [`CONSTITUTION.md`](../CONSTITUTION.md) — design principles.
-- [`docs/design/`](design/) — flow diagrams and pipeline notes.
+- [`adr/005-shares-nothing-renders.md`](../adr/005-shares-nothing-renders.md) — the render concurrency contract and pool sizing.
+- [`docs/design/`](design/) — CUE evaluator notes.

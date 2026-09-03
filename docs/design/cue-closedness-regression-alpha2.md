@@ -313,9 +313,11 @@ twin asserting the workaround shape stays clean. The original single-canary form
 to discriminate: PASS on `v0.17.1` (bug present), FAIL on `v0.17.0-alpha.1` (bug
 absent).
 
-`opm/materialize` package tests pass on both pins — that path fills already-built
-values rather than re-validating the closed component spec, so it does not
-re-trigger the closedness check. The regression bites specifically where the Go
+`opm/materialize` package tests passed on both pins — that path filled already-built
+values rather than re-validating the closed component spec, so it did not
+re-trigger the closedness check. (The package no longer exists: `library-render-cutover`
+deleted it on 2026-09-03; the render-time path is now `Kernel.Render`'s single build,
+which builds the catalog-backed module and so sits on the same regression surface.) The regression bites specifically where the Go
 kernel **builds/validates** a catalog-backed `#Module` (`Kernel.Validate` /
 `ValidateRealConfig` at the time; validation now lives in
 `Kernel.ProcessModuleInstance` / `ValidateConfig`), i.e. the exact render-time

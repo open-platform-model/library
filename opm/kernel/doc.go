@@ -12,18 +12,25 @@
 //
 // A single Kernel is NOT safe for concurrent use across its own method calls.
 // The owned [*cue.Context] (acquisition, synthesis and validation build in
-// it) is driven single-threaded — sharing one Kernel between goroutines can
+// it) is driven single-threaded; sharing one Kernel between goroutines can
 // cause data races inside CUE evaluation. Callers that need concurrency MUST
 // construct one Kernel per goroutine.
 //
-// [Kernel.Render] shares nothing between renders (enhancement 0019 D8): each
-// render is its own CUE build in a fresh cue.Context that is released when
-// Render returns, the Kernel's own context is not used, and no built value is
-// retained between calls. Concurrency is across renders, never within one: a
-// consumer rendering from several goroutines gives each goroutine its own
-// Kernel and calls Render, with no shared platform value and no mutex. There
-// is no materialized platform to share and no serialised render path; the
-// earlier shared-platform contract is retracted (ADR-002).
+// [Kernel.Render] shares nothing between renders (ADR-005, enhancement 0019
+// D8). Each render is its own CUE build in a fresh cue.Context created for
+// that call and dropped when Render returns; the Kernel's own context is not
+// used, no built value is retained between calls, and a caller cannot obtain
+// one to hold. Concurrency is across renders, never within one: a consumer
+// rendering from several goroutines gives each goroutine its own Kernel and
+// calls Render, with no shared platform value and no mutex. There is no
+// materialized platform to share and no serialised render path; the earlier
+// shared-platform contract (ADR-002) is superseded, not supported.
+//
+// A render is single-threaded and its working set grows with the module, so
+// a render pool is sized by memory rather than by core count: about 61 MB
+// plus 7.75 MB per component per concurrent render (0019 experiment 08), and
+// throughput saturates at roughly physical cores divided by 1.6 renders in
+// flight. Size against the largest module the pool will see.
 //
 // # One-Kernel-per-goroutine example
 //
@@ -66,19 +73,29 @@
 // source-carrying instance ([Kernel.AcquireInstanceFromDir] or
 // [Kernel.SynthesizeInstance]) and a source-carrying platform
 // ([Kernel.AcquirePlatformFromDir]: a platform is a CUE module on disk that
-// imports its catalogs), stages one render module that imports both, builds
-// it once, and decodes the matching verdicts ([RenderDiagnostics]) and the
-// rendered output ([RenderResult.Compiled], one entry per rendered object
-// with instance, component and transformer provenance). A dry run is Render
-// with the output discarded: the build evaluates every matched pair
-// regardless, and RenderDiagnostics carries the pairing diagnosis (Pairs,
-// Unmatched, Unresolved, Unify, UnhandledTraits).
+// imports its catalogs), stages one generated render module that imports
+// both, builds it once, and decodes the matching verdicts
+// ([RenderDiagnostics]) and the rendered output ([RenderResult.Compiled],
+// one entry per rendered object with instance, component and transformer
+// provenance). Matching and transformer execution are CUE inside the build,
+// not Go; the build reports its verdicts as data and the kernel's fail-closed
+// gate turns an unresolved demand, an unmatched component or an
+// over-subscribed provider-fulfilled contract into a [*RenderError] that
+// carries the full diagnostics, with the typed causes reachable through
+// errors.As. Catalog version skew (the instance module requiring a newer
+// OPM-namespace build than the platform carries) is warned by default
+// ([SkewWarn]) or refused before evaluation ([SkewRefuse]).
+//
+// A dry run is Render with the output discarded: the build evaluates every
+// matched pair regardless, and RenderDiagnostics carries the pairing
+// diagnosis (Pairs, Unmatched, Unresolved, Unify, UnhandledTraits,
+// OverSubscribed, ResolvedVersions). There is no separate match verb.
 //
 // Render consumes the instance as processed: [Kernel.ProcessModuleInstance]
-// is the validated entry point — it validates user values against the
-// module's `#config` schema (via [Kernel.ValidateConfig]) and fills them
-// before the instance is rendered — and Render performs no validation pass
-// of its own.
+// is the validated entry point (it validates user values against the
+// module's `#config` schema via [Kernel.ValidateConfig] and fills them before
+// the instance is rendered; AcquireInstanceFromDir and SynthesizeInstance
+// both go through it), and Render performs no validation pass of its own.
 //
 // # Configuration validation
 //
@@ -111,5 +128,6 @@
 // [Kernel.CueContext] returns the underlying [*cue.Context] for callers that
 // need to build [cue.Value]s outside the kernel (typically tests). Values
 // built with this context are safe to pass back into Kernel methods. Most
-// callers should not need this.
+// callers should not need this. Render never uses it: the render build has
+// its own context.
 package kernel

@@ -1,5 +1,12 @@
 # Transformer `output`-local hidden fields don't resolve after Materialize + FillPath (RESOLVED)
 
+> **Note:** The code discussed below no longer exists (2026-09-03, `library-render-cutover`).
+> `opm/materialize`, `opm/compile`, `MaterializedPlatform`, `executePair` and every `FillPath` into a
+> platform value were deleted; `Kernel.Render` evaluates the instance, the platform and its catalogs
+> in one CUE build, and a transformer's inputs reach it by unification inside that build, so the
+> cross-build fill this document analyses has no surface left to occur on. The CUE Go-API
+> closedness analysis (§11, §12) remains the reference; the kernel-side fixes (§13, §14) are history.
+
 **Status:** RESOLVED structurally by `federate-materialize-transformers` (§14); the earlier kernel
 fix (§13, the open `Composed` escape hatch) is superseded. The defect is a **CUE Go-API
 closedness/structure-sharing bug**, NOT a CUE *evaluator* bug and NOT our schema. It was triggered by
