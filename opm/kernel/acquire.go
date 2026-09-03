@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"cuelang.org/go/cue"
@@ -16,8 +17,10 @@ import (
 // returns it as a typed, source-carrying [*platform.Platform]. It composes
 // [Kernel.LoadPlatformPackage] (evaluation and the platform shape gate,
 // identical to a direct call) with [platform.NewPlatformFromValue], then
-// stamps [platform.Platform.Source] in on-disk mode: Root is the directory's
-// absolute path, Overlay is nil, and the package is the root package.
+// stamps [platform.Platform.Source] in on-disk mode: Root is the enclosing
+// module root (the nearest ancestor holding cue.mod/module.cue, the directory
+// itself when it is the root), Pkg the package directory relative to it, and
+// Overlay nil.
 //
 // It is the directory peer of [Kernel.AcquireModuleFromRegistry] ("Acquire"
 // returns a typed artifact that knows where its source lives) and the
@@ -43,7 +46,7 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: %w", err)
 	}
-	plat.Source = &platform.Source{Root: absDir}
+	plat.Source = sourceForDir(absDir)
 	return plat, nil
 }
 
@@ -53,8 +56,11 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 // gate) with [Kernel.ProcessModuleInstance] — the validated entry point, called
 // with no extra values, so the package must already be fully concrete, as an
 // authored instance package is — then stamps [module.Instance.Source] in
-// on-disk mode: Root is the directory's absolute path, Overlay is nil, and the
-// package is the root package.
+// on-disk mode: Overlay is nil, Root is the enclosing module root (the
+// nearest ancestor holding cue.mod/module.cue, the directory itself when it
+// is the root) and Pkg the package directory relative to it, so a
+// package in a subdirectory of its module imports correctly from a follow-on
+// build.
 //
 // This is the same bar [Kernel.SynthesizeInstance] output meets, and the
 // recommended entry point when the instance will be imported as a package by a
@@ -78,6 +84,33 @@ func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, opt
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
-	inst.Source = &module.Source{Root: absDir}
+	inst.Source = sourceForDir(absDir)
 	return inst, nil
+}
+
+// sourceForDir describes an on-disk package directory as a Source: Root is
+// the nearest ancestor (the directory itself included) holding
+// cue.mod/module.cue, Pkg the slash-separated path of dir relative to it.
+// A directory with no enclosing module is its own root with an empty Pkg,
+// which is what a module-less package loads as today.
+func sourceForDir(absDir string) *module.Source {
+	dir := absDir
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "cue.mod", "module.cue")); err == nil {
+			rel, err := filepath.Rel(dir, absDir)
+			if err != nil {
+				break
+			}
+			if rel == "." {
+				rel = ""
+			}
+			return &module.Source{Root: dir, Pkg: filepath.ToSlash(rel)}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return &module.Source{Root: absDir}
 }
