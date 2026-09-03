@@ -57,14 +57,14 @@ type CatalogFixture struct {
 }
 
 // TxFixture describes one transformer to author into a test catalog: its kebab
-// name plus the short names of the resources/traits it requires (the demands
-// the render build's matcher buckets on). Output is an optional inline
+// name plus the short names of the resources it requires (the demands the
+// render build's matcher buckets on). Output is an optional inline
 // `#transform.output` literal (a CUE struct or list expression); when empty it
-// defaults to an empty struct.
+// defaults to an empty struct. Trait demands are authored by the committed
+// render fixtures (testdata/render/registry), not generated here.
 type TxFixture struct {
 	Name      string
 	Resources []string
-	Traits    []string
 	Output    string // optional inline #transform.output literal; "" → "{}"
 }
 
@@ -399,26 +399,6 @@ func BuildCatalog(path, version string, txs ...TxFixture) string {
 					r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
 				fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(r))
-				b.WriteString("\t\t\t}\n")
-			}
-			b.WriteString("\t\t}\n")
-		}
-		if len(tx.Traits) > 0 {
-			b.WriteString("\t\trequiredTraits: {\n")
-			for _, tr := range tx.Traits {
-				trfqn := contractFQN(path, "traits", tr)
-				fmt.Fprintf(&b, "\t\t\t%q: {\n", trfqn)
-				b.WriteString("\t\t\t\tkind: \"Trait\"\n")
-				// See the resource branch for the matchLabels/labels split.
-				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
-					tr, path+"/traits", ContractAPIVersion, version, trfqn, PrimitiveMatchKey, tr)
-				fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, tr)
-				// The advisory default the real catalog states on every
-				// trait; attachment-site postures (the demand side's last
-				// word) are authored by the component fixtures.
-				b.WriteString("\t\t\t\toptional: bool | *true\n")
-				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(tr))
-				b.WriteString("\t\t\t\tappliesTo: []\n")
 				b.WriteString("\t\t\t}\n")
 			}
 			b.WriteString("\t\t}\n")
