@@ -102,12 +102,13 @@ opm/
     loader/registry/          Registry loader: LoadModulePackageWithSource (published #Module by path@version, via Fetch+Overlay)
     loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
     synth/                    Instance(...) + Platform(...) → cue.Value from typed inputs (no files)
+  internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue glue, temp-dir staging + one cue/load build
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
 modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
-testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`)
+testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to core 2.0.0-alpha.7 and served in-process, so not discovered by the CUE tasks)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  Flow diagrams + pipeline gap notes
 migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
@@ -253,6 +254,7 @@ task cue:test:flow                              # plan→match→compile integra
 
 - `Kernel.Match` — match components ↔ transformers via `Platform.#matchers`
 - `Kernel.Compile` — apply / render → `*kernel.CompileResult` carrying `[]*core.Compiled`
+- `Kernel.Render` — the single-build render path (0019 D9, additive, consumed by no frontend until `library-render-cutover`): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*core.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew
 
 Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed with no validation pass of its own. The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 

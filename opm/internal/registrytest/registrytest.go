@@ -15,11 +15,16 @@ package registrytest
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/require"
 
@@ -173,6 +178,107 @@ func NewModuleRegistry(t *testing.T, modules []ModuleFixture, catalogs []Catalog
 	addCatalogs(mapfs, catalogs...)
 	addModules(mapfs, modules...)
 	return buildRegistry(t, mapfs)
+}
+
+// NewRegistryFromDir stands up an in-memory OCI registry serving the modules
+// laid out under dir in modregistrytest's own layout (one directory per
+// (module, version) named "<path with / → _>_v<X.Y.Z>", each a complete
+// module tree with its cue.mod/module.cue) and configures CUE_REGISTRY /
+// CUE_CACHE_DIR for the test scope: prefix (a module path prefix such as
+// "testing.opmodel.dev/library-render") routes to the in-process host
+// (+insecure) while everything else, opmodel.dev/core included, resolves from
+// the public registry via the warm workspace cache. It serves COMMITTED
+// fixture trees (e.g. testdata/render/registry) rather than generated ones,
+// so before serving it evicts each fixture's (path, version) from the shared
+// workspace CUE module cache: the cache is keyed by coordinate, and a fixture
+// edited under a fixed coordinate would otherwise be shadowed by the bytes a
+// previous run cached. Returns the CUE_REGISTRY mapping string.
+func NewRegistryFromDir(t *testing.T, dir, prefix string) string {
+	t.Helper()
+	require.NotEmpty(t, prefix, "a module path prefix routes the fixture tree to the in-process host")
+
+	mapfs := fstest.MapFS{}
+	var coords []string
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, p)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		slashRel := filepath.ToSlash(rel)
+		mapfs[slashRel] = &fstest.MapFile{Data: data}
+		top := strings.Split(slashRel, "/")[0]
+		if slashRel == path.Join(top, "cue.mod/module.cue") {
+			mf, err := modfile.Parse(data, p)
+			if err != nil {
+				return fmt.Errorf("fixture %s: %w", p, err)
+			}
+			_, version, _ := strings.Cut(top, "_v")
+			coords = append(coords, mf.ModuleRootPath()+"@v"+version)
+		}
+		return nil
+	})
+	require.NoError(t, err, "reading fixture registry tree %s", dir)
+
+	cacheDir := schematest.WorkspaceCacheDir(t)
+	for _, coord := range coords {
+		evictFromCache(t, cacheDir, coord)
+	}
+
+	reg, err := modregistrytest.New(mapfs, "")
+	require.NoError(t, err, "stand up in-memory registry")
+	t.Cleanup(reg.Close)
+	schematest.SetEnv(t)
+	registry := prefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
+	t.Setenv("CUE_REGISTRY", registry)
+	return registry
+}
+
+// evictFromCache removes one module coordinate ("<path>@v<X.Y.Z>") from the
+// CUE module cache under cacheDir: the extracted tree at
+// mod/extract/<path>@v<ver> and the download artifacts at
+// mod/download/<path>/@v/v<ver>.*. Absent entries are fine.
+func evictFromCache(t *testing.T, cacheDir, coord string) {
+	t.Helper()
+	mpath, version, ok := strings.Cut(coord, "@")
+	require.True(t, ok, "coordinate %q", coord)
+	require.NoError(t, removeReadOnlyTree(filepath.Join(cacheDir, "mod", "extract", filepath.FromSlash(mpath)+"@"+version)))
+	downloads, err := filepath.Glob(filepath.Join(cacheDir, "mod", "download", filepath.FromSlash(mpath), "@v", version+".*"))
+	require.NoError(t, err)
+	for _, f := range downloads {
+		require.NoError(t, removeReadOnlyTree(f))
+	}
+}
+
+// removeReadOnlyTree removes root, which cue/load extracts read-only, by
+// restoring owner write permission on the way down first. A missing root is
+// not an error.
+func removeReadOnlyTree(root string) error {
+	if _, err := os.Lstat(root); os.IsNotExist(err) {
+		return nil
+	}
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return os.Chmod(p, 0o755)
+		}
+		return os.Chmod(p, 0o644)
+	})
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(root)
 }
 
 // addCatalogs writes the modregistrytest fixture files for each catalog into

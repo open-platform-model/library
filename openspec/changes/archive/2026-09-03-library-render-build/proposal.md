@@ -24,7 +24,7 @@ MINOR: new kernel surface (`Render`, its input/result types, the skew policy typ
 ## Affected packages and downstream consumers
 
 - New: `opm/internal/renderstage` (staging, promotion, skew, glue generation), kernel-level `Render` entry plus input/result/diagnostics types; new render fixtures under `testdata/` (a platform module importing a catalog fixture, pinned to the D5 core prerelease).
-- Touched: `opm/kernel` (new files only), `opm/errors` (a skew diagnostic type if none fits; reuse first).
+- Touched: `opm/kernel` (new render files; `acquire.go`'s directory acquisitions now stamp `Source.Root` as the enclosing module root and `Pkg` as the package directory relative to it, so a subpackage imports correctly from the render build: MODIFIED deltas on `artifact-types` and `platform-artifact`), `opm/errors` (a skew diagnostic type if none fits; reuse first), `opm/internal/registrytest` (a helper serving a committed fixture registry tree).
 - **`cli` / `opm-operator`**: no action; nothing calls `Render` until the cutover wave. The operator's platform-package generation (0019 D6) and the CLI's authored `./opm` platform become `Render`'s real inputs then.
 - **Sequencing hazard (coordinated wave, stated in design.md):** the kernel's default schema loader floats on `opmodel.dev/core@v2`, so the moment core publishes the D5 alpha, `synth.Platform` (which writes subscription `version` fields the D5 schema derives instead) breaks on any cold cache, before any re-pin. Core's D5 release and the library's cutover wave must land as one train; this change's own fixtures pin the D5 prerelease explicitly and are immune.
 
