@@ -74,27 +74,9 @@ func (r *Instance) ConfigSchema() cue.Value {
 	return mod.LookupPath(schema.Config)
 }
 
-// The accessors below read the decoded metadata cache (and, for the module
-// version, the module-metadata projection on Package) so a frontend can
-// report on an instance without navigating Package itself.
-
-// InstanceName returns the instance's metadata.name.
-//
-// Was: ReleaseName
-func (r *Instance) InstanceName() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.Name
-}
-
-// Namespace returns the instance's metadata.namespace.
-func (r *Instance) Namespace() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.Namespace
-}
+// The accessors below read the decoded metadata cache (the UUID) and the
+// module-metadata projection on Package (the module version). Name,
+// namespace, fqn, labels and annotations are read off Metadata directly.
 
 // InstanceUUID returns the instance's metadata.uuid.
 //
@@ -106,38 +88,10 @@ func (r *Instance) InstanceUUID() string {
 	return r.Metadata.UUID
 }
 
-// InstanceFQN returns the instance's OWN fully qualified name — metadata.fqn
-// (registryPath:name:namespace, core v2), decoded into the metadata cache.
-// Distinct from the source module's identity, which remains reachable through
-// Package at the schema.ModuleMetadataPath path.
-func (r *Instance) InstanceFQN() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.FQN
-}
-
 // ModuleVersion returns the source module's version, read from Package via
 // the ModuleMetadataPath path.
 func (r *Instance) ModuleVersion() string {
 	return r.lookupModuleMetadataString("version")
-}
-
-// Labels returns the instance-level labels (already merged with module labels
-// at CUE evaluation time).
-func (r *Instance) Labels() map[string]string {
-	if r == nil || r.Metadata == nil {
-		return nil
-	}
-	return r.Metadata.Labels
-}
-
-// Annotations returns the instance-level annotations.
-func (r *Instance) Annotations() map[string]string {
-	if r == nil || r.Metadata == nil {
-		return nil
-	}
-	return r.Metadata.Annotations
 }
 
 // lookupModuleMetadataString reads a string field under the schema's
