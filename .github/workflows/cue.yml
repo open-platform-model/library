@@ -49,7 +49,7 @@ jobs:
       - name: Vet CUE modules
         run: task cue:vet
 
-      - name: Run plan/match/compile flow test
+      - name: Run the render flow test
         env:
           # Turn the registry-skip into a hard failure — ghcr.io is reachable
           # and the fixtures pin a published catalog, so the flow MUST run.
