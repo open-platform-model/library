@@ -3,7 +3,6 @@ package kernel_test
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -15,16 +14,16 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// TestCompile_ComponentFillPreservesDefinitions is the kernel-only half of
+// TestRender_ComponentFillPreservesDefinitions is the kernel-only half of
 // the parity harness's names-probe (spec transform-input-fill: "#component
 // is filled with every field class preserved"). A registrytest-served
 // catalog carries one transformer that re-declares `#component: _` and
 // emits the names core computes for the component; the instance is
 // import-authored so `#instance` and `#names` resolve. Rendering through
-// Kernel.Compile must carry those definitions into the transformer: before
-// library-component-fill the strip left `#component.#names` absent
-// (0019 D1/D3). Hermetic: no oracle, no GHCR.
-func TestCompile_ComponentFillPreservesDefinitions(t *testing.T) {
+// Kernel.Render must carry those definitions into the transformer: the
+// binding is plain unification inside the build (0019 D1/D3). Hermetic: no
+// oracle, no GHCR.
+func TestRender_ComponentFillPreservesDefinitions(t *testing.T) {
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
 	modPath := registrytest.UniquePath(t, "modules") + "/probe_app"
@@ -53,49 +52,23 @@ func TestCompile_ComponentFillPreservesDefinitions(t *testing.T) {
 	)
 
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "cue.mod", "module.cue"), fmt.Sprintf(`module: "testing.opmodel.dev/library-component-fill@v0"
-language: version: "v0.17.0"
-deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.4"
-	%q: v: %q
-}
-`, modPath+"@v0", "v"+version))
-	writeFile(t, filepath.Join(dir, "instance", "instance.cue"), fmt.Sprintf(`package instance
-
-import (
-	core "opmodel.dev/core@v2"
-	probe %q
-)
-
-core.#ModuleInstance
-
-metadata: {
-	name:      "probe-demo"
-	namespace: "default"
-}
-
-#module: probe
-values: {}
-`, modPath+"@v0"))
+	instDir := writeImportedInstance(t, dir, "testing.opmodel.dev/library-component-fill@v0", modPath, version, "probe-demo", "default", "{}", nil)
+	platDir := writeCatalogPlatform(t, dir, catPath, version)
 
 	ctx := context.Background()
 	k := kernel.New(kernel.WithRegistry(mapping))
+	opts := loaderfile.LoadOptions{Registry: mapping}
+	inst, err := k.AcquireInstanceFromDir(ctx, instDir, opts)
+	require.NoError(t, err, "acquiring the probe instance package")
+	plat, err := k.AcquirePlatformFromDir(ctx, platDir, opts)
+	require.NoError(t, err, "acquiring the probe platform")
 
-	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@v0", "v"+version)
-	require.NoError(t, err, "acquiring the probe module")
-	mp, err := materializePlatform(t, k, version, catPath)
-	require.NoError(t, err, "materializing the probe platform")
-	instVal, err := k.LoadInstancePackage(ctx, filepath.Join(dir, "instance"), loaderfile.LoadOptions{Registry: mapping})
-	require.NoError(t, err, "loading the probe instance package")
-	inst, err := k.ProcessModuleInstance(ctx, instVal, *mod, cue.Value{})
-	require.NoError(t, err)
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-test"})
+	require.NoError(t, err, "a transformer reading #component.#names must render through Kernel.Render")
+	require.Len(t, res.Compiled, 1)
+	require.Equal(t, txFQN, res.Compiled[0].Transformer)
 
-	out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "opm-test"})
-	require.NoError(t, err, "a transformer reading #component.#names must render through Kernel.Compile")
-	require.Len(t, out.Compiled, 1)
-	require.Equal(t, txFQN, out.Compiled[0].Transformer)
-
-	obj := out.Compiled[0].Value
+	obj := res.Compiled[0].Value
 	require.NoError(t, obj.Validate(cue.Concrete(true)), "rendered object must be concrete")
 
 	resourceName, err := obj.LookupPath(cue.ParsePath("resourceName")).String()
@@ -104,7 +77,8 @@ values: {}
 	require.NoError(t, err)
 
 	// The values core computes for component `web` of instance
-	// probe-demo/default; the same the parity oracle renders (D3).
-	assert.Equal(t, "web", resourceName)
-	assert.Equal(t, "web.default.svc.cluster.local", fqdn)
+	// probe-demo/default (resourceName is <instance>-<component> since core
+	// 2.0.0-alpha.7); the same the parity oracle renders (D3).
+	assert.Equal(t, "probe-demo-web", resourceName)
+	assert.Equal(t, "probe-demo-web.default.svc.cluster.local", fqdn)
 }

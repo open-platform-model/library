@@ -14,14 +14,16 @@ import (
 // DefaultSchemaModule is the module identifier used by [OCILoader.Load] when
 // [OCILoader.Module] is empty.
 //
-// Pinned to core 2.0.0-alpha.6 for now: 2.0.0-alpha.7 reshapes the
-// #Platform.#registry subscription (version is no longer defaulted) and the
-// materialize path has not been adapted yet. Restore the floating major
-// ("opmodel.dev/core@v2", which the loader expands through its ".latest"
-// mechanism to the highest published version within v2, with SemVer
-// prerelease ordering so a v2.0.0-0.dev.* snapshot never outranks a
-// v2.0.0-alpha.N tag) once the platform code follows the new shape.
-const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.6"
+// It names an exact core release, never the floating "opmodel.dev/core@v2"
+// major: the release the kernel's render glue, fixtures and parity oracle
+// were verified against. 2.0.0-alpha.7 is the first release carrying the D5
+// registry shape (a #Platform.#registry entry embeds its catalog by import
+// and derives `version` from it) and the D12 transformer-context projection
+// (enhancement 0019). The constant advances only by a deliberate change that
+// re-verifies the glue and the fixtures against the new release; a default
+// that floats ahead of the glue breaks every synthesized artifact on a cold
+// cache.
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.7"
 
 // PublicRegistry is the documented CUE_REGISTRY mapping for resolving the
 // OPM core schema from its canonical GHCR location with a fallback to

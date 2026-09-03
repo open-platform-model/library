@@ -7,7 +7,6 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
@@ -165,11 +164,11 @@ func gateErrors(diag RenderDiagnostics) error {
 		gate = append(gate, o)
 	}
 	if len(diag.Unmatched) > 0 {
-		matches := map[string]map[string]compile.MatchResult{}
+		matches := map[string]map[string]oerrors.MatchResult{}
 		for _, c := range diag.Unmatched {
-			matches[c] = map[string]compile.MatchResult{}
+			matches[c] = map[string]oerrors.MatchResult{}
 		}
-		gate = append(gate, &compile.UnmatchedComponentsError{Components: diag.Unmatched, Matches: matches})
+		gate = append(gate, &oerrors.UnmatchedComponentsError{Components: diag.Unmatched, Matches: matches})
 	}
 	if len(gate) == 0 {
 		return nil
@@ -247,8 +246,8 @@ func splitOutput(out cue.Value, p RenderPair, instanceName string) ([]*core.Comp
 	}
 }
 
-// unhandledTraitWarnings renders the unhandled-trait map as the same
-// advisory lines the old path's MatchPlan.Warnings emits.
+// unhandledTraitWarnings renders the unhandled-trait map as one advisory
+// line per (component, trait).
 func unhandledTraitWarnings(unhandled map[string][]string) []string {
 	if len(unhandled) == 0 {
 		return nil

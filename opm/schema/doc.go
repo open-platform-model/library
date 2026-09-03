@@ -1,16 +1,19 @@
 // Package schema is the kernel's single source of truth for OPM schema-side
-// knowledge: CUE paths, metadata decoders, the transformer-context builder,
-// and the OCI-backed schema loader.
+// knowledge: CUE paths, metadata decoders, and the OCI-backed schema loader.
 //
 // Schema is unversioned at the package level. The library consumes exactly
-// one OPM CUE schema package — opmodel.dev/core@v2, resolved through CUE's
-// module system against CUE_REGISTRY. There is no in-tree schema mirror.
+// one OPM CUE schema package, opmodel.dev/core at the release
+// [DefaultSchemaModule] pins, resolved through CUE's module system against
+// CUE_REGISTRY. There is no in-tree schema mirror.
 //
 // # Path inventory
 //
 // CUE paths are exported as package-level cue.Path variables (Metadata,
-// Components, Config, Module, ModuleMetadata, Registry, …). Callers use
-// schema.X verbatim — there is no Paths() accessor, no struct, no lookup.
+// Components, Values, Config, Module, ModuleMetadataPath, DebugValues).
+// Callers use schema.X verbatim — there is no Paths() accessor, no struct,
+// no lookup. The inventory is exactly what Go code reads: matching and
+// execution happen inside the render build, in CUE, and read nothing by
+// path from Go.
 //
 // # Metadata decoders
 //
@@ -18,17 +21,10 @@
 // one per artifact the kernel accepts — take a raw artifact-root cue.Value
 // and return the canonical decoded struct. Missing metadata is fatal.
 //
-// # Transformer context
-//
-// BuildTransformerContext constructs the #TransformerContext value for a
-// single (instance, component, transformer) tuple. The caller is responsible
-// for filling the returned value at schema.Context on the unified
-// transformer.
-//
 // # Schema loader and cache
 //
 // Loader is the strategy interface for resolving the schema; OCILoader is
-// the sole public implementation, fetching opmodel.dev/core@v2 through
+// the sole public implementation, fetching [DefaultSchemaModule] through
 // CUE's module system. Cache memoizes a single Loader.Load per instance
 // (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
 //

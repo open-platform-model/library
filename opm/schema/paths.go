@@ -2,9 +2,13 @@ package schema
 
 import "cuelang.org/go/cue"
 
-// CUE paths the kernel, matcher, helpers, and renderer use to read or write
-// fields on an OPM artifact. Every consumer that previously called
-// binding.Paths() now references these vars directly.
+// CUE paths the kernel's Go code reads or writes on an OPM artifact: metadata
+// decoding, instance processing and the module accessors. This is the whole
+// inventory. Matching and execution read nothing by path from Go: the render
+// build imports the instance and the platform as packages and the generated
+// glue reads `components` and `#composedTransformers` in CUE (enhancement
+// 0019 D9/D10). A path with no reader is removed, not kept for a possible
+// consumer.
 //
 // Definition fields (those starting with "#" in CUE) use cue.MakePath with
 // cue.Def selectors; concrete fields use cue.ParsePath. The two forms are
@@ -26,44 +30,4 @@ var (
 	// Module.Package and decide whether to layer it into the values stack;
 	// the kernel never receives debugValues as a parameter.
 	DebugValues = cue.ParsePath("debugValues")
-
-	// Catalog.
-	Transformers = cue.ParsePath("#transformers")
-
-	// Platform.
-	Registry = cue.ParsePath("#registry")
-
-	// Transformer body and matching predicates.
-	Transform                    = cue.ParsePath("#transform")
-	TransformerRequiredLabels    = cue.ParsePath("requiredLabels")
-	TransformerRequiredResources = cue.ParsePath("requiredResources")
-	TransformerRequiredTraits    = cue.ParsePath("requiredTraits")
-	TransformerOptionalTraits    = cue.ParsePath("optionalTraits")
-
-	// Inside #transform: the three inputs the runtime fills per matched
-	// pair (core: "The runtime supplies all three inputs concretely") and
-	// the output it reads.
-	ModuleInstance = cue.ParsePath("#moduleInstance")
-	Component      = cue.ParsePath("#component")
-	Context        = cue.MakePath(cue.Def("context"))
-	Output         = cue.ParsePath("output")
-
-	// Component sub-paths.
-	//
-	// Blueprints are deliberately omitted: a Blueprint is a composition
-	// template — its composedResources / composedTraits unify into a
-	// Component's spec at CUE-evaluation time (see component.cue _allFields).
-	// By the time the renderer sees a Component, blueprints are already
-	// merged. Walking #blueprints separately would double-count.
-	// MatchLabels is the component's MATCHING identity (0010 D36) — the
-	// derived union of its attached primitives' matchLabels. The matcher
-	// reads this, and only this, for label predicates; metadata.labels is
-	// descriptive and stays readable by non-matching consumers (component
-	// summaries, the transformer render context).
-	MatchLabels         = cue.ParsePath("matchLabels")
-	MetadataLabels      = cue.ParsePath("metadata.labels")
-	MetadataAnnotations = cue.ParsePath("metadata.annotations")
-	MetadataFQN         = cue.ParsePath("metadata.fqn")
-	ComponentResources  = cue.MakePath(cue.Def("resources"))
-	ComponentTraits     = cue.MakePath(cue.Def("traits"))
 )

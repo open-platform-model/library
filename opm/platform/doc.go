@@ -1,28 +1,19 @@
 // Package platform defines the Platform and PlatformMetadata types,
-// mirroring the #Platform definition introduced in catalog enhancement
-// 014-platform-construct. A Platform represents a deployment target's
-// identity, type, and registered Module extensions in the unified
-// (APIVersion, Metadata, Package) artifact shape used elsewhere in the
-// kernel.
+// mirroring the #Platform definition of the OPM core schema. A Platform
+// represents a deployment target's identity, type, and the catalogs it
+// carries, in the unified (Metadata, Package, Source) artifact shape used
+// elsewhere in the kernel.
 //
-// Catalog enhancement 014 introduces #Platform as the replacement for
-// #Provider. #Platform carries a #registry of #ModuleRegistration entries
-// and declares the computed CUE views (#composedTransformers, #matchers)
-// over which the kernel matcher and executor operate. The matcher rewrite
-// retires the previous Provider package; Platform is now the kernel's sole
-// input for matching and execution.
-//
-// The #composedTransformers / #matchers data is NOT materialized onto the
-// closed platform value: as of federate-materialize-transformers (ADR-003),
-// Materialize builds those natively in the owner *cue.Context and exposes
-// them as materialize.MaterializedPlatform.Transformers / .Matchers, and
-// never fills them onto Package (doing so corrupts output-local hidden
-// fields in #transforms). The schema still declares the fields, but on a
-// materialized platform they are unfilled here: read the composed map /
-// reverse index off MaterializedPlatform, not off platform.Package.
+// A platform is a CUE module on disk that imports its catalogs: every
+// #registry entry embeds a catalog by import and core derives the entry's
+// version and the platform's #composedTransformers from it (enhancement
+// 0019 D5/D17). The kernel acquires it with Kernel.AcquirePlatformFromDir,
+// which stamps Source, and renders against it with Kernel.Render, which
+// imports the platform package into the render build. No Go code navigates
+// the platform value by path: the composed transformers are read by the
+// render glue, in CUE, inside the build.
 //
 // See:
-//   - catalog/enhancements/014-platform-construct/ — the source enhancement
-//   - library/enhancements/001-kernel-redesign-around-platform/ — umbrella
-//   - openspec/changes/add-platform-construct/ — this slice's proposal
+//   - enhancements/0019 (workspace root) — single-build render
+//   - adr/003-single-build-cue-evaluation-invariant.md
 package platform

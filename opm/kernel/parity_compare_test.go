@@ -12,11 +12,11 @@ import (
 )
 
 // Parity comparator for the render-parity harness (enhancement 0019 D1/D4/D14;
-// openspec change library-parity-harness). The oracle is plain CUE
-// unification of a transformer's #transform with its declared inputs in one
-// build; the kernel is compile.Execute. Where they differ, the kernel is the
-// defective side, and the fix is removing kernel behaviour, never loosening
-// this comparison.
+// openspec changes library-parity-harness and library-render-cutover). The
+// oracle is plain CUE unification of a transformer's #transform with its
+// declared inputs in one build; the kernel is Kernel.Render. Where they
+// differ, the kernel is the defective side, and the fix is removing kernel
+// behaviour, never loosening this comparison.
 //
 // The comparison is ORDER-SENSITIVE by contract (D14): CUE's natural,
 // unfinalized field order is the render output contract, so the encoder used
@@ -29,15 +29,11 @@ import (
 // enhancements/0019/contracts/contracts.cue.
 type parityEquality string
 
-const (
-	// equalityStructural compares the whole rendered value. Reachable only
-	// once 0019 D12 lands and both sides derive #context identically.
-	equalityStructural parityEquality = "structural"
-	// equalityOutputFieldsOnly compares the transformer's `output` value and
-	// excludes nothing else. The interim mode while #context is built in Go
-	// on the kernel side and projected in CUE on the oracle side.
-	equalityOutputFieldsOnly parityEquality = "output-fields-only"
-)
+// equalityStructural compares the whole rendered value. It is the only
+// admitted mode: with #context projected by core (0019 D12) there is no
+// runtime-built value to exclude, and the interim "output-fields-only" mode
+// is retired; a table entry declaring it is refused by checkParity.
+const equalityStructural parityEquality = "structural"
 
 // parityCase is one row of the harness table, field for field the
 // #ParityCase contract. OrderSensitive is not a field: the contract fixes it
@@ -58,8 +54,8 @@ type parityCase struct {
 }
 
 // parityRender is what one renderer produced for one case's pair: either a
-// list of rendered objects (one per output element, as compile.Execute
-// flattens a list output) or an error.
+// list of rendered objects (one per output element, as Render splits a list
+// output) or an error.
 type parityRender struct {
 	Objects []cue.Value
 	Err     error
@@ -187,16 +183,8 @@ func compareRendered(kernel, oracle []cue.Value) string {
 // fail or differ, and agreement is itself a failure naming the entry to
 // delete.
 func checkParity(c parityCase, kernel, oracle parityRender) error {
-	switch c.Equality {
-	case equalityOutputFieldsOnly:
-	case equalityStructural:
-		// resolved-by-D12: until core derives #context from the other two
-		// inputs, the kernel builds it in Go and the oracle projects it in
-		// CUE, so a structural comparison would compare two constructions
-		// rather than two renderers. Refused rather than approximated.
-		return fmt.Errorf("case %q: structural equality is not implementable until 0019 D12 lands; declare %q", c.Name, equalityOutputFieldsOnly)
-	default:
-		return fmt.Errorf("case %q: unknown equality %q", c.Name, c.Equality)
+	if c.Equality != equalityStructural {
+		return fmt.Errorf("case %q: equality %q is not admitted; %q is the only mode (the output-fields-only interim mode was retired with 0019 D12)", c.Name, c.Equality, equalityStructural)
 	}
 	if oracle.Err != nil {
 		return fmt.Errorf("case %q (%s :: %s): the pure-CUE oracle must render; a failing oracle is a broken fixture, not a kernel divergence: %w",

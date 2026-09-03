@@ -6,47 +6,49 @@
 // kernel operation reads. Downstream binaries (CLI, controller,
 // Crossplane function) construct one Kernel per goroutine and call
 // methods on it instead of importing the individual loader / module /
-// compile / validate packages.
+// validate packages.
 //
 // # Goroutine safety
 //
 // A single Kernel is NOT safe for concurrent use across its own method calls.
-// The owned [*cue.Context] is driven single-threaded — sharing one Kernel
-// between goroutines can cause data races inside CUE evaluation. Callers that
-// need concurrency MUST construct one Kernel per goroutine.
+// The owned [*cue.Context] (acquisition, synthesis and validation build in
+// it) is driven single-threaded — sharing one Kernel between goroutines can
+// cause data races inside CUE evaluation. Callers that need concurrency MUST
+// construct one Kernel per goroutine.
 //
-// A [*materialize.MaterializedPlatform] is owned by the Kernel that built it
-// and is NOT safe to render against from several goroutines at once, whether
-// through one Kernel or many. [Kernel.Compile] fills each transformer's
-// #transform (FillPath of #moduleInstance, #component and #context), and
-// filling a value is a write to its evaluation state, not a read. Measured
-// against the real catalog (enhancement 0019, experiment 06): 2321
-// race-detector reports rendering concurrently against one shared platform,
-// 1540 with the platform fully pre-evaluated first. No wrong output was
-// observed; the behaviour is undefined. The earlier "materialize once, render
-// concurrently, no mutex" contract is retracted, and ADR-002 records the
-// supersession.
-//
-// Until the shares-nothing render model of enhancement 0019 lands (D8: one
-// CUE build per render, in a context that does not outlive the render), a
-// consumer that renders from several goroutines MUST either serialize every
-// use of a materialized platform behind one mutex, or give each goroutine
-// its own Kernel and its own [Kernel.Materialize] call.
+// [Kernel.Render] shares nothing between renders (enhancement 0019 D8): each
+// render is its own CUE build in a fresh cue.Context that is released when
+// Render returns, the Kernel's own context is not used, and no built value is
+// retained between calls. Concurrency is across renders, never within one: a
+// consumer rendering from several goroutines gives each goroutine its own
+// Kernel and calls Render, with no shared platform value and no mutex. There
+// is no materialized platform to share and no serialised render path; the
+// earlier shared-platform contract is retracted (ADR-002).
 //
 // # One-Kernel-per-goroutine example
 //
-//	func renderAll(ctx context.Context, paths []string) error {
+//	func renderAll(ctx context.Context, platformDir string, instanceDirs []string) error {
 //	    var wg sync.WaitGroup
-//	    errs := make(chan error, len(paths))
-//	    for _, p := range paths {
+//	    errs := make(chan error, len(instanceDirs))
+//	    for _, dir := range instanceDirs {
 //	        wg.Add(1)
-//	        go func(path string) {
+//	        go func(dir string) {
 //	            defer wg.Done()
 //	            k := kernel.New() // one Kernel per goroutine
-//	            if _, _, err := k.LoadModulePackage(ctx, path, loaderfile.LoadOptions{}); err != nil {
+//	            plat, err := k.AcquirePlatformFromDir(ctx, platformDir, loaderfile.LoadOptions{})
+//	            if err != nil {
+//	                errs <- err
+//	                return
+//	            }
+//	            inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+//	            if err != nil {
+//	                errs <- err
+//	                return
+//	            }
+//	            if _, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-cli"}); err != nil {
 //	                errs <- err
 //	            }
-//	        }(p)
+//	        }(dir)
 //	    }
 //	    wg.Wait()
 //	    close(errs)
@@ -58,48 +60,25 @@
 //	    return nil
 //	}
 //
-// # Rendering from several goroutines
+// # Rendering
 //
-// Serialize the render path, or materialize per goroutine. The mutex form is
-// the cheaper stopgap while a platform is expensive to materialize; it holds
-// the Kernel that built the platform and the platform itself behind one lock:
+// [Kernel.Render] is the kernel's single render verb. It takes a
+// source-carrying instance ([Kernel.AcquireInstanceFromDir] or
+// [Kernel.SynthesizeInstance]) and a source-carrying platform
+// ([Kernel.AcquirePlatformFromDir]: a platform is a CUE module on disk that
+// imports its catalogs), stages one render module that imports both, builds
+// it once, and decodes the matching verdicts ([RenderDiagnostics]) and the
+// rendered output ([RenderResult.Compiled], one entry per rendered object
+// with instance, component and transformer provenance). A dry run is Render
+// with the output discarded: the build evaluates every matched pair
+// regardless, and RenderDiagnostics carries the pairing diagnosis (Pairs,
+// Unmatched, Unresolved, Unify, UnhandledTraits).
 //
-//	var renderMu sync.Mutex // guards k0 and shared together
-//
-//	func renderOne(ctx context.Context, k0 *kernel.Kernel, shared *materialize.MaterializedPlatform, inst *module.Instance) error {
-//	    renderMu.Lock()
-//	    defer renderMu.Unlock()
-//	    _, err := k0.Compile(ctx, kernel.CompileInput{
-//	        ModuleInstance: inst,
-//	        Platform:       shared,
-//	        RuntimeName:    "opm-operator",
-//	    })
-//	    return err
-//	}
-//
-// The per-goroutine form costs one Materialize (registry I/O) per goroutine
-// and shares nothing, which is the model enhancement 0019 D8 makes the only
-// one.
-//
-// # Phase methods
-//
-// The kernel exposes two phase-explicit methods that mirror the OPM
-// pipeline. Each accepts a phase-specific input struct and returns a
-// phase-appropriate result:
-//
-//   - [Kernel.Match] — component / transformer pairing. Returns
-//     [*MatchPlan] without executing any transformer.
-//   - [Kernel.Compile] — full pipeline (Match + Execute). Returns
-//     [*CompileResult] containing rendered values plus provenance.
-//     This is the terminal output and the verb every frontend's
-//     "apply" / "render" subcommand wants.
-//
-// Both phases consume the instance as processed:
-// [Kernel.ProcessModuleInstance] is the validated entry point — it
-// validates user values against the module's `#config` schema (via
-// [Kernel.ValidateConfig]) and fills them before either phase runs.
-// A caller wanting a dry run calls Match for the pairing diagnosis, or
-// Compile and discards the rendered slice.
+// Render consumes the instance as processed: [Kernel.ProcessModuleInstance]
+// is the validated entry point — it validates user values against the
+// module's `#config` schema (via [Kernel.ValidateConfig]) and fills them
+// before the instance is rendered — and Render performs no validation pass
+// of its own.
 //
 // # Configuration validation
 //

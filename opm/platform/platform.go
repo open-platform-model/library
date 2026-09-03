@@ -13,10 +13,10 @@ import (
 // shape: { Metadata, Package }.
 //
 // Package is the source of truth: it is the loaded CUE value for the
-// platform and every kernel-internal read (Registry, computed views) goes
-// through Package.LookupPath with paths from opm/schema. The CUE-computed
-// views (#composedTransformers, #matchers) are NOT decoded into Go fields;
-// consumers iterate them lazily off Package.
+// platform, and metadata decoding reads it. The CUE-computed view
+// (#composedTransformers) is NOT decoded into Go fields and is not read from
+// Go at all: the render build imports the platform package and the glue
+// reads the view in CUE.
 //
 // Metadata is an ergonomic decoded projection of the platform-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —
@@ -28,17 +28,17 @@ type Platform struct {
 	// name lookups). May be nil when the metadata could not be decoded.
 	Metadata *PlatformMetadata `json:"metadata"`
 
-	// Package is the loaded CUE value for the platform artifact. Source of
-	// truth for every field reachable via opm/schema, including #registry
-	// and the computed views.
+	// Package is the loaded CUE value for the platform artifact, the
+	// evaluated form of the package Source points at.
 	Package cue.Value `json:"-"`
 
 	// Source is the staged source tree the platform package was loaded from,
 	// so a follow-on build can import the platform as a package. It is
 	// stamped by Kernel.AcquirePlatformFromDir (on-disk mode, the loaded
 	// directory) and is nil for platforms constructed from a bare value
-	// (NewPlatformFromValue, Kernel.SynthesizePlatform). Nothing in
-	// Materialize, Match or Compile reads it.
+	// (NewPlatformFromValue). Source is the render input: Kernel.Render
+	// imports the platform package from it, so a platform without Source
+	// cannot be rendered against. No other kernel operation reads it.
 	Source *Source `json:"-"`
 }
 

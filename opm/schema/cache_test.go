@@ -133,8 +133,8 @@ func TestCache_ResolvedVersionEmptyBeforeGet(t *testing.T) {
 }
 
 // TestCache_ResolvedVersionAfterOCIGet asserts that ResolvedVersion
-// returns a semver within the default (v2) major after a successful
-// OCILoader-backed Get. This exercises the loadVersioned hook in
+// returns exactly the release [schema.DefaultSchemaModule] pins after a
+// successful OCILoader-backed Get. This exercises the loadVersioned hook in
 // opm/schema/loader.go and pins the schema-dispatch scenario
 // "ResolvedVersion reports the v2 resolution".
 func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
@@ -151,8 +151,8 @@ func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
 		t.Skip("CUE SDK did not surface a parseable version in build.Instance.Root; " +
 			"ResolvedVersion is diagnostic-only, skip when unavailable")
 	}
-	assert.True(t, strings.HasPrefix(ver, "v2."),
-		"default schema line resolves within the v2 major (got %q)", ver)
+	pinned := strings.TrimPrefix(schema.DefaultSchemaModule, "opmodel.dev/core@")
+	assert.Equal(t, pinned, ver, "the default resolves the pinned release, never a floating one")
 }
 
 // TestCache_ResolvedVersionStaysEmptyOnFailedLoad asserts that a failed

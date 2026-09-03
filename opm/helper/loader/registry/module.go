@@ -218,7 +218,7 @@ func parentPath(modPath string) string {
 // override is requested. Building the env slice (rather than calling os.Setenv)
 // keeps the loader safe under concurrency: modconfig and load.Config consume
 // the slice locally without mutating process state. Mirrors
-// opm/helper/loader/file.registryEnv and opm/materialize.resolverEnv.
+// opm/helper/loader/file.registryEnv and opm/internal/renderstage.RegistryEnv.
 func registryEnv(registry string) []string {
 	base := os.Environ()
 	if registry == "" {

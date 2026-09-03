@@ -3,9 +3,9 @@ package kernel_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -15,9 +15,7 @@ import (
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
-	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/platform"
 )
 
 func TestNew_Default(t *testing.T) {
@@ -164,63 +162,11 @@ metadata: {
 	assert.Equal(t, "ns", inst.Metadata.Namespace)
 }
 
-// --- Compile parity: minimal instance + platform that round-trip through both
-// the kernel method and the free function.
-
-func minimalInstanceValue(t *testing.T, k *kernel.Kernel) *module.Instance {
-	t.Helper()
-	spec := k.CueContext().CompileString(`
-kind: "ModuleInstance"
-metadata: { name: "demo", namespace: "ns", uuid: "u" }
-#module: {
-	kind: "Module"
-	metadata: {
-		name: "demo-mod"
-		modulePath: "example.com/m"
-		version: "1.0.0"
-		fqn: "example.com/m/demo-mod:1.0.0"
-		uuid: "11111111-1111-1111-1111-111111111111"
-	}
-}
-components: {}
-`)
-	require.NoError(t, spec.Err())
-	return &module.Instance{
-		Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns"},
-		Package:  spec,
-	}
-}
-
-// minimalPlatformValue constructs a *materialize.MaterializedPlatform with an
-// empty registry / matchers / composedTransformers index — the realized form
-// the phase methods now consume.
-func minimalPlatformValue(t *testing.T, k *kernel.Kernel) *materialize.MaterializedPlatform {
-	t.Helper()
-	pv := k.CueContext().CompileString(`
-kind: "Platform"
-metadata: { name: "kubernetes" }
-type: "kubernetes"
-#registry: {}
-#composedTransformers: {}
-#matchers: {
-	resources: {}
-	traits: {}
-}
-`)
-	require.NoError(t, pv.Err())
-	return &materialize.MaterializedPlatform{
-		Source: &platform.Platform{
-			Metadata: &platform.PlatformMetadata{Name: "kubernetes", Type: "kubernetes"},
-			Package:  pv,
-		},
-		Transformers: pv.LookupPath(cue.ParsePath("#composedTransformers")),
-		Matchers:     pv.LookupPath(cue.ParsePath("#matchers")),
-	}
-}
-
-// --- Goroutine-safety regression: N kernels (one per goroutine) each run a
-// basic Load + Compile cycle. With -race enabled, this confirms no shared
-// state leaks across kernels.
+// --- Goroutine-safety regression: N kernels (one per goroutine) each drive
+// the context-owning path (load + process). With -race enabled, this
+// confirms no shared state leaks across kernels. The render side of the
+// same claim (Render shares nothing, 0019 D8) is
+// TestRender_ConcurrentKernelsShareNothing in render_test.go.
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
 	const n = 8
@@ -232,6 +178,16 @@ metadata: {
 	modulePath: "example.com/modules"
 	version:    "0.1.0"
 }
+`)
+	instDir := writeTempInstanceDir(t, `
+package instance
+kind: "ModuleInstance"
+metadata: {
+	name: "demo"
+	namespace: "ns"
+}
+#module: {kind: "Module"}
+values: {replicas: 3}
 `)
 
 	var wg sync.WaitGroup
@@ -252,19 +208,13 @@ metadata: {
 				errCh <- errors.New("module value does not exist")
 				return
 			}
-
-			inst := minimalInstanceValue(t, k)
-			plat := minimalPlatformValue(t, k)
-			_, perr := k.Compile(ctx, kernel.CompileInput{
-				ModuleInstance: inst,
-				Platform:       plat,
-				RuntimeName:    "opm-cli",
-			})
-			if perr != nil {
-				// Compile may legitimately error on the minimal fixture (no
-				// components/transformers); we only care that the call returns
-				// deterministically without racing.
-				_ = perr
+			inst, err := k.AcquireInstanceFromDir(ctx, instDir, loader.LoadOptions{})
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if inst.Metadata.Name != "demo" {
+				errCh <- errors.New("instance metadata not decoded")
 			}
 		}()
 	}
@@ -275,169 +225,35 @@ metadata: {
 	}
 }
 
-// --- Cross-context compile smoke test (NOT a concurrency-safety guard).
-//
-// One dedicated Kernel K0 builds a platform in its own *cue.Context. N
-// goroutines then each construct their OWN Kernel and Compile a DISTINCT
-// ModuleInstance (built in that goroutine's context) against the K0 platform.
-// This covers the cross-context case TestKernel_GoroutineIsolation never
-// reaches: on CUE v0.16 the cross-context FillPath inside Execute panicked
-// "values are not from the same runtime"; v0.17 makes the combination legal.
-//
-// It does NOT establish that rendering concurrently against a shared platform
-// is safe. The echo transformer below is an 8-line CompileString value with no
-// lazy evaluation graph, so there is nothing for concurrent fills to race on;
-// against the real catalog the same shape produces thousands of race-detector
-// reports (enhancement 0019 experiment 06), which is why the shared-platform
-// contract was retracted (ADR-002, superseded by 0019 D8). Keep this test as a
-// cross-context legality check only.
-
-// sharedEchoPlatform builds the echo-transformer platform (mirroring
-// newPhaseFixture's platform) in the supplied context. The returned platform is
-// meant to be materialized once and then read concurrently by other Kernels.
-func sharedEchoPlatform(t *testing.T, cc *cue.Context) *materialize.MaterializedPlatform {
-	t.Helper()
-	pv := cc.CompileString(`
-kind: "Platform"
-metadata: { name: "k8s" }
-type: "kubernetes"
-#registry: {}
-#composedTransformers: {
-	"example.com/p/echo@v0": {
-		metadata: { fqn: "example.com/p/echo@v0" }
-		requiredLabels: { tier: "web" }
-		requiredResources: { "example.com/r/echo@v0": {} }
-		requiredTraits: {}
-		optionalTraits: {}
-		#transform: {
-			#component: _
-			#context:   _
-			output: {
-				kind: "echo"
-				runtime: #context.#runtimeName
-				instance: #context.#moduleInstanceMetadata.name
-				component: #context.#componentMetadata.name
-			}
-		}
-	}
-}
-#matchers: {
-	resources: {
-		"example.com/r/echo@v0": [#composedTransformers["example.com/p/echo@v0"]]
-	}
-	traits: {}
-}
-`)
-	require.NoError(t, pv.Err())
-	return &materialize.MaterializedPlatform{
-		Source: &platform.Platform{
-			Metadata: &platform.PlatformMetadata{Name: "k8s", Type: "kubernetes"},
-			Package:  pv,
-		},
-		Transformers: pv.LookupPath(cue.ParsePath("#composedTransformers")),
-		Matchers:     pv.LookupPath(cue.ParsePath("#matchers")),
-	}
+// TestKernel_NoFinalizeMethod pins the absence of any finalization step on
+// the kernel (spec kernel-runtime: "No finalization method on the Kernel";
+// enhancement 0019 D1). Transformer inputs are bound as evaluated inside the
+// render build; a Finalize method reappearing here is a deliberate act, not
+// drift.
+func TestKernel_NoFinalizeMethod(t *testing.T) {
+	_, found := reflect.TypeOf(&kernel.Kernel{}).MethodByName("Finalize")
+	assert.False(t, found, "*kernel.Kernel must not expose a Finalize method (0019 D1)")
 }
 
-// distinctEchoInstance builds a ModuleInstance whose metadata.name is unique, in
-// the supplied context. The echo transformer echoes #moduleInstanceMetadata.name
-// (sourced from inst.Metadata.Name) into output.instance, so a unique name lets
-// the test prove each concurrent render produced ITS OWN output. It returns an
-// error rather than calling t.FailNow so it is safe to invoke from a goroutine.
-func distinctEchoInstance(cc *cue.Context, name string) (*module.Instance, error) {
-	relPkg := cc.CompileString(fmt.Sprintf(`
-kind: "ModuleInstance"
-metadata: { name: %q, namespace: "ns", uuid: %q }
-#module: {
-	kind: "Module"
-	metadata: {
-		name: "demo-mod"
-		modulePath: "example.com/m"
-		version: "1.0.0"
-		fqn: "example.com/m/demo-mod:1.0.0"
-		uuid: "11111111-1111-1111-1111-111111111111"
+// TestKernel_PrunedSurface pins the removals of library-phase-and-values-prune
+// and library-render-cutover: the kernel exposes exactly one render verb
+// (Render), values enter through ProcessModuleInstance, and the old
+// pipeline's verbs (Match, Compile, Materialize, SynthesizePlatform) and the
+// typed validation wrappers are gone (spec single-build-render, "Old entry
+// points are gone"). Any of these reappearing is a deliberate act, not drift.
+func TestKernel_PrunedSurface(t *testing.T) {
+	kt := reflect.TypeOf(&kernel.Kernel{})
+	for _, name := range []string{
+		"Plan", "Validate", "Match", "Compile", "Materialize", "SynthesizePlatform",
+		"ValidateModuleValues", "ValidateModuleValuesPartial", "ValidateModuleValuesDetailed",
+		"ValidateInstanceValues", "ValidateInstanceValuesPartial", "ValidateInstanceValuesDetailed",
+	} {
+		_, found := kt.MethodByName(name)
+		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
 	}
-	#config: {
-		replicas: int & >0
-		name: string
-	}
-}
-components: {
-	web: {
-		metadata: {
-			name: "web"
-			labels: { tier: "web" }
-		}
-		matchLabels: { tier: "web" }
-		#resources: {
-			"example.com/r/echo@v0": {}
-		}
-	}
-}
-`, name, "u-"+name))
-	if err := relPkg.Err(); err != nil {
-		return nil, err
-	}
-	return &module.Instance{
-		Metadata: &module.InstanceMetadata{Name: name, Namespace: "ns", UUID: "u-" + name},
-		Package:  relPkg,
-	}, nil
-}
+	_, found := kt.MethodByName("Render")
+	assert.True(t, found, "*kernel.Kernel exposes Render")
 
-func TestKernel_CrossContextCompile_TrivialFixture(t *testing.T) {
-	const n = 8
-
-	// K0 builds the platform in its own context. No goroutine below touches
-	// k0; each fills into the trivial platform value k0 produced.
-	k0 := kernel.New()
-	shared := sharedEchoPlatform(t, k0.CueContext())
-
-	type renderResult struct {
-		want string // the instance name this goroutine asked to render
-		got  string // the instance name echoed back in the rendered output
-		err  error
-	}
-	results := make([]renderResult, n)
-
-	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			name := fmt.Sprintf("instance-%d", i)
-
-			k := kernel.New() // one Kernel per goroutine — NOT k0
-			inst, err := distinctEchoInstance(k.CueContext(), name)
-			if err != nil {
-				results[i] = renderResult{want: name, err: err}
-				return
-			}
-
-			// Cross-context render: inst lives in k's context, shared in k0's.
-			out, err := k.Compile(context.Background(), kernel.CompileInput{
-				ModuleInstance: inst,
-				Platform:       shared,
-				RuntimeName:    "opm-cli",
-			})
-			if err != nil {
-				results[i] = renderResult{want: name, err: err}
-				return
-			}
-			if len(out.Compiled) != 1 {
-				results[i] = renderResult{want: name, err: fmt.Errorf("expected 1 compiled value, got %d", len(out.Compiled))}
-				return
-			}
-			got, err := out.Compiled[0].Value.LookupPath(cue.ParsePath("instance")).String()
-			results[i] = renderResult{want: name, got: got, err: err}
-		}(i)
-	}
-	wg.Wait()
-
-	// Assert correctness, not just race-silence: each render echoed ITS OWN
-	// instance name, with no cross-contamination between concurrent renders.
-	for i, r := range results {
-		require.NoErrorf(t, r.err, "goroutine %d (%s) failed to render against the shared platform", i, r.want)
-		assert.Equalf(t, r.want, r.got,
-			"goroutine %d rendered the wrong instance — concurrent renders cross-contaminated", i)
-	}
+	_, found = reflect.TypeOf(kernel.RenderInput{}).FieldByName("Values")
+	assert.False(t, found, "RenderInput must not carry a Values field; values enter through ProcessModuleInstance")
 }

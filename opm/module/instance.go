@@ -74,9 +74,9 @@ func (r *Instance) ConfigSchema() cue.Value {
 	return mod.LookupPath(schema.Config)
 }
 
-// The methods below let *Instance satisfy schema.InstanceView — the surface
-// that BuildTransformerContext uses to assemble a transformer context
-// without dragging opm/module's types behind it.
+// The accessors below read the decoded metadata cache (and, for the module
+// version, the module-metadata projection on Package) so a frontend can
+// report on an instance without navigating Package itself.
 
 // InstanceName returns the instance's metadata.name.
 //

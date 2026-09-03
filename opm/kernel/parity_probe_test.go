@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -30,7 +29,9 @@ import (
 // and the oracle glue itself, published from testdata/parity/oracle/render.cue
 // so the two groups share one oracle); core resolves from the warm workspace
 // cache. Both renderers receive the same registry mapping and load the same
-// on-disk instance package.
+// on-disk instance package; Render additionally imports a #CatalogEntry-form
+// platform written for the served catalog (a nested module beside the
+// instance, since one module path cannot be replaced with two directories).
 
 type parityProbe struct {
 	parityCase
@@ -45,11 +46,11 @@ type parityProbe struct {
 var parityProbes = []parityProbe{
 	{
 		parityCase: parityCase{
-			// Agrees since library-component-fill: #component is filled with
+			// Agrees since library-component-fill: #component is bound to
 			// the evaluated component, definitions included (0019 D1/D3).
 			Name:      "names-probe :: web",
 			Component: "web",
-			Equality:  equalityOutputFieldsOnly,
+			Equality:  equalityStructural,
 		},
 		transform: `{
 			#component: _
@@ -64,11 +65,11 @@ var parityProbes = []parityProbe{
 	},
 	{
 		parityCase: parityCase{
-			// Agrees since library-instance-fill: #moduleInstance is filled
-			// with the whole evaluated instance (0019 D3, library#65).
+			// Agrees since library-instance-fill: #moduleInstance is bound
+			// to the whole evaluated instance (0019 D3, library#65).
 			Name:      "instance-probe :: web",
 			Component: "web",
-			Equality:  equalityOutputFieldsOnly,
+			Equality:  equalityStructural,
 		},
 		transform: `{
 			#moduleInstance: _
@@ -122,35 +123,12 @@ func runParityProbe(t *testing.T, glue string, probe parityProbe) {
 		}},
 	)
 
-	// One on-disk module holding the instance (loaded by the kernel) and the
-	// oracle entry (built by cue/load), so both import the same instance.
+	// One on-disk module holding the instance (acquired by the kernel) and
+	// the oracle entry (built by cue/load), so both import the same instance;
+	// the platform Render imports is a nested module beside them.
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "cue.mod", "module.cue"), fmt.Sprintf(`module: "testing.opmodel.dev/library-parity-probe@v0"
-language: version: "v0.17.0"
-deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.6"
-	%q: v: %q
-	%q: v: %q
-	%q: v: %q
-}
-`, modPath+"@v0", "v"+version, catPath+"@v0", "v"+version, oraclePath+"@v0", "v"+version))
-	writeFile(t, filepath.Join(dir, "instance", "instance.cue"), fmt.Sprintf(`package instance
-
-import (
-	core "opmodel.dev/core@v2"
-	probe %q
-)
-
-core.#ModuleInstance
-
-metadata: {
-	name:      "probe-demo"
-	namespace: "default"
-}
-
-#module: probe
-values: {}
-`, modPath+"@v0"))
+	instDir := writeImportedInstance(t, dir, "testing.opmodel.dev/library-parity-probe@v0", modPath, version, "probe-demo", "default", "{}",
+		map[string]string{catPath + "@v0": version, oraclePath + "@v0": version})
 	writeFile(t, filepath.Join(dir, "run", "run.cue"), fmt.Sprintf(`package run
 
 import (
@@ -165,27 +143,26 @@ oracle.#Render & {
 	#runtime:      %q
 }
 `, catPath+"@v0", oraclePath+"@v0", parityRuntimeName))
+	platDir := writeCatalogPlatform(t, dir, catPath, version)
 
 	ctx := context.Background()
 	k := kernel.New(kernel.WithRegistry(mapping))
+	opts := loaderfile.LoadOptions{Registry: mapping}
 
 	// ── kernel side ──────────────────────────────────────────────────
-	// The instance is acquired source-carrying so the cutover proof below
-	// can hand the SAME processed instance to Render.
-	mp, err := materializePlatform(t, k, version, catPath)
-	require.NoError(t, err, "materializing the probe platform")
-	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(dir, "instance"), loaderfile.LoadOptions{Registry: mapping})
+	inst, err := k.AcquireInstanceFromDir(ctx, instDir, opts)
 	require.NoError(t, err, "acquiring the probe instance package")
-	plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-	require.NoError(t, err)
-	out, compileErr := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: parityRuntimeName})
+	plat, err := k.AcquirePlatformFromDir(ctx, platDir, opts)
+	require.NoError(t, err, "acquiring the #CatalogEntry-form probe platform")
+	res, renderErr := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: parityRuntimeName})
+	require.NoError(t, renderErr, "Render must render the probe instance")
 
 	// ── oracle side ──────────────────────────────────────────────────
 	oracle := loadOracle(t, dir, "./run", mapping)
 	pairs := oraclePairs(t, oracle)
-	assertPairSetsAgree(t, plan, pairs)
+	assertPairSetsAgree(t, res.Diagnostics.Pairs, pairs)
 
-	pair := compile.MatchedPair{ComponentName: probe.Component, TransformerFQN: txFQN}
+	pair := kernel.RenderPair{Component: probe.Component, Transformer: txFQN}
 	require.Contains(t, pairs, pair, "the probe must pair with the component on the oracle side")
 
 	// Positive half: the oracle renders the probed input concretely.
@@ -196,17 +173,11 @@ oracle.#Render & {
 	require.NoError(t, err, "oracle must render %s concretely", probe.field)
 	assert.Equal(t, probe.want, got)
 
-	// Contract half: the kernel diverges as named, and agreement would be a
-	// retired entry.
+	// Contract half: Render agrees with the oracle on the whole value.
 	c := probe.parityCase
 	c.Instance = "probe instance (t.TempDir)"
 	c.Transformer = txFQN
-	assertParity(t, c, kernelRender(out, compileErr, pair), oracleOut)
-
-	// Cutover proof (parity_cutover_test.go): the same probe, the same
-	// instance, through Render against a #CatalogEntry platform importing
-	// the same served catalog build.
-	assertCutover(t, c, kernelRender(out, compileErr, pair), renderProbe(t, k, dir, mapping, catPath, version, inst, pair))
+	assertParity(t, c, kernelRender(res, renderErr, pair), oracleOut)
 }
 
 // probeModuleFile is a one-component module declaring the probe catalog's
@@ -279,10 +250,4 @@ func cutName(caseName string) (tx, comp string, ok bool) {
 		}
 	}
 	return caseName, "", false
-}
-
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

@@ -1,17 +1,27 @@
-package compile
+package errors
 
 import (
 	"fmt"
 	"strings"
-
-	oerrors "github.com/open-platform-model/library/opm/errors"
 )
 
-// UnmatchedComponentsError is returned when one or more components have no
-// matching transformer. It includes per-component diagnostics listing which
-// transformers were evaluated and what was missing (labels, resources, traits).
+// MatchResult is the per-(component, transformer) verdict carried on
+// [UnmatchedComponentsError.Matches]: whether the candidate matched and, when
+// the label predicate refused it, which required labels were missing.
+type MatchResult struct {
+	Matched       bool     `json:"matched"`
+	MissingLabels []string `json:"missingLabels"`
+}
+
+// UnmatchedComponentsError is the render gate's refusal for components no
+// transformer matched. It carries the per-component match matrix so a
+// frontend can list which candidates were evaluated and why each was
+// refused; the render build reports the unmatched set as data
+// (kernel.RenderDiagnostics.Unmatched) and the kernel raises this error
+// through the fail-closed gate, reachable via errors.As from
+// *kernel.RenderError.
 //
-// Each unmatched component is surfaced as a *oerrors.TransformError via Unwrap(),
+// Each unmatched component is surfaced as a *TransformError via Unwrap(),
 // enabling callers to use errors.As for typed handling of individual failures.
 type UnmatchedComponentsError struct {
 	// Components is the list of component names with no matching transformer.
@@ -46,7 +56,7 @@ func (e *UnmatchedComponentsError) Error() string {
 	return sb.String()
 }
 
-// Unwrap returns a slice of *oerrors.TransformError — one per unmatched component —
+// Unwrap returns a slice of *TransformError — one per unmatched component —
 // so that callers can use errors.As to extract per-component failure details.
 //
 // Each TransformError carries the component name and the first non-matching
@@ -66,7 +76,7 @@ func (e *UnmatchedComponentsError) Unwrap() []error {
 				break
 			}
 		}
-		errs = append(errs, &oerrors.TransformError{
+		errs = append(errs, &TransformError{
 			ComponentName:  compName,
 			TransformerFQN: tfFQN,
 			Cause:          fmt.Errorf("component %q has no matching transformer", compName),

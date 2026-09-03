@@ -137,7 +137,7 @@ type RenderDiagnostics struct {
 // unresolved demand, an unmatched component or an over-subscribed
 // provider-fulfilled contract), a failed pair, or a non-concrete pair output.
 // Diagnostics carries everything the build reported; Err carries the typed
-// causes ([*oerrors.UnresolvedDemandsError], [*compile.UnmatchedComponentsError],
+// causes ([*oerrors.UnresolvedDemandsError], [*oerrors.UnmatchedComponentsError],
 // [oerrors.OverSubscribedContractError], [*oerrors.TransformError]), reachable
 // through errors.As.
 type RenderError struct {
