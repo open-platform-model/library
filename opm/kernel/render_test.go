@@ -665,3 +665,21 @@ func TestRender_ConcurrentKernelsShareNothing(t *testing.T) {
 		assert.Equalf(t, want, r.objects, "goroutine %d rendered a different object set", i)
 	}
 }
+
+// TestRender_CancelledContextRefused pins that Render honours the caller's
+// context: a cancelled context is refused before any build is staged, with
+// the context's own error reachable through errors.Is.
+func TestRender_CancelledContextRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assert.Nil(t, res)
+	assert.ErrorIs(t, err, context.Canceled)
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "a cancelled context is not a render verdict")
+}
