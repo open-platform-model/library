@@ -279,6 +279,46 @@ func TestRender_DisqualifiedCandidateIsData(t *testing.T) {
 	var unmatched *oerrors.UnmatchedComponentsError
 	require.ErrorAs(t, err, &unmatched)
 	assert.Equal(t, []string{"narrow"}, unmatched.Components)
+	row := unmatched.Matches["narrow"]
+	require.Len(t, row, 1, "the matrix names the one candidate the demand walk reached")
+	assert.False(t, row[narrowTx].Matched)
+	assert.Empty(t, row[narrowTx].MissingLabels, "a unify refusal carries no missing labels; its conflict is on Diagnostics.Unify")
+}
+
+// TestRender_MislabeledCandidateRefusedAsMissingLabel pins the predicate rung
+// on a non-string label value (single-build-render, "The label predicate
+// covers every admitted label type"): the component's matchLabels carry
+// render.test/tier = 2 (an int, from its resource) and the only candidate
+// requires 3 under the same key. The candidate is disqualified as data, the
+// label named on the unmatched-components matrix, and the demand is
+// unresolved with no unify disqualification and no alternatives.
+func TestRender_MislabeledCandidateRefusedAsMissingLabel(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "mislabeled")
+
+	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+
+	tieredFQN := renderCatPath + "/resources/tiered@v1"
+	tieredTx := renderTxPath + "/tiered-transformer@0.1.0"
+	assert.Empty(t, rerr.Diagnostics.Unify, "the always-unify rung passes: the bodies agree")
+	require.Len(t, rerr.Diagnostics.Unresolved, 1)
+	d := rerr.Diagnostics.Unresolved[0]
+	assert.Equal(t, tieredFQN, d.FQN)
+	assert.Empty(t, d.Disqualified)
+	assert.Empty(t, d.Alternatives)
+	assert.Equal(t, []string{"tiered"}, rerr.Diagnostics.Unmatched)
+
+	var unmatched *oerrors.UnmatchedComponentsError
+	require.ErrorAs(t, err, &unmatched)
+	assert.Equal(t, []string{"tiered"}, unmatched.Components)
+	assert.Equal(t, map[string]oerrors.MatchResult{
+		tieredTx: {Matched: false, MissingLabels: []string{"render.test/tier"}},
+	}, unmatched.Matches["tiered"], "the candidate was evaluated and refused on the mismatched int label")
+	assert.Contains(t, unmatched.Error(), "render.test/tier")
 }
 
 func TestRender_EffectivelyOptionalTraitWarns(t *testing.T) {

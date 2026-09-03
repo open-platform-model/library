@@ -21,6 +21,7 @@ type glueDiagnostics struct {
 	Unresolved          []glueUnresolved `json:"unresolved"`
 	Warnings            []glueDemand     `json:"warnings"`
 	UnifyFailures       []glueUnify      `json:"unifyFailures"`
+	Candidates          []glueCandidate  `json:"candidates"`
 	BucketKeys          struct {
 		Resources []string `json:"resources"`
 		Traits    []string `json:"traits"`
@@ -34,6 +35,20 @@ type glueOverSubscribed struct {
 	Key      string   `json:"key"`
 	Catalogs []string `json:"catalogs"`
 }
+
+// glueCandidate is one (component, transformer) the rung-1 walk reached,
+// with the predicate rung's verdict on it.
+type glueCandidate struct {
+	Component     string   `json:"component"`
+	Transformer   string   `json:"transformer"`
+	Matched       bool     `json:"matched"`
+	MissingLabels []string `json:"missingLabels"`
+}
+
+// matchMatrix is the per-component candidate verdicts decoded from the
+// glue's candidate rows, the value [oerrors.UnmatchedComponentsError.Matches]
+// carries for each unmatched component.
+type matchMatrix map[string]map[string]oerrors.MatchResult
 
 type gluePair struct {
 	Component   string `json:"component"`
@@ -69,18 +84,19 @@ var (
 // decodeRenderDiagnostics reads `diagnostics` off the built value. It is read
 // through LookupPath so it stays decodable beside a failing gate; a value that
 // cannot decode (the unstated-posture case, an incomplete bool at the trait's
-// own `optional`) is a build error surfaced verbatim.
-func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDiagnostics, error) {
+// own `optional`) is a build error surfaced verbatim. The second result is
+// the candidate match matrix the gate hands to UnmatchedComponentsError.
+func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDiagnostics, matchMatrix, error) {
 	dv := built.LookupPath(pathDiagnostics)
 	if !dv.Exists() {
-		return RenderDiagnostics{}, fmt.Errorf("render module carries no diagnostics field: %w", built.Err())
+		return RenderDiagnostics{}, nil, fmt.Errorf("render module carries no diagnostics field: %w", built.Err())
 	}
 	var g glueDiagnostics
 	if err := dv.Decode(&g); err != nil {
 		if perr := unstatedPosture(dv); perr != nil {
-			return RenderDiagnostics{}, perr
+			return RenderDiagnostics{}, nil, perr
 		}
-		return RenderDiagnostics{}, fmt.Errorf("decoding render diagnostics (a matching verdict did not evaluate): %w", err)
+		return RenderDiagnostics{}, nil, fmt.Errorf("decoding render diagnostics (a matching verdict did not evaluate): %w", err)
 	}
 
 	diag := RenderDiagnostics{
@@ -140,7 +156,24 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDia
 		diag.OverSubscribed = append(diag.OverSubscribed, oerrors.OverSubscribedContractError{Key: o.Key, Catalogs: catalogs})
 	}
 	sort.Slice(diag.OverSubscribed, func(i, j int) bool { return diag.OverSubscribed[i].Key < diag.OverSubscribed[j].Key })
-	return diag, nil
+
+	// Candidate verdicts, keyed (component, transformer), missing labels
+	// sorted so the matrix is deterministic.
+	matrix := matchMatrix{}
+	for _, c := range g.Candidates {
+		row := matrix[c.Component]
+		if row == nil {
+			row = map[string]oerrors.MatchResult{}
+			matrix[c.Component] = row
+		}
+		var labels []string
+		if len(c.MissingLabels) > 0 {
+			labels = append([]string(nil), c.MissingLabels...)
+			sort.Strings(labels)
+		}
+		row[c.Transformer] = oerrors.MatchResult{Matched: c.Matched, MissingLabels: labels}
+	}
+	return diag, matrix, nil
 }
 
 func pairsOf(rows []gluePair) []RenderPair {
@@ -154,8 +187,10 @@ func pairsOf(rows []gluePair) []RenderPair {
 // gateErrors is the fail-closed gate (0010 D28, D37) as the kernel enforces
 // it from the decoded verdicts: unresolved demands, unmatched components and
 // over-subscribed provider-fulfilled contracts all refuse, through one exit
-// path, each reachable via errors.As.
-func gateErrors(diag RenderDiagnostics) error {
+// path, each reachable via errors.As. An unmatched component carries its
+// row of the candidate matrix (every transformer evaluated for it, with the
+// labels the predicate found missing) so a frontend can say why.
+func gateErrors(diag RenderDiagnostics, matrix matchMatrix) error {
 	var gate []error
 	if len(diag.Unresolved) > 0 {
 		gate = append(gate, &oerrors.UnresolvedDemandsError{Demands: diag.Unresolved})
@@ -166,7 +201,11 @@ func gateErrors(diag RenderDiagnostics) error {
 	if len(diag.Unmatched) > 0 {
 		matches := map[string]map[string]oerrors.MatchResult{}
 		for _, c := range diag.Unmatched {
-			matches[c] = map[string]oerrors.MatchResult{}
+			row := matrix[c]
+			if row == nil {
+				row = map[string]oerrors.MatchResult{}
+			}
+			matches[c] = row
 		}
 		gate = append(gate, &oerrors.UnmatchedComponentsError{Components: diag.Unmatched, Matches: matches})
 	}
@@ -179,8 +218,8 @@ func gateErrors(diag RenderDiagnostics) error {
 // decodeRendered reads each matched pair's output off `rendered`, in pair
 // order. A pair the glue reported as failed carries its CUE cause; a pair
 // whose output is not concrete (invisible to the glue's `== _|_` guards) is
-// refused here at a path naming the pair. Output kind dispatch is the same
-// as the old path: a struct is one object, a list is one object per item.
+// refused here at a path naming the pair. Output kind dispatch: a struct is
+// one object, a list is one object per item.
 func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string) ([]*core.Compiled, error) {
 	rendered := built.LookupPath(pathRendered)
 	if !rendered.Exists() {
