@@ -142,14 +142,6 @@ func coreMajor(coreVersion string) string {
 	return major
 }
 
-// coreIsV2 reports whether coreVersion sits on the v2 line or later — the
-// shape watershed for generated fixture bodies (v1-era metadata carries
-// `version`; v2 carries `apiVersion`/`catalogVersion`/authored `fqn`).
-func coreIsV2(coreVersion string) bool {
-	major := coreMajor(coreVersion)
-	return major != "v0" && major != "v1"
-}
-
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
 // catalog fixtures and configures CUE_REGISTRY / CUE_CACHE_DIR for the test
 // scope: the test prefix routes to the in-process host (+insecure), while
@@ -349,26 +341,15 @@ func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 // major-qualified catalog path and references its metadata under debugValues
 // (an open field), forcing the loader to resolve the catalog as a transitive
 // dependency. pkg is the package clause name. The emitted core import derives
-// its major from [DefaultCoreVersion]; use [BuildModuleFileCore] to pin
-// another core version.
-func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
-	return BuildModuleFileCore(DefaultCoreVersion, pkg, name, modulePath, catalogImport)
-}
-
-// BuildModuleFileCore is [BuildModuleFile] with an explicit core version (a
-// full version like "v1.0.0-alpha.1" or a bare major like "v1"); the emitted
-// core import derives its major from it, matching the dep the fixture writer
-// declares for the same CoreVersion. No caller passes an explicit version
-// today (pinned-fixture tests hand-author their module text instead); kept
-// for pinned-fixture authors and the next major crossing.
+// its major from [DefaultCoreVersion], matching the dep the fixture writer
+// declares; a test that needs another core version hand-authors its module
+// text.
 //
-// The metadata shape follows the core major: on v2, modulePath is the FULL
-// module path (major suffix included — pass "…/modules/hello@v0") and name
-// MUST be its snake_case leaf; on v1, modulePath is the major-free parent
-// path (v1's metadata semantics).
-func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport string) string {
-	core := coreVersionOr(coreVersion)
-	dep := coreDep(core)
+// The metadata shape is core v2's: modulePath is the FULL module path (major
+// suffix included; pass "…/modules/hello@v0") and name MUST be its snake_case
+// leaf.
+func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
+	dep := coreDep(DefaultCoreVersion)
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", pkg)
 	if catalogImport == "" {
@@ -392,57 +373,31 @@ func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport strin
 // fixtures. The #Catalog pattern stamps each transformer's metadata.modulePath
 // ("<path>/transformers") and version; this only authors name, description, the
 // required-primitive maps, and the transform output (from [TxFixture.Output],
-// defaulting to an empty struct). The body shape follows the catalog member
-// shape of the core major derived from [DefaultCoreVersion]; use
-// [BuildCatalogCore] to author against another core version.
+// defaulting to an empty struct). The body is core v2's catalog member shape:
+// members carry `apiVersion`/`catalogVersion`/an authored `fqn`, and contract
+// FQNs are keyed by [ContractAPIVersion] (transformer keys stay build-keyed).
 func BuildCatalog(path, version string, txs ...TxFixture) string {
-	return BuildCatalogCore(DefaultCoreVersion, path, version, txs...)
-}
-
-// BuildCatalogCore is [BuildCatalog] with an explicit core version (full
-// version or bare major), selecting the catalog member shape of that core
-// major: v1-era members carry `version` in metadata and version-keyed
-// contract FQNs; v2 members carry `apiVersion`/`catalogVersion`/authored
-// `fqn` and contract FQNs keyed by [ContractAPIVersion] (transformer keys
-// stay build-keyed in both). No caller passes an explicit version today, so
-// the v1 branch is exercised only through history; kept for pinned-fixture
-// authors and the next major crossing.
-func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) string {
-	v2 := coreIsV2(coreVersionOr(coreVersion))
-
 	var b strings.Builder
-	if v2 {
-		major, _, _ := strings.Cut(version, ".")
-		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
-	} else {
-		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path, version)
-	}
+	major, _, _ := strings.Cut(version, ".")
+	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
 	b.WriteString("#transformers: {\n")
 	for _, tx := range txs {
 		fqn := fmt.Sprintf("%s/transformers/%s@%s", path, tx.Name, version)
 		fmt.Fprintf(&b, "\t%q: {\n", fqn)
 		b.WriteString("\t\tkind: \"ComponentTransformer\"\n")
-		if v2 {
-			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t\tfqn:         %q\n\t\t}\n", tx.Name, tx.Name+" transformer", fqn)
-		} else {
-			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t}\n", tx.Name, tx.Name+" transformer")
-		}
+		fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t\tfqn:         %q\n\t\t}\n", tx.Name, tx.Name+" transformer", fqn)
 		if len(tx.Resources) > 0 {
 			b.WriteString("\t\trequiredResources: {\n")
 			for _, r := range tx.Resources {
-				rfqn := contractFQN(v2, path, "resources", r, version)
+				rfqn := contractFQN(path, "resources", r)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", rfqn)
 				b.WriteString("\t\t\t\tkind: \"Resource\"\n")
-				if v2 {
-					// matchLabels is the matching identity (0010 D36); the
-					// metadata.labels duplicate mirrors the real catalog's
-					// transitional state (kept for descriptive reads).
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
-						r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
-					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
-				} else {
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", r, path+"/resources", version)
-				}
+				// matchLabels is the matching identity (0010 D36); the
+				// metadata.labels duplicate mirrors the real catalog's
+				// transitional state (kept for descriptive reads).
+				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
+					r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
+				fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(r))
 				b.WriteString("\t\t\t}\n")
 			}
@@ -451,21 +406,17 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 		if len(tx.Traits) > 0 {
 			b.WriteString("\t\trequiredTraits: {\n")
 			for _, tr := range tx.Traits {
-				trfqn := contractFQN(v2, path, "traits", tr, version)
+				trfqn := contractFQN(path, "traits", tr)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", trfqn)
 				b.WriteString("\t\t\t\tkind: \"Trait\"\n")
-				if v2 {
-					// See the resource branch for the matchLabels/labels split.
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
-						tr, path+"/traits", ContractAPIVersion, version, trfqn, PrimitiveMatchKey, tr)
-					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, tr)
-					// The advisory default the real catalog states on every
-					// trait; attachment-site postures (the demand side's last
-					// word) are authored by the component fixtures.
-					b.WriteString("\t\t\t\toptional: bool | *true\n")
-				} else {
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
-				}
+				// See the resource branch for the matchLabels/labels split.
+				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
+					tr, path+"/traits", ContractAPIVersion, version, trfqn, PrimitiveMatchKey, tr)
+				fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, tr)
+				// The advisory default the real catalog states on every
+				// trait; attachment-site postures (the demand side's last
+				// word) are authored by the component fixtures.
+				b.WriteString("\t\t\t\toptional: bool | *true\n")
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(tr))
 				b.WriteString("\t\t\t\tappliesTo: []\n")
 				b.WriteString("\t\t\t}\n")
@@ -484,15 +435,11 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 }
 
 // contractFQN returns the FQN a generated fixture catalog keys a primitive
-// under: build-version-keyed on the v1 line, [ContractAPIVersion]-keyed on v2
-// (enhancement 0010 D4). Test harnesses authoring components against
-// generated catalogs mirror the v2 form so demanded keys match the matcher
-// index.
-func contractFQN(v2 bool, path, kind, name, version string) string {
-	if v2 {
-		return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, ContractAPIVersion)
-	}
-	return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, version)
+// under: [ContractAPIVersion]-keyed (enhancement 0010 D4). Test harnesses
+// authoring components against generated catalogs mirror this form so demanded
+// keys match the glue's buckets.
+func contractFQN(path, kind, name string) string {
+	return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, ContractAPIVersion)
 }
 
 // specField returns the camelCase field name core's #Resource / #Trait require
