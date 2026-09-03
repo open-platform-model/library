@@ -4,11 +4,10 @@ The reference implementation of the Open Platform Model runtime, packaged as a G
 
 The kernel owns:
 
-- Loading OPM artifacts (modules, platforms, releases) from CUE module directories and `.cue` files.
+- Loading and acquiring OPM artifacts (modules, module instances, platforms) from CUE module directories and OCI registries.
 - Resolving CUE module references through the native CUE module system (OCI registries, `cue.mod`).
 - Validating user-supplied values against `#config` schemas with grouped, position-aware diagnostics.
-- Matching component requirements against the active Platform's `#matchers` index.
-- Executing matched transformers (resolved by FQN against `Platform.#composedTransformers`) and emitting platform-neutral rendered values with full provenance.
+- Rendering: one CUE build per render that imports the instance, the platform and its catalogs, runs matching and transformer execution as CUE inside that build, reports the verdicts as data, and emits platform-neutral rendered values with full provenance.
 
 The kernel does **not** own:
 
@@ -16,17 +15,18 @@ The kernel does **not** own:
 - Logging output (the kernel logs nothing; any logging lives with the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
+- Platform module generation. A platform is a CUE module on disk that imports its catalogs; the frontend writes it and the kernel acquires and renders against it.
 - Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
 
 ## Artifact types
 
 The kernel accepts exactly three artifact types — every input ultimately resolves to one of them:
 
-| Artifact         | Schema definition          | Go type              | Role                                                                                          |
-| ---------------- | -------------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
-| `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).     |
-| `ModuleInstance`  | `#ModuleInstance`           | `*module.Instance`    | Per-deployment instantiation of a `Module` with concrete user values.                         |
-| `Platform`       | `#Platform`                | `*platform.Platform` | Composed registry of Modules; supplies `#composedTransformers` and `#matchers` to the kernel. |
+| Artifact         | Schema definition          | Go type              | Role                                                                                                                       |
+| ---------------- | -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).                                  |
+| `ModuleInstance` | `#ModuleInstance`          | `*module.Instance`   | Per-deployment instantiation of a `Module` with concrete user values.                                                      |
+| `Platform`       | `#Platform`                | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build. |
 
 `#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
@@ -34,24 +34,24 @@ See `CONSTITUTION.md` for the full set of principles.
 
 ## Layout
 
-```
+```text
 opm/
   core/                   Platform-neutral primitives — Compiled (terminal output)
-  errors/                 Structured errors, grouped CUE diagnostics
+  errors/                 Structured errors, grouped CUE diagnostics, typed render-gate causes
   schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
-  kernel/                 Public Kernel struct — single entry point for the OPM runtime
+  kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
   module/                 Module / Instance model and value-validation accessors
-  platform/               Platform artifact model — kernel's sole input for matching and execution
-  compile/                match -> execute -> emit pipeline
-  materialize/            Resolve a Platform's #registry subscriptions into a sealed MaterializedPlatform
+  platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
+  compat/                 Publish-side catalog compatibility (comparison walk, level ladder, predecessor selection)
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
-    loader/file/          Filesystem loading (modules, releases, platforms)
+    loader/file/          Filesystem loading (modules, instances, platforms) as CUE packages
     loader/registry/      Load a published module from an OCI registry by path@version
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
-    synth/                Instance / Platform synthesis from typed inputs (no file / no bytes)
-  internal/               Test-only cross-package internals (schematest, registrytest)
+    synth/                Instance synthesis from typed inputs (no file / no bytes)
+  internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
+  internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)
 adr/                      Architecture decision records
-enhancements/             Long-form design proposals (umbrella + slices)
+enhancements/             Frozen historical proposals (cite as legacy:NNN; new work lives in the workspace enhancements/)
 openspec/                 OpenSpec proposals, specs, archives
 modules/                  Test-only OPM modules used by integration tests
 testdata/                 CUE module fixtures consumed by package tests
@@ -60,30 +60,29 @@ Taskfile.yml              fmt / vet / lint / test entry points
 
 The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). The `opm/loader/` deprecation shim is also gone; the canonical import path is `opm/helper/loader/file` (or `opm/helper/loader/registry` for published modules). A standalone `opm/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
-## Compile pipeline
+## Render
 
-```
-loaderfile.LoadInstancePackage  ->  cue.Value (release artifact)
-Kernel.ProcessModuleInstance    ->  *module.Instance          (validated, concrete)
-Kernel.Compile                 ->  *kernel.CompileResult    (rendered + provenance)
-        |
-        +-- compile.Match           component <-> transformer pairing (paired output)
-        +-- compile.Module.Execute  per-pair transformer execution
-                |
-                +-- FillPath #moduleInstance with the whole evaluated instance (0019 D3)
-                +-- FillPath #component with the evaluated component (definitions intact; 0019 D1)
-                +-- FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
-                +-- decode `output` (kind-based dispatch: ListKind | StructKind)
-                +-- emit []*core.Compiled carrying Instance/Component/Transformer FQN provenance
+```text
+Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance  ->  *module.Instance   (validated, carries Source)
+Kernel.AcquirePlatformFromDir                             ->  *platform.Platform (carries Source)
+Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
+        stage one generated render module (cue.mod promoted from both inputs; each input imported by directory replacement)
+        verify every OPM-namespace path either input requires is covered; apply the skew policy (SkewWarn | SkewRefuse)
+        build once in a fresh cue.Context, dropped on return
+        decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, unify, unhandled traits, over-subscribed, resolved versions)
+        fail-closed gate     -> *RenderError carrying the diagnostics and typed causes (errors.As)
+        decode `rendered`    -> []*core.Compiled with instance / component / transformer provenance
 ```
 
-The kernel exposes two phase-explicit methods that map onto frontend subcommands: `Kernel.Match` (match) and `Kernel.Compile` (apply / render). Values are validated where they are applied — `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed. The old free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods directly.
+`Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point (`AcquireInstanceFromDir` and `SynthesizeInstance` both go through it), and `Render` performs no validation pass of its own.
+
+Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005). Nothing built is shared between renders, concurrency is across renders with one Kernel per goroutine, and a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
 
 `*core.Compiled` is the kernel's terminal output. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
 ## Quick start
 
-See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, Platform composition, and compiling a Instance into rendered `*core.Compiled` values.
+See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, acquiring an instance and a platform module, and rendering the instance into `*core.Compiled` values.
 
 ## API stability
 
@@ -101,7 +100,7 @@ The library does NOT vendor or embed the OPM core schema. At runtime the kernel 
 Key pieces:
 
 - `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata decoders, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
-- `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to release-synthesis and other callers.
+- `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to instance synthesis and other callers. `kernel.WithRegistry(string)` sets the registry mapping the render build uses for the platform's catalog imports and for registry module acquisition.
 
 Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
 
@@ -111,9 +110,9 @@ Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a f
 
 Today this layer holds:
 
-- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformFile`. Modules and releases both load as CUE packages (unified in commit `7c435f2`); only platforms still load from a single `.cue` file.
-- `opm/helper/platform` — Platform composition (`Compose`): takes a shell Platform plus a slice of `*module.Module` and `FillPath`-injects each into `#registry` so the schema's computed views resolve.
-- `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call.
+- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`. All three load a CUE package directory through the shared shape gate; the platform gate refuses a `#registry` entry that embeds no catalog.
+- `opm/helper/loader/registry` — `LoadModulePackageWithSource`: a published `#Module` by `path@version`, staged so a follow-on build can import it. Surfaced as `Kernel.AcquireModuleFromRegistry`.
+- `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call. There is no platform synthesis: a platform is a CUE module on disk.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
@@ -121,7 +120,7 @@ The previous `opm/loader/` deprecation shim has been removed (commit `3a9a9bd`);
 
 ## Quality gates
 
-```
+```text
 task fmt
 task vet
 task lint
@@ -136,8 +135,8 @@ task check
 - `openspec/config.yaml` — normative constitution source.
 - `opmodel.dev/core@v2` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
-- `docs/design/` — flow diagrams and pipeline notes (`compile-pipeline-known-gaps.md`).
-- `enhancements/` — long-form design proposals (kernel redesign, compiler/runtime split, platform construct, module context, claims).
-- `adr/` — architecture decision records.
+- `docs/design/` — CUE evaluator notes: the v0.17.x closedness regression and its canary, plus historical bug records whose code no longer exists.
+- `enhancements/` — frozen historical proposals; the single-build render design is workspace enhancement 0019.
+- `adr/` — architecture decision records (ADR-005: shares-nothing renders).
 - `CHANGELOG.md` — released-version history (generated by release-please).
 - `migrations/README.md` — migration-documentation policy: per-change fragments, dormant until GA (pre-GA breaking changes are recorded in `CHANGELOG.md` and the OpenSpec archive).

@@ -64,7 +64,7 @@ This repo is the **OPM kernel** — the reference Go runtime for Open Platform M
 ## Repository Rules
 
 - `CONSTITUTION.md` is the human-readable principle source; `openspec/config.yaml` is normative. Read both before non-trivial changes.
-- **Principle VIII (Small Batch Sizes) has a hard execution gate** that blocks oversized requests. If a request is too large (e.g. multi-package refactor, redesigning the compile pipeline in one go, design+implement+test a major feature in one go), respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split.
+- **Principle VIII (Small Batch Sizes) has a hard execution gate** that blocks oversized requests. If a request is too large (e.g. multi-package refactor, redesigning the render pipeline in one go, design+implement+test a major feature in one go), respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split.
 - **Kernel neutrality (Principle I).** The library is consumed by CLI, controller, and future runtimes. Do not introduce:
   - Global mutable state or package-level singletons hiding behavior.
   - `os.Exit`, direct logging output to stdout/stderr, shell invocation.
@@ -83,7 +83,7 @@ Read these on entry:
 - `README.md` — same big picture as below, slightly fuller prose.
 - `migrations/README.md` — migration-docs policy (per-change fragments, dormant until GA).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
-- `docs/design/compile-pipeline-known-gaps.md` — flow notes.
+- `docs/design/` — CUE evaluator notes: the v0.17.x closedness regression and its canary, plus historical bug records whose code no longer exists.
 
 ## Repository Layout
 
@@ -91,18 +91,19 @@ Read these on entry:
 opm/
   compat/                     Publish-side catalog compatibility: D27 comparison walk (with D30 provenance skip), D34 level ladder, predecessor selection (pure, no I/O)
   core/                       Platform-neutral primitives: Compiled (terminal output)
-  errors/                     Structured errors + grouped CUE diagnostics (alias as oerrors in consumers)
-  kernel/                     PUBLIC ENTRY POINT — Kernel struct, phase methods, validate helpers
+  errors/                     Structured errors + grouped CUE diagnostics (alias as oerrors in consumers); typed render-gate causes (unmatched.go: UnmatchedComponentsError + MatchResult; oversubscribed.go, skew.go, match.go)
+  kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors
-  platform/                   *platform.Platform — kernel's sole match/execute input
-  compile/                    match → execute → emit pipeline (no public entry; called via Kernel)
+  platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadInstancePackage, LoadPlatformPackage
     loader/registry/          Registry loader: LoadModulePackageWithSource (published #Module by path@version, via Fetch+Overlay)
     loader/internal/shape/    Shared artifact shape gate + sentinels (single-sourced across file/registry loaders)
-    synth/                    Instance(...) + Platform(...) → cue.Value from typed inputs (no files)
-  internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue glue, temp-dir staging + one cue/load build
+    synth/                    Instance(...) → cue.Value from typed inputs (no files); no platform synthesis
+  internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), temp-dir staging + one cue/load build
+  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures
+  internal/cueregression/     Canary pair for the v0.17.x closedness regression
   internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
@@ -110,7 +111,7 @@ openspec/                     OpenSpec proposals/specs/archives (active change w
 modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
 testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to core 2.0.0-alpha.7 and served in-process, so not discovered by the CUE tasks)
 docs/getting-started.md       End-to-end embedding walkthrough
-docs/design/                  Flow diagrams + pipeline gap notes
+docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
 migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
 .cue-cache/                   Gitignored workspace-local CUE module cache populated by tests
 ```
@@ -134,7 +135,7 @@ Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUD
 The local registry at `localhost:5000` is required only for:
 
 - `task cue:publish` / `task cue:publish:smart` — local fixture/catalog publishes; gated, run only on explicit user request (Registry Policy rule 2). The tasks force the local mapping in-script.
-- A few older tests that hardcode a localhost mapping (`opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`). New tests must use the in-process registry in `opm/internal/registrytest` instead — the kernel integration tests show the pattern.
+- Nothing else. The tests that name a `localhost:5000` mapping (`opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`, `opm/kernel/acquire_test.go`) only assert the override is plumbed and never dial it. New tests use the in-process registry in `opm/internal/registrytest`; `opm/kernel/render_test.go` shows the pattern.
 
 ### CUE toolchain pin
 
@@ -168,39 +169,49 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
   first schema-touching Kernel call. Tests use the workspace-local cache
   via `opm/internal/schematest`.
 
-### Materialize lifetime & registry contract
+### Render contract
 
-`Materialize` (`opm/materialize`, reachable as `(*Kernel).Materialize`)
-resolves a `#Platform`'s `#registry` subscriptions into a sealed
-`*MaterializedPlatform` (composed transformers + `#matchers` filled). Each
-enabled subscription pulls exactly the build its authored `version!` names
-(0010 D14) and verifies the pulled catalog's declared identity against the
-subscription coordinate (D11/D9, `oerrors.IdentityError`); enumeration runs
-only when a pull fails, to report what IS published. Lifetime
-and registry rules:
+`Render` (`opm/kernel/render.go`, `(*Kernel).Render`) is the sole render path
+(0019 D9/D10, ADR-005). It takes a source-carrying instance
+(`AcquireInstanceFromDir` / `SynthesizeInstance`) and a source-carrying
+platform (`AcquirePlatformFromDir`: a CUE module on disk importing its
+catalogs), stages one generated render module in a per-render temp dir
+(`opm/internal/renderstage`), builds it once, and decodes `diagnostics` and
+`rendered`. Rules:
 
-- **Explicit and caller-driven — the kernel holds no materialize cache**
-  (Principle I). Every `Materialize` call performs registry I/O (one OCI pull
-  per enabled subscription). Consumers that want memoization key on an
-  invalidation signal they own and store the `*MaterializedPlatform`
-  themselves: the operator keys one slot on a CR generation; the CLI opts out
-  and relies on CUE's on-disk module cache. The library ships no reference
-  cache.
-- **Registry config mirrors the schema loader.** `(*Kernel).WithRegistry` sets
-  the `CUE_REGISTRY` mapping for catalog (and the materialize-path schema)
-  resolution; absent it, the kernel inherits process `CUE_REGISTRY` and
-  auto-applies no default. The mapping is plumbed into `load.Config.Env` for
-  the operation — never written back to the process environment.
-- **Same `*cue.Context` throughout.** The owner's context builds the platform
-  value AND every pulled catalog, so the filled `#composedTransformers` /
-  `#matchers` share one context with the platform (cross-context values cannot
-  be filled together).
-- **Inputs are not mutated; failures fail-fast** as `*oerrors.MaterializeError`
-  (`Kind: "catalog"`) naming the offending subscription path and version.
-- Tests stand up an in-memory OCI registry (`mod/modregistrytest`) with inline
-  `#Catalog` fixtures while resolving `opmodel.dev/core@v2` from the warm
-  workspace cache — no test-only `Loader` backdoor; the production
-  resolver→client→loader path runs unchanged.
+- **Shares nothing.** Each render builds in a fresh `cue.Context` that is
+  dropped when `Render` returns; the Kernel's own context is not used and no
+  built value is retained. Concurrency is across renders (one Kernel per
+  goroutine), never within one. A render pool is sized by memory (about
+  61 MB + 7.75 MB per component per concurrent render), not by core count.
+  No mutex, no shared platform value, no materialize cache: those shapes are
+  retracted (ADR-002, superseded by ADR-005). `task test` runs `opm/kernel`
+  and `opm/internal/renderstage` under `-race` to keep the claim checked.
+- **Matching and execution are CUE inside the build**
+  (`opm/internal/renderstage/render.cue.tmpl`), not Go. Verdicts arrive as
+  data (`RenderDiagnostics`: pairs, unmatched, unresolved demands, unify
+  refusals, unhandled traits, over-subscribed provider keys, resolved
+  versions). The fail-closed gate refuses on an unresolved demand, an
+  unmatched component or an over-subscribed provider-fulfilled key; a refusal
+  is a `*RenderError` carrying the full diagnostics with typed causes
+  (`oerrors.UnresolvedDemandsError`, `UnmatchedComponentsError`,
+  `OverSubscribedContractError`, `TransformError`) reachable via `errors.As`.
+  A dry run is `Render` with `Compiled` discarded; there is no match verb.
+- **Catalog skew** (the instance module requiring a newer OPM-namespace
+  build than the platform carries) is warned by default (`SkewWarn`) or
+  refused before evaluation (`SkewRefuse`, `*oerrors.SkewError`).
+- **Registry config mirrors the schema loader.** `WithRegistry` sets the
+  `CUE_REGISTRY` mapping the build uses for the platform's catalog imports;
+  absent it, the kernel inherits process `CUE_REGISTRY` and auto-applies no
+  default. The mapping is plumbed into `load.Config.Env` for the operation,
+  never written back to the process environment.
+- **Inputs are not mutated; the staging directory is removed on return**,
+  success or failure. Refusals before evaluation (missing Source, uncovered
+  OPM path, skew under `SkewRefuse`) are plain errors.
+- Tests serve catalogs and modules from the in-process registry
+  (`opm/internal/registrytest`) while resolving `opmodel.dev/core@v2` from
+  the warm workspace cache; the production stage → build → decode path runs
+  unchanged.
 
 ## Build And Dev Commands
 
@@ -243,37 +254,37 @@ task cue:deps:update         # cue mod get + tidy across all
 task cue:test                                   # runs TestSchemaFixtures (table-driven CUE fixture harness)
 task cue:test:run CASE=<schemaCase.name>        # single fixture subtest
 task cue:test:eval FIXTURE=<file.cue>           # bypass Go harness — `cue eval -t test ./testdata/<f>`
-task cue:test:flow                              # plan→match→compile integration test (skips if registry unreachable; OPM_FLOW_TEST_FORCE=1 to require it)
+task cue:test:flow                              # acquire→render integration test against the published catalog (skips if registry unreachable; OPM_FLOW_TEST_FORCE=1 to require it)
 ```
 
 ## Coding Standards
 
 ### Kernel API surface
 
-`*kernel.Kernel` is the single entry point. Two phase-explicit methods map to frontend subcommands:
+`*kernel.Kernel` is the single entry point. One render verb maps to the frontend's render / apply / dry-run subcommands:
 
-- `Kernel.Match` — match components ↔ transformers via `Platform.#matchers`
-- `Kernel.Compile` — apply / render → `*kernel.CompileResult` carrying `[]*core.Compiled`
-- `Kernel.Render` — the single-build render path (0019 D9, additive, consumed by no frontend until `library-render-cutover`): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*core.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew
+- `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*core.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
 
-Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point, and `Compile` renders the instance as processed with no validation pass of its own. The free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) have been removed — construct a `Kernel` and call its methods. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+Everything before `Render` produces its inputs: `AcquirePlatformFromDir` (platform module, Source stamped), `AcquireInstanceFromDir` / `SynthesizeInstance` (validated instance, Source stamped), `AcquireModuleFromRegistry` / `LoadModulePackage` + `NewModuleFromValue` (the module a synthesized instance imports). Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point (both instance acquirers go through it), and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 `*core.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
 
-### Compile pipeline (per release)
+### Render pipeline (per instance)
 
+```text
+Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
+Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (validated via ProcessModuleInstance; Source stamped)
+Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
+        renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
+                               coverage invariant: every OPM-namespace path either input requires is promoted
+                               skew rows (D7/D18) → warn or refuse per SkewPolicy
+        renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env)
+        decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (+ the unmatched match matrix)
+        gateErrors             unresolved | unmatched | overSubscribed → *RenderError
+        decodeRendered         rendered → []*core.Compiled with Instance/Component/Transformer FQN provenance
 ```
-loaderfile.LoadInstancePackage  → cue.Value
-Kernel.ProcessModuleInstance    → *module.Instance (validated, concrete)
-Kernel.Compile                 → *kernel.CompileResult
-        compile.Match               component ↔ transformer pairing
-        compile.Module.Execute      per-pair transformer execution
-              FillPath #moduleInstance with the whole evaluated instance (0019 D3)
-              FillPath #component with the evaluated component (definitions, hidden fields, constraints intact; 0019 D1)
-              FillPath #context.{moduleInstanceMetadata, componentMetadata, runtimeName}
-              decode `output` (ListKind | StructKind dispatch)
-              emit []*core.Compiled with Instance/Component/Transformer FQN provenance
-```
+
+Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the single-provider guard as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder.
 
 ### OPM schema versioning
 
@@ -287,7 +298,7 @@ k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/co
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call.
 
-A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema` and `opm/compile` adapts to the new paths, and downstream consumers re-pin. Within a major, additive schema changes are absorbed transparently by floating-major resolution.
+A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, additive schema changes are absorbed transparently by floating-major resolution.
 
 Two independent compat tracks, never confuse:
 
@@ -300,7 +311,7 @@ Standard Go grouping with blank lines between groups: stdlib → external (incl.
 
 ### Commit style
 
-Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `compat`, `compile`, `materialize`, `platform`, `helper`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first. release-please hides `chore`, `test`, `ci` and `build`, so those never release; `feat`, `fix`, `deps`, `perf`, `docs` and `refactor` do. Go and CUE deps the kernel embeds (`go.mod`, `cue.mod`) bump as `deps`/`fix(deps)`; the parity platform and other test fixture pins bump as `test(fixtures)`.
+Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `compat`, `platform`, `helper`, `render`, `renderstage`). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first. release-please hides `chore`, `test`, `ci` and `build`, so those never release; `feat`, `fix`, `deps`, `perf`, `docs` and `refactor` do. Go and CUE deps the kernel embeds (`go.mod`, `cue.mod`) bump as `deps`/`fix(deps)`; the parity platform and other test fixture pins bump as `test(fixtures)`.
 
 **Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
 
