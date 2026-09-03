@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0-alpha.24](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.23...v1.0.0-alpha.24) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** a frontend acquires a platform module with AcquirePlatformFromDir and renders with Kernel.Render; no other render path exists.
+* **kernel:** synth.Instance returns (cue.Value, *module.Source, error). No direct callers exist in cli or opm-operator; pre-GA, no migration fragment.
+
+### Features
+
+* **kernel:** add Kernel.Render single-build render path (0019 D9) ([#104](https://github.com/open-platform-model/library/issues/104)) ([3d83129](https://github.com/open-platform-model/library/commit/3d83129ba902ad72ce936a57da0707fc033b4b8a))
+* **kernel:** carry staged source on instances and platforms ([#101](https://github.com/open-platform-model/library/issues/101)) ([9fe1ee9](https://github.com/open-platform-model/library/commit/9fe1ee92a0a8c0c8764553642b0366e172f13e7c))
+* **kernel:** make Render the sole render path, drop the old pipeline ([#106](https://github.com/open-platform-model/library/issues/106)) ([7ca0198](https://github.com/open-platform-model/library/commit/7ca0198a2ab8be3bd83de413d8d3dd860e726587))
+* **render:** single-provider guard in-build, Compile-vs-Render proof ([#105](https://github.com/open-platform-model/library/issues/105)) ([d3badf3](https://github.com/open-platform-model/library/commit/d3badf39005a51ce128adfc44dbe6ef6f0cea9a8))
+
+
+### Documentation
+
+* **adr:** add ADR-005 shares-nothing renders, supersede ADR-002 ([#107](https://github.com/open-platform-model/library/issues/107)) ([dd47001](https://github.com/open-platform-model/library/commit/dd470013c2ca5aa9d722f6d1b95b3484958c4e42))
+* **adr:** add ADR-006 single-build construction, supersede ADR-003 ([850daa1](https://github.com/open-platform-model/library/commit/850daa14986494b48c2e746787e15ebd86806ce1))
+* **openspec:** scaffold library-render-cutover change ([6b335c5](https://github.com/open-platform-model/library/commit/6b335c5e20f716943f47006a9cd335e10025e16d))
+
 ## [1.0.0-alpha.23](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.22...v1.0.0-alpha.23) (2026-09-01)
 
 
