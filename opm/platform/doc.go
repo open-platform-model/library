@@ -15,5 +15,6 @@
 //
 // See:
 //   - enhancements/0019 (workspace root) — single-build render
-//   - adr/003-no-cross-build-fillpath-into-closed-values.md
+//   - adr/006-single-build-artifact-construction.md (one CUE build per artifact)
+//   - adr/005-shares-nothing-renders.md (the build's lifetime and concurrency)
 package platform

@@ -2,11 +2,13 @@
 
 ## Status
 
-Accepted; the principle stands. Supersedes the deleted `003-single-build-cue-evaluation-invariant.md`, which framed single-build as the universal invariant. This ADR reframed the invariant as the underlying no-cross-build-fill principle, with single-build and federation as its two tactics, on one premise: that a platform must compose multiple versions of one catalog `path@major`, which a single build cannot hold.
+Superseded by ADR-006 (artifacts are constructed in one CUE build), 2026-09-03.
 
-That premise is gone (2026-09-03, `library-render-cutover`). Enhancement 0010 D14 made each subscription name exactly one build, and 0019 D5 made the platform a CUE module that imports its catalogs, so minimum version selection admits one version per `path@major` per build by construction and there is nothing left for federation to hold. The federation application described under Decision (`indexCatalogs`, `MaterializedPlatform.Transformers` / `.Matchers`, "read the materialized index off `Transformers` / `Matchers`") was deleted with `opm/materialize`. Single-build is now the only tactic in use: `Kernel.Render` (0019 D9) stages one generated render module that imports the instance, the platform and its catalogs, and matching and execution run inside that build, so the principle is satisfied by construction rather than maintained by two mechanisms. The `composed_open_test.go` guard named under Open went with the surface it guarded; the closedness regression canary is `opm/internal/cueregression/closedness_test.go`. ADR-005 records the shares-nothing render contract that accompanies the single build.
+This ADR replaced the deleted `003-single-build-cue-evaluation-invariant.md`, which framed single-build as the universal invariant. It reframed the invariant as the no-cross-build-fill principle with two tactics, single-build and federation, and rejected the single-build-only framing on one premise: that a platform must compose several versions of one catalog `path@major`, which one build cannot hold.
 
-The Context, Decision and Consequences below are the record as written; the materialize path they describe no longer exists.
+That premise is gone. Enhancement 0010 D14 made each subscription name exactly one build, and 0019 D5 made the platform a CUE module that imports its catalogs, so minimum version selection admits one version per `path@major` per build by construction. The federation application described under Decision (`indexCatalogs`, `MaterializedPlatform.Transformers` / `.Matchers`, "read the materialized index off `Transformers` / `Matchers`") was deleted with `opm/materialize` by `library-render-cutover`. The framing this ADR rejected is now the rule: ADR-006 restates the principle as "every artifact the kernel constructs is one CUE build that imports its inputs" and records why. The `composed_open_test.go` guard named under Open went with the surface it guarded; the closedness regression canary is `opm/internal/cueregression/closedness_test.go`. ADR-005 records the lifetime and concurrency rules of that build.
+
+The text below is preserved as the record of the decision as written; the materialize path it describes no longer exists.
 
 ## Context
 

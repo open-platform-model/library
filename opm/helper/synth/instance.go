@@ -101,7 +101,7 @@ const synthPkgDir = "opm-synth-instance"
 
 // Instance builds a #ModuleInstance CUE value by synthesizing an in-memory CUE
 // package INSIDE the acquired module's own staged source tree and evaluating it
-// in a single build (ADR-003), through the same loader build-and-shape-gate path
+// in a single build (ADR-006), through the same loader build-and-shape-gate path
 // LoadInstancePackage uses for on-disk instance packages. The module's own
 // (already-tidied at publish time) cue.mod/module.cue is the build's module
 // file, so it — not a fabricated dep list — drives transitive dependency

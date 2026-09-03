@@ -23,7 +23,7 @@
 // *module.Instance in one call. Call synth.Instance directly only when there
 // is no *Kernel on hand (rare; mostly unit-testing in tight loops).
 //
-// Single-build construction (ADR-003): synth.Instance does NOT stitch an instance
+// Single-build construction (ADR-006): synth.Instance does NOT stitch an instance
 // value together from separate CUE evaluations. It synthesizes a virtual CUE
 // package — a fabricated cue.mod/module.cue (deps: the resolved core version +
 // the module's path@version), an instance.cue that IMPORTS the module and writes
@@ -36,7 +36,7 @@
 // `unifiedModule = #module & {#config: values}` performs the values merge in
 // CUE. The synth and authored-Instance paths therefore share one mechanism, so a
 // render bug surfaces in both or neither. See
-// adr/003-no-cross-build-fillpath-into-closed-values.md.
+// adr/006-single-build-artifact-construction.md.
 //
 // Schema source of truth: the synth helper never reimplements derivations the
 // CUE schema already owns (instance UUID stamping, components fan-out from

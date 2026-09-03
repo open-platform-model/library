@@ -7,7 +7,7 @@ made inexpressible by enhancement 0010 D14 (one build per subscription) and 0019
 a CUE module importing its catalogs, so minimum version selection admits one version per
 `path@major` per build). The trigger below cannot fire: under `Kernel.Render` every transformer is
 evaluated inside its own catalog's build by construction, because the whole render is one build.
-Kept as the record of the question; see ADR-003's status and ADR-005.
+Kept as the record of the question; see ADR-006 (superseding ADR-003) and ADR-005.
 **Related:** ADR-003, `openspec/changes/federate-materialize-transformers/design.md` (D5),
 `docs/design/transformer-output-hidden-field-scope-bug.md` §14.
 
