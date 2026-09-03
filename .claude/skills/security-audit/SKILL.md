@@ -1,19 +1,19 @@
 ---
 name: security-audit
-description: Security audit skill for the OPM library — the Go kernel/reference runtime that loads, validates, materializes, and compiles untrusted CUE artifacts (Module / ModuleInstance / Platform) and executes catalog transformer expressions. Audits CUE-evaluation safety, artifact input validation, loader path handling, registry/OCI trust, kernel concurrency, and supply chain. Targets a path, feature, or the full project. Produces a severity-ranked report (CRITICAL / WARNING / SUGGESTION).
+description: Security audit skill for the OPM library — the Go kernel/reference runtime that loads, validates and renders untrusted CUE artifacts (Module / ModuleInstance / Platform) in one CUE build that executes catalog transformer expressions. Audits CUE-evaluation safety, artifact input validation, loader path handling, registry/OCI trust, kernel concurrency, and supply chain. Targets a path, feature, or the full project. Produces a severity-ranked report (CRITICAL / WARNING / SUGGESTION).
 user-invocable: true
 argument-hint: "[path-or-feature]"
 ---
 
 Perform a security audit of the OPM library (kernel) codebase. Reports findings ranked by severity — never modifies code.
 
-The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts and runs them through a load → validate → materialize → compile → execute pipeline. Unlike most Go libraries, **the core risk is CUE evaluation of untrusted, user-authored content** (artifact CUE and, indirectly, the data filled into catalog transformer `#transform` expressions). There is deliberately **no shell, no `text/template`, no process model, and no logging** (CONSTITUTION). So the audit centers on: does untrusted input ever bypass shape-gating or escape CUE unification's constraint enforcement at the transformer fill sites; is pulled registry content trusted without verification; and is the single-CUE-context concurrency contract upheld.
+The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts and runs them through a load → validate → render pipeline, where render is one CUE build (`opm/internal/renderstage`) that imports the instance and the platform and matches and executes transformers in CUE. Unlike most Go libraries, **the core risk is CUE evaluation of untrusted, user-authored content** (artifact CUE and, indirectly, the data filled into catalog transformer `#transform` expressions). There is deliberately **no shell, no `text/template`, no process model, and no logging** (CONSTITUTION). So the audit centers on: does untrusted input ever bypass shape-gating or escape CUE unification's constraint enforcement where the render glue binds transformer inputs; is pulled registry content trusted without verification; and is the single-CUE-context concurrency contract upheld.
 
 **Input**: Optionally specify a target after the command:
 
-- A directory path (e.g., `opm/compile/`, `opm/helper/loader/`) — scope to that subtree
+- A directory path (e.g., `opm/internal/renderstage/`, `opm/helper/loader/`) — scope to that subtree
 - A feature name (e.g., `transformer-execution`, `validation`, `registry`, `concurrency`) — scope to code related to that feature
-- Omit entirely — audit the full project (loader → kernel → materialize → compile → execute pipeline)
+- Omit entirely — audit the full project (loader → kernel → render build)
 
 ## Scope Detection
 
@@ -27,14 +27,14 @@ The library is the OPM **reference runtime**: it accepts untrusted CUE artifacts
 
 ## Audit Dimensions
 
-Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against the in-scope code. Skip dimensions structurally irrelevant to the target (e.g., skip Registry Trust when auditing only `opm/compile/execute.go`).
+Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against the in-scope code. Skip dimensions structurally irrelevant to the target (e.g., skip Registry Trust when auditing only `opm/kernel/render_decode.go`).
 
 ### Dimension 1: Artifact Input Validation & Shape-Gating
 
 The trust gate: all three artifact types must be validated before the kernel acts on them.
 
 - Every artifact (`Module`, `ModuleInstance`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleInstance), empty-string rejection
-- No bypass path: a code route that reaches `Compile`/`Materialize`/`Execute` without first passing `helper/loader/file/validate.go` shape-gating + full schema validation
+- No bypass path: a code route that reaches `Render` without a source-carrying instance from `ProcessModuleInstance` (`AcquireInstanceFromDir` / `SynthesizeInstance`) and a platform that passed the `helper/loader/internal/shape` gate (`AcquirePlatformFromDir`), including the `#registry` completeness check
 - Full schema validation (`Kernel.ValidateConfig*`, invoked by `Kernel.ProcessModuleInstance`) runs user values against the module `#config` schema **before** any execution
 - Sentinel errors (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`) are returned so callers can branch — and validation fails closed (an unparseable/ambiguous artifact is rejected, not partially processed)
 - Decode steps (`opm/schema/decode.go`, `opm/module`, `opm/platform`) tolerate missing/extra fields safely (no panic on attacker-shaped CUE)
@@ -44,13 +44,13 @@ The trust gate: all three artifact types must be validated before the kernel act
 
 The heart of the threat model — user-influenced data flows into CUE evaluation.
 
-- Transformers are sourced from the **trusted catalog** (`Platform.#composedTransformers`), never from user artifact input — confirm no path lets a Module/Instance supply or override a `#transform`
-- `FillPath` injection of `#component` and `#context.*` is non-mutating / purely functional (no in-place mutation of shared CUE values)
-- The value a transformer receives is filled as evaluated, at fixed schema paths (`#moduleInstance`, `#component`, `#context.*`), with definitions and constraints intact (enhancement 0019 D1). User data **cannot redefine** schema constraints because the filled value keeps them and CUE unification refuses a conflicting field (the pure-CUE control's `field not allowed`); there is no Go-side strip, finalize or rebuild step between evaluation and fill. Audit the fill sites in `executePair`, the closedness guards (`opm/materialize/composed_open_test.go`, `opm/compile` `TestMatch_ClosedDefinitionRetained`, the `opm/internal/cueregression` canary pair) and the parity harness (`parity_*_test.go`), the tripwire against a Go-side transformation being reintroduced
-- Transformer output evaluation (`unified.LookupPath(schema.Output)`) handles both StructKind and ListKind without trusting attacker-controlled shape to drive unbounded expansion
+- Transformers are sourced from the **trusted platform module** (`platform.#composedTransformers`, core's fold over the catalogs the platform imports), never from user artifact input — confirm no path lets a Module/Instance supply or override a `#transform`, and that the render module's promoted `cue.mod` (`opm/internal/renderstage/promote.go`, 0019 D13) lets the platform's dependency list win every shared path
+- The render glue (`opm/internal/renderstage/render.cue.tmpl`) is a Go `text/template` over three inputs only (the two generated import paths and the runtime name); confirm nothing artifact-authored reaches the template and that the generated `render.cue` binds `#moduleInstance`, `#component` and `#context.#runtimeName` by plain unification with no Go-side value transformation
+- The value a transformer receives is the imported instance's component as evaluated in the same build, definitions and constraints intact (enhancement 0019 D1/D3). User data **cannot redefine** schema constraints because CUE unification refuses a conflicting field (`field not allowed`); there is no Go-side strip, finalize or rebuild step. Audit the glue's `rendered` block, the `opm/internal/cueregression` canary pair and the parity harness (`parity_*_test.go`), the tripwire against a Go-side transformation being reintroduced
+- Output decoding (`opm/kernel/render_decode.go`) handles both StructKind and ListKind without trusting attacker-controlled shape to drive unbounded expansion, and the fail-closed gate (`diagnostics.resolved`, `overSubscribed`) is honoured before any output is decoded
 - No path where user CUE can reference/import arbitrary external packages or registries during evaluation (import surface confined to declared, trusted deps)
 - CUE evaluation produces **data, not code** — verify no generated output is later `exec`'d, templated, or eval'd elsewhere
-- Key files: `opm/compile/execute.go`, `opm/compile/match.go`, `opm/compile/module.go`, `opm/kernel/parity_*_test.go`
+- Key files: `opm/internal/renderstage/render.cue.tmpl`, `opm/internal/renderstage/{glue,stage,promote}.go`, `opm/kernel/render.go`, `opm/kernel/render_decode.go`, `opm/kernel/parity_*_test.go`
 
 ### Dimension 3: Loader Path Handling
 
@@ -62,20 +62,20 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 ### Dimension 4: Registry / OCI Trust & Integrity
 
-- Schema (`opmodel.dev/core@v1`) and catalogs are pulled via CUE's OCI loader (`OCILoader.Load`, `pullCatalog`); assess that there is **no checksum/signature/digest verification** of pulled modules beyond OCI registry + TLS trust — flag MITM / registry-substitution risk and whether version pinning (vs mutable major `@v0`) is enforced
+- Schema (`opmodel.dev/core`, pinned by `schema.DefaultSchemaModule`) and the catalogs a platform module imports are pulled via CUE's module system (`OCILoader.Load`; the render build's `cue/load` against the promoted `cue.mod`); assess that there is **no checksum/signature/digest verification** of pulled modules beyond OCI registry + TLS trust — flag MITM / registry-substitution risk and whether version pinning (vs mutable major `@v0`) is enforced
 - Per-call registry override is plumbed via `load.Config.Env` only and never mutates `os.Environ()` (kernel neutrality) — a fresh env slice per call, no global state
-- Catalog enumeration/filtering (`enumerate.go`, `filter.go`) cannot be steered by untrusted platform `#registry` content into pulling an attacker-chosen version/module
-- Cache key derivation (`opm/materialize/cache/key.go`, `sha256` over the registry subtree) is integrity-only, not a security control — confirm it isn't relied on as one
-- Key files: `opm/schema/loader.go`, `opm/materialize/pull.go`, `opm/materialize/env.go`, `opm/materialize/{enumerate,filter}.go`
+- Version skew handling (`opm/internal/renderstage/skew.go`, 0019 D7/D18) cannot be steered by an untrusted instance module's `cue.mod` into executing a build the platform did not pin: the platform's list wins, and `SkewRefuse` is honoured before evaluation
+- The `cue.mod/local-module.cue` directory replacements the staging writes point only at the two staged input trees, never at a path an artifact names
+- Key files: `opm/schema/loader.go`, `opm/internal/renderstage/{modfile,promote,skew,stage}.go`, `opm/helper/loader/registry/module.go`
 
 ### Dimension 5: Concurrency & Resource Safety
 
 - `*cue.Context` is **not goroutine-safe**: the one-kernel-per-goroutine contract is upheld — no code shares a single Kernel/`cue.Context` across concurrent calls
-- A shared `MaterializedPlatform` read across multiple per-goroutine kernels is genuinely read-only (no mutation of shared CUE values during `Compile`)
-- `MaterializeCache` mutex (`opm/materialize/cache/cache.go`) correctly guards the first-call race; no double-pull or torn read
+- `Render` shares nothing between renders (0019 D8): each render builds in a fresh `cue.Context` that is released on return, no built value is retained on the Kernel, and the per-render staging directory is removed on every exit path — confirm no shared platform value or cache crept back in
+- The staging directory is created with `os.MkdirTemp` per render and every write stays under it (no artifact-influenced path joins)
 - No package-level mutable state / singletons (kernel neutrality) that could race or leak across embedders
 - Resource bounds: CUE evaluation depth/recursion and transformer fan-out are unbounded in-kernel (delegated to the CUE SDK) — flag the **DoS-via-malicious-artifact** gap (deep recursion, comprehension explosion, huge list output) as defense-in-depth; confirm callers can cancel via `context.Context` and that the kernel honors it
-- Key files: `opm/kernel/kernel.go`, `opm/materialize/cache/cache.go`, `opm/materialize/materialize.go`
+- Key files: `opm/kernel/kernel.go`, `opm/kernel/render.go`, `opm/internal/renderstage/stage.go`
 
 ### Dimension 6: Secrets & Error Hygiene
 
@@ -100,7 +100,7 @@ Apply when scope is project-wide or covers a significant subsystem.
 **Trust boundary identification**:
 - Trusted: the OPM core schema and catalog modules (pulled from the registry, pinned), the kernel itself
 - Untrusted: user-authored Module / ModuleInstance / Platform CUE content
-- The boundary is crossed at load (shape-gate), at validation (schema), and at compile (fill → evaluate)
+- The boundary is crossed at load (shape-gate), at validation (schema), and at render (one build that matches and executes)
 
 **Confused deputy assessment**:
 - Can untrusted artifact content induce the kernel to pull an attacker-chosen catalog/module, or supply its own transformer?
@@ -176,7 +176,7 @@ Apply the relevant subset based on in-scope code.
 
 | Severity | Definition | Examples |
 |----------|-----------|----------|
-| **CRITICAL** | Exploitable vulnerability, constraint/validation bypass, or trusted-execution escape. Must be addressed before release. | A path letting user artifact CUE supply/override a `#transform`, user data filled at an attacker-influenced path or with its constraints dropped (constraint bypass), a route reaching compile/execute without shape-gating, untrusted artifact steering an attacker-chosen registry/module pull, a panic-triggering artifact that crashes embedders |
+| **CRITICAL** | Exploitable vulnerability, constraint/validation bypass, or trusted-execution escape. Must be addressed before release. | A path letting user artifact CUE supply/override a `#transform`, user data filled at an attacker-influenced path or with its constraints dropped (constraint bypass), a route reaching the render build without shape-gating, untrusted artifact steering an attacker-chosen registry/module pull, a panic-triggering artifact that crashes embedders |
 | **WARNING** | Security weakness with material impact, or best-practice violation that increases attack surface. Should be addressed in the current cycle. | No digest/signature verification of pulled modules (registry substitution), unbounded CUE recursion/fan-out DoS path, a Kernel shared across goroutines, errors that dump full artifact values, alpha CUE SDK on the eval path, loader path that follows symlinks out of root |
 | **SUGGESTION** | Defense-in-depth improvement, hardening recommendation, or theoretical risk with low current exploitability. Address when convenient. | Add an evaluation depth/timeout guard, pin schema to a specific version not just `@v0`, add fuzz tests for the shape gate, tighten an already-validated decode path, document the no-audit-log boundary |
 
@@ -259,7 +259,7 @@ Apply the relevant subset based on in-scope code.
 - **Always include Positive Observations** — kernel neutrality, no-shell/no-template/no-log discipline, and fill-as-evaluated with the parity harness as tripwire are real strengths; confirm them
 - **Always include Skipped / Out of Scope** — many runtime dimensions (web auth, container) genuinely don't apply to a pure library; say so
 - **Include code evidence** — every CRITICAL and WARNING cites a `file:line` and shows the relevant pattern
-- **Be specific in recommendations** — name the file/line and the concrete change (e.g., "verify pulled catalog digest in `opm/materialize/pull.go:22` before evaluation")
+- **Be specific in recommendations** — name the file/line and the concrete change (e.g., "verify the promoted dependency list in `opm/internal/renderstage/promote.go` never adopts an instance-only path over a platform pin")
 - **Do not overstate severity** — a hostile-*caller* path (semi-trusted embedder) is generally lower severity than a hostile-*artifact* path (fully untrusted). Don't inflate a theoretical CUE-SDK DoS into a CRITICAL without an exploit path
 - **Respect kernel neutrality** — recommendations must not introduce logging, shell, process model, or global state that the CONSTITUTION forbids
 - **Respect the target scope** — a targeted audit stays in scope; note adjacent concerns under "Skipped / Out of Scope"
@@ -268,7 +268,7 @@ Apply the relevant subset based on in-scope code.
 
 - **No HTTP/network-server surface** → skip web/auth/transport dimensions entirely (pure library); note in Skipped
 - **No containers/manifests in scope** → skip container checks; note in Skipped
-- **Only `opm/compile/` in scope** → focus D2 (CUE evaluation) + D5 (concurrency/resource); skip loader/registry
+- **Only `opm/internal/renderstage/` or `opm/kernel/render*.go` in scope** → focus D2 (CUE evaluation) + D5 (concurrency/resource); skip loader/registry
 - **Only `opm/helper/loader/` in scope** → focus D1 (validation) + D3 (path handling); skip transformer execution
 - **Only dependency/build files in scope** → focus D7; skip runtime dimensions
 - **Single small file** → skip D8 (Architecture); note in Skipped

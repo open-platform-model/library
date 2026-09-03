@@ -134,7 +134,7 @@ Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `CLAUD
 The local registry at `localhost:5000` is required only for:
 
 - `task cue:publish` / `task cue:publish:smart` — local fixture/catalog publishes; gated, run only on explicit user request (Registry Policy rule 2). The tasks force the local mapping in-script.
-- A few older tests that hardcode a localhost mapping (`opm/materialize/composed_open_test.go`, `opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`). New tests must use the in-process registry in `opm/internal/registrytest` instead — the kernel integration tests show the pattern.
+- A few older tests that hardcode a localhost mapping (`opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`). New tests must use the in-process registry in `opm/internal/registrytest` instead — the kernel integration tests show the pattern.
 
 ### CUE toolchain pin
 

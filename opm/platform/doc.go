@@ -15,5 +15,5 @@
 //
 // See:
 //   - enhancements/0019 (workspace root) — single-build render
-//   - adr/003-single-build-cue-evaluation-invariant.md
+//   - adr/003-no-cross-build-fillpath-into-closed-values.md
 package platform
