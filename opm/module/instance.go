@@ -47,10 +47,11 @@ type Instance struct {
 // Was: ReleaseMetadata
 type InstanceMetadata = schema.InstanceMetadata
 
-// MatchComponents returns the schema-preserving components value used for
-// matching. The returned value keeps definition fields such as #resources,
-// #traits, and #blueprints.
-func (r *Instance) MatchComponents() cue.Value {
+// Components returns the instance's components value as evaluated,
+// definition fields (#resources, #traits, #blueprints, #names) included. It
+// is a read for frontends and tests: the render build reads the same field
+// in CUE, inside the generated glue, and never through this accessor.
+func (r *Instance) Components() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
@@ -72,48 +73,6 @@ func (r *Instance) ConfigSchema() cue.Value {
 		return cue.Value{}
 	}
 	return mod.LookupPath(schema.Config)
-}
-
-// The accessors below read the decoded metadata cache (the UUID) and the
-// module-metadata projection on Package (the module version). Name,
-// namespace, fqn, labels and annotations are read off Metadata directly.
-
-// InstanceUUID returns the instance's metadata.uuid.
-//
-// Was: ReleaseUUID
-func (r *Instance) InstanceUUID() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.UUID
-}
-
-// ModuleVersion returns the source module's version, read from Package via
-// the ModuleMetadataPath path.
-func (r *Instance) ModuleVersion() string {
-	return r.lookupModuleMetadataString("version")
-}
-
-// lookupModuleMetadataString reads a string field under the schema's
-// ModuleMetadataPath. Returns the empty string on any lookup or decode
-// failure — callers treat this as "metadata not available".
-func (r *Instance) lookupModuleMetadataString(field string) string {
-	if r == nil {
-		return ""
-	}
-	mm := r.Package.LookupPath(schema.ModuleMetadataPath)
-	if !mm.Exists() {
-		return ""
-	}
-	v := mm.LookupPath(cue.ParsePath(field))
-	if !v.Exists() {
-		return ""
-	}
-	s, err := v.String()
-	if err != nil {
-		return ""
-	}
-	return s
 }
 
 // NewInstanceFromValue builds a *Instance from a raw CUE artifact value. The

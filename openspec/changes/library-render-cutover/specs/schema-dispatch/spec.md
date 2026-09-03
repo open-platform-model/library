@@ -21,7 +21,7 @@
 
 ### Requirement: Path inventory exposed as package-level vars
 
-The library SHALL expose every CUE path some production code path reads as exported package-level `cue.Path` variables in `opm/schema`. After the render cutover the readers are metadata decoding, instance processing and module accessors, so the inventory is exactly `Metadata`, `Components`, `Values`, `Config`, `Module`, `ModuleMetadataPath` and `DebugValues` (the last kept for the documented frontend read of a module's debug overlay). The paths the Go matcher, executor and context builder read (`Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`) SHALL be removed with those readers: the render build reads the instance's components and the platform's `#composedTransformers` in CUE, inside the generated glue. A path with no reader is removed, not retained for a possible consumer.
+The library SHALL expose every CUE path some production code path reads as exported package-level `cue.Path` variables in `opm/schema`. After the render cutover the readers are metadata decoding, instance processing, the loaders' identity reads and the instance's components and `#config` accessors, so the inventory is exactly `Metadata`, `Components`, `Values`, `Config`, `Module` and `DebugValues` (the last kept for the documented frontend read of a module's debug overlay). The paths the Go matcher, executor and context builder read (`Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`) and `ModuleMetadataPath` (read only by the `ModuleVersion` accessor the context builder needed) SHALL be removed with those readers: the render build reads the instance's components and the platform's `#composedTransformers` in CUE, inside the generated glue. A path with no reader is removed, not retained for a possible consumer.
 
 #### Scenario: Consumer references a path directly
 
@@ -32,7 +32,7 @@ The library SHALL expose every CUE path some production code path reads as expor
 #### Scenario: Matcher and transformer paths are gone
 
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
-- **THEN** none of `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits` exists
+- **THEN** none of `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`, `ModuleMetadataPath` exists
 
 #### Scenario: Platform view and context sub-paths are not exported
 

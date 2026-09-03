@@ -80,7 +80,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 
 	// The processed instance resolves what the old LookupPath+FillPath
 	// skeleton severed: the computed names and the derived uuid.
-	fqdn := inst.MatchComponents().LookupPath(cue.ParsePath("web.#names.dns.fqdn"))
+	fqdn := inst.Components().LookupPath(cue.ParsePath("web.#names.dns.fqdn"))
 	require.NoError(t, fqdn.Err(), "web.#names.dns.fqdn must resolve on the processed instance")
 	fqdnStr, err := fqdn.String()
 	require.NoError(t, err)
@@ -89,7 +89,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	// derives the same value for the same name and namespace
 	// (testdata/parity/instance), which is what makes the two fixtures'
 	// rendered names directly comparable.
-	assert.Equal(t, "bf5b9c54-bf4a-5cad-8cb7-77d4d526a16a", inst.InstanceUUID(),
+	assert.Equal(t, "bf5b9c54-bf4a-5cad-8cb7-77d4d526a16a", inst.Metadata.UUID,
 		"metadata.uuid must be the v5 uuid core derives from the instance fqn")
 
 	// ── Render ───────────────────────────────────────────────────────

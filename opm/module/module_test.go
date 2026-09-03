@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -122,28 +121,4 @@ metadata: {
 	want, err := module.NewModuleFromValue(k, v)
 	require.NoError(t, err)
 	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
-}
-
-// TestInstance_ModuleVersionFromPackage confirms ModuleVersion reads through
-// the schema's ModuleMetadataPath on Package rather than a cached struct field.
-func TestInstance_ModuleVersionFromPackage(t *testing.T) {
-	ctx := cuecontext.New()
-	v := ctx.CompileString(`
-kind: "ModuleInstance"
-metadata: { name: "demo", namespace: "ns", uuid: "u" }
-#moduleMetadata: {
-	name: "demo-mod"
-	modulePath: "example.com/m"
-	version: "1.2.3"
-	fqn: "example.com/m/demo-mod:1.2.3"
-	uuid: "mm"
-}
-`)
-	require.NoError(t, v.Err())
-
-	inst := &module.Instance{
-		Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns"},
-		Package:  v,
-	}
-	assert.Equal(t, "1.2.3", inst.ModuleVersion())
 }
