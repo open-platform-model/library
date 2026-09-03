@@ -21,6 +21,7 @@ import (
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
 	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // LoadOptions configures the registry module loader. Mirrors
@@ -158,7 +159,8 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 	coordinate := modPath + " " + version
 
-	declaredPath, err := val.LookupPath(cue.ParsePath("metadata.modulePath")).String()
+	meta := val.LookupPath(schema.Metadata)
+	declaredPath, err := meta.LookupPath(cue.ParsePath("modulePath")).String()
 	if err != nil {
 		return fmt.Errorf("reading metadata.modulePath of %s: %w", coordinate, err)
 	}
@@ -178,7 +180,7 @@ func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 		}
 	}
 
-	declaredVersion, err := val.LookupPath(cue.ParsePath("metadata.version")).String()
+	declaredVersion, err := meta.LookupPath(cue.ParsePath("version")).String()
 	if err != nil {
 		return fmt.Errorf("reading metadata.version of %s: %w", coordinate, err)
 	}

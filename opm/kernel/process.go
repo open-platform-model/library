@@ -63,7 +63,7 @@ func (k *Kernel) ProcessModuleInstance(_ context.Context, spec cue.Value, mod mo
 // bestEffortInstanceName tries to extract an instance name for error messages.
 // Falls back to the module name if the instance name is not yet available.
 func bestEffortInstanceName(spec cue.Value, mod module.Module) string {
-	nameVal := spec.LookupPath(cue.ParsePath("metadata.name"))
+	nameVal := spec.LookupPath(schema.Metadata).LookupPath(cue.ParsePath("name"))
 	if nameVal.Exists() {
 		if s, err := nameVal.String(); err == nil {
 			return s
