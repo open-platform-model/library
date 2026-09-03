@@ -1,19 +1,20 @@
 // THE ORACLE. The render pipeline written as plain CUE unification, generic
 // over its inputs. Lifted from enhancements/0019/experiments/01-purecue-render-flow
-// (concluded 2026-08-19) and laid out in the kernel's own phases so the two
-// can be read side by side:
+// (concluded 2026-08-19) and laid out in the same steps as the kernel's
+// render glue (opm/internal/renderstage/render.cue.tmpl) so the two can be
+// read side by side:
 //
-//     library/opm/compile/match.go       ->  `matched` / `pairs` (predicate rung only)
-//     library/opm/schema/context.go      ->  `_contextFor`
-//     library/opm/compile/execute.go     ->  `rendered`
-//     library/opm/compile/finalize.go    ->  (nothing: unification has no analogue)
+//     glue `match` (#Match)                    ->  `matched` / `pairs` (predicate rung only)
+//     core's #TransformerContext projection    ->  `_contextFor` (0019 D12; the kernel supplies #runtimeName only)
+//     glue `rendered`                          ->  `rendered`
 //
 // SCOPE OF `matched`. This is the predicate rung, enough to produce the right
 // pairs for the fixtures; it is not a specification of matching (0019 D10
-// owns that). The kernel's reverse-index and always-unify rungs are absent:
-// a component whose primitive body conflicts with a transformer's required
-// copy pairs here and is refused by the kernel. The harness compares pair
-// sets and reports that refusal as its one stated exemption.
+// owns that). The glue's reverse-index and always-unify rungs are absent: on
+// the shipped fixtures no primitive body conflicts with a transformer's
+// required copy, so the pair sets agree with no exemption (0019 D10); a
+// fixture that did conflict would be refused by the kernel and fail the
+// harness's pair-set comparison.
 package oracle
 
 #Render: {
@@ -31,7 +32,7 @@ package oracle
 	// the value because that is what passing a value along means.
 	_components: #instance.components
 
-	// ---- Phase 1: match (predicate rung) -------------------------------
+	// ---- Match (predicate rung; the glue's #Match) ----------------------
 	matched: {
 		for cid, comp in _components {
 			(cid): {
@@ -64,7 +65,7 @@ package oracle
 		if m.ok {{component: cid, transformer: tfqn}},
 	]
 
-	// ---- Phase 2: #context, a projection of the other two inputs --------
+	// ---- #context: the projection core performs (0019 D12) --------------
 	_contextFor: {
 		comp!: _
 		out: {
@@ -86,7 +87,7 @@ package oracle
 		}
 	}
 
-	// ---- Phase 3: execute, one unification per matched pair -------------
+	// ---- Execute: one unification per matched pair (the glue's `rendered`)
 	// All three inputs core declares on #transform are supplied, whole:
 	// #moduleInstance is the instance as imported, siblings included, the
 	// same value the kernel fills since library-instance-fill (0019 D3, D11).

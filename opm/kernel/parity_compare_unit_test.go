@@ -86,7 +86,7 @@ func TestParityCheck_Contract(t *testing.T) {
 	ctx := cuecontext.New()
 	same := []cue.Value{ctx.CompileString(`{kind: "A"}`)}
 	other := []cue.Value{ctx.CompileString(`{kind: "B"}`)}
-	base := parityCase{Name: "c", Component: "web", Transformer: "t", Equality: equalityOutputFieldsOnly}
+	base := parityCase{Name: "c", Component: "web", Transformer: "t", Equality: equalityStructural}
 	expecting := base
 	expecting.ExpectedDivergence = "sample divergence recorded for this contract test"
 
@@ -116,11 +116,12 @@ func TestParityCheck_Contract(t *testing.T) {
 		assert.Contains(t, err.Error(), "no longer reproduces")
 		assert.Contains(t, err.Error(), expecting.ExpectedDivergence)
 	})
-	t.Run("structural equality is refused until D12", func(t *testing.T) {
+	t.Run("retired output-fields-only mode is refused", func(t *testing.T) {
 		c := base
-		c.Equality = equalityStructural
+		c.Equality = parityEquality("output-fields-only")
 		err := checkParity(c, parityRender{Objects: same}, parityRender{Objects: same})
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not admitted")
 		assert.Contains(t, err.Error(), "0019 D12")
 	})
 	t.Run("oracle error is a fixture failure, never a divergence", func(t *testing.T) {

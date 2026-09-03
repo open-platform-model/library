@@ -3,17 +3,18 @@ package kernel_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
 	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
@@ -23,6 +24,7 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // The render fixtures (testdata/render): a catalog and a module served by the
@@ -274,9 +276,49 @@ func TestRender_DisqualifiedCandidateIsData(t *testing.T) {
 	assert.Empty(t, d.Alternatives)
 	assert.Equal(t, []string{"narrow"}, rerr.Diagnostics.Unmatched)
 
-	var unmatched *compile.UnmatchedComponentsError
+	var unmatched *oerrors.UnmatchedComponentsError
 	require.ErrorAs(t, err, &unmatched)
 	assert.Equal(t, []string{"narrow"}, unmatched.Components)
+	row := unmatched.Matches["narrow"]
+	require.Len(t, row, 1, "the matrix names the one candidate the demand walk reached")
+	assert.False(t, row[narrowTx].Matched)
+	assert.Empty(t, row[narrowTx].MissingLabels, "a unify refusal carries no missing labels; its conflict is on Diagnostics.Unify")
+}
+
+// TestRender_MislabeledCandidateRefusedAsMissingLabel pins the predicate rung
+// on a non-string label value (single-build-render, "The label predicate
+// covers every admitted label type"): the component's matchLabels carry
+// render.test/tier = 2 (an int, from its resource) and the only candidate
+// requires 3 under the same key. The candidate is disqualified as data, the
+// label named on the unmatched-components matrix, and the demand is
+// unresolved with no unify disqualification and no alternatives.
+func TestRender_MislabeledCandidateRefusedAsMissingLabel(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "mislabeled")
+
+	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+
+	tieredFQN := renderCatPath + "/resources/tiered@v1"
+	tieredTx := renderTxPath + "/tiered-transformer@0.1.0"
+	assert.Empty(t, rerr.Diagnostics.Unify, "the always-unify rung passes: the bodies agree")
+	require.Len(t, rerr.Diagnostics.Unresolved, 1)
+	d := rerr.Diagnostics.Unresolved[0]
+	assert.Equal(t, tieredFQN, d.FQN)
+	assert.Empty(t, d.Disqualified)
+	assert.Empty(t, d.Alternatives)
+	assert.Equal(t, []string{"tiered"}, rerr.Diagnostics.Unmatched)
+
+	var unmatched *oerrors.UnmatchedComponentsError
+	require.ErrorAs(t, err, &unmatched)
+	assert.Equal(t, []string{"tiered"}, unmatched.Components)
+	assert.Equal(t, map[string]oerrors.MatchResult{
+		tieredTx: {Matched: false, MissingLabels: []string{"render.test/tier"}},
+	}, unmatched.Matches["tiered"], "the candidate was evaluated and refused on the mismatched int label")
+	assert.Contains(t, unmatched.Error(), "render.test/tier")
 }
 
 func TestRender_EffectivelyOptionalTraitWarns(t *testing.T) {
@@ -455,50 +497,6 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	assert.NotSame(t, k.CueContext(), first.Compiled[0].Value.Context(), "the Kernel's context is not the render context") //nolint:staticcheck // same
 }
 
-// TestRender_PairSetMatchesOldPath renders the fixture module on the new path
-// and compiles an equivalent hermetic fixture on the old path (registrytest
-// catalog + Materialize + Match + Compile), asserting the two pair sets agree
-// once the catalog path is normalized away. The old-path fixture is built by
-// the same generators the old-path suite uses, against the core the old path
-// is pinned to.
-func TestRender_PairSetMatchesOldPath(t *testing.T) {
-	// New path.
-	nk := newRenderKernel(t)
-	plat := acquireRenderPlatform(t, nk, "platform")
-	inst := synthRenderInstance(t, nk, "0.1.0")
-	res, err := nk.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
-	require.NoError(t, err)
-	newPairs := renderPairSet(res.Diagnostics.Pairs)
-
-	// Old path: a catalog with the same transformer/demand shape.
-	const version = "0.1.0"
-	catPath := registrytest.UniquePath(t, "oldpath")
-	ok := newKernelWithCatalogs(t, registrytest.CatalogFixture{
-		Path:    catPath,
-		Version: version,
-		Body: registrytest.BuildCatalog(catPath, version,
-			registrytest.TxFixture{Name: "deployment-transformer", Resources: []string{"container"}},
-			registrytest.TxFixture{Name: "service-transformer", Resources: []string{"container"}, Traits: []string{"expose"}},
-			registrytest.TxFixture{Name: "configmap-transformer", Resources: []string{"config-maps"}},
-		),
-	})
-	mp, err := materializePlatform(t, ok, version, catPath)
-	require.NoError(t, err)
-	oldInst := buildInstance(t, ok, catPath, version, "", "",
-		compSpec{name: "web", resources: []string{"container"}, traits: []string{"expose"}},
-		compSpec{name: "config", resources: []string{"config-maps"}},
-	)
-	out, err := ok.Compile(context.Background(), kernel.CompileInput{ModuleInstance: oldInst, Platform: mp, RuntimeName: "rt"})
-	require.NoError(t, err)
-	oldPairs := make([]string, 0)
-	for _, p := range out.MatchPlan.MatchedPairs() {
-		oldPairs = append(oldPairs, p.ComponentName+" :: "+strings.TrimPrefix(p.TransformerFQN, catPath+"/transformers/"))
-	}
-	sort.Strings(oldPairs)
-
-	assert.Equal(t, oldPairs, newPairs, "the in-build matcher reproduces the Go matcher's pair set")
-}
-
 // The single-provider guard in-build (0010 D32/D37; library-render-cutover).
 // platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
 // a transformer requiring cat's provider-fulfilled gateway contract.
@@ -560,4 +558,128 @@ func TestRender_CatalogFulfilledPluralityRenders(t *testing.T) {
 		"web/Mirror/web-demo-web",
 		"web/Service/web-demo-web",
 	}, compiledSummary(t, res.Compiled))
+}
+
+// TestRender_WithRegistryDoesNotMutateEnv asserts WithRegistry plumbs the
+// mapping into the render build's load configuration without writing the
+// process CUE_REGISTRY (spec kernel-runtime, "Registry Configuration
+// Option").
+func TestRender_WithRegistryDoesNotMutateEnv(t *testing.T) {
+	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
+	// Point the process env somewhere the fixture catalog is NOT served: the
+	// build must resolve it through the option alone.
+	t.Setenv("CUE_REGISTRY", schema.PublicRegistry)
+	before := os.Getenv("CUE_REGISTRY")
+
+	k := kernel.New(kernel.WithRegistry(mapping))
+	plat, err := k.AcquirePlatformFromDir(context.Background(), renderFixtureDir(t, "platform"), loaderfile.LoadOptions{Registry: mapping})
+	require.NoError(t, err)
+	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance"), loaderfile.LoadOptions{Registry: mapping})
+	require.NoError(t, err)
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err, "the option alone routes the catalog import")
+	require.NotEmpty(t, res.Compiled)
+	assert.Equal(t, before, os.Getenv("CUE_REGISTRY"), "WithRegistry MUST NOT mutate process CUE_REGISTRY")
+}
+
+// summarize is compiledSummary without test assertions, safe to call from a
+// goroutine.
+func summarize(compiled []*core.Compiled) ([]string, error) {
+	out := make([]string, 0, len(compiled))
+	for _, c := range compiled {
+		kind, err := c.Value.LookupPath(cue.ParsePath("kind")).String()
+		if err != nil {
+			return nil, err
+		}
+		name, err := c.Value.LookupPath(cue.ParsePath("metadata.name")).String()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c.Component+"/"+kind+"/"+name)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// TestRender_ConcurrentKernelsShareNothing is the shares-nothing claim under
+// the race detector (0019 D8; spec kernel-runtime, "Goroutine Safety
+// Contract"): N goroutines, one Kernel each, acquire the same on-disk
+// fixtures and render concurrently with no shared platform value and no
+// mutex. Each render must produce its own output (the runtime name it was
+// given reaches its objects) and every output must be the same set.
+func TestRender_ConcurrentKernelsShareNothing(t *testing.T) {
+	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
+	platDir := renderFixtureDir(t, "platform")
+	instDir := renderFixtureDir(t, "instance")
+	const n = 6
+
+	type result struct {
+		objects []string
+		err     error
+	}
+	results := make([]result, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ctx := context.Background()
+			k := kernel.New(kernel.WithRegistry(mapping)) // one Kernel per goroutine
+			plat, err := k.AcquirePlatformFromDir(ctx, platDir, loaderfile.LoadOptions{})
+			if err != nil {
+				results[i] = result{err: err}
+				return
+			}
+			inst, err := k.AcquireInstanceFromDir(ctx, instDir, loaderfile.LoadOptions{})
+			if err != nil {
+				results[i] = result{err: err}
+				return
+			}
+			rt := fmt.Sprintf("rt-%d", i)
+			res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: rt})
+			if err != nil {
+				results[i] = result{err: err}
+				return
+			}
+			for _, c := range res.Compiled {
+				managedBy, err := c.Value.LookupPath(cue.ParsePath(`metadata.labels."app.kubernetes.io/managed-by"`)).String()
+				if err != nil {
+					results[i] = result{err: err}
+					return
+				}
+				if managedBy != rt {
+					results[i] = result{err: fmt.Errorf("render %d got runtime name %q, want %q: concurrent renders cross-contaminated", i, managedBy, rt)}
+					return
+				}
+			}
+			objs, err := summarize(res.Compiled)
+			results[i] = result{objects: objs, err: err}
+		}(i)
+	}
+	wg.Wait()
+
+	want := []string{"config/ConfigMap/app", "web/Deployment/web-demo-web", "web/Service/web-demo-web"}
+	for i, r := range results {
+		require.NoErrorf(t, r.err, "goroutine %d", i)
+		assert.Equalf(t, want, r.objects, "goroutine %d rendered a different object set", i)
+	}
+}
+
+// TestRender_CancelledContextRefused pins that Render honours the caller's
+// context: a cancelled context is refused before any build is staged, with
+// the context's own error reachable through errors.Is.
+func TestRender_CancelledContextRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assert.Nil(t, res)
+	assert.ErrorIs(t, err, context.Canceled)
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "a cancelled context is not a render verdict")
 }

@@ -37,8 +37,9 @@ type Option func(*Kernel)
 //
 //   - cue.Context: a fresh [cuecontext.New]
 //   - SchemaCache: a fresh [*schema.Cache] backed by zero-value
-//     [schema.OCILoader]; resolves opmodel.dev/core@v2 against
-//     CUE_REGISTRY / CUE_CACHE_DIR from the process environment
+//     [schema.OCILoader]; resolves [schema.DefaultSchemaModule] (the pinned
+//     core release) against CUE_REGISTRY / CUE_CACHE_DIR from the process
+//     environment
 //
 // New never returns nil. The returned Kernel is NOT safe for concurrent
 // use across method calls.
@@ -54,7 +55,7 @@ func New(opts ...Option) *Kernel {
 		opt(k)
 	}
 	// One Cache per Kernel. WithSchemaLoader sets schemaLoader; absent
-	// the option, the zero-value OCILoader resolves opmodel.dev/core@v2
+	// the option, the zero-value OCILoader resolves schema.DefaultSchemaModule
 	// against the process environment.
 	loader := k.schemaLoader
 	if loader == nil {
@@ -66,8 +67,8 @@ func New(opts ...Option) *Kernel {
 
 // WithSchemaLoader configures the [schema.Loader] used to populate the
 // kernel's [*schema.Cache]. Omitting this option defaults to a
-// zero-value [schema.OCILoader] that resolves opmodel.dev/core@v2 via
-// CUE_REGISTRY / CUE_CACHE_DIR from the process environment.
+// zero-value [schema.OCILoader] that resolves [schema.DefaultSchemaModule]
+// via CUE_REGISTRY / CUE_CACHE_DIR from the process environment.
 //
 // The Kernel wraps the supplied Loader in a fresh Cache; callers cannot
 // inject a pre-built Cache. This guarantees one Kernel = one Cache, so
@@ -85,9 +86,9 @@ func WithSchemaLoader(l schema.Loader) Option {
 }
 
 // WithRegistry sets the OCI registry mapping (CUE_REGISTRY syntax, e.g.
-// "opmodel.dev=ghcr.io/open-platform-model") used for catalog resolution
-// during [Kernel.Materialize]. The materialize flow uses the same mapping when
-// it resolves opmodel.dev/core for the schema.
+// "opmodel.dev=ghcr.io/open-platform-model") used for catalog and module
+// resolution: the render build's catalog imports ([Kernel.Render]) and
+// registry module acquisition ([Kernel.AcquireModuleFromRegistry]).
 //
 // Omitting this option (or passing an empty string) inherits CUE_REGISTRY from
 // the process environment; the kernel applies no built-in default registry —

@@ -18,6 +18,15 @@ vars:
     modules/*
     testdata/modules/*
     testdata/parity
+    testdata/parity/opm_platform
+
+  # The subset of CUE_MODULE_GLOBS the publish tasks may push to the local
+  # registry: the fixture modules cue-versions.yml tracks. The platform
+  # fixtures and the parity oracle are consumed on disk by the tests, never
+  # published, and their headers say so; discovery for fmt/vet/tidy/deps still
+  # covers them through CUE_MODULE_GLOBS.
+  CUE_PUBLISHABLE_GLOBS: |
+    testdata/modules/*
 
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
@@ -41,17 +50,22 @@ vars:
   CUE_GHCR_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 
   # GHCR repo holding the published OPM catalog, and the fixtures whose catalog
-  # pin the drift check verifies against the latest published tag on the
-  # fixture's own pinned major line. CATALOG_FIXTURE_MODULES lists cue.mod
-  # dep pins; the platform fixture's scalar subscription version is checked
-  # separately inside the task (see CATALOG_PLATFORM_FIXTURE).
+  # pin the drift check verifies exists on GHCR. CATALOG_FIXTURE_MODULES lists
+  # cue.mod dep pins, the platform fixtures included: a platform module
+  # imports its catalog, so its cue.mod pin IS the build the render executes
+  # (0019 D5). The platform fixture's derived #registry version is checked
+  # separately inside the task (see CATALOG_PLATFORM_FIXTURE) as the readout
+  # of that pin.
   CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
   CATALOG_FIXTURE_MODULES: |
     testdata/modules/web_app
-  # Platform fixture whose #registry scalar `version:` names the exact build
-  # Materialize pulls (0010 D14 — the pin is load-bearing). The drift check
-  # only verifies the named tag exists on GHCR; bumping it is an ordinary
-  # fixture update, any published tag in the key's major.
+    modules/opm_platform
+    testdata/parity/opm_platform
+  # Platform fixture whose #registry `version` (derived by core from the
+  # embedded catalog's stamped version, 0019 D5) names the build the render
+  # executes. The drift check only verifies the named tag exists on GHCR;
+  # bumping the cue.mod pin is an ordinary fixture update, any published tag
+  # in the key's major.
   CATALOG_PLATFORM_FIXTURE: "modules/opm_platform"
 
 tasks:
@@ -110,11 +124,11 @@ tasks:
     desc: Run unit tests, then the render packages under the race detector
     cmds:
       - go test ./...
-      # The render path fills into shared CUE values; run it under -race so a
-      # concurrency claim the docs make is at least checked on every push
-      # (the shared-platform claim went unchecked and was measured false,
-      # see ADR-002).
-      - go test -race ./opm/kernel/... ./opm/compile/...
+      # Render shares nothing between renders (0019 D8); run the render
+      # packages under -race so the concurrency claim the docs make is
+      # checked on every push (the earlier shared-platform claim went
+      # unchecked and was measured false, see ADR-002).
+      - go test -race ./opm/kernel/... ./opm/internal/renderstage/...
 
   test:verbose:
     desc: Run unit tests with verbose output
@@ -332,18 +346,17 @@ tasks:
 
         - cue.mod dep pins (CATALOG_FIXTURE_MODULES), keyed
           "opmodel.dev/catalogs/opm@vN" — any major.
-        - the platform fixture's #registry scalar `version:`
-          (CATALOG_PLATFORM_FIXTURE).
+        - the platform fixture's derived #registry `version`
+          (CATALOG_PLATFORM_FIXTURE), the readout of its cue.mod pin.
 
-      The pin is load-bearing (0010 D14, landed by
-      library-acquire-and-subscription): the kernel pulls exactly the named
-      build, so the only drift that can break the suite is a pin that names a
-      build the registry does not serve. Bumping a pin is an ordinary fixture
-      update, not a drift-check obligation — this task no longer mirrors any
-      kernel selection rule (there is none to mirror).
+      The pin is load-bearing (0010 D14, 0019 D5): the render build executes
+      exactly the build the platform module's cue.mod names, so the only
+      drift that can break the suite is a pin that names a build the registry
+      does not serve. Bumping a pin is an ordinary fixture update, not a
+      drift-check obligation — this task mirrors no kernel selection rule
+      (there is none to mirror).
       Exits non-zero when a pin is unpublished. Remediate with
-      `task cue:deps:update` (dep pins) and by fixing the platform fixture's
-      `version:` by hand.
+      `task cue:deps:update`.
 
       Usage:
         task cue:catalog:drift
@@ -423,7 +436,7 @@ tasks:
         done <<< "$subs"
 
         if [ "$drift" -ne 0 ]; then
-          echo -e "${RED}${BOLD}Unpublished catalog pin detected.${RESET} Run ${BOLD}task cue:deps:update${RESET} for dep pins; fix the platform fixture's version: by hand." >&2
+          echo -e "${RED}${BOLD}Unpublished catalog pin detected.${RESET} Run ${BOLD}task cue:deps:update${RESET}." >&2
           exit 1
         fi
         echo -e "${GREEN}All fixture pins name published catalog builds.${RESET}"
@@ -435,16 +448,16 @@ tasks:
       - task: cue:vet
 
   cue:test:flow:
-    desc: Run the plan/match/compile flow integration test against the on-disk web_app + opm_platform fixtures
+    desc: Run the render flow integration test against the on-disk web_app + opm_platform fixtures
     summary: |
       Drives `TestFlow_WebApp_OnOpmPlatform` in opm/kernel/flow_integration_test.go.
 
-      The test loads:
-        - testdata/modules/web_app/   (consumer #Module using opm primitives)
-        - modules/opm_platform/        (canonical Kubernetes #Platform)
-      and runs Match → Plan → Compile end-to-end. CUE imports (the catalog and
-      core schema) resolve from GHCR; the test skips with a clear message if
-      ghcr.io is unreachable.
+      The test acquires:
+        - testdata/modules/web_app/instance  (import-authored #ModuleInstance)
+        - modules/opm_platform/              (canonical Kubernetes #Platform module)
+      and renders them through Kernel.Render end-to-end. CUE imports (the
+      catalog and core schema) resolve from GHCR; the test skips with a clear
+      message if ghcr.io is unreachable.
 
       Force-run (turn the skip into a hard failure) by setting
       OPM_FLOW_TEST_FORCE=1.
@@ -485,6 +498,17 @@ tasks:
           echo "Module not found: ${DIR}" >&2
           exit 1
         fi
+        publishable=0
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ "${dir%/}" = "${DIR%/}" ] && publishable=1
+          done
+        done <<< '{{.CUE_PUBLISHABLE_GLOBS}}'
+        if [ "$publishable" -ne 1 ]; then
+          echo "Refusing to publish ${DIR}: not in CUE_PUBLISHABLE_GLOBS (platform fixtures and the parity oracle are consumed on disk, never published)" >&2
+          exit 1
+        fi
         if [ -n "{{.VERSION}}" ]; then
           VERSION="{{.VERSION}}"
         else
@@ -498,9 +522,11 @@ tasks:
         echo "Published ${DIR}@${VERSION}"
 
   cue:publish:smart:
-    desc: Detect changes per CUE module, bump versions, publish in dependency order
+    desc: Detect changes per publishable CUE module, bump versions, publish in dependency order
     summary: |
-      Auto-discovers CUE modules via CUE_MODULE_GLOBS in Taskfile.yml.
+      Auto-discovers publishable CUE modules via CUE_PUBLISHABLE_GLOBS in
+      Taskfile.yml (the platform fixtures and the parity oracle are never
+      published; they are discovered by CUE_MODULE_GLOBS for fmt/vet only).
 
       For each module, computes a SHA-256 checksum of .cue files (excluding
       cue.mod/), compares with the stored checksum in cue-versions.yml, and
@@ -564,8 +590,8 @@ tasks:
           echo "v${major}.${minor}.${patch}"
         }
 
-        # ── Discover modules ──────────────────────────────────────────
-        echo -e "${BOLD}Discovering CUE modules...${RESET}"
+        # ── Discover publishable modules ──────────────────────────────
+        echo -e "${BOLD}Discovering publishable CUE modules...${RESET}"
 
         MOD_DIRS=()
         MOD_PATHS=()
@@ -578,7 +604,7 @@ tasks:
             MOD_PATHS+=("$path")
             echo -e "  ${DIM}${dir} → ${path}${RESET}"
           done
-        done <<< '{{.CUE_MODULE_GLOBS}}'
+        done <<< '{{.CUE_PUBLISHABLE_GLOBS}}'
 
         if [ ${#MOD_DIRS[@]} -eq 0 ]; then
           echo -e "${YELLOW}No modules discovered.${RESET}"

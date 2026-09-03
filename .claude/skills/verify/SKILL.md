@@ -23,11 +23,17 @@ replace github.com/open-platform-model/library => /var/home/emil/dev/open-platfo
 Drive the full pipeline through public exports only (recipe mirrors
 `opm/kernel/flow_integration_test.go`):
 
-- `kernel.New()` → `k.LoadModulePackage` / `k.LoadPlatformPackage` /
-  `k.LoadInstancePackage` (import `opm/helper/loader/file` as `loader`,
-  pass `loader.LoadOptions{Registry: os.Getenv("CUE_REGISTRY")}`)
-- `k.NewModuleFromValue` / `k.NewPlatformFromValue` / `k.Materialize`
-- `k.ProcessModuleInstance(ctx, instVal, *mod, values)` → `k.Match` → `k.Compile`
+- `kernel.New(kernel.WithRegistry(os.Getenv("CUE_REGISTRY")))` →
+  `k.AcquirePlatformFromDir(ctx, platformDir, opts)` and
+  `k.AcquireInstanceFromDir(ctx, instanceDir, opts)` (import
+  `opm/helper/loader/file` as `loader`, pass
+  `loader.LoadOptions{Registry: os.Getenv("CUE_REGISTRY")}`); both return
+  source-carrying artifacts, the only inputs `Render` accepts. The synth
+  path is `k.AcquireModuleFromRegistry` → `k.SynthesizeInstance`.
+- `k.Render(ctx, kernel.RenderInput{Instance, Platform, RuntimeName})` →
+  `*kernel.RenderResult`: `Compiled`, `Diagnostics` (`Pairs`, `Unmatched`,
+  `Unresolved`, `Unify`, `OverSubscribed`, `ResolvedVersions`), `Warnings`.
+  A refusal is a `*kernel.RenderError` carrying the same diagnostics.
 - Inspect `*core.Compiled` fields: `Value`, `Instance`, `Component`, `Transformer`.
 
 Run with the canonical GHCR mapping (reads only, no local registry):
@@ -37,18 +43,23 @@ CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=ghcr.i
 ```
 
 Fixtures: `testdata/modules/web_app` (module + `instance/` package, instance
-name `web-app-demo`, uuid `bf5b9c54-...`), platform `modules/opm_platform`.
-Rendered deployment carries `spec.replicas=2`.
+name `web-app-demo`, uuid `bf5b9c54-...`), platform `modules/opm_platform` (a
+CUE module importing the catalog; `#CatalogEntry` form, 0019 D5). Rendered
+deployment carries `spec.replicas=2`.
 
 Gotchas:
 
-- The web_app instance authors concrete `values:` — passing explicit values to
-  `ProcessModuleInstance` that merely mirror them still fails at the fill step
-  (`instance "…": filling values into instance spec: values.image.pullPolicy:
-  field not allowed`; closedness wrinkle, see the `library-phase-and-values-prune`
-  entry in `openspec/changes/archive/`). Pass
-  `cue.Value{}` for the happy path; probe bad values (`{replicas: "three"}`)
-  for the `instance "…":`-framed rejection.
+- `AcquireInstanceFromDir` processes the package with no extra values; the
+  web_app instance authors concrete `values:` so it is already complete. To
+  probe value rejection, load with `k.LoadInstancePackage` and call
+  `k.ProcessModuleInstance(ctx, instVal, *mod, badValues)` with
+  `{replicas: "three"}` for the `instance "…":`-framed rejection; passing
+  values that merely mirror the authored ones fails at the fill step
+  (closedness wrinkle, see the `library-phase-and-values-prune` entry in
+  `openspec/changes/archive/`).
+- A platform whose `#registry` entry carries a `version` scalar and no
+  `#catalog` (the pre-D5 shape) is refused at acquisition with
+  `loader.ErrMissingRequiredField`; there is no materialize step to probe.
 - API-removal changes: put references to the removed identifiers in a separate
   `removed/` package; `go build -o /dev/null ./removed/` must fail on the
   branch and compile against a `git worktree add … main` baseline (point a

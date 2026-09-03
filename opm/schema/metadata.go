@@ -44,7 +44,7 @@ type InstanceMetadata struct {
 
 	// FQN is the instance's OWN fully qualified name
 	// (registryPath:name:namespace), defined by core v2 on
-	// #ModuleInstance.metadata and decoded via the schema.MetadataFQN path.
+	// #ModuleInstance.metadata and decoded with the rest of the metadata.
 	// Distinct from the source module's FQN, which lives on the instance's
 	// Package at the module-metadata path.
 	FQN string `json:"fqn,omitempty"`
@@ -69,23 +69,4 @@ type PlatformMetadata struct {
 	Description string            `json:"description,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-// InstanceView is the read-only view of a module instance that
-// BuildTransformerContext needs. The interface exists so the context builder
-// stays decoupled from opm/module; any caller-supplied type that exposes
-// these accessors can drive context construction (e.g. tests).
-//
-// Was: ReleaseView
-type InstanceView interface {
-	InstanceName() string
-	Namespace() string
-	InstanceUUID() string
-	// InstanceFQN is the instance's own metadata.fqn
-	// (registryPath:name:namespace, core v2) — the value the transformer
-	// context's #moduleInstanceMetadata.fqn carries (0010 D41).
-	InstanceFQN() string
-	ModuleVersion() string
-	Labels() map[string]string
-	Annotations() map[string]string
 }

@@ -23,36 +23,6 @@ func TestIdentityErrorMessageNamesBothValues(t *testing.T) {
 	}
 }
 
-// TestIdentityErrorAsThroughMaterializeWrap pins the catalog-site path: the
-// IdentityError is wrapped as a *MaterializeError Cause and must stay
-// reachable via errors.As for frontends that route on it.
-func TestIdentityErrorAsThroughMaterializeWrap(t *testing.T) {
-	inner := IdentityError{
-		Artifact:   "catalog",
-		Field:      "path",
-		Declared:   "example.com/catalogs/other@v2",
-		Fetched:    "example.com/catalogs/demo@v2",
-		Coordinate: "example.com/catalogs/demo@v2 v2.0.0",
-	}
-	wrapped := &MaterializeError{
-		Kind:         MaterializeKindCatalog,
-		Subscription: "example.com/catalogs/demo@v2",
-		Version:      "2.0.0",
-		Cause:        inner,
-	}
-
-	var got IdentityError
-	if !errors.As(wrapped, &got) {
-		t.Fatalf("errors.As(*MaterializeError, *IdentityError) = false, want true")
-	}
-	if got != inner {
-		t.Errorf("errors.As extracted %+v, want %+v", got, inner)
-	}
-	if !strings.Contains(wrapped.Error(), inner.Error()) {
-		t.Errorf("MaterializeError message %q does not carry the identity message %q", wrapped.Error(), inner.Error())
-	}
-}
-
 // TestIdentityErrorAsThroughFmtWrap pins the acquire-site path: the loader
 // returns the error wrapped with %w context.
 func TestIdentityErrorAsThroughFmtWrap(t *testing.T) {

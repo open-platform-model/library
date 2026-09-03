@@ -3,8 +3,6 @@ package kernel_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -20,19 +18,21 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// TestFlow_ImportedModule_SynthToCompile is the end-to-end imported-module
-// render coverage (task 4.4 / spec ADDED requirement "Imported-module render
-// coverage exists"): a real published module — referenced by IMPORT, named at
-// its snake_case path leaf per core v2's D8 identity rule — is synthesized
-// into a #ModuleInstance and run through Match + Compile to concrete
-// resources. An authored instance.cue importing the SAME module is compiled too,
-// and both MUST yield the same Compiled set (single-build parity through
-// Kernel.Compile, not merely at the instance-value level).
+// TestFlow_ImportedModule_SynthToRender is the end-to-end imported-module
+// render coverage (spec instance-synthesis, "Imported-module render coverage
+// exists"): a real published module — referenced by IMPORT, named at its
+// snake_case path leaf per core v2's D8 identity rule — is synthesized into
+// a #ModuleInstance and rendered through Kernel.Render against a D5-shaped
+// platform to concrete resources. An authored instance.cue importing the
+// SAME module is rendered too, and both MUST yield the same rendered set
+// (single-build parity through Kernel.Render, not merely at the
+// instance-value level).
 //
 // Hermetic: the module + catalog are served from an in-memory registry;
-// opmodel.dev/core@v2.0.0-alpha.4 resolves from the warm workspace cache, matching the
-// other registrytest-backed integration tests in this package.
-func TestFlow_ImportedModule_SynthToCompile(t *testing.T) {
+// opmodel.dev/core resolves from the warm workspace cache at
+// registrytest.DefaultCoreVersion, matching the other registrytest-backed
+// integration tests in this package.
+func TestFlow_ImportedModule_SynthToRender(t *testing.T) {
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
 	metaPath := registrytest.UniquePath(t, "modules")
@@ -80,8 +80,7 @@ debugValues: {}
 	require.NoErrorf(t, err, "acquiring published module %s", modPath)
 	require.Equal(t, "web_app", mod.Metadata.Name)
 
-	mp, err := materializePlatform(t, k, version, catPath)
-	require.NoError(t, err, "materializing platform subscribed to the catalog")
+	plat := acquireCatalogPlatform(t, k, registryMapping, catPath, version)
 
 	// ── synth path ───────────────────────────────────────────────────────
 	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
@@ -93,69 +92,42 @@ debugValues: {}
 	})
 	require.NoError(t, err, "synthesizing instance from the imported module")
 
-	plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
-	pairs := matchPairsToMap(plan.MatchedPairs())
+	pairs := pairsByComponent(res.Diagnostics.Pairs)
 	require.Contains(t, pairs, "web", "web component must pair with a transformer")
 	assertContainsFQNSub(t, pairs["web"], "transformers/deployment@", "web must match the deployment transformer")
-
-	out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-	require.NoError(t, err)
-	require.NotEmpty(t, out.Compiled, "synth instance must compile to at least one resource")
-	synthKinds := compiledKinds(t, out.Compiled)
+	require.NotEmpty(t, res.Compiled, "synth instance must render to at least one resource")
+	synthKinds := compiledKinds(t, res.Compiled)
 	assert.Contains(t, synthKinds, "Deployment", "the container resource must render a Deployment")
 
-	// ── authored path (single-build parity through Kernel.Compile) ─────────
-	dir := t.TempDir()
-	importPath := modPath + "@v0"
-	instanceSrc := fmt.Sprintf(`package instance
+	// ── authored path (single-build parity through Kernel.Render) ─────────
+	instDir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, version, "web-inst", "default", "{}", nil)
+	authored, err := k.AcquireInstanceFromDir(ctx, instDir, loaderfile.LoadOptions{Registry: registryMapping})
+	require.NoError(t, err, "authored instance.cue importing the published module must acquire")
 
-import (
-	core "opmodel.dev/core@v2"
-	opmModule %q
-)
-
-core.#ModuleInstance
-
-metadata: {
-	name:      "web-inst"
-	namespace: "default"
-}
-
-#module: opmModule
-values: {}
-`, importPath)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(instanceSrc), 0o644))
-
-	moduleSrc := fmt.Sprintf(`module: "authored.opmodel.dev/instance@v0"
-language: version: "v0.17.0"
-deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.4"
-	%q: v: %q
-}
-`, importPath, "v"+version)
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(moduleSrc), 0o644))
-
-	authoredVal, err := k.LoadInstancePackage(ctx, dir, loaderfile.LoadOptions{Registry: registryMapping})
-	require.NoError(t, err, "authored instance.cue importing the published module must load")
-	authoredRel, err := k.ProcessModuleInstance(ctx, authoredVal, *mod, cue.Value{})
-	require.NoError(t, err, "processing the authored instance")
-
-	authoredOut, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: authoredRel, Platform: mp, RuntimeName: "rt"})
+	authoredRes, err := k.Render(ctx, kernel.RenderInput{Instance: authored, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
-	assert.Equal(t, synthKinds, compiledKinds(t, authoredOut.Compiled),
-		"synth and authored imported-module instances must compile to the same resources")
+	assert.Equal(t, synthKinds, compiledKinds(t, authoredRes.Compiled),
+		"synth and authored imported-module instances must render to the same resources")
+	assert.Equal(t, res.Diagnostics.Pairs, authoredRes.Diagnostics.Pairs)
+	for i := range res.Compiled {
+		a, err := res.Compiled[i].Value.MarshalJSON()
+		require.NoError(t, err)
+		b, err := authoredRes.Compiled[i].Value.MarshalJSON()
+		require.NoError(t, err)
+		assert.Equal(t, string(a), string(b), "object %d renders byte-identically on both paths", i)
+	}
 }
 
-// compiledKinds returns the sorted `kind` strings of every compiled resource,
-// a stable fingerprint of a Compile result's output for parity comparison.
+// compiledKinds returns the sorted `kind` strings of every rendered object,
+// a stable fingerprint of a render's output for parity comparison.
 func compiledKinds(t *testing.T, compiled []*core.Compiled) []string {
 	t.Helper()
 	kinds := make([]string, 0, len(compiled))
 	for _, c := range compiled {
 		k, err := c.Value.LookupPath(cue.ParsePath("kind")).String()
-		require.NoError(t, err, "compiled resource must carry a concrete kind")
+		require.NoError(t, err, "rendered object must carry a concrete kind")
 		kinds = append(kinds, k)
 	}
 	sort.Strings(kinds)

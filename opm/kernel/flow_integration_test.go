@@ -14,27 +14,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// TestFlow_WebApp_OnOpmPlatform exercises the full Materialize → Match →
-// Compile pipeline against the on-disk fixture pair:
+// TestFlow_WebApp_OnOpmPlatform exercises the render path end to end against
+// the on-disk fixture pair:
 //
 //   - testdata/modules/web_app   (a core@v2 #Module consuming opm primitives
 //     from the consolidated catalogs/opm v4 line: Container resource,
 //     HttpRoute / Scaling / RestartPolicy / Expose traits, StatelessWorkload
-//     blueprint via D49 versioned imports)
-//   - modules/opm_platform       (the canonical Kubernetes #Platform that
-//     subscribes to the major-suffixed opmodel.dev/catalogs/opm v4 line via a
-//     path-keyed #registry)
+//     blueprint via D49 versioned imports), with its import-authored
+//     #ModuleInstance package under testdata/modules/web_app/instance
+//   - modules/opm_platform       (the canonical Kubernetes #Platform module
+//     importing the major-suffixed opmodel.dev/catalogs/opm v4 line through
+//     a #CatalogEntry-form #registry, 0019 D5)
 //
-// The platform's subscription is materialized against the published catalog
-// (opmodel.dev/catalogs/opm, v4 line from GHCR), then the fixture's
-// import-authored #ModuleInstance (testdata/modules/web_app/instance) is
-// loaded, processed and driven through Match / Compile. Transformer FQNs are
+// Both are acquired source-carrying and rendered through Kernel.Render as one
+// build; the catalog and core resolve from GHCR. Transformer FQNs are
 // asserted by substring so the test survives catalog version bumps.
 //
 // Skips under -short or when GHCR is unreachable; OPM_FLOW_TEST_FORCE=1
@@ -52,48 +50,37 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	registry := flowRegistry()
 	t.Setenv("CUE_REGISTRY", registry)
 
-	k := kernel.New()
+	k := kernel.New(kernel.WithRegistry(registry))
 	ctx := context.Background()
+	opts := loader.LoadOptions{Registry: registry}
 
-	// ── Load the consumer Module ─────────────────────────────────────
-	modVal, err := k.LoadModulePackage(ctx, moduleDir, loader.LoadOptions{Registry: registry})
+	// ── The consumer Module, for its identity ────────────────────────
+	modVal, err := k.LoadModulePackage(ctx, moduleDir, opts)
 	require.NoErrorf(t, err, "loading module package from %s", moduleDir)
-
 	mod, err := k.NewModuleFromValue(modVal)
 	require.NoError(t, err, "constructing module.Module from CUE value")
-	require.NotNil(t, mod)
 	require.Equal(t, "web_app", mod.Metadata.Name)
 
-	// ── Load + materialize the Platform ──────────────────────────────
-	platVal, err := k.LoadPlatformPackage(ctx, platformDir, loader.LoadOptions{Registry: registry})
-	require.NoErrorf(t, err, "loading platform from %s", platformDir)
-
-	plat, err := k.NewPlatformFromValue(platVal)
-	require.NoError(t, err, "constructing platform.Platform from CUE value")
-	require.NotNil(t, plat)
+	// ── Acquire the Platform module ──────────────────────────────────
+	plat, err := k.AcquirePlatformFromDir(ctx, platformDir, opts)
+	require.NoErrorf(t, err, "acquiring platform module from %s", platformDir)
 	require.Equal(t, "kubernetes", plat.Metadata.Type)
+	require.NotNil(t, plat.Source)
 
-	mp, err := k.Materialize(ctx, plat)
-	require.NoError(t, err, "materializing platform against the published catalog")
-	require.NotNil(t, mp)
-
-	// ── Load + process the #ModuleInstance ───────────────────────────
+	// ── Acquire the #ModuleInstance ──────────────────────────────────
 	//
 	// The instance is an import-authored package inside the fixture module
 	// (testdata/modules/web_app/instance): it names the module by import,
 	// so every component's #instance and #names resolve and core derives
 	// metadata.uuid from the instance fqn (0019 D3).
-	instVal, err := k.LoadInstancePackage(ctx, filepath.Join(moduleDir, "instance"), loader.LoadOptions{Registry: registry})
-	require.NoErrorf(t, err, "loading instance package from %s", moduleDir)
-
-	inst, err := k.ProcessModuleInstance(ctx, instVal, *mod, cue.Value{})
-	require.NoError(t, err, "processing module instance")
-	require.NotNil(t, inst)
+	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(moduleDir, "instance"), opts)
+	require.NoErrorf(t, err, "acquiring instance package from %s", moduleDir)
 	require.Equal(t, "web-app-demo", inst.Metadata.Name)
+	require.Equal(t, "instance", inst.Source.Pkg, "the instance package sits inside the module fixture's root")
 
 	// The processed instance resolves what the old LookupPath+FillPath
 	// skeleton severed: the computed names and the derived uuid.
-	fqdn := inst.MatchComponents().LookupPath(cue.ParsePath("web.#names.dns.fqdn"))
+	fqdn := inst.Components().LookupPath(cue.ParsePath("web.#names.dns.fqdn"))
 	require.NoError(t, fqdn.Err(), "web.#names.dns.fqdn must resolve on the processed instance")
 	fqdnStr, err := fqdn.String()
 	require.NoError(t, err)
@@ -102,18 +89,16 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	// derives the same value for the same name and namespace
 	// (testdata/parity/instance), which is what makes the two fixtures'
 	// rendered names directly comparable.
-	assert.Equal(t, "bf5b9c54-bf4a-5cad-8cb7-77d4d526a16a", inst.InstanceUUID(),
+	assert.Equal(t, "bf5b9c54-bf4a-5cad-8cb7-77d4d526a16a", inst.Metadata.UUID,
 		"metadata.uuid must be the v5 uuid core derives from the instance fqn")
 
-	const runtimeName = "opm-test"
+	// ── Render ───────────────────────────────────────────────────────
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-test"})
+	require.NoError(t, err, "rendering the web_app instance against the opm platform")
+	require.NotEmpty(t, res.Compiled, "render must emit at least one object")
 
-	// ── Phase 1: Match ───────────────────────────────────────────────
-	t.Run("Match", func(t *testing.T) {
-		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-		require.NoError(t, err)
-		require.NotNil(t, plan)
-
-		gotPairs := matchPairsToMap(plan.MatchedPairs())
+	t.Run("pairs", func(t *testing.T) {
+		gotPairs := pairsByComponent(res.Diagnostics.Pairs)
 
 		// The deployment-transformer fires for the stateless web component
 		// (Container resource + workload-type=stateless label gate); the
@@ -127,51 +112,23 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 			"web should also match service-transformer (Expose trait)")
 
 		// config component carries a ConfigMaps resource → pairs with the
-		// configmap-transformer (exercises the list-output renderer path).
+		// configmap-transformer (exercises the list-output path).
 		require.Contains(t, gotPairs, "config", "config component should pair with configmap-transformer")
 		assertContainsFQNSub(t, gotPairs["config"], "transformers/configmap-transformer@",
 			"config should match configmap-transformer (ConfigMaps resource)")
 
-		assert.Empty(t, plan.Unmatched, "every component should match at least one transformer")
+		assert.Empty(t, res.Diagnostics.Unmatched, "every component should match at least one transformer")
+		assert.Empty(t, res.Diagnostics.Unresolved)
 	})
 
-	// ── Phase 2: Compile ─────────────────────────────────────────────
-	t.Run("Compile", func(t *testing.T) {
-		out, err := k.Compile(ctx, kernel.CompileInput{
-			ModuleInstance: inst,
-			Platform:       mp,
-			RuntimeName:    runtimeName,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, out)
-		require.NotNil(t, out.MatchPlan)
-		require.NotEmpty(t, out.Compiled, "compile must emit at least one rendered item")
-
-		// Component summaries ride on the CompileResult (the retired Plan verb
-		// exposed the same slice).
-		require.Len(t, out.Components, 2)
-		byName := map[string]compile.ComponentSummary{}
-		for _, c := range out.Components {
-			byName[c.Name] = c
-		}
-
-		webSummary, ok := byName["web"]
-		require.True(t, ok, "web component summary present")
-		assert.Equal(t, "stateless", webSummary.Labels["core.opmodel.dev/workload-type"])
-		assertContainsFQNSub(t, webSummary.ResourceFQNs, "resources/container@", "web declares the container resource")
-		assertContainsFQNSub(t, webSummary.TraitFQNs, "traits/http-route@", "web declares the http-route trait")
-		assertContainsFQNSub(t, webSummary.TraitFQNs, "traits/scaling@", "web declares the scaling trait")
-
-		configSummary, ok := byName["config"]
-		require.True(t, ok, "config component summary present")
-		assertContainsFQNSub(t, configSummary.ResourceFQNs, "resources/config-maps@", "config declares the config-maps resource")
-
+	t.Run("rendered objects", func(t *testing.T) {
 		seenTransformers := map[string]int{}
 		seenComponents := map[string]int{}
-		for _, c := range out.Compiled {
+		for _, c := range res.Compiled {
 			require.NotNil(t, c)
 			require.NotEmpty(t, c.Component)
 			require.NotEmpty(t, c.Transformer)
+			assert.Equal(t, "web-app-demo", c.Instance)
 			seenComponents[c.Component]++
 			seenTransformers[c.Transformer]++
 		}
@@ -181,15 +138,30 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		assert.Equal(t, 2, len(seenComponents),
 			"both web and config should fire transformers, got %v", seenComponents)
 		assert.GreaterOrEqual(t, countFQNSub(seenTransformers, "transformers/deployment-transformer@"), 1,
-			"deployment-transformer should produce at least one Compiled item")
+			"deployment-transformer should produce at least one object")
 		assert.GreaterOrEqual(t, countFQNSub(seenTransformers, "transformers/service-transformer@"), 1,
-			"service-transformer should produce at least one Compiled item (Expose trait → Service)")
+			"service-transformer should produce at least one object (Expose trait → Service)")
 
 		// configmap-transformer emits N ConfigMaps per (component, transformer)
 		// pair via its list output. The fixture's config component carries 2
-		// configmap entries → 2 Compiled items from this single pair.
+		// configmap entries → 2 objects from this single pair.
 		assert.Equal(t, 2, countFQNSub(seenTransformers, "transformers/configmap-transformer@"),
-			"configmap-transformer should emit one Compiled per configmap entry (2 entries → 2 Compiled)")
+			"configmap-transformer should emit one object per configmap entry (2 entries → 2 objects)")
+	})
+
+	t.Run("resolved versions", func(t *testing.T) {
+		// The instance module and the platform module pin the same catalog
+		// build (D18: rows, not warnings).
+		assert.Empty(t, res.Warnings)
+		var catalogRow *kernel.ResolvedVersion
+		for i := range res.Diagnostics.ResolvedVersions {
+			if res.Diagnostics.ResolvedVersions[i].Path == "opmodel.dev/catalogs/opm@v4" {
+				catalogRow = &res.Diagnostics.ResolvedVersions[i]
+			}
+		}
+		require.NotNil(t, catalogRow, "the catalog the instance module requires is a row")
+		assert.Equal(t, catalogRow.PlatformVersion, catalogRow.ModuleVersion)
+		assert.False(t, catalogRow.Newer)
 	})
 }
 
@@ -207,16 +179,6 @@ func flowRegistry() string {
 		return v
 	}
 	return schema.PublicRegistry
-}
-
-// matchPairsToMap groups MatchedPair entries by component name for ergonomic
-// containment assertions.
-func matchPairsToMap(pairs []compile.MatchedPair) map[string][]string {
-	out := map[string][]string{}
-	for _, p := range pairs {
-		out[p.ComponentName] = append(out[p.ComponentName], p.TransformerFQN)
-	}
-	return out
 }
 
 // assertContainsFQNSub asserts that some element of got contains sub. FQNs

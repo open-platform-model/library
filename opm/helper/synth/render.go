@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue/format"
 
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // corePath is the module path of the OPM core schema the synthesized instance
@@ -43,7 +44,7 @@ func moduleImportPath(m *module.Module) string {
 // a total, deterministic hyphens→underscores transform — so the computed
 // fallback matches the schema value exactly.
 func moduleSnakeName(m *module.Module) string {
-	if v := m.Package.LookupPath(cue.ParsePath("metadata.nameSnakeCase")); v.Exists() {
+	if v := m.Package.LookupPath(schema.Metadata).LookupPath(cue.ParsePath("nameSnakeCase")); v.Exists() {
 		if s, err := v.String(); err == nil && s != "" {
 			return s
 		}

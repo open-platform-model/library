@@ -137,7 +137,7 @@ type RenderDiagnostics struct {
 // unresolved demand, an unmatched component or an over-subscribed
 // provider-fulfilled contract), a failed pair, or a non-concrete pair output.
 // Diagnostics carries everything the build reported; Err carries the typed
-// causes ([*oerrors.UnresolvedDemandsError], [*compile.UnmatchedComponentsError],
+// causes ([*oerrors.UnresolvedDemandsError], [*oerrors.UnmatchedComponentsError],
 // [oerrors.OverSubscribedContractError], [*oerrors.TransformError]), reachable
 // through errors.As.
 type RenderError struct {
@@ -231,11 +231,11 @@ func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, err
 		return nil, fmt.Errorf("building render module: %w", err)
 	}
 
-	diag, err := decodeRenderDiagnostics(built, rows)
+	diag, matrix, err := decodeRenderDiagnostics(built, rows)
 	if err != nil {
 		return nil, err
 	}
-	if gate := gateErrors(diag); gate != nil {
+	if gate := gateErrors(diag, matrix); gate != nil {
 		return nil, &RenderError{Diagnostics: diag, Err: gate}
 	}
 	compiled, err := decodeRendered(built, diag, in.Instance.Metadata.Name)

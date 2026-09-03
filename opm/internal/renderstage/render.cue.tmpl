@@ -237,6 +237,21 @@ _components:   instance.components
 		if v._candidates[tfqn] != _|_
 		if !u.ok {{component: cid, transformer: tfqn, conflicts: u.conflicts}},
 	]
+	// Every candidate the rung-1 walk reached, with its predicate verdict:
+	// the match matrix behind an unmatched component (which transformers
+	// were evaluated, and which required labels the component's matchLabels
+	// lacked or carried with a different value). A candidate the always-
+	// unify rung refused appears unmatched with no missing labels; its
+	// conflict is on unifyFailures.
+	candidates: [
+		for cid, v in verdicts
+		for tfqn, _ in v._candidates {{
+			component:     cid
+			transformer:   tfqn
+			matched:       v.matched[tfqn] != _|_
+			missingLabels: v._pred[tfqn].missingLabels
+		}},
+	]
 	// The contract-key universe the platform's transformers name, for the
 	// kernel's same-base alternatives on a missing demand.
 	bucketKeys: {
@@ -309,6 +324,7 @@ diagnostics: {
 	unresolved:          match.unresolved
 	warnings:            match.warnings
 	unifyFailures:       match.unifyFailures
+	candidates:          match.candidates
 	bucketKeys:          match.bucketKeys
 	resolved:            match.resolved
 	overSubscribed:      guard.overSubscribed

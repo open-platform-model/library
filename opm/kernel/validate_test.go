@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/module"
 )
 
 func TestKernel_ValidateConfig_ZeroValueIsNoOp(t *testing.T) {
@@ -154,9 +155,77 @@ func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.
 // (ValidateModuleValues* / ValidateInstanceValues*) used to: resolving
 // #config via the ConfigSchema() accessors and handing it to a primitive.
 
+// configFixture is a minimal Module + Instance pair sharing one #config
+// schema (replicas: int & >0, name: string), built as bare values in the
+// kernel's context: the ConfigSchema() accessors read Package only, so no
+// source, registry or platform is involved.
+type configFixture struct {
+	mod  *module.Module
+	inst *module.Instance
+}
+
+func newConfigFixture(t *testing.T, k *kernel.Kernel) configFixture {
+	t.Helper()
+	ctx := k.CueContext()
+
+	modPkg := ctx.CompileString(`
+kind: "Module"
+metadata: {
+	name: "demo-mod"
+	modulePath: "example.com/m"
+	version: "1.0.0"
+	fqn: "example.com/m/demo-mod:1.0.0"
+	uuid: "11111111-1111-1111-1111-111111111111"
+}
+#config: {
+	replicas: int & >0
+	name: string
+}
+`)
+	require.NoError(t, modPkg.Err())
+
+	instPkg := ctx.CompileString(`
+kind: "ModuleInstance"
+metadata: { name: "demo", namespace: "ns", uuid: "u-inst" }
+#module: {
+	kind: "Module"
+	metadata: {
+		name: "demo-mod"
+		modulePath: "example.com/m"
+		version: "1.0.0"
+		fqn: "example.com/m/demo-mod:1.0.0"
+		uuid: "11111111-1111-1111-1111-111111111111"
+	}
+	#config: {
+		replicas: int & >0
+		name: string
+	}
+}
+components: {}
+`)
+	require.NoError(t, instPkg.Err())
+
+	return configFixture{
+		mod: &module.Module{
+			Metadata: &module.ModuleMetadata{
+				Name:       "demo-mod",
+				ModulePath: "example.com/m",
+				Version:    "1.0.0",
+				FQN:        "example.com/m/demo-mod:1.0.0",
+				UUID:       "11111111-1111-1111-1111-111111111111",
+			},
+			Package: modPkg,
+		},
+		inst: &module.Instance{
+			Metadata: &module.InstanceMetadata{Name: "demo", Namespace: "ns", UUID: "u-inst"},
+			Package:  instPkg,
+		},
+	}
+}
+
 func TestKernel_ValidateConfig_ComposedWithModuleConfigSchema(t *testing.T) {
 	k := kernel.New()
-	f := newPhaseFixture(t, k)
+	f := newConfigFixture(t, k)
 
 	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
 	require.NoError(t, values.Err())
@@ -180,7 +249,7 @@ func TestKernel_ValidateConfig_ComposedWithModuleConfigSchema(t *testing.T) {
 
 func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing.T) {
 	k := kernel.New()
-	f := newPhaseFixture(t, k)
+	f := newConfigFixture(t, k)
 
 	a, err := k.LoadSourceFromString("defaults.cue", "defaults", `replicas: 1`)
 	require.NoError(t, err)
@@ -194,7 +263,7 @@ func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing
 
 func TestKernel_ValidateConfig_ComposedWithInstanceConfigSchema(t *testing.T) {
 	k := kernel.New()
-	f := newPhaseFixture(t, k)
+	f := newConfigFixture(t, k)
 
 	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
 	require.NoError(t, values.Err())

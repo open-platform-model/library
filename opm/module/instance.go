@@ -47,10 +47,11 @@ type Instance struct {
 // Was: ReleaseMetadata
 type InstanceMetadata = schema.InstanceMetadata
 
-// MatchComponents returns the schema-preserving components value used for
-// matching. The returned value keeps definition fields such as #resources,
-// #traits, and #blueprints.
-func (r *Instance) MatchComponents() cue.Value {
+// Components returns the instance's components value as evaluated,
+// definition fields (#resources, #traits, #blueprints, #names) included. It
+// is a read for frontends and tests: the render build reads the same field
+// in CUE, inside the generated glue, and never through this accessor.
+func (r *Instance) Components() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
@@ -72,94 +73,6 @@ func (r *Instance) ConfigSchema() cue.Value {
 		return cue.Value{}
 	}
 	return mod.LookupPath(schema.Config)
-}
-
-// The methods below let *Instance satisfy schema.InstanceView — the surface
-// that BuildTransformerContext uses to assemble a transformer context
-// without dragging opm/module's types behind it.
-
-// InstanceName returns the instance's metadata.name.
-//
-// Was: ReleaseName
-func (r *Instance) InstanceName() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.Name
-}
-
-// Namespace returns the instance's metadata.namespace.
-func (r *Instance) Namespace() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.Namespace
-}
-
-// InstanceUUID returns the instance's metadata.uuid.
-//
-// Was: ReleaseUUID
-func (r *Instance) InstanceUUID() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.UUID
-}
-
-// InstanceFQN returns the instance's OWN fully qualified name — metadata.fqn
-// (registryPath:name:namespace, core v2), decoded into the metadata cache.
-// Distinct from the source module's identity, which remains reachable through
-// Package at the schema.ModuleMetadataPath path.
-func (r *Instance) InstanceFQN() string {
-	if r == nil || r.Metadata == nil {
-		return ""
-	}
-	return r.Metadata.FQN
-}
-
-// ModuleVersion returns the source module's version, read from Package via
-// the ModuleMetadataPath path.
-func (r *Instance) ModuleVersion() string {
-	return r.lookupModuleMetadataString("version")
-}
-
-// Labels returns the instance-level labels (already merged with module labels
-// at CUE evaluation time).
-func (r *Instance) Labels() map[string]string {
-	if r == nil || r.Metadata == nil {
-		return nil
-	}
-	return r.Metadata.Labels
-}
-
-// Annotations returns the instance-level annotations.
-func (r *Instance) Annotations() map[string]string {
-	if r == nil || r.Metadata == nil {
-		return nil
-	}
-	return r.Metadata.Annotations
-}
-
-// lookupModuleMetadataString reads a string field under the schema's
-// ModuleMetadataPath. Returns the empty string on any lookup or decode
-// failure — callers treat this as "metadata not available".
-func (r *Instance) lookupModuleMetadataString(field string) string {
-	if r == nil {
-		return ""
-	}
-	mm := r.Package.LookupPath(schema.ModuleMetadataPath)
-	if !mm.Exists() {
-		return ""
-	}
-	v := mm.LookupPath(cue.ParsePath(field))
-	if !v.Exists() {
-		return ""
-	}
-	s, err := v.String()
-	if err != nil {
-		return ""
-	}
-	return s
 }
 
 // NewInstanceFromValue builds a *Instance from a raw CUE artifact value. The

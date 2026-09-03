@@ -1,16 +1,18 @@
 // Package registrytest provides an in-memory OCI registry harness for tests
-// that need to materialize catalogs without a live registry.
+// that need catalogs and modules resolvable by import without a live
+// registry.
 //
-// It stands up a [modregistrytest] registry serving inline `c.#Catalog`
-// fixtures under the [CatalogPrefix] module path, while opmodel.dev/core@v2
-// still resolves from the warm workspace cache (via
-// [schematest.SetEnv]). The CUE_REGISTRY mapping routes the test prefix to the
-// in-process host and leaves every other path on the public registry.
+// It stands up a [modregistrytest] registry serving inline `c.#Catalog` and
+// `c.#Module` fixtures under the [CatalogPrefix] module path (or a committed
+// fixture tree, [NewRegistryFromDir]), while opmodel.dev/core@v2 still
+// resolves from the warm workspace cache (via [schematest.SetEnv]). The
+// CUE_REGISTRY mapping routes the test prefix to the in-process host and
+// leaves every other path on the public registry.
 //
 // It lives under opm/internal/ so it stays out of the library's public SemVer
 // surface (kernel neutrality) while remaining importable from any opm/* test
-// package. The materialize tests and the kernel integration harness share it
-// so registry semantics never drift between them.
+// package. The kernel render tests and the loader tests share it so registry
+// semantics never drift between them.
 package registrytest
 
 import (
@@ -23,13 +25,11 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"cuelang.org/go/cue"
 	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/internal/schematest"
-	"github.com/open-platform-model/library/opm/platform"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -50,21 +50,21 @@ type CatalogFixture struct {
 	// CoreVersion pins the opmodel.dev/core dependency this catalog's
 	// cue.mod/module.cue declares — the dep line's major, the emitted core
 	// import, and the generated body shape all derive from it. Empty defaults
-	// to defaultCoreVersion (the v2 line); historical tests pin a v1-era
+	// to DefaultCoreVersion (the v2 line); historical tests pin a v1-era
 	// version explicitly. core still resolves from the public registry / warm
 	// workspace cache.
 	CoreVersion string
 }
 
 // TxFixture describes one transformer to author into a test catalog: its kebab
-// name plus the short names of the resources/traits it requires (used to
-// populate the #matchers reverse index). Output is an optional inline
+// name plus the short names of the resources it requires (the demands the
+// render build's matcher buckets on). Output is an optional inline
 // `#transform.output` literal (a CUE struct or list expression); when empty it
-// defaults to an empty struct.
+// defaults to an empty struct. Trait demands are authored by the committed
+// render fixtures (testdata/render/registry), not generated here.
 type TxFixture struct {
 	Name      string
 	Resources []string
-	Traits    []string
 	Output    string // optional inline #transform.output literal; "" → "{}"
 }
 
@@ -92,18 +92,20 @@ type ModuleFixture struct {
 
 	// CoreVersion pins the opmodel.dev/core dependency this module's
 	// cue.mod/module.cue declares — the dep line's major and the emitted core
-	// import derive from it. Empty defaults to defaultCoreVersion (the v2
+	// import derive from it. Empty defaults to DefaultCoreVersion (the v2
 	// line); historical tests pin a v1-era version explicitly. core still
 	// resolves from the public registry / warm workspace cache.
 	CoreVersion string
 }
 
-// defaultCoreVersion is the opmodel.dev/core version registrytest fixtures
+// DefaultCoreVersion is the opmodel.dev/core version registrytest fixtures
 // declare when ModuleFixture.CoreVersion / CatalogFixture.CoreVersion are
-// empty. It tracks the library's default schema line (core v2, matching
-// [schema.DefaultSchemaModule]); historical tests pin earlier versions
+// empty, and the version a test writes into any module file it authors
+// beside them (a platform module importing a served catalog, an instance
+// module importing a served module). It is the release
+// [schema.DefaultSchemaModule] pins; historical tests pin earlier versions
 // explicitly.
-const defaultCoreVersion = "v2.0.0-alpha.4"
+const DefaultCoreVersion = "v2.0.0-alpha.7"
 
 // ContractAPIVersion is the contract level every generated v2 fixture
 // primitive declares. Core v2 keys contracts by the primitive's own
@@ -116,11 +118,11 @@ const ContractAPIVersion = "v1"
 // with a transitional duplicate under metadata.labels.
 const PrimitiveMatchKey = "opm.test/primitive"
 
-// coreVersionOr returns v normalized to a leading "v", or defaultCoreVersion
+// coreVersionOr returns v normalized to a leading "v", or DefaultCoreVersion
 // when v is empty.
 func coreVersionOr(v string) string {
 	if v == "" {
-		return defaultCoreVersion
+		return DefaultCoreVersion
 	}
 	return "v" + strings.TrimPrefix(v, "v")
 }
@@ -134,18 +136,10 @@ func coreDep(coreVersion string) string {
 }
 
 // coreMajor returns the bare major of a (normalized) core version:
-// "v2.0.0-alpha.4" → "v2"; a bare major ("v2") passes through.
+// "v2.0.0-alpha.7" → "v2"; a bare major ("v2") passes through.
 func coreMajor(coreVersion string) string {
 	major, _, _ := strings.Cut(coreVersion, ".")
 	return major
-}
-
-// coreIsV2 reports whether coreVersion sits on the v2 line or later — the
-// shape watershed for generated fixture bodies (v1-era metadata carries
-// `version`; v2 carries `apiVersion`/`catalogVersion`/authored `fqn`).
-func coreIsV2(coreVersion string) bool {
-	major := coreMajor(coreVersion)
-	return major != "v0" && major != "v1"
 }
 
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
@@ -347,26 +341,15 @@ func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 // major-qualified catalog path and references its metadata under debugValues
 // (an open field), forcing the loader to resolve the catalog as a transitive
 // dependency. pkg is the package clause name. The emitted core import derives
-// its major from [defaultCoreVersion]; use [BuildModuleFileCore] to pin
-// another core version.
-func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
-	return BuildModuleFileCore(defaultCoreVersion, pkg, name, modulePath, catalogImport)
-}
-
-// BuildModuleFileCore is [BuildModuleFile] with an explicit core version (a
-// full version like "v1.0.0-alpha.1" or a bare major like "v1"); the emitted
-// core import derives its major from it, matching the dep the fixture writer
-// declares for the same CoreVersion. No caller passes an explicit version
-// today (pinned-fixture tests hand-author their module text instead); kept
-// for pinned-fixture authors and the next major crossing.
+// its major from [DefaultCoreVersion], matching the dep the fixture writer
+// declares; a test that needs another core version hand-authors its module
+// text.
 //
-// The metadata shape follows the core major: on v2, modulePath is the FULL
-// module path (major suffix included — pass "…/modules/hello@v0") and name
-// MUST be its snake_case leaf; on v1, modulePath is the major-free parent
-// path (v1's metadata semantics).
-func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport string) string {
-	core := coreVersionOr(coreVersion)
-	dep := coreDep(core)
+// The metadata shape is core v2's: modulePath is the FULL module path (major
+// suffix included; pass "…/modules/hello@v0") and name MUST be its snake_case
+// leaf.
+func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
+	dep := coreDep(DefaultCoreVersion)
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s\n\n", pkg)
 	if catalogImport == "" {
@@ -390,82 +373,32 @@ func BuildModuleFileCore(coreVersion, pkg, name, modulePath, catalogImport strin
 // fixtures. The #Catalog pattern stamps each transformer's metadata.modulePath
 // ("<path>/transformers") and version; this only authors name, description, the
 // required-primitive maps, and the transform output (from [TxFixture.Output],
-// defaulting to an empty struct). The body shape follows the catalog member
-// shape of the core major derived from [defaultCoreVersion]; use
-// [BuildCatalogCore] to author against another core version.
+// defaulting to an empty struct). The body is core v2's catalog member shape:
+// members carry `apiVersion`/`catalogVersion`/an authored `fqn`, and contract
+// FQNs are keyed by [ContractAPIVersion] (transformer keys stay build-keyed).
 func BuildCatalog(path, version string, txs ...TxFixture) string {
-	return BuildCatalogCore(defaultCoreVersion, path, version, txs...)
-}
-
-// BuildCatalogCore is [BuildCatalog] with an explicit core version (full
-// version or bare major), selecting the catalog member shape of that core
-// major: v1-era members carry `version` in metadata and version-keyed
-// contract FQNs; v2 members carry `apiVersion`/`catalogVersion`/authored
-// `fqn` and contract FQNs keyed by [ContractAPIVersion] (transformer keys
-// stay build-keyed in both). No caller passes an explicit version today, so
-// the v1 branch is exercised only through history; kept for pinned-fixture
-// authors and the next major crossing.
-func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) string {
-	v2 := coreIsV2(coreVersionOr(coreVersion))
-
 	var b strings.Builder
-	if v2 {
-		major, _, _ := strings.Cut(version, ".")
-		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
-	} else {
-		fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path, version)
-	}
+	major, _, _ := strings.Cut(version, ".")
+	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
 	b.WriteString("#transformers: {\n")
 	for _, tx := range txs {
 		fqn := fmt.Sprintf("%s/transformers/%s@%s", path, tx.Name, version)
 		fmt.Fprintf(&b, "\t%q: {\n", fqn)
 		b.WriteString("\t\tkind: \"ComponentTransformer\"\n")
-		if v2 {
-			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t\tfqn:         %q\n\t\t}\n", tx.Name, tx.Name+" transformer", fqn)
-		} else {
-			fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t}\n", tx.Name, tx.Name+" transformer")
-		}
+		fmt.Fprintf(&b, "\t\tmetadata: {\n\t\t\tname:        %q\n\t\t\tdescription: %q\n\t\t\tfqn:         %q\n\t\t}\n", tx.Name, tx.Name+" transformer", fqn)
 		if len(tx.Resources) > 0 {
 			b.WriteString("\t\trequiredResources: {\n")
 			for _, r := range tx.Resources {
-				rfqn := contractFQN(v2, path, "resources", r, version)
+				rfqn := contractFQN(path, "resources", r)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", rfqn)
 				b.WriteString("\t\t\t\tkind: \"Resource\"\n")
-				if v2 {
-					// matchLabels is the matching identity (0010 D36); the
-					// metadata.labels duplicate mirrors the real catalog's
-					// transitional state (kept for descriptive reads).
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
-						r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
-					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
-				} else {
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", r, path+"/resources", version)
-				}
+				// matchLabels is the matching identity (0010 D36); the
+				// metadata.labels duplicate mirrors the real catalog's
+				// transitional state (kept for descriptive reads).
+				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
+					r, path+"/resources", ContractAPIVersion, version, rfqn, PrimitiveMatchKey, r)
+				fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, r)
 				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(r))
-				b.WriteString("\t\t\t}\n")
-			}
-			b.WriteString("\t\t}\n")
-		}
-		if len(tx.Traits) > 0 {
-			b.WriteString("\t\trequiredTraits: {\n")
-			for _, tr := range tx.Traits {
-				trfqn := contractFQN(v2, path, "traits", tr, version)
-				fmt.Fprintf(&b, "\t\t\t%q: {\n", trfqn)
-				b.WriteString("\t\t\t\tkind: \"Trait\"\n")
-				if v2 {
-					// See the resource branch for the matchLabels/labels split.
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
-						tr, path+"/traits", ContractAPIVersion, version, trfqn, PrimitiveMatchKey, tr)
-					fmt.Fprintf(&b, "\t\t\t\tmatchLabels: %q: %q\n", PrimitiveMatchKey, tr)
-					// The advisory default the real catalog states on every
-					// trait; attachment-site postures (the demand side's last
-					// word) are authored by the component fixtures.
-					b.WriteString("\t\t\t\toptional: bool | *true\n")
-				} else {
-					fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, version: %q}\n", tr, path+"/traits", version)
-				}
-				fmt.Fprintf(&b, "\t\t\t\tspec: %q: _\n", specField(tr))
-				b.WriteString("\t\t\t\tappliesTo: []\n")
 				b.WriteString("\t\t\t}\n")
 			}
 			b.WriteString("\t\t}\n")
@@ -482,15 +415,11 @@ func BuildCatalogCore(coreVersion, path, version string, txs ...TxFixture) strin
 }
 
 // contractFQN returns the FQN a generated fixture catalog keys a primitive
-// under: build-version-keyed on the v1 line, [ContractAPIVersion]-keyed on v2
-// (enhancement 0010 D4). Test harnesses authoring components against
-// generated catalogs mirror the v2 form so demanded keys match the matcher
-// index.
-func contractFQN(v2 bool, path, kind, name, version string) string {
-	if v2 {
-		return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, ContractAPIVersion)
-	}
-	return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, version)
+// under: [ContractAPIVersion]-keyed (enhancement 0010 D4). Test harnesses
+// authoring components against generated catalogs mirror this form so demanded
+// keys match the glue's buckets.
+func contractFQN(path, kind, name string) string {
+	return fmt.Sprintf("%s/%s/%s@%s", path, kind, name, ContractAPIVersion)
 }
 
 // specField returns the camelCase field name core's #Resource / #Trait require
@@ -514,46 +443,4 @@ func specField(name string) string {
 		b.WriteString(p[1:])
 	}
 	return b.String()
-}
-
-// CtxOwner is a minimal materialize.CueContextOwner wrapping a *cue.Context, so
-// tests can drive Materialize without constructing a full *kernel.Kernel (which
-// would create an import cycle through materialize).
-type CtxOwner struct{ ctx *cue.Context }
-
-// NewCtxOwner wraps ctx as a CueContextOwner.
-func NewCtxOwner(ctx *cue.Context) CtxOwner { return CtxOwner{ctx: ctx} }
-
-// CueContext returns the wrapped context.
-func (o CtxOwner) CueContext() *cue.Context { return o.ctx }
-
-// BuildPlatform builds a concrete *platform.Platform whose #registry contains
-// the given map body (e.g. `{ "test.example/.../cat": {enable: true} }`),
-// validated against core's #Platform. The platform value is built with octx so
-// Materialize can fill catalog values (built with the same context) onto it.
-// CUE_REGISTRY / CUE_CACHE_DIR must already be configured (e.g. by
-// [NewCatalogRegistry]) so #Platform resolves from the warm workspace cache.
-func BuildPlatform(t *testing.T, octx *cue.Context, registryBody string) *platform.Platform {
-	t.Helper()
-	cache := &schema.Cache{Loader: schema.OCILoader{}}
-	schemaVal, err := cache.Get(octx)
-	require.NoError(t, err, "load core schema")
-
-	def := schemaVal.LookupPath(cue.ParsePath("#Platform"))
-	require.True(t, def.Exists(), "#Platform definition must exist")
-
-	concrete := octx.CompileString(`{
-		kind: "Platform"
-		metadata: name: "test"
-		type: "kubernetes"
-		#registry: ` + registryBody + `
-	}`)
-	require.NoError(t, concrete.Err())
-
-	pv := def.Unify(concrete)
-	require.NoError(t, pv.Validate(cue.Concrete(false)), "platform must validate against #Platform")
-
-	p, err := platform.NewPlatformFromValue(CtxOwner{octx}, pv)
-	require.NoError(t, err)
-	return p
 }

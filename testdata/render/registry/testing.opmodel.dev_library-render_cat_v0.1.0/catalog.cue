@@ -6,9 +6,11 @@
 // expose / config-maps trio, an orphan resource no transformer handles, a
 // load-bearing backup trait, an advisory sidecar trait, a trait that states
 // no optional posture, a narrowed required copy that plain unification
-// disqualifies, and two sabotaged transformers (an output that conflicts, an
-// output that never becomes concrete). Every fqn lives under testing.opmodel.dev/library-render so
-// nothing here can collide with a published catalog.
+// disqualifies, a resource whose only transformer requires a different
+// (non-string) label value, and two sabotaged transformers (an output that
+// conflicts, an output that never becomes concrete). Every fqn lives under
+// testing.opmodel.dev/library-render so nothing here can collide with a
+// published catalog.
 package cat
 
 import (
@@ -123,6 +125,23 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 		description:    "Handled by a transformer whose output conflicts at application"
 	}
 	spec: broken: note?: string
+}
+
+// Its matchLabels carry a non-string value (#LabelsAnnotationsType admits
+// int), and tiered-transformer, its only handler, requires a DIFFERENT int
+// under the same key: the predicate rung's label unification is bottom, so
+// the candidate is refused as a missing label rather than silently skipped.
+#TieredResource: c.#Resource & {
+	metadata: {
+		name:           "tiered"
+		modulePath:     "\(_res)/v1"
+		apiVersion:     "v1"
+		catalogVersion: _version
+		fqn:            "\(_res)/tiered@v1"
+		description:    "A resource whose only transformer requires a different label value"
+	}
+	matchLabels: "render.test/tier": 2
+	spec: tiered: name?: string
 }
 
 // Declared `fulfilment: "provider"` (0010 D32): this catalog ships
@@ -245,6 +264,24 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 					image: #component.spec.container.image
 					port:  #component.spec.container.port
 				}
+			}
+		}
+	}
+
+	"\(_tx)/tiered-transformer@\(_version)": {
+		metadata: {
+			name:        "tiered-transformer"
+			fqn:         "\(_tx)/tiered-transformer@\(_version)"
+			description: "Requires a tier label the tiered resource never carries"
+		}
+		requiredLabels: "render.test/tier":                3
+		requiredResources: (#TieredResource.metadata.fqn): #TieredResource
+		#transform: {
+			#component: _
+			output: {
+				apiVersion: "v1"
+				kind:       "Tier"
+				metadata: name: #component.#names.resourceName
 			}
 		}
 	}

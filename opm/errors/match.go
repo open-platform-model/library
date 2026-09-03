@@ -85,7 +85,7 @@ func (e UnresolvedDemand) Error() string {
 }
 
 // UnresolvedDemandsError aggregates every unresolved demand of a plan into
-// the typed error Plan/Compile fail with (D28). Each demand is reachable via
+// the typed error Render fails with through the gate (D28). Each demand is reachable via
 // Unwrap() []error for errors.As routing.
 type UnresolvedDemandsError struct {
 	// Demands is the full unresolved-demand set, in plan order.

@@ -10,6 +10,6 @@ deps: {
 		v: "v4.0.1"
 	}
 	"opmodel.dev/core@v2": {
-		v: "v2.0.0-alpha.6"
+		v: "v2.0.0-alpha.7"
 	}
 }

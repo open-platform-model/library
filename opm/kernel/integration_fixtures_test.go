@@ -3,188 +3,230 @@ package kernel_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/require"
 
+	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
-	"github.com/open-platform-model/library/opm/materialize"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/platform"
 )
 
 // This file holds the shared, fully hermetic builders for the kernel
-// integration harness. Catalogs are served from an in-memory OCI registry
-// (opm/internal/registrytest); the core schema resolves from the warm
-// workspace cache. No localhost:5000, so these run in CI under any condition.
+// integration harness. Catalogs and modules are served from an in-memory OCI
+// registry (opm/internal/registrytest); the core schema resolves from the
+// warm workspace cache. No localhost:5000, so these run in CI under any
+// condition.
 //
-// Instances are hand-authored CUE values rather than loaded from disk: a
-// component's #resources / #traits are keyed by the catalog's stamped FQNs
-// (`<path>/resources/<name>@<version>` etc.), which is all the matcher and
-// compile phases read. This keeps the harness independent of on-disk fixtures
-// and of any module that imports the real catalog.
+// Render takes source-carrying inputs (0019 D9), so a hermetic test authors
+// its inputs as modules on disk: a #CatalogEntry-form platform module
+// importing a served catalog (writeCatalogPlatform), and an instance module
+// importing a served module (writeImportedInstance), or a synthesized
+// instance (synthesizeInstance). Nothing is built from a bare value.
 
-// compSpec describes one component to author into an instance: its name, the
-// short names of the catalog resources/traits it declares, and its labels.
-// resourceKeys lists verbatim resource-FQN keys to author IN ADDITION to the
-// generated ones — for tests that need a demanded key the catalog does not
-// publish (e.g. a different contract level).
-type compSpec struct {
-	name         string
-	resources    []string
-	traits       []string
-	resourceKeys []string
-	labels       map[string]string
-
-	// traitPostures maps a trait short name to the `optional` posture literal
-	// authored on its attachment, mirroring what the real schema derives from
-	// the catalog default unified with any attachment-site override. An
-	// absent key authors "bool | *true" (the registrytest catalog default);
-	// use "bool | *false" for load-bearing and "bool" for the
-	// unstated-posture (fail-closed) case.
-	traitPostures map[string]string
+// standardCatalog is the common two-transformer catalog: "deployment" requires
+// the container resource and emits a single struct (→ 1 Compiled), "configmap"
+// requires the config-maps resource and emits a two-element list (→ 2 Compiled).
+func standardCatalog(path, version string) registrytest.CatalogFixture {
+	return registrytest.CatalogFixture{
+		Path:    path,
+		Version: version,
+		Body: registrytest.BuildCatalog(path, version,
+			registrytest.TxFixture{
+				Name:      "deployment",
+				Resources: []string{"container"},
+				Output:    `{ kind: "Deployment" }`,
+			},
+			registrytest.TxFixture{
+				Name:      "configmap",
+				Resources: []string{"config-maps"},
+				Output:    `[ {kind: "ConfigMap", n: 1}, {kind: "ConfigMap", n: 2} ]`,
+			},
+		),
+	}
 }
 
-// resFQN / traitFQN reproduce the contract FQNs registrytest.BuildCatalog
+// resFQN reproduces the resource contract FQN registrytest.BuildCatalog
 // keys v2 members under — apiVersion-keyed (enhancement 0010 D4), so the
-// catalog's build version does not appear in them.
+// catalog's build version does not appear in it.
 func resFQN(path, name string) string {
 	return fmt.Sprintf("%s/resources/%s@%s", path, name, registrytest.ContractAPIVersion)
 }
 
-func traitFQN(path, name string) string {
-	return fmt.Sprintf("%s/traits/%s@%s", path, name, registrytest.ContractAPIVersion)
+// majorOf returns the major-qualified suffix a served fixture at version is
+// published under: "0.1.0" → "v0".
+func majorOf(version string) string {
+	major, _, _ := strings.Cut(version, ".")
+	return "v" + major
 }
 
 // newKernelWithCatalogs stands up an in-memory registry serving the given
-// catalogs and returns a kernel wired to it. The kernel's context resolves
-// both the core schema (warm cache) and the catalogs (in-memory host).
-func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture) *kernel.Kernel {
+// catalogs and returns a kernel wired to it, plus the registry mapping for
+// the loaders.
+func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture) (*kernel.Kernel, string) {
 	t.Helper()
 	registry := registrytest.NewCatalogRegistry(t, catalogs...)
-	return kernel.New(kernel.WithRegistry(registry))
+	return kernel.New(kernel.WithRegistry(registry)), registry
 }
 
-// subscribe builds a #registry body subscribing (enabled) to each path at
-// version. The map key carries the catalog's major (v2 #ModulePathType), and
-// the required scalar `version` names the exact build Materialize pulls
-// (0010 D14: the authored version IS the resolution).
-func subscribe(version string, paths ...string) string {
-	major, _, _ := strings.Cut(version, ".")
-	var b strings.Builder
-	b.WriteString("{")
-	for i, p := range paths {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		fmt.Fprintf(&b, "%q: {enable: true, version: %q}", p+"@v"+major, version)
-	}
-	b.WriteString("}")
-	return b.String()
-}
-
-// subKey returns the #registry key subscribe writes for path at version —
-// the major-suffixed form Materialize records in Resolved and on
-// MaterializeError.Subscription.
-func subKey(path, version string) string {
-	major, _, _ := strings.Cut(version, ".")
-	return path + "@v" + major
-}
-
-// buildInstance assembles a hermetic *module.Instance: an embedded #module (with
-// an optional #config schema), instance metadata, optional values, and the
-// authored components. configSchema and valuesSrc are raw CUE struct bodies
-// ("" to omit). It is constructed through k.NewInstanceFromValue so the harness
-// exercises that constructor path.
-func buildInstance(
-	t *testing.T,
-	k *kernel.Kernel,
-	catPath, version string,
-	configSchema, valuesSrc string,
-	comps ...compSpec,
-) *module.Instance {
+// writeCatalogPlatform writes, as a nested module under dir, a
+// #CatalogEntry-form platform (core 0019 D5) importing the served catalog
+// catPath at version, and returns the platform module directory.
+func writeCatalogPlatform(t *testing.T, dir, catPath, version string) string {
 	t.Helper()
+	platDir := filepath.Join(dir, "platform")
+	dep := catPath + "@" + majorOf(version)
+	writeFile(t, filepath.Join(platDir, "cue.mod", "module.cue"), fmt.Sprintf(`module: "testing.opmodel.dev/library-kernel-test/platform@v0"
+language: version: "v0.17.0"
+deps: {
+	"opmodel.dev/core@v2": v: %q
+	%q: v: %q
+}
+`, registrytest.DefaultCoreVersion, dep, "v"+version))
+	writeFile(t, filepath.Join(platDir, "platform.cue"), fmt.Sprintf(`package platform
 
-	var cb strings.Builder
-	cb.WriteString("{\n")
-	for _, c := range comps {
-		fmt.Fprintf(&cb, "\t%q: {\n", c.name)
-		fmt.Fprintf(&cb, "\t\tmetadata: { name: %q, labels: %s }\n", c.name, labelsLiteral(c.labels))
-		// matchLabels mirrors what core derives from attached primitives; the
-		// hermetic harness authors it directly (matching reads it, 0010 D36).
-		fmt.Fprintf(&cb, "\t\tmatchLabels: %s\n", labelsLiteral(c.labels))
-		// Bodies are written open ("{...}"): #resources / #traits are CUE
-		// definitions, which recursively close nested structs. The always-unify
-		// matcher rung unifies each body with the transformer's required
-		// (closed) #Resource / #Trait, so a closed empty body would fail
-		// closedness. "{...}" stays open and absorbs the required shape.
-		cb.WriteString("\t\t#resources: {\n")
-		for _, r := range c.resources {
-			fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", resFQN(catPath, r))
-		}
-		for _, key := range c.resourceKeys {
-			fmt.Fprintf(&cb, "\t\t\t%q: {...}\n", key)
-		}
-		cb.WriteString("\t\t}\n")
-		if len(c.traits) > 0 {
-			cb.WriteString("\t\t#traits: {\n")
-			for _, tr := range c.traits {
-				posture := c.traitPostures[tr]
-				if posture == "" {
-					posture = "bool | *true"
-				}
-				fmt.Fprintf(&cb, "\t\t\t%q: {optional: %s, ...}\n", traitFQN(catPath, tr), posture)
-			}
-			cb.WriteString("\t\t}\n")
-		}
-		cb.WriteString("\t}\n")
+import (
+	core "opmodel.dev/core@v2"
+	cat %q
+)
+
+core.#Platform
+metadata: name: "hermetic"
+type: "kubernetes"
+#registry: %q: {
+	enable:   true
+	#catalog: cat
+}
+`, dep, dep))
+	return platDir
+}
+
+// acquireCatalogPlatform writes a platform module for the served catalog and
+// acquires it source-carrying through the kernel.
+func acquireCatalogPlatform(t *testing.T, k *kernel.Kernel, mapping, catPath, version string) *platform.Platform {
+	t.Helper()
+	platDir := writeCatalogPlatform(t, t.TempDir(), catPath, version)
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir, loaderfile.LoadOptions{Registry: mapping})
+	require.NoErrorf(t, err, "acquiring the #CatalogEntry-form platform for %s at %s", catPath, version)
+	return plat
+}
+
+// writeImportedInstance writes, under root, a module (modulePath) whose
+// cue.mod pins core, the served module modPath at version and extraDeps
+// (major-qualified path → bare version), and an `instance` package importing
+// the module with the given identity and values body. Returns the instance
+// package directory; the module root is root itself.
+func writeImportedInstance(t *testing.T, root, modulePath, modPath, version, name, namespace, values string, extraDeps map[string]string) string {
+	t.Helper()
+	var deps strings.Builder
+	fmt.Fprintf(&deps, "\t\"opmodel.dev/core@v2\": v: %q\n", registrytest.DefaultCoreVersion)
+	fmt.Fprintf(&deps, "\t%q: v: %q\n", modPath+"@"+majorOf(version), "v"+version)
+	for p, v := range extraDeps {
+		fmt.Fprintf(&deps, "\t%q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 	}
-	cb.WriteString("}")
+	writeFile(t, filepath.Join(root, "cue.mod", "module.cue"), fmt.Sprintf(`module: %q
+language: version: "v0.17.0"
+deps: {
+%s}
+`, modulePath, deps.String()))
+	writeFile(t, filepath.Join(root, "instance", "instance.cue"), fmt.Sprintf(`package instance
 
-	configField := ""
-	if strings.TrimSpace(configSchema) != "" {
-		configField = "\n\t#config: " + configSchema
-	}
-	valuesField := ""
-	if strings.TrimSpace(valuesSrc) != "" {
-		valuesField = "\nvalues: " + valuesSrc
-	}
+import (
+	core "opmodel.dev/core@v2"
+	opmModule %q
+)
 
-	src := fmt.Sprintf(`
-kind: "ModuleInstance"
-metadata: { name: "demo", namespace: "ns", uuid: "11111111-2222-5333-8444-555555555555" }
-#module: {
-	kind: "Module"
-	metadata: { name: "demo", modulePath: "example.com/demo", version: "0.1.0" }%s
-}%s
-components: %s
-`, configField, valuesField, cb.String())
+core.#ModuleInstance
 
-	v := k.CueContext().CompileString(src, cue.Filename("instance.cue"))
-	require.NoError(t, v.Err(), "compiling hermetic instance")
-	inst, err := k.NewInstanceFromValue(v)
-	require.NoError(t, err, "constructing instance from value")
+metadata: {
+	name:      %q
+	namespace: %q
+}
+
+#module: opmModule
+values: %s
+`, modPath+"@"+majorOf(version), name, namespace, values))
+	return filepath.Join(root, "instance")
+}
+
+// synthesizeInstance acquires the served module with source and synthesizes
+// an overlay-mode instance from it with empty values (the module's #config
+// must be empty or fully defaulted).
+func synthesizeInstance(t *testing.T, k *kernel.Kernel, modPath, version, name string) *module.Instance {
+	t.Helper()
+	ctx := context.Background()
+	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+majorOf(version), "v"+version)
+	require.NoErrorf(t, err, "acquiring served module %s", modPath)
+	require.True(t, mod.HasSource(), "acquired module must carry staged source")
+	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
+		Module:      mod,
+		Name:        name,
+		Namespace:   "default",
+		Values:      k.CueContext().CompileString("{}"),
+		SchemaCache: k.SchemaCache(),
+	})
+	require.NoErrorf(t, err, "synthesizing an instance from %s", modPath)
+	require.NotNil(t, inst.Source)
 	return inst
 }
 
-func labelsLiteral(labels map[string]string) string {
-	if len(labels) == 0 {
-		return "{}"
-	}
-	var b strings.Builder
-	b.WriteString("{")
-	first := true
-	for k, v := range labels {
-		if !first {
-			b.WriteString(", ")
+// twoComponentModuleFile authors a module with a `web` component declaring
+// the catalog's container resource and a `config` component declaring its
+// config-maps resource, keyed by the FQNs standardCatalog's transformers
+// require.
+func twoComponentModuleFile(modPath, catPath, version string) string {
+	containerFQN := resFQN(catPath, "container")
+	configFQN := resFQN(catPath, "config-maps")
+	return fmt.Sprintf(`package two_app
+
+import core "opmodel.dev/core@v2"
+
+core.#Module
+metadata: {
+	name:       "two_app"
+	modulePath: %q
+	version:    %q
+}
+#config: {}
+debugValues: {}
+#components: {
+	web: {
+		metadata: name: "web"
+		#resources: %q: {
+			kind: "Resource"
+			metadata: {name: "container", modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}
+			spec: container: {image: "nginx"}
 		}
-		first = false
-		fmt.Fprintf(&b, "%q: %q", k, v)
 	}
-	b.WriteString("}")
-	return b.String()
+	config: {
+		metadata: name: "config"
+		#resources: %q: {
+			kind: "Resource"
+			metadata: {name: "config-maps", modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q}
+			spec: configMaps: {app: {data: {}}}
+		}
+	}
+}
+`, modPath+"@"+majorOf(version), version,
+		containerFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, containerFQN,
+		configFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, configFQN)
+}
+
+// pairsByComponent groups matched pairs by component name for ergonomic
+// containment assertions.
+func pairsByComponent(pairs []kernel.RenderPair) map[string][]string {
+	out := map[string][]string{}
+	for _, p := range pairs {
+		out[p.Component] = append(out[p.Component], p.Transformer)
+	}
+	return out
 }
 
 // buildModule assembles a hermetic *module.Module with the given #config schema
@@ -213,10 +255,8 @@ func cueVal(t *testing.T, k *kernel.Kernel, src, filename string) cue.Value {
 	return v
 }
 
-// materialize subscribes the kernel to the given catalog paths at version and
-// materializes.
-func materializePlatform(t *testing.T, k *kernel.Kernel, version string, paths ...string) (*materialize.MaterializedPlatform, error) {
+func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	plat := registrytest.BuildPlatform(t, k.CueContext(), subscribe(version, paths...))
-	return k.Materialize(context.Background(), plat)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

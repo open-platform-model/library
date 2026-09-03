@@ -14,13 +14,13 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// TestFlow_ImportedModule_CatalogSubpackageImport_SynthToCompile is the
+// TestFlow_ImportedModule_CatalogSubpackageImport_SynthToRender is the
 // HERMETIC construction + render smoke test for the module-root synth path: a
 // published module whose SOURCE imports a catalog package is acquired WITH
-// SOURCE, synthesized inside its own staged root, and compiled end-to-end to its
-// expected Deployment. It exercises the full new path
-// (AcquireModuleFromRegistry → synth-in-module-root → Match → Compile) in CI
-// without a real registry.
+// SOURCE, synthesized inside its own staged root, and rendered end-to-end to
+// its expected Deployment. It exercises the full path
+// (AcquireModuleFromRegistry → synth-in-module-root → Render) in CI without a
+// real registry.
 //
 // NOTE: this hermetic test does NOT by itself prove the library#31 fix is
 // non-vacuous. The in-memory registrytest resolver walks a dependency's
@@ -29,15 +29,9 @@ import (
 // resolver does not transitively resolve, which is what actually broke #31. The
 // faithful, non-vacuous #31 guard (proven to fail under the old path and pass
 // under the new one) is TestFlow_Redis_CatalogSubpackage_Regression, which runs
-// against a real registry. Keep both: this one guards the construction/compile
+// against a real registry. Keep both: this one guards the construction/render
 // wiring in CI; redis guards the actual resolution semantics.
-//
-// The Compile step also exercises design D4's within-major safety: the instance
-// is built against the MODULE's own core (from its cue.mod/module.cue) and then
-// processed/compiled under the kernel's SchemaCache core; both are core@v2, so
-// they unify. (Cross-patch core skew is not constructible in this hermetic
-// harness, which serves a single core version.)
-func TestFlow_ImportedModule_CatalogSubpackageImport_SynthToCompile(t *testing.T) {
+func TestFlow_ImportedModule_CatalogSubpackageImport_SynthToRender(t *testing.T) {
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
 	metaPath := registrytest.UniquePath(t, "modules")
@@ -96,8 +90,7 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 	require.NoErrorf(t, err, "acquiring catalog-importing module %s", modPath)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source")
 
-	mp, err := materializePlatform(t, k, version, catPath)
-	require.NoError(t, err, "materializing platform subscribed to the catalog")
+	plat := acquireCatalogPlatform(t, k, registryMapping, catPath, version)
 
 	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
 		Module:      mod,
@@ -113,9 +106,12 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 			"synth must resolve the module's transitive catalog import via its own cue.mod/module.cue")
 	}
 
-	out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
+	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
-	require.NotEmpty(t, out.Compiled, "catalog-importing synth instance must compile to at least one resource")
-	assert.Contains(t, compiledKinds(t, out.Compiled), "Deployment",
+	require.NotEmpty(t, res.Compiled, "catalog-importing synth instance must render to at least one resource")
+	assert.Contains(t, compiledKinds(t, res.Compiled), "Deployment",
 		"the container resource must render a Deployment")
+	// The instance module's own catalog dependency and the platform's are
+	// the same build: a row, not skew.
+	assert.Empty(t, res.Warnings)
 }

@@ -16,8 +16,8 @@
 // replacement, and cue/load resolves an UNQUALIFIED import of a replaced
 // module's package only when the main module lists that path with a major
 // (measured 2026-09-03 on cue v0.17.1: "cannot find module providing
-// package"). The qualifier keeps one fixture importable by the oracle, the
-// old path and Render alike.
+// package"). The qualifier keeps one fixture importable by the oracle and
+// Render alike.
 package instance
 
 import (

@@ -7,6 +7,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // LoadSourceFromBytes compiles b into a [Source] with [cue.Filename](origin)
@@ -75,7 +76,7 @@ func (k *Kernel) LoadSourceFromFile(path string) (Source, error) {
 	// Why: OPM values files conventionally wrap their payload in a top-level
 	// `values:` field; the Source.Value carried into validation must be the
 	// inner object so it unifies against the module's #config directly.
-	if valuesField := v.LookupPath(cue.ParsePath("values")); valuesField.Exists() && valuesField.Err() == nil {
+	if valuesField := v.LookupPath(schema.Values); valuesField.Exists() && valuesField.Err() == nil {
 		v = valuesField
 	}
 

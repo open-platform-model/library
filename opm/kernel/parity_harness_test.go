@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -15,24 +14,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// Render-parity harness (enhancement 0019 D1/D4/D14; openspec change
-// library-parity-harness). Every case is rendered twice from the SAME fixture
-// bytes and the SAME dependency pins: once through the kernel's public path
-// (LoadModulePackage → Materialize → LoadInstancePackage →
-// ProcessModuleInstance → Compile) and once by plain CUE unification in one
-// build (testdata/parity/oracle/render.cue). The oracle is the reference.
+// Render-parity harness (enhancement 0019 D1/D4/D14; openspec changes
+// library-parity-harness and library-render-cutover). Every case is rendered
+// twice from the SAME fixture bytes and the SAME dependency pins: once
+// through the kernel's public path (AcquireInstanceFromDir +
+// AcquirePlatformFromDir → Render, one build) and once by plain CUE
+// unification in one build (testdata/parity/oracle/render.cue). The oracle
+// is the reference.
 //
 // Shipped group: the web_app instance against the published catalogs/opm
-// build the opm_platform fixture subscribes to. No shipped transformer reads
-// a definition field, so this group is expected to agree; it guards
-// regressions and is where an ordering divergence (D14) would surface.
-// Probe group (parity_probe_test.go): transformers that read #component.#names
-// and #moduleInstance, which is where the kernel diverges today.
+// build the opm_platform fixture imports. Probe group
+// (parity_probe_test.go): transformers that read #component.#names and
+// #moduleInstance. Every case compares the whole rendered value,
+// order-sensitively, and carries no expected divergence: with #context
+// projected by core (0019 D12) there is no runtime-built value left to
+// exclude.
 //
 // Gating mirrors the flow tests: skipped under -short and when GHCR is
 // unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
@@ -53,130 +53,116 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	ctx := context.Background()
 
 	// ── kernel side ──────────────────────────────────────────────────
-	k := kernel.New()
+	// The instance enters by IMPORT on both sides: this is the same package
+	// the oracle imports, never a LookupPath+FillPath reconstruction. The
+	// platform is its own module (testdata/parity/opm_platform) importing
+	// the same published catalog build the parity module pins.
+	k := kernel.New(kernel.WithRegistry(registry))
 	opts := loaderfile.LoadOptions{Registry: registry}
 
-	modVal, err := k.LoadModulePackage(ctx, filepath.Join(parityDir, "web_app"), opts)
-	require.NoError(t, err, "loading web_app fixture copy")
-	mod, err := k.NewModuleFromValue(modVal)
-	require.NoError(t, err)
+	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(parityDir, "instance"), opts)
+	require.NoError(t, err, "acquiring the import-authored instance package")
+	plat, err := k.AcquirePlatformFromDir(ctx, filepath.Join(parityDir, "opm_platform"), opts)
+	require.NoError(t, err, "acquiring the opm_platform fixture copy")
 
-	platVal, err := k.LoadPlatformPackage(ctx, filepath.Join(parityDir, "opm_platform"), opts)
-	require.NoError(t, err, "loading opm_platform fixture copy")
-	plat, err := k.NewPlatformFromValue(platVal)
-	require.NoError(t, err)
-	mp, err := k.Materialize(ctx, plat)
-	require.NoError(t, err, "materializing the platform against the published catalog")
-
-	// The instance enters by IMPORT on both sides: this is the same package
-	// the oracle imports, never a LookupPath+FillPath reconstruction.
-	instVal, err := k.LoadInstancePackage(ctx, filepath.Join(parityDir, "instance"), opts)
-	require.NoError(t, err, "loading the import-authored instance package")
-	inst, err := k.ProcessModuleInstance(ctx, instVal, *mod, cue.Value{})
-	require.NoError(t, err, "processing the instance")
-
-	plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-	require.NoError(t, err, "kernel match")
-	out, compileErr := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: parityRuntimeName})
+	res, renderErr := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: parityRuntimeName})
 
 	// ── oracle side ──────────────────────────────────────────────────
 	oracle := loadOracle(t, parityDir, "./shipped", registry)
 
-	// ── pair sets (spec: "Matched pair sets agree, with one stated exemption")
-	assertPairSetsAgree(t, plan, oraclePairs(t, oracle))
+	// ── one catalog build on both sides (0019 OQ3, executable) ───────
+	// The oracle imports the catalog through the parity module's cue.mod;
+	// Render resolves it through the platform module's. The two pins must
+	// name one build, or the comparison is between two catalogs.
+	oracleCatalog, err := oracle.LookupPath(cue.ParsePath("catalogVersion")).String()
+	require.NoError(t, err, "the oracle reports the catalog build it resolved")
+	require.NoError(t, renderErr, "Render must render the parity instance")
+	assert.Contains(t, res.Diagnostics.ResolvedVersions, kernel.ResolvedVersion{
+		Path:            "opmodel.dev/catalogs/opm@v4",
+		ModuleVersion:   "v" + oracleCatalog,
+		PlatformVersion: "v" + oracleCatalog,
+	}, "the platform module and the parity module must pin the catalog build the oracle resolved")
+
+	// ── pair sets (spec: "Matched pair sets agree") ──────────────────
+	pairs := oraclePairs(t, oracle)
+	assertPairSetsAgree(t, res.Diagnostics.Pairs, pairs)
 
 	// ── cases ────────────────────────────────────────────────────────
-	pairs := oraclePairs(t, oracle)
 	assertRowsCoverPairs(t, shippedCases, pairs)
 	for _, c := range shippedCases {
-		p := compile.MatchedPair{ComponentName: c.Component, TransformerFQN: c.Transformer}
+		p := kernel.RenderPair{Component: c.Component, Transformer: c.Transformer}
 		t.Run(c.Name, func(t *testing.T) {
-			assertParity(t, c, kernelRender(out, compileErr, p), oracleRender(oracle, p))
+			assertParity(t, c, kernelRender(res, renderErr, p), oracleRender(oracle, p))
 		})
 	}
 }
-
-// divergenceContextLabelOrder names the one divergence the shipped group
-// exhibits, measured on the harness's first run (2026-08-24): every rendered
-// object that carries the context-derived label set has the SAME labels and
-// values on both sides, in a different order. opm/schema/context.go decodes
-// metadata.labels into a Go map and re-encodes it, so the kernel hands the
-// transformer a sorted map where unification hands it CUE's evaluation
-// order (0019 D14: the natural order is the contract). Retired by the D12
-// projection slice, when #context stops being built in Go.
-const divergenceContextLabelOrder = "Go-built #context re-emits label maps sorted (opm/schema/context.go); CUE keeps evaluation order (0019 D12/D14)"
 
 const shippedCatalogPrefix = "opmodel.dev/catalogs/opm/transformers/"
 
 // shippedCases is the table for the shipped group, one row per pair the
 // oracle matches for the web_app fixture. The oracle's pair list is
-// asserted to equal this set, so a new pair cannot go untested.
+// asserted to equal this set, so a new pair cannot go untested. Every row
+// is structural with no expected divergence (0019 D4: the table is empty of
+// divergences once the enhancement is implemented).
 var shippedCases = []parityCase{
 	{
-		Name:               "config :: configmap-transformer",
-		Instance:           "testdata/parity/instance",
-		Component:          "config",
-		Transformer:        shippedCatalogPrefix + "configmap-transformer@4.0.1",
-		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder,
+		Name:        "config :: configmap-transformer",
+		Instance:    "testdata/parity/instance",
+		Component:   "config",
+		Transformer: shippedCatalogPrefix + "configmap-transformer@4.0.1",
+		Equality:    equalityStructural,
 	},
 	{
-		Name:               "web :: deployment-transformer",
-		Instance:           "testdata/parity/instance",
-		Component:          "web",
-		Transformer:        shippedCatalogPrefix + "deployment-transformer@4.0.1",
-		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder,
+		Name:        "web :: deployment-transformer",
+		Instance:    "testdata/parity/instance",
+		Component:   "web",
+		Transformer: shippedCatalogPrefix + "deployment-transformer@4.0.1",
+		Equality:    equalityStructural,
 	},
 	{
-		// The HPA carries no context-derived labels, so it is the one
-		// shipped pair that agrees today.
 		Name:        "web :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
 		Transformer: shippedCatalogPrefix + "hpa-transformer@4.0.1",
-		Equality:    equalityOutputFieldsOnly,
+		Equality:    equalityStructural,
 	},
 	{
-		Name:               "web :: http-route-transformer",
-		Instance:           "testdata/parity/instance",
-		Component:          "web",
-		Transformer:        shippedCatalogPrefix + "http-route-transformer@4.0.1",
-		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder,
+		Name:        "web :: http-route-transformer",
+		Instance:    "testdata/parity/instance",
+		Component:   "web",
+		Transformer: shippedCatalogPrefix + "http-route-transformer@4.0.1",
+		Equality:    equalityStructural,
 	},
 	{
-		// The guarded-env component. Its second cause, the finalization
-		// hoisting of comprehension-produced env entries, was retired by
-		// library-component-fill (no transformer receives a finalized value
-		// any more); only the label order every deployment shows remains.
-		Name:               "worker :: deployment-transformer",
-		Instance:           "testdata/parity/instance",
-		Component:          "worker",
-		Transformer:        shippedCatalogPrefix + "deployment-transformer@4.0.1",
-		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder,
+		// The guarded-env component (0019 D14): the env MAP assembled from
+		// plain fields, a feature-guarded block and a comprehension, folded
+		// into the Kubernetes env LIST by the deployment transformer, so any
+		// hoisting of comprehension-produced fields reaches rendered bytes.
+		Name:        "worker :: deployment-transformer",
+		Instance:    "testdata/parity/instance",
+		Component:   "worker",
+		Transformer: shippedCatalogPrefix + "deployment-transformer@4.0.1",
+		Equality:    equalityStructural,
 	},
 	{
 		Name:        "worker :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "worker",
 		Transformer: shippedCatalogPrefix + "hpa-transformer@4.0.1",
-		Equality:    equalityOutputFieldsOnly,
+		Equality:    equalityStructural,
 	},
 	{
-		Name:               "web :: service-transformer",
-		Instance:           "testdata/parity/instance",
-		Component:          "web",
-		Transformer:        shippedCatalogPrefix + "service-transformer@4.0.1",
-		Equality:           equalityOutputFieldsOnly,
-		ExpectedDivergence: divergenceContextLabelOrder,
+		Name:        "web :: service-transformer",
+		Instance:    "testdata/parity/instance",
+		Component:   "web",
+		Transformer: shippedCatalogPrefix + "service-transformer@4.0.1",
+		Equality:    equalityStructural,
 	},
 }
 
 // assertRowsCoverPairs requires the case table and the oracle's pair list to
 // name the same (component, transformer) set.
-func assertRowsCoverPairs(t *testing.T, rows []parityCase, pairs []compile.MatchedPair) {
+func assertRowsCoverPairs(t *testing.T, rows []parityCase, pairs []kernel.RenderPair) {
 	t.Helper()
 	rowSet := map[string]bool{}
 	for _, r := range rows {
@@ -207,25 +193,25 @@ func loadOracle(t *testing.T, dir, pkg, registry string) cue.Value {
 }
 
 // oraclePairs decodes the oracle's `pairs` list.
-func oraclePairs(t *testing.T, oracle cue.Value) []compile.MatchedPair {
+func oraclePairs(t *testing.T, oracle cue.Value) []kernel.RenderPair {
 	t.Helper()
 	var raw []struct {
 		Component   string `json:"component"`
 		Transformer string `json:"transformer"`
 	}
 	require.NoError(t, oracle.LookupPath(cue.ParsePath("pairs")).Decode(&raw), "decoding oracle pairs")
-	pairs := make([]compile.MatchedPair, 0, len(raw))
+	pairs := make([]kernel.RenderPair, 0, len(raw))
 	for _, r := range raw {
-		pairs = append(pairs, compile.MatchedPair{ComponentName: r.Component, TransformerFQN: r.Transformer})
+		pairs = append(pairs, kernel.RenderPair{Component: r.Component, Transformer: r.Transformer})
 	}
 	sortPairs(pairs)
 	return pairs
 }
 
 // oracleRender reads the oracle's rendered output for one pair, normalised
-// to one value per object the way compile.Execute flattens a list output.
-func oracleRender(oracle cue.Value, p compile.MatchedPair) parityRender {
-	key := p.ComponentName + " :: " + p.TransformerFQN
+// to one value per object the way Render splits a list output.
+func oracleRender(oracle cue.Value, p kernel.RenderPair) parityRender {
+	key := p.Component + " :: " + p.Transformer
 	v := oracle.LookupPath(cue.MakePath(cue.Str("rendered"), cue.Str(key)))
 	if !v.Exists() {
 		return parityRender{Err: fmt.Errorf("oracle rendered no entry for %q", key)}
@@ -251,78 +237,60 @@ func oracleRender(oracle cue.Value, p compile.MatchedPair) parityRender {
 	}
 }
 
-// kernelRender selects the kernel's Compiled objects for one pair, in the
-// order the kernel returned them. A Compile error is attributed to every
-// pair, because compile.Execute reports pair errors as one aggregate.
-func kernelRender(out *compile.CompileResult, compileErr error, p compile.MatchedPair) parityRender {
-	if compileErr != nil {
-		return parityRender{Err: compileErr}
+// kernelRender selects Render's objects for one pair, in the order Render
+// returned them (the build's pair order, then output order). A render error
+// is attributed to every pair, because the gate reports refusals as one
+// aggregate.
+func kernelRender(res *kernel.RenderResult, renderErr error, p kernel.RenderPair) parityRender {
+	if renderErr != nil {
+		return parityRender{Err: renderErr}
 	}
 	var objs []cue.Value
-	for _, c := range out.Compiled {
-		if c.Component == p.ComponentName && c.Transformer == p.TransformerFQN {
+	for _, c := range res.Compiled {
+		if c.Component == p.Component && c.Transformer == p.Transformer {
 			objs = append(objs, c.Value)
 		}
 	}
 	return parityRender{Objects: objs}
 }
 
-// assertPairSetsAgree compares the kernel's matched pairs with the oracle's.
-// A pair the oracle admits and the kernel refused through the always-unify
-// rung (0010 D30 carve-out; deleted by 0019 D10) is the single exemption:
-// reported, never counted as agreement.
-func assertPairSetsAgree(t *testing.T, plan *compile.MatchPlan, oracle []compile.MatchedPair) {
+// assertPairSetsAgree compares Render's matched pairs with the oracle's.
+// No exemption exists (0019 D10): the always-unify rung is plain unification
+// on both sides, so the two sets must be equal.
+func assertPairSetsAgree(t *testing.T, kernelPairs, oracle []kernel.RenderPair) {
 	t.Helper()
-	kernelPairs := plan.MatchedPairs()
-	sortPairs(kernelPairs)
-
-	unified := map[string]bool{}
-	for _, u := range plan.Unify {
-		unified[u.Component] = true
-	}
-
 	kset := pairSet(kernelPairs)
 	oset := pairSet(oracle)
-	var onlyKernel, onlyOracle, exempt []string
+	var onlyKernel, onlyOracle []string
 	for k := range kset {
 		if !oset[k] {
 			onlyKernel = append(onlyKernel, k)
 		}
 	}
 	for k := range oset {
-		if kset[k] {
-			continue
+		if !kset[k] {
+			onlyOracle = append(onlyOracle, k)
 		}
-		comp, _, _ := strings.Cut(k, " :: ")
-		if unified[comp] {
-			exempt = append(exempt, k)
-			continue
-		}
-		onlyOracle = append(onlyOracle, k)
 	}
 	sort.Strings(onlyKernel)
 	sort.Strings(onlyOracle)
-	sort.Strings(exempt)
-	for _, e := range exempt {
-		t.Logf("pair-set exemption (always-unify refusal, 0019 D10): kernel refused %s", e)
-	}
-	assert.Emptyf(t, onlyKernel, "pairs the kernel matched and the oracle did not")
-	assert.Emptyf(t, onlyOracle, "pairs the oracle matched and the kernel did not (no always-unify refusal recorded)")
+	assert.Emptyf(t, onlyKernel, "pairs Render matched and the oracle did not")
+	assert.Emptyf(t, onlyOracle, "pairs the oracle matched and Render did not")
 }
 
-func pairSet(ps []compile.MatchedPair) map[string]bool {
+func pairSet(ps []kernel.RenderPair) map[string]bool {
 	m := make(map[string]bool, len(ps))
 	for _, p := range ps {
-		m[p.ComponentName+" :: "+p.TransformerFQN] = true
+		m[p.Component+" :: "+p.Transformer] = true
 	}
 	return m
 }
 
-func sortPairs(ps []compile.MatchedPair) {
+func sortPairs(ps []kernel.RenderPair) {
 	sort.Slice(ps, func(i, j int) bool {
-		if ps[i].ComponentName != ps[j].ComponentName {
-			return ps[i].ComponentName < ps[j].ComponentName
+		if ps[i].Component != ps[j].Component {
+			return ps[i].Component < ps[j].Component
 		}
-		return ps[i].TransformerFQN < ps[j].TransformerFQN
+		return ps[i].Transformer < ps[j].Transformer
 	})
 }

@@ -2,315 +2,98 @@ package kernel_test
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
 
-	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/compile"
-	oerrors "github.com/open-platform-model/library/opm/errors"
+	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
 // This is the always-on, fully hermetic integration harness. It drives the
-// public Kernel API (Materialize → Match → Compile) against
-// in-memory catalogs, with no localhost:5000 dependency. The live, real-catalog
-// flow lives in flow_integration_test.go (gated by skipUnlessRegistry).
-//
-// Divergent-FQN, named-version-absent, major-disagreement, identity-mismatch,
-// and disabled-subscription resolution are covered at the materialize-package
-// level (opm/materialize/materialize_test.go);
-// this harness focuses on the kernel surface and the Match→Compile path.
+// public Kernel API (AcquireModuleFromRegistry → SynthesizeInstance →
+// AcquirePlatformFromDir → Render) against in-memory catalogs and modules,
+// with no localhost:5000 dependency. The live, real-catalog flow lives in
+// flow_integration_test.go (gated by skipUnlessRegistry); every matching
+// and execution outcome (unresolved demands, disqualified candidates, trait
+// postures, failing and incomplete pairs, the single-provider guard) is
+// exercised by render_test.go against the committed testdata/render
+// fixtures.
 
-// standardCatalog is the common two-transformer catalog: "deployment" requires
-// the container resource and emits a single struct (→ 1 Compiled), "configmap"
-// requires the config-maps resource and emits a two-element list (→ 2 Compiled).
-func standardCatalog(path, version string) registrytest.CatalogFixture {
-	return registrytest.CatalogFixture{
-		Path:    path,
-		Version: version,
-		Body: registrytest.BuildCatalog(path, version,
-			registrytest.TxFixture{
-				Name:      "deployment",
-				Resources: []string{"container"},
-				Output:    `{ kind: "Deployment" }`,
-			},
-			registrytest.TxFixture{
-				Name:      "configmap",
-				Resources: []string{"config-maps"},
-				Output:    `[ {kind: "ConfigMap", n: 1}, {kind: "ConfigMap", n: 2} ]`,
-			},
-		),
-	}
-}
+func TestIntegration_Render(t *testing.T) {
+	const version = "0.1.0"
+	catPath := registrytest.UniquePath(t, "cat")
+	modPath := registrytest.UniquePath(t, "modules") + "/two_app"
+	mapping := registrytest.NewModuleRegistry(t,
+		[]registrytest.ModuleFixture{{Path: modPath, Version: version, File: twoComponentModuleFile(modPath, catPath, version)}},
+		[]registrytest.CatalogFixture{standardCatalog(catPath, version)},
+	)
+	k := kernel.New(kernel.WithRegistry(mapping))
+	inst := synthesizeInstance(t, k, modPath, version, "demo")
+	plat := acquireCatalogPlatform(t, k, mapping, catPath, version)
 
-func TestIntegration_Materialize(t *testing.T) {
-	t.Run("happy single subscription", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-		require.NotNil(t, mp)
-		assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")], "resolved version recorded")
-		assert.True(t,
-			mp.Matchers.LookupPath(cue.ParsePath("resources")).Exists(),
-			"materialized platform carries #matchers")
-	})
-
-	t.Run("authored version selected among several published", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t,
-			standardCatalog(path, "0.1.0"),
-			standardCatalog(path, "0.2.0"),
-		)
-
-		// The authored scalar — not the highest published (0.2.0) — is pulled
-		// (0010 D14: the platform file IS the resolution).
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-		assert.Equal(t, "0.1.0", mp.Resolved[subKey(path, "0.1.0")], "authored version resolved")
-	})
-
-	t.Run("unresolvable path errors with catalog kind", func(t *testing.T) {
-		published := registrytest.UniquePath(t, "cat")
-		missing := registrytest.UniquePath(t, "missing")
-		k := newKernelWithCatalogs(t, standardCatalog(published, "0.1.0"))
-
-		_, err := materializePlatform(t, k, "0.1.0", missing)
-		require.Error(t, err)
-		var me *oerrors.MaterializeError
-		require.ErrorAs(t, err, &me)
-		assert.Equal(t, oerrors.MaterializeKindCatalog, me.Kind)
-		assert.Equal(t, subKey(missing, "0.1.0"), me.Subscription)
-	})
-}
-
-func TestIntegration_MatchCompile(t *testing.T) {
-	path := registrytest.UniquePath(t, "cat")
-	k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-	mp, err := materializePlatform(t, k, "0.1.0", path)
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
 
-	inst := buildInstance(t, k, path, "0.1.0", "", "",
-		compSpec{name: "web", resources: []string{"container"}},
-		compSpec{name: "config", resources: []string{"config-maps"}},
-	)
-	ctx := context.Background()
-
-	t.Run("Match pairs both components", func(t *testing.T) {
-		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-		require.NoError(t, err)
-		pairs := matchPairsToMap(plan.MatchedPairs())
+	t.Run("pairs both components", func(t *testing.T) {
+		pairs := pairsByComponent(res.Diagnostics.Pairs)
 		assertContainsFQNSub(t, pairs["web"], "transformers/deployment@", "web → deployment")
 		assertContainsFQNSub(t, pairs["config"], "transformers/configmap@", "config → configmap")
-		assert.Empty(t, plan.Unmatched)
-		assert.Empty(t, plan.Unresolved)
+		assert.Empty(t, res.Diagnostics.Unmatched)
+		assert.Empty(t, res.Diagnostics.Unresolved)
+		assert.Empty(t, res.Diagnostics.Unify)
 	})
 
-	t.Run("Compile dispatches struct and list outputs", func(t *testing.T) {
-		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.NoError(t, err)
-		require.NotNil(t, out)
-
+	t.Run("dispatches struct and list outputs", func(t *testing.T) {
 		perComp := map[string]int{}
-		for _, c := range out.Compiled {
+		for _, c := range res.Compiled {
+			assert.Equal(t, "demo", c.Instance)
 			perComp[c.Component]++
 		}
 		assert.Equal(t, 1, perComp["web"], "struct output → one Compiled")
 		assert.Equal(t, 2, perComp["config"], "two-element list output → two Compiled")
-
-		// Component summaries ride on the CompileResult (the retired Plan verb
-		// exposed the same slice).
-		require.Len(t, out.Components, 2)
-		byName := map[string]compile.ComponentSummary{}
-		for _, c := range out.Components {
-			byName[c.Name] = c
-		}
-		assertContainsFQNSub(t, byName["web"].ResourceFQNs, "resources/container@", "web declares container")
-		assertContainsFQNSub(t, byName["config"].ResourceFQNs, "resources/config-maps@", "config declares config-maps")
-	})
-
-	t.Run("Compile requires runtime name", func(t *testing.T) {
-		_, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "RuntimeName must be non-empty")
 	})
 }
 
-func TestIntegration_Compile_UnmatchedComponentErrors(t *testing.T) {
-	path := registrytest.UniquePath(t, "cat")
-	k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-	mp, err := materializePlatform(t, k, "0.1.0", path)
-	require.NoError(t, err)
-
-	// "web" declares a resource short-name the catalog does not publish.
-	inst := buildInstance(t, k, path, "0.1.0", "", "",
-		compSpec{name: "web", resources: []string{"does-not-exist"}},
+// TestIntegration_Render_PinnedCatalogBuildExecutes pins 0010 D14 on the
+// D5 shape: the platform module's cue.mod names the exact catalog build the
+// render executes, not the highest published one.
+func TestIntegration_Render_PinnedCatalogBuildExecutes(t *testing.T) {
+	catPath := registrytest.UniquePath(t, "cat")
+	modPath := registrytest.UniquePath(t, "modules") + "/two_app"
+	mapping := registrytest.NewModuleRegistry(t,
+		[]registrytest.ModuleFixture{{Path: modPath, Version: "0.1.0", File: twoComponentModuleFile(modPath, catPath, "0.1.0")}},
+		[]registrytest.CatalogFixture{standardCatalog(catPath, "0.1.0"), standardCatalog(catPath, "0.2.0")},
 	)
+	k := kernel.New(kernel.WithRegistry(mapping))
+	inst := synthesizeInstance(t, k, modPath, "0.1.0", "demo")
+	plat := acquireCatalogPlatform(t, k, mapping, catPath, "0.1.0")
 
-	_, err = k.Compile(context.Background(), kernel.CompileInput{
-		ModuleInstance: inst, Platform: mp, RuntimeName: "rt",
-	})
-	require.Error(t, err)
-	var uce *compile.UnmatchedComponentsError
-	require.ErrorAs(t, err, &uce)
-	assert.Contains(t, uce.Components, "web")
-}
-
-// TestIntegration_Compile_UnresolvedDemands covers D28's demand-resolution
-// gate on the public Kernel surface: undemandable resources and load-bearing
-// unhandled traits fail Compile with the typed aggregate; effectively-optional
-// unhandled traits stay warnings; the D4 different-apiVersion diagnostic names
-// the alternative. Match stays phase-only throughout (returns the diagnosis,
-// never fails on it).
-func TestIntegration_Compile_UnresolvedDemands(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("undemandable resource fails Compile", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-
-		inst := buildInstance(t, k, path, "0.1.0", "", "",
-			compSpec{name: "web", resources: []string{"container", "does-not-exist"}},
-		)
-
-		// Match is phase-only: the diagnosis is returned, not failed.
-		plan, err := k.Match(ctx, kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-		require.NoError(t, err)
-		require.NotEmpty(t, plan.Unresolved)
-
-		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.Error(t, err)
-		var agg *oerrors.UnresolvedDemandsError
-		require.ErrorAs(t, err, &agg)
-		var demand oerrors.UnresolvedDemand
-		require.ErrorAs(t, err, &demand)
-		assert.Equal(t, "web", demand.Component)
-		assert.Equal(t, "resource", demand.Kind)
-		assert.Contains(t, demand.FQN, "does-not-exist")
-		assert.Empty(t, demand.Alternatives, "no other version of this contract exists")
-	})
-
-	t.Run("load-bearing unhandled trait fails Compile", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-
-		inst := buildInstance(t, k, path, "0.1.0", "", "",
-			compSpec{
-				name:          "web",
-				resources:     []string{"container"},
-				traits:        []string{"backup"},
-				traitPostures: map[string]string{"backup": "bool | *false"},
-			},
-		)
-
-		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.Error(t, err)
-		var demand oerrors.UnresolvedDemand
-		require.ErrorAs(t, err, &demand)
-		assert.Equal(t, "trait", demand.Kind)
-		assert.Contains(t, demand.FQN, "backup")
-		assert.False(t, demand.UnstatedPosture, "posture was stated, just load-bearing")
-	})
-
-	t.Run("unstated posture fails closed", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-
-		inst := buildInstance(t, k, path, "0.1.0", "", "",
-			compSpec{
-				name:          "web",
-				resources:     []string{"container"},
-				traits:        []string{"backup"},
-				traitPostures: map[string]string{"backup": "bool"},
-			},
-		)
-
-		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.Error(t, err)
-		var demand oerrors.UnresolvedDemand
-		require.ErrorAs(t, err, &demand)
-		assert.True(t, demand.UnstatedPosture)
-		assert.Contains(t, err.Error(), "no optional posture")
-	})
-
-	t.Run("optional unhandled trait warns", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-
-		inst := buildInstance(t, k, path, "0.1.0", "", "",
-			compSpec{
-				name:      "web",
-				resources: []string{"container"},
-				traits:    []string{"backup"}, // default posture: bool | *true
-			},
-		)
-
-		out, err := k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.NoError(t, err, "an effectively-optional unhandled trait must not fail")
-		require.NotEmpty(t, out.Warnings)
-		assert.Contains(t, out.Warnings[0], "backup")
-	})
-
-	t.Run("different apiVersion named as alternative", func(t *testing.T) {
-		path := registrytest.UniquePath(t, "cat")
-		k := newKernelWithCatalogs(t, standardCatalog(path, "0.1.0"))
-		mp, err := materializePlatform(t, k, "0.1.0", path)
-		require.NoError(t, err)
-
-		demanded := path + "/resources/container@v9"
-		inst := buildInstance(t, k, path, "0.1.0", "", "",
-			compSpec{name: "web", resourceKeys: []string{demanded}},
-		)
-
-		_, err = k.Compile(ctx, kernel.CompileInput{ModuleInstance: inst, Platform: mp, RuntimeName: "rt"})
-		require.Error(t, err)
-		var demand oerrors.UnresolvedDemand
-		require.ErrorAs(t, err, &demand)
-		assert.Equal(t, demanded, demand.FQN)
-		assert.Contains(t, demand.Alternatives, resFQN(path, "container"),
-			"the published contract level is named as an alternative")
-		assert.Contains(t, err.Error(), "different apiVersion")
-	})
-}
-
-func TestIntegration_Match_UnresolvedDemandRecordsAlternatives(t *testing.T) {
-	path := registrytest.UniquePath(t, "cat")
-	// Catalog publishes the container contract at ContractAPIVersion ("v1");
-	// the component below demands the same contract at an unpublished level.
-	k := newKernelWithCatalogs(t, standardCatalog(path, "0.2.0"))
-	mp, err := materializePlatform(t, k, "0.2.0", path)
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
-
-	demanded := path + "/resources/container@v9"
-	inst := buildInstance(t, k, path, "0.2.0", "", "",
-		compSpec{name: "web", resourceKeys: []string{demanded}},
-	)
-
-	plan, err := k.Match(context.Background(), kernel.MatchInput{ModuleInstance: inst, Platform: mp})
-	require.NoError(t, err)
-	require.NotEmpty(t, plan.Unresolved, "demanded FQN at an unpublished contract level is a hard miss")
-
-	var found *oerrors.UnresolvedDemand
-	for i := range plan.Unresolved {
-		if plan.Unresolved[i].Component == "web" {
-			found = &plan.Unresolved[i]
-			break
-		}
+	require.NotEmpty(t, res.Diagnostics.Pairs)
+	for _, p := range res.Diagnostics.Pairs {
+		assert.True(t, strings.HasSuffix(p.Transformer, "@0.1.0"), "the pinned build executed, not the newest published: %s", p.Transformer)
 	}
-	require.NotNil(t, found, "unresolved demand recorded for web")
-	assert.Equal(t, demanded, found.FQN)
-	// The published contract level shares modulePath/name → surfaced as an alternative.
-	assert.Contains(t, found.Alternatives, resFQN(path, "container"))
+}
+
+// TestIntegration_Render_UnpublishedCatalogFailsAtAcquire pins where an
+// unresolvable catalog surfaces on the D5 shape: the platform module's
+// import does not resolve, so acquisition fails naming the path and no
+// render is attempted.
+func TestIntegration_Render_UnpublishedCatalogFailsAtAcquire(t *testing.T) {
+	published := registrytest.UniquePath(t, "cat")
+	missing := registrytest.UniquePath(t, "missing")
+	k, mapping := newKernelWithCatalogs(t, standardCatalog(published, "0.1.0"))
+
+	platDir := writeCatalogPlatform(t, t.TempDir(), missing, "0.1.0")
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir, loaderfile.LoadOptions{Registry: mapping})
+	require.Error(t, err)
+	assert.Nil(t, plat)
+	assert.Contains(t, err.Error(), missing, "the failure names the catalog path the platform imports")
+	assert.Contains(t, err.Error(), filepath.Base(platDir))
 }

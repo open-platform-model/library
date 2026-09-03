@@ -157,3 +157,14 @@ func TestPublicRegistry_Value(t *testing.T) {
 	const expected = "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
 	assert.Equal(t, expected, schema.PublicRegistry)
 }
+
+// TestDefaultSchemaModule_PinsVerifiedRelease pins the default schema
+// identifier to the exact core release the render glue and fixtures were
+// verified against (spec schema-dispatch, "DefaultSchemaModule constant").
+// Advancing it is a deliberate change that re-verifies the glue and the
+// fixtures against the new release, never a drift.
+func TestDefaultSchemaModule_PinsVerifiedRelease(t *testing.T) {
+	assert.Equal(t, "opmodel.dev/core@v2.0.0-alpha.7", schema.DefaultSchemaModule)
+	assert.False(t, strings.HasSuffix(schema.DefaultSchemaModule, "@v2"),
+		"the default must name an exact release, never the floating major")
+}

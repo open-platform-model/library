@@ -29,9 +29,10 @@
 // part of redesign-config-validation.
 //
 // The opm/helper/platform subpackage (the Compose helper) was removed as
-// part of rewrite-match-materialized: platform realization now goes through
-// the subscription #registry plus (*Kernel).Materialize. See the
-// rewrite-match-materialized change in openspec/changes/archive/.
+// part of rewrite-match-materialized, and platform synthesis (synth.Platform)
+// with library-render-cutover: a platform is a CUE module on disk importing
+// its catalogs, acquired with (*Kernel).AcquirePlatformFromDir and rendered
+// against with (*Kernel).Render. See openspec/changes/archive/.
 //
 // Planned subpackages (added by their respective slices):
 //
