@@ -49,6 +49,14 @@ type ArtifactSpec struct {
 	ExpectedKind           string
 	RequiredConcreteFields []string
 	ModuleRefs             []ModuleRef
+
+	// CompleteEntryMaps lists paths to maps whose every entry must be
+	// complete: each regular field of each entry validates under
+	// cue.Concrete(true). An absent map passes. Used for #Platform.#registry,
+	// where core derives an entry's `version` from the catalog the entry
+	// embeds (enhancement 0019 D5), so an entry with no embedded catalog is
+	// incomplete exactly where the catalog would have completed it.
+	CompleteEntryMaps []string
 }
 
 // ModuleRef locates an embedded #Module value within an artifact: Path points
@@ -74,13 +82,17 @@ var (
 		ModuleRefs:             []ModuleRef{{Path: "#module"}},
 	}
 
-	// #Platform.#registry carries path-keyed #Subscription values (enhancement
-	// 0001), not embedded #Module registrations — so there is no per-entry
-	// #module to gate here. Subscription resolution is the materialize layer's
-	// contract; the loader only checks the platform's own identity.
+	// #Platform.#registry carries path-keyed #CatalogEntry values, each
+	// embedding its catalog by import (enhancement 0019 D5). Core derives the
+	// entry's `version` from the embedded catalog's stamped metadata, so an
+	// entry that names no catalog (the retired subscription shape: a
+	// `version` scalar and nothing else) is refused here as a missing
+	// required field naming the entry. #registry is a definition, so no
+	// root-level validation reaches it; the gate walks it explicitly.
 	PlatformSpec = ArtifactSpec{
 		ExpectedKind:           "Platform",
 		RequiredConcreteFields: []string{"metadata.name", "type"},
+		CompleteEntryMaps:      []string{"#registry"},
 	}
 )
 
@@ -110,6 +122,43 @@ func Gate(val cue.Value, spec ArtifactSpec) error {
 		}
 	}
 
+	for _, path := range spec.CompleteEntryMaps {
+		if err := requireCompleteEntries(val, path); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// requireCompleteEntries asserts that every entry of the map at path (a
+// struct keyed by string) has every regular field complete under
+// cue.Concrete(true). Definitions and hidden fields inside an entry are not
+// visited: for a #Platform.#registry entry that is the embedded #catalog,
+// whose transformer bodies are open by design. An absent map passes; a map
+// whose entries cannot be iterated is a missing-field failure.
+func requireCompleteEntries(val cue.Value, path string) error {
+	m := val.LookupPath(cue.ParsePath(path))
+	if !m.Exists() {
+		return nil
+	}
+	entries, err := m.Fields()
+	if err != nil {
+		return fmt.Errorf("required field %q: %v: %w", path, err, ErrMissingRequiredField)
+	}
+	for entries.Next() {
+		key := entries.Selector().Unquoted()
+		fields, err := entries.Value().Fields()
+		if err != nil {
+			return fmt.Errorf("required field %q entry %q: %v: %w", path, key, err, ErrMissingRequiredField)
+		}
+		for fields.Next() {
+			if err := fields.Value().Validate(cue.Concrete(true)); err != nil {
+				return fmt.Errorf("required field %q entry %q is incomplete at %q (an embedded catalog supplies it): %v: %w",
+					path, key, fields.Selector().Unquoted(), err, ErrMissingRequiredField)
+			}
+		}
+	}
 	return nil
 }
 
