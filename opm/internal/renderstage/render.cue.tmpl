@@ -252,6 +252,37 @@ match: #Match & {
 	#components:   _components
 }
 
+// ── Single-provider guard (0010 D32/D37), in-build since
+// library-render-cutover. For every enabled registry entry, every
+// transformer it contributes and every REQUIRED contract that transformer
+// declares with `fulfilment: "provider"`, the entry's registry key is
+// collected per contract key. Provenance is the registry key (core binds it
+// to the embedded catalog's metadata.modulePath, so it is the path@major
+// string), never a value parsed off an FQN or read off the transformer. A
+// key supplied by more than one entry is an over-subscription row and the
+// gate refuses. Divergent fulfilment across copies cannot occur in one build
+// (one set of catalog bytes) and is not checked; default (catalog)
+// fulfilment admits any number of suppliers.
+guard: {
+	_providerSuppliers: {
+		for rkey, entry in platform.#registry if entry.enable
+		for _, tf in entry.#transformers {
+			if tf.requiredResources != _|_ {
+				for fqn, req in tf.requiredResources
+				if req.fulfilment == "provider" {(fqn): (rkey): true}
+			}
+			if tf.requiredTraits != _|_ {
+				for fqn, req in tf.requiredTraits
+				if req.fulfilment == "provider" {(fqn): (rkey): true}
+			}
+		}
+	}
+	overSubscribed: [
+		for _k, suppliers in _providerSuppliers
+		if len(suppliers) > 1 {{key: _k, catalogs: [for rkey, _ in suppliers {rkey}]}},
+	]
+}
+
 // Each matched pair's #transform, unified with all three inputs whole:
 // #moduleInstance and #component as imported (siblings, definitions and
 // hidden fields intact), #context's metadata blocks projected by core from
@@ -280,6 +311,7 @@ diagnostics: {
 	unifyFailures:       match.unifyFailures
 	bucketKeys:          match.bucketKeys
 	resolved:            match.resolved
+	overSubscribed:      guard.overSubscribed
 	// Every attached trait's effective posture. A posture the catalog never
 	// stated is an incomplete bool here, which is how the kernel names the
 	// trait behind an otherwise anonymous non-concrete verdict.
@@ -304,7 +336,8 @@ diagnostics: {
 	]
 }
 
-// The fail-closed gate (0010 D28) as one unification: an unresolved demand
-// or an unmatched component refuses the build here, while `diagnostics`
-// stays readable and concrete beside it through the Go API.
-gate: match.resolved & true
+// The fail-closed gate (0010 D28, D37) as one unification: an unresolved
+// demand, an unmatched component or an over-subscribed provider-fulfilled
+// contract refuses the build here, while `diagnostics` stays readable and
+// concrete beside it through the Go API.
+gate: match.resolved & (len(guard.overSubscribed) == 0) & true

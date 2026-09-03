@@ -125,6 +125,23 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	spec: broken: note?: string
 }
 
+// Declared `fulfilment: "provider"` (0010 D32): this catalog ships
+// gateway-transformer as its one provider, and a platform must carry exactly
+// one transformer requiring this key. cat2 0.2.0 ships a second one, which
+// is the over-subscription the in-build single-provider guard refuses.
+#GatewayResource: c.#Resource & {
+	metadata: {
+		name:           "gateway"
+		modulePath:     "\(_res)/v1"
+		apiVersion:     "v1"
+		catalogVersion: _version
+		fqn:            "\(_res)/gateway@v1"
+		description:    "A provider-fulfilled contract"
+	}
+	fulfilment: "provider"
+	spec: gateway: host!: string
+}
+
 // ── Traits ──────────────────────────────────────────────────────────
 
 // Advisory posture; handled by service-transformer.
@@ -279,6 +296,24 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 					data: cm.data
 				},
 			]
+		}
+	}
+
+	"\(_tx)/gateway-transformer@\(_version)": {
+		metadata: {
+			name:        "gateway-transformer"
+			fqn:         "\(_tx)/gateway-transformer@\(_version)"
+			description: "This catalog's one provider for the gateway contract"
+		}
+		requiredResources: (#GatewayResource.metadata.fqn): #GatewayResource
+		#transform: {
+			#component: _
+			output: {
+				apiVersion: "v1"
+				kind:       "Gateway"
+				metadata: name: #component.#names.resourceName
+				spec: host:     #component.spec.gateway.host
+			}
 		}
 	}
 

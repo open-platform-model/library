@@ -498,3 +498,66 @@ func TestRender_PairSetMatchesOldPath(t *testing.T) {
 
 	assert.Equal(t, oldPairs, newPairs, "the in-build matcher reproduces the Go matcher's pair set")
 }
+
+// The single-provider guard in-build (0010 D32/D37; library-render-cutover).
+// platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
+// a transformer requiring cat's provider-fulfilled gateway contract.
+func TestRender_OverSubscribedProviderRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform_oversubscribed")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr, "the refusal is the gate, with the decoded diagnostics beside it")
+
+	gateway := renderCatPath + "/resources/gateway@v1"
+	var ose oerrors.OverSubscribedContractError
+	require.ErrorAs(t, err, &ose)
+	assert.Equal(t, gateway, ose.Key)
+	assert.Equal(t, []string{renderPrefix + "/cat2@v0", renderCatPath + "@v0"}, ose.Catalogs,
+		"provenance is the registry key of each supplying entry, sorted")
+	assert.Equal(t, []oerrors.OverSubscribedContractError{ose}, rerr.Diagnostics.OverSubscribed)
+	assert.Contains(t, err.Error(), `fulfilment "provider"`)
+	assert.Contains(t, err.Error(), "exactly one provider")
+
+	// The matching verdicts stay readable beside the refusal, and nothing
+	// else is wrong with this platform: the guard is the only cause.
+	assert.Equal(t, []string{
+		"config :: configmap-transformer@0.1.0",
+		"web :: deployment-transformer@0.1.0",
+		"web :: service-transformer@0.1.0",
+		"web :: " + renderPrefix + "/cat2/transformers/mirror-transformer@0.2.0",
+	}, renderPairSet(rerr.Diagnostics.Pairs))
+	assert.Empty(t, rerr.Diagnostics.Unresolved)
+	assert.Empty(t, rerr.Diagnostics.Unmatched)
+	assert.Empty(t, rerr.Diagnostics.FailedPairs)
+	var unresolved *oerrors.UnresolvedDemandsError
+	assert.False(t, errors.As(err, &unresolved))
+}
+
+// platform_two carries cat 0.1.0 and cat2 0.1.0: two catalogs supplying
+// transformers for the container contract, whose fulfilment is the default
+// (catalog). Plurality is admitted and every candidate participates.
+func TestRender_CatalogFulfilledPluralityRenders(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform_two")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err, "catalog-fulfilled keys admit any number of suppliers")
+	assert.Empty(t, res.Diagnostics.OverSubscribed)
+	assert.Equal(t, []string{
+		"config :: configmap-transformer@0.1.0",
+		"web :: deployment-transformer@0.1.0",
+		"web :: service-transformer@0.1.0",
+		"web :: " + renderPrefix + "/cat2/transformers/mirror-transformer@0.1.0",
+	}, renderPairSet(res.Diagnostics.Pairs))
+	assert.ElementsMatch(t, []string{
+		"config/ConfigMap/app",
+		"web/Deployment/web-demo-web",
+		"web/Mirror/web-demo-web",
+		"web/Service/web-demo-web",
+	}, compiledSummary(t, res.Compiled))
+}
