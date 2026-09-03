@@ -16,6 +16,7 @@ import (
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 func TestNew_Default(t *testing.T) {
@@ -256,4 +257,35 @@ func TestKernel_PrunedSurface(t *testing.T) {
 
 	_, found = reflect.TypeOf(kernel.RenderInput{}).FieldByName("Values")
 	assert.False(t, found, "RenderInput must not carry a Values field; values enter through ProcessModuleInstance")
+}
+
+// markerLoader is a schema.Loader that compiles a marker definition instead
+// of resolving a registry, so a test can tell which loader backs a cache.
+type markerLoader struct{ calls int }
+
+func (l *markerLoader) Load(ctx *cue.Context) (cue.Value, error) {
+	l.calls++
+	return ctx.CompileString(`#Marker: true`), nil
+}
+
+// TestKernel_WithSchemaLoaderBacksTheCache pins the WithSchemaLoader option:
+// the supplied Loader is what the kernel-owned cache resolves through, the
+// cache memoizes one Load, and a nil Loader is ignored (the default
+// OCILoader applies), so the option never yields a cache with no loader.
+func TestKernel_WithSchemaLoaderBacksTheCache(t *testing.T) {
+	ml := &markerLoader{}
+	k := kernel.New(kernel.WithSchemaLoader(ml))
+	require.NotNil(t, k.SchemaCache())
+
+	val, err := k.SchemaCache().Get(k.CueContext())
+	require.NoError(t, err)
+	assert.True(t, val.LookupPath(cue.ParsePath("#Marker")).Exists(), "the cache resolves through the supplied loader")
+	_, err = k.SchemaCache().Get(k.CueContext())
+	require.NoError(t, err)
+	assert.Equal(t, 1, ml.calls, "one Load per cache")
+
+	var nilLoader schema.Loader
+	k2 := kernel.New(kernel.WithSchemaLoader(nilLoader))
+	require.NotNil(t, k2.SchemaCache(), "a nil loader is ignored, the default applies")
+	assert.NotSame(t, k.SchemaCache(), k2.SchemaCache(), "one Cache per Kernel")
 }
