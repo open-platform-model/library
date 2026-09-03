@@ -20,6 +20,14 @@ vars:
     testdata/parity
     testdata/parity/opm_platform
 
+  # The subset of CUE_MODULE_GLOBS the publish tasks may push to the local
+  # registry: the fixture modules cue-versions.yml tracks. The platform
+  # fixtures and the parity oracle are consumed on disk by the tests, never
+  # published, and their headers say so; discovery for fmt/vet/tidy/deps still
+  # covers them through CUE_MODULE_GLOBS.
+  CUE_PUBLISHABLE_GLOBS: |
+    testdata/modules/*
+
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
   # All-local mapping, forced in-script by the publish tasks only (Registry
@@ -490,6 +498,17 @@ tasks:
           echo "Module not found: ${DIR}" >&2
           exit 1
         fi
+        publishable=0
+        while IFS= read -r glob; do
+          [ -z "$glob" ] && continue
+          for dir in $glob; do
+            [ "${dir%/}" = "${DIR%/}" ] && publishable=1
+          done
+        done <<< '{{.CUE_PUBLISHABLE_GLOBS}}'
+        if [ "$publishable" -ne 1 ]; then
+          echo "Refusing to publish ${DIR}: not in CUE_PUBLISHABLE_GLOBS (platform fixtures and the parity oracle are consumed on disk, never published)" >&2
+          exit 1
+        fi
         if [ -n "{{.VERSION}}" ]; then
           VERSION="{{.VERSION}}"
         else
@@ -503,9 +522,11 @@ tasks:
         echo "Published ${DIR}@${VERSION}"
 
   cue:publish:smart:
-    desc: Detect changes per CUE module, bump versions, publish in dependency order
+    desc: Detect changes per publishable CUE module, bump versions, publish in dependency order
     summary: |
-      Auto-discovers CUE modules via CUE_MODULE_GLOBS in Taskfile.yml.
+      Auto-discovers publishable CUE modules via CUE_PUBLISHABLE_GLOBS in
+      Taskfile.yml (the platform fixtures and the parity oracle are never
+      published; they are discovered by CUE_MODULE_GLOBS for fmt/vet only).
 
       For each module, computes a SHA-256 checksum of .cue files (excluding
       cue.mod/), compares with the stored checksum in cue-versions.yml, and
@@ -569,8 +590,8 @@ tasks:
           echo "v${major}.${minor}.${patch}"
         }
 
-        # ── Discover modules ──────────────────────────────────────────
-        echo -e "${BOLD}Discovering CUE modules...${RESET}"
+        # ── Discover publishable modules ──────────────────────────────
+        echo -e "${BOLD}Discovering publishable CUE modules...${RESET}"
 
         MOD_DIRS=()
         MOD_PATHS=()
@@ -583,7 +604,7 @@ tasks:
             MOD_PATHS+=("$path")
             echo -e "  ${DIM}${dir} → ${path}${RESET}"
           done
-        done <<< '{{.CUE_MODULE_GLOBS}}'
+        done <<< '{{.CUE_PUBLISHABLE_GLOBS}}'
 
         if [ ${#MOD_DIRS[@]} -eq 0 ]; then
           echo -e "${YELLOW}No modules discovered.${RESET}"
