@@ -68,4 +68,4 @@ None.
 
 - Code as listed above; `Taskfile.yml` race targets (`opm/kernel`, `opm/compile`) drop the deleted package.
 - Docs: ADR-005 (new), ADR-002/003 status headers, `opm/kernel/doc.go`, `opm/platform/doc.go`, `README.md`, `docs/getting-started.md`, `CLAUDE.md`, `docs/design/compile-pipeline-known-gaps.md` (materialize-era notes retired).
-- `enhancement.yaml` declares 0019 D8, D9, D10, D13.
+- `enhancement.yaml` declares 0019 D8, D9, D10, D13 and D26 (the in-build single-provider guard).
