@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.25](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.24...v1.0.0-alpha.25) (2026-09-04)
+
+
+### Bug Fixes
+
+* **renderstage:** mark each input module default so its self-imports resolve ([#108](https://github.com/open-platform-model/library/issues/108)) ([4234b65](https://github.com/open-platform-model/library/commit/4234b65343800b491415d45f694bad4e86805206))
+
 ## [1.0.0-alpha.24](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.23...v1.0.0-alpha.24) (2026-09-03)
 
 
