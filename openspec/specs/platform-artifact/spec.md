@@ -63,54 +63,6 @@ The library SHALL expose `LoadPlatformPackage(ctx *cue.Context, dirPath string, 
 - **WHEN** a caller invokes `(k *Kernel) LoadPlatformPackage(ctx, dirPath, opts)`
 - **THEN** the result is identical to calling `loaderfile.LoadPlatformPackage` with `k.CueContext()`
 
-### Requirement: Binding Path Constants for Platform Views
-
-Each version binding (`opm/api/<version>/`) SHALL expose path constants for navigating a Platform package: `Paths().Registry`, `Paths().KnownResources`, `Paths().KnownTraits`, `Paths().ComposedTransformers`, `Paths().Matchers`. The binding SHALL also expose `DecodePlatformMetadata(v cue.Value) (*platform.PlatformMetadata, error)`.
-
-#### Scenario: Registry path on v1alpha2
-
-- **WHEN** code reads `binding.Paths().Registry` for the v1alpha2 binding
-- **THEN** the path resolves to `#registry` within a Platform package
-
-#### Scenario: Composed transformers path on v1alpha2
-
-- **WHEN** code reads `binding.Paths().ComposedTransformers`
-- **THEN** the path resolves to `#composedTransformers`
-
-#### Scenario: Matchers path on v1alpha2
-
-- **WHEN** code reads `binding.Paths().Matchers`
-- **THEN** the path resolves to `#matchers`
-
-#### Scenario: DecodePlatformMetadata on v1alpha2
-
-- **WHEN** code invokes `binding.DecodePlatformMetadata(v)` on a v1alpha2 Platform value
-- **THEN** the returned `*PlatformMetadata` has `Name`, `Type`, `Description`, `Labels`, `Annotations` populated from the value
-
-### Requirement: Optional Platform Field on Phase Inputs
-
-The phase input structs (`MatchInput`, `CompileInput`) SHALL carry a required `Platform *materialize.MaterializedPlatform` field. The field is the realized platform; a raw `*platform.Platform` is not accepted, and a caller MUST `Materialize` before invoking either phase.
-
-#### Scenario: Platform field present and optional
-
-- **WHEN** a developer reads `MatchInput` or `CompileInput`
-- **THEN** each struct has a `Platform *materialize.MaterializedPlatform` field documented as required
-- **AND** invoking the phase with a nil `Platform` returns an error naming the field
-
-### Requirement: Platform carries its staged source
-
-`platform.Platform` SHALL expose `Source *platform.Source`, where `platform.Source` is a type alias of `module.Source` (the same re-export pattern as `platform.PlatformMetadata`). `Source` SHALL be nil when the platform was constructed from a bare `cue.Value`. No existing consumer behavior changes: `Materialize`, `Match` and `Compile` do not read the field in this change.
-
-#### Scenario: Value-constructed platform has no source
-
-- **WHEN** a caller builds a platform via `NewPlatformFromValue`
-- **THEN** the returned `*Platform` has `Source == nil`
-
-#### Scenario: Existing pipeline unaffected
-
-- **WHEN** a platform with a nil `Source` is materialized and compiled through the existing pipeline
-- **THEN** every result is identical to the behavior before this change
-
 ### Requirement: Platform acquisition from a directory returns a source-carrying artifact
 
 The kernel SHALL expose `AcquirePlatformFromDir`, which loads a `#Platform` CUE package from a directory through the existing shape-gated loader path (identical evaluation and gating to `LoadPlatformPackage`), constructs the typed platform via `NewPlatformFromValue`, and stamps `Source` in on-disk mode: `Overlay` nil, `Root` = the absolute path of the enclosing module root (the nearest ancestor holding `cue.mod/module.cue`, the directory itself when it is the root), and `Pkg` = the package directory relative to `Root` (empty for the root package). A directory with no enclosing module is its own root with an empty `Pkg`.
@@ -135,3 +87,16 @@ The kernel SHALL expose `AcquirePlatformFromDir`, which loads a `#Platform` CUE 
 - **WHEN** the directory's package fails the platform shape gate (wrong kind, missing concrete `metadata.name` or `type`)
 - **THEN** the error wraps the same sentinel `LoadPlatformPackage` reports today, and no partial `*Platform` is returned
 
+### Requirement: Platform carries its render source
+
+`platform.Platform` SHALL expose `Source *platform.Source`, where `platform.Source` is a type alias of `module.Source` (the same re-export pattern as `platform.PlatformMetadata`). `Source` SHALL be nil when the platform was constructed from a bare `cue.Value`. `Source` is the render input: `Render` imports the platform package from it, so a platform without `Source` cannot be rendered against (`single-build-render`, "Render inputs are source-carrying artifacts"). No other kernel operation reads the field.
+
+#### Scenario: Value-constructed platform has no source
+
+- **WHEN** a caller builds a platform via `NewPlatformFromValue`
+- **THEN** the returned `*Platform` has `Source == nil`
+
+#### Scenario: Source-less platform cannot render
+
+- **WHEN** a platform built via `NewPlatformFromValue` is passed to `Render`
+- **THEN** `Render` refuses it with an error naming the missing source, before any build is staged

@@ -39,17 +39,22 @@ The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@
 
 ### Requirement: DefaultSchemaModule constant
 
-`schema.DefaultSchemaModule` SHALL be `"opmodel.dev/core@v2"`. `OCILoader.Load` with an empty `Module` field SHALL resolve this identifier. Doc comments citing the default module identifier (`opm/kernel`, `opm/schema`, `opm/materialize`) SHALL cite the v2 identifier.
+`schema.DefaultSchemaModule` SHALL name an exact core release, not the floating `opmodel.dev/core@v2` major: the release the kernel's render glue, fixtures and parity oracle were verified against. At this change that is `opmodel.dev/core@v2.0.0-alpha.7`, the first release carrying the D5 registry shape and the D12 context projection. `OCILoader.Load` with an empty `Module` field SHALL resolve this identifier. The constant advances only by a deliberate change that re-verifies the glue and fixtures against the new release; a default that floats ahead of the glue breaks every synthesized artifact on a cold cache. Doc comments citing the default module identifier (`opm/kernel`, `opm/schema`) SHALL cite the pinned identifier, and the pin assertion in `opm/schema/loader_test.go` SHALL move with the constant.
 
 #### Scenario: Empty Module resolves the v2 default
 
 - **WHEN** `(schema.OCILoader{Registry: "opmodel.dev=ghcr.io/open-platform-model"}).Load(ctx)` is called with `Module` unset
-- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v2"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
+- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v2.0.0-alpha.7"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
 
 #### Scenario: ResolvedVersion reports the v2 resolution
 
-- **WHEN** `cache.Get(ctx)` succeeds against the default `opmodel.dev/core@v2` resolving to `v2.0.0-alpha.4`
-- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.4"`
+- **WHEN** `cache.Get(ctx)` succeeds against the default
+- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.7"`
+
+#### Scenario: No doc comment cites a deleted package or the floating major
+
+- **WHEN** a developer searches `opm/` for the default module identifier
+- **THEN** every citation names the pinned release and none lives in `opm/materialize`, which no longer exists
 
 ### Requirement: Schema Loader interface
 
@@ -188,17 +193,25 @@ The library SHALL expose `opm/schema.PublicRegistry` as an exported string const
 - **THEN** `k.SchemaCache().Loader` equals the supplied OCILoader value
 
 ### Requirement: Path inventory exposed as package-level vars
-The library SHALL expose every CUE path used by the kernel, matcher, and renderer as exported package-level `cue.Path` variables in `opm/schema`. The variable names MUST match the artifact-domain term (e.g. `Metadata`, `Components`, `Values`, `Config`, `Module`, `ModuleMetadataPath`, `DebugValues`, `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`). The inventory SHALL contain only paths some production code path reads; a path with no reader is removed, not retained for a possible consumer.
+
+The library SHALL expose every CUE path some production code path reads as exported package-level `cue.Path` variables in `opm/schema`. After the render cutover the readers are metadata decoding, instance processing, the loaders' identity reads and the instance's components and `#config` accessors, so the inventory is exactly `Metadata`, `Components`, `Values`, `Config`, `Module` and `DebugValues` (the last kept for the documented frontend read of a module's debug overlay). The paths the Go matcher, executor and context builder read (`Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`) and `ModuleMetadataPath` (read only by the `ModuleVersion` accessor the context builder needed) SHALL be removed with those readers: the render build reads the instance's components and the platform's `#composedTransformers` in CUE, inside the generated glue. A path with no reader is removed, not retained for a possible consumer.
 
 #### Scenario: Consumer references a path directly
+
 - **WHEN** a kernel consumer needs the path to an instance's `components` field
 - **THEN** it imports `opm/schema` and references `schema.Components`
 - **AND** does not call any `Paths()` method or look up a binding
 
+#### Scenario: Matcher and transformer paths are gone
+
+- **WHEN** a developer inspects the exported identifiers of `opm/schema`
+- **THEN** none of `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`, `ModuleMetadataPath` exists
+
 #### Scenario: Platform view and context sub-paths are not exported
+
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
 - **THEN** none of `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`, `MatchersResources`, `MatchersTraits`, `ContextModuleInstanceMetadata`, `ContextComponentMetadata`, `ContextRuntimeName` exists
-- **AND** the matcher and executor read the composed map and reverse index off `MaterializedPlatform.Transformers` / `.Matchers`, never through a path on the platform value
+- **AND** the render glue reads `#composedTransformers` inside the build; no Go code path navigates a platform value by path
 
 ### Requirement: Metadata decoders are free functions
 The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, and `DecodePlatformMetadata` as free functions in `opm/schema`, one per artifact the kernel accepts. Each function MUST accept a raw `cue.Value` at the artifact root and return the canonical decoded metadata struct or a non-nil error.
@@ -219,41 +232,12 @@ The library SHALL expose `DecodeModuleMetadata`, `DecodeInstanceMetadata`, and `
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
 - **THEN** neither `DecodeProviderMetadata` nor `ProviderMetadata` exists; the provider artifact was retired with the platform construct and the kernel accepts exactly three artifacts
 
-### Requirement: Transformer-context builder
-The library SHALL expose `schema.BuildTransformerContext(ctx, rel, compName, schemaComp, runtimeName)` that constructs the `#TransformerContext` value for a single (instance, component, transformer) tuple. The caller's job is to fill the returned value at `schema.Context` on the unified transformer.
-
-The function MUST accept any value implementing `schema.InstanceView` (`InstanceName/Namespace/InstanceUUID/InstanceFQN/ModuleVersion/Labels/Annotations`); the interface SHALL NOT carry a `ModuleFQN` member (the context builder never read it, and the `#moduleInstanceMetadata.fqn` it fills is the instance's own `InstanceFQN`). It MUST surface metadata-decode failures as non-fatal warnings rather than errors.
-
-#### Scenario: Successful context construction
-- **WHEN** `BuildTransformerContext` is called with a non-nil context, a valid `InstanceView`, a non-empty `compName`, a schema-preserving component value, and a non-empty `runtimeName`
-- **THEN** it returns a `cue.Value` carrying `#moduleInstanceMetadata`, `#componentMetadata`, `#runtimeName` and no error
-
-#### Scenario: Empty runtimeName is fatal
-- **WHEN** `BuildTransformerContext` is called with `runtimeName=""`
-- **THEN** it returns the zero `cue.Value` and an error
-
-#### Scenario: Bad metadata.labels surfaces as warning
-- **WHEN** the supplied `schemaComp` has a `metadata.labels` field that cannot be decoded as `map[string]string`
-- **THEN** the returned warnings slice contains a message naming the component and the labels field, and no error is returned
-
 ### Requirement: Loader helpers return only the loaded value
 `opm/helper/loader/file.LoadModulePackage`, `LoadInstancePackage`, and `LoadPlatformPackage` MUST have the signature `(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error)`. The previous `apiversion.Version` return is removed. Their `(*Kernel)` wrappers MUST follow the same signature.
 
 #### Scenario: LoadModulePackage signature
 - **WHEN** a caller invokes `file.LoadModulePackage(ctx, dir, opts)`
 - **THEN** it returns exactly two values: a `cue.Value` and an `error`
-
-### Requirement: Match drops the binding parameter
-`opm/compile.Match` MUST have signature `Match(components cue.Value, plat *platform.Platform) (*MatchPlan, error)`. `(*compile.Module).Execute` MUST drop its binding lookup; internal helpers reference `opm/schema` package vars directly.
-
-#### Scenario: Match signature
-- **WHEN** Go code calls `compile.Match(components, plat)`
-- **THEN** it compiles and returns the match plan or an error
-- **AND** no `api.Binding` parameter is required
-
-#### Scenario: Cross-artifact apiVersion checks are gone
-- **WHEN** `kernel.Match` or `kernel.Compile` runs against an instance and platform
-- **THEN** no apiVersion mismatch check fires (the field does not exist)
 
 ### Requirement: Module, Instance, Platform structs do not carry APIVersion
 `opm/module.Module`, `opm/module.Instance`, and `opm/platform.Platform` MUST NOT have an `APIVersion` field. Their constructors (`NewModuleFromValue`, `NewInstanceFromValue`, `NewPlatformFromValue`) MUST call the appropriate `schema.Decode*Metadata` function directly without consulting any binding registry.

@@ -3,6 +3,7 @@
 ## Purpose
 TBD - created by syncing change unify-artifact-shape. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: Uniform Artifact Shape
 
 Every OPM artifact type accepted by the kernel SHALL be a Go struct with exactly three exported fields: `APIVersion apiversion.Version`, `Metadata *<Type>Metadata`, and `Package cue.Value`. The `Metadata` pointer holds a decoded ergonomic projection; the `Package` field carries the source-of-truth CUE value.
@@ -67,21 +68,6 @@ The `APIVersion` field SHALL be set by the constructor based on detection of the
 - **WHEN** a constructor returns a typed artifact
 - **THEN** `artifact.APIVersion` equals the value extracted from `artifact.Package` via `apiversion.Detect`
 
-### Requirement: Internal Call Sites Use Binding Paths
-
-All kernel-internal call sites that previously read `Module.Spec`, `Module.Config`, `Instance.Spec`, `Instance.Values`, or `Instance.Module` SHALL be migrated to read sub-values from `Package` using `binding.Paths()` from the version binding.
-
-#### Scenario: Compile pipeline uses binding paths
-
-- **WHEN** the compile pipeline (`opm/compile/`) reads the components subtree of a Module
-- **THEN** the read goes through `mod.Package.LookupPath(binding.Paths().Components)`
-- **AND** there is no direct dereference of a removed field
-
-#### Scenario: Validate pipeline uses binding paths
-
-- **WHEN** the validate pipeline (`opm/validate/`) reads the `#config` schema of a Module
-- **THEN** the read goes through `mod.Package.LookupPath(binding.Paths().Config)`
-
 ### Requirement: Kernel Artifact Type Set
 
 The kernel SHALL accept exactly three artifact types: `Module`, `ModuleInstance`, and `Platform`. `#ModuleDebug` SHALL NOT be a kernel artifact type. Debug values are carried as a `debugValues` field within `Module.Package`; whether they participate in the values stack is a frontend policy decision, not a kernel concern.
@@ -102,31 +88,6 @@ The kernel SHALL accept exactly three artifact types: `Module`, `ModuleInstance`
 
 - **WHEN** a developer reads `library/README.md` or `opm/module/` godoc
 - **THEN** at least one prose section states that `#ModuleDebug` is not a kernel artifact and that debug overlays are a frontend layering concern
-
-### Requirement: Instance-Side Module Paths On Binding
-
-The `api.Paths` inventory SHALL expose two CUE paths for instance-side lookup of the embedded source module:
-
-- `Paths.Module` — the path under which the instance's CUE package carries its `#Module` reference (v1alpha2: `#module`).
-- `Paths.ModuleMetadata` — the path under which the instance's CUE package carries the projected module metadata (v1alpha2: `#moduleMetadata`).
-
-These paths SHALL be populated by every concrete binding so that kernel-internal call sites and `*Instance` accessor methods can read module identity from `Instance.Package` without ad-hoc path strings. The accessor set reading `Paths.ModuleMetadata` SHALL be `ModuleVersion()` alone; `Instance` SHALL NOT expose a `ModuleFQN()` accessor (no production code or consumer read it, and the transformer context carries the instance's own FQN, not the source module's).
-
-#### Scenario: Instance reaches its source module via the binding
-
-- **WHEN** a caller holds a `*Instance` whose `Package` carries a `#module` field
-- **THEN** `rel.Package.LookupPath(b.Paths().Module).Exists()` is true (where `b` is the binding for `rel.APIVersion`)
-
-#### Scenario: Instance accessors read module metadata via the binding
-
-- **WHEN** a caller invokes `rel.ModuleVersion()`
-- **THEN** the returned value is read from `rel.Package.LookupPath(b.Paths().ModuleMetadata)` via `api.Lookup(rel.APIVersion)`
-- **AND** there is no cached `*Module` field on `Instance` carrying the same data
-
-#### Scenario: ModuleFQN accessor removed
-
-- **WHEN** a developer searches `opm/module` for `ModuleFQN`
-- **THEN** no such accessor exists on `Instance`; the source module's identity remains reachable through `Instance.Package` at the module-metadata path
 
 ### Requirement: Instance Config Schema Accessor
 
@@ -198,3 +159,36 @@ The kernel SHALL expose `AcquireInstanceFromDir`, which loads a `#ModuleInstance
 - **WHEN** the directory does not exist, holds no CUE package, or fails the instance shape gate
 - **THEN** the error wraps the same sentinel the file loader reports today (`ErrInvalidPackage`, `ErrWrongKind`, or `ErrMissingRequiredField`)
 
+### Requirement: Internal call sites use schema paths
+
+Every kernel-internal Go call site that reads a sub-value of an artifact's `Package` SHALL read it through the `opm/schema` path variables (`schema-dispatch`, "Path inventory exposed as package-level vars"), never through a removed struct field or an ad-hoc path literal. The render path reads no artifact sub-value in Go: the instance and the platform enter the render build by import, and the generated glue reads `components` and `#composedTransformers` in CUE.
+
+#### Scenario: Render build reads artifacts by import
+
+- **WHEN** `Kernel.Render` runs
+- **THEN** no Go code looks up the instance's components or the platform's transformers by path; the staged render module imports both packages and the glue reads them
+
+#### Scenario: Instance processing uses schema paths
+
+- **WHEN** `Kernel.ProcessModuleInstance` reads a module's `#config` schema or fills validated values
+- **THEN** the reads and the fill go through `schema.Module`, `schema.Config` and `schema.Values`
+- **AND** there is no direct dereference of a removed field
+
+#### Scenario: Metadata reads go through the metadata path
+
+- **WHEN** Go code outside `opm/schema` reads a field of an artifact's `metadata` (the loaders' identity checks, the instance name for a diagnostic, the module's snake-case name)
+- **THEN** it navigates to the metadata value through `schema.Metadata` and reads the field off that value, never through a dotted path literal rooted at the artifact
+
+### Requirement: Instance exposes its components and config schema
+
+`*module.Instance` SHALL expose `Components()` (the instance's evaluated components value, definition fields included, read through `schema.Components`) and `ConfigSchema()` (the embedded module's `#config`, read through `schema.Module` then `schema.Config`). It SHALL expose no accessor that mirrors a decoded metadata field (`Metadata` is the projection) and no accessor over the module-metadata projection: the transformer context that read those is projected by core (0019 D12).
+
+#### Scenario: Components accessor
+
+- **WHEN** a caller invokes `inst.Components()` on an acquired instance
+- **THEN** the returned value is `inst.Package.LookupPath(schema.Components)` with `#names`, `#resources`, `#traits` and `#blueprints` intact
+
+#### Scenario: No metadata-mirroring accessors
+
+- **WHEN** a developer inspects the exported methods of `*module.Instance`
+- **THEN** none of `InstanceName`, `Namespace`, `InstanceUUID`, `InstanceFQN`, `ModuleVersion`, `Labels`, `Annotations`, `MatchComponents` exists
