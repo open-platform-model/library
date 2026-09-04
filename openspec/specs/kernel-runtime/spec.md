@@ -179,12 +179,6 @@ The canonical Go implementation of values validation (full, partial, and detaile
 - **WHEN** a developer searches `opm/` for `ParseModuleInstance`
 - **THEN** no free function and no method with that name exists; `(*Kernel).ProcessModuleInstance` is the only spelling
 
-#### Scenario: compile.CompileModuleInstance free function is gone
-
-- **WHEN** a developer searches `opm/compile/` for `CompileModuleInstance`
-- **THEN** no free function with that name exists
-- **AND** the canonical compile entry point is `(*Kernel).Compile`
-
 ### Requirement: No Utility Methods on Kernel
 
 The Kernel SHALL expose only the pipeline it runs (acquire, load, process, validate, synthesize, render) and SHALL NOT expose a finalization, constraint-stripping or other value-utility method.

@@ -47,7 +47,7 @@ The `InstanceInput` struct SHALL carry: `Module *module.Module` (required), `Nam
 
 - **WHEN** `synth.Instance` is called twice with the same `(Module, Name, Namespace)`
 - **THEN** the returned CUE values carry identical `metadata.uuid` strings
-- **AND** the UUID equals `uuid.SHA1(OPMNamespace, "<module.uuid>:<name>:<namespace>")` per the schema definition at `apis/core/v1alpha2/module_instance.cue:19`
+- **AND** the UUID equals `uuid.SHA1(OPMNamespace, "<module.uuid>:<name>:<namespace>")` per core's `#ModuleInstance` schema (`core/src/module_instance.cue`)
 
 #### Scenario: UUID diverges with namespace
 
@@ -204,7 +204,7 @@ The public Go signature is `Instance(ctx *cue.Context, in InstanceInput) (cue.Va
 #### Scenario: Single-build parity with an authored package
 
 - **WHEN** `synth.Instance` builds an instance for module M with values V, and an authored `instance.cue` package imports the same M and sets the same V
-- **THEN** both, passed through `Kernel.Compile`, produce the same set of compiled resources
+- **THEN** both, passed through `Kernel.Render`, produce the same set of rendered resources
 
 ### Requirement: synth.Instance requires the module's staged source
 
