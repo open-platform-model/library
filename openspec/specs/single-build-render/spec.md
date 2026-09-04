@@ -20,7 +20,7 @@ The render path as one CUE build per render: the kernel stages the instance and 
 
 ### Requirement: The render module's dependency list is derived by promotion
 
-The generated render module's dependency list SHALL be derived by promotion: the platform module's tidied dependency list adopted whole, the instance module's list unioned in for paths only the instance carries, and the platform's entry winning every shared path. No tidy-equivalent and no registry consultation SHALL run at render time to compute the list. The two input trees SHALL enter the build through build-local directory replacements; neither input is fetched from a registry.
+The generated render module's dependency list SHALL be derived by promotion: the platform module's tidied dependency list adopted whole, the instance module's list unioned in for paths only the instance carries, and the platform's entry winning every shared path. No tidy-equivalent and no registry consultation SHALL run at render time to compute the list. The two input trees SHALL enter the build through build-local directory replacements; neither input is fetched from a registry. Each input module's own path SHALL be listed in the render module's `cue.mod/module.cue` with a placeholder version of its own major and marked as the default major (unless a promoted entry already marks another major of the same root path default), so an unqualified import of the input's own subpackage from inside it resolves through the main module's default-major table exactly as it does when the input is the main module.
 
 #### Scenario: Platform wins a shared path
 
@@ -31,6 +31,11 @@ The generated render module's dependency list SHALL be derived by promotion: the
 
 - **WHEN** the instance module depends on a path the platform module does not carry
 - **THEN** the render module lists the instance's entry for that path, and the instance's import resolves
+
+#### Scenario: An input's unqualified self-import resolves
+
+- **WHEN** the instance module's root package imports one of its own subpackages without a major qualifier (an `identity` package, the shape `opm module init` writes) and the instance enters the build through a directory replacement
+- **THEN** the render module marks the instance module's major default, and the build resolves the import from the replaced directory
 
 ### Requirement: A render refuses when promotion cannot cover an OPM path
 

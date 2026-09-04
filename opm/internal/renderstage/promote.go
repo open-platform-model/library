@@ -24,10 +24,22 @@ const MinLanguageVersion = "v0.17.0"
 // Promotion is the render module's derived dependency list (0019 D13): the
 // platform module's tidied list adopted whole, the instance module's list
 // unioned in for paths only the instance carries, the platform's entry
-// winning every shared path. No tidy-equivalent and no registry consultation
-// computes it; it is string-level mechanics over the two committed files.
+// winning every shared path, and each input module's own path entered as a
+// replace-only, default-marked entry. No tidy-equivalent and no registry
+// consultation computes it; it is string-level mechanics over the two
+// committed files.
 type Promotion struct {
-	// Deps is the promoted dependency list keyed by major-qualified path.
+	// Deps is the promoted dependency list keyed by major-qualified path. It
+	// includes the two input modules themselves: cue/load resolves an
+	// unqualified import inside a dependency (a module importing its own
+	// subpackage, "example.com/mod/identity" from within example.com/mod@v0,
+	// the ordinary authoring shape) through the MAIN module's default-major
+	// table, which it reads from cue.mod/module.cue only. A replacement in
+	// local-module.cue carries no default of its own, so without this entry
+	// the input's self-imports fail with "cannot find module providing
+	// package". The entry's version is a placeholder ([ReplacedVersion]):
+	// the directory replacement serves the module and the version is never
+	// resolved; the modfile decoder refuses a null version.
 	Deps map[string]Dep
 
 	// Language is the render module's language.version: the maximum of the
@@ -73,6 +85,26 @@ func Promote(platform, instance *ModFile, platformDir, instanceDir string) (*Pro
 		deps[path] = dep
 	}
 
+	// Each input module's own path: a replace-only entry marked default so
+	// the input's unqualified self-imports resolve, the platform first. The
+	// default yields (as above) when some promoted entry already marks the
+	// same root path default; an input that is also a promoted dependency
+	// keeps its version.
+	for _, in := range []*ModFile{platform, instance} {
+		dep, listed := deps[in.Module]
+		if !listed {
+			v, err := ReplacedVersion(in.Module)
+			if err != nil {
+				return nil, err
+			}
+			dep = Dep{Version: v}
+		}
+		if !dep.Default && !defaultRoots(deps)[rootPath(in.Module)] {
+			dep.Default = true
+		}
+		deps[in.Module] = dep
+	}
+
 	lang, err := maxLanguage(platform.Language, instance.Language)
 	if err != nil {
 		return nil, err
@@ -101,21 +133,21 @@ func (p *Promotion) ModuleFile() ([]byte, error) {
 }
 
 // LocalModuleFile renders the render module's cue.mod/local-module.cue: the
-// main-module dependency view, which is the promoted list plus one
-// replace-only placeholder per input directing cue/load to serve that module
-// path from its staged directory. cue/load reads this file in place of
-// module.cue's deps when present, so the promoted list is repeated here rather
-// than patched in.
+// main-module dependency view, which is the promoted list with each input's
+// entry directing cue/load to serve that module path from its staged
+// directory. cue/load reads this file in place of module.cue's deps when
+// present, so the promoted list is repeated here rather than patched in.
 func (p *Promotion) LocalModuleFile() ([]byte, error) {
 	base := p.baseFile()
 	local := p.baseFile()
 	for path, dir := range p.Replacements {
-		if dep, shared := local.Deps[path]; shared {
-			// An input that is also a promoted dependency keeps its version
-			// and is served from its directory.
+		if dep, listed := local.Deps[path]; listed {
+			// Promote lists every input; the entry keeps its version and
+			// marker and is served from its directory.
 			dep.ReplaceWith = dir
 			continue
 		}
+		// A hand-built Promotion without the input's entry: replace-only.
 		local.Deps[path] = &modfile.Dep{ReplaceWith: dir}
 	}
 	data, err := modfile.FormatLocal(local, base)
@@ -137,6 +169,22 @@ func (p *Promotion) baseFile() *modfile.File {
 		f.Deps[path] = &modfile.Dep{Version: dep.Version, Default: dep.Default}
 	}
 	return f
+}
+
+// ReplacedVersion is the placeholder version the render module lists for an
+// input module it serves from a directory: "vN.0.0" for a path qualified
+// "@vN". cue/load never resolves it (the replacement wins), but module.cue
+// must carry a well-formed version of the entry's own major for the entry,
+// and so its default-major marker, to be accepted.
+func ReplacedVersion(qualifiedPath string) (string, error) {
+	_, major, ok := strings.Cut(qualifiedPath, "@")
+	if !ok || !strings.HasPrefix(major, "v") || strings.ContainsAny(major, "./") {
+		return "", fmt.Errorf("module path %q carries no major qualifier", qualifiedPath)
+	}
+	if _, err := semver.NewVersion(major + ".0.0"); err != nil {
+		return "", fmt.Errorf("module path %q: %w", qualifiedPath, err)
+	}
+	return major + ".0.0", nil
 }
 
 // rootPath strips the major qualifier from a dependency path.
