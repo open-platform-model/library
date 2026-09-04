@@ -152,6 +152,8 @@ func TestPromote_InstanceOnlyPathSurvives(t *testing.T) {
 		"example.com/helpers@v1",
 		"opmodel.dev/catalogs/opm@v4",
 		"opmodel.dev/core@v2",
+		"testing.opmodel.dev/modules/web_app@v1",
+		"testing.opmodel.dev/render/platform@v0",
 	}, p.SortedPaths())
 }
 
@@ -165,7 +167,13 @@ func TestPromote_DefaultMajorPreserved(t *testing.T) {
 	written, err := modfile.Parse(data, "render/cue.mod/module.cue")
 	require.NoError(t, err)
 	assert.Equal(t, RenderModulePath, written.QualifiedModule())
-	assert.Equal(t, map[string]string{"cue.dev/x/k8s.io": "v0", "example.com/helpers": "v1", "render.opmodel.dev/build": "v0"}, written.DefaultMajorVersions())
+	assert.Equal(t, map[string]string{
+		"cue.dev/x/k8s.io":                    "v0",
+		"example.com/helpers":                 "v1",
+		"render.opmodel.dev/build":            "v0",
+		"testing.opmodel.dev/modules/web_app": "v1",
+		"testing.opmodel.dev/render/platform": "v0",
+	}, written.DefaultMajorVersions(), "both inputs are marked default so their unqualified self-imports resolve")
 	assert.Equal(t, "v0.17.1", written.Language.Version)
 }
 
@@ -206,13 +214,64 @@ func TestLocalModuleFile_CarriesPromotedListAndReplacements(t *testing.T) {
 	eff, err := modfile.ParseLocal(localData, "cue.mod/local-module.cue", base)
 	require.NoError(t, err, "cue/load must accept the local-module.cue exactly as written:\n%s", localData)
 
-	// The main-module view is the promoted list plus the two replace-only
-	// placeholders.
+	// The main-module view is the promoted list, the two inputs' entries
+	// served from their directories.
 	assert.Equal(t, "v4.2.0", eff.Deps["opmodel.dev/catalogs/opm@v4"].Version)
 	assert.True(t, eff.Deps["cue.dev/x/k8s.io@v0"].Default)
 	assert.Equal(t, "/tmp/plat", eff.Deps["testing.opmodel.dev/render/platform@v0"].ReplaceWith)
 	assert.Equal(t, "/tmp/inst", eff.Deps["testing.opmodel.dev/modules/web_app@v1"].ReplaceWith)
-	assert.Len(t, eff.Deps, len(p.Deps)+2)
+	assert.Len(t, eff.Deps, len(p.Deps))
+}
+
+func TestPromote_InputsListedAsDefaultMarkedReplacements(t *testing.T) {
+	p, err := Promote(mustParse(t, platformModFile, "p"), mustParse(t, instanceModFile, "i"), "/tmp/plat", "/tmp/inst")
+	require.NoError(t, err)
+	assert.Equal(t, Dep{Version: "v0.0.0", Default: true}, p.Deps["testing.opmodel.dev/render/platform@v0"])
+	assert.Equal(t, Dep{Version: "v1.0.0", Default: true}, p.Deps["testing.opmodel.dev/modules/web_app@v1"],
+		"the instance module's own path is listed with a placeholder version and marked default")
+
+	// cue/load accepts the pair exactly as written and reads both defaults.
+	moduleData, err := p.ModuleFile()
+	require.NoError(t, err)
+	base, err := modfile.Parse(moduleData, "cue.mod/module.cue")
+	require.NoError(t, err)
+	assert.Equal(t, "v1", base.DefaultMajorVersions()["testing.opmodel.dev/modules/web_app"])
+	localData, err := p.LocalModuleFile()
+	require.NoError(t, err)
+	eff, err := modfile.ParseLocal(localData, "cue.mod/local-module.cue", base)
+	require.NoError(t, err)
+	assert.Equal(t, "/tmp/inst", eff.Deps["testing.opmodel.dev/modules/web_app@v1"].ReplaceWith)
+	assert.True(t, eff.Deps["testing.opmodel.dev/modules/web_app@v1"].Default)
+}
+
+func TestPromote_InputDefaultYieldsToPromotedDefault(t *testing.T) {
+	// The platform already marks another major of the instance module's own
+	// root path default: two defaults for one root would be refused by
+	// cue/load, so the input's entry is listed without the marker.
+	plat := mustParse(t, `module: "p.example/p@v0"
+language: version: "v0.17.0"
+deps: "i.example/i@v1": {v: "v1.0.0", default: true}
+`, "p")
+	inst := mustParse(t, `module: "i.example/i@v0"
+language: version: "v0.17.0"
+`, "i")
+	p, err := Promote(plat, inst, "/tmp/plat", "/tmp/inst")
+	require.NoError(t, err)
+	assert.Equal(t, Dep{Version: "v0.0.0"}, p.Deps["i.example/i@v0"])
+	assert.True(t, p.Deps["i.example/i@v1"].Default)
+	assert.Equal(t, Dep{Version: "v0.0.0", Default: true}, p.Deps["p.example/p@v0"])
+}
+
+func TestReplacedVersion(t *testing.T) {
+	for path, want := range map[string]string{"a.example/m@v0": "v0.0.0", "a.example/m@v12": "v12.0.0"} {
+		got, err := ReplacedVersion(path)
+		require.NoError(t, err, path)
+		assert.Equal(t, want, got)
+	}
+	for _, bad := range []string{"a.example/m", "a.example/m@1", "a.example/m@v0.1.0"} {
+		_, err := ReplacedVersion(bad)
+		assert.Error(t, err, bad)
+	}
 }
 
 // TestVerifyCoverage_DoctoredPromotionRefuses is the sole coverage of the

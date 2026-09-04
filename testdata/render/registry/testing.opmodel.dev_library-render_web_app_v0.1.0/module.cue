@@ -8,14 +8,20 @@ package web_app
 import (
 	c "opmodel.dev/core@v2"
 	cat "testing.opmodel.dev/library-render/cat@v0"
+
+	id "testing.opmodel.dev/library-render/web_app/identity"
 )
 
 c.#Module
 
+// modulePath and version come from the identity subpackage through an
+// unqualified self-import (the shape opm module init writes): the overlay
+// render path must resolve it through the render module's default-major
+// marker for the replaced module.
 metadata: {
 	name:        "web_app"
-	modulePath:  "testing.opmodel.dev/library-render/web_app@v0"
-	version:     "0.1.0"
+	modulePath:  id.ModulePath
+	version:     id.Version
 	description: "Single-build render fixture module"
 }
 
