@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/load"
 )
 
@@ -24,6 +25,16 @@ import (
 // that floats ahead of the glue breaks every synthesized artifact on a cold
 // cache.
 const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.7"
+
+// DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
+// pins, in the canonical "v"-prefixed form a cue.mod dependency carries
+// ("v2.0.0-alpha.7"). It is the version a generated platform module pins
+// core at by default (opm/helper/platformmodule): the release the render
+// glue was verified against is the release a generated platform must embed.
+func DefaultSchemaVersion() string {
+	_, version, _ := ast.SplitPackageVersion(DefaultSchemaModule)
+	return version
+}
 
 // PublicRegistry is the documented CUE_REGISTRY mapping for resolving the
 // OPM core schema from its canonical GHCR location with a fallback to
