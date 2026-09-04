@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.26](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.25...v1.0.0-alpha.26) (2026-09-04)
+
+
+### Features
+
+* platform module generator helper and layered instance values (0019 D5/D13) ([#110](https://github.com/open-platform-model/library/issues/110)) ([0c8dd2e](https://github.com/open-platform-model/library/commit/0c8dd2ea24e3da34bd577c72210448d26b005e87))
+
 ## [1.0.0-alpha.25](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.24...v1.0.0-alpha.25) (2026-09-04)
 
 
