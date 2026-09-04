@@ -683,3 +683,35 @@ func TestRender_CancelledContextRefused(t *testing.T) {
 	var rerr *kernel.RenderError
 	assert.False(t, errors.As(err, &rerr), "a cancelled context is not a render verdict")
 }
+
+// artifact-types spec, "Layered instance renders": an instance acquired with
+// extra values is imported by the render build from its overlay, and the
+// rendered objects reflect the layered values (the fixture's deployment
+// transformer reads values.replicas).
+func TestRender_LayeredInstanceReflectsValues(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance_partial"), loaderfile.LoadOptions{},
+		kernel.WithValues(acquireSource(t, k, "/values/scale.cue", `replicas: 5`)))
+	require.NoError(t, err)
+	require.NotNil(t, inst.Source.Overlay)
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "render-test"})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"config/ConfigMap/app",
+		"web/Deployment/web-partial-web",
+		"web/Service/web-partial-web",
+	}, compiledSummary(t, res.Compiled))
+	for _, c := range res.Compiled {
+		if kind, _ := c.Value.LookupPath(cue.ParsePath("kind")).String(); kind != "Deployment" {
+			continue
+		}
+		replicas, err := c.Value.LookupPath(cue.ParsePath("spec.replicas")).Int64()
+		require.NoError(t, err)
+		assert.Equal(t, int64(5), replicas, "the layered value reaches the rendered object")
+		image, err := c.Value.LookupPath(cue.ParsePath("spec.image")).String()
+		require.NoError(t, err)
+		assert.Equal(t, "nginx:1.27", image)
+	}
+}

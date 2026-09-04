@@ -6,7 +6,6 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
-	"cuelang.org/go/cue/format"
 
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -85,32 +84,6 @@ func renderInstanceFile(in InstanceInput, coreVersion string) string {
 	b.WriteString("}\n\n")
 	b.WriteString("#module: opmModule\n")
 	return b.String()
-}
-
-// renderValuesFile produces the values.cue source for the synthesized package
-// by rendering in.Values back to canonical CUE via format.Node on the value's
-// syntax — NEVER by string-interpolating raw input, so an attacker-influenced
-// value cannot inject CUE source. It returns (nil, nil) when no values were
-// supplied (in.Values is the zero value or does not exist), signalling the
-// caller to omit the file entirely; the schema's values path then stays open
-// and concreteness is enforced downstream by Kernel.ProcessModuleInstance.
-func renderValuesFile(in InstanceInput) ([]byte, error) {
-	if !in.Values.Exists() {
-		return nil, nil
-	}
-
-	node := in.Values.Syntax(cue.Final(), cue.Concrete(false))
-	rendered, err := format.Node(node)
-	if err != nil {
-		return nil, fmt.Errorf("rendering values to CUE source: %w", err)
-	}
-
-	var b strings.Builder
-	b.WriteString("package instance\n\n")
-	b.WriteString("values: ")
-	b.Write(rendered)
-	b.WriteString("\n")
-	return []byte(b.String()), nil
 }
 
 // writeStringMap writes a "<field>: { ... }" block when m is non-empty. Keys

@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"cuelang.org/go/cue"
+	cueerrors "cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -217,4 +220,174 @@ metadata: {namespace: "ns"}
 		assert.True(t, errors.Is(err, loaderfile.ErrMissingRequiredField), "got %v", err)
 		assert.Nil(t, inst)
 	})
+}
+
+// acquireSource compiles a values source with its Origin baked as the
+// filename, the contract Kernel.Source documents.
+func acquireSource(t *testing.T, k *kernel.Kernel, origin, src string) kernel.Source {
+	t.Helper()
+	s, err := k.LoadSourceFromString(origin, origin, src)
+	require.NoError(t, err)
+	return s
+}
+
+func dirListing(t *testing.T, dir string) []string {
+	t.Helper()
+	var out []string
+	require.NoError(t, filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, p)
+		out = append(out, rel)
+		return nil
+	}))
+	return out
+}
+
+// artifact-types spec, "Extra values layer onto the package": two sources
+// unify with the package's own values in one build, the Source turns to
+// overlay mode carrying the on-disk files plus the rendered values file,
+// and the caller's directory is untouched.
+func TestKernel_AcquireInstanceFromDir_WithValues_Layers(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := renderFixtureDir(t, "instance_partial")
+	before := dirListing(t, dir)
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
+		kernel.WithValues(
+			acquireSource(t, k, "/values/a.cue", `replicas: 3`),
+			acquireSource(t, k, "/values/b.cue", `image: "nginx:1.27"`),
+		))
+	require.NoError(t, err)
+	require.NotNil(t, inst)
+
+	replicas, err := inst.Package.LookupPath(cue.ParsePath("values.replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), replicas, "source a's field")
+	image, err := inst.Package.LookupPath(cue.ParsePath("values.image")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "nginx:1.27", image, "the package's own field, restated by source b")
+	assert.Equal(t, "web-partial", inst.Metadata.Name)
+
+	require.NotNil(t, inst.Source)
+	assert.Equal(t, dir, inst.Source.Root)
+	assert.Empty(t, inst.Source.Pkg)
+	require.NotNil(t, inst.Source.Overlay, "overlay mode")
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, "instance.cue"))
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, "cue.mod", "module.cue"))
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, kernel.ValuesFileName))
+	assert.Len(t, inst.Source.Overlay, 3)
+
+	assert.Equal(t, before, dirListing(t, dir), "the caller's directory is never written to")
+}
+
+// The overlay mirrors the on-disk tree: layering a source that adds nothing
+// beyond what the package states yields the very same Package the plain
+// acquire returns, so no file class cue/load reads from disk is missed.
+func TestKernel_AcquireInstanceFromDir_WithValues_MirrorsDisk(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := renderFixtureDir(t, "instance_partial")
+	ctx := context.Background()
+
+	plain, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+	require.NoError(t, err)
+	assert.Nil(t, plain.Source.Overlay, "no option: on-disk mode unchanged")
+
+	layered, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
+		kernel.WithValues(acquireSource(t, k, "/values/same.cue", `image: "nginx:1.27"`)))
+	require.NoError(t, err)
+	// cue.Value.Equals is false even across two plain acquires of this
+	// fixture (definitions and hidden fields); the exported syntax is the
+	// faithful comparison.
+	assert.Equal(t, exportedSyntax(t, plain.Package), exportedSyntax(t, layered.Package), "layered package differs from the on-disk build")
+	assert.Equal(t, plain.Source.Root, layered.Source.Root)
+	assert.Equal(t, plain.Source.Pkg, layered.Source.Pkg)
+
+	// An empty option list is the plain path.
+	same, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{}, kernel.WithValues())
+	require.NoError(t, err)
+	assert.Nil(t, same.Source.Overlay)
+}
+
+// A module-less package (no cue.mod, no imports) layers without a registry.
+func TestKernel_AcquireInstanceFromDir_WithValues_ModuleLess(t *testing.T) {
+	dir := writeTempInstanceDir(t, acquireInstanceFixture)
+	k := kernel.New()
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
+		kernel.WithValues(acquireSource(t, k, "/values/extra.cue", `tag: "v1"`)))
+	require.NoError(t, err)
+	replicas, err := inst.Package.LookupPath(cue.ParsePath("values.replicas")).Int64()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), replicas)
+	tag, err := inst.Package.LookupPath(cue.ParsePath("values.tag")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "v1", tag)
+	absDir, _ := filepath.Abs(dir)
+	assert.Equal(t, absDir, inst.Source.Root)
+	assert.Len(t, inst.Source.Overlay, 2)
+}
+
+// artifact-types spec, "Conflicting extra values fail at acquisition": the
+// error names the conflicting path with positions attributable to the
+// values source, and no partial instance is returned.
+func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := renderFixtureDir(t, "instance_partial")
+	ctx := context.Background()
+
+	t.Run("against the package's own values", func(t *testing.T) {
+		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
+			kernel.WithValues(acquireSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`)))
+		require.Error(t, err)
+		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "image")
+		assert.True(t, positionsName(err, "/values/prod.cue"), "no position names the source: %v", err)
+	})
+
+	t.Run("against the module's #config", func(t *testing.T) {
+		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
+			kernel.WithValues(acquireSource(t, k, "/values/bad.cue", `replicas: "three"`)))
+		require.Error(t, err)
+		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "replicas")
+		assert.True(t, positionsName(err, "/values/bad.cue"), "no position names the source: %v", err)
+	})
+
+	t.Run("between sources", func(t *testing.T) {
+		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
+			kernel.WithValues(
+				acquireSource(t, k, "/values/a.cue", `replicas: 2`),
+				acquireSource(t, k, "/values/b.cue", `replicas: 3`),
+			))
+		require.Error(t, err)
+		assert.Nil(t, inst)
+		assert.True(t, positionsName(err, "/values/a.cue") || positionsName(err, "/values/b.cue"), "no position names a source: %v", err)
+	})
+}
+
+// exportedSyntax renders v (definitions and hidden fields included) as
+// formatted CUE source for a structural comparison.
+func exportedSyntax(t *testing.T, v cue.Value) string {
+	t.Helper()
+	out, err := format.Node(v.Syntax(cue.Final(), cue.Concrete(false), cue.Definitions(true), cue.Hidden(true)))
+	require.NoError(t, err)
+	return string(out)
+}
+
+// positionsName reports whether any position in the CUE error tree carried
+// by err names filename.
+func positionsName(err error, filename string) bool {
+	var cerr cueerrors.Error
+	if !errors.As(err, &cerr) {
+		return false
+	}
+	for _, e := range cueerrors.Errors(cerr) {
+		for _, pos := range cueerrors.Positions(e) {
+			if pos.Filename() == filename {
+				return true
+			}
+		}
+	}
+	return false
 }
