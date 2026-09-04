@@ -15,7 +15,7 @@ The kernel does **not** own:
 - Logging output (the kernel logs nothing; any logging lives with the caller).
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
-- Platform module generation. A platform is a CUE module on disk that imports its catalogs; the frontend writes it and the kernel acquires and renders against it.
+- Platform directory lifecycle. A platform is a CUE module on disk that imports its catalogs; the frontend writes it by hand or generates it from coordinates with the opt-in `opm/helper/platformmodule` helper, owns where it lives (generations, caching), and the kernel acquires and renders against it.
 - Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
 
 ## Artifact types
@@ -48,6 +48,7 @@ opm/
     loader/registry/      Load a published module from an OCI registry by path@version
     loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
     synth/                Instance synthesis from typed inputs (no file / no bytes)
+    platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)
 adr/                      Architecture decision records
@@ -113,6 +114,7 @@ Today this layer holds:
 - `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`. All three load a CUE package directory through the shared shape gate; the platform gate refuses a `#registry` entry that embeds no catalog.
 - `opm/helper/loader/registry` — `LoadModulePackageWithSource`: a published `#Module` by `path@version`, staged so a follow-on build can import it. Surfaced as `Kernel.AcquireModuleFromRegistry`.
 - `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call. There is no platform synthesis: a platform is a CUE module on disk.
+- `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 

@@ -168,3 +168,11 @@ func TestDefaultSchemaModule_PinsVerifiedRelease(t *testing.T) {
 	assert.False(t, strings.HasSuffix(schema.DefaultSchemaModule, "@v2"),
 		"the default must name an exact release, never the floating major")
 }
+
+// TestDefaultSchemaVersion_IsTheDefaultModulesVersion pins the accessor to
+// the version suffix of DefaultSchemaModule: a generated platform module
+// (opm/helper/platformmodule) pins core at exactly this release by default.
+func TestDefaultSchemaVersion_IsTheDefaultModulesVersion(t *testing.T) {
+	assert.Equal(t, "v2.0.0-alpha.7", schema.DefaultSchemaVersion())
+	assert.Equal(t, "opmodel.dev/core@"+schema.DefaultSchemaVersion(), schema.DefaultSchemaModule)
+}

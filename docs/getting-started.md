@@ -118,7 +118,7 @@ if err != nil {
 
 The kernel-owned schema cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across instance synthesis and other schema-touching code.
 
-**From an authored package on disk** (a `ModuleInstance` package that is already fully concrete): `Kernel.AcquireInstanceFromDir` loads it through the shape gate, processes it with no extra values, and stamps its `Source`.
+**From an authored package on disk** (a `ModuleInstance` package that is already fully concrete): `Kernel.AcquireInstanceFromDir` loads it through the shape gate, processes it as authored (extra values are opt-in, below), and stamps its `Source`.
 
 ```go
 inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", loaderfile.LoadOptions{})
@@ -127,11 +127,25 @@ if err != nil {
 }
 ```
 
-`LoadInstancePackage` plus `ProcessModuleInstance` remain available for draft flows that want the raw value or supply values to an on-disk package, but an instance built that way carries no `Source` and cannot be rendered.
+**From an authored package plus extra values** (a frontend layering `-f` files onto an instance package): pass `kernel.WithValues` with the same `Source` values `ValidateConfigDetailed` takes. The kernel reads the package's on-disk files into an in-memory overlay, renders the unified sources as a package file declaring `values` beside them, and builds the package once through the instance shape gate, so the merge is the schema's own values unification. The caller's directory is never written to; the returned `Source` is overlay mode and renders like any other.
+
+```go
+prod, _ := k.LoadSourceFromFile("./prod.cue")
+
+inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", loaderfile.LoadOptions{},
+    kernel.WithValues(prod))
+if err != nil {
+    // A source conflicting with the package's own values or the module's
+    // #config fails here, attributed to the source's Origin.
+    return err
+}
+```
+
+`LoadInstancePackage` plus `ProcessModuleInstance` remain available for draft flows that want the raw value, but an instance built that way carries no `Source` and cannot be rendered.
 
 ## Acquire a platform module
 
-A platform is a CUE module on disk that imports its catalogs: every `#registry` entry embeds a catalog by import, and core derives the entry's version and the platform's `#composedTransformers` from it. The frontend writes that module (the CLI and the operator each generate theirs); the kernel acquires it with `Kernel.AcquirePlatformFromDir`, which loads the package through the platform shape gate and stamps its `Source`.
+A platform is a CUE module on disk that imports its catalogs: every `#registry` entry embeds a catalog by import, and core derives the entry's version and the platform's `#composedTransformers` from it. The kernel acquires such a module with `Kernel.AcquirePlatformFromDir`, which loads the package through the platform shape gate and stamps its `Source`.
 
 ```go
 plat, err := k.AcquirePlatformFromDir(ctx, "./platform/", loaderfile.LoadOptions{})
@@ -141,6 +155,44 @@ if err != nil {
 ```
 
 The shape gate refuses a `#registry` entry that embeds no catalog (the pre-0019 subscription shape with a `version` scalar) as `loaderfile.ErrMissingRequiredField`. There is no materialize step and no platform synthesis: the platform's catalogs are resolved by the render build, through `CUE_REGISTRY` or `WithRegistry`, exactly as any other CUE import.
+
+**From catalog coordinates** (a Platform CR, a seeded local default): `opm/helper/platformmodule` generates the module. `Roots` turns the subscriptions into dependency roots (core pinned at the kernel's verified release, `schema.DefaultSchemaVersion()`, unless `WithCoreVersion` overrides it), `Closure` derives the full dependency list from the published module files through a registry you configure explicitly (the once-at-generation tidy, 0019 D13), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, and `Files.WriteTo` writes them into a directory you own. The frontend keeps the directory lifecycle (generations, caching); the kernel acquires the result as above.
+
+```go
+import "github.com/open-platform-model/library/opm/helper/platformmodule"
+
+entries := []platformmodule.Entry{
+    {Path: "opmodel.dev/catalogs/opm@v4", Version: "4.0.1", Enable: true},
+}
+src, err := platformmodule.NewRegistry(platformmodule.RegistryConfig{
+    Registry:   registry,      // CUE_REGISTRY syntax
+    ClientType: "opm-cli",     // reported to registries
+    Env:        os.Environ(),  // where CUE_CACHE_DIR is read from
+})
+if err != nil {
+    return err
+}
+deps, err := platformmodule.Closure(ctx, src, platformmodule.Roots(entries))
+if err != nil {
+    return err
+}
+files, err := platformmodule.Generate(platformmodule.Input{
+    Name:       "local",
+    Type:       "kubernetes",
+    ModulePath: "opmodel.dev/platforms/local@v0", // reserved, never published
+    Entries:    entries,
+    Deps:       deps,
+})
+if err != nil {
+    return err
+}
+if err := files.WriteTo(platformDir); err != nil {
+    return err
+}
+plat, err := k.AcquirePlatformFromDir(ctx, platformDir, loaderfile.LoadOptions{Registry: registry})
+```
+
+Each `#registry` entry stamps the subscription's version as its expected `version`; core unifies it with the imported catalog's own readout, so a catalog build that does not match fails the acquire naming the entry.
 
 ## Render
 
@@ -209,8 +261,8 @@ default:
 
 | Method                                | Frontend subcommand          | Purpose                                                                      |
 | ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
-| `Kernel.AcquirePlatformFromDir`       | (platform load)              | Platform module from disk, `Source` stamped                                  |
-| `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped                       |
+| `Kernel.AcquirePlatformFromDir`       | (platform load)              | Platform module from disk (hand-written or `platformmodule`-generated), `Source` stamped |
+| `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped; `WithValues` layers extra sources |
 | `Kernel.SynthesizeInstance`           | (typed inputs)               | Instance from module + values, validated, `Source` stamped                   |
 | `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*core.Compiled` plus `RenderDiagnostics`         |
 

@@ -22,6 +22,14 @@
 //     bytes; synth creates from typed inputs). Recommended entry point is
 //     (*Kernel).SynthesizeInstance, which chains synth.Instance into
 //     ProcessModuleInstance for a fully validated *module.Instance.
+//   - platformmodule — platform CUE module generation from catalog
+//     coordinates (0019 D5/D13): Generate renders cue.mod/module.cue and
+//     platform.cue deterministically from typed registry entries and a
+//     dependency list, Closure derives that list (the once-at-generation
+//     tidy) from published module files through a caller-configured
+//     registry, Files.WriteTo places the files in a caller-owned directory.
+//     The result is what (*Kernel).AcquirePlatformFromDir accepts. A
+//     frontend MAY write its platform module by hand instead.
 //
 // Layered values validation now lives on the kernel itself: see
 // Kernel.ValidateConfigDetailed and the Source / ValidateOption types in
@@ -31,8 +39,9 @@
 // The opm/helper/platform subpackage (the Compose helper) was removed as
 // part of rewrite-match-materialized, and platform synthesis (synth.Platform)
 // with library-render-cutover: a platform is a CUE module on disk importing
-// its catalogs, acquired with (*Kernel).AcquirePlatformFromDir and rendered
-// against with (*Kernel).Render. See openspec/changes/archive/.
+// its catalogs, generated from coordinates by platformmodule or written by
+// hand, acquired with (*Kernel).AcquirePlatformFromDir and rendered against
+// with (*Kernel).Render. See openspec/changes/archive/.
 //
 // Planned subpackages (added by their respective slices):
 //

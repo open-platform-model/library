@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue/load"
 
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	"github.com/open-platform-model/library/opm/internal/valuesfile"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -219,7 +220,12 @@ func buildOverlay(in InstanceInput, coreVersion string) (string, map[string]load
 	pkgRoot := filepath.Join(src.Root, synthPkgDir)
 	overlay[filepath.Join(pkgRoot, "instance.cue")] = load.FromString(renderInstanceFile(in, coreVersion))
 
-	valuesSrc, err := renderValuesFile(in)
+	// values.cue is rendered through the renderer shared with the kernel's
+	// extra-values acquire path (opm/internal/valuesfile): canonical CUE via
+	// format.Node on the value's syntax, never string-interpolated. A missing
+	// Values yields no file, so the schema's values path stays open and
+	// concreteness is enforced downstream by Kernel.ProcessModuleInstance.
+	valuesSrc, err := valuesfile.Render("instance", in.Values)
 	if err != nil {
 		return "", nil, err
 	}
