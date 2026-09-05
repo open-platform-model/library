@@ -103,9 +103,9 @@ opm/
     synth/                    Instance(...) → cue.Value from typed inputs (no files); no platform synthesis
     platformmodule/           Platform CUE module from catalog coordinates (0019 D5/D13): Generate (pure files), Roots + Closure (once-at-generation tidy via caller-configured ModFileSource), Files.WriteTo; core pin defaults to schema.DefaultSchemaVersion()
   internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), temp-dir staging + one cue/load build
-  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures
+  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures or a committed fixture tree; every constructor points CUE_CACHE_DIR at a private per-test module cache (schematest.PrivateCacheDir), so served coordinates extract fresh per test and nothing is ever deleted from the shared cache
   internal/cueregression/     Canary pair for the v0.17.x closedness regression
-  internal/schematest/        Test-only helper for constructing *schema.Cache against the workspace cache
+  internal/schematest/        Test-only cache helpers: SetEnv / NewCache build against the shared workspace cache (.cue-cache, the opmodel.dev tier); PrivateCacheDir hands a test its own cache whose opmodel.dev subtrees are symlinks into the shared one
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
@@ -114,7 +114,7 @@ testdata/                     CUE module fixtures consumed by package tests (syn
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
 migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
-.cue-cache/                   Gitignored workspace-local CUE module cache populated by tests
+.cue-cache/                   Gitignored shared CUE module cache: the opmodel.dev tier (core + GHCR catalogs) every test and test process reads; served fixtures live in per-test private caches, and nothing in the test tree deletes from it
 ```
 
 ### Three artifact types — and nothing else
@@ -137,6 +137,15 @@ The local registry at `localhost:5000` is required only for:
 
 - `task cue:publish` / `task cue:publish:smart` — local fixture/catalog publishes; gated, run only on explicit user request (Registry Policy rule 2). The tasks force the local mapping in-script.
 - Nothing else. The tests that name a `localhost:5000` mapping (`opm/helper/loader/file/instance_test.go`, `opm/helper/loader/file/platform_test.go`, `opm/kernel/acquire_test.go`) only assert the override is plumbed and never dial it. New tests use the in-process registry in `opm/internal/registrytest`; `opm/kernel/render_test.go` shows the pattern.
+
+### Test module cache: two tiers
+
+`go test ./...` runs every package as its own process, and CUE's module cache assumes an extracted directory is immutable while any process can read it (readers hold no lock). The test tree therefore keeps two cache tiers and never deletes from the shared one:
+
+- **Shared:** `.cue-cache/` (gitignored) holds the `opmodel.dev` namespace — `opmodel.dev/core@v2` and the GHCR catalogs — for every test and test process. A cold checkout fetches core once through CUE's own lock-protected fetch path; nothing removes entries from it. Tests that need only `opmodel.dev` (schema cache, file loader, synth unit, flow and live tests) use `schematest.SetEnv` / `NewCache` and build here directly.
+- **Private:** every `registrytest` constructor points `CUE_CACHE_DIR` at `schematest.PrivateCacheDir(t)`, a temp cache whose `mod/extract/opmodel.dev` and `mod/download/opmodel.dev` are symlinks into the shared tier. Served fixture prefixes (`test.example`, `testing.opmodel.dev/...`) extract into it fresh, so a committed fixture edited under a fixed version is always built from its current bytes, two packages serving the same coordinate never touch the same directory, and the cache is removed at test end (read-only extracted directories included).
+
+If `.cue-cache` ever holds `test.example` or `testing.opmodel.dev` entries, they predate this layout and can be deleted by hand once; the suite no longer writes them there.
 
 ### CUE toolchain pin
 

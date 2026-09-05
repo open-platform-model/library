@@ -40,7 +40,8 @@ func TestGenerate_BuildsThroughTheKernel(t *testing.T) {
 
 	// The registry source is built from explicit configuration: the mapping
 	// the test wired, a client type of the caller's choosing, and the
-	// environment carrying CUE_CACHE_DIR (the warm workspace cache).
+	// environment carrying CUE_CACHE_DIR (the test's private module cache,
+	// whose opmodel.dev tier is the shared workspace cache).
 	src, err := platformmodule.NewRegistry(platformmodule.RegistryConfig{
 		Registry:   mapping,
 		ClientType: "library-platformmodule-test",
