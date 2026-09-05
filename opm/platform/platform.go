@@ -54,24 +54,13 @@ type Source = module.Source
 //nolint:revive // stutter intentional: platform.PlatformMetadata reads clearly at call sites
 type PlatformMetadata = schema.PlatformMetadata
 
-// CueContextOwner is the minimal context-owner interface accepted by the
-// constructor helpers. *kernel.Kernel satisfies it; tests may pass any
-// value exposing a *cue.Context. The interface lives in opm/platform to
-// keep the constructor's import surface free of opm/kernel.
-type CueContextOwner interface {
-	CueContext() *cue.Context
-}
-
-// NewPlatformFromValue builds a *Platform from a raw CUE artifact value.
-// The supplied k is currently unused but preserved in the signature so
-// future kernel-scoped state (logger, tracer, clock) can be threaded
-// without an API break.
-//
-// The function decodes PlatformMetadata via schema.DecodePlatformMetadata
-// and stores the input cue.Value unmodified in Package. Errors return a nil
-// *Platform — partial values are never returned.
-func NewPlatformFromValue(_ CueContextOwner, v cue.Value) (*Platform, error) {
-	meta, err := schema.DecodePlatformMetadata(v)
+// NewPlatformFromValue builds a *Platform from a raw CUE artifact value: it
+// decodes PlatformMetadata from the value's metadata field (with the
+// top-level type hoisted in) and stores the input cue.Value unmodified in
+// Package. Errors return a nil *Platform — partial values are never
+// returned. The returned Platform carries no Source.
+func NewPlatformFromValue(v cue.Value) (*Platform, error) {
+	meta, err := decodePlatformMetadata(v)
 	if err != nil {
 		return nil, fmt.Errorf("decoding platform metadata: %w", err)
 	}
@@ -79,4 +68,28 @@ func NewPlatformFromValue(_ CueContextOwner, v cue.Value) (*Platform, error) {
 		Metadata: meta,
 		Package:  v,
 	}, nil
+}
+
+// decodePlatformMetadata extracts PlatformMetadata from a #Platform value.
+// metadata.{name,description,labels,annotations} is decoded directly into the
+// struct; the top-level #Platform.type field is read separately and merged
+// into Metadata.Type so callers see one identity record per Platform.
+// A missing metadata field is fatal.
+func decodePlatformMetadata(v cue.Value) (*PlatformMetadata, error) {
+	metaVal := v.LookupPath(schema.Metadata)
+	if !metaVal.Exists() {
+		return nil, fmt.Errorf("platform metadata field is required")
+	}
+	meta := &PlatformMetadata{}
+	if err := metaVal.Decode(meta); err != nil {
+		return nil, fmt.Errorf("decoding platform metadata: %w", err)
+	}
+	if typeVal := v.LookupPath(cue.ParsePath("type")); typeVal.Exists() {
+		s, err := typeVal.String()
+		if err != nil {
+			return nil, fmt.Errorf("decoding platform type: %w", err)
+		}
+		meta.Type = s
+	}
+	return meta, nil
 }

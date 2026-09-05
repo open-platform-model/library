@@ -71,24 +71,12 @@ type Module struct {
 //nolint:revive // stutter intentional: module.ModuleMetadata reads clearly at call sites
 type ModuleMetadata = schema.ModuleMetadata
 
-// CueContextOwner is the minimal context-owner interface accepted by the
-// constructor helpers. *kernel.Kernel satisfies it; tests may pass any value
-// exposing a *cue.Context. The interface lives in opm/module to keep the
-// constructor's import surface free of opm/kernel.
-type CueContextOwner interface {
-	CueContext() *cue.Context
-}
-
-// NewModuleFromValue builds a *Module from a raw CUE artifact value. The
-// supplied k is currently unused but preserved in the signature so future
-// kernel-scoped state (logger, tracer, clock) can be threaded without an
-// API break.
-//
-// The function decodes ModuleMetadata via schema.DecodeModuleMetadata and
-// stores the input cue.Value unmodified in Package. Errors return a nil
-// *Module — partial values are never returned.
-func NewModuleFromValue(_ CueContextOwner, v cue.Value) (*Module, error) {
-	meta, err := schema.DecodeModuleMetadata(v)
+// NewModuleFromValue builds a *Module from a raw CUE artifact value: it
+// decodes ModuleMetadata from the value's metadata field and stores the input
+// cue.Value unmodified in Package. Errors return a nil *Module — partial
+// values are never returned. The returned Module carries no Source.
+func NewModuleFromValue(v cue.Value) (*Module, error) {
+	meta, err := decodeModuleMetadata(v)
 	if err != nil {
 		return nil, fmt.Errorf("decoding module metadata: %w", err)
 	}
@@ -96,4 +84,18 @@ func NewModuleFromValue(_ CueContextOwner, v cue.Value) (*Module, error) {
 		Metadata: meta,
 		Package:  v,
 	}, nil
+}
+
+// decodeModuleMetadata extracts ModuleMetadata from a #Module artifact root.
+// A missing metadata field is fatal.
+func decodeModuleMetadata(v cue.Value) (*ModuleMetadata, error) {
+	metaVal := v.LookupPath(schema.Metadata)
+	if !metaVal.Exists() {
+		return nil, fmt.Errorf("module metadata field is required")
+	}
+	meta := &ModuleMetadata{}
+	if err := metaVal.Decode(meta); err != nil {
+		return nil, fmt.Errorf("decoding module metadata: %w", err)
+	}
+	return meta, nil
 }

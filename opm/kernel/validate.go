@@ -10,86 +10,81 @@ import (
 
 const fieldNotAllowed = "field not allowed"
 
-// ValidateConfig is the kernel's primitive Tier-2 validation entry point.
-// It unifies values with schema, runs the closed-schema disallowed-field
-// walk, and asserts concreteness via [cue.Concrete](true).
+// ValidateConfigDetailed is the kernel's one validation entry: it unifies an
+// ordered slice of [Source] values in stack order, runs the closed-schema
+// disallowed-field walk, and asserts concreteness on the merged value via
+// [cue.Concrete](true). A single value is a one-element slice.
 //
-// Returns the unified [cue.Value] on success and the zero value on failure.
+// Per-source attribution flows through [token.Pos.Filename], populated from
+// [cue.Filename](Origin) at the time each Source.Value was compiled — see
+// [Kernel.LoadSourceFromFile] and [Kernel.LoadSourceFromBytes] for
+// constructors that bake the filename for you.
+//
+// Returns the merged [cue.Value] on success and the zero value on failure.
 // The returned error is the raw CUE error tree; walk it via
-// [cuelang.org/go/cue/errors.Errors] / [cuelang.org/go/cue/errors.Positions],
-// or print it via [cuelang.org/go/cue/errors.Print]. Presentation is
-// outside the kernel's contract — frontends own their own formatting.
+// [cuelang.org/go/cue/errors.Errors] and
+// [cuelang.org/go/cue/errors.Positions], or print it via
+// [cuelang.org/go/cue/errors.Print]. Presentation is outside the kernel's
+// contract — frontends own their own formatting. Module-name framing is the
+// caller's responsibility — wrap with [fmt.Errorf] if a context prefix is
+// required.
 //
-// values is a single, pre-merged [cue.Value]. Layered inputs flow through
-// [Kernel.ValidateConfigDetailed]; partial-mode validation flows through
-// [Kernel.ValidateConfigPartial]. Module-name framing is the caller's
-// responsibility — wrap with [fmt.Errorf] if a context prefix is required.
-//
-// The zero [cue.Value] is treated as "no values": ValidateConfig returns
-// (zero, nil) without running any schema check.
-func (k *Kernel) ValidateConfig(schema cue.Value, values cue.Value) (cue.Value, error) {
-	return runValidate(schema, values, true)
+// Empty sources, a zero schema, or a merged value that does not exist all
+// short-circuit to (zero, nil) — the "no values supplied" path documented
+// across the kernel's validation surface.
+func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error) {
+	return validateSources(schema, sources, true)
 }
 
-// ValidateConfigPartial validates partial values against schema without
-// requiring every schema field to be concrete. It catches type errors,
-// disallowed fields, and pattern/regex violations on fields that ARE set,
-// but does NOT flag fields that are missing entirely.
+// validateSources unifies sources in stack order and validates the merged
+// value against schema: the closed-schema disallowed-field walk first, so a
+// stray field is reported at the source's own position, then CUE's own
+// Validate on the unified value, with concreteness enforced when
+// requireConcrete is set. It backs [Kernel.ValidateConfigDetailed]
+// (requireConcrete true) and the kernel's internal per-source attribution
+// pass under [Kernel.AcquireInstanceFromDir] with extra values
+// (requireConcrete false: type errors, constraint violations and disallowed
+// fields on the fields that are set still surface, missing required fields
+// do not, since the whole built instance is checked for concreteness
+// afterwards).
 //
-// Used for CLI lint subcommands, IDE/LSP live feedback, admission webhooks,
-// and any callsite that intentionally validates a draft slice of the full
-// configuration.
-//
-// The zero [cue.Value] (no values) is treated as success.
-func (k *Kernel) ValidateConfigPartial(schema cue.Value, values cue.Value) (cue.Value, error) {
-	return runValidate(schema, values, false)
-}
-
-// runValidate is the shared internal that backs [Kernel.ValidateConfig],
-// [Kernel.ValidateConfigPartial], and [Kernel.ValidateConfigDetailed]. It
-// returns the unified value on success and the raw CUE error tree on
-// failure (callers wrap with [fmt.Errorf] if they want context framing).
-func runValidate(schema, values cue.Value, requireConcrete bool) (cue.Value, error) {
-	if !schema.Exists() || !values.Exists() {
+// Returns the unified value on success and the zero value plus the raw CUE
+// error tree on failure; callers wrap with [fmt.Errorf] if they want context
+// framing. Empty sources, a zero schema or a merged value that does not
+// exist short-circuit to (zero, nil).
+func validateSources(schema cue.Value, sources []Source, requireConcrete bool) (cue.Value, error) {
+	if len(sources) == 0 {
+		return cue.Value{}, nil
+	}
+	merged := sources[0].Value
+	for i := 1; i < len(sources); i++ {
+		merged = merged.Unify(sources[i].Value)
+	}
+	if !schema.Exists() || !merged.Exists() {
 		return cue.Value{}, nil
 	}
 
-	var combined cueerrors.Error
-	combined, _ = appendSchemaErrors(schema, values, combined, requireConcrete)
+	acc := walkDisallowed(schema, merged, nil, nil)
 
-	if combined != nil {
-		return cue.Value{}, combined
-	}
-
-	return schema.Unify(values), nil
-}
-
-func appendSchemaErrors(schema, value cue.Value, acc cueerrors.Error, requireConcrete bool) (cueerrors.Error, bool) {
-	beforeCount := len(cueerrors.Errors(acc))
-	changed := false
-	acc = walkDisallowed(schema, value, nil, acc)
-
-	unified := schema.Unify(value)
-	validateOpts := []cue.Option{}
+	unified := schema.Unify(merged)
+	var opts []cue.Option
 	if requireConcrete {
-		validateOpts = append(validateOpts, cue.Concrete(true))
+		opts = append(opts, cue.Concrete(true))
 	}
-	if err := unified.Validate(validateOpts...); err != nil {
+	if err := unified.Validate(opts...); err != nil {
 		for _, ce := range cueerrors.Errors(err) {
-			f, _ := ce.Msg()
-			if f == fieldNotAllowed {
+			// walkDisallowed already reported every disallowed field at the
+			// source's position; CUE's own copy would duplicate it.
+			if msg, _ := ce.Msg(); msg == fieldNotAllowed {
 				continue
 			}
 			acc = cueerrors.Append(acc, ce)
-			changed = true
 		}
 	}
-
-	if len(cueerrors.Errors(acc)) > beforeCount {
-		changed = true
+	if acc != nil {
+		return cue.Value{}, acc
 	}
-
-	return acc, changed
+	return unified, nil
 }
 
 func walkDisallowed(schema, val cue.Value, pathPrefix []string, acc cueerrors.Error) cueerrors.Error {
@@ -147,45 +142,4 @@ func normalizeFieldPath(path []string) []string {
 		return nil
 	}
 	return strings.Split(joined, ".")
-}
-
-// ValidateConfigDetailed unifies an ordered slice of [Source] values, then
-// validates the merged value against schema. Per-source attribution flows
-// through [token.Pos.Filename], populated from [cue.Filename](Origin) at
-// the time each Source.Value was compiled — see [Kernel.LoadSourceFromFile],
-// [Kernel.LoadSourceFromBytes], and [Kernel.LoadSourceFromString] for
-// constructors that bake the filename for you.
-//
-// Without options the merged value must be concrete (every required field
-// set). With [Partial] in opts, concreteness is not enforced; the merged
-// value is checked only for type errors, constraint violations, and
-// disallowed fields under closed schemas.
-//
-// Returns the merged [cue.Value] on success and the zero value on failure.
-// The returned error is the raw CUE error tree; walk it via
-// [cuelang.org/go/cue/errors.Errors] and
-// [cuelang.org/go/cue/errors.Positions], or print it via
-// [cuelang.org/go/cue/errors.Print]. Presentation is outside the kernel's
-// contract — frontends own their own formatting.
-//
-// Empty sources, a zero schema, or a merged value that does not exist all
-// short-circuit to (zero, nil) — the "no values supplied" path documented
-// across the kernel's validation surface.
-func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source, opts ...ValidateOption) (cue.Value, error) {
-	if len(sources) == 0 {
-		return cue.Value{}, nil
-	}
-
-	cfg := validateConfig{}
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	requireConcrete := !cfg.partial
-
-	merged := sources[0].Value
-	for i := 1; i < len(sources); i++ {
-		merged = merged.Unify(sources[i].Value)
-	}
-
-	return runValidate(schema, merged, requireConcrete)
 }

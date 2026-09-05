@@ -57,7 +57,7 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
-- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata decoders
+- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata types
 - `opm/core/` — shared domain primitives (resource identity, compiled output)
 - `opm/errors/` — structured errors and grouped CUE diagnostics (alias as `oerrors` in consumers)
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, load, process, validate, synthesize, render)
@@ -67,7 +67,7 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
 - `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `synth`); a frontend MAY skip the entire tree
 
-Validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`) rather than a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
+The one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`) rather than in a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
 
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 

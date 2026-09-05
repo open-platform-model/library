@@ -36,8 +36,9 @@ func (e UnifyError) Unwrap() error {
 // the platform does not resolve (0010 D28): the matcher index holds no
 // candidate for it, or every candidate was disqualified (by unification or by
 // predicate). Every declared resource is a required demand; a trait demand is
-// unresolved only when its effective `optional` posture is load-bearing —
-// including the fail-closed case of a posture the catalog never stated.
+// unresolved only when its effective `optional` posture is load-bearing (a
+// trait whose posture the catalog never stated is a build error, not a
+// diagnostics row).
 //
 // The D4 contract-key diagnostic is carried by Alternatives: empty means
 // nothing on this platform implements the contract at any version; non-empty
@@ -61,11 +62,6 @@ type UnresolvedDemand struct {
 	// disqualified them. Predicate-disqualified candidates contribute no
 	// entry (there is no unify cause to carry).
 	Disqualified []UnifyError
-
-	// UnstatedPosture marks a trait demand that failed closed because its
-	// effective `optional` was not concrete — the declaring catalog stated
-	// no posture, so the trait is treated as load-bearing (D28).
-	UnstatedPosture bool
 }
 
 func (e UnresolvedDemand) Error() string {
@@ -77,9 +73,6 @@ func (e UnresolvedDemand) Error() string {
 	}
 	if len(e.Disqualified) > 0 {
 		msg += fmt.Sprintf("; %d candidate(s) disqualified", len(e.Disqualified))
-	}
-	if e.UnstatedPosture {
-		msg += "; trait states no optional posture (treated as load-bearing)"
 	}
 	return msg
 }

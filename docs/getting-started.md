@@ -78,7 +78,7 @@ if err != nil {
 Layered validation unifies every values source in stack order, then validates the merged value against the module's `#config` schema. Per-source attribution flows through `cue.Filename(Origin)` baked at load time, so error positions report the originating file (or a stable identifier for non-file sources).
 
 ```go
-defaults, _ := k.LoadSourceFromString("embedded", "defaults", `replicas: 1`)
+defaults, _ := k.LoadSourceFromBytes("embedded", []byte(`replicas: 1`))
 user, _    := k.LoadSourceFromFile("./values.cue")
 prod, _    := k.LoadSourceFromFile("./prod.cue")
 
@@ -94,11 +94,11 @@ if vErr != nil {
 }
 ```
 
-The full validation primitives surface is `ValidateConfig`, `ValidateConfigPartial`, and `ValidateConfigDetailed`, composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance` — see the `opm/kernel` package documentation.
+`ValidateConfigDetailed` is the whole validation surface: a single value is a one-element `[]kernel.Source`, and there is no partial-mode entry. Compose it with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance` — see the `opm/kernel` package documentation.
 
 ## Acquire an instance
 
-`Render` imports the instance as a CUE package, so the instance must carry a `Source` (where its package lives). Two entry points produce one; both go through `ProcessModuleInstance`, the validated entry point, so the result is concrete and schema-checked.
+`Render` imports the instance as a CUE package, so the instance must carry a `Source` (where its package lives). Two entry points produce one; both validate values where they are applied, inside the build, and assert concreteness on the built spec, so the result is concrete and schema-checked.
 
 **From typed inputs** (a frontend that has the module and the values in hand): `Kernel.SynthesizeInstance` stages a virtual package that imports the module, writes the caller's values, and validates it in one build.
 
@@ -141,7 +141,7 @@ if err != nil {
 }
 ```
 
-`LoadInstancePackage` plus `ProcessModuleInstance` remain available for draft flows that want the raw value, but an instance built that way carries no `Source` and cannot be rendered.
+`LoadInstancePackage` remains available for draft flows that want the raw value. Only the two acquirers above produce a `*module.Instance`, and every instance they return carries a `Source`.
 
 ## Acquire a platform module
 
@@ -156,7 +156,7 @@ if err != nil {
 
 The shape gate refuses a `#registry` entry that embeds no catalog (the pre-0019 subscription shape with a `version` scalar) as `loaderfile.ErrMissingRequiredField`. There is no materialize step and no platform synthesis: the platform's catalogs are resolved by the render build, through `CUE_REGISTRY` or `WithRegistry`, exactly as any other CUE import.
 
-**From catalog coordinates** (a Platform CR, a seeded local default): `opm/helper/platformmodule` generates the module. `Roots` turns the subscriptions into dependency roots (core pinned at the kernel's verified release, `schema.DefaultSchemaVersion()`, unless `WithCoreVersion` overrides it), `Closure` derives the full dependency list from the published module files through a registry you configure explicitly (the once-at-generation tidy, 0019 D13), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, and `Files.WriteTo` writes them into a directory you own. The frontend keeps the directory lifecycle (generations, caching); the kernel acquires the result as above.
+**From catalog coordinates** (a Platform CR, a seeded local default): `opm/helper/platformmodule` generates the module. `Roots` turns the subscriptions into dependency roots (core pinned at the kernel's verified release, `schema.DefaultSchemaVersion()`; a frontend that needs another core build assembles the `[]Dep` roots itself), `Closure` derives the full dependency list from the published module files through a registry you configure explicitly (the once-at-generation tidy, 0019 D13), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, and `Files.WriteTo` writes them into a directory you own. The frontend keeps the directory lifecycle (generations, caching); the kernel acquires the result as above.
 
 ```go
 import "github.com/open-platform-model/library/opm/helper/platformmodule"
@@ -266,7 +266,7 @@ default:
 | `Kernel.SynthesizeInstance`           | (typed inputs)               | Instance from module + values, validated, `Source` stamped                   |
 | `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*core.Compiled` plus `RenderDiagnostics`         |
 
-Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point behind both instance acquirers, and `Render` renders the instance as processed.
+Values are validated where they are applied, inside the build each instance acquirer runs, and `Render` renders the instance as processed.
 
 ## Removed entry points
 
@@ -280,8 +280,13 @@ The previous entry points have all been removed. If you have old code calling an
 | `(*Kernel).SynthesizePlatform`, `synth.Platform` | Write the platform as a CUE module importing its catalogs; acquire it       |
 | `compile.UnmatchedComponentsError`               | `oerrors.UnmatchedComponentsError` (same shape)                             |
 | `compile.CompileModuleInstance`                  | `(*Kernel).Render`                                                          |
-| `compile.ProcessModuleInstance`                  | `(*Kernel).ProcessModuleInstance`                                           |
-| `module.ParseModuleInstance`                     | `(*Kernel).ProcessModuleInstance`                                           |
+| `compile.ProcessModuleInstance`                  | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance`         |
+| `module.ParseModuleInstance`                     | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance`         |
+| `(*Kernel).ProcessModuleInstance`                | `(*Kernel).AcquireInstanceFromDir` (with `WithValues`) / `(*Kernel).SynthesizeInstance` |
+| `(*Kernel).ValidateConfig`, `ValidateConfigPartial`, `kernel.Partial` | `(*Kernel).ValidateConfigDetailed` with a one-element `[]kernel.Source`; no partial-mode entry |
+| `(*Kernel).LoadSourceFromString`                 | `(*Kernel).LoadSourceFromBytes(origin, []byte(s))`                          |
+| `(*Kernel).NewInstanceFromValue`, `module.NewInstanceFromValue` | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance` |
+| `module.CueContextOwner`, `platform.CueContextOwner` | `module.NewModuleFromValue(v)` / `platform.NewPlatformFromValue(v)` take the value only |
 | `loaderfile.LoadInstanceFile`                    | `loaderfile.LoadInstancePackage` (now a pkg)                                |
 | `opm/loader/` shim                               | `opm/helper/loader/file`                                                    |
 

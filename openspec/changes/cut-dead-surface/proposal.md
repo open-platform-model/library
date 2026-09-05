@@ -11,7 +11,7 @@ This is slice 1 of the eight-slice simplification plan reviewed on 2026-09-05 (d
 **`opm/kernel` (BREAKING, `refactor(kernel)!:`):**
 
 - **BREAKING** `Kernel.ValidateConfig` and `Kernel.ValidateConfigPartial` are removed. `ValidateConfigDetailed(schema, sources)` is the one validation entry; it always enforces concreteness. `ValidateOption` and `Partial()` are removed with them; the internal per-source pass under `WithValues` (`acquire.go:219`) calls the unexported `runValidate` with `requireConcrete=false` directly. The cli's `module vet` keeps its own per-source partial pass until slice 7 designs a kernel spelling for it; it does not call the kernel today.
-- **BREAKING** `Kernel.ProcessModuleInstance` becomes the unexported `processInstance(ctx, spec)`. Its `values` branch is dead (both callers, `AcquireInstanceFromDir` and `SynthesizeInstance`, pass `cue.Value{}` because values are already unified inside the build) and its `mod module.Module` parameter feeds only a name fallback the instance shape gate makes unreachable (`metadata.name` is required concrete). Values enter through `WithValues` and `synth.InstanceInput.Values`, both validated where they are applied.
+- **BREAKING** `Kernel.ProcessModuleInstance` becomes the unexported free function `processInstance(spec)`. Its `values` branch is dead (both callers, `AcquireInstanceFromDir` and `SynthesizeInstance`, pass `cue.Value{}` because values are already unified inside the build) and its `mod module.Module` parameter feeds only a name fallback the instance shape gate makes unreachable (`metadata.name` is required concrete). Values enter through `WithValues` and `synth.InstanceInput.Values`, both validated where they are applied.
 - **BREAKING** `Kernel.NewInstanceFromValue` is removed. Instances are constructed only by `AcquireInstanceFromDir` and `SynthesizeInstance`; `module.NewInstanceFromValue` goes with it (no non-test caller once the wrapper is gone).
 - **BREAKING** `Kernel.LoadSourceFromString` is removed; `LoadSourceFromBytes` stays (slice 2 gives it its first consumer when `synth.InstanceInput.Values` becomes `[]Source`).
 - **BREAKING** `Source.Name` is removed. Every constructor set it and nothing read it; `Origin` is the attribution key CUE positions carry.
@@ -25,7 +25,7 @@ This is slice 1 of the eight-slice simplification plan reviewed on 2026-09-05 (d
 
 **`opm/schema`:**
 
-- **BREAKING** `DecodeModuleMetadata`, `DecodeInstanceMetadata`, `DecodePlatformMetadata` become unexported. Their only callers are the three constructors and `processInstance`. `ModuleMetadata`, `InstanceMetadata`, `PlatformMetadata` stay exported; consumers read them through `Module.Metadata` and friends.
+- **BREAKING** `DecodeModuleMetadata`, `DecodeInstanceMetadata`, `DecodePlatformMetadata` leave `opm/schema`. Their only callers are the three constructors and `processInstance`, each in another package, so an unexported function in `opm/schema` cannot serve them; each decoder moves, unexported, into the package of its one caller (`opm/module`, `opm/platform`, `opm/kernel`) and `schema/decode.go` is deleted. `ModuleMetadata`, `InstanceMetadata`, `PlatformMetadata` stay exported; consumers read them through `Module.Metadata` and friends.
 - `PublicRegistry` and `DefaultSchemaModule` **stay** (deliberate: documented in `CLAUDE.md`, `README.md` and `docs/getting-started.md` as the constants a frontend sets `CUE_REGISTRY` from; zero maintenance cost).
 - The `schema.Loader` / `versionedLoader` two-interface shape is **not** touched here; it is a design change, not a removal, and a later slice may fold it.
 
@@ -44,11 +44,11 @@ This is slice 1 of the eight-slice simplification plan reviewed on 2026-09-05 (d
 
 - Tests that reached the removed symbols move onto the surviving entry points: `ValidateConfigDetailed` with one `Source` for the single-value cases, `AcquireInstanceFromDir` / `SynthesizeInstance` for the processing cases, a test-local helper over `LoadSourceFromBytes` for the string cases, the constructor calls drop their first argument, the `stubOwner` in `opm/helper/synth/instance_test.go` goes.
 - `TestKernel_PrunedSurface` gains the removed method names; its comment and `CLAUDE.md` § Kernel API surface stop saying "values enter through `ProcessModuleInstance`". `opm/kernel/doc.go` and `README.md` follow.
-- Deferred on purpose: `glueDiagnostics.Missing` / `.Resolved` (slice 4 reshapes the glue output), `compat.walkStruct`'s unused parameter (slice 5 moves the package), the `appendSchemaErrors` bool and `normalizeFieldPath` prefix branch (slice 7, when the cli copy that still reads the bool is deleted).
+- Deferred on purpose: `glueDiagnostics.Missing` / `.Resolved` (slice 4 reshapes the glue output), `compat.walkStruct`'s unused parameter (slice 5 moves the package), the `normalizeFieldPath` prefix branch (slice 7, when the cli copy is deleted). The `appendSchemaErrors` bool went after verification, with the fold of the one-caller validation chain into `validateSources` (the cli holds a copy of that code, not a caller).
 
 ## SemVer classification
 
-MAJOR (Principle VI): exported methods, fields, a type and an interface leave `opm/`. Pre-GA, so no migration fragment (ADR-004). Downstream migration cost: **zero source changes** in `cli` and `opm-operator`. Neither calls a removed symbol; the constructor wrappers they use keep their signatures; `IdentityError` and `UnresolvedDemand` are only type-checked. Both consumers re-pin in the next `fix(deps)` wave.
+MAJOR (Principle VI): exported methods, fields, a type and an interface leave `opm/`. Pre-GA, so no migration fragment (ADR-004). Downstream migration cost: **zero non-test source changes** in `cli` and `opm-operator`. Neither calls a removed symbol; the constructor wrappers they use keep their signatures; `IdentityError` and `UnresolvedDemand` are only type-checked. One operator test fixture (`internal/reconcile/resolution_test.go`) constructs `IdentityError` with `Artifact: "module"` and drops that field at re-pin. Both consumers re-pin in the next `fix(deps)` wave.
 
 ## Affected packages and downstream consumers
 

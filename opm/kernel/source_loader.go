@@ -12,26 +12,17 @@ import (
 
 // LoadSourceFromBytes compiles b into a [Source] with [cue.Filename](origin)
 // baked into the resulting [cue.Value], so that any subsequent validation
-// error positions carry origin via [token.Pos.Filename].
+// error positions carry origin via [token.Pos.Filename]. A caller holding a
+// string passes []byte(s).
 //
 // Returns an error if compilation fails (the returned [Source] is the zero
 // value in that case).
-func (k *Kernel) LoadSourceFromBytes(origin, name string, b []byte) (Source, error) {
+func (k *Kernel) LoadSourceFromBytes(origin string, b []byte) (Source, error) {
 	v := k.cueCtx.CompileBytes(b, cue.Filename(origin))
 	if err := v.Err(); err != nil {
 		return Source{}, fmt.Errorf("compiling source %q: %w", origin, err)
 	}
-	return Source{Value: v, Name: name, Origin: origin}, nil
-}
-
-// LoadSourceFromString is the [string]-input mirror of
-// [Kernel.LoadSourceFromBytes].
-func (k *Kernel) LoadSourceFromString(origin, name, s string) (Source, error) {
-	v := k.cueCtx.CompileString(s, cue.Filename(origin))
-	if err := v.Err(); err != nil {
-		return Source{}, fmt.Errorf("compiling source %q: %w", origin, err)
-	}
-	return Source{Value: v, Name: name, Origin: origin}, nil
+	return Source{Value: v, Origin: origin}, nil
 }
 
 // LoadSourceFromFile reads a values file from disk, compiles it via
@@ -43,8 +34,6 @@ func (k *Kernel) LoadSourceFromString(origin, name, s string) (Source, error) {
 // Auto-unwrap: if the loaded value has a top-level `values:` field that
 // exists and reports no error, that field is returned as the Source.Value.
 // Otherwise the whole evaluated file value is returned.
-//
-// Name defaults to the basename.
 func (k *Kernel) LoadSourceFromFile(path string) (Source, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -82,7 +71,6 @@ func (k *Kernel) LoadSourceFromFile(path string) (Source, error) {
 
 	return Source{
 		Value:  v,
-		Name:   filepath.Base(absPath),
 		Origin: absPath,
 	}, nil
 }

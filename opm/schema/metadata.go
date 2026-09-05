@@ -2,7 +2,7 @@ package schema
 
 // ModuleMetadata contains module-level identity and version information.
 // This is the module's canonical metadata, distinct from the instance it is
-// deployed as. Populated by DecodeModuleMetadata.
+// deployed as. Populated by module.NewModuleFromValue.
 type ModuleMetadata struct {
 	// Name is the canonical module name from module.metadata.name (kebab-case).
 	Name string `json:"name"`

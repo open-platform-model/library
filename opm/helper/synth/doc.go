@@ -18,10 +18,12 @@
 // as peers makes each verb legible at a glance.
 //
 // Recommended entry point: (*kernel.Kernel).SynthesizeInstance, which chains
-// synth.Instance into Kernel.ProcessModuleInstance so a caller building an
-// instance from typed inputs gets a fully validated, concrete
-// *module.Instance in one call. Call synth.Instance directly only when there
-// is no *Kernel on hand (rare; mostly unit-testing in tight loops).
+// synth.Instance into the kernel's instance processing (concreteness on the
+// built spec, metadata decoding) so a caller building an instance from typed
+// inputs gets a fully validated, concrete *module.Instance in one call. Call
+// synth.Instance directly only when there is no *Kernel on hand (rare; mostly
+// unit-testing in tight loops): it yields the built value and staged source
+// only, with no instance processing.
 //
 // Single-build construction (ADR-006): synth.Instance does NOT stitch an instance
 // value together from separate CUE evaluations. It synthesizes a virtual CUE

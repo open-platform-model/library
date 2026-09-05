@@ -91,37 +91,33 @@
 // diagnosis (Pairs, Unmatched, Unresolved, Unify, UnhandledTraits,
 // OverSubscribed, ResolvedVersions). There is no separate match verb.
 //
-// Render consumes the instance as processed: [Kernel.ProcessModuleInstance]
-// is the validated entry point (it validates user values against the
-// module's `#config` schema via [Kernel.ValidateConfig] and fills them before
-// the instance is rendered; AcquireInstanceFromDir and SynthesizeInstance
-// both go through it), and Render performs no validation pass of its own.
+// Render consumes the instance as processed: values are validated where
+// they are applied. [Kernel.AcquireInstanceFromDir] unifies [WithValues]
+// sources inside the package build and checks them against the module's
+// `#config` at their own positions; [Kernel.SynthesizeInstance] renders
+// in.Values into the synthesized package; both then assert concreteness on
+// the whole built spec. Render performs no validation pass of its own.
 //
 // # Configuration validation
 //
-// Three primitives form the validation surface:
+// One primitive forms the validation surface: [Kernel.ValidateConfigDetailed]
+// accepts an ordered slice of [Source], unifies in stack order, then
+// validates the merged value against a schema with concreteness enforced. A
+// single value is a one-element slice. Per-source attribution flows through
+// [token.Pos.Filename] populated from [cue.Filename](Origin) at compile time;
+// use [Kernel.LoadSourceFromFile] or [Kernel.LoadSourceFromBytes] to construct
+// sources whose Value satisfies the filename contract automatically. There is
+// no partial-mode entry: partial validation is an internal attribution pass
+// under AcquireInstanceFromDir with extra values, not a public contract.
 //
-//   - [Kernel.ValidateConfig] — concrete check on a single, pre-merged
-//     [cue.Value]. Returns the unified value and a CUE-native error.
-//   - [Kernel.ValidateConfigPartial] — same, without the concreteness
-//     requirement. Used by lint subcommands, IDE/LSP, admission webhooks,
-//     and other callsites that intentionally validate a draft.
-//   - [Kernel.ValidateConfigDetailed] — accepts an ordered slice of
-//     [Source], unifies in stack order, then validates the merged value.
-//     Per-source attribution flows through [token.Pos.Filename] populated
-//     from [cue.Filename](Origin) at compile time. Use
-//     [Kernel.LoadSourceFromFile], [Kernel.LoadSourceFromBytes], or
-//     [Kernel.LoadSourceFromString] to construct sources whose Value
-//     satisfies the filename contract automatically.
-//
-// All three return CUE-native errors. Walk them via
+// The primitive returns CUE-native errors. Walk them via
 // [cuelang.org/go/cue/errors.Errors] / [cuelang.org/go/cue/errors.Positions],
 // or print via [cuelang.org/go/cue/errors.Print]. Presentation belongs to
 // the frontend — the kernel does not ship a formatter.
 //
 // A caller holding a *module.Module or *module.Instance composes its
-// ConfigSchema() accessor with the primitive it wants, e.g.
-// k.ValidateConfig(m.ConfigSchema(), values).
+// ConfigSchema() accessor with the primitive, e.g.
+// k.ValidateConfigDetailed(m.ConfigSchema(), []kernel.Source{src}).
 //
 // # Advanced: CueContext accessor
 //

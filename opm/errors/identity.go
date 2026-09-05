@@ -14,9 +14,6 @@ import (
 // instead (0019 D5: the registry key binds to the embedded catalog's
 // modulePath), so no catalog read site produces it.
 type IdentityError struct {
-	// Artifact discriminates the read site: "module" | "catalog".
-	Artifact string
-
 	// Field names the mismatched identity field: "path" | "version".
 	Field string
 
@@ -35,6 +32,6 @@ type IdentityError struct {
 // the condition is a comparison, not a wrapped failure, so there is no Cause
 // and no Unwrap.
 func (e IdentityError) Error() string {
-	return fmt.Sprintf("%s identity mismatch at %s: metadata declares %q but the artifact was fetched as %q (%s)",
-		e.Artifact, e.Field, e.Declared, e.Fetched, e.Coordinate)
+	return fmt.Sprintf("identity mismatch at %s: metadata declares %q but the artifact was fetched as %q (%s)",
+		e.Field, e.Declared, e.Fetched, e.Coordinate)
 }

@@ -1,8 +1,6 @@
 package module
 
 import (
-	"fmt"
-
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/library/opm/schema"
@@ -32,12 +30,11 @@ type Instance struct {
 	Package cue.Value
 
 	// Source is the staged source tree the instance package was built from,
-	// so a follow-on build can import the instance as a package. It is
-	// stamped at exactly two sites: Kernel.SynthesizeInstance (overlay mode,
-	// the synthesized package inside the module's staged root) and
-	// Kernel.AcquireInstanceFromDir (on-disk mode, the loaded directory). It
-	// is nil for instances constructed from a bare value
-	// (NewInstanceFromValue, Kernel.ProcessModuleInstance called directly).
+	// so a follow-on build can import the instance as a package. Instances
+	// are constructed only by the kernel, which stamps it at exactly two
+	// sites: Kernel.SynthesizeInstance (overlay mode, the synthesized package
+	// inside the module's staged root) and Kernel.AcquireInstanceFromDir
+	// (on-disk mode, the loaded directory; overlay mode with WithValues).
 	Source *Source
 }
 
@@ -73,24 +70,4 @@ func (r *Instance) ConfigSchema() cue.Value {
 		return cue.Value{}
 	}
 	return mod.LookupPath(schema.Config)
-}
-
-// NewInstanceFromValue builds a *Instance from a raw CUE artifact value. The
-// supplied k is currently unused but preserved in the signature so future
-// kernel-scoped state can be threaded without an API break.
-//
-// The function decodes InstanceMetadata via schema.DecodeInstanceMetadata and
-// stores the input cue.Value unmodified in Package. Errors return a nil
-// *Instance.
-//
-// Was: NewReleaseFromValue
-func NewInstanceFromValue(_ CueContextOwner, v cue.Value) (*Instance, error) {
-	meta, err := schema.DecodeInstanceMetadata(v)
-	if err != nil {
-		return nil, fmt.Errorf("decoding instance metadata: %w", err)
-	}
-	return &Instance{
-		Metadata: meta,
-		Package:  v,
-	}, nil
 }

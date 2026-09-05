@@ -229,23 +229,6 @@ func pairsByComponent(pairs []kernel.RenderPair) map[string][]string {
 	return out
 }
 
-// buildModule assembles a hermetic *module.Module with the given #config schema
-// body (raw CUE, e.g. `{ replicas: int | *1 }`). Constructed via
-// k.NewModuleFromValue so the harness exercises that path.
-func buildModule(t *testing.T, k *kernel.Kernel, configSchema string) *module.Module {
-	t.Helper()
-	src := fmt.Sprintf(`
-kind: "Module"
-metadata: { name: "demo", modulePath: "example.com/demo", version: "0.1.0" }
-#config: %s
-`, configSchema)
-	v := k.CueContext().CompileString(src, cue.Filename("module.cue"))
-	require.NoError(t, v.Err(), "compiling hermetic module")
-	m, err := k.NewModuleFromValue(v)
-	require.NoError(t, err, "constructing module from value")
-	return m
-}
-
 // cueVal compiles src in the kernel's context with a stable filename so
 // per-source attribution (used by ValidateConfigDetailed) is meaningful.
 func cueVal(t *testing.T, k *kernel.Kernel, src, filename string) cue.Value {

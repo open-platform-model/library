@@ -15,10 +15,9 @@ import (
 
 func TestKernel_LoadSourceFromBytes_FilenameCarriedIntoErrors(t *testing.T) {
 	k := kernel.New()
-	src, err := k.LoadSourceFromBytes("user.cue", "user values", []byte(`{ replicas: 3 }`))
+	src, err := k.LoadSourceFromBytes("user.cue", []byte(`{ replicas: 3 }`))
 	require.NoError(t, err)
 	assert.Equal(t, "user.cue", src.Origin)
-	assert.Equal(t, "user values", src.Name)
 
 	// Validate against an incompatible schema; the error MUST cite "user.cue"
 	// in its positions, demonstrating cue.Filename(Origin) was applied.
@@ -39,9 +38,9 @@ func TestKernel_LoadSourceFromBytes_FilenameCarriedIntoErrors(t *testing.T) {
 	assert.True(t, gotOrigin, "error positions MUST report Origin via pos.Filename()")
 }
 
-func TestKernel_LoadSourceFromString_FilenameCarriedIntoErrors(t *testing.T) {
+func TestKernel_LoadSourceFromBytes_NonFileOriginCarriedIntoErrors(t *testing.T) {
 	k := kernel.New()
-	src, err := k.LoadSourceFromString("config://overlay", "overlay", `{ replicas: 7 }`)
+	src, err := k.LoadSourceFromBytes("config://overlay", []byte(`{ replicas: 7 }`))
 	require.NoError(t, err)
 	assert.Equal(t, "config://overlay", src.Origin)
 
@@ -64,7 +63,7 @@ func TestKernel_LoadSourceFromString_FilenameCarriedIntoErrors(t *testing.T) {
 
 func TestKernel_LoadSourceFromBytes_CompileErrorReturned(t *testing.T) {
 	k := kernel.New()
-	_, err := k.LoadSourceFromBytes("broken.cue", "broken", []byte(`{ replicas: int & "string" }`))
+	_, err := k.LoadSourceFromBytes("broken.cue", []byte(`{ replicas: int & "string" }`))
 	require.Error(t, err, "compile-time CUE errors MUST be returned by the loader")
 }
 
@@ -79,7 +78,6 @@ func TestKernel_LoadSourceFromFile_FilenameMatchesAbsolutePath(t *testing.T) {
 
 	absPath, _ := filepath.Abs(path)
 	assert.Equal(t, absPath, src.Origin, "Origin MUST equal the absolute path baked by cue/load.Instances")
-	assert.Equal(t, "values.cue", src.Name)
 
 	// Force a validation error and confirm pos.Filename() == absolute path.
 	schema := k.CueContext().CompileString(`{ replicas: string }`)

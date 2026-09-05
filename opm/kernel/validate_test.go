@@ -12,77 +12,48 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-func TestKernel_ValidateConfig_ZeroValueIsNoOp(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_ZeroValueSourceIsNoOp(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
-	got, err := k.ValidateConfig(schema, cue.Value{})
-	require.NoError(t, err, "zero cue.Value MUST be treated as 'no values' and succeed")
+	got, err := k.ValidateConfigDetailed(schema, []kernel.Source{{Value: cue.Value{}, Origin: "none"}})
+	require.NoError(t, err, "a source whose merged value does not exist MUST be treated as 'no values' and succeed")
 	assert.False(t, got.Exists(), "no values supplied → returned cue.Value is the zero value")
 }
 
-func TestKernel_ValidateConfig_SchemaErrorReturnsCueError(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_SchemaErrorReturnsCueError(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
-	bad := k.CueContext().CompileString(`{ replicas: -1 }`)
-	require.NoError(t, bad.Err())
+	bad := mustSource(t, k, "bad.cue", `{ replicas: -1 }`)
 
-	_, vErr := k.ValidateConfig(schema, bad)
+	_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{bad})
 	require.Error(t, vErr)
 	// Error MUST be walkable as a CUE error tree.
 	require.NotEmpty(t, cueerrors.Errors(vErr), "validation error MUST yield at least one cueerrors.Error")
 }
 
-func TestKernel_ValidateConfig_FieldNotAllowed(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_FieldNotAllowed(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`close({ replicas: int })`)
 	require.NoError(t, schema.Err())
-	stray := k.CueContext().CompileString(`{ replicas: 1, stray: "x" }`)
-	require.NoError(t, stray.Err())
+	stray := mustSource(t, k, "stray.cue", `{ replicas: 1, stray: "x" }`)
 
-	_, vErr := k.ValidateConfig(schema, stray)
+	_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{stray})
 	require.Error(t, vErr, "field outside the closed schema MUST surface")
 }
 
-func TestKernel_ValidateConfigPartial_MissingFieldPassesPartialFailsFull(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_MissingRequiredFieldFails(t *testing.T) {
 	k := kernel.New()
 	// Schema requires both `replicas` and `name` to be concrete.
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
-	// Partial value sets only `replicas`; `name` is missing.
-	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
-	require.NoError(t, partial.Err())
+	// Only `replicas` is set; `name` is missing.
+	partial := mustSource(t, k, "partial.cue", `{ replicas: 3 }`)
 
-	_, partialErr := k.ValidateConfigPartial(schema, partial)
-	require.NoError(t, partialErr, "partial validation MUST allow missing required fields")
-
-	_, fullErr := k.ValidateConfig(schema, partial)
-	require.Error(t, fullErr, "full Tier-2 validation MUST flag missing required field")
-}
-
-func TestKernel_ValidateConfigPartial_TypeErrorStillSurfaces(t *testing.T) {
-	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
-	require.NoError(t, schema.Err())
-	// `replicas` set but with the wrong type — partial validation MUST flag it.
-	wrongType := k.CueContext().CompileString(`{ replicas: "three" }`)
-	require.NoError(t, wrongType.Err())
-
-	_, vErr := k.ValidateConfigPartial(schema, wrongType)
-	require.Error(t, vErr, "partial validation still flags type errors on fields that ARE set")
-	require.NotEmpty(t, cueerrors.Errors(vErr))
-}
-
-func TestKernel_ValidateConfigPartial_ZeroValueIsNoOp(t *testing.T) {
-	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
-	require.NoError(t, schema.Err())
-
-	got, err := k.ValidateConfigPartial(schema, cue.Value{})
-	require.NoError(t, err)
-	assert.False(t, got.Exists())
+	_, err := k.ValidateConfigDetailed(schema, []kernel.Source{partial})
+	require.Error(t, err, "the one public primitive is concrete-only: a missing required field MUST fail")
 }
 
 func TestKernel_ValidateConfigDetailed_EmptySourcesReturnsZeroNil(t *testing.T) {
@@ -99,8 +70,7 @@ func TestKernel_ValidateConfigDetailed_SingleSourceSuccess(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
-	v, err := k.LoadSourceFromString("user.cue", "user", `replicas: 3`)
-	require.NoError(t, err)
+	v := mustSource(t, k, "user.cue", `replicas: 3`)
 
 	merged, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{v})
 	require.NoError(t, vErr)
@@ -112,10 +82,8 @@ func TestKernel_ValidateConfigDetailed_TwoSourceUnifySuccess(t *testing.T) {
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, image: string }`)
 	require.NoError(t, schema.Err())
 
-	a, err := k.LoadSourceFromString("defaults.cue", "defaults", `replicas: 1`)
-	require.NoError(t, err)
-	b, err := k.LoadSourceFromString("user.cue", "user", `image: "nginx"`)
-	require.NoError(t, err)
+	a := mustSource(t, k, "defaults.cue", `replicas: 1`)
+	b := mustSource(t, k, "user.cue", `image: "nginx"`)
 
 	merged, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{a, b})
 	require.NoError(t, vErr)
@@ -131,10 +99,8 @@ func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.
 	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
-	a, err := k.LoadSourceFromString("a.cue", "layer-a", `replicas: 3`)
-	require.NoError(t, err)
-	b, err := k.LoadSourceFromString("b.cue", "layer-b", `replicas: 5`)
-	require.NoError(t, err)
+	a := mustSource(t, k, "a.cue", `replicas: 3`)
+	b := mustSource(t, k, "b.cue", `replicas: 5`)
 
 	_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{a, b})
 	require.Error(t, vErr, "conflicting concrete values MUST fail")
@@ -153,7 +119,7 @@ func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.
 
 // The composition tests below cover what the retired typed wrappers
 // (ValidateModuleValues* / ValidateInstanceValues*) used to: resolving
-// #config via the ConfigSchema() accessors and handing it to a primitive.
+// #config via the ConfigSchema() accessors and handing it to the primitive.
 
 // configFixture is a minimal Module + Instance pair sharing one #config
 // schema (replicas: int & >0, name: string), built as bare values in the
@@ -223,93 +189,44 @@ components: {}
 	}
 }
 
-func TestKernel_ValidateConfig_ComposedWithModuleConfigSchema(t *testing.T) {
-	k := kernel.New()
-	f := newConfigFixture(t, k)
-
-	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
-	require.NoError(t, values.Err())
-	merged, err := k.ValidateConfig(f.mod.ConfigSchema(), values)
-	require.NoError(t, err)
-	assert.True(t, merged.Exists())
-
-	bad := k.CueContext().CompileString(`{ replicas: -1, name: "demo" }`)
-	require.NoError(t, bad.Err())
-	_, vErr := k.ValidateConfig(f.mod.ConfigSchema(), bad)
-	require.Error(t, vErr)
-
-	// Only replicas set; name missing — partial mode allows it, concrete fails.
-	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
-	require.NoError(t, partial.Err())
-	_, pErr := k.ValidateConfigPartial(f.mod.ConfigSchema(), partial)
-	require.NoError(t, pErr, "partial MUST allow missing required fields")
-	_, fullErr := k.ValidateConfig(f.mod.ConfigSchema(), partial)
-	require.Error(t, fullErr, "concrete check MUST flag missing required field")
-}
-
 func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing.T) {
 	k := kernel.New()
 	f := newConfigFixture(t, k)
 
-	a, err := k.LoadSourceFromString("defaults.cue", "defaults", `replicas: 1`)
-	require.NoError(t, err)
-	b, err := k.LoadSourceFromString("user.cue", "user", `name: "prod"`)
-	require.NoError(t, err)
-
-	merged, vErr := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{a, b})
-	require.NoError(t, vErr)
-	assert.True(t, merged.Exists())
-}
-
-func TestKernel_ValidateConfig_ComposedWithInstanceConfigSchema(t *testing.T) {
-	k := kernel.New()
-	f := newConfigFixture(t, k)
-
-	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
-	require.NoError(t, values.Err())
-	merged, err := k.ValidateConfig(f.inst.ConfigSchema(), values)
+	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
+	merged, err := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{values})
 	require.NoError(t, err)
 	assert.True(t, merged.Exists())
 
-	partial := k.CueContext().CompileString(`{ replicas: 3 }`)
-	require.NoError(t, partial.Err())
-	_, pErr := k.ValidateConfigPartial(f.inst.ConfigSchema(), partial)
-	require.NoError(t, pErr)
+	bad := mustSource(t, k, "bad.cue", `{ replicas: -1, name: "demo" }`)
+	_, vErr := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{bad})
+	require.Error(t, vErr)
 
-	a, err := k.LoadSourceFromString("a.cue", "a", `replicas: 2`)
-	require.NoError(t, err)
-	b, err := k.LoadSourceFromString("b.cue", "b", `name: "inst"`)
-	require.NoError(t, err)
-	layered, vErr := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{a, b}, kernel.Partial())
+	// Only replicas set; name missing — the concrete check flags it.
+	partial := mustSource(t, k, "partial.cue", `{ replicas: 3 }`)
+	_, fullErr := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{partial})
+	require.Error(t, fullErr, "concrete check MUST flag missing required field")
+
+	// Layered: two sources together satisfy the schema.
+	a := mustSource(t, k, "defaults.cue", `replicas: 1`)
+	b := mustSource(t, k, "user.cue", `name: "prod"`)
+	layered, vErr := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{a, b})
 	require.NoError(t, vErr)
 	assert.True(t, layered.Exists())
 }
 
-func TestKernel_ValidateConfigDetailed_PartialSkipsConcreteButRunsWalkDisallowed(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_ComposedWithInstanceConfigSchema(t *testing.T) {
 	k := kernel.New()
-	// Closed schema requiring two fields. Stray field is disallowed.
-	schema := k.CueContext().CompileString(`close({ replicas: int & >0, name: string })`)
-	require.NoError(t, schema.Err())
+	f := newConfigFixture(t, k)
 
-	// Single source with only `replicas` set + a stray field.
-	src, err := k.LoadSourceFromString("draft.cue", "draft", `{replicas: 1, stray: "x"}`)
+	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
+	merged, err := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{values})
 	require.NoError(t, err)
+	assert.True(t, merged.Exists())
 
-	// Without Partial: missing `name` AND stray field both fail.
-	_, fullErr := k.ValidateConfigDetailed(schema, []kernel.Source{src})
-	require.Error(t, fullErr, "concrete check fails on missing required field")
-
-	// With Partial: missing `name` ignored; stray STILL surfaces (walkDisallowed).
-	_, partErr := k.ValidateConfigDetailed(schema, []kernel.Source{src}, kernel.Partial())
-	require.Error(t, partErr, "Partial() does NOT silence walkDisallowed disallowed-field errors")
-
-	// Verify the partial error is specifically about the stray field, not missing-name.
-	gotStrayMessage := false
-	for _, ce := range cueerrors.Errors(partErr) {
-		f, _ := ce.Msg()
-		if f == "field not allowed" {
-			gotStrayMessage = true
-		}
-	}
-	assert.True(t, gotStrayMessage, "Partial mode error MUST include 'field not allowed' for stray field")
+	a := mustSource(t, k, "a.cue", `replicas: 2`)
+	b := mustSource(t, k, "b.cue", `name: "inst"`)
+	layered, vErr := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{a, b})
+	require.NoError(t, vErr)
+	assert.True(t, layered.Exists())
 }

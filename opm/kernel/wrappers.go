@@ -29,15 +29,15 @@ func (k *Kernel) LoadModulePackage(_ context.Context, dirPath string, opts loade
 // A caller that wants only the raw module value reads Module.Package.
 // See [loaderregistry.LoadModulePackageWithSource].
 func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
-	res, err := loaderregistry.LoadModulePackageWithSource(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
+	val, src, err := loaderregistry.LoadModulePackageWithSource(ctx, k.cueCtx, modPath, version, loaderregistry.LoadOptions{Registry: k.registry})
 	if err != nil {
 		return nil, err
 	}
-	mod, err := module.NewModuleFromValue(k, res.Value)
+	mod, err := module.NewModuleFromValue(val)
 	if err != nil {
 		return nil, err
 	}
-	mod.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	mod.Source = src
 	return mod, nil
 }
 
@@ -58,19 +58,11 @@ func (k *Kernel) LoadPlatformPackage(_ context.Context, dirPath string, opts loa
 // NewPlatformFromValue builds a typed [*platform.Platform] from a raw
 // [cue.Value]. See [platform.NewPlatformFromValue].
 func (k *Kernel) NewPlatformFromValue(v cue.Value) (*platform.Platform, error) {
-	return platform.NewPlatformFromValue(k, v)
+	return platform.NewPlatformFromValue(v)
 }
 
 // NewModuleFromValue builds a typed [*module.Module] from a raw [cue.Value].
 // See [module.NewModuleFromValue].
 func (k *Kernel) NewModuleFromValue(v cue.Value) (*module.Module, error) {
-	return module.NewModuleFromValue(k, v)
-}
-
-// NewInstanceFromValue builds a typed [*module.Instance] from a raw
-// [cue.Value]. See [module.NewInstanceFromValue].
-//
-// Was: NewReleaseFromValue
-func (k *Kernel) NewInstanceFromValue(v cue.Value) (*module.Instance, error) {
-	return module.NewInstanceFromValue(k, v)
+	return module.NewModuleFromValue(v)
 }

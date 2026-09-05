@@ -96,15 +96,15 @@ func publishModuleWithBody(t *testing.T, ctx *cue.Context, coreVersion, name, ve
 	}
 	registryMapping := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	res, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v"+version,
+	val, src, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v"+version,
 		registryloader.LoadOptions{Registry: registryMapping})
 	require.NoErrorf(t, err, "loading published module %s@v%s", modPath, version)
 
-	m, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, res.Value)
+	m, err := module.NewModuleFromValue(val)
 	require.NoError(t, err, "constructing *module.Module from loaded value")
 	// Synth builds the instance inside the module's own staged root, so the
 	// module must carry its source (as Kernel.AcquireModuleFromRegistry attaches).
-	m.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	m.Source = src
 	require.True(t, m.HasSource(), "published fixture module must carry staged source for synth")
 	require.Equal(t, metaPath, m.Metadata.ModulePath)
 	require.Equal(t, name, m.Metadata.Name)
@@ -175,12 +175,12 @@ func publishCatalogImportingModule(t *testing.T, ctx *cue.Context, coreVersion s
 	}
 	registryMapping := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	res, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v0.1.0",
+	val, src, err := registryloader.LoadModulePackageWithSource(context.Background(), ctx, modPath+"@v0", "v0.1.0",
 		registryloader.LoadOptions{Registry: registryMapping})
 	require.NoErrorf(t, err, "loading catalog-importing module %s", modPath)
-	m, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, res.Value)
+	m, err := module.NewModuleFromValue(val)
 	require.NoError(t, err, "constructing *module.Module from loaded value")
-	m.Source = &module.Source{Root: res.Root, Overlay: res.Overlay}
+	m.Source = src
 	require.True(t, m.HasSource(), "fixture module must carry staged source for synth")
 	return m, registryMapping
 }

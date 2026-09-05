@@ -60,19 +60,12 @@ func testModule(t *testing.T, ctx *cue.Context, src string) *module.Module {
 	require.True(t, modVal.Exists(), "synth test fixture must declare top-level `module:`")
 	require.NoErrorf(t, modVal.Err(), "fixture module field error: %v", modVal.Err())
 
-	mod, err := module.NewModuleFromValue(stubOwner{ctx: ctx}, modVal)
+	mod, err := module.NewModuleFromValue(modVal)
 	require.NoErrorf(t, err, "constructing *module.Module from fixture: %v", err)
 	require.NotNil(t, mod)
 	require.NotEmpty(t, mod.Metadata.UUID, "schema-derived module UUID must be present")
 	return mod
 }
-
-// stubOwner satisfies module.CueContextOwner — module.NewModuleFromValue does
-// not actually use the context (the value already carries one); the interface
-// exists only to keep opm/module's import surface narrow.
-type stubOwner struct{ ctx *cue.Context }
-
-func (s stubOwner) CueContext() *cue.Context { return s.ctx }
 
 // baseModuleFixture is the minimal #Module declaration used by guard tests that
 // don't need a custom #config or debugValues. Name/modulePath/version are fixed

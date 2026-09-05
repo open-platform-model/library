@@ -190,7 +190,7 @@ func TestRender_RefusesSourcelessInputs(t *testing.T) {
 	inst := acquireRenderInstance(t, k, "instance")
 	ctx := context.Background()
 
-	bare, err := platform.NewPlatformFromValue(k, plat.Package)
+	bare, err := platform.NewPlatformFromValue(plat.Package)
 	require.NoError(t, err)
 	require.Nil(t, bare.Source)
 	_, err = k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: bare, RuntimeName: "rt"})
@@ -692,7 +692,7 @@ func TestRender_LayeredInstanceReflectsValues(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
 	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance_partial"), loaderfile.LoadOptions{},
-		kernel.WithValues(acquireSource(t, k, "/values/scale.cue", `replicas: 5`)))
+		kernel.WithValues(mustSource(t, k, "/values/scale.cue", `replicas: 5`)))
 	require.NoError(t, err)
 	require.NotNil(t, inst.Source.Overlay)
 

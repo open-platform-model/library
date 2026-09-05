@@ -4,43 +4,39 @@ import (
 	"context"
 	"fmt"
 
-	"cuelang.org/go/cue"
-
 	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/module"
 )
 
 // SynthesizeInstance builds a *module.Instance from typed in-memory inputs.
 // This is the recommended entry point for callers that hold a Module and
-// need a fully validated instance — it mirrors how [Kernel.LoadInstancePackage]
-// is the recommended entry point for the file-driven path.
+// need a fully validated instance — it mirrors how [Kernel.AcquireInstanceFromDir]
+// (the validated entry over [Kernel.LoadInstancePackage]) is the recommended
+// entry point for the file-driven path.
 //
-// SynthesizeInstance chains [synth.Instance] (which unifies inputs against the
-// version binding's #ModuleInstance schema and lets CUE derive uuid,
-// components, auto-secrets, and standard labels) into
-// [Kernel.ProcessModuleInstance] (which validates supplied values against
-// the module's #config, fills them into the spec, enforces concreteness,
-// and decodes instance metadata).
+// SynthesizeInstance runs [synth.Instance] (which stages a package importing
+// the module, renders in.Values into it, and builds it once so CUE derives
+// uuid, components, auto-secrets and standard labels and performs the values
+// merge against the module's #config) and then the kernel's internal instance
+// processing (concreteness on the whole built spec, metadata decoding).
 //
 // The Kernel's [*cue.Context] threads through both steps so the resulting
 // *module.Instance.Package is reachable through cue lookups using the same
-// runtime. Callers that explicitly want the helper-level primitive — for
-// example, a test that wants the spec value before concreteness enforcement
-// — should call [synth.Instance] directly with [Kernel.CueContext] and then
-// invoke [Kernel.ProcessModuleInstance] themselves.
+// runtime. A caller without a Kernel can call [synth.Instance] directly with
+// its own context; that yields the built value and staged source only, with
+// no instance processing.
 //
 // The returned instance carries [module.Instance.Source]: the staged tree
 // [synth.Instance] built, in overlay mode, with Pkg naming the reserved
 // instance subdirectory inside the module's staged root.
 //
-// in.Values is passed through to [Kernel.ProcessModuleInstance] unchanged.
-// The zero cue.Value means "no values supplied"; [Kernel.ProcessModuleInstance]
-// then fails the concreteness check unless every #config field has a
-// default. synth.Instance never falls back to Module.debugValues — frontends
-// that want a debug-values overlay layer it on the caller side.
+// in.Values is the only values input. The zero cue.Value means "no values
+// supplied"; the concreteness check then fails unless every #config field
+// has a default. synth.Instance never falls back to Module.debugValues —
+// frontends that want a debug-values overlay layer it on the caller side.
 //
 // Was: SynthesizeRelease
-func (k *Kernel) SynthesizeInstance(ctx context.Context, in synth.InstanceInput) (*module.Instance, error) {
+func (k *Kernel) SynthesizeInstance(_ context.Context, in synth.InstanceInput) (*module.Instance, error) {
 	if in.Module == nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", synth.ErrMissingModule)
 	}
@@ -57,11 +53,10 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in synth.InstanceInput)
 	}
 	// synth.Instance bakes in.Values into the single build (as values.cue), so
 	// the spec already carries them — exactly like an authored instance.cue
-	// package. Re-filling here would write values a second time into the now-set
-	// `values` path and conflict. Pass the zero value: ProcessModuleInstance then
-	// validates concreteness and decodes metadata without re-filling, the same
-	// way it processes a file-loaded instance whose values live in the package.
-	inst, err := k.ProcessModuleInstance(ctx, spec, *in.Module, cue.Value{})
+	// package. processInstance checks concreteness and decodes metadata, the
+	// same way it processes a file-loaded instance whose values live in the
+	// package.
+	inst, err := processInstance(spec)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}

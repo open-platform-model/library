@@ -34,11 +34,11 @@ Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against
 The trust gate: all three artifact types must be validated before the kernel acts on them.
 
 - Every artifact (`Module`, `ModuleInstance`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleInstance), empty-string rejection
-- No bypass path: a code route that reaches `Render` without a source-carrying instance from `ProcessModuleInstance` (`AcquireInstanceFromDir` / `SynthesizeInstance`) and a platform that passed the `helper/loader/internal/shape` gate (`AcquirePlatformFromDir`), including the `#registry` completeness check
-- Full schema validation (`Kernel.ValidateConfig*`, invoked by `Kernel.ProcessModuleInstance`) runs user values against the module `#config` schema **before** any execution
+- No bypass path: a code route that reaches `Render` without a source-carrying instance from the kernel's acquirers (`AcquireInstanceFromDir` / `SynthesizeInstance`, the only instance constructors) and a platform that passed the `helper/loader/internal/shape` gate (`AcquirePlatformFromDir`), including the `#registry` completeness check
+- Full schema validation runs user values against the module `#config` schema **before** any execution: inside the instance build for `WithValues` sources and synthesized values (the kernel then asserts concreteness on the built spec), and through `Kernel.ValidateConfigDetailed` for a frontend's own pre-check
 - Sentinel errors (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`) are returned so callers can branch — and validation fails closed (an unparseable/ambiguous artifact is rejected, not partially processed)
-- Decode steps (`opm/schema/decode.go`, `opm/module`, `opm/platform`) tolerate missing/extra fields safely (no panic on attacker-shaped CUE)
-- Key files: `opm/helper/loader/file/validate.go`, `opm/kernel/validate*.go`, `opm/schema/decode.go`
+- Decode steps (`decodeModuleMetadata` in `opm/module`, `decodePlatformMetadata` in `opm/platform`, `decodeInstanceMetadata` in `opm/kernel/process.go`) tolerate missing/extra fields safely (no panic on attacker-shaped CUE)
+- Key files: `opm/helper/loader/file/validate.go`, `opm/kernel/validate*.go`, `opm/kernel/process.go`, `opm/module/module.go`, `opm/platform/platform.go`
 
 ### Dimension 2: CUE Evaluation & Transformer-Execution Safety
 
