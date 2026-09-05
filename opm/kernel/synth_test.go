@@ -99,12 +99,12 @@ func TestKernel_SynthesizeInstance_NilModuleRejectedBeforeValidation(t *testing.
 	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingModule),
-		"nil Module must error from synth.Instance, not ProcessModuleInstance")
+		"nil Module must error from synth.Instance, not the concreteness check")
 }
 
 func TestKernel_SynthesizeInstance_UnconcreteRejected(t *testing.T) {
 	// Module declares a required #config field with no default. Omitting
-	// Values means ProcessModuleInstance's concreteness check must fail.
+	// Values means the kernel's concreteness check must fail.
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {required!: string}\ndebugValues: {required: \"from-debug\"}\n")
 

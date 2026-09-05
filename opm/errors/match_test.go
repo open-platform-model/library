@@ -55,16 +55,14 @@ func TestUnresolvedDemand_Shape(t *testing.T) {
 	assert.Contains(t, alt.Error(), "implemented at a different apiVersion")
 	assert.Contains(t, alt.Error(), "example.com/r/volume@v2")
 
-	// Disqualified candidates and the fail-closed posture are named.
+	// Disqualified candidates are counted.
 	disq := oerrors.UnresolvedDemand{
-		Component:       "web",
-		FQN:             "example.com/t/backup@v1",
-		Kind:            "trait",
-		Disqualified:    []oerrors.UnifyError{{Component: "web", FQN: "example.com/t/backup@v1"}},
-		UnstatedPosture: true,
+		Component:    "web",
+		FQN:          "example.com/t/backup@v1",
+		Kind:         "trait",
+		Disqualified: []oerrors.UnifyError{{Component: "web", FQN: "example.com/t/backup@v1"}},
 	}
 	assert.Contains(t, disq.Error(), "1 candidate(s) disqualified")
-	assert.Contains(t, disq.Error(), "no optional posture")
 }
 
 func TestUnresolvedDemandsError_UnwrapWalkable(t *testing.T) {

@@ -95,7 +95,7 @@ opm/
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
-  schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata decoders
+  schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata types
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree)
     loader/file/              Filesystem loaders: LoadModulePackage, LoadInstancePackage, LoadPlatformPackage
     loader/registry/          Registry loader: LoadModulePackageWithSource (published #Module by path@version, via Fetch+Overlay)
@@ -266,7 +266,7 @@ task cue:test:flow                              # acquire→render integration t
 
 - `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*core.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
 
-Everything before `Render` produces its inputs: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir` / `SynthesizeInstance` (validated instance, Source stamped; `AcquireInstanceFromDir` takes `WithValues(sources...)` to layer extra values sources onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `AcquireModuleFromRegistry` / `LoadModulePackage` + `NewModuleFromValue` (the module a synthesized instance imports). Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point (both instance acquirers go through it), and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. There is no standalone `opm/validate/` package; validation lives on the `Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+Everything before `Render` produces its inputs: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir` / `SynthesizeInstance` (validated instance, Source stamped; `AcquireInstanceFromDir` takes `WithValues(sources...)` to layer extra values sources onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `AcquireModuleFromRegistry` / `LoadModulePackage` + `NewModuleFromValue` (the module a synthesized instance imports). Values are validated where they are applied: `AcquireInstanceFromDir` checks `WithValues` sources against the module's `#config` at their own positions inside the package build, `SynthesizeInstance` renders values into the synthesized package, both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 `*core.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
 
@@ -274,7 +274,7 @@ Everything before `Render` produces its inputs: `AcquirePlatformFromDir` (platfo
 
 ```text
 Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
-Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (validated via ProcessModuleInstance; Source stamped)
+Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
 Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
         renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
                                coverage invariant: every OPM-namespace path either input requires is promoted

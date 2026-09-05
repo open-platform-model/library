@@ -193,3 +193,24 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 - **WHEN** a caller invokes `k.Render` with an instance returned by `AcquireInstanceFromDir` or `SynthesizeInstance`
 - **THEN** no `#config` validation runs inside `Render`; the staged instance package is imported by the build as it was processed
+
+### Requirement: Kernel.LoadSourceFromFile auto-unwraps the values field
+
+The `*Kernel.LoadSourceFromFile(path string)` method SHALL load the file at `path` as a CUE instance via `load.Instances`, evaluate it against the kernel's `*cue.Context`, and:
+
+- If the evaluated value contains a top-level `values:` field whose `Exists()` is true and `Err()` is nil, the returned `Source.Value` SHALL be that field.
+- Otherwise the returned `Source.Value` SHALL be the whole evaluated value.
+
+The method SHALL set `Source.Origin` to the absolute path of the loaded file; `Source` carries no other label. The method SHALL NOT depend on `loaderfile.LoadValuesFile` (which is removed).
+
+#### Scenario: Values file is auto-unwrapped
+
+- **WHEN** a caller invokes `k.LoadSourceFromFile("./values.cue")` against a file containing `values: { foo: "bar" }`
+- **THEN** the returned `Source.Value` is the inner `{ foo: "bar" }` value
+- **AND** `Source.Origin` is the absolute path of `values.cue`
+
+#### Scenario: File without values field passes through
+
+- **WHEN** a caller invokes `k.LoadSourceFromFile("./flat.cue")` against a file with no top-level `values:` field
+- **THEN** the returned `Source.Value` is the whole evaluated file value
+- **AND** `Source.Origin` is populated as above

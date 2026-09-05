@@ -2,7 +2,7 @@
 
 ### Requirement: Metadata decoders are free functions
 
-The library SHALL decode each artifact's metadata through one free function per artifact in `opm/schema`, internal to the package: the decoders MUST NOT be exported. Each decoder MUST accept a raw `cue.Value` at the artifact root and return the canonical decoded metadata struct (`ModuleMetadata`, `InstanceMetadata`, `PlatformMetadata`, which stay exported) or a non-nil error. Consumers reach decoded metadata only through the artifact constructors and the kernel's acquisition paths (`Module.Metadata`, `Instance.Metadata`, `Platform.Metadata`).
+The library SHALL decode each artifact's metadata through one unexported free function per artifact, living in the package of its single caller (`opm/module` for the module, `opm/platform` for the platform, `opm/kernel` for the instance); `opm/schema` SHALL NOT export a decoder. Each decoder MUST accept a raw `cue.Value` at the artifact root, read it through the `opm/schema` metadata path, and return the canonical decoded metadata struct (`ModuleMetadata`, `InstanceMetadata`, `PlatformMetadata`, which stay exported from `opm/schema`) or a non-nil error. Consumers reach decoded metadata only through the artifact constructors and the kernel's acquisition paths (`Module.Metadata`, `Instance.Metadata`, `Platform.Metadata`).
 
 #### Scenario: Decoding a module artifact
 
@@ -31,7 +31,7 @@ The library SHALL decode each artifact's metadata through one free function per 
 
 ### Requirement: Module, Instance, Platform structs do not carry APIVersion
 
-`opm/module.Module`, `opm/module.Instance`, and `opm/platform.Platform` MUST NOT have an `APIVersion` field. The constructors `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`, and the kernel's internal instance processing, MUST decode metadata through the package-internal `opm/schema` decoders directly without consulting any binding registry. No `NewInstanceFromValue` constructor SHALL be exported.
+`opm/module.Module`, `opm/module.Instance`, and `opm/platform.Platform` MUST NOT have an `APIVersion` field. The constructors `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`, and the kernel's internal instance processing, MUST decode metadata through their package-internal decoders directly without consulting any binding registry. No `NewInstanceFromValue` constructor SHALL be exported.
 
 #### Scenario: Module struct has no APIVersion field
 

@@ -1,5 +1,5 @@
 // Package schema is the kernel's single source of truth for OPM schema-side
-// knowledge: CUE paths, metadata decoders, and the OCI-backed schema loader.
+// knowledge: CUE paths, metadata types, and the OCI-backed schema loader.
 //
 // Schema is unversioned at the package level. The library consumes exactly
 // one OPM CUE schema package, opmodel.dev/core at the release
@@ -15,11 +15,14 @@
 // execution happen inside the render build, in CUE, and read nothing by
 // path from Go.
 //
-// # Metadata decoders
+// # Metadata types
 //
-// DecodeModuleMetadata, DecodeInstanceMetadata, and DecodePlatformMetadata —
-// one per artifact the kernel accepts — take a raw artifact-root cue.Value
-// and return the canonical decoded struct. Missing metadata is fatal.
+// ModuleMetadata, InstanceMetadata and PlatformMetadata — one per artifact
+// the kernel accepts — are the canonical decoded metadata records. They are
+// decoded from the artifact's metadata field by the artifact constructors
+// (module.NewModuleFromValue, platform.NewPlatformFromValue) and by the
+// kernel's instance processing; missing metadata is fatal there. Consumers
+// read them through Module.Metadata, Instance.Metadata and Platform.Metadata.
 //
 // # Schema loader and cache
 //

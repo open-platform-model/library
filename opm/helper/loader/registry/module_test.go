@@ -48,11 +48,15 @@ func TestLoadModulePackageWithSource_HappyPathAndTransitiveDeps(t *testing.T) {
 
 	envBefore := os.Getenv("CUE_REGISTRY")
 
-	res, err := registry.LoadModulePackageWithSource(
+	val, src, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2",
 		registry.LoadOptions{Registry: reg})
 	require.NoError(t, err)
-	val := res.Value
+
+	// The staged tree comes back as the artifact Source type, overlay mode.
+	require.NotNil(t, src, "staged source is a non-nil *module.Source")
+	assert.NotEmpty(t, src.Root, "overlay keys sit under a synthetic root")
+	assert.NotEmpty(t, src.Overlay, "the overlay carries the module's files")
 
 	// Self-referential metadata is preserved (no "field not allowed").
 	assert.Equal(t, "hello", lookupString(t, val, "metadata.name"))
@@ -80,11 +84,11 @@ func TestLoadModulePackageWithSource_WrongKind(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	res, err := registry.LoadModulePackageWithSource(
+	val, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
-	assert.False(t, res.Value.Exists(), "wrong-kind load returns a zero value")
+	assert.False(t, val.Exists(), "wrong-kind load returns a zero value")
 	assert.True(t, errors.Is(err, loaderfile.ErrWrongKind), "want ErrWrongKind, got %v", err)
 }
 
@@ -99,7 +103,7 @@ func TestLoadModulePackageWithSource_MissingRequiredField(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
@@ -118,14 +122,13 @@ func TestLoadModulePackageWithSource_IdentityPathMismatch(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
-	assert.Equal(t, "module", ie.Artifact)
 	assert.Equal(t, "path", ie.Field)
 	assert.Equal(t, otherPath, ie.Declared)
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
@@ -145,7 +148,7 @@ func TestLoadModulePackageWithSource_IdentityMajorFreeParentPath(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.NoError(t, err, "major-free parent-path declaration must satisfy the identity check")
@@ -162,7 +165,7 @@ func TestLoadModulePackageWithSource_IdentityMajorFreeParentMismatch(t *testing.
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
@@ -186,14 +189,13 @@ func TestLoadModulePackageWithSource_IdentityVersionMismatch(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
-	assert.Equal(t, "module", ie.Artifact)
 	assert.Equal(t, "version", ie.Field)
 	assert.Equal(t, "9.9.9", ie.Declared)
 	assert.Equal(t, "0.0.1", ie.Fetched)
@@ -205,18 +207,18 @@ func TestLoadModulePackageWithSource_Unresolvable(t *testing.T) {
 	reg := registrytest.NewModuleRegistry(t, nil, nil)
 	envBefore := os.Getenv("CUE_REGISTRY")
 
-	res, err := registry.LoadModulePackageWithSource(
+	val, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), "test.example/does/not/exist@v0", "v9.9.9",
 		registry.LoadOptions{Registry: reg})
 	require.Error(t, err)
-	assert.False(t, res.Value.Exists(), "unresolvable load returns a zero value")
+	assert.False(t, val.Exists(), "unresolvable load returns a zero value")
 	assert.Equal(t, envBefore, os.Getenv("CUE_REGISTRY"))
 }
 
 // Invalid caller input (a malformed version) is wrapped, not panicked
 // (NewVersion, not MustNewVersion).
 func TestLoadModulePackageWithSource_BadVersionWrapped(t *testing.T) {
-	_, err := registry.LoadModulePackageWithSource(
+	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), "test.example/x@v0", "not-a-version",
 		registry.LoadOptions{})
 	require.Error(t, err)

@@ -38,7 +38,7 @@ See `CONSTITUTION.md` for the full set of principles.
 opm/
   core/                   Platform-neutral primitives — Compiled (terminal output)
   errors/                 Structured errors, grouped CUE diagnostics, typed render-gate causes
-  schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata decoders
+  schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata types
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
@@ -59,7 +59,7 @@ testdata/                 CUE module fixtures consumed by package tests
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
 
-The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). The `opm/loader/` deprecation shim is also gone; the canonical import path is `opm/helper/loader/file` (or `opm/helper/loader/registry` for published modules). A standalone `opm/validate/` package was contemplated but never landed — validation primitives live on `*kernel.Kernel` (`ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). The `opm/loader/` deprecation shim is also gone; the canonical import path is `opm/helper/loader/file` (or `opm/helper/loader/registry` for published modules). A standalone `opm/validate/` package was contemplated but never landed — the one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`; a single value is a one-element `[]Source`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 ## Render
 
@@ -75,7 +75,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
         decode `rendered`    -> []*core.Compiled with instance / component / transformer provenance
 ```
 
-`Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `Kernel.ProcessModuleInstance` is the validated entry point (`AcquireInstanceFromDir` and `SynthesizeInstance` both go through it), and `Render` performs no validation pass of its own.
+`Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `AcquireInstanceFromDir` and `SynthesizeInstance` unify them inside the instance build and assert concreteness on the result, and `Render` performs no validation pass of its own.
 
 Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005). Nothing built is shared between renders, concurrency is across renders with one Kernel per goroutine, and a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
 
@@ -100,7 +100,7 @@ The library does NOT vendor or embed the OPM core schema. At runtime the kernel 
 
 Key pieces:
 
-- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata decoders, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
+- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata types, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
 - `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to instance synthesis and other callers. `kernel.WithRegistry(string)` sets the registry mapping the render build uses for the platform's catalog imports and for registry module acquisition.
 
 Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.

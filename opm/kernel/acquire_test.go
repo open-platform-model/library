@@ -164,7 +164,7 @@ func TestKernel_AcquireInstanceFromDir_CarriesSource(t *testing.T) {
 }
 
 // artifact-types spec, "Validation failures propagate": a non-concrete
-// package fails in the validated entry point and yields no instance.
+// package fails the kernel's concreteness check and yields no instance.
 func TestKernel_AcquireInstanceFromDir_NonConcreteRejected(t *testing.T) {
 	dir := writeTempInstanceDir(t, `
 package instance
@@ -222,15 +222,6 @@ metadata: {namespace: "ns"}
 	})
 }
 
-// acquireSource compiles a values source with its Origin baked as the
-// filename, the contract Kernel.Source documents.
-func acquireSource(t *testing.T, k *kernel.Kernel, origin, src string) kernel.Source {
-	t.Helper()
-	s, err := k.LoadSourceFromString(origin, origin, src)
-	require.NoError(t, err)
-	return s
-}
-
 func dirListing(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
@@ -256,8 +247,8 @@ func TestKernel_AcquireInstanceFromDir_WithValues_Layers(t *testing.T) {
 
 	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
 		kernel.WithValues(
-			acquireSource(t, k, "/values/a.cue", `replicas: 3`),
-			acquireSource(t, k, "/values/b.cue", `image: "nginx:1.27"`),
+			mustSource(t, k, "/values/a.cue", `replicas: 3`),
+			mustSource(t, k, "/values/b.cue", `image: "nginx:1.27"`),
 		))
 	require.NoError(t, err)
 	require.NotNil(t, inst)
@@ -276,7 +267,7 @@ func TestKernel_AcquireInstanceFromDir_WithValues_Layers(t *testing.T) {
 	require.NotNil(t, inst.Source.Overlay, "overlay mode")
 	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, "instance.cue"))
 	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, "cue.mod", "module.cue"))
-	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, kernel.ValuesFileName))
+	assert.Contains(t, inst.Source.Overlay, filepath.Join(dir, "opm-values.cue"))
 	assert.Len(t, inst.Source.Overlay, 3)
 
 	assert.Equal(t, before, dirListing(t, dir), "the caller's directory is never written to")
@@ -295,7 +286,7 @@ func TestKernel_AcquireInstanceFromDir_WithValues_MirrorsDisk(t *testing.T) {
 	assert.Nil(t, plain.Source.Overlay, "no option: on-disk mode unchanged")
 
 	layered, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-		kernel.WithValues(acquireSource(t, k, "/values/same.cue", `image: "nginx:1.27"`)))
+		kernel.WithValues(mustSource(t, k, "/values/same.cue", `image: "nginx:1.27"`)))
 	require.NoError(t, err)
 	// cue.Value.Equals is false even across two plain acquires of this
 	// fixture (definitions and hidden fields); the exported syntax is the
@@ -315,7 +306,7 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ModuleLess(t *testing.T) {
 	dir := writeTempInstanceDir(t, acquireInstanceFixture)
 	k := kernel.New()
 	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
-		kernel.WithValues(acquireSource(t, k, "/values/extra.cue", `tag: "v1"`)))
+		kernel.WithValues(mustSource(t, k, "/values/extra.cue", `tag: "v1"`)))
 	require.NoError(t, err)
 	replicas, err := inst.Package.LookupPath(cue.ParsePath("values.replicas")).Int64()
 	require.NoError(t, err)
@@ -338,7 +329,7 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.
 
 	t.Run("against the package's own values", func(t *testing.T) {
 		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-			kernel.WithValues(acquireSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`)))
+			kernel.WithValues(mustSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`)))
 		require.Error(t, err)
 		assert.Nil(t, inst)
 		assert.Contains(t, err.Error(), "image")
@@ -347,7 +338,7 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.
 
 	t.Run("against the module's #config", func(t *testing.T) {
 		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-			kernel.WithValues(acquireSource(t, k, "/values/bad.cue", `replicas: "three"`)))
+			kernel.WithValues(mustSource(t, k, "/values/bad.cue", `replicas: "three"`)))
 		require.Error(t, err)
 		assert.Nil(t, inst)
 		assert.Contains(t, err.Error(), "replicas")
@@ -357,8 +348,8 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.
 	t.Run("between sources", func(t *testing.T) {
 		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
 			kernel.WithValues(
-				acquireSource(t, k, "/values/a.cue", `replicas: 2`),
-				acquireSource(t, k, "/values/b.cue", `replicas: 3`),
+				mustSource(t, k, "/values/a.cue", `replicas: 2`),
+				mustSource(t, k, "/values/b.cue", `replicas: 3`),
 			))
 		require.Error(t, err)
 		assert.Nil(t, inst)

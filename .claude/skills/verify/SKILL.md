@@ -49,14 +49,14 @@ deployment carries `spec.replicas=2`.
 
 Gotchas:
 
-- `AcquireInstanceFromDir` processes the package with no extra values; the
-  web_app instance authors concrete `values:` so it is already complete. To
-  probe value rejection, load with `k.LoadInstancePackage` and call
-  `k.ProcessModuleInstance(ctx, instVal, *mod, badValues)` with
-  `{replicas: "three"}` for the `instance "…":`-framed rejection; passing
-  values that merely mirror the authored ones fails at the fill step
-  (closedness wrinkle, see the `library-phase-and-values-prune` entry in
-  `openspec/changes/archive/`).
+- `AcquireInstanceFromDir` with no option processes the package as
+  authored; the web_app instance authors concrete `values:` so it is already
+  complete. To probe value rejection, acquire with
+  `kernel.WithValues(badSource)` where the source is
+  `k.LoadSourceFromBytes("probe.cue", []byte(`replicas: "three"`))`: the
+  build reports the conflict at the source's own position, framed
+  `instance "…":`. Passing values that merely mirror the authored ones is a
+  no-op (the overlay unifies with the package's own `values`).
 - A platform whose `#registry` entry carries a `version` scalar and no
   `#catalog` (the pre-D5 shape) is refused at acquisition with
   `loader.ErrMissingRequiredField`; there is no materialize step to probe.

@@ -20,8 +20,8 @@
 //     (Module, name, namespace, values, labels, annotations) against the
 //     embedded #ModuleInstance schema. Peer of loader/ (loading parses
 //     bytes; synth creates from typed inputs). Recommended entry point is
-//     (*Kernel).SynthesizeInstance, which chains synth.Instance into
-//     ProcessModuleInstance for a fully validated *module.Instance.
+//     (*Kernel).SynthesizeInstance, which chains synth.Instance into the
+//     kernel's instance processing for a fully validated *module.Instance.
 //   - platformmodule — platform CUE module generation from catalog
 //     coordinates (0019 D5/D13): Generate renders cue.mod/module.cue and
 //     platform.cue deterministically from typed registry entries and a
@@ -32,9 +32,9 @@
 //     frontend MAY write its platform module by hand instead.
 //
 // Layered values validation now lives on the kernel itself: see
-// Kernel.ValidateConfigDetailed and the Source / ValidateOption types in
-// opm/kernel. The earlier opm/helper/values subpackage was removed as
-// part of redesign-config-validation.
+// Kernel.ValidateConfigDetailed and the Source type in opm/kernel. The
+// earlier opm/helper/values subpackage was removed as part of
+// redesign-config-validation.
 //
 // The opm/helper/platform subpackage (the Compose helper) was removed as
 // part of rewrite-match-materialized, and platform synthesis (synth.Platform)

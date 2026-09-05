@@ -61,34 +61,16 @@ type Input struct {
 // Files maps a path relative to the module directory to the file's bytes.
 type Files map[string][]byte
 
-// RootOption configures Roots.
-type RootOption func(*rootConfig)
-
-type rootConfig struct {
-	coreVersion string
-}
-
-// WithCoreVersion pins core at version (bare or "v"-prefixed SemVer) instead
-// of the kernel's verified release. Fixtures and forward testing use it; a
-// frontend normally leaves the default.
-func WithCoreVersion(version string) RootOption {
-	return func(c *rootConfig) {
-		c.coreVersion = version
-	}
-}
-
 // Roots returns the dependency roots the closure is derived from: the core
 // pin plus every entry's catalog, disabled entries included (a disabled entry
-// still imports its catalog). Core is pinned at [schema.DefaultSchemaVersion]
-// unless WithCoreVersion overrides it. Versions are canonicalised with the
-// "v" prefix cue.mod requires; subscriptions carry bare SemVer.
-func Roots(entries []Entry, opts ...RootOption) []Dep {
-	cfg := rootConfig{coreVersion: schema.DefaultSchemaVersion()}
-	for _, opt := range opts {
-		opt(&cfg)
-	}
+// still imports its catalog). Core is pinned at [schema.DefaultSchemaVersion],
+// the release the kernel was verified against; a caller that needs a
+// different core build assembles its []Dep roots directly. Versions are
+// canonicalised with the "v" prefix cue.mod requires; subscriptions carry
+// bare SemVer.
+func Roots(entries []Entry) []Dep {
 	roots := make([]Dep, 0, len(entries)+1)
-	roots = append(roots, Dep{Path: CorePath, Version: canonicalVersion(cfg.coreVersion)})
+	roots = append(roots, Dep{Path: CorePath, Version: canonicalVersion(schema.DefaultSchemaVersion())})
 	for _, e := range entries {
 		roots = append(roots, Dep{Path: e.Path, Version: canonicalVersion(e.Version)})
 	}

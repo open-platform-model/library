@@ -27,17 +27,23 @@ Test packages are external (`kernel_test`, `module_test`, `synth_test`), so an u
 
 **Context**: `Partial()` has one caller, `acquire.go:219`, which validates the extra-values sources against `#config` without concreteness so a type or constraint violation is reported at the source's own positions before the whole-instance concreteness check.
 **Options**: (1) keep `ValidateOption`/`Partial()` public for that one internal use; (2) an unexported `validateSources(schema cue.Value, sources []Source, requireConcrete bool) (cue.Value, error)` that `ValidateConfigDetailed` calls with `true` and the acquire path with `false`; (3) drop the per-source pass and rely on the build error.
-**Decision**: option 2. The option type existed to let a public method carry a knob nobody outside used; a boolean on an unexported function is the same behaviour with no surface. Option 3 loses attribution, which the extra-values tests pin. `runValidate` stays as the single-value core underneath.
+**Decision**: option 2. The option type existed to let a public method carry a knob nobody outside used; a boolean on an unexported function is the same behaviour with no surface. Option 3 loses attribution, which the extra-values tests pin. `runValidate` and `appendSchemaErrors` folded into `validateSources` after verification showed each had exactly one caller and the latter's bool return was never read; `walkDisallowed` stays separate because it recurses.
 
-### `processInstance(ctx, spec)` keeps the error framing, drops the inputs that were always empty
+### `processInstance(spec)` keeps the error framing, drops the inputs that were always empty
 
 **Context**: `ProcessModuleInstance(ctx, spec, mod, values)` is called twice, both with `cue.Value{}` values and (once) with `module.Module{}`. Its live work is `spec.Validate(cue.Concrete(true))`, metadata decoding, and the `instance %q:` framing.
-**Decision**: `func (k *Kernel) processInstance(ctx context.Context, spec cue.Value) (*module.Instance, error)`. The name for framing is read from `spec` through `schema.Metadata`; the `"<unknown>"` fallback stays for a spec whose name is somehow not a string, since the framing is a diagnostic and must not itself fail. `bestEffortInstanceName` loses its `mod` parameter. The `ValidateConfig` call and the `FillPath(schema.Values, …)` branch are deleted, which makes `ValidateConfig` caller-free and lets it go in the same commit.
+**Decision**: `func processInstance(spec cue.Value) (*module.Instance, error)`, a free function: it reads neither the Kernel nor a context (verification showed both unused, so the receiver and `ctx` went too). The name for framing is read from `spec` through `schema.Metadata`; the `"<unknown>"` fallback stays for a spec whose name is somehow not a string, since the framing is a diagnostic and must not itself fail. `bestEffortInstanceName` loses its `mod` parameter. The `ValidateConfig` call and the `FillPath(schema.Values, …)` branch are deleted, which makes `ValidateConfig` caller-free and lets it go in the same commit.
 
 ### Constructors take the value only; kernel wrappers absorb the change
 
 **Context**: `module.NewModuleFromValue(_ CueContextOwner, v)` and `platform.NewPlatformFromValue(_ CueContextOwner, v)` ignore their first argument; `module.NewInstanceFromValue` has no non-test caller once `Kernel.NewInstanceFromValue` goes.
 **Decision**: `module.NewModuleFromValue(v cue.Value)` and `platform.NewPlatformFromValue(v cue.Value)`; both `CueContextOwner` interfaces deleted; `module.NewInstanceFromValue` deleted (the kernel's `processInstance` builds `&module.Instance{}` directly, as it already does). `Kernel.NewModuleFromValue(v)` and `Kernel.NewPlatformFromValue(v)` keep their signatures and forward, so the cli's two call sites compile. The `stubOwner` in `opm/helper/synth/instance_test.go` and the `k` argument in `opm/module` and `opm/platform` tests go.
+
+### Metadata decoders move to their callers, unexported
+
+**Context**: the proposal unexports the three `opm/schema` decoders, but their only callers (`module.NewModuleFromValue`, `platform.NewPlatformFromValue`, `kernel.processInstance`) live in other packages, and Go cannot call an unexported function across a package boundary.
+**Options**: (1) keep them exported; (2) a new `opm/internal/...` package holding the three; (3) move each decoder, unexported, into the package of its single caller and delete `schema/decode.go`.
+**Decision**: option 3. It is the pure removal this change is scoped to: no new package, one ten-line function beside each constructor, identical error messages. Option 2 adds a package for three functions that share nothing (Principle VII). `opm/schema` keeps the metadata types and the `Metadata` path the decoders read.
 
 ### Registry loader returns the artifact `Source` type
 

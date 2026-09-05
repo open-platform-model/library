@@ -15,7 +15,6 @@ import (
 
 	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
-	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -100,14 +99,13 @@ metadata: {
 	assert.True(t, wantVal.Exists())
 }
 
-func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
+func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 	k := kernel.New()
 	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
-	values := k.CueContext().CompileString(`{ replicas: 3, name: "demo" }`)
-	require.NoError(t, values.Err())
+	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
 
-	gotMerged, gotErr := k.ValidateConfig(schema, values)
+	gotMerged, gotErr := k.ValidateConfigDetailed(schema, []kernel.Source{values})
 	require.NoError(t, gotErr)
 	require.True(t, gotMerged.Exists())
 
@@ -116,52 +114,9 @@ func TestKernel_ValidateConfig_HappyPath(t *testing.T) {
 	assert.Equal(t, "demo", gotName)
 }
 
-func TestKernel_ValidateConfig_SchemaErrorReturnsCueNativeError(t *testing.T) {
-	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
-	require.NoError(t, schema.Err())
-	bad := k.CueContext().CompileString(`{ replicas: -1 }`)
-	require.NoError(t, bad.Err())
-
-	_, gotErr := k.ValidateConfig(schema, bad)
-	require.Error(t, gotErr)
-	// Module-name framing is the caller's responsibility — primitive
-	// returns the raw CUE error tree only.
-}
-
-// --- ProcessModuleInstance: build a minimal Module + spec and confirm the
-// canonical kernel method produces a well-formed *module.Instance.
-
-func minimalModule() module.Module {
-	return module.Module{
-		Metadata: &module.ModuleMetadata{
-			Name:       "demo-mod",
-			ModulePath: "example.com/m",
-			Version:    "1.0.0",
-			FQN:        "example.com/m/demo-mod:1.0.0",
-			UUID:       "11111111-1111-1111-1111-111111111111",
-		},
-	}
-}
-
-func TestKernel_ProcessModuleInstance_HappyPath(t *testing.T) {
-	k := kernel.New()
-	spec := k.CueContext().CompileString(`
-kind: "ModuleInstance"
-metadata: {
-	name: "demo"
-	namespace: "ns"
-	uuid: "u"
-}
-`)
-	require.NoError(t, spec.Err())
-
-	inst, err := k.ProcessModuleInstance(context.Background(), spec, minimalModule(), cue.Value{})
-	require.NoError(t, err)
-	require.NotNil(t, inst)
-	assert.Equal(t, "demo", inst.Metadata.Name)
-	assert.Equal(t, "ns", inst.Metadata.Namespace)
-}
+// Instance processing is kernel-internal; its behaviour (concreteness on
+// the built spec, metadata decoding, Source stamped) is covered through the
+// acquirers in acquire_test.go and synth_test.go.
 
 // --- Goroutine-safety regression: N kernels (one per goroutine) each drive
 // the context-owning path (load + process). With -race enabled, this
@@ -236,27 +191,37 @@ func TestKernel_NoFinalizeMethod(t *testing.T) {
 	assert.False(t, found, "*kernel.Kernel must not expose a Finalize method (0019 D1)")
 }
 
-// TestKernel_PrunedSurface pins the removals of library-phase-and-values-prune
-// and library-render-cutover: the kernel exposes exactly one render verb
-// (Render), values enter through ProcessModuleInstance, and the old
-// pipeline's verbs (Match, Compile, Materialize, SynthesizePlatform) and the
-// typed validation wrappers are gone (spec single-build-render, "Old entry
-// points are gone"). Any of these reappearing is a deliberate act, not drift.
+// TestKernel_PrunedSurface pins the removals of library-phase-and-values-prune,
+// library-render-cutover and cut-dead-surface: the kernel exposes exactly one
+// render verb (Render) and one validation primitive (ValidateConfigDetailed),
+// values enter through WithValues and SynthesizeInstance, and the old
+// pipeline's verbs (Match, Compile, Materialize, SynthesizePlatform), the
+// typed validation wrappers, the single-value and partial validation
+// variants, the exported instance processing step, the instance constructor
+// wrapper and the string source loader are gone (spec single-build-render,
+// "Old entry points are gone"; config-validation, "Single Kernel Validation
+// Primitive"). Any of these reappearing is a deliberate act, not drift.
 func TestKernel_PrunedSurface(t *testing.T) {
 	kt := reflect.TypeOf(&kernel.Kernel{})
 	for _, name := range []string{
 		"Plan", "Validate", "Match", "Compile", "Materialize", "SynthesizePlatform",
 		"ValidateModuleValues", "ValidateModuleValuesPartial", "ValidateModuleValuesDetailed",
 		"ValidateInstanceValues", "ValidateInstanceValuesPartial", "ValidateInstanceValuesDetailed",
+		"ValidateConfig", "ValidateConfigPartial", "ProcessModuleInstance",
+		"NewInstanceFromValue", "LoadSourceFromString",
 	} {
 		_, found := kt.MethodByName(name)
 		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
 	}
 	_, found := kt.MethodByName("Render")
 	assert.True(t, found, "*kernel.Kernel exposes Render")
+	_, found = kt.MethodByName("ValidateConfigDetailed")
+	assert.True(t, found, "*kernel.Kernel exposes ValidateConfigDetailed")
 
 	_, found = reflect.TypeOf(kernel.RenderInput{}).FieldByName("Values")
-	assert.False(t, found, "RenderInput must not carry a Values field; values enter through ProcessModuleInstance")
+	assert.False(t, found, "RenderInput must not carry a Values field; values enter through WithValues and SynthesizeInstance")
+	_, found = reflect.TypeOf(kernel.Source{}).FieldByName("Name")
+	assert.False(t, found, "Source carries no display label; Origin is the attribution key")
 }
 
 // markerLoader is a schema.Loader that compiles a marker definition instead

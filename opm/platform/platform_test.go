@@ -25,7 +25,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, v.Err())
 
-	p, err := platform.NewPlatformFromValue(k, v)
+	p, err := platform.NewPlatformFromValue(v)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -48,7 +48,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, v.Err())
 
-	p, err := platform.NewPlatformFromValue(k, v)
+	p, err := platform.NewPlatformFromValue(v)
 	require.Error(t, err)
 	assert.Nil(t, p)
 	assert.Contains(t, err.Error(), "platform metadata field is required")
@@ -67,7 +67,7 @@ type: "kubernetes"
 
 	got, err := k.NewPlatformFromValue(v)
 	require.NoError(t, err)
-	want, err := platform.NewPlatformFromValue(k, v)
+	want, err := platform.NewPlatformFromValue(v)
 	require.NoError(t, err)
 	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
 	assert.Equal(t, want.Metadata.Type, got.Metadata.Type)
@@ -85,7 +85,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, v.Err())
 
-	p, err := platform.NewPlatformFromValue(k, v)
+	p, err := platform.NewPlatformFromValue(v)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.Nil(t, p.Source, "value-constructed platform must carry no Source")

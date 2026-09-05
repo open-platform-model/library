@@ -55,10 +55,16 @@ func fixtureGraph() *fakeSource {
 	}}
 }
 
-// fixtureRoots derives roots pinned at the fixture graph's core version, so
-// the tests hold whatever release the kernel default advances to.
+// fixtureRoots builds the roots Roots would derive, pinned at the fixture
+// graph's core version instead of the kernel default, so the tests hold
+// whatever release the kernel default advances to.
 func fixtureRoots(entries ...Entry) []Dep {
-	return Roots(entries, WithCoreVersion(coreVersion))
+	roots := []Dep{{Path: CorePath, Version: canonicalVersion(coreVersion)}}
+	for _, e := range entries {
+		roots = append(roots, Dep{Path: e.Path, Version: canonicalVersion(e.Version)})
+	}
+	sortDeps(roots)
+	return roots
 }
 
 // platform-module-generation spec, "Transitive dependency pinned".

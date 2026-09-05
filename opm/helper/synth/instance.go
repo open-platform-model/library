@@ -46,7 +46,7 @@ type InstanceInput struct {
 	// Values is the caller-supplied configuration value unified against the
 	// module's #config. The zero cue.Value signals "no values supplied" — the
 	// schema's values path is left unfilled and concreteness is enforced
-	// downstream by Kernel.ProcessModuleInstance. Instance NEVER falls back to
+	// downstream by Kernel.SynthesizeInstance. Instance NEVER falls back to
 	// Module.debugValues; that is a frontend policy concern.
 	Values cue.Value
 
@@ -125,10 +125,11 @@ const synthPkgDir = "opm-synth-instance"
 // acquire it via Kernel.AcquireModuleFromRegistry. It never fetches from a
 // registry itself.
 //
-// The function does NOT validate values against #config and does NOT enforce
-// concreteness. Both responsibilities live downstream in
-// Kernel.ProcessModuleInstance, which the Kernel.SynthesizeInstance wrapper
-// chains onto this call. See package doc for the recommended entry point.
+// The function does NOT enforce concreteness and does NOT decode instance
+// metadata. Both live downstream in the kernel's instance processing, which
+// Kernel.SynthesizeInstance chains onto this call (the values merge against
+// #config happens inside the build). See package doc for the recommended
+// entry point.
 //
 // The returned cue.Value carries every schema-derived field automatically:
 // metadata.uuid is computed by uuid.SHA1, components is fanned from the
@@ -224,7 +225,7 @@ func buildOverlay(in InstanceInput, coreVersion string) (string, map[string]load
 	// extra-values acquire path (opm/internal/valuesfile): canonical CUE via
 	// format.Node on the value's syntax, never string-interpolated. A missing
 	// Values yields no file, so the schema's values path stays open and
-	// concreteness is enforced downstream by Kernel.ProcessModuleInstance.
+	// concreteness is enforced downstream by Kernel.SynthesizeInstance.
 	valuesSrc, err := valuesfile.Render("instance", in.Values)
 	if err != nil {
 		return "", nil, err

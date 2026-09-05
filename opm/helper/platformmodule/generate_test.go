@@ -217,24 +217,21 @@ func TestRoots_DefaultCorePin(t *testing.T) {
 		"the default core pin is the version of the kernel's default schema module")
 }
 
-// platform-module-generation spec, "Explicit core pin": WithCoreVersion
-// replaces the default, bare SemVer canonicalised, and the generated module
-// file reflects it.
-func TestRoots_ExplicitCorePin(t *testing.T) {
+// platform-module-generation spec, "Explicit core pin": a caller that needs
+// a core build other than the kernel default assembles the roots directly
+// (there is no option on Roots), and the generated module file reflects it.
+func TestGenerate_ExplicitCorePin(t *testing.T) {
 	entries := []Entry{{Path: opmPath, Version: "4.0.1", Enable: true}}
-	for _, v := range []string{"2.0.0-alpha.9", "v2.0.0-alpha.9"} {
-		roots := Roots(entries, WithCoreVersion(v))
-		assert.Equal(t, []Dep{
-			{Path: opmPath, Version: "v4.0.1"},
-			{Path: CorePath, Version: "v2.0.0-alpha.9"},
-		}, roots, "core version %q", v)
-
-		files, err := Generate(Input{Name: "cluster", Type: "kubernetes", ModulePath: modulePath, Entries: entries, Deps: roots})
-		require.NoError(t, err)
-		mf, err := modfile.Parse(files[ModuleFileName], ModuleFileName)
-		require.NoError(t, err)
-		assert.Equal(t, "v2.0.0-alpha.9", mf.Deps[CorePath].Version)
+	roots := []Dep{
+		{Path: opmPath, Version: "v4.0.1"},
+		{Path: CorePath, Version: "v2.0.0-alpha.9"},
 	}
+
+	files, err := Generate(Input{Name: "cluster", Type: "kubernetes", ModulePath: modulePath, Entries: entries, Deps: roots})
+	require.NoError(t, err)
+	mf, err := modfile.Parse(files[ModuleFileName], ModuleFileName)
+	require.NoError(t, err)
+	assert.Equal(t, "v2.0.0-alpha.9", mf.Deps[CorePath].Version)
 }
 
 func keys(files Files) []string {

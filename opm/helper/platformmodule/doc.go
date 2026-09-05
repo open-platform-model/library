@@ -23,10 +23,11 @@
 //     directory. Directory lifecycle (generations, staging swaps, retention)
 //     stays with the frontend.
 //
-// The core pin defaults to the release the kernel was verified against
-// ([schema.DefaultSchemaVersion]); [WithCoreVersion] overrides it. The
-// generated module's own path is caller input ([Input.ModulePath]) and lives
-// under the reserved, never-published platforms namespace (0019 D6).
+// The core pin is the release the kernel was verified against
+// ([schema.DefaultSchemaVersion]); a caller that needs another core build
+// assembles its [Dep] roots directly. The generated module's own path is
+// caller input ([Input.ModulePath]) and lives under the reserved,
+// never-published platforms namespace (0019 D6).
 //
 // This package is opt-in helper convenience (see package opm/helper): a
 // frontend MAY write its platform module by hand instead.

@@ -319,8 +319,9 @@ re-trigger the closedness check. (The package no longer exists: `library-render-
 deleted it on 2026-09-03; the render-time path is now `Kernel.Render`'s single build,
 which builds the catalog-backed module and so sits on the same regression surface.) The regression bites specifically where the Go
 kernel **builds/validates** a catalog-backed `#Module` (`Kernel.Validate` /
-`ValidateRealConfig` at the time; validation now lives in
-`Kernel.ProcessModuleInstance` / `ValidateConfig`), i.e. the exact render-time
+`ValidateRealConfig` at the time; validation now lives in the kernel's
+instance processing behind `AcquireInstanceFromDir` / `SynthesizeInstance`, and
+in `ValidateConfigDetailed`), i.e. the exact render-time
 path a pin bump would break.
 (The `TestFlow_WebApp_OnOpmPlatform` catalog FQN version-skew referenced here was
 resolved by the 2026-07-16 fixture migration to `catalogs/opm@v1` (#38); the full

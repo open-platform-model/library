@@ -20,12 +20,12 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// ValuesFileName is the name of the rendered values file
+// valuesFileName is the name of the rendered values file
 // [Kernel.AcquireInstanceFromDir] overlays beside an instance package's
 // on-disk files when [WithValues] is given. The name is reserved so it can
 // never shadow a file the package authored (an overlay entry replaces the
 // on-disk file of the same path).
-const ValuesFileName = "opm-values.cue"
+const valuesFileName = "opm-values.cue"
 
 // AcquireOption configures [Kernel.AcquireInstanceFromDir]. Options compose
 // via the functional-options pattern; new options can be added in MINOR
@@ -40,7 +40,7 @@ type acquireConfig struct {
 // [Kernel.AcquireInstanceFromDir] acquires: the same [Source] type
 // [Kernel.ValidateConfigDetailed] takes, in stack order. The sources are
 // unified, rendered as a package file declaring the top-level `values`
-// field ([ValuesFileName]) and placed beside the package's own files in an
+// field (opm-values.cue) and placed beside the package's own files in an
 // in-memory overlay, so the schema's own values unification performs the
 // merge in one CUE build; nothing is filled from Go and nothing is written
 // into the caller's directory. The acquired instance's Source is then
@@ -84,7 +84,7 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 	if err != nil {
 		return nil, err
 	}
-	plat, err := platform.NewPlatformFromValue(k, val)
+	plat, err := platform.NewPlatformFromValue(val)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: %w", err)
 	}
@@ -95,9 +95,9 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 // AcquireInstanceFromDir loads a #ModuleInstance CUE package from a directory
 // and returns it as a validated, source-carrying [*module.Instance]. It
 // composes [Kernel.LoadInstancePackage] (evaluation and the instance shape
-// gate) with [Kernel.ProcessModuleInstance] — the validated entry point, called
-// with no extra values, so the package must already be fully concrete, as an
-// authored instance package is — then stamps [module.Instance.Source] in
+// gate) with the kernel's instance processing — concreteness on the whole
+// built spec, so the package must already be fully concrete, as an authored
+// instance package is, and metadata decoding — then stamps [module.Instance.Source] in
 // on-disk mode: Overlay is nil, Root is the enclosing module root (the
 // nearest ancestor holding cue.mod/module.cue, the directory itself when it
 // is the root) and Pkg the package directory relative to it, so a
@@ -107,7 +107,7 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 // With [WithValues], caller-supplied values sources are layered onto the
 // package: the on-disk files under the module root are read into an
 // in-memory overlay, the unified sources are rendered as a package file
-// declaring `values` ([ValuesFileName]) beside the package's own files, and
+// declaring `values` (opm-values.cue) beside the package's own files, and
 // the package is built in one pass through the same instance shape gate, so
 // the merge is the schema's own values unification in CUE. The returned
 // Source is then overlay mode: the same Root and Pkg, with Overlay carrying
@@ -122,8 +122,8 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 // it (load configuration environment, never os.Setenv).
 //
 // Loader failures propagate unchanged (missing directory, no package, or a
-// shape-gate sentinel); a non-concrete package surfaces the validation error
-// [Kernel.ProcessModuleInstance] produces. No partial instance is returned.
+// shape-gate sentinel); a non-concrete package surfaces the concreteness
+// error, framed `instance "<name>": …`. No partial instance is returned.
 func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, opts loaderfile.LoadOptions, acquireOpts ...AcquireOption) (*module.Instance, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
@@ -151,7 +151,7 @@ func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, opt
 		}
 	}
 
-	inst, err := k.ProcessModuleInstance(ctx, spec, module.Module{}, cue.Value{})
+	inst, err := processInstance(spec)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
@@ -194,7 +194,7 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
 	if rendered != nil {
-		overlay[filepath.Join(absDir, ValuesFileName)] = load.FromBytes(rendered)
+		overlay[filepath.Join(absDir, valuesFileName)] = load.FromBytes(rendered)
 	}
 	src.Overlay = overlay
 
@@ -214,10 +214,10 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 	// the module's #config the way layered validation does, so a type or
 	// constraint violation is reported at the source's own positions rather
 	// than left for a later evaluation to trip over. Concreteness of the
-	// whole instance is enforced by ProcessModuleInstance afterwards.
+	// whole instance is enforced by processInstance afterwards.
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := k.ValidateConfigDetailed(configSchema, sources, Partial()); vErr != nil {
-		name := bestEffortInstanceName(spec, module.Module{})
+	if _, vErr := validateSources(configSchema, sources, false); vErr != nil {
+		name := bestEffortInstanceName(spec)
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
 	}
 	return spec, src, nil
@@ -238,11 +238,11 @@ func (k *Kernel) attributeValuesError(ctx context.Context, absDir string, opts l
 	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
 	all := make([]Source, 0, len(sources)+1)
 	if own := authored.LookupPath(schema.Values); own.Exists() {
-		all = append(all, Source{Value: own, Name: "instance package", Origin: absDir})
+		all = append(all, Source{Value: own, Origin: absDir})
 	}
 	all = append(all, sources...)
-	if _, vErr := k.ValidateConfigDetailed(configSchema, all); vErr != nil {
-		name := bestEffortInstanceName(authored, module.Module{})
+	if _, vErr := validateSources(configSchema, all, true); vErr != nil {
+		name := bestEffortInstanceName(authored)
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
 	}
 	return nil
