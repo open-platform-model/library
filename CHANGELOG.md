@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-alpha.27](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.26...v1.0.0-alpha.27) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** see openspec/changes/cut-dead-surface/proposal.md for every removed name and its replacement.
+
+### Code Refactoring
+
+* **kernel:** cut dead surface ([#112](https://github.com/open-platform-model/library/issues/112)) ([3dbe20d](https://github.com/open-platform-model/library/commit/3dbe20dcee4dea9621db3aa09a4a87dd34de33b5))
+
 ## [1.0.0-alpha.26](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.25...v1.0.0-alpha.26) (2026-09-04)
 
 
