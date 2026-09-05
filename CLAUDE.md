@@ -323,7 +323,7 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 - Apply the small-batch hard gate before starting work — split oversized requests using `openspec/config.yaml` § Execution Gate phrasing.
 - Pick the right destination for new work:
   - **Cross-cutting OPM design** (spans `core/`, `library/`, `catalog/`, `opm-operator/`, etc.) — workspace-root `enhancements/`, never `library/enhancements/`.
-  - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here.
+  - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here. Create `enhancement.yaml` in the change directory at creation time (`implements: [{enhancement: "NNNN", decisions: [D1], resolves: []}]`; validated by `enhancements/schema.cue` `#ChangeDeclaration`); it is the only link between the change and the entry, and `task enhancements:delivery:log FROM=<change-dir>` reads it at archive time. A change that implements no enhancement carries no such file.
   - **Architecture decision purely about library internals** — `adr/<NNN>-<slug>.md` (use `adr/TEMPLATE.md`).
   - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
 - Run `task check:fast` for iterative work, `task check` before merge.
