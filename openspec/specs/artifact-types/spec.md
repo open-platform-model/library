@@ -22,32 +22,47 @@ Every OPM artifact type accepted by the kernel SHALL be a Go struct with exactly
 
 ### Requirement: Constructor Helpers from cue.Value
 
-The library SHALL provide constructor helpers that build each typed artifact from a raw `cue.Value`. Each constructor SHALL:
-
-1. Detect `apiVersion` via `apiversion.Detect`.
-2. Look up the binding for that version.
-3. Decode `Metadata` using the binding's metadata decoder.
-4. Stamp the `APIVersion` field on the returned struct from the detected version.
-5. Set the `Package` field to the supplied `cue.Value` unmodified.
+The library SHALL provide constructor helpers that build the module and platform artifacts from a raw `cue.Value`: `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`. Each constructor SHALL take only the artifact value, decode `Metadata` from the value's `metadata` field, and set the `Package` field to the supplied `cue.Value` unmodified. No instance constructor SHALL be exported: an instance is produced only by the kernel's acquisition paths, which stamp its staged source.
 
 #### Scenario: NewModuleFromValue success path
 
-- **WHEN** a caller invokes `module.NewModuleFromValue(k, v)` with a `cue.Value` carrying a valid v1alpha2 module
-- **THEN** the returned `*Module` has `APIVersion == apiversion.V1alpha2`
-- **AND** `Metadata.Name` matches the value's `metadata.name`
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` carrying a valid module
+- **THEN** the returned `*Module` has `Metadata.Name` matching the value's `metadata.name`
 - **AND** `Package` is the supplied `cue.Value` unchanged
+
+#### Scenario: NewModuleFromValue with missing metadata
+
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that has no `metadata` field
+- **THEN** the function returns a non-nil error stating that the metadata field is required
+- **AND** no partial `*Module` is returned
 
 #### Scenario: NewModuleFromValue with unknown apiVersion
 
-- **WHEN** a caller invokes `module.NewModuleFromValue(k, v)` with a `cue.Value` whose `apiVersion` field is not registered
-- **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
-- **AND** no partial `*Module` is returned
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that carries no `apiVersion` field, or one the library has never heard of
+- **THEN** the constructor performs no version detection and no binding lookup; the value is decoded as the single OPM schema the library consumes
+- **AND** the result depends only on the `metadata` field being present and decodable
 
 #### Scenario: NewInstanceFromValue success path
 
-- **WHEN** a caller invokes `module.NewInstanceFromValue(k, v)` with a `cue.Value` carrying a valid instance
-- **THEN** the returned `*Instance` has `APIVersion`, `Metadata`, and `Package` populated
-- **AND** the instance's referenced module is reachable via `Package.LookupPath(binding.Paths().Module)`
+- **WHEN** a consumer inspects the exported identifiers of `opm/module` and the exported methods of `Kernel`
+- **THEN** no `NewInstanceFromValue` exists in either
+- **AND** the only ways to obtain a `*module.Instance` are `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance`
+
+#### Scenario: NewPlatformFromValue hoists the platform type
+
+- **WHEN** a caller invokes `platform.NewPlatformFromValue(v)` with a `#Platform` value whose root has `type: "kubernetes"` alongside its `metadata` block
+- **THEN** the returned `*Platform` has `Metadata.Type == "kubernetes"` and `Package == v`
+
+#### Scenario: Constructors take no context owner
+
+- **WHEN** a consumer inspects the exported identifiers of `opm/module` and `opm/platform`
+- **THEN** `NewModuleFromValue` and `NewPlatformFromValue` each take a single `cue.Value` argument
+- **AND** no `CueContextOwner` interface exists in either package
+
+#### Scenario: No instance constructor
+
+- **WHEN** a consumer inspects the exported identifiers of `opm/module`
+- **THEN** `NewInstanceFromValue` does not exist
 
 ### Requirement: Package Is Source of Truth
 
@@ -118,12 +133,18 @@ The kernel SHALL accept exactly three artifact types: `Module`, `ModuleInstance`
 
 ### Requirement: Artifacts carry their staged source
 
-`module.Source` SHALL describe the staged source tree an artifact was loaded or synthesized from, in two modes: an in-memory tree (`Overlay` non-empty, keyed under the synthetic absolute `Root`) or an on-disk tree (`Overlay` nil, `Root` a real directory). `module.Source` SHALL carry a `Pkg` field naming the package directory relative to `Root`; empty means the root package (`.`). `module.Instance` SHALL expose `Source *module.Source`, nil when the instance was constructed from a bare `cue.Value`. The existing `Module.HasSource()` gate semantics SHALL be unchanged.
+`module.Source` SHALL describe the staged source tree an artifact was loaded or synthesized from, in two modes: an in-memory tree (`Overlay` non-empty, keyed under the synthetic absolute `Root`) or an on-disk tree (`Overlay` nil, `Root` a real directory). `module.Source` SHALL carry a `Pkg` field naming the package directory relative to `Root`; empty means the root package (`.`). `module.Instance` SHALL expose `Source *module.Source`; every instance the kernel returns carries a non-nil `Source`, since instances are constructed only by `AcquireInstanceFromDir` and `SynthesizeInstance`. `module.Module.Source` is nil for a module built from a bare value via `NewModuleFromValue`; the existing `Module.HasSource()` gate semantics SHALL be unchanged.
 
 #### Scenario: Value-constructed instance has no source
 
-- **WHEN** a caller builds an instance via `NewInstanceFromValue`
-- **THEN** the returned `*Instance` has `Source == nil`
+- **WHEN** a consumer looks for a way to build an instance from a bare `cue.Value`
+- **THEN** none exists: the instance constructor is not exported, so no instance without a `Source` can be created
+- **AND** an instance obtained from `AcquireInstanceFromDir` or `SynthesizeInstance` has a non-nil `Source` with a non-empty `Root`
+
+#### Scenario: Value-constructed module has no source
+
+- **WHEN** a caller builds a module via `NewModuleFromValue`
+- **THEN** the returned `*Module` has `Source == nil` and `HasSource()` reports false
 
 #### Scenario: On-disk source mode
 
@@ -187,9 +208,9 @@ Every kernel-internal Go call site that reads a sub-value of an artifact's `Pack
 
 #### Scenario: Instance processing uses schema paths
 
-- **WHEN** `Kernel.ProcessModuleInstance` reads a module's `#config` schema or fills validated values
-- **THEN** the reads and the fill go through `schema.Module`, `schema.Config` and `schema.Values`
-- **AND** there is no direct dereference of a removed field
+- **WHEN** the kernel's internal instance processing decodes a built instance's metadata, or `Kernel.AcquireInstanceFromDir` with extra values checks the sources against the module's `#config`
+- **THEN** the reads go through `schema.Metadata`, and `schema.Module` then `schema.Config`
+- **AND** no Go code fills values into the evaluated instance; the merge happens in the build through the package's own `values` field
 
 #### Scenario: Metadata reads go through the metadata path
 
