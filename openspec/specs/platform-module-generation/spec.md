@@ -32,17 +32,18 @@ The helper SHALL render a platform module's two files (`cue.mod/module.cue`, `pl
 
 ### Requirement: The core pin defaults to the kernel's verified release
 
-The generated `cue.mod/module.cue` SHALL pin `opmodel.dev/core@v2` at the version carried by the kernel's default schema module identifier unless the caller supplies a core version explicitly. The dependency roots the closure starts from SHALL be that core pin plus every entry's catalog, disabled entries included, with bare SemVer canonicalised to the `v`-prefixed form `cue.mod` requires.
+The generated `cue.mod/module.cue` SHALL pin `opmodel.dev/core@v2` at the version carried by the kernel's default schema module identifier. The dependency roots `Roots` derives SHALL be that core pin plus every entry's catalog, disabled entries included, with bare SemVer canonicalised to the `v`-prefixed form `cue.mod` requires. `Roots` SHALL take no option: a caller that needs another core build assembles its `[]Dep` roots directly and hands them to `Closure` and `Generate`, which pin whatever they are given.
 
 #### Scenario: Default core pin
 
-- **WHEN** roots are derived from entries with no explicit core version
+- **WHEN** roots are derived from entries with `Roots`
 - **THEN** the roots contain `opmodel.dev/core@v2` at the version of `schema.DefaultSchemaModule` and one root per entry
 
 #### Scenario: Explicit core pin
 
-- **WHEN** the caller supplies a core version
-- **THEN** the roots pin core at that version and the generated module file reflects it
+- **WHEN** the caller assembles roots pinning core at another version and passes them as `Input.Deps`
+- **THEN** the generated module file reflects that version
+- **AND** no `WithCoreVersion` option or `RootOption` type exists in the package
 
 ### Requirement: The dependency closure is derived from published module files
 

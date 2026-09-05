@@ -74,7 +74,7 @@ The `InstanceInput` struct SHALL carry: `Module *module.Module` (required), `Nam
 
 ### Requirement: Values field is caller-supplied with no implicit fallback
 
-`synth.Instance` SHALL NOT consult `Module.debugValues` or any other implicit source when `InstanceInput.Values` is the zero `cue.Value`. When `Values.Exists()` is true, the helper SHALL render it into the synthesized package's values source (via `format.Node` on the value's syntax, never string-interpolating raw input) so it participates in the single build. When `Values.Exists()` is false, the helper SHALL omit the values source and return the unified value as-is; concreteness enforcement is deferred to `Kernel.ProcessModuleInstance`.
+`synth.Instance` SHALL NOT consult `Module.debugValues` or any other implicit source when `InstanceInput.Values` is the zero `cue.Value`. When `Values.Exists()` is true, the helper SHALL render it into the synthesized package's values source (via `format.Node` on the value's syntax, never string-interpolating raw input) so it participates in the single build. When `Values.Exists()` is false, the helper SHALL omit the values source and return the unified value as-is; concreteness enforcement is deferred to the kernel's instance processing behind `Kernel.SynthesizeInstance`.
 
 #### Scenario: Caller-supplied values participate in the build
 
@@ -123,7 +123,7 @@ When `InstanceInput.Labels` is non-empty, `synth.Instance` SHALL fill `metadata.
 
 ### Requirement: synth.Instance does not validate or enforce concreteness
 
-`synth.Instance` SHALL return the unified CUE value without invoking `cue.Concrete` validation. Validation of values against `#config` and concreteness enforcement on the final spec are downstream responsibilities (the kernel wrapper handles both via `Kernel.ProcessModuleInstance`). Errors from CUE during unification (e.g. type mismatch between caller-supplied labels and the schema's label-map type) SHALL be returned as the result of `cue.Value.Err()` on the returned value, surfaced to the caller through the returned `error`.
+`synth.Instance` SHALL return the unified CUE value without invoking `cue.Concrete` validation. Concreteness enforcement on the final spec and metadata decoding are downstream responsibilities of the kernel's instance processing, reached through `Kernel.SynthesizeInstance`; the values merge against `#config` happens inside the build. Errors from CUE during unification (e.g. type mismatch between caller-supplied labels and the schema's label-map type) SHALL be returned as the result of `cue.Value.Err()` on the returned value, surfaced to the caller through the returned `error`.
 
 #### Scenario: Unification error returned
 
