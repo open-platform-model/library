@@ -13,7 +13,7 @@ import (
 // TestIntegration_SynthesizeInstance covers the synth instance-construction path:
 // a module plus typed inputs is unified against the core #ModuleInstance,
 // producing an instance whose identity fields are stamped by the schema. Needs
-// the core schema (warm workspace cache via schematest.SetEnv); no catalog.
+// the core schema (warm workspace cache); no catalog.
 func TestIntegration_SynthesizeInstance(t *testing.T) {
 	// synth.Instance imports the module by its canonical registry path, so the
 	// module must be published (a locally-built value no longer resolves).

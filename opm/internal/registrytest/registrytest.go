@@ -4,10 +4,18 @@
 //
 // It stands up a [modregistrytest] registry serving inline `c.#Catalog` and
 // `c.#Module` fixtures under the [CatalogPrefix] module path (or a committed
-// fixture tree, [NewRegistryFromDir]), while opmodel.dev/core@v2 still
-// resolves from the warm workspace cache (via [schematest.SetEnv]). The
-// CUE_REGISTRY mapping routes the test prefix to the in-process host and
-// leaves every other path on the public registry.
+// fixture tree, [NewRegistryFromDir]). The CUE_REGISTRY mapping routes the
+// test prefix to the in-process host and leaves every other path on the
+// public registry.
+//
+// Every constructor points CUE_CACHE_DIR at a private per-test module cache
+// ([schematest.PrivateCacheDir]): served coordinates extract into it fresh,
+// so a committed fixture edited under a fixed version is always built from
+// its current bytes and two test processes never read or write the same
+// fixture directory; the opmodel.dev tier of that cache is the shared
+// workspace cache, so opmodel.dev/core@v2 stays warm across tests and
+// processes. Nothing here deletes from the shared cache: CUE's module cache
+// assumes an extracted directory is immutable while any process can read it.
 //
 // It lives under opm/internal/ so it stays out of the library's public SemVer
 // surface (kernel neutrality) while remaining importable from any opm/* test
@@ -19,13 +27,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/require"
 
@@ -68,10 +74,10 @@ type TxFixture struct {
 	Output    string // optional inline #transform.output literal; "" → "{}"
 }
 
-// UniquePath returns a globally-unique catalog module path for the current
-// test. Uniqueness matters because all tests share the warm workspace CUE
-// module cache (download cache keyed by module path + version): distinct paths
-// prevent one test's fixture content from shadowing another's.
+// UniquePath returns a catalog module path derived from the current test's
+// name. Each test builds against its own private module cache, so the name
+// carries no isolation duty; it makes a fixture's coordinate readable in
+// diagnostics and cache listings.
 func UniquePath(t *testing.T, leaf string) string {
 	t.Helper()
 	s := strings.ToLower(t.Name())
@@ -145,9 +151,10 @@ func coreMajor(coreVersion string) string {
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
 // catalog fixtures and configures CUE_REGISTRY / CUE_CACHE_DIR for the test
 // scope: the test prefix routes to the in-process host (+insecure), while
-// opmodel.dev/core resolves from the public registry via the warm workspace
-// cache. Returns the CUE_REGISTRY mapping string. The registry is torn down at
-// test end.
+// opmodel.dev/core resolves from the public registry via the shared
+// workspace cache; served fixtures extract into the test's private cache.
+// Returns the CUE_REGISTRY mapping string. The registry is torn down at test
+// end.
 //
 // Fixture layout follows modregistrytest.New: one directory per (module,
 // version) named "<path with / → _>_v<X.Y.Z>", each holding cue.mod/module.cue
@@ -181,18 +188,17 @@ func NewModuleRegistry(t *testing.T, modules []ModuleFixture, catalogs []Catalog
 // CUE_CACHE_DIR for the test scope: prefix (a module path prefix such as
 // "testing.opmodel.dev/library-render") routes to the in-process host
 // (+insecure) while everything else, opmodel.dev/core included, resolves from
-// the public registry via the warm workspace cache. It serves COMMITTED
-// fixture trees (e.g. testdata/render/registry) rather than generated ones,
-// so before serving it evicts each fixture's (path, version) from the shared
-// workspace CUE module cache: the cache is keyed by coordinate, and a fixture
-// edited under a fixed coordinate would otherwise be shadowed by the bytes a
-// previous run cached. Returns the CUE_REGISTRY mapping string.
+// the public registry via the shared workspace cache. It serves COMMITTED
+// fixture trees (e.g. testdata/render/registry) rather than generated ones;
+// because the test's module cache is private and starts empty for every
+// served coordinate, a fixture edited under a fixed version is built from
+// its current bytes, never from what an earlier run cached. Returns the
+// CUE_REGISTRY mapping string.
 func NewRegistryFromDir(t *testing.T, dir, prefix string) string {
 	t.Helper()
 	require.NotEmpty(t, prefix, "a module path prefix routes the fixture tree to the in-process host")
 
 	mapfs := fstest.MapFS{}
-	var coords []string
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -208,71 +214,29 @@ func NewRegistryFromDir(t *testing.T, dir, prefix string) string {
 		if err != nil {
 			return err
 		}
-		slashRel := filepath.ToSlash(rel)
-		mapfs[slashRel] = &fstest.MapFile{Data: data}
-		top := strings.Split(slashRel, "/")[0]
-		if slashRel == path.Join(top, "cue.mod/module.cue") {
-			mf, err := modfile.Parse(data, p)
-			if err != nil {
-				return fmt.Errorf("fixture %s: %w", p, err)
-			}
-			_, version, _ := strings.Cut(top, "_v")
-			coords = append(coords, mf.ModuleRootPath()+"@v"+version)
-		}
+		mapfs[filepath.ToSlash(rel)] = &fstest.MapFile{Data: data}
 		return nil
 	})
 	require.NoError(t, err, "reading fixture registry tree %s", dir)
 
-	cacheDir := schematest.WorkspaceCacheDir(t)
-	for _, coord := range coords {
-		evictFromCache(t, cacheDir, coord)
-	}
-
 	reg, err := modregistrytest.New(mapfs, "")
 	require.NoError(t, err, "stand up in-memory registry")
 	t.Cleanup(reg.Close)
-	schematest.SetEnv(t)
-	registry := prefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
-	t.Setenv("CUE_REGISTRY", registry)
-	return registry
+	return setEnv(t, prefix, reg.Host())
 }
 
-// evictFromCache removes one module coordinate ("<path>@v<X.Y.Z>") from the
-// CUE module cache under cacheDir: the extracted tree at
-// mod/extract/<path>@v<ver> and the download artifacts at
-// mod/download/<path>/@v/v<ver>.*. Absent entries are fine.
-func evictFromCache(t *testing.T, cacheDir, coord string) {
+// setEnv wires the test environment for a registry serving prefix at host and
+// returns the CUE_REGISTRY mapping: prefix routes to the in-process host
+// (+insecure) and every other path to the public registry; CUE_CACHE_DIR is
+// the test's private module cache, whose opmodel.dev tier is the shared
+// workspace cache (see [schematest.PrivateCacheDir]). Both settings revert at
+// test end.
+func setEnv(t *testing.T, prefix, host string) string {
 	t.Helper()
-	mpath, version, ok := strings.Cut(coord, "@")
-	require.True(t, ok, "coordinate %q", coord)
-	require.NoError(t, removeReadOnlyTree(filepath.Join(cacheDir, "mod", "extract", filepath.FromSlash(mpath)+"@"+version)))
-	downloads, err := filepath.Glob(filepath.Join(cacheDir, "mod", "download", filepath.FromSlash(mpath), "@v", version+".*"))
-	require.NoError(t, err)
-	for _, f := range downloads {
-		require.NoError(t, removeReadOnlyTree(f))
-	}
-}
-
-// removeReadOnlyTree removes root, which cue/load extracts read-only, by
-// restoring owner write permission on the way down first. A missing root is
-// not an error.
-func removeReadOnlyTree(root string) error {
-	if _, err := os.Lstat(root); os.IsNotExist(err) {
-		return nil
-	}
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return os.Chmod(p, 0o755)
-		}
-		return os.Chmod(p, 0o644)
-	})
-	if err != nil {
-		return err
-	}
-	return os.RemoveAll(root)
+	registry := prefix + "=" + host + "+insecure," + schema.PublicRegistry
+	t.Setenv("CUE_REGISTRY", registry)
+	t.Setenv("CUE_CACHE_DIR", schematest.PrivateCacheDir(t))
+	return registry
 }
 
 // addCatalogs writes the modregistrytest fixture files for each catalog into
@@ -317,22 +281,15 @@ func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 }
 
 // buildRegistry stands up the in-memory registry from mapfs and wires the test
-// environment (warm core cache + in-process host for the test prefix). Returns
-// the CUE_REGISTRY mapping string.
+// environment ([setEnv] for [CatalogPrefix]). Returns the CUE_REGISTRY mapping
+// string.
 func buildRegistry(t *testing.T, mapfs fstest.MapFS) string {
 	t.Helper()
 
 	reg, err := modregistrytest.New(mapfs, "")
 	require.NoError(t, err, "stand up in-memory registry")
 	t.Cleanup(reg.Close)
-
-	// SetEnv points CUE_CACHE_DIR at the warm workspace cache (core@v2
-	// already extracted there) and seeds CUE_REGISTRY with PublicRegistry;
-	// the combined mapping below adds the in-process host.
-	schematest.SetEnv(t)
-	registry := CatalogPrefix + "=" + reg.Host() + "+insecure," + schema.PublicRegistry
-	t.Setenv("CUE_REGISTRY", registry)
-	return registry
+	return setEnv(t, CatalogPrefix, reg.Host())
 }
 
 // BuildModuleFile renders a complete module.cue for a #Module that imports the
