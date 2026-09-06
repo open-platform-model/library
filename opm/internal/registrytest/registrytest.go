@@ -52,14 +52,6 @@ type CatalogFixture struct {
 	Path    string // module path without the @major suffix, e.g. "test.example/x/cat"
 	Version string // bare SemVer, e.g. "0.1.0"
 	Body    string // catalog package body (metadata + #transformers)
-
-	// CoreVersion pins the opmodel.dev/core dependency this catalog's
-	// cue.mod/module.cue declares — the dep line's major, the emitted core
-	// import, and the generated body shape all derive from it. Empty defaults
-	// to DefaultCoreVersion (the v2 line); historical tests pin a v1-era
-	// version explicitly. core still resolves from the public registry / warm
-	// workspace cache.
-	CoreVersion string
 }
 
 // TxFixture describes one transformer to author into a test catalog: its kebab
@@ -96,26 +88,18 @@ type ModuleFixture struct {
 	File    string            // full module.cue contents
 	Deps    map[string]string // extra deps: "<path>@vN" → bare SemVer (core is added automatically)
 
-	// CoreVersion pins the opmodel.dev/core dependency this module's
-	// cue.mod/module.cue declares — the dep line's major and the emitted core
-	// import derive from it. Empty defaults to DefaultCoreVersion (the v2
-	// line); historical tests pin a v1-era version explicitly. core still
-	// resolves from the public registry / warm workspace cache.
-	CoreVersion string
-
 	// Extra holds additional files the module archive carries beside
 	// module.cue and cue.mod/module.cue, keyed by slash path relative to the
 	// module root ("LICENSE", "docs/README.md", "sub/extra.cue").
 	Extra map[string]string
 }
 
-// DefaultCoreVersion is the opmodel.dev/core version registrytest fixtures
-// declare when ModuleFixture.CoreVersion / CatalogFixture.CoreVersion are
-// empty, and the version a test writes into any module file it authors
-// beside them (a platform module importing a served catalog, an instance
-// module importing a served module). It is the release
-// [schema.DefaultSchemaModule] pins; historical tests pin earlier versions
-// explicitly.
+// DefaultCoreVersion is the opmodel.dev/core version every registrytest
+// fixture declares, and the version a test writes into any module file it
+// authors beside them (a platform module importing a served catalog, an
+// instance module importing a served module). It is the release
+// [schema.DefaultSchemaModule] pins: the v2 kernel renders v2 modules only,
+// so no fixture pins another line.
 const DefaultCoreVersion = "v2.0.0-alpha.7"
 
 // ContractAPIVersion is the contract level every generated v2 fixture
@@ -128,15 +112,6 @@ const ContractAPIVersion = "v1"
 // real catalog's shape: matching identity lives in matchLabels (0010 D36)
 // with a transitional duplicate under metadata.labels.
 const PrimitiveMatchKey = "opm.test/primitive"
-
-// coreVersionOr returns v normalized to a leading "v", or DefaultCoreVersion
-// when v is empty.
-func coreVersionOr(v string) string {
-	if v == "" {
-		return DefaultCoreVersion
-	}
-	return "v" + strings.TrimPrefix(v, "v")
-}
 
 // coreDep returns the major-qualified core module path for a full core version:
 // "v1.0.0-alpha.1" → "opmodel.dev/core@v1". The emitted import line and the
@@ -252,7 +227,7 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
 		// The module's major suffix must match the published version's major.
 		major, _, _ := strings.Cut(f.Version, ".")
-		core := coreVersionOr(f.CoreVersion)
+		core := DefaultCoreVersion
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
 			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: %q: v: %q\n",
 			f.Path+"@v"+major, coreDep(core), core,
@@ -269,7 +244,7 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 	for _, m := range modules {
 		dir := strings.ReplaceAll(m.Path, "/", "_") + "_v" + m.Version
-		core := coreVersionOr(m.CoreVersion)
+		core := DefaultCoreVersion
 		var deps strings.Builder
 		fmt.Fprintf(&deps, "deps: %q: v: %q\n", coreDep(core), core)
 		for p, v := range m.Deps {

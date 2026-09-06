@@ -20,8 +20,8 @@ import (
 // sharedCtx is the single *cue.Context used by the guard tests in this package.
 // The schema cache must produce values in the same runtime that a test's other
 // cue.Values live in; mixing contexts panics cross-runtime unification. The
-// import-based integration tests (instance_integration_test.go) construct their
-// own per-test contexts.
+// end-to-end synth flows (a published core-v2 module synthesized and rendered
+// through the kernel) live in opm/kernel's synth and flow tests.
 var sharedCtx = cuecontext.New()
 
 // testdataSynthDir resolves the on-disk path to the testdata/synth/
@@ -161,23 +161,6 @@ func TestInstance_RejectsMissingSource(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, synth.ErrMissingSource),
 		"want ErrMissingSource, got %v", err)
-}
-
-// expectedInstanceUUID computes the canonical instance UUID through CUE so the
-// derived-field tests stay in lockstep with the schema's definition. Failing
-// this assertion is the drift sentinel for module_instance.cue.
-func expectedInstanceUUID(t *testing.T, ctx *cue.Context, moduleUUID, name, namespace string) string {
-	t.Helper()
-	src := `
-import cue_uuid "uuid"
-OPMNamespace: "11bc6112-a6e8-4021-bec9-b3ad246f9466"
-out: cue_uuid.SHA1(OPMNamespace, "` + moduleUUID + `:` + name + `:` + namespace + `")
-`
-	v := ctx.CompileString(src)
-	require.NoError(t, v.Err())
-	s, err := v.LookupPath(cue.ParsePath("out")).String()
-	require.NoError(t, err)
-	return s
 }
 
 // instance-synthesis spec, "Failure returns no tree": every error path of

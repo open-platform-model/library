@@ -169,12 +169,12 @@ func TestLoadModulePackageWithSource_IdentityPathMismatch(t *testing.T) {
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
 }
 
-// D11, older-line carve-out — a core-v0/v1-shaped module declares the
-// major-free PARENT path (the enhancements/0003 publishing convention; the
-// v0/v1 schema cannot express the major-suffixed form). The identity check
-// verifies the convention instead of full-path equality, preserving the
-// "Self-referential core@v0 metadata is preserved" scenario.
-func TestLoadModulePackageWithSource_IdentityMajorFreeParentPath(t *testing.T) {
+// D11 — a module declaring the major-free PARENT path (the core-v0/v1 shape,
+// once verified by the enhancements/0003 publishing convention) is refused
+// like any other disagreement: the schema the library consumes requires the
+// major-suffixed form, so there is no convention fallback and the typed error
+// carries the declared parent path and the fetched path.
+func TestLoadModulePackageWithSource_IdentityMajorFreeDeclarationRefused(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/hello"
 	mod := registrytest.ModuleFixture{
@@ -186,29 +186,12 @@ func TestLoadModulePackageWithSource_IdentityMajorFreeParentPath(t *testing.T) {
 	_, _, err := registry.LoadModulePackageWithSource(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
 		registry.LoadOptions{Registry: reg})
-	require.NoError(t, err, "major-free parent-path declaration must satisfy the identity check")
-}
-
-// D11, older-line carve-out — a major-free declaration that is NOT the fetched
-// path's parent is still a lie and is refused.
-func TestLoadModulePackageWithSource_IdentityMajorFreeParentMismatch(t *testing.T) {
-	base := registrytest.UniquePath(t, "app")
-	modPath := base + "/hello"
-	mod := registrytest.ModuleFixture{
-		Path: modPath, Version: "0.0.1",
-		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + base + "/elsewhere\", version: \"0.0.1\"}\n",
-	}
-	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
-
-	_, _, err := registry.LoadModulePackageWithSource(
-		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
-	require.Error(t, err)
+	require.Error(t, err, "a major-free declaration cannot equal the fetched path")
 
 	var ie oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "path", ie.Field)
-	assert.Equal(t, base+"/elsewhere", ie.Declared)
+	assert.Equal(t, base, ie.Declared)
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
 }
 
