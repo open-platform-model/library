@@ -13,8 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 )
 
 // 1.2 (footgun pinned) — re-verify in-library, against the library's pinned
@@ -45,7 +46,7 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, []registrytest.CatalogFixture{cat})
 
-	env := registryEnv(reg)
+	env := cueenv.Override(reg, "")
 	resolver, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
 	require.NoError(t, err)
 	mv, err := module.NewVersion(modPath+"@v0", "v0.0.2")
@@ -56,7 +57,8 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	octx := cuecontext.New()
 
 	// Positive: Overlay (FS nil) — the catalog dep resolves.
-	synthRoot, overlay, err := stage.OverlayFromSource(loc, modPath+"@v0", "v0.0.2")
+	synthRoot := sourcetree.SyntheticRoot(modPath+"@v0", "v0.0.2")
+	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	require.NoError(t, err)
 	overlayInsts := load.Instances([]string{"."}, &load.Config{
 		Dir: synthRoot, ModuleRoot: synthRoot, Overlay: overlay, Env: env,

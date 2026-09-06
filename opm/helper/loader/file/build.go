@@ -7,6 +7,7 @@ import (
 	"cuelang.org/go/cue/load"
 
 	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
 // buildAndShapeGate is the single evaluate-and-shape-gate step shared by the
@@ -17,13 +18,14 @@ import (
 //
 //   - overlay == nil  → on-disk package: load.Config.Dir is root, files are
 //     read from the filesystem.
-//   - overlay != nil  → in-memory package: the overlay supplies every file
-//     under root and root doubles as the module root, so the synthesized
+//   - overlay != nil  → in-memory package: the overlay supplies the .cue
+//     files under root (its cue.mod/module.cue included; the set cue/load
+//     reads) and root doubles as the module root, so the staged
 //     cue.mod/module.cue drives transitive dependency resolution (mirrors the
 //     registry loader's overlay strategy — see opm/helper/loader/registry).
 //
 // env, when non-nil, is the environment slice load.Config consults (used to
-// override CUE_REGISTRY without mutating process state via registryEnv); nil
+// override CUE_REGISTRY without mutating process state, see cueenv.Override); nil
 // falls back to the process environment unchanged.
 //
 // Keeping this routine single-sourced guarantees an overlay-built artifact and
@@ -81,5 +83,5 @@ func buildAndShapeGate(ctx *cue.Context, root, pkg string, overlay map[string]lo
 //
 // Was: BuildInstanceOverlay / BuildReleaseOverlay
 func BuildInstanceOverlayAt(ctx *cue.Context, moduleRoot, pkg string, overlay map[string]load.Source, opts LoadOptions) (cue.Value, error) {
-	return buildAndShapeGate(ctx, moduleRoot, pkg, overlay, registryEnv(opts.Registry), instanceSpec)
+	return buildAndShapeGate(ctx, moduleRoot, pkg, overlay, cueenv.Override(opts.Registry, ""), instanceSpec)
 }

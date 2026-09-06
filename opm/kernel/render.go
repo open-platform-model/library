@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -226,7 +227,7 @@ func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, err
 	}
 
 	// One build, one context, dropped with the render (D8).
-	built, err := renderstage.Build(cuecontext.New(), staged, renderstage.RegistryEnv(k.registry))
+	built, err := renderstage.Build(cuecontext.New(), staged, cueenv.Override(k.registry, ""))
 	if err != nil {
 		return nil, fmt.Errorf("building render module: %w", err)
 	}

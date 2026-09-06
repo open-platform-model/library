@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -10,6 +9,8 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/load"
+
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
 // DefaultSchemaModule is the module identifier used by [OCILoader.Load] when
@@ -113,7 +114,7 @@ func (l OCILoader) loadVersioned(ctx *cue.Context) (cue.Value, string, error) {
 		loadID = loadID + ".latest"
 	}
 
-	cfg := &load.Config{Env: mergeEnv(os.Environ(), l.Registry, l.CacheDir)}
+	cfg := &load.Config{Env: cueenv.Override(l.Registry, l.CacheDir)}
 	instances := load.Instances([]string{loadID}, cfg)
 	if len(instances) == 0 {
 		return cue.Value{}, "", fmt.Errorf("schema OCILoader: load.Instances returned no instances for %q", moduleID)
@@ -151,32 +152,4 @@ func resolvedVersionFromInstanceDir(dir string) string {
 		return ""
 	}
 	return strings.TrimPrefix(match, "@")
-}
-
-// mergeEnv returns a copy of base with CUE_REGISTRY / CUE_CACHE_DIR
-// overridden when the corresponding override is non-empty. The base slice
-// is not mutated. Empty overrides inherit the underlying environment.
-func mergeEnv(base []string, registry, cacheDir string) []string {
-	env := make([]string, 0, len(base)+2)
-	seenRegistry := false
-	seenCacheDir := false
-	for _, e := range base {
-		switch {
-		case registry != "" && strings.HasPrefix(e, "CUE_REGISTRY="):
-			env = append(env, "CUE_REGISTRY="+registry)
-			seenRegistry = true
-		case cacheDir != "" && strings.HasPrefix(e, "CUE_CACHE_DIR="):
-			env = append(env, "CUE_CACHE_DIR="+cacheDir)
-			seenCacheDir = true
-		default:
-			env = append(env, e)
-		}
-	}
-	if registry != "" && !seenRegistry {
-		env = append(env, "CUE_REGISTRY="+registry)
-	}
-	if cacheDir != "" && !seenCacheDir {
-		env = append(env, "CUE_CACHE_DIR="+cacheDir)
-	}
-	return env
 }

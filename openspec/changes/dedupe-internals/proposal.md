@@ -56,3 +56,4 @@ None.
 ### Modified Capabilities
 
 - `registry-module-loading`: the identity requirement drops the major-free carve-out (strict equality for every module; an older-line declaration is refused with the typed identity error); the in-memory load requirement states that the staged overlay carries the module's `.cue` files.
+- `helper-packages`: the registry-loader requirement's description of the staged overlay narrows from "the module's files" to "the module's `.cue` files, its own `cue.mod/module.cue` included and nothing else"; no scenario changes outcome.

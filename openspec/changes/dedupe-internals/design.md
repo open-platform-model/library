@@ -78,6 +78,17 @@ Constraints: no public Go signature changes; `Kernel.AcquireInstanceFromDir` wit
 
 **Decision**: the first command becomes `go test $(go list ./... | grep -v -e /opm/kernel -e /opm/internal/renderstage)`; the `-race` command is unchanged. Same coverage, one build fewer per package.
 
+### Coverage re-homed from the retired v1 synth integration tests
+
+**Context**: every test in `opm/helper/synth/instance_integration_test.go` published a core-v1 module with a major-free `modulePath`, so the identity decision retires the whole file, not one case.
+**Decision**: the file is deleted and its schema-level scenarios are re-homed on the kernel's served core-v2 fixtures in `opm/kernel/synth_schema_test.go`: bad instance name fails at unification (not resolution), empty values are never backfilled from `debugValues` (helper tier leaves `values` non-concrete, kernel tier refuses), derived fields (uuid as UUID v5 of the instance fqn, fanned components, stamped identity labels beside caller labels, annotations, namespace-divergent and deterministic uuid) and synth-versus-authored parity at the instance-value level (render-level parity already lives in `TestFlow_ImportedModule_SynthToRender`). The hyphenated-name and `opm-secrets` injection cases are not re-homed: the first tested the retired convention and core v2 no longer injects the component. With no test pinning another core line, `registrytest`'s `CoreVersion` fixture fields and `coreVersionOr` go too.
+
+### Implementation details outside the task text
+
+- `registrytest.ModuleFixture` gains `Extra map[string]string` (test-only) so a fixture archive can carry non-CUE files; the loader test for the `.cue`-only overlay needs it.
+- `Kernel.AcquireInstanceFromDir` wraps every `sourcetree.PackageName` failure in `loaderfile.ErrInvalidPackage`, where the deleted `packageNameOfDir` wrapped only the zero- and many-clause cases; a package directory that cannot be read is not a loadable package either.
+- `sourcetree.Bytes` stays exported although only its own package calls it today: the design lists it as part of the package surface, and slice 2 deletes it with the `Overlay` type change.
+
 ## Risks / Trade-offs
 
 - [`modconfig.Config.Env` nil does not mean process environment in cue v0.17.1] → verified against the SDK source at implementation; the `cueenv` test builds a registry with `Env: nil` and asserts resolution still honours `CUE_REGISTRY` from the process.

@@ -3,17 +3,14 @@ package kernel
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
-	"cuelang.org/go/cue/parser"
 
 	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/internal/valuesfile"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -179,17 +176,19 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: unifying values sources: %w", err)
 	}
 
-	pkgName, err := packageNameOfDir(absDir)
+	// The source's package directory (Root joined with Pkg) is absDir itself,
+	// the directory the rendered values file joins.
+	src := sourceForDir(absDir)
+	pkgName, err := sourcetree.PackageName(src)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w: %w", err, loaderfile.ErrInvalidPackage)
 	}
 	rendered, err := valuesfile.Render(pkgName, merged)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
 
-	src := sourceForDir(absDir)
-	overlay, err := overlayForRoot(src.Root)
+	overlay, err := sourcetree.OverlayFromDir(src.Root)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
@@ -246,75 +245,6 @@ func (k *Kernel) attributeValuesError(ctx context.Context, absDir string, opts l
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
 	}
 	return nil
-}
-
-// overlayForRoot reads every .cue file under root (the module's own
-// cue.mod/module.cue included) into a load.Config.Overlay keyed by absolute
-// path. It mirrors the on-disk tree rather than re-deciding what cue/load
-// includes: an overlay entry the loader would ignore on disk is ignored in
-// the overlay too, so evaluation is identical to the on-disk build.
-func overlayForRoot(root string) (map[string]load.Source, error) {
-	overlay := map[string]load.Source{}
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".cue") {
-			return nil
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		overlay[p] = load.FromBytes(data)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("reading module tree %s: %w", root, err)
-	}
-	return overlay, nil
-}
-
-// packageNameOfDir returns the package clause the .cue files directly inside
-// dir declare, so the rendered values file joins the same package. Files
-// without a clause are skipped; the directory must declare exactly one.
-func packageNameOfDir(dir string) (string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", dir, err)
-	}
-	names := map[string]bool{}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cue") {
-			continue
-		}
-		p := filepath.Join(dir, e.Name())
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return "", fmt.Errorf("reading %s: %w", p, err)
-		}
-		parsed, err := parser.ParseFile(p, data, parser.PackageClauseOnly)
-		if err != nil {
-			return "", fmt.Errorf("parsing %s: %w", p, err)
-		}
-		if n := parsed.PackageName(); n != "" {
-			names[n] = true
-		}
-	}
-	switch len(names) {
-	case 0:
-		return "", fmt.Errorf("no package clause in %s: %w", dir, loaderfile.ErrInvalidPackage)
-	case 1:
-		for n := range names {
-			return n, nil
-		}
-	}
-	list := make([]string, 0, len(names))
-	for n := range names {
-		list = append(list, n)
-	}
-	sort.Strings(list)
-	return "", fmt.Errorf("%s declares more than one package %v: %w", dir, list, loaderfile.ErrInvalidPackage)
 }
 
 // sourceForDir describes an on-disk package directory as a Source: Root is

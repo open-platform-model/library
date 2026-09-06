@@ -15,7 +15,7 @@ The registry module loader SHALL load the fetched module in memory and SHALL NOT
 - **WHEN** a fetched module's archive contains `.cue` files, a `cue.mod/module.cue`, and non-CUE files such as a license or a readme
 - **THEN** the staged overlay on `Module.Source` holds every `.cue` file and `cue.mod/module.cue`, each keyed under the synthetic root
 - **AND** the non-CUE files are not present in the overlay
-- **AND** an archive with no `.cue` file fails the load with an error wrapping `ErrInvalidPackage`
+- **AND** a fetch that stages no `.cue` file fails the load with an error wrapping `ErrInvalidPackage` (a defensive branch: a module zip CUE's fetch accepts always carries `cue.mod/module.cue`, so the empty case is exercised at the walker, not through a registry)
 
 ### Requirement: Module Identity Verification
 

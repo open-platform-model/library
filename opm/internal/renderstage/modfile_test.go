@@ -6,9 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/load"
-	"cuelang.org/go/cue/parser"
 	"cuelang.org/go/mod/modfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -103,27 +101,6 @@ func TestReadModFile_OverlayAndDisk(t *testing.T) {
 	_, err = ReadModFile(&module.Source{Root: root, Overlay: map[string]load.Source{}})
 	require.Error(t, err, "an overlay without cue.mod/module.cue is not a module")
 	_, err = ReadModFile(nil)
-	require.Error(t, err)
-}
-
-func TestSourceBytes_EveryConstructor(t *testing.T) {
-	b, err := sourceBytes(load.FromString("a: 1\n"))
-	require.NoError(t, err)
-	assert.Equal(t, "a: 1\n", string(b))
-
-	b, err = sourceBytes(load.FromBytes([]byte("b: 2\n")))
-	require.NoError(t, err)
-	assert.Equal(t, "b: 2\n", string(b))
-
-	f, err := parser.ParseFile("x.cue", "c: 3\n")
-	require.NoError(t, err)
-	b, err = sourceBytes(load.FromFile(f))
-	require.NoError(t, err)
-	assert.Equal(t, "c: 3\n", string(b))
-
-	_, err = sourceBytes(load.FromFile((*ast.File)(nil)))
-	require.Error(t, err)
-	_, err = sourceBytes(nil)
 	require.Error(t, err)
 }
 
@@ -229,6 +206,10 @@ func TestPromote_InputsListedAsDefaultMarkedReplacements(t *testing.T) {
 	assert.Equal(t, Dep{Version: "v0.0.0", Default: true}, p.Deps["testing.opmodel.dev/render/platform@v0"])
 	assert.Equal(t, Dep{Version: "v1.0.0", Default: true}, p.Deps["testing.opmodel.dev/modules/web_app@v1"],
 		"the instance module's own path is listed with a placeholder version and marked default")
+	assert.Equal(t, map[string]string{
+		"testing.opmodel.dev/modules/web_app@v1": "/tmp/inst",
+		"testing.opmodel.dev/render/platform@v0": "/tmp/plat",
+	}, p.Replacements, "the replacements name both input directories")
 
 	// cue/load accepts the pair exactly as written and reads both defaults.
 	moduleData, err := p.ModuleFile()

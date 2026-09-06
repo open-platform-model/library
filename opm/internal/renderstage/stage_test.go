@@ -23,6 +23,10 @@ func TestImportPath(t *testing.T) {
 		{"testing.opmodel.dev/x/scenarios@v0", "missing", "missing", "testing.opmodel.dev/x/scenarios/missing@v0"},
 		{"testing.opmodel.dev/x/platform@v0", ".", "platform", "testing.opmodel.dev/x/platform@v0"},
 		{"testing.opmodel.dev/x/platform@v0", "", "opm_platform", "testing.opmodel.dev/x/platform@v0:opm_platform"},
+		// The two inputs Stage generates import paths for: a synthesized
+		// instance package under its module and an on-disk root platform.
+		{"testing.opmodel.dev/modules/web_app@v1", "opm-synth-instance", "instance", "testing.opmodel.dev/modules/web_app/opm-synth-instance@v1:instance"},
+		{"testing.opmodel.dev/render/platform@v0", "", "platform", "testing.opmodel.dev/render/platform@v0"},
 	}
 	for _, c := range cases {
 		got, err := ImportPath(c.mod, c.pkgDir, c.pkgName)
@@ -106,14 +110,8 @@ func TestStage_MaterializesOverlayAndWritesRenderModule(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "package instance\n\ny: 2\n", string(got))
 
-	// The on-disk platform is referenced in place; the replacements name
-	// both directories.
-	assert.Equal(t, map[string]string{
-		"testing.opmodel.dev/modules/web_app@v1": instDir,
-		"testing.opmodel.dev/render/platform@v0": plat.Root,
-	}, staged.Promotion.Replacements)
-
-	// Generated files.
+	// Generated files. The on-disk platform is referenced in place through
+	// the local-module.cue replacement.
 	moduleCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "module.cue"))
 	require.NoError(t, err)
 	assert.Contains(t, string(moduleCue), `module: "`+RenderModulePath+`"`)
@@ -125,8 +123,6 @@ func TestStage_MaterializesOverlayAndWritesRenderModule(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(glue), `instance "testing.opmodel.dev/modules/web_app/opm-synth-instance@v1:instance"`)
 	assert.Contains(t, string(glue), `platform "testing.opmodel.dev/render/platform@v0"`)
-	assert.Equal(t, "testing.opmodel.dev/modules/web_app/opm-synth-instance@v1:instance", staged.InstanceImport)
-	assert.Equal(t, "testing.opmodel.dev/render/platform@v0", staged.PlatformImport)
 
 	// Skew rows ride along (the instance pins a newer catalog).
 	require.Len(t, staged.Skew, 2)
@@ -167,15 +163,6 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 	bare.Overlay[filepath.Join(root, "opm-synth-instance", "data.cue")] = load.FromString("a: 1\n")
 	_, err = Stage(t.TempDir(), bare, plat, "rt")
 	require.ErrorContains(t, err, "no package clause")
-}
-
-func TestRegistryEnv(t *testing.T) {
-	assert.Nil(t, RegistryEnv(""))
-	t.Setenv("CUE_REGISTRY", "old=host")
-	env := RegistryEnv("new=host")
-	assert.Contains(t, env, "CUE_REGISTRY=new=host")
-	assert.NotContains(t, env, "CUE_REGISTRY=old=host")
-	assert.Equal(t, "old=host", os.Getenv("CUE_REGISTRY"), "the process environment is never written")
 }
 
 func TestAlternatives(t *testing.T) {

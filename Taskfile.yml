@@ -123,7 +123,9 @@ tasks:
   test:
     desc: Run unit tests, then the render packages under the race detector
     cmds:
-      - go test ./...
+      # Every package once: the render packages run only in the -race pass
+      # below, so they are excluded here rather than built and run twice.
+      - go test $(go list ./... | grep -v -e /opm/kernel -e /opm/internal/renderstage)
       # Render shares nothing between renders (0019 D8); run the render
       # packages under -race so the concurrency claim the docs make is
       # checked on every push (the earlier shared-platform claim went

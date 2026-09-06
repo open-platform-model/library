@@ -7,6 +7,8 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
+
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
 // LoadPlatformPackage loads a #Platform CUE package from a directory and
@@ -39,7 +41,7 @@ func LoadPlatformPackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cu
 
 	cfg := &load.Config{
 		Dir: absDir,
-		Env: registryEnv(opts.Registry),
+		Env: cueenv.Override(opts.Registry, ""),
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {

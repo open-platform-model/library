@@ -7,6 +7,8 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
+
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
 // LoadModulePackage loads a module CUE package from a directory and returns
@@ -37,7 +39,7 @@ func LoadModulePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.
 
 	cfg := &load.Config{
 		Dir: absDir,
-		Env: registryEnv(opts.Registry),
+		Env: cueenv.Override(opts.Registry, ""),
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {

@@ -4,51 +4,26 @@ import (
 	"fmt"
 	"strings"
 
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/literal"
 
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // corePath is the module path of the OPM core schema the synthesized instance
-// imports. The import major is derived from the caller-resolved core version
-// (currently @v1); the concrete core version the import resolves to comes from
-// the module's own cue.mod/module.cue (design D4), not from a fabricated pin.
+// imports. The import major is derived from the core version the schema cache
+// resolved (the v2 line, schema.DefaultSchemaModule); the concrete core
+// version the import resolves to comes from the module's own
+// cue.mod/module.cue (design D4), not from a fabricated pin.
 const corePath = "opmodel.dev/core"
 
 // moduleImportPath returns the CUE registry module path — major suffix
-// included — the synthesized package imports the module by.
-//
-// A core-v2 module's metadata.modulePath IS that path verbatim (enhancement
-// 0010 D1: fqn = modulePath = the import path; nothing is recombined), so a
-// major-suffixed modulePath passes through untouched. A v1-era module's
-// modulePath is the major-free parent path; per the v1 publishing convention
-// (enhancements/0003) the address is composed from it, the snake_case name
-// leaf, and the version's major. Using nameSnakeCase (not the kebab
-// metadata.name) is what makes the composed address derivable for v1 modules
-// whose name carries hyphens (e.g. "zot-registry-ttl" published at
-// ".../zot_registry_ttl").
+// included — the synthesized package imports the module by: the module's
+// metadata.modulePath verbatim (enhancement 0010 D1: fqn = modulePath = the
+// import path; nothing is recombined). The schema requires the major-suffixed
+// form, so a value that somehow lacks it fails the build with CUE's own
+// import error naming the path.
 func moduleImportPath(m *module.Module) string {
-	if _, _, ok := ast.SplitPackageVersion(m.Metadata.ModulePath); ok {
-		return m.Metadata.ModulePath
-	}
-	return m.Metadata.ModulePath + "/" + moduleSnakeName(m) + "@" + major(m.Metadata.Version)
-}
-
-// moduleSnakeName returns the module's snake_case name. It prefers the
-// schema-derived metadata.nameSnakeCase (core ≥ v0.6.0, the authoritative
-// projection) and falls back to computing it for modules published against an
-// older core that predates the field. The projection is core's #KebabToSnake —
-// a total, deterministic hyphens→underscores transform — so the computed
-// fallback matches the schema value exactly.
-func moduleSnakeName(m *module.Module) string {
-	if v := m.Package.LookupPath(schema.Metadata).LookupPath(cue.ParsePath("nameSnakeCase")); v.Exists() {
-		if s, err := v.String(); err == nil && s != "" {
-			return s
-		}
-	}
-	return strings.ReplaceAll(m.Metadata.Name, "-", "_")
+	return m.Metadata.ModulePath
 }
 
 // renderInstanceFile produces the instance.cue source for the synthesized
@@ -72,13 +47,13 @@ func renderInstanceFile(in InstanceInput, coreVersion string) string {
 	var b strings.Builder
 	b.WriteString("package instance\n\n")
 	b.WriteString("import (\n")
-	fmt.Fprintf(&b, "\tcore %q\n", corePath+"@"+major(coreVersion))
-	fmt.Fprintf(&b, "\topmModule %q\n", modImport)
+	fmt.Fprintf(&b, "\tcore %s\n", literal.String.Quote(corePath+"@"+major(coreVersion)))
+	fmt.Fprintf(&b, "\topmModule %s\n", literal.String.Quote(modImport))
 	b.WriteString(")\n\n")
 	b.WriteString("core.#ModuleInstance\n\n")
 	b.WriteString("metadata: {\n")
-	fmt.Fprintf(&b, "\tname:      %q\n", in.Name)
-	fmt.Fprintf(&b, "\tnamespace: %q\n", in.Namespace)
+	fmt.Fprintf(&b, "\tname:      %s\n", literal.String.Quote(in.Name))
+	fmt.Fprintf(&b, "\tnamespace: %s\n", literal.String.Quote(in.Namespace))
 	writeStringMap(&b, "\t", "labels", in.Labels)
 	writeStringMap(&b, "\t", "annotations", in.Annotations)
 	b.WriteString("}\n\n")
@@ -87,16 +62,17 @@ func renderInstanceFile(in InstanceInput, coreVersion string) string {
 }
 
 // writeStringMap writes a "<field>: { ... }" block when m is non-empty. Keys
-// and values are emitted as quoted literals; identity strings (name, namespace)
-// are formatted the same way, keeping every caller string a literal rather than
-// interpolated CUE source.
+// and values are emitted as CUE string literals (literal.String.Quote, the
+// quoting CUE itself parses, so a non-ASCII or control rune round-trips);
+// identity strings (name, namespace) are formatted the same way, keeping
+// every caller string a literal rather than interpolated CUE source.
 func writeStringMap(sb *strings.Builder, indent, field string, m map[string]string) {
 	if len(m) == 0 {
 		return
 	}
 	fmt.Fprintf(sb, "%s%s: {\n", indent, field)
 	for k, v := range m {
-		fmt.Fprintf(sb, "%s\t%q: %q\n", indent, k, v)
+		fmt.Fprintf(sb, "%s\t%s: %s\n", indent, literal.String.Quote(k), literal.String.Quote(v))
 	}
 	fmt.Fprintf(sb, "%s}\n", indent)
 }
