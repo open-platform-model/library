@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"cuelang.org/go/cue/literal"
+
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -45,13 +47,13 @@ func renderInstanceFile(in InstanceInput, coreVersion string) string {
 	var b strings.Builder
 	b.WriteString("package instance\n\n")
 	b.WriteString("import (\n")
-	fmt.Fprintf(&b, "\tcore %q\n", corePath+"@"+major(coreVersion))
-	fmt.Fprintf(&b, "\topmModule %q\n", modImport)
+	fmt.Fprintf(&b, "\tcore %s\n", literal.String.Quote(corePath+"@"+major(coreVersion)))
+	fmt.Fprintf(&b, "\topmModule %s\n", literal.String.Quote(modImport))
 	b.WriteString(")\n\n")
 	b.WriteString("core.#ModuleInstance\n\n")
 	b.WriteString("metadata: {\n")
-	fmt.Fprintf(&b, "\tname:      %q\n", in.Name)
-	fmt.Fprintf(&b, "\tnamespace: %q\n", in.Namespace)
+	fmt.Fprintf(&b, "\tname:      %s\n", literal.String.Quote(in.Name))
+	fmt.Fprintf(&b, "\tnamespace: %s\n", literal.String.Quote(in.Namespace))
 	writeStringMap(&b, "\t", "labels", in.Labels)
 	writeStringMap(&b, "\t", "annotations", in.Annotations)
 	b.WriteString("}\n\n")
@@ -60,16 +62,17 @@ func renderInstanceFile(in InstanceInput, coreVersion string) string {
 }
 
 // writeStringMap writes a "<field>: { ... }" block when m is non-empty. Keys
-// and values are emitted as quoted literals; identity strings (name, namespace)
-// are formatted the same way, keeping every caller string a literal rather than
-// interpolated CUE source.
+// and values are emitted as CUE string literals (literal.String.Quote, the
+// quoting CUE itself parses, so a non-ASCII or control rune round-trips);
+// identity strings (name, namespace) are formatted the same way, keeping
+// every caller string a literal rather than interpolated CUE source.
 func writeStringMap(sb *strings.Builder, indent, field string, m map[string]string) {
 	if len(m) == 0 {
 		return
 	}
 	fmt.Fprintf(sb, "%s%s: {\n", indent, field)
 	for k, v := range m {
-		fmt.Fprintf(sb, "%s\t%q: %q\n", indent, k, v)
+		fmt.Fprintf(sb, "%s\t%s: %s\n", indent, literal.String.Quote(k), literal.String.Quote(v))
 	}
 	fmt.Fprintf(sb, "%s}\n", indent)
 }
