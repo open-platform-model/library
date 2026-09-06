@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"cuelang.org/go/cue"
+
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
 // LoadOptions configures package-loader behavior shared by LoadModulePackage,
@@ -53,27 +55,5 @@ func LoadInstancePackage(ctx *cue.Context, dirPath string, opts LoadOptions) (cu
 	// Filesystem source: overlay nil selects on-disk loading in the shared
 	// build-and-shape-gate step (the same step synth.Instance drives with an
 	// in-memory overlay).
-	return buildAndShapeGate(ctx, absDir, ".", nil, registryEnv(opts.Registry), instanceSpec)
-}
-
-// registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if
-// registry is non-empty. Returns nil when no override is requested so that
-// load.Config falls back to the process environment unchanged.
-//
-// Building the env slice (rather than calling os.Setenv) keeps the loader
-// safe under concurrency: load.Config consumes the slice locally without
-// mutating process state.
-func registryEnv(registry string) []string {
-	if registry == "" {
-		return nil
-	}
-	env := os.Environ()
-	override := "CUE_REGISTRY=" + registry
-	for i, kv := range env {
-		if len(kv) >= len("CUE_REGISTRY=") && kv[:len("CUE_REGISTRY=")] == "CUE_REGISTRY=" {
-			env[i] = override
-			return env
-		}
-	}
-	return append(env, override)
+	return buildAndShapeGate(ctx, absDir, ".", nil, cueenv.Override(opts.Registry, ""), instanceSpec)
 }
