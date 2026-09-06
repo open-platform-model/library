@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
+	"sort"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -70,6 +72,39 @@ func TestLoadModulePackageWithSource_HappyPathAndTransitiveDeps(t *testing.T) {
 
 	// The loader does not mutate process environment state (Principle I).
 	assert.Equal(t, envBefore, os.Getenv("CUE_REGISTRY"))
+}
+
+// The staged overlay carries the fetched module's .cue files only: a license
+// or a readme in the archive is not part of what cue/load reads and is not
+// staged, while a .cue file in a subdirectory is.
+func TestLoadModulePackageWithSource_OverlayCarriesCueFilesOnly(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"0.0.1\"}\n",
+		Extra: map[string]string{
+			"LICENSE":        "MIT",
+			"docs/README.md": "# hello\n",
+			"sub/extra.cue":  "package extra\n",
+		},
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, src, err := registry.LoadModulePackageWithSource(
+		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
+		registry.LoadOptions{Registry: reg})
+	require.NoError(t, err)
+	require.NotNil(t, src)
+
+	var rels []string
+	for key := range src.Overlay {
+		rel, err := filepath.Rel(src.Root, key)
+		require.NoError(t, err, "every overlay key sits under the synthetic root")
+		rels = append(rels, filepath.ToSlash(rel))
+	}
+	sort.Strings(rels)
+	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue", "sub/extra.cue"}, rels)
 }
 
 // 5.3a — a registry artifact whose kind != "Module" is rejected with an error

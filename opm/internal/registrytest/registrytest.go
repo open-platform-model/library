@@ -102,6 +102,11 @@ type ModuleFixture struct {
 	// line); historical tests pin a v1-era version explicitly. core still
 	// resolves from the public registry / warm workspace cache.
 	CoreVersion string
+
+	// Extra holds additional files the module archive carries beside
+	// module.cue and cue.mod/module.cue, keyed by slash path relative to the
+	// module root ("LICENSE", "docs/README.md", "sub/extra.cue").
+	Extra map[string]string
 }
 
 // DefaultCoreVersion is the opmodel.dev/core version registrytest fixtures
@@ -277,6 +282,9 @@ func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 			m.Path+"@v"+major, deps.String(),
 		)}
 		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}
+		for rel, content := range m.Extra {
+			mapfs[dir+"/"+rel] = &fstest.MapFile{Data: []byte(content)}
+		}
 	}
 }
 

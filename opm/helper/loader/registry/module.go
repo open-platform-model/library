@@ -10,7 +10,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"cuelang.org/go/cue"
@@ -20,7 +19,8 @@ import (
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
-	"github.com/open-platform-model/library/opm/helper/loader/internal/stage"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	opmmodule "github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -44,13 +44,14 @@ type LoadOptions struct {
 // the value built in cueCtx together with the staged source tree the build
 // used, as the artifact [opmmodule.Source] in overlay mode: the deterministic
 // synthetic Root every overlay key sits under, plus the Overlay carrying the
-// module's files (including its own cue.mod/module.cue). A consumer reuses it
-// to build a follow-on package INSIDE the module's own main module — letting
-// the module's already-tidied cue.mod/module.cue drive transitive resolution —
-// without a second registry fetch (Principle V, CUE-native resolution). A
-// caller that wants only the value discards the second return. The returned
-// Overlay is the build's own map; callers that mutate it (e.g. to overlay
-// additional files) MUST clone it first.
+// module's .cue files (its own cue.mod/module.cue included, nothing else: the
+// set cue/load reads). A consumer reuses it to build a follow-on package
+// INSIDE the module's own main module — letting the module's already-tidied
+// cue.mod/module.cue drive transitive resolution — without a second registry
+// fetch (Principle V, CUE-native resolution). A caller that wants only the
+// value discards the second return. The returned Overlay is the build's own
+// map; callers that mutate it (e.g. to overlay additional files) MUST clone
+// it first.
 //
 // It fetches the module's source via CUE's native module machinery
 // (mod/modconfig) and loads it IN MEMORY AS THE MAIN MODULE: the fetched files
@@ -72,7 +73,9 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 		return cue.Value{}, nil, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
 	}
 
-	env := registryEnv(opts.Registry)
+	// One environment slice for the fetch and the load; nil when nothing is
+	// overridden, so both read the process environment unchanged.
+	env := cueenv.Override(opts.Registry, "")
 
 	reg, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
 	if err != nil {
@@ -86,9 +89,15 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 		return cue.Value{}, nil, fmt.Errorf("fetching module %s: %w", mv, err)
 	}
 
-	synthRoot, overlay, err := stage.OverlayFromSource(loc, modPath, version)
+	// Stage the fetched module's .cue files in memory under a deterministic
+	// synthetic root. A fetch carrying no .cue file is not a module.
+	synthRoot := sourcetree.SyntheticRoot(modPath, version)
+	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: %w", mv, err)
+	}
+	if len(overlay) == 0 {
+		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: fetched module source has no CUE files: %w", mv, shape.ErrInvalidPackage)
 	}
 
 	// Overlay (with FS left nil), NOT load.Config.FS. The spike confirmed that
@@ -204,31 +213,4 @@ func parentPath(modPath string) string {
 		return ""
 	}
 	return base[:i]
-}
-
-// registryEnv returns a copy of os.Environ() with CUE_REGISTRY overridden if
-// registry is non-empty. Returns the process environment unchanged when no
-// override is requested. Building the env slice (rather than calling os.Setenv)
-// keeps the loader safe under concurrency: modconfig and load.Config consume
-// the slice locally without mutating process state. Mirrors
-// opm/helper/loader/file.registryEnv and opm/internal/renderstage.RegistryEnv.
-func registryEnv(registry string) []string {
-	base := os.Environ()
-	if registry == "" {
-		return base
-	}
-	env := make([]string, 0, len(base)+1)
-	seen := false
-	for _, e := range base {
-		if strings.HasPrefix(e, "CUE_REGISTRY=") {
-			env = append(env, "CUE_REGISTRY="+registry)
-			seen = true
-			continue
-		}
-		env = append(env, e)
-	}
-	if !seen {
-		env = append(env, "CUE_REGISTRY="+registry)
-	}
-	return env
 }

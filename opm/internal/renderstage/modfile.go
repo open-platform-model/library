@@ -2,16 +2,12 @@ package renderstage
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
-	"cuelang.org/go/cue/ast"
-	"cuelang.org/go/cue/format"
-	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modfile"
 
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -84,58 +80,11 @@ func ReadModFile(src *module.Source) (*ModFile, error) {
 		return nil, fmt.Errorf("source carries no module root")
 	}
 	path := filepath.Join(src.Root, filepath.FromSlash(ModFileName))
-	data, err := readSourceFile(src, path)
+	data, err := sourcetree.ReadFile(src, path)
 	if err != nil {
 		return nil, err
 	}
 	return ParseModFile(data, path)
-}
-
-// readSourceFile returns the contents of path inside src: the overlay entry in
-// overlay mode, the file on disk otherwise.
-func readSourceFile(src *module.Source, path string) ([]byte, error) {
-	if src.Overlay != nil {
-		entry, ok := src.Overlay[path]
-		if !ok {
-			return nil, fmt.Errorf("%s: not present in the staged overlay under %s", path, src.Root)
-		}
-		return sourceBytes(entry)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", path, err)
-	}
-	return data, nil
-}
-
-// sourceBytes returns the file contents a load.Source carries. load.Source is
-// an opaque interface whose three constructors (FromString, FromBytes,
-// FromFile) wrap a string, a byte slice and an *ast.File respectively; the
-// contents are recovered by kind so an overlay can be materialized to disk
-// without a second copy of the tree living on module.Source.
-func sourceBytes(src load.Source) ([]byte, error) {
-	if src == nil {
-		return nil, fmt.Errorf("nil load.Source")
-	}
-	v := reflect.ValueOf(src)
-	switch v.Kind() {
-	case reflect.String:
-		return []byte(v.String()), nil
-	case reflect.Slice:
-		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return append([]byte(nil), v.Bytes()...), nil
-		}
-	case reflect.Pointer:
-		fileType := reflect.TypeOf((*ast.File)(nil))
-		if v.Type().ConvertibleTo(fileType) {
-			f, ok := v.Convert(fileType).Interface().(*ast.File)
-			if !ok || f == nil {
-				return nil, fmt.Errorf("load.Source wraps a nil *ast.File")
-			}
-			return format.Node(f)
-		}
-	}
-	return nil, fmt.Errorf("unsupported load.Source implementation %T", src)
 }
 
 // IsOPMPath reports whether a major-qualified module path lives in the OPM
