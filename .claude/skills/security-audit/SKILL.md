@@ -56,9 +56,10 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 - Filesystem paths (`filepath.Abs`, `os.Stat`, `IsDir`) originate from **caller arguments** (CLI/embedder), not from artifact content — confirm artifact fields never steer a filesystem read/write
 - `filepath.Abs` normalizes but does **not** strip `..` or resolve symlinks — assess whether a hostile caller path or a symlink in a loaded module dir can escape an intended root (lower severity since the caller is semi-trusted, but note it)
-- Registry env construction (`registryEnv()` in `release.go`) builds a fresh env slice and does **not** call `os.Setenv` — confirm loader stays concurrency-safe and process-neutral (CONSTITUTION)
+- Registry env construction (`cueenv.Override` in `opm/internal/cueenv`, the single implementation every loader, the schema loader and the render stage pass as `Env`) builds a fresh env slice and does **not** call `os.Setenv` — confirm loader stays concurrency-safe and process-neutral (CONSTITUTION)
+- Overlay walkers (`opm/internal/sourcetree`) stage `.cue` files only and refuse overlay entries outside their root before writing — confirm no caller re-introduces an unfiltered walk or an unchecked write
 - CUE `load.Instances` is relied on to reject malformed/escaping import paths — verify no custom path joining sidesteps it
-- Key files: `opm/helper/loader/file/{module,release,platform}.go`
+- Key files: `opm/helper/loader/file/{module,instance,platform,build}.go`, `opm/helper/loader/registry/module.go`, `opm/internal/cueenv/cueenv.go`, `opm/internal/sourcetree/sourcetree.go`
 
 ### Dimension 4: Registry / OCI Trust & Integrity
 
