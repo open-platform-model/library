@@ -3,6 +3,7 @@
 ## Purpose
 The library is the single place where CUE module-acquisition plumbing lives (Principle V — CUE-Native Module Resolution). This capability gives the library a first-class primitive for loading a `#Module` that is published in an OCI registry, identified by `path@version`, so that consumers (operator render path, a future CLI, the planned Crossplane composition function) never hand-roll OCI fetch logic, wrapper-package shims, or dependency walks. The module is fetched via CUE's native module machinery and loaded **as the main module** — its own `cue.mod/module.cue` drives transitive resolution and its `kind`/`metadata` evaluate at the package root — which preserves core@v0's self-referential metadata that the wrapper approach broke.
 ## Requirements
+
 ### Requirement: Load a Module from the Registry by Path and Version
 
 The library SHALL provide `opm/helper/loader/registry.LoadModulePackage(ctx, cueCtx, modPath, version string, opts) (cue.Value, error)` that loads a `#Module` published in an OCI registry, identified by its major-qualified module path and version. It SHALL fetch the module's source using CUE's native module machinery (`mod/modconfig`) and load it **as the main module** — its own `cue.mod/module.cue` drives transitive dependency resolution, and its `kind`/`metadata` are evaluated at the package root. It SHALL NOT synthesize a wrapper package that imports and embeds the target module. (It mirrors the current `opm/helper/loader/file.LoadModulePackage` return shape `(cue.Value, error)`; the `opm/apiversion` package and loader-layer apiVersion detection were removed in commit `4276ec4`.)
@@ -34,13 +35,20 @@ The loader SHALL apply the registry override carried by `opts` to the load confi
 
 ### Requirement: In-Memory Load Without a Temporary Directory
 
-The registry module loader SHALL load the fetched module in memory and SHALL NOT write the module's source to a temporary directory. It SHALL inject the fetched module's files via `load.Config.Overlay` under a deterministic synthetic root, leaving `load.Config.FS` nil so the module's transitive dependencies resolve through the registry and CUE module cache.
+The registry module loader SHALL load the fetched module in memory and SHALL NOT write the module's source to a temporary directory. It SHALL inject the fetched module's CUE files (every `.cue` file under the module root, the module's own `cue.mod/module.cue` included, and nothing else) via `load.Config.Overlay` under a deterministic synthetic root, leaving `load.Config.FS` nil so the module's transitive dependencies resolve through the registry and CUE module cache. The staged overlay the loader returns on the module's `Source` SHALL be that same set of files.
 
 #### Scenario: No temporary directory created
 
 - **WHEN** a module is loaded from the registry
 - **THEN** no temporary directory is created or left behind for the module's source
 - **AND** the module's transitive dependencies still resolve
+
+#### Scenario: Staged overlay carries the module's CUE files only
+
+- **WHEN** a fetched module's archive contains `.cue` files, a `cue.mod/module.cue`, and non-CUE files such as a license or a readme
+- **THEN** the staged overlay on `Module.Source` holds every `.cue` file and `cue.mod/module.cue`, each keyed under the synthetic root
+- **AND** the non-CUE files are not present in the overlay
+- **AND** a fetch that stages no `.cue` file fails the load with an error wrapping `ErrInvalidPackage` (a defensive branch: a module zip CUE's fetch accepts always carries `cue.mod/module.cue`, so the empty case is exercised at the walker, not through a registry)
 
 ### Requirement: Registry-Loaded Modules Pass the Module Shape Gate
 
@@ -58,9 +66,9 @@ The registry module loader SHALL validate the built value with the same module s
 
 ### Requirement: Module Identity Verification
 
-After the artifact shape gate passes, the registry module loader SHALL verify the acquired artifact's declared identity against the coordinate it was fetched by: `metadata.modulePath` SHALL equal the requested module path (both in the full major-suffixed form, compared as strings without recomposition), and `metadata.version` SHALL equal the fetched tag with its `v` prefix stripped. A disagreement SHALL fail the load with a typed identity error naming both the declared and the fetched value. The verification SHALL sit on the shared load path so every entrypoint — and every frontend calling through the kernel — inherits one implementation.
+After the artifact shape gate passes, the registry module loader SHALL verify the acquired artifact's declared identity against the coordinate it was fetched by: `metadata.modulePath` SHALL equal the requested module path (both in the full major-suffixed form, compared as strings without recomposition), and `metadata.version` SHALL equal the fetched tag with its `v` prefix stripped. A disagreement SHALL fail the load with a typed identity error naming both the declared and the fetched value. The verification SHALL sit on the shared load path so every entrypoint, and every frontend calling through the kernel, inherits one implementation.
 
-A major-free `metadata.modulePath` (the core-v0/v1 metadata shape, which cannot express the major-suffixed form) SHALL instead be verified against the publishing convention: the fetched module path, with its major suffix stripped, SHALL sit directly under the declared parent path (`metadata.modulePath + "/" + <leaf>`). This preserves the "Self-referential core@v0 metadata is preserved" scenario while still refusing a declaration that does not match the fetched coordinate.
+There SHALL be no alternative verification for a major-free `metadata.modulePath`: the OPM schema the library consumes requires the major-suffixed form, so a declaration without the suffix cannot equal the fetched path and is refused with the same typed error. The library SHALL NOT compose a module address from a parent path and a name.
 
 The kernel SHALL NOT write or correct either value: the schema declares identity, the reader verifies it (the kernel is a verifier, never a stamper).
 
@@ -76,9 +84,9 @@ The kernel SHALL NOT write or correct either value: the schema declares identity
 
 #### Scenario: Older-line parent-path declaration verified by convention
 
-- **WHEN** a module fetched by `testing.opmodel.dev/x/modules/hello@v0` declares the major-free `metadata.modulePath: "testing.opmodel.dev/x/modules"` (core-v0/v1 shape)
-- **THEN** the load succeeds
-- **AND** a major-free declaration that is not the fetched path's parent fails with the same typed error
+- **WHEN** a module fetched by `testing.opmodel.dev/x/modules/hello@v0` declares the major-free `metadata.modulePath: "testing.opmodel.dev/x/modules"` (the core-v0/v1 shape)
+- **THEN** the load fails with the typed identity error for the `path` field, carrying the declared parent path and the fetched path
+- **AND** no publishing-convention fallback is attempted
 
 #### Scenario: Honest artifact loads
 
@@ -109,4 +117,3 @@ The acquired module's staged source SHALL be consumable by `instance-synthesis` 
 - **WHEN** a module acquired via `AcquireModuleFromRegistry` is passed to `synth.Instance`
 - **THEN** the instance is staged inside the module's source tree and the module's own `cue.mod/module.cue` resolves the transitive (catalog) closure
 - **AND** synthesis succeeds without the caller declaring the module's transitive dependencies
-
