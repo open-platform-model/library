@@ -4,41 +4,6 @@
 TBD - created by archiving change rename-release-to-instance. Update Purpose after archive.
 ## Requirements
 
-### Requirement: Synth Helper Package Location
-
-The library SHALL expose a `opm/helper/synth/` subpackage that produces OPM artifact CUE values from in-memory typed inputs. The package SHALL be a peer of `opm/helper/loader/` (not nested under it) because synthesis is creation from typed inputs rather than parsing from byte streams. The package SHALL document the boundary in its `doc.go`.
-
-#### Scenario: Synth package present at canonical path
-
-- **WHEN** a developer reads `opm/helper/synth/doc.go`
-- **THEN** the file documents that the package builds artifact CUE values from typed inputs
-- **AND** documents that the package is a peer of `opm/helper/loader/`, not nested under it
-
-### Requirement: synth.Instance function signature
-
-The `opm/helper/synth/` package SHALL expose a function `Instance(ctx *cue.Context, in InstanceInput) (cue.Value, *module.Source, error)` that returns a `#ModuleInstance` artifact CUE value built by unifying the input fields against the `#ModuleInstance` schema definition resolved from the supplied `SchemaCache`, alongside the staged source tree the build evaluated (see Requirement: Synthesis surfaces its staged tree).
-
-The `InstanceInput` struct SHALL carry: `Module *module.Module` (required), `Name string` (required), `Namespace string` (required), `SchemaCache *schema.Cache` (REQUIRED), `Values cue.Value` (optional; zero value means "no values supplied"), `Labels map[string]string` (optional), `Annotations map[string]string` (optional).
-
-`synth.Instance` MUST return a non-nil error when `SchemaCache == nil` (in addition to the existing required-field checks). The error message MUST name the missing field. The helper MUST NOT self-construct a `*schema.Cache` as a fallback; the caller is responsible for passing the cache it intends to share (typically `k.SchemaCache()` from its Kernel).
-
-#### Scenario: Required inputs validated
-
-- **WHEN** `synth.Instance` is called with `Module == nil`, or `Name == ""`, or `Namespace == ""`, or `SchemaCache == nil`
-- **THEN** it returns the zero `cue.Value` and a non-nil error naming the missing field
-
-#### Scenario: Returned value is schema-unified
-
-- **WHEN** `synth.Instance` is called with valid inputs and a `SchemaCache` whose Loader resolves the OPM core schema
-- **THEN** the returned `cue.Value` carries the `#ModuleInstance` shape at its root
-- **AND** the value is unified with the schema's `#ModuleInstance` definition (the schema's structural constraints apply)
-
-#### Scenario: Caller's Cache is reused, not replaced
-
-- **WHEN** `synth.Instance` is called with a `SchemaCache` that has already been warmed by a prior `Get`
-- **THEN** the helper invokes `(*Cache).Get(ctx)` to retrieve the already-cached value
-- **AND** no second schema load is triggered by the helper
-
 ### Requirement: Derived fields come from schema unification
 
 `synth.Instance` SHALL NOT compute `metadata.uuid`, `components`, or schema-stamped labels in Go. These fields SHALL flow from CUE evaluation as a consequence of unifying the inputs with `#ModuleInstance`. The Go code SHALL fill only the caller-supplied fields (name, namespace, `#module`, optional values/labels/annotations) and let CUE derive the rest.
@@ -74,18 +39,23 @@ The `InstanceInput` struct SHALL carry: `Module *module.Module` (required), `Nam
 
 ### Requirement: Values field is caller-supplied with no implicit fallback
 
-`synth.Instance` SHALL NOT consult `Module.debugValues` or any other implicit source when `InstanceInput.Values` is the zero `cue.Value`. When `Values.Exists()` is true, the helper SHALL render it into the synthesized package's values source (via `format.Node` on the value's syntax, never string-interpolating raw input) so it participates in the single build. When `Values.Exists()` is false, the helper SHALL omit the values source and return the unified value as-is; concreteness enforcement is deferred to the kernel's instance processing behind `Kernel.SynthesizeInstance`.
+`SynthesizeInstance` SHALL NOT consult `Module.debugValues` or any other implicit source when `InstanceInput.Values` is empty. When `Values` holds one or more sources, the kernel SHALL unify them in stack order, render the result into the synthesized package's values source (via `format.Node` on the value's syntax, never string-interpolating raw input) so it participates in the single build, and after the build check each source against the module's `#config` at the source's own positions. When `Values` is empty, the kernel SHALL omit the values source and enforce concreteness on the built spec as usual.
 
 #### Scenario: Caller-supplied values participate in the build
 
-- **WHEN** `synth.Instance` is called with `Values` set to a concrete CUE value satisfying the module's `#config`
-- **THEN** the returned value carries those values at the schema's values path
+- **WHEN** `SynthesizeInstance` is called with `Values` holding a concrete source satisfying the module's `#config`
+- **THEN** the returned instance carries those values at the schema's values path
 - **AND** the values entered the build as a rendered source file, not a post-build cross-build unification
+
+#### Scenario: Layered values unify in order
+
+- **WHEN** `SynthesizeInstance` is called with `Values == []Source{a, b}` where `b` sets a field `a` leaves open
+- **THEN** the returned instance's values carry `a` unified with `b`
 
 #### Scenario: Zero Values is not replaced by debugValues
 
-- **WHEN** `synth.Instance` is called with `Values == cue.Value{}` against a Module that defines `debugValues`
-- **THEN** the returned CUE value's values path is unfilled (does not equal `debugValues`)
+- **WHEN** `SynthesizeInstance` is called with empty `Values` against a Module that defines `debugValues`
+- **THEN** the build's values path is unfilled (does not equal `debugValues`) and the call fails on concreteness unless every `#config` field has a default
 
 ### Requirement: Optional labels and annotations are filled into instance metadata
 
@@ -102,49 +72,15 @@ When `InstanceInput.Labels` is non-empty, `synth.Instance` SHALL fill `metadata.
 - **WHEN** `synth.Instance` is called with `Annotations == {"opmodel.dev/owner": "team-x"}`
 - **THEN** the returned CUE value's `metadata.annotations` contains that entry
 
-### Requirement: Schema obtained through caller-supplied Cache
-
-`synth.Instance` SHALL obtain the `#ModuleInstance` definition by calling `in.SchemaCache.Get(ctx)` on the caller-supplied `*schema.Cache`, then `LookupPath("#ModuleInstance")` on the returned value. The helper MUST NOT call `load.Instances` directly, MUST NOT consult `os.Getenv("CUE_REGISTRY")`, MUST NOT read from the filesystem, and MUST NOT construct its own `*schema.Cache` or `Loader`.
-
-#### Scenario: Helper delegates schema loading to the Cache
-
-- **WHEN** `synth.Instance` is called with a `SchemaCache` configured against a pre-seeded test cache
-- **THEN** the call succeeds without any direct call to `load.Instances`, `os.Getenv`, or filesystem reads originating in `opm/helper/synth/`
-
-#### Scenario: Schema load failure surfaces as a wrapped error
-
-- **WHEN** `(*Cache).Get(ctx)` returns a non-nil error during a `synth.Instance` invocation
-- **THEN** `synth.Instance` returns the zero `cue.Value` and an error wrapping the Cache's error
-
-#### Scenario: No registry round-trip on warm cache
-
-- **WHEN** `synth.Instance` is called with a `SchemaCache` whose underlying CUE module cache is already warm
-- **THEN** the call completes without contacting any external registry, regardless of `CUE_REGISTRY` value
-
-### Requirement: synth.Instance does not validate or enforce concreteness
-
-`synth.Instance` SHALL return the unified CUE value without invoking `cue.Concrete` validation. Concreteness enforcement on the final spec and metadata decoding are downstream responsibilities of the kernel's instance processing, reached through `Kernel.SynthesizeInstance`; the values merge against `#config` happens inside the build. Errors from CUE during unification (e.g. type mismatch between caller-supplied labels and the schema's label-map type) SHALL be returned as the result of `cue.Value.Err()` on the returned value, surfaced to the caller through the returned `error`.
-
-#### Scenario: Unification error returned
-
-- **WHEN** `synth.Instance` is called with inputs that conflict with the schema (e.g. `Name` containing characters disallowed by `#NameType`)
-- **THEN** the returned error is non-nil and the returned `cue.Value` is the zero value or carries the unification error
-
-#### Scenario: No concreteness check at synth time
-
-- **WHEN** `synth.Instance` is called with `Values == cue.Value{}` against a `#config` that has no defaults
-- **THEN** the call succeeds (returns a non-zero `cue.Value` and a nil error)
-- **AND** the returned value's values path is unfilled rather than concrete
-
 ### Requirement: Instance construction shares one evaluate-and-shape-gate with the file loader
 
-The library SHALL provide a single build-and-validate routine that both `synth.Instance` (in-memory overlay source) and `LoadInstancePackage` (on-disk source) invoke to evaluate an instance package and run the shape gate. The two entry points SHALL differ only in how the package source is supplied (overlay vs. filesystem directory); the evaluation, shape-gating, and error wrapping SHALL be identical.
+The kernel SHALL evaluate a synthesized instance package (in-memory overlay inside the module's staged tree) and a directory-acquired instance package (on-disk source) through one build-and-shape-gate routine. The two paths SHALL differ only in how the package source is supplied; the evaluation, shape gating, sentinel wrapping and values attribution SHALL be identical.
 
 #### Scenario: Overlay and on-disk instances evaluate identically
 
-- **WHEN** the same instance content is supplied once as an in-memory overlay (via `synth.Instance`) and once as an on-disk package (via `LoadInstancePackage`)
+- **WHEN** the same instance content is supplied once through `SynthesizeInstance` and once through `AcquireInstanceFromDir`
 - **THEN** both produce a value of the same shape passing the same instance shape gate
-- **AND** a malformed instance fails the shape gate identically in both paths
+- **AND** a malformed instance fails the shape gate identically in both paths, wrapping the same `opm/errors` sentinel
 
 ### Requirement: Imported-module render coverage exists
 
@@ -208,18 +144,28 @@ The public Go signature is `Instance(ctx *cue.Context, in InstanceInput) (cue.Va
 
 ### Requirement: synth.Instance requires the module's staged source
 
-`synth.Instance` SHALL construct the instance from the acquired module's staged source (the overlay + synthetic root produced when the module is fetched from the registry). When the supplied `InstanceInput.Module` does not carry staged source (it was constructed from a bare value rather than acquired with source), `synth.Instance` SHALL return the zero `cue.Value` and a non-nil error explaining that the module must be acquired with its source (e.g. via the source-carrying registry acquire entrypoint). `synth.Instance` SHALL NOT itself perform a registry fetch to obtain the module source.
+`SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree (the overlay and root produced by `AcquireModuleFromRegistry` or `AcquireModuleFromDir`). When `InstanceInput.Module` carries no staged source (it was constructed from a bare value), the call SHALL fail with an error wrapping `oerrors.ErrMissingSource` naming the two acquire verbs. When the module's `Source.Pkg` is non-empty (the module was acquired from a subdirectory of its CUE module), the call SHALL fail with an error stating that a synthesizable module is its module's root package, because the synthesized package imports the module by its module path. The kernel SHALL NOT perform a registry fetch or a directory walk of its own to obtain the module source.
 
 #### Scenario: Module without staged source is rejected
 
-- **WHEN** `synth.Instance` is called with a `Module` that carries no staged source
-- **THEN** it returns the zero `cue.Value` and a non-nil error naming the missing source precondition
-- **AND** `synth.Instance` performs no registry fetch of its own
+- **WHEN** `SynthesizeInstance` is called with a `Module` that carries no staged source
+- **THEN** it returns a nil instance and an error wrapping `oerrors.ErrMissingSource`
+- **AND** no registry fetch and no directory read occurs
 
 #### Scenario: Module acquired with source synthesizes
 
-- **WHEN** `synth.Instance` is called with a `Module` acquired through the source-carrying registry path
+- **WHEN** `SynthesizeInstance` is called with a `Module` from `AcquireModuleFromRegistry`
 - **THEN** the instance is staged inside the module's source tree and synthesis proceeds
+
+#### Scenario: Module acquired from a directory synthesizes
+
+- **WHEN** `SynthesizeInstance` is called with a `Module` from `AcquireModuleFromDir` on a module root
+- **THEN** the instance is staged inside the module's overlay, the module import resolves locally, and the module's own `cue.mod/module.cue` drives transitive resolution
+
+#### Scenario: Subpackage module is refused
+
+- **WHEN** `SynthesizeInstance` is called with a `Module` acquired from a subdirectory of its CUE module
+- **THEN** it returns an error naming the root-package requirement and runs no build
 
 ### Requirement: Transitive module dependencies resolve via the module's own module file
 
@@ -233,17 +179,18 @@ Because the instance is built inside the module's staged main module, `synth.Ins
 
 ### Requirement: Synthesis surfaces its staged tree
 
-`synth.Instance` SHALL return, alongside the evaluated instance value, the staged source tree the single build evaluated: `Root` = the acquired module's staged root, `Pkg` = the reserved instance package subdirectory, `Overlay` = the module's cloned overlay augmented with the synthesized instance files (`instance.cue`, and `values.cue` when values were supplied). The returned overlay SHALL be the clone the build used, so repeated synthesis from one module remains safe and the caller may retain the tree without aliasing the module's own overlay.
+`SynthesizeInstance` SHALL stamp on the returned instance the staged source tree the single build evaluated: `Root` = the acquired module's staged root, `Pkg` = the reserved instance package subdirectory, `Overlay` = the module's cloned overlay augmented with the synthesized instance files (`instance.cue`, and `values.cue` when values were supplied), every entry as bytes. The overlay SHALL be a clone, so repeated synthesis from one module remains safe and the caller may retain the tree without aliasing the module's own overlay.
 
 #### Scenario: The staged tree matches the build
 
-- **WHEN** `synth.Instance` succeeds
-- **THEN** the returned tree's `Root` equals the module's staged source root, its `Pkg` names the reserved instance subdirectory, and its `Overlay` contains every file of the module's overlay plus the synthesized instance file (plus the values file when values were supplied)
+- **WHEN** `SynthesizeInstance` succeeds
+- **THEN** the returned instance's `Source.Root` equals the module's staged root, its `Pkg` names the reserved instance subdirectory, and its `Overlay` contains every file of the module's overlay plus the synthesized instance file (plus the values file when values were supplied)
+- **AND** mutating the instance's overlay does not change the module's overlay
 
 #### Scenario: Failure returns no tree
 
-- **WHEN** `synth.Instance` fails (missing inputs, schema unavailable, build error)
-- **THEN** no staged tree is returned alongside the error
+- **WHEN** `SynthesizeInstance` fails (missing inputs, missing source, build error, concreteness)
+- **THEN** no instance and no staged tree is returned alongside the error
 
 ### Requirement: Synthesized instances carry their source
 
@@ -258,3 +205,22 @@ Because the instance is built inside the module's staged main module, `synth.Ins
 
 - **WHEN** an existing caller uses the returned instance without reading `Source`
 - **THEN** metadata, package value, validation outcomes and error surfaces are identical to the behavior before this change
+
+### Requirement: Instance synthesis input
+
+Instance synthesis SHALL be reached only through `Kernel.SynthesizeInstance(ctx, kernel.InstanceInput)`. `InstanceInput` SHALL carry `Module *module.Module` (required, source-carrying), `Name string` (required), `Namespace string` (required), `Values []Source` (optional; empty means "no values supplied"), `Labels map[string]string` (optional) and `Annotations map[string]string` (optional). It SHALL carry no schema cache and no `cue.Context`: the kernel owns both. A missing required field SHALL fail with an error wrapping the matching `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`) before any build runs. No package under `opm/` SHALL export a second synthesis entry point or input type.
+
+#### Scenario: Required inputs validated
+
+- **WHEN** `SynthesizeInstance` is called with `Module == nil`, or `Name == ""`, or `Namespace == ""`
+- **THEN** it returns a nil instance and an error wrapping the sentinel that names the missing field
+
+#### Scenario: One synthesis entry point
+
+- **WHEN** a consumer inspects the exported identifiers of every package under `opm/`
+- **THEN** `Kernel.SynthesizeInstance` and `kernel.InstanceInput` are the only exported synthesis symbols; no `synth` package exists
+
+#### Scenario: Returned value is schema-unified
+
+- **WHEN** `SynthesizeInstance` is called with valid inputs
+- **THEN** the returned instance's `Package` carries the `#ModuleInstance` shape at its root, unified with the schema's `#ModuleInstance` definition resolved through the module's own `cue.mod/module.cue`

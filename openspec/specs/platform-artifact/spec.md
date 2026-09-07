@@ -34,43 +34,14 @@ The library SHALL expose `func NewPlatformFromValue(k *kernel.Kernel, v cue.Valu
 - **WHEN** the input `cue.Value` has an unrecognized `apiVersion`
 - **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
 
-### Requirement: Platform Loader
-
-The library SHALL expose `LoadPlatformPackage(ctx *cue.Context, dirPath string, opts loader.LoadOptions) (cue.Value, apiversion.Version, error)` in `opm/helper/loader/file/`. The function SHALL mirror `LoadModulePackage` and `LoadReleasePackage` in signature shape and behavior, resolving `dirPath` as a single CUE package via `cuelang.org/go/cue/load` and returning the built `cue.Value` together with the detected `apiVersion`. The function SHALL NOT accept a single-file path and SHALL NOT depend on a `platform.cue` filename convention; the platform is identified by the CUE `package` clause shared across the directory's files.
-
-#### Scenario: Directory loaded as a CUE package
-
-- **WHEN** `LoadPlatformPackage(ctx, "/path/to/platform-dir", opts)` is invoked and the directory contains one or more `.cue` files sharing a package that declares a `#Platform`
-- **THEN** the function loads the directory via `load.Instances([]string{"."}, cfg)`, builds the instance, and returns the `cue.Value` and the detected `apiversion.Version`
-
-#### Scenario: Registry override applied
-
-- **WHEN** `LoadPlatformPackage(ctx, dir, loader.LoadOptions{Registry: "..."})` is invoked
-- **THEN** the supplied registry override is applied via `load.Config.Env` so the platform's transitive imports resolve from the override registry without mutating process state
-
-#### Scenario: Path is not a directory
-
-- **WHEN** `dirPath` does not exist or is not a directory
-- **THEN** the function returns a non-nil error and an empty `cue.Value`
-
-#### Scenario: Unknown or missing apiVersion
-
-- **WHEN** the loaded platform package has a missing or unrecognised `apiVersion` field
-- **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
-
-#### Scenario: Kernel wrapper exists
-
-- **WHEN** a caller invokes `(k *Kernel) LoadPlatformPackage(ctx, dirPath, opts)`
-- **THEN** the result is identical to calling `loaderfile.LoadPlatformPackage` with `k.CueContext()`
-
 ### Requirement: Platform acquisition from a directory returns a source-carrying artifact
 
-The kernel SHALL expose `AcquirePlatformFromDir`, which loads a `#Platform` CUE package from a directory through the existing shape-gated loader path (identical evaluation and gating to `LoadPlatformPackage`), constructs the typed platform via `NewPlatformFromValue`, and stamps `Source` in on-disk mode: `Overlay` nil, `Root` = the absolute path of the enclosing module root (the nearest ancestor holding `cue.mod/module.cue`, the directory itself when it is the root), and `Pkg` = the package directory relative to `Root` (empty for the root package). A directory with no enclosing module is its own root with an empty `Pkg`.
+The kernel SHALL expose `AcquirePlatformFromDir(ctx, dir)`, which loads a `#Platform` CUE package from a directory through the acquisition shape gate, constructs the typed platform via `platform.NewPlatformFromValue`, and stamps `Source` in on-disk mode: `Overlay` nil, `Root` = the absolute path of the enclosing module root (the nearest ancestor holding `cue.mod/module.cue`, the directory itself when it is the root), and `Pkg` = the package directory relative to `Root` (empty for the root package). A directory with no enclosing module is its own root with an empty `Pkg`. The registry mapping used for the platform's catalog imports SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`; the verb takes no per-call override.
 
 #### Scenario: Acquired platform carries its source
 
-- **WHEN** a caller invokes `AcquirePlatformFromDir` on a module root directory holding a valid platform package
-- **THEN** the returned `*Platform` has decoded `Metadata`, a `Package` identical to what `LoadPlatformPackage` returns for that directory, `Source.Root` equal to the directory's absolute path, an empty `Source.Pkg`, and a nil `Overlay`
+- **WHEN** a caller invokes `AcquirePlatformFromDir(ctx, dir)` on a module root directory holding a valid platform package
+- **THEN** the returned `*Platform` has decoded `Metadata`, a `Package` holding the built platform value, `Source.Root` equal to the directory's absolute path, an empty `Source.Pkg`, and a nil `Overlay`
 
 #### Scenario: Acquired subpackage names its module root
 
@@ -79,13 +50,20 @@ The kernel SHALL expose `AcquirePlatformFromDir`, which loads a `#Platform` CUE 
 
 #### Scenario: Registry override honored
 
-- **WHEN** `AcquirePlatformFromDir` is invoked with a registry override in its load options
-- **THEN** the override is applied via the load configuration's environment (never `os.Setenv`), exactly as `LoadPlatformPackage` applies it
+- **WHEN** a kernel constructed with `WithRegistry(mapping)` acquires a platform whose `cue.mod` names catalogs under `opmodel.dev`
+- **THEN** the catalog imports resolve through `mapping` with no per-call argument
+- **AND** the process environment is not mutated
 
 #### Scenario: Shape-gate failures propagate
 
-- **WHEN** the directory's package fails the platform shape gate (wrong kind, missing concrete `metadata.name` or `type`)
-- **THEN** the error wraps the same sentinel `LoadPlatformPackage` reports today, and no partial `*Platform` is returned
+- **WHEN** the directory's package fails the platform shape gate (wrong kind, missing concrete `metadata.name` or `type`, incomplete `#registry` entry)
+- **THEN** the error wraps the corresponding `opm/errors` sentinel (`ErrWrongKind` or `ErrMissingRequiredField`), and no partial `*Platform` is returned
+
+#### Scenario: Frontends stop composing load and construct
+
+- **WHEN** a frontend needs a typed platform from a directory
+- **THEN** it calls `AcquirePlatformFromDir` and reads `Platform.Package` for the raw value
+- **AND** no `LoadPlatformPackage` method exists on the kernel to compose with a constructor
 
 ### Requirement: Platform carries its render source
 

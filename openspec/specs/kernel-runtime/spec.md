@@ -6,17 +6,23 @@ The `Kernel` struct is the public anchor type for the OPM kernel runtime. It own
 
 ### Requirement: Kernel Type and Construction
 
-The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function.
+The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public anchor type for the OPM kernel runtime. The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function. Absent `WithSchemaLoader`, the schema cache SHALL be backed by an OCI loader whose registry mapping is the kernel's `WithRegistry` value (empty when the option is absent), so the schema and every other kernel operation resolve through one mapping. An explicit `WithSchemaLoader` SHALL take precedence regardless of option order.
 
 #### Scenario: Default construction
 
 - **WHEN** a caller invokes `kernel.New()` with no options
-- **THEN** a non-nil `*Kernel` is returned with a private `*cue.Context` constructed via `cuecontext.New()` and a schema cache backed by the default OCI loader
+- **THEN** a non-nil `*Kernel` is returned with a private `*cue.Context` constructed via `cuecontext.New()` and a schema cache backed by the default OCI loader reading the process environment
 - **AND** subsequent calls to `k.CueContext()` return the same `*cue.Context` instance for the lifetime of the Kernel
+
+#### Scenario: Registry option seeds the schema loader
+
+- **WHEN** a caller invokes `kernel.New(WithRegistry(mapping))` with no `WithSchemaLoader`
+- **THEN** the first schema-touching call resolves the core schema through `mapping`
+- **AND** the process environment is not mutated
 
 #### Scenario: Construction with options
 
-- **WHEN** a caller invokes `kernel.New(WithSchemaLoader(myLoader), WithRegistry(mapping))`
+- **WHEN** a caller invokes `kernel.New(WithSchemaLoader(myLoader), WithRegistry(mapping))` in either order
 - **THEN** the returned Kernel resolves the core schema through `myLoader` and uses `mapping` for catalog and module resolution
 
 ### Requirement: cue.Context Encapsulation
@@ -76,91 +82,6 @@ A single `Kernel` SHALL NOT be used concurrently across its own method calls: th
 - **WHEN** the repository test task runs
 - **THEN** `opm/kernel` and `opm/internal/renderstage` are additionally run under `go test -race`
 
-### Requirement: Backward-Compatible Method Wrappers
-
-For every exported package loader in `opm/helper/loader/file/` (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and for the module and platform constructors in `opm/module/` and `opm/platform/` (`NewModuleFromValue`, `NewPlatformFromValue`), the Kernel SHALL provide a method wrapper that sources `*cue.Context` from itself where the underlying function takes one. The constructors SHALL take only the artifact value: no context-owner argument and no interface describing one exists in `opm/module` or `opm/platform`. The Kernel SHALL NOT wrap functions whose canonical implementation lives on the Kernel itself (layered validation, instance processing, and the values-file source loader); those are direct kernel methods, not wrappers. The Kernel SHALL NOT expose an instance constructor wrapper: instances are constructed only by `AcquireInstanceFromDir` and `SynthesizeInstance`.
-
-#### Scenario: Loader method wrapper for module packages
-
-- **WHEN** a caller invokes `k.LoadModulePackage(ctx, "./module", loaderfile.LoadOptions{Registry: "..."})`
-- **THEN** the result is identical to calling `helper/loader/file.LoadModulePackage(k.CueContext(), "./module", loaderfile.LoadOptions{Registry: "..."})`
-- **AND** any error returned is the same instance the underlying free function would return
-
-#### Scenario: Loader method wrapper for instance packages
-
-- **WHEN** a caller invokes `k.LoadInstancePackage(ctx, "./instance", loaderfile.LoadOptions{Registry: "..."})`
-- **THEN** the result is identical to calling `helper/loader/file.LoadInstancePackage(k.CueContext(), "./instance", loaderfile.LoadOptions{Registry: "..."})`
-- **AND** any error returned is the same instance the underlying free function would return
-
-#### Scenario: Constructors take only the value
-
-- **WHEN** a caller invokes `module.NewModuleFromValue(v)` or `platform.NewPlatformFromValue(v)`
-- **THEN** the constructor decodes metadata from `v` and returns the typed artifact with `Package == v`
-- **AND** `k.NewModuleFromValue(v)` and `k.NewPlatformFromValue(v)` return the same result
-- **AND** neither `opm/module` nor `opm/platform` exports a `CueContextOwner` interface
-
-#### Scenario: No instance constructor is exported
-
-- **WHEN** a consumer inspects the exported identifiers of `opm/kernel` and `opm/module`
-- **THEN** neither `Kernel.NewInstanceFromValue` nor `module.NewInstanceFromValue` exists
-
-#### Scenario: Helper-shaped functions remain callable
-
-- **WHEN** existing downstream code calls `helper/loader/file.LoadModulePackage(cueCtx, dir, opts)` or `helper/loader/file.LoadInstancePackage(cueCtx, dir, opts)` directly
-- **THEN** the call succeeds with the documented behavior
-- **AND** the helper signatures continue to accept `*cue.Context` so non-kernel consumers can use them without importing `opm/kernel`
-
-#### Scenario: Validation methods are not wrappers
-
-- **WHEN** a developer reads `opm/kernel/validate.go`
-- **THEN** the file contains the canonical implementation of `ValidateConfigDetailed` directly, with no `//nolint:staticcheck // SA1019:` exemptions for delegating to deleted helper packages
-
-#### Scenario: ValidateAndUnify wrapper is gone
-
-- **WHEN** a developer searches `opm/kernel/wrappers.go` (or the entire `opm/kernel/`) for `ValidateAndUnify`
-- **THEN** no exported method or function with that name exists
-- **AND** callers MUST use `k.ValidateConfigDetailed`
-
-### Requirement: Single Pre-Unified Values Input
-
-User values SHALL reach the kernel through exactly three public inputs, each carrying values as `Source` values or a single pre-unified `cue.Value`: `ValidateConfigDetailed` accepts `[]Source` for layered validation; `AcquireInstanceFromDir` accepts `WithValues(sources ...Source)` and unifies the sources inside the package build; `SynthesizeInstance` accepts `synth.InstanceInput.Values`, a single `cue.Value`, and renders it into the synthesized package. The kernel SHALL NOT accept `[]cue.Value` as a values argument on any public method, and SHALL NOT expose a method that fills values into an already-built instance from Go.
-
-#### Scenario: ValidateConfig takes a single value
-
-- **WHEN** a caller holds a single pre-unified `cue.Value` to validate
-- **THEN** it passes it as a one-element `[]Source` to `k.ValidateConfigDetailed`; no `ValidateConfig` method exists
-- **AND** there is no internal merge loop for a single source; the value is consumed as-is
-
-#### Scenario: ProcessModuleInstance takes a single value
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** `ProcessModuleInstance` does not exist
-- **AND** values reach an instance only through `WithValues` on `AcquireInstanceFromDir` or `synth.InstanceInput.Values` on `SynthesizeInstance`
-
-#### Scenario: ValidateConfigDetailed takes a slice of Source
-
-- **WHEN** a caller invokes `k.ValidateConfigDetailed(schema, sources)` with `sources` as `[]Source`
-- **THEN** the method unifies the sources in order then validates the merged value against `schema`
-- **AND** this is the only public method that accepts a multi-value input as a slice
-
-#### Scenario: Extra values enter the instance build
-
-- **WHEN** a caller invokes `k.AcquireInstanceFromDir(ctx, dir, opts, WithValues(a, b))`
-- **THEN** the sources are unified and rendered into the package overlay so the schema's own values unification performs the merge in CUE
-- **AND** no Go code fills the merged value into the evaluated instance
-
-#### Scenario: Synthesized values are a single value
-
-- **WHEN** a caller invokes `k.SynthesizeInstance(ctx, in)` with `in.Values` as a single `cue.Value`
-- **THEN** the value is rendered into the synthesized package's values source and participates in the single build
-- **AND** the method does not accept a slice form
-
-#### Scenario: Empty values is the zero value
-
-- **WHEN** a caller passes an empty `[]Source` to `k.ValidateConfigDetailed`, no `WithValues` option to `k.AcquireInstanceFromDir`, or a zero `cue.Value{}` as `in.Values` to `k.SynthesizeInstance`
-- **THEN** the call succeeds with no values applied (the package or synthesized spec must already be concrete on every required field)
-- **AND** the behavior is documented as "no values supplied"
-
 ### Requirement: Canonical Implementations Live on Kernel
 
 The canonical Go implementation of layered values validation and of instance processing (concreteness assertion and metadata decoding on a built instance spec) SHALL live on the `*Kernel` receiver in `opm/kernel/`. Instance processing SHALL be kernel-internal: it is reached only through `AcquireInstanceFromDir` and `SynthesizeInstance` and is not an exported method. No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleInstance` free functions SHALL remain in the library; the `opm/validate/` and `opm/helper/values/` packages SHALL NOT exist.
@@ -205,13 +126,19 @@ The canonical Go implementation of layered values validation and of instance pro
 
 ### Requirement: No Utility Methods on Kernel
 
-The Kernel SHALL expose only the pipeline it runs (acquire, load, process, validate, synthesize, render) and SHALL NOT expose a finalization, constraint-stripping or other value-utility method.
+The Kernel SHALL expose only the pipeline it runs (acquire, validate, synthesize, render) and SHALL NOT expose a finalization, constraint-stripping, raw-load or other value-utility method.
 
 #### Scenario: No finalization method on the Kernel
 
 - **WHEN** a consumer inspects the exported methods of `Kernel` and the exported identifiers of `opm/kernel`
 - **THEN** neither `Finalize` nor `FinalizeValue` exists
 - **AND** no method accepts a second, narrowed components value: the render build reads the imported instance's `components` once, for matching and execution alike
+
+#### Scenario: No raw-load methods on the Kernel
+
+- **WHEN** a consumer inspects the exported methods of `Kernel`
+- **THEN** none of `LoadModulePackage`, `LoadPlatformPackage`, `LoadInstancePackage`, `NewModuleFromValue`, `NewPlatformFromValue` exists
+- **AND** a caller that wants the raw value of an acquired artifact reads its `Package` field
 
 ### Requirement: Kernel.LoadSourceFromFile auto-unwraps the values field
 
@@ -236,13 +163,23 @@ The method SHALL set `Source.Origin` to the absolute path of the loaded file; `S
 
 ### Requirement: Registry Configuration Option
 
-The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the OCI registry mapping used for catalog and schema resolution: the render build's catalog imports (`Render`), registry module acquisition (`AcquireModuleFromRegistry`) and the schema cache. Absent the option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHALL NOT auto-apply a built-in default registry. The option MUST NOT mutate process environment state; the mapping is plumbed into each operation's load configuration (for a render, the staged module's `load.Config.Env`).
+The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI registry mapping every kernel operation uses for catalog, module and schema resolution: the render build's catalog imports (`Render`), registry module acquisition (`AcquireModuleFromRegistry`), directory acquisition (`AcquireModuleFromDir`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir`), instance synthesis (`SynthesizeInstance`) and the default schema cache. No acquire verb SHALL take a per-call registry override. Absent the option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHALL NOT auto-apply a built-in default registry. The option MUST NOT mutate process environment state; the mapping is plumbed into each operation's load configuration.
 
 #### Scenario: Registry option used for resolution
 
 - **WHEN** `kernel.New(WithRegistry("opmodel.dev=ghcr.io/open-platform-model"))` is called and `Render` runs against a platform whose `cue.mod` names a catalog under `opmodel.dev`
 - **THEN** the catalog import resolves through that mapping
 - **AND** the process environment is not mutated
+
+#### Scenario: Directory acquisition uses the kernel mapping
+
+- **WHEN** a kernel constructed with `WithRegistry(mapping)` acquires a platform or instance from a directory whose imports resolve from `opmodel.dev`
+- **THEN** those imports resolve through `mapping` with no per-call argument
+
+#### Scenario: No per-call registry parameter
+
+- **WHEN** a consumer inspects the signatures of the acquire verbs and `SynthesizeInstance`
+- **THEN** none takes a load-options or registry argument, and no `LoadOptions` type is exported from `opm/`
 
 #### Scenario: No default applied
 
@@ -252,13 +189,13 @@ The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the OCI regi
 
 ### Requirement: Kernel.SynthesizeInstance method
 
-The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in synth.InstanceInput) (*module.Instance, error)` that combines `synth.Instance` with the kernel's internal instance processing in a single call: it builds the instance spec by single-build CUE evaluation inside the module's staged source with the supplied values rendered into the package, then asserts concreteness on the built spec, decodes instance metadata, and returns the constructed `*module.Instance` with its `Source` populated.
+The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in InstanceInput) (*module.Instance, error)`, where `InstanceInput` is declared in `opm/kernel` and carries `Module *module.Module` (required, source-carrying), `Name string` (required), `Namespace string` (required), `Values []Source` (optional; empty means "no values supplied"), `Labels map[string]string` and `Annotations map[string]string` (optional). It SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. The schema used is the kernel's own cache; the method SHALL NOT consult any additional values source.
 
-The method SHALL use the Kernel's owned `*cue.Context` when calling `synth.Instance`. The method SHALL NOT consult any additional values source: `in.Values` is the only values input.
+A missing required input SHALL fail with an error wrapping the corresponding `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`); a module without staged source SHALL fail wrapping `ErrMissingSource`; a module whose `Source.Pkg` is non-empty SHALL fail with an error stating that a synthesizable module is its module's root package.
 
 #### Scenario: SynthesizeInstance produces an end-to-end instance
 
-- **WHEN** `k.SynthesizeInstance(ctx, synth.InstanceInput{Module: mod, Name: "demo", Namespace: "default", Values: concreteValues})` is called against an acquired module
+- **WHEN** `k.SynthesizeInstance(ctx, kernel.InstanceInput{Module: mod, Name: "demo", Namespace: "default", Values: []kernel.Source{concrete}})` is called against an acquired module
 - **THEN** the returned `*module.Instance` is non-nil
 - **AND** `Instance.Metadata.Name` equals `"demo"`, `Instance.Metadata.Namespace` equals `"default"`
 - **AND** `Instance.Metadata.UUID` equals `uuid.SHA1(OPMNamespace, "<module.uuid>:demo:default")`
@@ -266,13 +203,23 @@ The method SHALL use the Kernel's owned `*cue.Context` when calling `synth.Insta
 
 #### Scenario: SynthesizeInstance rejects unconcrete result
 
-- **WHEN** `k.SynthesizeInstance(ctx, in)` is called with `in.Values == cue.Value{}` against a module whose `#config` has required fields with no defaults
+- **WHEN** `k.SynthesizeInstance(ctx, in)` is called with empty `in.Values` against a module whose `#config` has required fields with no defaults
 - **THEN** the returned error is non-nil, is framed `instance "<name>": …`, and wraps the concreteness diagnostic
+
+#### Scenario: SynthesizeInstance attributes a values violation to its source
+
+- **WHEN** `k.SynthesizeInstance(ctx, in)` is called with a source whose value violates the module's `#config`
+- **THEN** the returned error names the violating path and its positions report the source's `Origin`
 
 #### Scenario: SynthesizeInstance surfaces synth errors before validation
 
-- **WHEN** `k.SynthesizeInstance(ctx, synth.InstanceInput{Module: nil, Name: "x", Namespace: "y"})` is called
-- **THEN** the returned error is non-nil and originates from `synth.Instance` (not from the concreteness check)
+- **WHEN** `k.SynthesizeInstance(ctx, kernel.InstanceInput{Module: nil, Name: "x", Namespace: "y"})` is called
+- **THEN** the returned error wraps `oerrors.ErrMissingModule` and no build runs
+
+#### Scenario: SynthesizeInstance refuses a subpackage module
+
+- **WHEN** `k.SynthesizeInstance` is called with a module acquired from a subdirectory of its CUE module (`Source.Pkg` non-empty)
+- **THEN** the returned error states that the module must be its module's root package and no build runs
 
 #### Scenario: SynthesizeInstance uses the Kernel's cue.Context
 
@@ -280,39 +227,83 @@ The method SHALL use the Kernel's owned `*cue.Context` when calling `synth.Insta
 - **AND** a developer inspects the cue.Context underlying the returned `Instance.Package`
 - **THEN** that context is the same instance returned by `k.CueContext()`
 
+#### Scenario: Operator-shaped caller needs no cue.Context
+
+- **WHEN** a frontend holds raw values bytes and their origin
+- **THEN** it builds the input with `k.LoadSourceFromBytes(origin, raw)` and passes the result in `InstanceInput.Values`
+- **AND** it does not call `k.CueContext()`
+
 ### Requirement: SynthesizeInstance is documented as the recommended in-memory entry point
 
-The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that `SynthesizeInstance` is the recommended entry point for building an instance from typed inputs, mirroring how `Kernel.AcquireInstanceFromDir` (over `Kernel.LoadInstancePackage`) is the entry point for building an instance from a directory-based CUE package. The documentation SHALL NOT present a helper-level composition that reaches instance processing directly, since instance processing is not exported.
+The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that `SynthesizeInstance` is the entry point for building an instance from typed inputs, mirroring `Kernel.AcquireInstanceFromDir` for a directory-based CUE package, and that the module it takes comes from `AcquireModuleFromRegistry` or `AcquireModuleFromDir`. The documentation SHALL NOT present a helper-level composition that reaches synthesis or instance processing directly, since neither is exported.
 
 #### Scenario: Documentation directs callers to the kernel method
 
-- **WHEN** a developer reads the godoc on `opm/helper/synth/`
-- **THEN** the documentation states that `Kernel.SynthesizeInstance` is the recommended entry point
-- **AND** notes that direct use of `synth.Instance` yields a built value and staged source only, without instance processing
+- **WHEN** a developer reads the godoc on `opm/kernel`
+- **THEN** the documentation states that `Kernel.SynthesizeInstance` is the entry point for typed-input synthesis and names the two acquire verbs that produce its module
+- **AND** no reference to `synth.Instance`, `opm/helper/synth` or `Kernel.LoadInstancePackage` remains
 
 #### Scenario: SynthesizeInstance godoc points to LoadInstancePackage
 
 - **WHEN** a developer reads the `Kernel.SynthesizeInstance` godoc
-- **THEN** the file-driven mirror it names is `Kernel.AcquireInstanceFromDir`, the validated entry over `Kernel.LoadInstancePackage`
-- **AND** no reference to `Kernel.ProcessModuleInstance` or the removed `Kernel.LoadInstanceFile` remains
+- **THEN** the directory-driven mirror it names is `Kernel.AcquireInstanceFromDir`, and the module sources it names are `AcquireModuleFromRegistry` and `AcquireModuleFromDir`
+- **AND** no reference to `Kernel.LoadInstancePackage`, `Kernel.ProcessModuleInstance` or `synth.Instance` remains
 
 ### Requirement: Tier-2 validation runs where values are applied
 
-When values are non-empty, the kernel SHALL validate them against the Module's `#config` schema at the point they are applied to the instance, regardless of whether a Tier-1 helper validated them upstream. Values are applied inside a CUE build: `AcquireInstanceFromDir` with extra values renders the sources into the package overlay and additionally checks the sources against `#config` so a violation is reported at the sources' own positions; `SynthesizeInstance` renders the values into the synthesized package. Both then assert concreteness on the whole built spec. `Kernel.Render` SHALL NOT perform a second validation pass: the render build imports the instance as processed, which is already concrete.
+When values are non-empty, the kernel SHALL validate them against the Module's `#config` schema at the point they are applied to the instance, regardless of whether a Tier-1 helper validated them upstream. Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources into the package overlay, and `SynthesizeInstance` renders them into the synthesized package; both then check the sources against `#config` so a violation is reported at the sources' own positions, and both assert concreteness on the whole built spec. `Kernel.Render` SHALL NOT perform a second validation pass: the render build imports the instance as processed, which is already concrete.
 
 #### Scenario: Kernel re-validates after Detailed
 
-- **WHEN** a frontend validates sources with `k.ValidateConfigDetailed` and then supplies the same sources via `WithValues` to `k.AcquireInstanceFromDir`
+- **WHEN** a frontend validates sources with `k.ValidateConfigDetailed` and then supplies the same sources to `k.AcquireInstanceFromDir` or in `InstanceInput.Values`
 - **THEN** the kernel validates them again where they are applied: the build unifies them with the package's `values`, and the sources are checked against `#config` at their own positions
-- **AND** any schema violation produces a CUE-native error walkable via `cueerrors.Errors`, wrapped with the instance name, whose positions name the originating source's `Origin` rather than the rendered overlay file
+- **AND** any schema violation produces a CUE-native error walkable via `cueerrors.Errors`, wrapped with the instance name, whose positions name the originating source's `Origin` rather than the rendered values file
 
 #### Scenario: Kernel validates without Detailed
 
-- **WHEN** a frontend skips `ValidateConfigDetailed` and supplies raw values via `WithValues` or `synth.InstanceInput.Values` directly
-- **THEN** the kernel still produces correct schema-validation errors from the build
-- **AND** for `SynthesizeInstance` the only loss is per-source attribution in error positions (`pos.Filename()` names the rendered values source)
+- **WHEN** a frontend skips `ValidateConfigDetailed` and supplies raw sources to `AcquireInstanceFromDir` or `SynthesizeInstance` directly
+- **THEN** the kernel still produces correct schema-validation errors from the build, attributed to the sources' `Origin`
 
 #### Scenario: Render does not re-validate
 
 - **WHEN** a caller invokes `k.Render` with an instance returned by `AcquireInstanceFromDir` or `SynthesizeInstance`
 - **THEN** no `#config` validation runs inside `Render`; the staged instance package is imported by the build as it was processed
+
+### Requirement: Values enter as sources
+
+User values SHALL reach the kernel through exactly three public inputs, each carrying values as `Source` values: `ValidateConfigDetailed(schema, sources []Source)` for layered validation; `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which unifies the sources inside the package build; and `SynthesizeInstance(ctx, in)` with `in.Values []Source`, which unifies the sources and renders the result into the synthesized package. The kernel SHALL NOT accept `[]cue.Value` or a bare `cue.Value` as a values argument on any public method, and SHALL NOT expose a method that fills values into an already-built instance from Go.
+
+#### Scenario: A single pre-unified value is a one-element source list
+
+- **WHEN** a caller holds a single pre-unified `cue.Value` to validate or apply
+- **THEN** it passes it as a one-element `[]Source` (or one variadic `Source`) to the relevant entry
+- **AND** there is no internal merge loop for a single source; the value is consumed as-is
+
+#### Scenario: ProcessModuleInstance takes a single value
+
+- **WHEN** a consumer inspects the exported methods of `Kernel`
+- **THEN** `ProcessModuleInstance` does not exist
+- **AND** values reach an instance only through the variadic sources of `AcquireInstanceFromDir` or `InstanceInput.Values` on `SynthesizeInstance`
+
+#### Scenario: ValidateConfigDetailed takes a slice of Source
+
+- **WHEN** a caller invokes `k.ValidateConfigDetailed(schema, sources)` with `sources` as `[]Source`
+- **THEN** the method unifies the sources in order then validates the merged value against `schema`
+
+#### Scenario: Extra values enter the instance build
+
+- **WHEN** a caller invokes `k.AcquireInstanceFromDir(ctx, dir, a, b)`
+- **THEN** the sources are unified and rendered into the package overlay so the schema's own values unification performs the merge in CUE
+- **AND** no Go code fills the merged value into the evaluated instance
+
+#### Scenario: Synthesized values are sources
+
+- **WHEN** a caller invokes `k.SynthesizeInstance(ctx, in)` with `in.Values` holding one or more `Source` values
+- **THEN** the sources are unified in order, the result is rendered into the synthesized package's values source and participates in the single build
+- **AND** the method does not accept a bare `cue.Value`
+
+#### Scenario: Empty values is the zero value
+
+- **WHEN** a caller passes an empty `[]Source` to `k.ValidateConfigDetailed`, no trailing sources to `k.AcquireInstanceFromDir`, or an empty `in.Values` to `k.SynthesizeInstance`
+- **THEN** the call succeeds with no values applied (the package or synthesized spec must already be concrete on every required field)
+- **AND** the behavior is documented as "no values supplied"

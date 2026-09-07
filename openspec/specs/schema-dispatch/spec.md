@@ -242,13 +242,6 @@ The library SHALL decode each artifact's metadata through one unexported free fu
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
 - **THEN** neither `DecodeProviderMetadata` nor `ProviderMetadata` exists; the provider artifact was retired with the platform construct and the kernel accepts exactly three artifacts
 
-### Requirement: Loader helpers return only the loaded value
-`opm/helper/loader/file.LoadModulePackage`, `LoadInstancePackage`, and `LoadPlatformPackage` MUST have the signature `(ctx *cue.Context, dirPath string, opts LoadOptions) (cue.Value, error)`. The previous `apiversion.Version` return is removed. Their `(*Kernel)` wrappers MUST follow the same signature.
-
-#### Scenario: LoadModulePackage signature
-- **WHEN** a caller invokes `file.LoadModulePackage(ctx, dir, opts)`
-- **THEN** it returns exactly two values: a `cue.Value` and an `error`
-
 ### Requirement: Module, Instance, Platform structs do not carry APIVersion
 
 `opm/module.Module`, `opm/module.Instance`, and `opm/platform.Platform` MUST NOT have an `APIVersion` field. The constructors `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`, and the kernel's internal instance processing, MUST decode metadata through their package-internal decoders directly without consulting any binding registry. No `NewInstanceFromValue` constructor SHALL be exported.
