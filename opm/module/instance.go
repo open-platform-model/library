@@ -34,7 +34,7 @@ type Instance struct {
 	// are constructed only by the kernel, which stamps it at exactly two
 	// sites: Kernel.SynthesizeInstance (overlay mode, the synthesized package
 	// inside the module's staged root) and Kernel.AcquireInstanceFromDir
-	// (on-disk mode, the loaded directory; overlay mode with WithValues).
+	// (on-disk mode, the loaded directory; overlay mode when values sources are layered on).
 	Source *Source
 }
 

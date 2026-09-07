@@ -5,7 +5,7 @@ import (
 )
 
 // Source is one values input for [Kernel.ValidateConfigDetailed] and for
-// [WithValues] on [Kernel.AcquireInstanceFromDir].
+// the trailing values sources of [Kernel.AcquireInstanceFromDir].
 //
 // A Source pairs a values payload with its stable origin so that
 // per-position diagnostics flowing out of CUE error trees carry the

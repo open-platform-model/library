@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/load"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/internal/valuesfile"
 	"github.com/open-platform-model/library/opm/module"
@@ -19,65 +20,117 @@ import (
 
 // valuesFileName is the name of the rendered values file
 // [Kernel.AcquireInstanceFromDir] overlays beside an instance package's
-// on-disk files when [WithValues] is given. The name is reserved so it can
-// never shadow a file the package authored (an overlay entry replaces the
+// on-disk files when values sources are supplied. The name is reserved so it
+// can never shadow a file the package authored (an overlay entry replaces the
 // on-disk file of the same path).
 const valuesFileName = "opm-values.cue"
 
-// AcquireOption configures [Kernel.AcquireInstanceFromDir]. Options compose
-// via the functional-options pattern; new options can be added in MINOR
-// releases without breaking existing call sites.
-type AcquireOption func(*acquireConfig)
-
-type acquireConfig struct {
-	values []Source
+// loadEnv is the environment slice every kernel load consults: the kernel's
+// [WithRegistry] mapping applied through load.Config.Env, never os.Setenv.
+// Nil when no mapping was configured, so the load reads the process
+// environment unchanged.
+func (k *Kernel) loadEnv() []string {
+	return cueenv.Override(k.registry, "")
 }
 
-// WithValues layers extra values sources onto the on-disk instance package
-// [Kernel.AcquireInstanceFromDir] acquires: the same [Source] type
-// [Kernel.ValidateConfigDetailed] takes, in stack order. The sources are
-// unified, rendered as a package file declaring the top-level `values`
-// field (opm-values.cue) and placed beside the package's own files in an
-// in-memory overlay, so the schema's own values unification performs the
-// merge in one CUE build; nothing is filled from Go and nothing is written
-// into the caller's directory. The acquired instance's Source is then
-// overlay mode. A source conflicting with the package's own values or the
-// module's #config fails acquisition with the conflict attributed to the
-// source (its Origin), exactly as layered validation reports it.
-//
-// Passing no sources is the same as omitting the option.
-func WithValues(sources ...Source) AcquireOption {
-	return func(c *acquireConfig) {
-		c.values = append(c.values, sources...)
+// AcquireModuleFromRegistry loads a #Module published in an OCI registry by
+// its major-qualified path (e.g. "example.com/modules/hello@v0") and version
+// (e.g. "v0.0.2"), using the kernel's [*cue.Context] and configured registry
+// (set via [WithRegistry], inheriting CUE_REGISTRY from the process
+// environment when unset). It returns a decoded [*module.Module] whose staged
+// source ([module.Source]) is populated, so the module can be reused as the
+// main module of a follow-on build — notably by [Kernel.SynthesizeInstance],
+// which stages the instance inside the module's own root so the module's
+// already-tidied cue.mod/module.cue drives transitive dependency resolution.
+// A caller that wants only the raw module value reads Module.Package.
+func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
+	val, src, err := loader.FetchModule(ctx, k.cueCtx, modPath, version, k.loadEnv())
+	if err != nil {
+		return nil, err
 	}
+	mod, err := module.NewModuleFromValue(val)
+	if err != nil {
+		return nil, err
+	}
+	mod.Source = src
+	return mod, nil
+}
+
+// AcquireModuleFromDir loads a #Module CUE package from a directory and
+// returns it as a typed, source-carrying [*module.Module]. It is the
+// directory peer of [Kernel.AcquireModuleFromRegistry]: the package is
+// evaluated and shape-gated exactly as the registry path gates a fetched
+// module, [module.NewModuleFromValue] constructs the typed artifact, and
+// [module.Source] is stamped in OVERLAY mode — Root the enclosing module
+// root (the nearest ancestor holding cue.mod/module.cue, the directory
+// itself when it is the root or when no ancestor holds one), Pkg the package
+// directory relative to it, and Overlay every .cue file under Root (the
+// module's own cue.mod/module.cue included) keyed by its absolute path.
+//
+// Stamping the overlay is what makes the acquired module a valid
+// [Kernel.SynthesizeInstance] input ([module.Module.HasSource] reports true):
+// synthesis stages the instance package inside the module's own tree, so a
+// frontend rendering from a module directory no longer walks that tree
+// itself. Because the synthesized package imports the module by its module
+// path — which resolves to the module's ROOT package — synthesis refuses a
+// module whose Source.Pkg is non-empty; acquiring a subdirectory package is
+// still valid for reading its value and metadata.
+//
+// The registry mapping is the kernel's ([WithRegistry]), applied via the
+// load configuration's environment and never os.Setenv. The caller's
+// directory is never written to.
+//
+// Shape-gate failures propagate unchanged (missing directory, no package, or
+// a sentinel such as [oerrors.ErrWrongKind]); no partial module is returned.
+func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*module.Module, error) {
+	absDir, err := filepath.Abs(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: resolving module directory: %w", err)
+	}
+	val, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.ModuleSpec)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := module.NewModuleFromValue(val)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
+	}
+	src := sourceForDir(absDir)
+	overlay, err := sourcetree.OverlayFromDir(src.Root)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
+	}
+	src.Overlay = overlay
+	mod.Source = src
+	return mod, nil
 }
 
 // AcquirePlatformFromDir loads a #Platform CUE package from a directory and
-// returns it as a typed, source-carrying [*platform.Platform]. It composes
-// [Kernel.LoadPlatformPackage] (evaluation and the platform shape gate,
-// identical to a direct call) with [platform.NewPlatformFromValue], then
-// stamps [platform.Platform.Source] in on-disk mode: Root is the enclosing
+// returns it as a typed, source-carrying [*platform.Platform]. The package is
+// evaluated and run through the platform shape gate, then
+// [platform.NewPlatformFromValue] constructs the typed artifact and
+// [platform.Platform.Source] is stamped in on-disk mode: Root is the enclosing
 // module root (the nearest ancestor holding cue.mod/module.cue, the directory
 // itself when it is the root), Pkg the package directory relative to it, and
 // Overlay nil.
 //
 // It is the directory peer of [Kernel.AcquireModuleFromRegistry] ("Acquire"
-// returns a typed artifact that knows where its source lives) and the
-// recommended entry point when the platform will be imported as a package by
-// a follow-on build. A caller that wants only the raw value keeps using
-// [Kernel.LoadPlatformPackage]. opts.Registry, when non-empty, is applied via
-// the load configuration's environment, never os.Setenv, exactly as the
-// loader applies it.
+// returns a typed artifact that knows where its source lives) and the only
+// way to obtain a platform: a caller that wants the raw value reads
+// Platform.Package. The registry mapping used for the platform's catalog
+// imports is the kernel's ([WithRegistry]), applied via the load
+// configuration's environment and never os.Setenv; the verb takes no per-call
+// override.
 //
 // Loader failures propagate unchanged (missing directory, no package, or a
-// shape-gate sentinel such as [loaderfile.ErrWrongKind]); no partial platform
-// is returned.
-func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opts loaderfile.LoadOptions) (*platform.Platform, error) {
+// shape-gate sentinel such as [oerrors.ErrWrongKind]); no partial platform is
+// returned.
+func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*platform.Platform, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: resolving platform directory: %w", err)
 	}
-	val, err := k.LoadPlatformPackage(ctx, absDir, opts)
+	val, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.PlatformSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -90,59 +143,56 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string, opt
 }
 
 // AcquireInstanceFromDir loads a #ModuleInstance CUE package from a directory
-// and returns it as a validated, source-carrying [*module.Instance]. It
-// composes [Kernel.LoadInstancePackage] (evaluation and the instance shape
-// gate) with the kernel's instance processing — concreteness on the whole
-// built spec, so the package must already be fully concrete, as an authored
-// instance package is, and metadata decoding — then stamps [module.Instance.Source] in
-// on-disk mode: Overlay is nil, Root is the enclosing module root (the
-// nearest ancestor holding cue.mod/module.cue, the directory itself when it
-// is the root) and Pkg the package directory relative to it, so a
-// package in a subdirectory of its module imports correctly from a follow-on
-// build.
+// and returns it as a validated, source-carrying [*module.Instance]. The
+// package is evaluated, run through the instance shape gate and then the
+// kernel's instance processing — concreteness on the whole built spec, so the
+// package must already be fully concrete, as an authored instance package is,
+// and metadata decoding — and [module.Instance.Source] is stamped in on-disk
+// mode: Overlay is nil, Root is the enclosing module root (the nearest
+// ancestor holding cue.mod/module.cue, the directory itself when it is the
+// root) and Pkg the package directory relative to it, so a package in a
+// subdirectory of its module imports correctly from a follow-on build.
 //
-// With [WithValues], caller-supplied values sources are layered onto the
-// package: the on-disk files under the module root are read into an
+// The trailing values sources — the same [Source] type
+// [Kernel.ValidateConfigDetailed] takes, in stack order — layer extra values
+// onto the package: the on-disk files under the module root are read into an
 // in-memory overlay, the unified sources are rendered as a package file
-// declaring `values` (opm-values.cue) beside the package's own files, and
-// the package is built in one pass through the same instance shape gate, so
-// the merge is the schema's own values unification in CUE. The returned
-// Source is then overlay mode: the same Root and Pkg, with Overlay carrying
-// every on-disk .cue file plus the rendered values file, exactly as
-// load.Config.Overlay expects, so [Kernel.Render] imports the layered
-// package by source. The caller's directory is never written to.
+// declaring `values` (opm-values.cue) beside the package's own files, and the
+// package is built in one pass through the same instance shape gate, so the
+// merge is the schema's own values unification in CUE. Nothing is filled from
+// Go and nothing is written into the caller's directory. The returned Source
+// is then overlay mode: the same Root and Pkg, with Overlay carrying every
+// on-disk .cue file plus the rendered values file, exactly as
+// load.Config.Overlay expects, so [Kernel.Render] imports the layered package
+// by source. A source conflicting with the package's own values or the
+// module's #config fails acquisition with the conflict attributed to the
+// source (its Origin), exactly as layered validation reports it.
 //
-// This is the same bar [Kernel.SynthesizeInstance] output meets, and the
-// recommended entry point when the instance will be imported as a package by a
-// follow-on build. Draft flows that need an unvalidated value keep using
-// [Kernel.LoadInstancePackage]. opts.Registry is applied as the loader applies
-// it (load configuration environment, never os.Setenv).
+// Passing no sources is the "no values supplied" path: the package is built
+// from disk as authored and the Source stays on-disk mode.
 //
-// Loader failures propagate unchanged (missing directory, no package, or a
+// This is the same bar [Kernel.SynthesizeInstance] output meets. Loader
+// failures propagate unchanged (missing directory, no package, or a
 // shape-gate sentinel); a non-concrete package surfaces the concreteness
 // error, framed `instance "<name>": …`. No partial instance is returned.
-func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, opts loaderfile.LoadOptions, acquireOpts ...AcquireOption) (*module.Instance, error) {
+func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, values ...Source) (*module.Instance, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: resolving instance directory: %w", err)
-	}
-	cfg := acquireConfig{}
-	for _, opt := range acquireOpts {
-		opt(&cfg)
 	}
 
 	var (
 		spec cue.Value
 		src  *module.Source
 	)
-	if len(cfg.values) == 0 {
-		spec, err = k.LoadInstancePackage(ctx, absDir, opts)
+	if len(values) == 0 {
+		spec, err = loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
 		if err != nil {
 			return nil, err
 		}
 		src = sourceForDir(absDir)
 	} else {
-		spec, src, err = k.loadInstanceWithValues(ctx, absDir, opts, cfg.values)
+		spec, src, err = k.loadInstanceWithValues(ctx, absDir, values)
 		if err != nil {
 			return nil, err
 		}
@@ -156,10 +206,29 @@ func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, opt
 	return inst, nil
 }
 
+// mergeSources unifies a values stack in order and returns the merged value.
+// It is the one merge both values paths run: the extra sources of
+// [Kernel.AcquireInstanceFromDir] and InstanceInput.Values on
+// [Kernel.SynthesizeInstance]. An empty stack is the zero value with no
+// error — the "no values supplied" path.
+func mergeSources(sources []Source) (cue.Value, error) {
+	if len(sources) == 0 {
+		return cue.Value{}, nil
+	}
+	merged := sources[0].Value
+	for _, s := range sources[1:] {
+		merged = merged.Unify(s.Value)
+	}
+	if err := merged.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("unifying values sources: %w", err)
+	}
+	return merged, nil
+}
+
 // loadInstanceWithValues builds the on-disk instance package at absDir with
 // the unified values sources overlaid as a rendered package file, and
 // returns the built value with the overlay-mode Source the build used.
-func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts loaderfile.LoadOptions, sources []Source) (cue.Value, *module.Source, error) {
+func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, sources []Source) (cue.Value, *module.Source, error) {
 	info, err := os.Stat(absDir)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("accessing instance directory %q: %w", absDir, err)
@@ -168,12 +237,9 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 		return cue.Value{}, nil, fmt.Errorf("instance path %q is not a directory", absDir)
 	}
 
-	merged := sources[0].Value
-	for _, s := range sources[1:] {
-		merged = merged.Unify(s.Value)
-	}
-	if err := merged.Err(); err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: unifying values sources: %w", err)
+	merged, err := mergeSources(sources)
+	if err != nil {
+		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
 
 	// The source's package directory (Root joined with Pkg) is absDir itself,
@@ -181,7 +247,7 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 	src := sourceForDir(absDir)
 	pkgName, err := sourcetree.PackageName(src)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w: %w", err, loaderfile.ErrInvalidPackage)
+		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w: %w", err, oerrors.ErrInvalidPackage)
 	}
 	rendered, err := valuesfile.Render(pkgName, merged)
 	if err != nil {
@@ -193,7 +259,7 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
 	if rendered != nil {
-		overlay[filepath.Join(absDir, valuesFileName)] = load.FromBytes(rendered)
+		overlay[filepath.Join(absDir, valuesFileName)] = rendered
 	}
 	src.Overlay = overlay
 
@@ -201,9 +267,9 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 	if src.Pkg != "" {
 		pkg = "./" + src.Pkg
 	}
-	spec, err := loaderfile.BuildInstanceOverlayAt(k.cueCtx, src.Root, pkg, overlay, opts)
+	spec, err := loader.LoadDir(k.cueCtx, src.Root, pkg, overlay, k.loadEnv(), loader.InstanceSpec)
 	if err != nil {
-		if vErr := k.attributeValuesError(ctx, absDir, opts, sources); vErr != nil {
+		if vErr := k.attributeValuesError(ctx, absDir, sources); vErr != nil {
 			return cue.Value{}, nil, vErr
 		}
 		return cue.Value{}, nil, err
@@ -229,8 +295,8 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, opts
 // reported at positions attributable to the source (its Origin) rather than
 // at the rendered overlay file. It returns nil when the failure is not a
 // values problem (the caller then reports the build error itself).
-func (k *Kernel) attributeValuesError(ctx context.Context, absDir string, opts loaderfile.LoadOptions, sources []Source) error {
-	authored, err := k.LoadInstancePackage(ctx, absDir, opts)
+func (k *Kernel) attributeValuesError(_ context.Context, absDir string, sources []Source) error {
+	authored, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}

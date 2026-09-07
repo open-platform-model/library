@@ -10,7 +10,7 @@ import (
 )
 
 // Partial mode (requireConcrete=false) is kernel-internal: it is the
-// attribution pass AcquireInstanceFromDir runs over WithValues sources. These
+// attribution pass AcquireInstanceFromDir runs over the acquire-time values sources. These
 // tests pin its behaviour against validateSources directly, since no public
 // method exposes it.
 

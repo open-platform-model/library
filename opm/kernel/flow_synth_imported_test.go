@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/core"
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -83,12 +81,11 @@ debugValues: {}
 	plat := acquireCatalogPlatform(t, k, registryMapping, catPath, version)
 
 	// ── synth path ───────────────────────────────────────────────────────
-	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "web-inst",
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString("{}"), // #config is empty; supply concrete (empty) values
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "web-inst",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", "{}")}, // #config is empty; supply concrete (empty) values
 	})
 	require.NoError(t, err, "synthesizing instance from the imported module")
 
@@ -103,7 +100,7 @@ debugValues: {}
 
 	// ── authored path (single-build parity through Kernel.Render) ─────────
 	instDir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, version, "web-inst", "default", "{}", nil)
-	authored, err := k.AcquireInstanceFromDir(ctx, instDir, loaderfile.LoadOptions{Registry: registryMapping})
+	authored, err := k.AcquireInstanceFromDir(ctx, instDir)
 	require.NoError(t, err, "authored instance.cue importing the published module must acquire")
 
 	authoredRes, err := k.Render(ctx, kernel.RenderInput{Instance: authored, Platform: plat, RuntimeName: "rt"})

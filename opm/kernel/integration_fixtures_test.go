@@ -11,8 +11,6 @@ import (
 	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -113,7 +111,7 @@ type: "kubernetes"
 func acquireCatalogPlatform(t *testing.T, k *kernel.Kernel, mapping, catPath, version string) *platform.Platform {
 	t.Helper()
 	platDir := writeCatalogPlatform(t, t.TempDir(), catPath, version)
-	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir, loaderfile.LoadOptions{Registry: mapping})
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir)
 	require.NoErrorf(t, err, "acquiring the #CatalogEntry-form platform for %s at %s", catPath, version)
 	return plat
 }
@@ -165,12 +163,11 @@ func synthesizeInstance(t *testing.T, k *kernel.Kernel, modPath, version, name s
 	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+majorOf(version), "v"+version)
 	require.NoErrorf(t, err, "acquiring served module %s", modPath)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source")
-	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        name,
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString("{}"),
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      name,
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", "{}")},
 	})
 	require.NoErrorf(t, err, "synthesizing an instance from %s", modPath)
 	require.NotNil(t, inst.Source)

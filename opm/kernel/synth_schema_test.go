@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	"github.com/open-platform-model/library/opm/helper/synth"
+	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -56,12 +55,11 @@ func literalString(s string) string {
 func TestKernel_SynthesizeInstance_BadNameFailsUnification(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
 
-	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
-		Module:      mod,
-		Name:        "BAD-UPPER", // #NameType forbids uppercase
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString("{}"),
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "BAD-UPPER", // #NameType forbids uppercase
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", "{}")},
 	})
 	require.Error(t, err, "a name violating #NameType must surface as a unification error")
 	assert.Nil(t, inst)
@@ -70,45 +68,40 @@ func TestKernel_SynthesizeInstance_BadNameFailsUnification(t *testing.T) {
 	assert.Contains(t, err.Error(), "BAD-UPPER", "the refusal names the offending value")
 }
 
-// With no caller Values, the schema's values path stays unfilled and is NEVER
-// backfilled from Module.debugValues: the helper-tier build leaves it
-// non-concrete, and the kernel refuses the instance rather than shipping the
-// debug value.
+// instance-synthesis spec, "Zero Values is not replaced by debugValues": with
+// an empty Values stack the schema's values path stays unfilled and is NEVER
+// backfilled from Module.debugValues, so the concreteness check refuses the
+// instance rather than shipping the debug value.
 func TestKernel_SynthesizeInstance_EmptyValuesNotBackfilledFromDebugValues(t *testing.T) {
 	// #config requires a sentinel with no default; debugValues supplies one.
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {sentinel: string}\ndebugValues: {sentinel: \"from-debug\"}\n")
 	ctx := context.Background()
 
-	// Helper tier: the synthesized value carries no debug value under values.
-	tree, _, err := synth.Instance(k.CueContext(), synth.InstanceInput{
-		Module:      mod,
-		Name:        "myrel",
-		Namespace:   "default",
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
 		// Values omitted; MUST NOT fall back to debugValues.
-	})
-	require.NoError(t, err)
-	values := tree.LookupPath(cue.ParsePath("values"))
-	if values.Exists() {
-		assert.Error(t, values.Validate(cue.Concrete(true)),
-			"values must be non-concrete when no Values were supplied, not backfilled from debugValues")
-		sentinel, _ := values.LookupPath(cue.ParsePath("sentinel")).String()
-		assert.NotEqual(t, "from-debug", sentinel)
-	}
-
-	// Kernel tier: the same synthesis is refused by the concreteness check
-	// and the debug value never appears.
-	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "myrel",
-		Namespace:   "default",
-		SchemaCache: k.SchemaCache(),
 	})
 	require.Error(t, err, "an unfilled required config field must refuse the instance")
 	assert.Nil(t, inst)
+	assert.Contains(t, err.Error(), "not fully concrete")
 	assert.NotContains(t, err.Error(), "from-debug", "debugValues never reach the instance")
 	assert.NotContains(t, err.Error(), "cannot find package")
+
+	// The same module with the value supplied synthesizes, so the refusal is
+	// the missing value and not a broken fixture.
+	ok, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
+	})
+	require.NoError(t, err)
+	sentinel, err := ok.Package.LookupPath(cue.ParsePath("values.sentinel")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "from-values", sentinel)
 }
 
 // Every field the schema derives is produced by CUE unification of the
@@ -123,14 +116,13 @@ func TestKernel_SynthesizeInstance_DerivedFieldsFromSchema(t *testing.T) {
 
 	synthesize := func(name, namespace string, labels, annotations map[string]string) *module.Instance {
 		t.Helper()
-		inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
+		inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
 			Module:      mod,
 			Name:        name,
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: annotations,
-			Values:      k.CueContext().CompileString("{}"),
-			SchemaCache: k.SchemaCache(),
+			Values:      []kernel.Source{mustSource(t, k, "values.cue", "{}")},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, inst)
@@ -184,12 +176,11 @@ func TestKernel_SynthesizeInstance_ParityWithAuthoredPackage(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", version, synthTwoComponentBody)
 	ctx := context.Background()
 
-	synthInst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "myrel",
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString("{}"),
-		SchemaCache: k.SchemaCache(),
+	synthInst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", "{}")},
 	})
 	require.NoError(t, err)
 
@@ -197,7 +188,7 @@ func TestKernel_SynthesizeInstance_ParityWithAuthoredPackage(t *testing.T) {
 	// module, resolved through the same registry mapping the kernel carries.
 	modPath := strings.TrimSuffix(mod.Metadata.ModulePath, "@"+majorOf(version))
 	instDir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, version, "myrel", "default", "{}", nil)
-	authored, err := k.AcquireInstanceFromDir(ctx, instDir, loaderfile.LoadOptions{})
+	authored, err := k.AcquireInstanceFromDir(ctx, instDir)
 	require.NoError(t, err, "authored instance.cue importing the published module must acquire")
 
 	// The imported #module's identity is concrete end-to-end on the authored

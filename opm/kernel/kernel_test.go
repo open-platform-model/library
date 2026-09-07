@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -38,8 +37,65 @@ func TestNew_DistinctKernelsHaveDistinctContexts(t *testing.T) {
 	assert.NotSame(t, a.CueContext(), b.CueContext(), "each Kernel owns its own *cue.Context")
 }
 
-// --- Parity tests: each wrapper must produce results identical to the
-// corresponding free function called with k.CueContext().
+// stubSchemaLoader is a [schema.Loader] that never touches a registry; it
+// records the calls the Cache makes so a test can prove which loader ran.
+type stubSchemaLoader struct{ calls *int }
+
+func (s stubSchemaLoader) Load(ctx *cue.Context) (cue.Value, error) {
+	*s.calls++
+	return ctx.CompileString(`#ModuleInstance: {}`), nil
+}
+
+// unsetRegistry removes CUE_REGISTRY from the process environment for the
+// duration of the test (t.Setenv registers the restore) and points the CUE
+// module cache at an empty directory, so schema resolution must reach a
+// registry rather than a warm cache entry.
+func unsetRegistry(t *testing.T) {
+	t.Helper()
+	t.Setenv("CUE_REGISTRY", "")
+	require.NoError(t, os.Unsetenv("CUE_REGISTRY"))
+	t.Setenv("CUE_CACHE_DIR", t.TempDir())
+}
+
+// kernel-runtime spec, "Registry option seeds the schema loader": absent
+// WithSchemaLoader, the schema cache resolves through the kernel's registry
+// mapping rather than the process environment. The mapping is proved by the
+// host it names — an unseeded loader would fall back to CUE's own default.
+func TestNew_RegistryOptionSeedsSchemaLoader(t *testing.T) {
+	unsetRegistry(t)
+
+	k := kernel.New(kernel.WithRegistry("opmodel.dev=localhost:1+insecure"))
+	_, err := k.SchemaCache().Get(k.CueContext())
+	require.Error(t, err, "the seeded mapping serves nothing, so the fetch must fail through it")
+	assert.Contains(t, err.Error(), "localhost:1", "the kernel's mapping, not the process environment, resolved the schema")
+	assert.Empty(t, os.Getenv("CUE_REGISTRY"), "the process environment is not mutated")
+}
+
+// kernel-runtime spec, "Construction with options": an explicit schema
+// loader wins over the registry-seeded default in either option order.
+func TestNew_ExplicitSchemaLoaderWinsInEitherOrder(t *testing.T) {
+	unsetRegistry(t)
+
+	orders := map[string][]kernel.Option{
+		"loader first":   nil,
+		"registry first": nil,
+	}
+	calls := 0
+	stub := stubSchemaLoader{calls: &calls}
+	orders["loader first"] = []kernel.Option{kernel.WithSchemaLoader(stub), kernel.WithRegistry("opmodel.dev=localhost:1+insecure")}
+	orders["registry first"] = []kernel.Option{kernel.WithRegistry("opmodel.dev=localhost:1+insecure"), kernel.WithSchemaLoader(stub)}
+
+	for name, opts := range orders {
+		t.Run(name, func(t *testing.T) {
+			before := calls
+			k := kernel.New(opts...)
+			v, err := k.SchemaCache().Get(k.CueContext())
+			require.NoError(t, err, "the explicit loader never contacts the unreachable mapping")
+			assert.True(t, v.LookupPath(cue.ParsePath("#ModuleInstance")).Exists())
+			assert.Equal(t, before+1, calls, "the explicit loader ran")
+		})
+	}
+}
 
 func writeTempModuleDir(t *testing.T, content string) string {
 	t.Helper()
@@ -53,50 +109,6 @@ func writeTempInstanceDir(t *testing.T, content string) string {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(content), 0o644))
 	return dir
-}
-
-func TestKernel_LoadModulePackage_Parity(t *testing.T) {
-	dir := writeTempModuleDir(t, `
-package mod
-kind: "Module"
-metadata: {
-	name:       "demo"
-	modulePath: "example.com/modules"
-	version:    "0.1.0"
-}
-`)
-
-	k := kernel.New()
-	gotVal, gotErr := k.LoadModulePackage(context.Background(), dir, loader.LoadOptions{})
-	require.NoError(t, gotErr)
-
-	wantVal, wantErr := loader.LoadModulePackage(k.CueContext(), dir, loader.LoadOptions{})
-	require.NoError(t, wantErr)
-
-	assert.True(t, gotVal.Exists())
-	assert.True(t, wantVal.Exists())
-}
-
-func TestKernel_LoadInstancePackage_Parity(t *testing.T) {
-	dir := writeTempInstanceDir(t, `
-package instance
-kind: "ModuleInstance"
-metadata: {
-	name: "demo"
-	namespace: "ns"
-}
-#module: {kind: "Module"}
-`)
-
-	k := kernel.New()
-	gotVal, gotErr := k.LoadInstancePackage(context.Background(), dir, loader.LoadOptions{})
-	require.NoError(t, gotErr)
-
-	wantVal, wantErr := loader.LoadInstancePackage(k.CueContext(), dir, loader.LoadOptions{})
-	require.NoError(t, wantErr)
-
-	assert.True(t, gotVal.Exists())
-	assert.True(t, wantVal.Exists())
 }
 
 func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
@@ -155,16 +167,16 @@ values: {replicas: 3}
 			k := kernel.New() // one Kernel per goroutine
 			ctx := context.Background()
 
-			val, err := k.LoadModulePackage(ctx, dir, loader.LoadOptions{})
+			mod, err := k.AcquireModuleFromDir(ctx, dir)
 			if err != nil {
 				errCh <- err
 				return
 			}
-			if !val.Exists() {
+			if !mod.Package.Exists() {
 				errCh <- errors.New("module value does not exist")
 				return
 			}
-			inst, err := k.AcquireInstanceFromDir(ctx, instDir, loader.LoadOptions{})
+			inst, err := k.AcquireInstanceFromDir(ctx, instDir)
 			if err != nil {
 				errCh <- err
 				return
@@ -194,13 +206,18 @@ func TestKernel_NoFinalizeMethod(t *testing.T) {
 // TestKernel_PrunedSurface pins the removals of library-phase-and-values-prune,
 // library-render-cutover and cut-dead-surface: the kernel exposes exactly one
 // render verb (Render) and one validation primitive (ValidateConfigDetailed),
-// values enter through WithValues and SynthesizeInstance, and the old
+// values enter through the acquire verbs and SynthesizeInstance, and the old
 // pipeline's verbs (Match, Compile, Materialize, SynthesizePlatform), the
 // typed validation wrappers, the single-value and partial validation
 // variants, the exported instance processing step, the instance constructor
 // wrapper and the string source loader are gone (spec single-build-render,
 // "Old entry points are gone"; config-validation, "Single Kernel Validation
-// Primitive"). Any of these reappearing is a deliberate act, not drift.
+// Primitive"), and the removals of one-api-tier: the raw value tier
+// (Load*Package plus the constructor wrappers) is gone, so an artifact comes
+// from an acquire verb or from the package constructor a caller already holds
+// a value for (kernel-runtime, "No raw-load methods on the Kernel";
+// artifact-types, "No kernel constructor wrappers"). Any of these reappearing
+// is a deliberate act, not drift.
 func TestKernel_PrunedSurface(t *testing.T) {
 	kt := reflect.TypeOf(&kernel.Kernel{})
 	for _, name := range []string{
@@ -209,17 +226,33 @@ func TestKernel_PrunedSurface(t *testing.T) {
 		"ValidateInstanceValues", "ValidateInstanceValuesPartial", "ValidateInstanceValuesDetailed",
 		"ValidateConfig", "ValidateConfigPartial", "ProcessModuleInstance",
 		"NewInstanceFromValue", "LoadSourceFromString",
+		"LoadModulePackage", "LoadPlatformPackage", "LoadInstancePackage",
+		"NewModuleFromValue", "NewPlatformFromValue",
 	} {
 		_, found := kt.MethodByName(name)
 		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
 	}
-	_, found := kt.MethodByName("Render")
-	assert.True(t, found, "*kernel.Kernel exposes Render")
-	_, found = kt.MethodByName("ValidateConfigDetailed")
-	assert.True(t, found, "*kernel.Kernel exposes ValidateConfigDetailed")
+	for _, name := range []string{
+		"Render", "ValidateConfigDetailed", "SynthesizeInstance",
+		"AcquireModuleFromDir", "AcquireModuleFromRegistry",
+		"AcquirePlatformFromDir", "AcquireInstanceFromDir",
+	} {
+		_, found := kt.MethodByName(name)
+		assert.True(t, found, "*kernel.Kernel exposes %s", name)
+	}
 
-	_, found = reflect.TypeOf(kernel.RenderInput{}).FieldByName("Values")
-	assert.False(t, found, "RenderInput must not carry a Values field; values enter through WithValues and SynthesizeInstance")
+	// artifact-types, "No option type for values": there is no AcquireOption
+	// and no WithValues, because values are the variadic trailing argument.
+	// A package-level function cannot be reflected on, so the shape of the
+	// signature is what pins their absence.
+	acquire, ok := kt.MethodByName("AcquireInstanceFromDir")
+	require.True(t, ok)
+	require.True(t, acquire.Type.IsVariadic(), "values are variadic, not an option list")
+	assert.Equal(t, reflect.TypeFor[kernel.Source](), acquire.Type.In(acquire.Type.NumIn()-1).Elem(),
+		"the variadic trailing argument is kernel.Source")
+
+	_, found := reflect.TypeOf(kernel.RenderInput{}).FieldByName("Values")
+	assert.False(t, found, "RenderInput must not carry a Values field; values enter through the acquire verbs and SynthesizeInstance")
 	_, found = reflect.TypeOf(kernel.Source{}).FieldByName("Name")
 	assert.False(t, found, "Source carries no display label; Origin is the attribution key")
 }

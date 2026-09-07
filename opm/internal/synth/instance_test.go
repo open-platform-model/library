@@ -11,18 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/helper/synth"
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/schematest"
+	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
 // sharedCtx is the single *cue.Context used by the guard tests in this package.
-// The schema cache must produce values in the same runtime that a test's other
-// cue.Values live in; mixing contexts panics cross-runtime unification. The
-// end-to-end synth flows (a published core-v2 module synthesized and rendered
-// through the kernel) live in opm/kernel's synth and flow tests.
+// A test's cue.Values must all live in one runtime; mixing contexts panics
+// cross-runtime unification. The end-to-end synth flows (a published core-v2
+// module synthesized and rendered through the kernel) live in opm/kernel's
+// synth and flow tests.
 var sharedCtx = cuecontext.New()
+
+// coreVersion is the resolved core release the kernel would hand Instance;
+// only its major reaches the synthesized import.
+var coreVersion = schema.DefaultSchemaVersion()
 
 // testdataSynthDir resolves the on-disk path to the testdata/synth/
 // fixture directory relative to this test file.
@@ -88,93 +93,76 @@ module: {
 }
 `
 
-// newCache builds a fresh *schema.Cache via the workspace-local cache helper.
-// Each test gets its own cache so memoization scope is explicit.
-func newCache(t *testing.T) *schema.Cache {
-	t.Helper()
-	return schematest.NewCache(t)
-}
-
 func TestInstance_RejectsNilModule(t *testing.T) {
-	ctx := sharedCtx
-	_, _, err := synth.Instance(ctx, synth.InstanceInput{
-		Name:        "demo",
-		Namespace:   "ns",
-		SchemaCache: newCache(t),
+	_, _, err := synth.Instance(sharedCtx, coreVersion, synth.Input{
+		Name:      "demo",
+		Namespace: "ns",
 	})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingModule), "want ErrMissingModule, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrMissingModule), "want ErrMissingModule, got %v", err)
 }
 
 func TestInstance_RejectsEmptyName(t *testing.T) {
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
-	_, _, err := synth.Instance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Namespace:   "ns",
-		SchemaCache: newCache(t),
+	mod := testModule(t, sharedCtx, baseModuleFixture)
+	_, _, err := synth.Instance(sharedCtx, coreVersion, synth.Input{
+		Module:    mod,
+		Namespace: "ns",
 	})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingName), "want ErrMissingName, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrMissingName), "want ErrMissingName, got %v", err)
 }
 
 func TestInstance_RejectsEmptyNamespace(t *testing.T) {
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
-	_, _, err := synth.Instance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "demo",
-		SchemaCache: newCache(t),
+	mod := testModule(t, sharedCtx, baseModuleFixture)
+	_, _, err := synth.Instance(sharedCtx, coreVersion, synth.Input{
+		Module: mod,
+		Name:   "demo",
 	})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingNamespace), "want ErrMissingNamespace, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrMissingNamespace), "want ErrMissingNamespace, got %v", err)
 }
 
-func TestInstance_RejectsNilSchemaCache(t *testing.T) {
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
-	_, _, err := synth.Instance(ctx, synth.InstanceInput{
+// The kernel resolves the core release from its own cache; an unresolvable one
+// is refused here rather than producing an importless synthesized package.
+func TestInstance_RejectsEmptyCoreVersion(t *testing.T) {
+	mod := testModule(t, sharedCtx, baseModuleFixture)
+	_, _, err := synth.Instance(sharedCtx, "", synth.Input{
 		Module:    mod,
 		Name:      "demo",
 		Namespace: "ns",
 	})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingSchemaCache),
-		"want ErrMissingSchemaCache, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrSchemaUnavailable), "want ErrSchemaUnavailable, got %v", err)
 }
 
-// instance-synthesis spec — synth.Instance constructs the instance inside the
+// instance-synthesis spec — Instance constructs the instance inside the
 // module's own staged source tree, so a module that was not acquired with
 // source (HasSource() is false) is rejected with ErrMissingSource rather than
 // silently fetching. testModule builds a source-free *module.Module, exercising
 // exactly that precondition.
 func TestInstance_RejectsMissingSource(t *testing.T) {
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
+	mod := testModule(t, sharedCtx, baseModuleFixture)
 	require.False(t, mod.HasSource(), "fixture module must be source-free for this guard")
-	_, _, err := synth.Instance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "demo",
-		Namespace:   "ns",
-		SchemaCache: newCache(t),
+	_, _, err := synth.Instance(sharedCtx, coreVersion, synth.Input{
+		Module:    mod,
+		Name:      "demo",
+		Namespace: "ns",
 	})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingSource),
-		"want ErrMissingSource, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrMissingSource), "want ErrMissingSource, got %v", err)
 }
 
 // instance-synthesis spec, "Failure returns no tree": every error path of
-// synth.Instance returns a nil staged tree alongside the error.
+// Instance returns a nil staged tree alongside the error.
 func TestInstance_FailureReturnsNoTree(t *testing.T) {
-	ctx := sharedCtx
-	mod := testModule(t, ctx, baseModuleFixture)
+	mod := testModule(t, sharedCtx, baseModuleFixture)
 
-	_, src, err := synth.Instance(ctx, synth.InstanceInput{Module: mod, Namespace: "ns", SchemaCache: newCache(t)})
+	_, src, err := synth.Instance(sharedCtx, coreVersion, synth.Input{Module: mod, Namespace: "ns"})
 	require.Error(t, err)
 	assert.Nil(t, src, "ErrMissingName path must return no tree")
 
-	_, src, err = synth.Instance(ctx, synth.InstanceInput{Module: mod, Name: "demo", Namespace: "ns", SchemaCache: newCache(t)})
+	_, src, err = synth.Instance(sharedCtx, coreVersion, synth.Input{Module: mod, Name: "demo", Namespace: "ns"})
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, synth.ErrMissingSource))
+	assert.True(t, errors.Is(err, oerrors.ErrMissingSource))
 	assert.Nil(t, src, "ErrMissingSource path must return no tree")
 }

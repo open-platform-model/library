@@ -9,7 +9,7 @@ import (
 // clause (D9): the kernel is the version label's verifier, never its source.
 // It is emitted at the one library read site that holds both a fetched
 // coordinate and decoded metadata: module acquire
-// (opm/helper/loader/registry) returns it bare, so frontends route on it via
+// (the kernel's registry acquisition) returns it bare, so frontends route on it via
 // [errors.As]. A platform's catalog builds are verified structurally by core
 // instead (0019 D5: the registry key binds to the embedded catalog's
 // modulePath), so no catalog read site produces it.

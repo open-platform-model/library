@@ -1,6 +1,7 @@
 package platform_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,23 +55,12 @@ type: "kubernetes"
 	assert.Contains(t, err.Error(), "platform metadata field is required")
 }
 
-// TestKernelWrapper_NewPlatformFromValue confirms the kernel wrapper produces
-// the same result as the free constructor.
-func TestKernelWrapper_NewPlatformFromValue(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
-kind: "Platform"
-metadata: name: "wrapper"
-type: "kubernetes"
-`)
-	require.NoError(t, v.Err())
-
-	got, err := k.NewPlatformFromValue(v)
-	require.NoError(t, err)
-	want, err := platform.NewPlatformFromValue(v)
-	require.NoError(t, err)
-	assert.Equal(t, want.Metadata.Name, got.Metadata.Name)
-	assert.Equal(t, want.Metadata.Type, got.Metadata.Type)
+// artifact-types spec, "No kernel constructor wrappers": a frontend holding a
+// value calls the package constructor directly; the kernel wraps neither
+// constructor.
+func TestNewPlatformFromValue_NoKernelWrapper(t *testing.T) {
+	_, found := reflect.TypeOf(kernel.New()).MethodByName("NewPlatformFromValue")
+	assert.False(t, found, "*kernel.Kernel must not wrap platform.NewPlatformFromValue")
 }
 
 // TestNewPlatformFromValue_NoSource pins the platform-artifact scenario

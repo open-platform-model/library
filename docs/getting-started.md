@@ -56,22 +56,26 @@ log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
 // → "v2.0.0-alpha.7"
 ```
 
-## Load a module package
+## Acquire a module
 
-`LoadModulePackage` reads a CUE package directory and builds a `cue.Value`. `NewModuleFromValue` wraps it into a typed `*module.Module`. To load a module published in an OCI registry instead of from disk, use `k.AcquireModuleFromRegistry(ctx, modPath, version)` (or `opm/helper/loader/registry.LoadModulePackageWithSource` directly) — it returns a decoded `*module.Module` carrying its staged source, ready for synthesis; read `Module.Package` when only the raw value is wanted.
+Two verbs return a typed, source-carrying `*module.Module`: `AcquireModuleFromDir` reads a CUE package directory, `AcquireModuleFromRegistry` fetches a published module by `path@version`. Both run the same shape gate and stamp `Module.Source` as an in-memory overlay of the module's `.cue` files, which is what makes the result a valid `SynthesizeInstance` input. Read `Module.Package` when only the raw `cue.Value` is wanted; there is no separate load-then-construct tier, and no verb takes a registry argument — `kernel.WithRegistry` is the one mapping.
 
 ```go
-import loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-
-moduleVal, err := k.LoadModulePackage(ctx, "./module/", loaderfile.LoadOptions{})
+mod, err := k.AcquireModuleFromDir(ctx, "./module/")
 if err != nil {
     return err
 }
-mod, err := k.NewModuleFromValue(moduleVal)
+
+// …or, for a published module:
+mod, err = k.AcquireModuleFromRegistry(ctx, "example.com/modules/hello@v0", "v0.0.2")
 if err != nil {
     return err
 }
 ```
+
+A module acquired from a subdirectory of its CUE module is fine to read, but not to synthesize from: the synthesized instance imports the module by its module path, which resolves to the root package, so `SynthesizeInstance` refuses it.
+
+Need the acquired module's tree on disk (scaffolding from a published template)? `mod.Source.WriteTo(dest)` writes every file under `dest` at its module-relative path and returns the paths it wrote, sorted — no second fetch, no walk of your own.
 
 ## Validate user values (layered)
 
@@ -103,37 +107,34 @@ if vErr != nil {
 **From typed inputs** (a frontend that has the module and the values in hand): `Kernel.SynthesizeInstance` stages a virtual package that imports the module, writes the caller's values, and validates it in one build.
 
 ```go
-import "github.com/open-platform-model/library/opm/helper/synth"
-
-inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
+inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
     Module:    mod,
     Name:      "web-app-demo",
     Namespace: "default",
-    Values:    userValues,
+    Values:    []kernel.Source{defaults, user, prod},
 })
 if err != nil {
     return err
 }
 ```
 
-The kernel-owned schema cache is plumbed through `synth.InstanceInput.SchemaCache` automatically when omitted; pass `k.SchemaCache()` explicitly if you want to share a cache across instance synthesis and other schema-touching code.
+`InstanceInput.Values` is the same `[]kernel.Source` `ValidateConfigDetailed` takes, so a frontend wraps its values once and passes the same slice everywhere. The kernel owns the schema cache; `InstanceInput` carries none.
 
 **From an authored package on disk** (a `ModuleInstance` package that is already fully concrete): `Kernel.AcquireInstanceFromDir` loads it through the shape gate, processes it as authored (extra values are opt-in, below), and stamps its `Source`.
 
 ```go
-inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", loaderfile.LoadOptions{})
+inst, err := k.AcquireInstanceFromDir(ctx, "./instance/")
 if err != nil {
     return err
 }
 ```
 
-**From an authored package plus extra values** (a frontend layering `-f` files onto an instance package): pass `kernel.WithValues` with the same `Source` values `ValidateConfigDetailed` takes. The kernel reads the package's on-disk files into an in-memory overlay, renders the unified sources as a package file declaring `values` beside them, and builds the package once through the instance shape gate, so the merge is the schema's own values unification. The caller's directory is never written to; the returned `Source` is overlay mode and renders like any other.
+**From an authored package plus extra values** (a frontend layering `-f` files onto an instance package): pass them as trailing `Source` arguments — the same values `ValidateConfigDetailed` takes. The kernel reads the package's on-disk files into an in-memory overlay, renders the unified sources as a package file declaring `values` beside them, and builds the package once through the instance shape gate, so the merge is the schema's own values unification. The caller's directory is never written to; the returned `Source` is overlay mode and renders like any other.
 
 ```go
 prod, _ := k.LoadSourceFromFile("./prod.cue")
 
-inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", loaderfile.LoadOptions{},
-    kernel.WithValues(prod))
+inst, err := k.AcquireInstanceFromDir(ctx, "./instance/", prod)
 if err != nil {
     // A source conflicting with the package's own values or the module's
     // #config fails here, attributed to the source's Origin.
@@ -141,20 +142,20 @@ if err != nil {
 }
 ```
 
-`LoadInstancePackage` remains available for draft flows that want the raw value. Only the two acquirers above produce a `*module.Instance`, and every instance they return carries a `Source`.
+Only the two acquirers above produce a `*module.Instance`, and every instance they return carries a `Source`; the raw value is `Instance.Package`.
 
 ## Acquire a platform module
 
 A platform is a CUE module on disk that imports its catalogs: every `#registry` entry embeds a catalog by import, and core derives the entry's version and the platform's `#composedTransformers` from it. The kernel acquires such a module with `Kernel.AcquirePlatformFromDir`, which loads the package through the platform shape gate and stamps its `Source`.
 
 ```go
-plat, err := k.AcquirePlatformFromDir(ctx, "./platform/", loaderfile.LoadOptions{})
+plat, err := k.AcquirePlatformFromDir(ctx, "./platform/")
 if err != nil {
     return err
 }
 ```
 
-The shape gate refuses a `#registry` entry that embeds no catalog (the pre-0019 subscription shape with a `version` scalar) as `loaderfile.ErrMissingRequiredField`. There is no materialize step and no platform synthesis: the platform's catalogs are resolved by the render build, through `CUE_REGISTRY` or `WithRegistry`, exactly as any other CUE import.
+The shape gate refuses a `#registry` entry that embeds no catalog (the pre-0019 subscription shape with a `version` scalar) as `oerrors.ErrMissingRequiredField`, the sentinel declared in `opm/errors` alongside `ErrInvalidPackage` and `ErrWrongKind`. There is no materialize step and no platform synthesis: the platform's catalogs are resolved by the render build, through `CUE_REGISTRY` or `WithRegistry`, exactly as any other CUE import.
 
 **From catalog coordinates** (a Platform CR, a seeded local default): `opm/helper/platformmodule` generates the module. `Roots` turns the subscriptions into dependency roots (core pinned at the kernel's verified release, `schema.DefaultSchemaVersion()`; a frontend that needs another core build assembles the `[]Dep` roots itself), `Closure` derives the full dependency list from the published module files through a registry you configure explicitly (the once-at-generation tidy, 0019 D13), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, and `Files.WriteTo` writes them into a directory you own. The frontend keeps the directory lifecycle (generations, caching); the kernel acquires the result as above.
 
@@ -189,7 +190,7 @@ if err != nil {
 if err := files.WriteTo(platformDir); err != nil {
     return err
 }
-plat, err := k.AcquirePlatformFromDir(ctx, platformDir, loaderfile.LoadOptions{Registry: registry})
+plat, err := k.AcquirePlatformFromDir(ctx, platformDir)
 ```
 
 Each `#registry` entry stamps the subscription's version as its expected `version`; core unifies it with the imported catalog's own readout, so a catalog build that does not match fails the acquire naming the entry.
@@ -261,8 +262,10 @@ default:
 
 | Method                                | Frontend subcommand          | Purpose                                                                      |
 | ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `Kernel.AcquireModuleFromDir`         | (module load)                | Module package from disk, `Source` stamped as a byte overlay                 |
+| `Kernel.AcquireModuleFromRegistry`    | (module fetch)               | Published module by `path@version`, `Source` stamped                         |
 | `Kernel.AcquirePlatformFromDir`       | (platform load)              | Platform module from disk (hand-written or `platformmodule`-generated), `Source` stamped |
-| `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped; `WithValues` layers extra sources |
+| `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped; trailing `Source` values layer on |
 | `Kernel.SynthesizeInstance`           | (typed inputs)               | Instance from module + values, validated, `Source` stamped                   |
 | `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*core.Compiled` plus `RenderDiagnostics`         |
 
@@ -282,13 +285,19 @@ The previous entry points have all been removed. If you have old code calling an
 | `compile.CompileModuleInstance`                  | `(*Kernel).Render`                                                          |
 | `compile.ProcessModuleInstance`                  | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance`         |
 | `module.ParseModuleInstance`                     | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance`         |
-| `(*Kernel).ProcessModuleInstance`                | `(*Kernel).AcquireInstanceFromDir` (with `WithValues`) / `(*Kernel).SynthesizeInstance` |
+| `(*Kernel).ProcessModuleInstance`                | `(*Kernel).AcquireInstanceFromDir` (with trailing values) / `(*Kernel).SynthesizeInstance` |
 | `(*Kernel).ValidateConfig`, `ValidateConfigPartial`, `kernel.Partial` | `(*Kernel).ValidateConfigDetailed` with a one-element `[]kernel.Source`; no partial-mode entry |
 | `(*Kernel).LoadSourceFromString`                 | `(*Kernel).LoadSourceFromBytes(origin, []byte(s))`                          |
 | `(*Kernel).NewInstanceFromValue`, `module.NewInstanceFromValue` | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance` |
 | `module.CueContextOwner`, `platform.CueContextOwner` | `module.NewModuleFromValue(v)` / `platform.NewPlatformFromValue(v)` take the value only |
-| `loaderfile.LoadInstanceFile`                    | `loaderfile.LoadInstancePackage` (now a pkg)                                |
-| `opm/loader/` shim                               | `opm/helper/loader/file`                                                    |
+| `loaderfile.LoadInstanceFile`                    | `Kernel.AcquireInstanceFromDir`                                             |
+| `opm/loader/` shim, `opm/helper/loader/**`       | `Kernel.Acquire*` (the loader is `opm/internal/loader`)                     |
+| `loaderfile.LoadOptions{Registry: r}`            | `kernel.WithRegistry(r)` at construction                                    |
+| `synth.InstanceInput{…}`                         | `kernel.InstanceInput{…, Values: []kernel.Source{…}}`                       |
+| `(*Kernel).LoadModulePackage` + `NewModuleFromValue` | `(*Kernel).AcquireModuleFromDir`                                        |
+| `(*Kernel).LoadPlatformPackage` + `NewPlatformFromValue` | `(*Kernel).AcquirePlatformFromDir`                                  |
+| `(*Kernel).LoadInstancePackage`                  | `(*Kernel).AcquireInstanceFromDir`                                          |
+| `kernel.AcquireOption`, `kernel.WithValues`      | trailing `...kernel.Source` on `AcquireInstanceFromDir`                     |
 
 ## Further reading
 

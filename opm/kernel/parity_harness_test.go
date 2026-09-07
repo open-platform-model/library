@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
@@ -58,11 +57,10 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	// platform is its own module (testdata/parity/opm_platform) importing
 	// the same published catalog build the parity module pins.
 	k := kernel.New(kernel.WithRegistry(registry))
-	opts := loaderfile.LoadOptions{Registry: registry}
 
-	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(parityDir, "instance"), opts)
+	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(parityDir, "instance"))
 	require.NoError(t, err, "acquiring the import-authored instance package")
-	plat, err := k.AcquirePlatformFromDir(ctx, filepath.Join(parityDir, "opm_platform"), opts)
+	plat, err := k.AcquirePlatformFromDir(ctx, filepath.Join(parityDir, "opm_platform"))
 	require.NoError(t, err, "acquiring the opm_platform fixture copy")
 
 	res, renderErr := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: parityRuntimeName})

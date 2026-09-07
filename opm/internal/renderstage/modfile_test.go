@@ -6,7 +6,6 @@ import (
 	"sort"
 	"testing"
 
-	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,8 +83,8 @@ deps: "opmodel.dev/core@v2": {v: "v2.0.0", replaceWith: "../core"}
 
 func TestReadModFile_OverlayAndDisk(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "x")
-	overlay := map[string]load.Source{
-		filepath.Join(root, "cue.mod", "module.cue"): load.FromString(instanceModFile),
+	overlay := map[string][]byte{
+		filepath.Join(root, "cue.mod", "module.cue"): []byte(instanceModFile),
 	}
 	mf, err := ReadModFile(&module.Source{Root: root, Overlay: overlay})
 	require.NoError(t, err)
@@ -98,7 +97,7 @@ func TestReadModFile_OverlayAndDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "testing.opmodel.dev/render/platform@v0", mf.Module)
 
-	_, err = ReadModFile(&module.Source{Root: root, Overlay: map[string]load.Source{}})
+	_, err = ReadModFile(&module.Source{Root: root, Overlay: map[string][]byte{}})
 	require.Error(t, err, "an overlay without cue.mod/module.cue is not a module")
 	_, err = ReadModFile(nil)
 	require.Error(t, err)

@@ -7,9 +7,6 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"cuelang.org/go/cue/ast"
-	"cuelang.org/go/cue/load"
-	"cuelang.org/go/cue/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,13 +22,13 @@ func overlaySource(root string) *module.Source {
 	return &module.Source{
 		Root: root,
 		Pkg:  pkg,
-		Overlay: map[string]load.Source{
-			filepath.Join(root, "cue.mod", "module.cue"):   load.FromString(modFile),
-			filepath.Join(root, "module.cue"):              load.FromString("package web_app\n\nx: 1\n"),
-			filepath.Join(root, pkg, "instance.cue"):       load.FromBytes([]byte("package instance\n\ny: 2\n")),
-			filepath.Join(root, pkg, "values.cue"):         load.FromString("package instance\n\nz: 3\n"),
-			filepath.Join(root, pkg, "notes.md"):           load.FromString("not cue"),
-			filepath.Join(root, pkg, "nested", "deep.cue"): load.FromString("package other\n"),
+		Overlay: map[string][]byte{
+			filepath.Join(root, "cue.mod", "module.cue"):   []byte(modFile),
+			filepath.Join(root, "module.cue"):              []byte("package web_app\n\nx: 1\n"),
+			filepath.Join(root, pkg, "instance.cue"):       []byte([]byte("package instance\n\ny: 2\n")),
+			filepath.Join(root, pkg, "values.cue"):         []byte("package instance\n\nz: 3\n"),
+			filepath.Join(root, pkg, "notes.md"):           []byte("not cue"),
+			filepath.Join(root, pkg, "nested", "deep.cue"): []byte("package other\n"),
 		},
 	}
 }
@@ -49,7 +46,7 @@ func diskSource(t *testing.T, pkg string, files map[string]string) *module.Sourc
 	return &module.Source{Root: root, Pkg: pkg}
 }
 
-func sortedKeys(overlay map[string]load.Source) []string {
+func sortedKeys(overlay map[string][]byte) []string {
 	keys := make([]string, 0, len(overlay))
 	for k := range overlay {
 		keys = append(keys, k)
@@ -74,14 +71,14 @@ func TestPackageName_Overlay(t *testing.T) {
 
 	// Two clauses in one directory.
 	mixed := overlaySource(root)
-	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = load.FromString("package other\n")
+	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = []byte("package other\n")
 	_, err = PackageName(mixed)
 	require.ErrorContains(t, err, "more than one package: [instance other]")
 
 	// No clause at all: a clause-less file is skipped, so the directory
 	// declares nothing.
-	bare := &module.Source{Root: root, Pkg: "data", Overlay: map[string]load.Source{
-		filepath.Join(root, "data", "data.cue"): load.FromString("a: 1\n"),
+	bare := &module.Source{Root: root, Pkg: "data", Overlay: map[string][]byte{
+		filepath.Join(root, "data", "data.cue"): []byte("a: 1\n"),
 	}}
 	_, err = PackageName(bare)
 	require.ErrorContains(t, err, "no package clause")
@@ -139,9 +136,8 @@ func TestOverlayFromDir_CueFilesOnly(t *testing.T) {
 	}
 	assert.Equal(t, want, sortedKeys(overlay), "only .cue files, nested cue.mod/pkg included")
 
-	data, err := Bytes(overlay[filepath.Join(src.Root, "module.cue")])
-	require.NoError(t, err)
-	assert.Equal(t, "package m\n", string(data))
+	assert.Equal(t, "package m\n", string(overlay[filepath.Join(src.Root, "module.cue")]),
+		"entries are the file's bytes")
 
 	_, err = OverlayFromDir(filepath.Join(src.Root, "absent"))
 	require.Error(t, err)
@@ -166,9 +162,8 @@ func TestOverlayFromFS_RekeysUnderSyntheticRoot(t *testing.T) {
 	}
 	assert.Equal(t, want, sortedKeys(overlay), "the license and the sibling tree are excluded; keys sit under the synthetic root")
 
-	data, err := Bytes(overlay[filepath.Join(keyRoot, "module.cue")])
-	require.NoError(t, err)
-	assert.Equal(t, "package m\n", string(data))
+	assert.Equal(t, "package m\n", string(overlay[filepath.Join(keyRoot, "module.cue")]),
+		"entries are the file's bytes")
 
 	// dir "" and "." mean the tree's root.
 	for _, dir := range []string{"", "."} {
@@ -197,40 +192,6 @@ func TestSyntheticRoot(t *testing.T) {
 	assert.NotEqual(t, got, SyntheticRoot("x.example/modules/hello@v0", "v0.0.3"))
 }
 
-func TestWriteTo_RoundTrip(t *testing.T) {
-	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
-	src := overlaySource(root)
-	dir := t.TempDir()
-	require.NoError(t, WriteTo(dir, src))
-
-	// Every entry landed at its path relative to the root; reading the
-	// directory back yields the .cue entries with identical contents.
-	back, err := OverlayFromDir(dir)
-	require.NoError(t, err)
-	for key, entry := range src.Overlay {
-		rel, err := filepath.Rel(root, key)
-		require.NoError(t, err)
-		want, err := Bytes(entry)
-		require.NoError(t, err)
-		got, err := os.ReadFile(filepath.Join(dir, rel))
-		require.NoError(t, err, rel)
-		assert.Equal(t, string(want), string(got), rel)
-		if filepath.Ext(key) == ".cue" {
-			assert.Contains(t, back, filepath.Join(dir, rel))
-		}
-	}
-	assert.Len(t, back, 5, "five .cue entries; notes.md was written but is not a .cue file")
-
-	// An entry outside the root is refused rather than written elsewhere.
-	escaped := overlaySource(root)
-	escaped.Overlay[filepath.Join(string(filepath.Separator), "elsewhere", "x.cue")] = load.FromString("package x\n")
-	require.ErrorContains(t, WriteTo(t.TempDir(), escaped), "outside the source root")
-
-	// An on-disk source has nothing to write.
-	require.Error(t, WriteTo(t.TempDir(), &module.Source{Root: root}))
-	require.Error(t, WriteTo(t.TempDir(), nil))
-}
-
 func TestReadFile_OverlayAndDisk(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
 	src := overlaySource(root)
@@ -248,26 +209,5 @@ func TestReadFile_OverlayAndDisk(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = ReadFile(nil, "x")
-	require.Error(t, err)
-}
-
-func TestBytes_EveryConstructor(t *testing.T) {
-	b, err := Bytes(load.FromString("a: 1\n"))
-	require.NoError(t, err)
-	assert.Equal(t, "a: 1\n", string(b))
-
-	b, err = Bytes(load.FromBytes([]byte("b: 2\n")))
-	require.NoError(t, err)
-	assert.Equal(t, "b: 2\n", string(b))
-
-	f, err := parser.ParseFile("x.cue", "c: 3\n")
-	require.NoError(t, err)
-	b, err = Bytes(load.FromFile(f))
-	require.NoError(t, err)
-	assert.Equal(t, "c: 3\n", string(b))
-
-	_, err = Bytes(load.FromFile((*ast.File)(nil)))
-	require.Error(t, err)
-	_, err = Bytes(nil)
 	require.Error(t, err)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -57,10 +56,9 @@ func TestRender_ComponentFillPreservesDefinitions(t *testing.T) {
 
 	ctx := context.Background()
 	k := kernel.New(kernel.WithRegistry(mapping))
-	opts := loaderfile.LoadOptions{Registry: mapping}
-	inst, err := k.AcquireInstanceFromDir(ctx, instDir, opts)
+	inst, err := k.AcquireInstanceFromDir(ctx, instDir)
 	require.NoError(t, err, "acquiring the probe instance package")
-	plat, err := k.AcquirePlatformFromDir(ctx, platDir, opts)
+	plat, err := k.AcquirePlatformFromDir(ctx, platDir)
 	require.NoError(t, err, "acquiring the probe platform")
 
 	res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-test"})

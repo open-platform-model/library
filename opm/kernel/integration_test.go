@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -88,10 +87,10 @@ func TestIntegration_Render_PinnedCatalogBuildExecutes(t *testing.T) {
 func TestIntegration_Render_UnpublishedCatalogFailsAtAcquire(t *testing.T) {
 	published := registrytest.UniquePath(t, "cat")
 	missing := registrytest.UniquePath(t, "missing")
-	k, mapping := newKernelWithCatalogs(t, standardCatalog(published, "0.1.0"))
+	k, _ := newKernelWithCatalogs(t, standardCatalog(published, "0.1.0"))
 
 	platDir := writeCatalogPlatform(t, t.TempDir(), missing, "0.1.0")
-	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir, loaderfile.LoadOptions{Registry: mapping})
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platDir)
 	require.Error(t, err)
 	assert.Nil(t, plat)
 	assert.Contains(t, err.Error(), missing, "the failure names the catalog path the platform imports")

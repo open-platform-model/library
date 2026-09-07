@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/open-platform-model/library/opm/helper/synth"
 )
 
 // TestIntegration_SynthesizeInstance covers the synth instance-construction path:
@@ -15,18 +14,17 @@ import (
 // producing an instance whose identity fields are stamped by the schema. Needs
 // the core schema (warm workspace cache); no catalog.
 func TestIntegration_SynthesizeInstance(t *testing.T) {
-	// synth.Instance imports the module by its canonical registry path, so the
+	// synthesis imports the module by its canonical registry path, so the
 	// module must be published (a locally-built value no longer resolves).
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {replicas: int | *1, image: string}\ndebugValues: {}\n")
 	values := cueVal(t, k, `{ image: "nginx" }`, "values.cue")
 
-	inst, err := k.SynthesizeInstance(context.Background(), synth.InstanceInput{
-		Module:      mod,
-		Name:        "web",
-		Namespace:   "default",
-		Values:      values,
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "web",
+		Namespace: "default",
+		Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, inst)

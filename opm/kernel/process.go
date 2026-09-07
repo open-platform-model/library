@@ -13,7 +13,7 @@ import (
 // its metadata and returns a constructed [*module.Instance]. It is the one
 // processing step behind [Kernel.AcquireInstanceFromDir] and
 // [Kernel.SynthesizeInstance]: values are already unified inside the CUE
-// build each of them runs (the package's own `values`, the [WithValues]
+// build each of them runs (the package's own `values`, the acquire-time values
 // overlay, the synthesized values file), so nothing is validated or filled
 // here and nothing on the Kernel is read. Errors are framed
 // `instance "<name>": …`.

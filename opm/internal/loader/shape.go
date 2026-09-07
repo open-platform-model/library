@@ -1,51 +1,44 @@
-// Package shape is the single source of the OPM artifact shape gate shared by
-// the package loaders (opm/helper/loader/file and opm/helper/loader/registry).
+// Package loader is the kernel's one artifact-loading routine: it builds a
+// single CUE package — from a directory or from an in-memory overlay — and
+// runs the OPM artifact shape gate over the result, and it fetches a
+// published #Module from an OCI registry through CUE's native module
+// machinery.
 //
-// The gate is the loader boundary's fast-fail structural check: it confirms an
-// artifact carries the right concrete kind and the identity fields the schema
-// never defaults, but deliberately stops short of full schema validation, which
-// is the Kernel/Binding layer's contract. "Concrete" is judged before default
-// finalization: an identity field authored as a defaulted disjunction is
-// refused, with the default named in the error. Single-sourcing it here
-// guarantees a directory-loaded artifact and a registry-loaded artifact are
-// validated identically and fail with the same sentinel values.
+// The gate is the acquisition boundary's fast-fail structural check: it
+// confirms an artifact carries the right concrete kind and the identity
+// fields the schema never defaults, but deliberately stops short of full
+// schema validation, which is the kernel's contract. "Concrete" is judged
+// before default finalization: an identity field authored as a defaulted
+// disjunction is refused, with the default named in the error.
+// Single-sourcing the build and the gate here guarantees a directory-loaded
+// artifact and a registry-loaded artifact are evaluated, gated and
+// error-wrapped identically; the only difference between the entry points is
+// where the package files come from.
 //
-// It lives under opm/helper/loader/internal/ so it stays out of the library's
-// public SemVer surface (kernel neutrality) while remaining importable by both
-// loader subpackages. The sentinels are re-exported from loader/file with
-// unchanged identity so existing errors.Is callers are unaffected.
-package shape
+// It lives under opm/internal/ so it stays off the library's public SemVer
+// surface (Principle VI, VII) while remaining importable by opm/kernel and
+// the kernel's other internals. The sentinels it wraps are declared in
+// opm/errors, the package a frontend can reach for errors.Is.
+//
+// The package does not import opm/internal/synth: synthesis builds THROUGH
+// LoadDir, never the other way round.
+package loader
 
 import (
-	"errors"
 	"fmt"
 
 	"cuelang.org/go/cue"
-)
 
-// Sentinel errors returned by the shape gate. Each Load*Package wraps the
-// relevant sentinel via %w so frontends (CLI, controller, Crossplane function)
-// can branch on the failure class with errors.Is rather than string matching.
-var (
-	// ErrInvalidPackage marks a structurally invalid package: the built root
-	// is not a struct, or load.Instances did not resolve exactly one instance.
-	ErrInvalidPackage = errors.New("invalid OPM package")
-
-	// ErrWrongKind marks a package whose concrete kind does not match the
-	// artifact the loader was asked for.
-	ErrWrongKind = errors.New("wrong OPM artifact kind")
-
-	// ErrMissingRequiredField marks a package missing a required identity
-	// field, or carrying it in non-concrete form.
-	ErrMissingRequiredField = errors.New("missing required field")
+	oerrors "github.com/open-platform-model/library/opm/errors"
 )
 
 // ArtifactSpec describes the shape gate for one artifact type. ExpectedKind is
 // the concrete kind literal the package must carry; RequiredConcreteFields are
 // dotted paths to scalar identity fields that must be present and concrete;
 // ModuleRefs point at embedded #Module values whose kind must in turn be
-// "Module".
+// "Module". Label names the artifact in filesystem-level error messages.
 type ArtifactSpec struct {
+	Label                  string
 	ExpectedKind           string
 	RequiredConcreteFields []string
 	ModuleRefs             []ModuleRef
@@ -67,16 +60,18 @@ type ModuleRef struct {
 }
 
 // ModuleSpec, InstanceSpec, and PlatformSpec are the shape-gate definitions for
-// the three package loaders. The required field lists carry only the identity
-// fields the schema never defaults — fields the schema fills in (or leaves as
-// open `_`) are out of scope here and validated by the Kernel/Binding layer.
+// the three artifacts the kernel acquires. The required field lists carry only
+// the identity fields the schema never defaults — fields the schema fills in
+// (or leaves as open `_`) are out of scope here and validated by the kernel.
 var (
 	ModuleSpec = ArtifactSpec{
+		Label:                  "module",
 		ExpectedKind:           "Module",
 		RequiredConcreteFields: []string{"metadata.name", "metadata.modulePath", "metadata.version"},
 	}
 
 	InstanceSpec = ArtifactSpec{
+		Label:                  "instance",
 		ExpectedKind:           "ModuleInstance",
 		RequiredConcreteFields: []string{"metadata.name", "metadata.namespace"},
 		ModuleRefs:             []ModuleRef{{Path: "#module"}},
@@ -90,6 +85,7 @@ var (
 	// required field naming the entry. #registry is a definition, so no
 	// root-level validation reaches it; the gate walks it explicitly.
 	PlatformSpec = ArtifactSpec{
+		Label:                  "platform",
 		ExpectedKind:           "Platform",
 		RequiredConcreteFields: []string{"metadata.name", "type"},
 		CompleteEntryMaps:      []string{"#registry"},
@@ -97,13 +93,12 @@ var (
 )
 
 // Gate runs the structural validation described by spec against a freshly built
-// artifact value. It is the loader boundary's fast-fail check: it confirms the
-// artifact is the right kind and carries concrete identity, but deliberately
-// stops short of full schema validation, which is the Kernel/Binding layer's
-// contract.
+// artifact value. It is the acquisition boundary's fast-fail check: it confirms
+// the artifact is the right kind and carries concrete identity, but deliberately
+// stops short of full schema validation, which is the kernel's contract.
 func Gate(val cue.Value, spec ArtifactSpec) error {
 	if val.IncompleteKind() != cue.StructKind {
-		return fmt.Errorf("package root is %s, not a struct: %w", val.IncompleteKind(), ErrInvalidPackage)
+		return fmt.Errorf("package root is %s, not a struct: %w", val.IncompleteKind(), oerrors.ErrInvalidPackage)
 	}
 
 	if err := checkKind(val, spec.ExpectedKind); err != nil {
@@ -144,18 +139,18 @@ func requireCompleteEntries(val cue.Value, path string) error {
 	}
 	entries, err := m.Fields()
 	if err != nil {
-		return fmt.Errorf("required field %q: %v: %w", path, err, ErrMissingRequiredField)
+		return fmt.Errorf("required field %q: %v: %w", path, err, oerrors.ErrMissingRequiredField)
 	}
 	for entries.Next() {
 		key := entries.Selector().Unquoted()
 		fields, err := entries.Value().Fields()
 		if err != nil {
-			return fmt.Errorf("required field %q entry %q: %v: %w", path, key, err, ErrMissingRequiredField)
+			return fmt.Errorf("required field %q entry %q: %v: %w", path, key, err, oerrors.ErrMissingRequiredField)
 		}
 		for fields.Next() {
 			if err := fields.Value().Validate(cue.Concrete(true)); err != nil {
 				return fmt.Errorf("required field %q entry %q is incomplete at %q (an embedded catalog supplies it): %v: %w",
-					path, key, fields.Selector().Unquoted(), err, ErrMissingRequiredField)
+					path, key, fields.Selector().Unquoted(), err, oerrors.ErrMissingRequiredField)
 			}
 		}
 	}
@@ -164,18 +159,18 @@ func requireCompleteEntries(val cue.Value, path string) error {
 
 // checkKind asserts val carries a concrete string kind field equal to want.
 // A missing or non-string kind is treated as a wrong-kind failure: the package
-// is not the artifact the loader was asked for.
+// is not the artifact the caller asked for.
 func checkKind(val cue.Value, want string) error {
 	got := val.LookupPath(cue.ParsePath("kind"))
 	if !got.Exists() {
-		return fmt.Errorf("expected kind %q, found no kind field: %w", want, ErrWrongKind)
+		return fmt.Errorf("expected kind %q, found no kind field: %w", want, oerrors.ErrWrongKind)
 	}
 	s, err := got.String()
 	if err != nil {
-		return fmt.Errorf("expected kind %q, kind is not a concrete string: %w", want, ErrWrongKind)
+		return fmt.Errorf("expected kind %q, kind is not a concrete string: %w", want, oerrors.ErrWrongKind)
 	}
 	if s != want {
-		return fmt.Errorf("expected kind %q, got %q: %w", want, s, ErrWrongKind)
+		return fmt.Errorf("expected kind %q, got %q: %w", want, s, oerrors.ErrWrongKind)
 	}
 	return nil
 }
@@ -195,21 +190,21 @@ func checkKind(val cue.Value, want string) error {
 func requireConcrete(val cue.Value, path string) error {
 	f := val.LookupPath(cue.ParsePath(path))
 	if !f.Exists() {
-		return fmt.Errorf("required field %q is absent: %w", path, ErrMissingRequiredField)
+		return fmt.Errorf("required field %q is absent: %w", path, oerrors.ErrMissingRequiredField)
 	}
 	if !f.IsConcrete() {
 		if d, ok := f.Default(); ok {
-			return fmt.Errorf("required field %q is a defaulted disjunction (default %v), not a concrete value: identity fields must be concrete literals: %w", path, d, ErrMissingRequiredField)
+			return fmt.Errorf("required field %q is a defaulted disjunction (default %v), not a concrete value: identity fields must be concrete literals: %w", path, d, oerrors.ErrMissingRequiredField)
 		}
-		return fmt.Errorf("required field %q is not concrete: %w", path, ErrMissingRequiredField)
+		return fmt.Errorf("required field %q is not concrete: %w", path, oerrors.ErrMissingRequiredField)
 	}
 	if f.Kind() == cue.StringKind {
 		s, err := f.String()
 		if err != nil {
-			return fmt.Errorf("required field %q: %w", path, ErrMissingRequiredField)
+			return fmt.Errorf("required field %q: %w", path, oerrors.ErrMissingRequiredField)
 		}
 		if s == "" {
-			return fmt.Errorf("required field %q is empty: %w", path, ErrMissingRequiredField)
+			return fmt.Errorf("required field %q is empty: %w", path, oerrors.ErrMissingRequiredField)
 		}
 	}
 	return nil
@@ -220,7 +215,7 @@ func requireConcrete(val cue.Value, path string) error {
 func checkModuleRef(val cue.Value, ref ModuleRef) error {
 	target := val.LookupPath(cue.ParsePath(ref.Path))
 	if !target.Exists() {
-		return fmt.Errorf("required field %q is absent: %w", ref.Path, ErrMissingRequiredField)
+		return fmt.Errorf("required field %q is absent: %w", ref.Path, oerrors.ErrMissingRequiredField)
 	}
 	if err := checkKind(target, "Module"); err != nil {
 		return fmt.Errorf("%s: %w", ref.Path, err)

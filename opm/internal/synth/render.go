@@ -41,7 +41,7 @@ func moduleImportPath(m *module.Module) string {
 // cue.mod/module.cue — no fabricated dependency declaration is involved.
 //
 // Was: renderReleaseFile
-func renderInstanceFile(in InstanceInput, coreVersion string) string {
+func renderInstanceFile(in Input, coreVersion string) string {
 	modImport := moduleImportPath(in.Module)
 
 	var b strings.Builder

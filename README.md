@@ -43,12 +43,10 @@ opm/
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
   compat/                 Publish-side catalog compatibility (comparison walk, level ladder, predecessor selection)
-  helper/                 Opt-in frontend convenience layer (a frontend MAY skip these)
-    loader/file/          Filesystem loading (modules, instances, platforms) as CUE packages
-    loader/registry/      Load a published module from an OCI registry by path@version
-    loader/internal/shape Shared artifact shape gate (single-sourced across loaders)
-    synth/                Instance synthesis from typed inputs (no file / no bytes)
+  helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
+  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (directory or overlay), FetchModule (published module by path@version)
+  internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)
 adr/                      Architecture decision records
@@ -59,7 +57,7 @@ testdata/                 CUE module fixtures consumed by package tests
 Taskfile.yml              fmt / vet / lint / test entry points
 ```
 
-The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). The `opm/loader/` deprecation shim is also gone; the canonical import path is `opm/helper/loader/file` (or `opm/helper/loader/registry` for published modules). A standalone `opm/validate/` package was contemplated but never landed — the one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`; a single value is a one-element `[]Source`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+The OPM core schema is no longer vendored or embedded — it is fetched at runtime from `CUE_REGISTRY` via `opm/schema` (the `apis/` tree and the old `opm/api` / `opm/apiversion` packages were removed). Artifact loading and instance synthesis are kernel internals (`opm/internal/loader`, `opm/internal/synth`) reached through the acquire verbs and `Kernel.SynthesizeInstance`; their sentinels are declared in `opm/errors`. A standalone `opm/validate/` package was contemplated but never landed — the one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`; a single value is a one-element `[]Source`), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 ## Render
 
@@ -109,16 +107,15 @@ Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to
 
 Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `opm/helper/` is part of the kernel contract.
 
-Today this layer holds:
+The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/core`, `opm/compat` and every package under `opm/internal/` from importing anything under `opm/helper/`.
 
-- `opm/helper/loader/file` — filesystem-coupled loaders: `LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`. All three load a CUE package directory through the shared shape gate; the platform gate refuses a `#registry` entry that embeds no catalog.
-- `opm/helper/loader/registry` — `LoadModulePackageWithSource`: a published `#Module` by `path@version`, staged so a follow-on build can import it. Surfaced as `Kernel.AcquireModuleFromRegistry`.
-- `opm/helper/synth` — Instance synthesis (`Instance`): build a `ModuleInstance` CUE value from typed inputs (name, namespace, module reference, values, labels, annotations) without round-tripping through a file. Pairs with `Kernel.SynthesizeInstance`, which chains synth + validate in one call. There is no platform synthesis: a platform is a CUE module on disk.
+Today this layer holds exactly one subpackage:
+
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
-The previous `opm/loader/` deprecation shim has been removed (commit `3a9a9bd`); the canonical import path is `opm/helper/loader/file`.
+The loader and synth subpackages that used to live here folded into `opm/internal/loader` and `opm/internal/synth`: the kernel imported both, so the "opt-in" tier was mandatory. Their behaviour is unchanged and reached through the acquire verbs and `Kernel.SynthesizeInstance`; the sentinels a frontend branches on (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`, `ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`, `ErrMissingSource`, `ErrSchemaUnavailable`) are declared in `opm/errors`.
 
 ## Quality gates
 

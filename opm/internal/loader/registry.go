@@ -1,11 +1,4 @@
-// Package registry loads a published #Module from an OCI registry by
-// path@version, the registry-sourced sibling of opm/helper/loader/file.
-//
-// It is opt-in convenience under the opm/helper/ boundary: a frontend MAY skip
-// it and resolve registry modules another way. The recommended entry point is
-// Kernel.AcquireModuleFromRegistry, which owns its *cue.Context and threads
-// the kernel's configured registry through the call.
-package registry
+package loader
 
 import (
 	"context"
@@ -18,40 +11,24 @@ import (
 	"cuelang.org/go/mod/module"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	"github.com/open-platform-model/library/opm/helper/loader/internal/shape"
-	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	opmmodule "github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// LoadOptions configures the registry module loader. Mirrors
-// opm/helper/loader/file.LoadOptions so the two loaders are interchangeable
-// from a caller's perspective.
-type LoadOptions struct {
-	// Registry overrides the CUE_REGISTRY value used while fetching and
-	// loading. Empty means use the current process environment.
-	//
-	// The override is applied via the modconfig resolver and load.Config.Env,
-	// NOT os.Setenv, so the loader is safe to call concurrently from a
-	// long-running service (Crossplane function, controller, embedded SDK).
-	Registry string
-}
-
-// LoadModulePackageWithSource loads a #Module published in an OCI registry,
-// identified by its major-qualified module path (e.g.
-// "example.com/modules/hello@v0") and version (e.g. "v0.0.2"), and returns
-// the value built in cueCtx together with the staged source tree the build
-// used, as the artifact [opmmodule.Source] in overlay mode: the deterministic
-// synthetic Root every overlay key sits under, plus the Overlay carrying the
-// module's .cue files (its own cue.mod/module.cue included, nothing else: the
-// set cue/load reads). A consumer reuses it to build a follow-on package
-// INSIDE the module's own main module — letting the module's already-tidied
+// FetchModule loads a #Module published in an OCI registry, identified by its
+// major-qualified module path (e.g. "example.com/modules/hello@v0") and
+// version (e.g. "v0.0.2"), and returns the value built in cueCtx together
+// with the staged source tree the build used, as the artifact
+// [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
+// overlay key sits under, plus the Overlay carrying the module's .cue files
+// (its own cue.mod/module.cue included, nothing else: the set cue/load
+// reads). A consumer reuses it to build a follow-on package INSIDE the
+// module's own main module — letting the module's already-tidied
 // cue.mod/module.cue drive transitive resolution — without a second registry
-// fetch (Principle V, CUE-native resolution). A caller that wants only the
-// value discards the second return. The returned Overlay is the build's own
-// map; callers that mutate it (e.g. to overlay additional files) MUST clone
-// it first.
+// fetch (Principle V, CUE-native resolution). The returned Overlay is the
+// build's own map; callers that mutate it (e.g. to overlay additional files)
+// MUST clone it first.
 //
 // It fetches the module's source via CUE's native module machinery
 // (mod/modconfig) and loads it IN MEMORY AS THE MAIN MODULE: the fetched files
@@ -60,22 +37,22 @@ type LoadOptions struct {
 // resolution and its kind/metadata are evaluated at the package root. No
 // wrapper package is synthesized and no temporary directory is written.
 //
-// The built value is validated with the same module shape gate as
-// opm/helper/loader/file (concrete kind == "Module"; concrete metadata.name,
+// The built value is validated with the same module shape gate [LoadDir] runs
+// for a directory (concrete kind == "Module"; concrete metadata.name,
 // metadata.modulePath, metadata.version), wrapping the shared
-// ErrInvalidPackage / ErrWrongKind / ErrMissingRequiredField sentinels. It does
-// NOT perform full schema validation, which remains the Kernel/Binding layer's
-// contract. The process environment is never mutated. Parse failures on
-// caller input are wrapped rather than panicked.
-func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts LoadOptions) (cue.Value, *opmmodule.Source, error) {
+// ErrInvalidPackage / ErrWrongKind / ErrMissingRequiredField sentinels, so a
+// directory-acquired and a registry-acquired module fail identically. It does
+// NOT perform full schema validation, which remains the kernel's contract.
+//
+// env is the environment slice the fetch resolver and the load both consult —
+// the kernel's CUE_REGISTRY mapping via [cueenv.Override], nil to read the
+// process environment unchanged. The process environment is never mutated.
+// Parse failures on caller input are wrapped rather than panicked.
+func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string) (cue.Value, *opmmodule.Source, error) {
 	mv, err := module.NewVersion(modPath, version)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
 	}
-
-	// One environment slice for the fetch and the load; nil when nothing is
-	// overridden, so both read the process environment unchanged.
-	env := cueenv.Override(opts.Registry, "")
 
 	reg, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
 	if err != nil {
@@ -97,7 +74,7 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: %w", mv, err)
 	}
 	if len(overlay) == 0 {
-		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: fetched module source has no CUE files: %w", mv, shape.ErrInvalidPackage)
+		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: fetched module source has no CUE files: %w", mv, oerrors.ErrInvalidPackage)
 	}
 
 	// Overlay (with FS left nil), NOT load.Config.FS. The spike confirmed that
@@ -108,15 +85,19 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 	// Overlay injects only the target module's files while leaving normal
 	// registry/cache dependency resolution intact. Do not "simplify" this to
 	// FS-pinning. See design.md § Research & Decisions (add-registry-module-loader).
+	cueOverlay := make(map[string]load.Source, len(overlay))
+	for path, data := range overlay {
+		cueOverlay[path] = load.FromBytes(data)
+	}
 	cfg := &load.Config{
 		Dir:        synthRoot,
 		ModuleRoot: synthRoot,
-		Overlay:    overlay,
+		Overlay:    cueOverlay,
 		Env:        env,
 	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {
-		return cue.Value{}, nil, fmt.Errorf("expected exactly one CUE package in module %s, found %d: %w", mv, len(instances), shape.ErrInvalidPackage)
+		return cue.Value{}, nil, fmt.Errorf("expected exactly one CUE package in module %s, found %d: %w", mv, len(instances), oerrors.ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
 		return cue.Value{}, nil, fmt.Errorf("loading module package %s: %w", mv, instances[0].Err)
@@ -127,7 +108,7 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 		return cue.Value{}, nil, fmt.Errorf("building module package %s: %w", mv, err)
 	}
 
-	if err := shape.Gate(val, shape.ModuleSpec); err != nil {
+	if err := Gate(val, ModuleSpec); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("validating module package %s: %w", mv, err)
 	}
 
@@ -143,7 +124,7 @@ func LoadModulePackageWithSource(ctx context.Context, cueCtx *cue.Context, modPa
 // declared metadata.modulePath must equal the requested major-qualified path
 // as a string, and the declared metadata.version must equal the fetched tag
 // with the `v` prefix stripped. The shape gate has already guaranteed both
-// fields present and concrete (shape.ModuleSpec.RequiredConcreteFields), so
+// fields present and concrete (ModuleSpec.RequiredConcreteFields), so
 // the check cannot misfire on absence. A mismatch returns a bare
 // oerrors.IdentityError naming both values. Sitting after the gate in
 // LoadModulePackageWithSource, the package's single entry, the check runs for

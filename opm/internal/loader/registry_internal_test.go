@@ -1,4 +1,4 @@
-package registry
+package loader
 
 import (
 	"context"
@@ -60,8 +60,12 @@ func TestOverlayResolvesDepsButFSPinningFails(t *testing.T) {
 	synthRoot := sourcetree.SyntheticRoot(modPath+"@v0", "v0.0.2")
 	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	require.NoError(t, err)
+	cueOverlay := make(map[string]load.Source, len(overlay))
+	for path, data := range overlay {
+		cueOverlay[path] = load.FromBytes(data)
+	}
 	overlayInsts := load.Instances([]string{"."}, &load.Config{
-		Dir: synthRoot, ModuleRoot: synthRoot, Overlay: overlay, Env: env,
+		Dir: synthRoot, ModuleRoot: synthRoot, Overlay: cueOverlay, Env: env,
 	})
 	require.Len(t, overlayInsts, 1)
 	require.NoError(t, overlayInsts[0].Err, "Overlay load must resolve the transitive catalog dep")
