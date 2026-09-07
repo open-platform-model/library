@@ -108,7 +108,7 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 		return cue.Value{}, nil, fmt.Errorf("building module package %s: %w", mv, err)
 	}
 
-	if err := Gate(val, ModuleSpec); err != nil {
+	if err := gate(val, ModuleSpec); err != nil {
 		return cue.Value{}, nil, fmt.Errorf("validating module package %s: %w", mv, err)
 	}
 
@@ -127,9 +127,9 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // fields present and concrete (ModuleSpec.RequiredConcreteFields), so
 // the check cannot misfire on absence. A mismatch returns a bare
 // oerrors.IdentityError naming both values. Sitting after the gate in
-// LoadModulePackageWithSource, the package's single entry, the check runs for
-// every caller (Kernel.AcquireModuleFromRegistry and the frontends behind
-// it): D11's one implementation.
+// FetchModule, the registry path's single entry, the check runs for every
+// caller (Kernel.AcquireModuleFromRegistry and the frontends behind it):
+// D11's one implementation.
 //
 // There is no alternative check for a major-free declaration: the core
 // schema the library consumes requires the major-suffixed form

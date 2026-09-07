@@ -55,10 +55,11 @@ type Module struct {
 	Package cue.Value `json:"-"`
 
 	// Source is the module's staged source tree, populated only when the
-	// module was acquired through the source-carrying registry path
-	// (Kernel.AcquireModuleFromRegistry): always overlay mode, never on-disk.
-	// It is nil otherwise. Consumers that must build inside the module's own
-	// root (e.g. synth.Instance) gate on HasSource(). See [Source] for the
+	// module was acquired through a source-carrying path
+	// (Kernel.AcquireModuleFromRegistry, Kernel.AcquireModuleFromDir):
+	// always overlay mode, never on-disk. It is nil otherwise. Consumers
+	// that must build inside the module's own root — Kernel.SynthesizeInstance
+	// — gate on HasSource(). See [Source] for the
 	// full two-mode contract shared with Instance and Platform.
 	Source *Source `json:"-"`
 }

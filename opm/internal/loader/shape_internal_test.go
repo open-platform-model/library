@@ -13,7 +13,7 @@ import (
 
 // TestGate_NonStructRoot covers the structural guard that LoadDir cannot
 // exercise through a file package: a CUE package root is always a struct, so
-// a scalar root can only be reached by calling Gate directly. The guard exists
+// a scalar root can only be reached by calling gate directly. The guard exists
 // so a future non-file source (bytes loader, embedded SDK) cannot slip a
 // scalar past the gate.
 func TestGate_NonStructRoot(t *testing.T) {
@@ -23,7 +23,7 @@ func TestGate_NonStructRoot(t *testing.T) {
 		val := ctx.CompileString(src)
 		require.NoError(t, val.Err())
 
-		err := Gate(val, ModuleSpec)
+		err := gate(val, ModuleSpec)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, oerrors.ErrInvalidPackage), "src %q: want ErrInvalidPackage, got %v", src, err)
 	}

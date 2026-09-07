@@ -1,12 +1,13 @@
 // Package valuesfile renders a values cue.Value as the source of a package
 // file declaring the top-level `values` field. It is the one renderer behind
 // every place the library writes caller-supplied values into a CUE package
-// (instance synthesis in opm/helper/synth, extra values layered onto an
+// (instance synthesis in opm/internal/synth, extra values layered onto an
 // on-disk instance package by Kernel.AcquireInstanceFromDir), so the two
 // paths cannot drift.
 //
 // It lives under opm/internal/ so it stays out of the library's public
-// SemVer surface while remaining importable from opm/kernel and opm/helper.
+// SemVer surface while remaining importable from opm/kernel and the
+// kernel's other internals.
 package valuesfile
 
 import (

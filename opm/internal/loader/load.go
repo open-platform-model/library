@@ -84,7 +84,7 @@ func LoadDir(ctx *cue.Context, root, pkg string, overlay map[string][]byte, env 
 		return cue.Value{}, fmt.Errorf("building %s package from %s: %w", spec.Label, root, err)
 	}
 
-	if err := Gate(val, spec); err != nil {
+	if err := gate(val, spec); err != nil {
 		return cue.Value{}, fmt.Errorf("validating %s package in %s: %w", spec.Label, root, err)
 	}
 

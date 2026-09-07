@@ -150,6 +150,12 @@ const synthPkgDir = "opm-synth-instance"
 // it and the module may be synthesized again. Kernel.SynthesizeInstance stamps
 // it onto the resulting Instance.Source. Every error path returns a nil tree.
 func Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *module.Source, error) {
+	// Module, Name, Namespace and the staged source are checked by
+	// Kernel.SynthesizeInstance too, and deliberately so: this function
+	// dereferences Module.Metadata and Module.Source, so it states its own
+	// preconditions rather than trusting its one caller to have stated them.
+	// The duplication is a guard, not drift — both sides wrap the same
+	// opm/errors sentinel, so which one fires is invisible to a consumer.
 	if in.Module == nil {
 		return cue.Value{}, nil, oerrors.ErrMissingModule
 	}

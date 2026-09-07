@@ -106,9 +106,9 @@ func (s *Source) WriteTo(dir string) ([]string, error) {
 	return rels, nil
 }
 
-// HasSource reports whether the module carries a staged registry source tree
-// (non-nil Source with a populated overlay). Consumers that must build inside
-// the module's own root — e.g. synth.Instance — gate on this and return a
+// HasSource reports whether the module carries a staged source tree (non-nil
+// Source with a populated overlay). Consumers that must build inside the
+// module's own root — Kernel.SynthesizeInstance — gate on this and return a
 // deterministic error when it is false, rather than silently fetching.
 func (m *Module) HasSource() bool {
 	return m != nil && m.Source != nil && m.Source.Root != "" && len(m.Source.Overlay) > 0

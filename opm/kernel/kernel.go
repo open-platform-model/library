@@ -139,9 +139,10 @@ func (k *Kernel) CueContext() *cue.Context {
 // [schema.Cache.Get] invocation contacts CUE; the load is lazy and
 // memoized.
 //
-// Typical use: pass to [synth.InstanceInput.SchemaCache] before calling
-// instance synthesis, or read [schema.Cache.ResolvedVersion] for
-// diagnostics after a schema-touching operation has run.
+// Typical use: read [schema.Cache.ResolvedVersion] for diagnostics after a
+// schema-touching operation has run. Nothing needs to be passed back in —
+// every kernel operation that needs the schema, instance synthesis
+// included, resolves it through this cache on its own.
 func (k *Kernel) SchemaCache() *schema.Cache {
 	return k.schemaCache
 }

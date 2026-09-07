@@ -92,11 +92,11 @@ var (
 	}
 )
 
-// Gate runs the structural validation described by spec against a freshly built
+// gate runs the structural validation described by spec against a freshly built
 // artifact value. It is the acquisition boundary's fast-fail check: it confirms
 // the artifact is the right kind and carries concrete identity, but deliberately
 // stops short of full schema validation, which is the kernel's contract.
-func Gate(val cue.Value, spec ArtifactSpec) error {
+func gate(val cue.Value, spec ArtifactSpec) error {
 	if val.IncompleteKind() != cue.StructKind {
 		return fmt.Errorf("package root is %s, not a struct: %w", val.IncompleteKind(), oerrors.ErrInvalidPackage)
 	}
