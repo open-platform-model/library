@@ -12,6 +12,11 @@
 package render
 
 import (
+	"list"
+	"regexp"
+	"strconv"
+	"strings"
+
 	instance <<.InstanceImport>>
 	platform <<.PlatformImport>>
 )
@@ -22,6 +27,76 @@ _runtimeName: <<.RuntimeName>>
 
 _transformers: platform.#composedTransformers
 _components:   instance.components
+
+// ── The D34/D4 apiVersion ladder, in the build.
+//
+// #ladder classifies a contract key's apiVersion (the substring after the
+// final "@") on the Kubernetes ladder: vNalphaM -> vNbetaM -> vN. The grammar
+// is core's #APIVersionType, so a digit after alpha/beta is required and
+// "v1alpha" is invalid. An invalid key is ordered, never dropped.
+#ladder: {
+	key:    string
+	_parts: strings.Split(key, "@")
+	_ver:   _parts[len(_parts)-1]
+
+	valid: regexp.Match(#"^v[0-9]+((alpha|beta)[0-9]+)?$"#, _ver)
+
+	if valid {
+		_m:    regexp.FindSubmatch(#"^v([0-9]+)(?:(alpha|beta)([0-9]+))?$"#, _ver)
+		major: strconv.Atoi(_m[1])
+		level: [if _m[2] == "alpha" {0}, if _m[2] == "beta" {1}, if _m[2] == "" {2}][0]
+		minor: [if _m[3] == "" {0}, if _m[3] != "" {strconv.Atoi(_m[3])}][0]
+	}
+	if !valid {
+		major: 0
+		level: 0
+		minor: 0
+	}
+}
+
+// #apiVersionLess is a list.Sort comparator over contract keys: level first
+// (alpha < beta < GA), then major, then the alpha/beta number, then the key
+// string so the order is total. A key outside the grammar sorts before every
+// valid one, lexically among themselves. This is the only apiVersion ladder
+// in the render path; the kernel copies the sorted list.
+#apiVersionLess: {
+	x: string
+	y: string
+	_x: #ladder & {key: x}
+	_y: #ladder & {key: y}
+	less: [
+		if _x.valid != _y.valid {_y.valid},
+		if !_x.valid && !_y.valid {x < y},
+		if _x.valid && _y.valid && _x.level != _y.level {_x.level < _y.level},
+		if _x.valid && _y.valid && _x.level == _y.level && _x.major != _y.major {_x.major < _y.major},
+		if _x.valid && _y.valid && _x.level == _y.level && _x.major == _y.major && _x.minor != _y.minor {_x.minor < _y.minor},
+		if _x.valid && _y.valid && _x.level == _y.level && _x.major == _y.major && _x.minor == _y.minor {x < y},
+	][0]
+}
+
+// #base is a contract key without its trailing "@version".
+#base: {
+	fqn:    string
+	_parts: strings.Split(fqn, "@")
+	out: [
+		if len(_parts) == 1 {fqn},
+		if len(_parts) > 1 {strings.Join(list.Slice(_parts, 0, len(_parts)-1), "@")},
+	][0]
+}
+
+// #alternatives is every OTHER key in a demand's own bucket universe sharing
+// its base: "a transformer exists for a different version of this primitive",
+// in ladder order (0010 D34/D4), so the row is deterministic.
+#alternatives: {
+	universe: {[string]: _}
+	fqn:      string
+	_want:    (#base & {"fqn": fqn}).out
+	out: list.Sort([
+		for _k, _ in universe
+		if _k != fqn
+		if (#base & {fqn: _k}).out == _want {_k},
+	], #apiVersionLess)
+}
 
 #Match: {
 	#transformers: [string]: _
@@ -124,10 +199,6 @@ _components:   instance.components
 					if _pred[tfqn].ok {(tfqn): true}
 				}
 
-				// Hard misses: demanded FQN, no bucket.
-				missingResources: [for _, fqn in _resFqns if _bucketsResources[fqn] == _|_ {fqn}]
-				missingTraits: [for _, fqn in _traitFqns if _bucketsTraits[fqn] == _|_ {fqn}]
-
 				// D28 per-demand resolution: satisfied iff some candidate in
 				// ITS bucket survived both rungs; an empty bucket and an
 				// all-disqualified bucket are one verdict with different
@@ -144,14 +215,23 @@ _components:   instance.components
 							disqualified: [
 								if _bucketsResources[fqn] != _|_
 								for tfqn, _ in _bucketsResources[fqn]
-								if !_unify[tfqn].ok {tfqn},
+								if !_unify[tfqn].ok {{
+									component:   cid
+									transformer: tfqn
+									conflicts:   _unify[tfqn].conflicts
+								}},
 							]
 						}
 					}
 				}
 				unresolvedResources: [
 					for _, _f in _resFqns if !_resOutcome[_f].satisfied {
-						{kind: "resource", fqn: _f, disqualified: _resOutcome[_f].disqualified}
+						{
+							kind:         "resource"
+							fqn:          _f
+							alternatives: (#alternatives & {universe: _bucketsResources, fqn: _f}).out
+							disqualified: _resOutcome[_f].disqualified
+						}
 					},
 				]
 
@@ -167,7 +247,11 @@ _components:   instance.components
 							disqualified: [
 								if _bucketsTraits[fqn] != _|_
 								for tfqn, _ in _bucketsTraits[fqn]
-								if !_unify[tfqn].ok {tfqn},
+								if !_unify[tfqn].ok {{
+									component:   cid
+									transformer: tfqn
+									conflicts:   _unify[tfqn].conflicts
+								}},
 							]
 						}
 					}
@@ -199,7 +283,12 @@ _components:   instance.components
 					for _, _f in _traitFqns
 					if !_handled[_f]
 					if !comp.#traits[_f].optional {
-						{kind: "trait", fqn: _f, disqualified: _traitOutcome[_f].disqualified}
+						{
+							kind:         "trait"
+							fqn:          _f
+							alternatives: (#alternatives & {universe: _bucketsTraits, fqn: _f}).out
+							disqualified: _traitOutcome[_f].disqualified
+						}
 					},
 				]
 			}
@@ -211,13 +300,24 @@ _components:   instance.components
 		for cid, v in verdicts
 		for tfqn, _ in v.matched {{component: cid, transformer: tfqn}},
 	]
-	unmatchedComponents: [for cid, v in verdicts if len(v.matched) == 0 {cid}]
-	missing: [
-		for cid, v in verdicts
-		for _, _f in v.missingResources {{component: cid, kind: "resource", fqn: _f}},
-		for cid, v in verdicts
-		for _, _f in v.missingTraits {{component: cid, kind: "trait", fqn: _f}},
-	]
+	// One row per unmatched component carrying every candidate the rung-1
+	// walk reached for it, with the predicate rung's verdict (which required
+	// labels the component's matchLabels lacked or carried with a different
+	// value). A candidate the always-unify rung refused appears unmatched
+	// with no missing labels; its conflict is on unifyFailures. Sorted by
+	// component then transformer so the diagnosis is deterministic.
+	unmatched: list.Sort([
+		for cid, v in verdicts if len(v.matched) == 0 {{
+			component: cid
+			candidates: list.Sort([
+				for tfqn, _ in v._candidates {{
+					transformer:   tfqn
+					matched:       v.matched[tfqn] != _|_
+					missingLabels: v._pred[tfqn].missingLabels
+				}},
+			], {x: _, y: _, less: x.transformer < y.transformer})
+		}},
+	], {x: _, y: _, less: x.component < y.component})
 	unresolved: [
 		for cid, v in verdicts
 		for _, u in v.unresolvedResources {{u, component: cid}},
@@ -237,29 +337,7 @@ _components:   instance.components
 		if v._candidates[tfqn] != _|_
 		if !u.ok {{component: cid, transformer: tfqn, conflicts: u.conflicts}},
 	]
-	// Every candidate the rung-1 walk reached, with its predicate verdict:
-	// the match matrix behind an unmatched component (which transformers
-	// were evaluated, and which required labels the component's matchLabels
-	// lacked or carried with a different value). A candidate the always-
-	// unify rung refused appears unmatched with no missing labels; its
-	// conflict is on unifyFailures.
-	candidates: [
-		for cid, v in verdicts
-		for tfqn, _ in v._candidates {{
-			component:     cid
-			transformer:   tfqn
-			matched:       v.matched[tfqn] != _|_
-			missingLabels: v._pred[tfqn].missingLabels
-		}},
-	]
-	// The contract-key universe the platform's transformers name, for the
-	// kernel's same-base alternatives on a missing demand.
-	bucketKeys: {
-		resources: [for fqn, _ in _bucketsResources {fqn}]
-		traits: [for fqn, _ in _bucketsTraits {fqn}]
-	}
-
-	resolved: len(unresolved) == 0 && len(unmatchedComponents) == 0
+	resolved: len(unresolved) == 0 && len(unmatched) == 0
 }
 
 match: #Match & {
@@ -292,10 +370,13 @@ guard: {
 			}
 		}
 	}
-	overSubscribed: [
+	overSubscribed: list.Sort([
 		for _k, suppliers in _providerSuppliers
-		if len(suppliers) > 1 {{key: _k, catalogs: [for rkey, _ in suppliers {rkey}]}},
-	]
+		if len(suppliers) > 1 {{
+			key:      _k
+			catalogs: list.Sort([for rkey, _ in suppliers {rkey}], list.Ascending)
+		}},
+	], {x: _, y: _, less: x.key < y.key})
 }
 
 // Each matched pair's #transform, unified with all three inputs whole:
@@ -318,16 +399,12 @@ rendered: {
 }
 
 diagnostics: {
-	pairs:               match.pairs
-	unmatchedComponents: match.unmatchedComponents
-	missing:             match.missing
-	unresolved:          match.unresolved
-	warnings:            match.warnings
-	unifyFailures:       match.unifyFailures
-	candidates:          match.candidates
-	bucketKeys:          match.bucketKeys
-	resolved:            match.resolved
-	overSubscribed:      guard.overSubscribed
+	pairs:          match.pairs
+	unmatched:      match.unmatched
+	unresolved:     match.unresolved
+	warnings:       match.warnings
+	unifyFailures:  match.unifyFailures
+	overSubscribed: guard.overSubscribed
 	// Every attached trait's effective posture. A posture the catalog never
 	// stated is an incomplete bool here, which is how the kernel names the
 	// trait behind an otherwise anonymous non-concrete verdict.

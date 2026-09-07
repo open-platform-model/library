@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
@@ -67,6 +66,23 @@ func acquireRenderInstance(t *testing.T, k *kernel.Kernel, parts ...string) *mod
 	return inst
 }
 
+// assertGateAgrees pins the render module's own fail-closed gate against the
+// kernel's verdict: `gate` evaluates to an error exactly when the kernel
+// refuses on a decoded verdict, and to true otherwise, so a staged render
+// module refuses on its own under a plain CUE evaluation.
+func assertGateAgrees(t *testing.T, built cue.Value, refused bool) {
+	t.Helper()
+	gate := built.LookupPath(cue.ParsePath("gate"))
+	require.True(t, gate.Exists(), "the render module carries a gate field")
+	if refused {
+		assert.Error(t, gate.Err(), "a refused render's gate is an error")
+		return
+	}
+	ok, err := gate.Bool()
+	require.NoError(t, err, "a passing render's gate is a concrete bool")
+	assert.True(t, ok, "a passing render's gate is true")
+}
+
 func renderPairSet(pairs []kernel.RenderPair) []string {
 	out := make([]string, 0, len(pairs))
 	for _, p := range pairs {
@@ -76,7 +92,15 @@ func renderPairSet(pairs []kernel.RenderPair) []string {
 	return out
 }
 
-func compiledSummary(t *testing.T, compiled []*core.Compiled) []string {
+func unmatchedNames(rows []oerrors.UnmatchedComponent) []string {
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.Component)
+	}
+	return out
+}
+
+func compiledSummary(t *testing.T, compiled []*kernel.Compiled) []string {
 	t.Helper()
 	out := make([]string, 0, len(compiled))
 	for _, c := range compiled {
@@ -94,8 +118,9 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform")
 	inst := acquireRenderInstance(t, k, "instance")
 
-	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "render-test"})
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "render-test"})
 	require.NoError(t, err)
+	assertGateAgrees(t, built, false)
 
 	assert.Equal(t, []string{
 		"config :: configmap-transformer@0.1.0",
@@ -106,7 +131,7 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 	assert.Empty(t, res.Diagnostics.Unify)
 	assert.Empty(t, res.Diagnostics.Unmatched)
 	assert.Empty(t, res.Diagnostics.FailedPairs)
-	assert.Empty(t, res.Warnings)
+	assert.Empty(t, res.Diagnostics.UnhandledTraits, "no advisory rows on a clean render")
 
 	// Provenance on every object; the ConfigMap list splits per item.
 	assert.ElementsMatch(t, []string{
@@ -218,8 +243,9 @@ func TestRender_MissingFQN_RefusesWithAlternatives(t *testing.T) {
 	inst := acquireRenderInstance(t, k, "scenarios", "missing")
 	assert.Equal(t, "missing", inst.Source.Pkg, "a subpackage acquisition stamps the enclosing module root and the package dir")
 
-	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
+	assertGateAgrees(t, built, true)
 
 	var rerr *kernel.RenderError
 	require.ErrorAs(t, err, &rerr, "post-build refusals carry the decoded diagnostics")
@@ -248,38 +274,67 @@ func TestRender_MissingFQN_RefusesWithAlternatives(t *testing.T) {
 	assert.Len(t, agg.Demands, 2)
 }
 
+// TestRender_AlternativesArriveInLadderOrder pins the D34/D4 apiVersion
+// ladder as the build applies it (single-build-render, "Different apiVersion
+// named"): the platform implements the ladder base at v1alpha1, v1beta1 and
+// v1, the component demands v2, and the row lists the three in alpha < beta <
+// GA order -- not the lexical order a plain string sort would produce.
+func TestRender_AlternativesArriveInLadderOrder(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "ladder")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+
+	require.Len(t, rerr.Diagnostics.Unresolved, 1)
+	d := rerr.Diagnostics.Unresolved[0]
+	assert.Equal(t, renderCatPath+"/resources/ladder@v2", d.FQN)
+	assert.Equal(t, []string{
+		renderCatPath + "/resources/ladder@v1alpha1",
+		renderCatPath + "/resources/ladder@v1beta1",
+		renderCatPath + "/resources/ladder@v1",
+	}, d.Alternatives, "the build sorts the same-base keys on the ladder, not lexically")
+	assert.Empty(t, d.Disqualified, "an empty bucket has no disqualified candidates")
+}
+
 func TestRender_DisqualifiedCandidateIsData(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
 	inst := acquireRenderInstance(t, k, "scenarios", "disqualified")
 
-	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
+	assertGateAgrees(t, built, true)
 	var rerr *kernel.RenderError
 	require.ErrorAs(t, err, &rerr)
 
 	narrowFQN := renderCatPath + "/resources/narrow@v1"
 	narrowTx := renderTxPath + "/narrow-transformer@0.1.0"
 	require.Len(t, rerr.Diagnostics.Unify, 1, "the always-unify rung disqualified the only candidate")
-	assert.Equal(t, "narrow", rerr.Diagnostics.Unify[0].Component)
-	assert.Equal(t, narrowFQN, rerr.Diagnostics.Unify[0].FQN)
-	assert.Contains(t, rerr.Diagnostics.Unify[0].Cause.Error(), narrowTx)
+	assert.Equal(t, oerrors.UnifyRefusal{Component: "narrow", Transformer: narrowTx, Conflicts: []string{narrowFQN}},
+		rerr.Diagnostics.Unify[0], "one row per candidate, listing the FQNs it conflicted at")
 
 	require.Len(t, rerr.Diagnostics.Unresolved, 1)
 	d := rerr.Diagnostics.Unresolved[0]
 	assert.Equal(t, narrowFQN, d.FQN)
-	assert.Len(t, d.Disqualified, 1, "the demand names its disqualified candidate")
-	assert.Equal(t, narrowFQN, d.Disqualified[0].FQN)
+	require.Len(t, d.Disqualified, 1, "the demand names its disqualified candidate")
+	assert.Equal(t, rerr.Diagnostics.Unify[0], d.Disqualified[0],
+		"the demand's disqualified row is the same row the unify verdicts carry")
 	assert.Empty(t, d.Alternatives)
-	assert.Equal(t, []string{"narrow"}, rerr.Diagnostics.Unmatched)
+	assert.Equal(t, []string{"narrow"}, unmatchedNames(rerr.Diagnostics.Unmatched))
 
 	var unmatched *oerrors.UnmatchedComponentsError
 	require.ErrorAs(t, err, &unmatched)
-	assert.Equal(t, []string{"narrow"}, unmatched.Components)
-	row := unmatched.Matches["narrow"]
-	require.Len(t, row, 1, "the matrix names the one candidate the demand walk reached")
-	assert.False(t, row[narrowTx].Matched)
-	assert.Empty(t, row[narrowTx].MissingLabels, "a unify refusal carries no missing labels; its conflict is on Diagnostics.Unify")
+	assert.Equal(t, rerr.Diagnostics.Unmatched, unmatched.Components,
+		"the gate cause carries the diagnostics rows unchanged")
+	require.Len(t, unmatched.Components[0].Candidates, 1, "the row names the one candidate the demand walk reached")
+	assert.Equal(t, oerrors.CandidateVerdict{Transformer: narrowTx, MissingLabels: []string{}},
+		unmatched.Components[0].Candidates[0],
+		"a unify refusal carries no missing labels; its conflict is on Diagnostics.Unify")
 }
 
 // TestRender_MislabeledCandidateRefusedAsMissingLabel pins the predicate rung
@@ -294,8 +349,9 @@ func TestRender_MislabeledCandidateRefusedAsMissingLabel(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform")
 	inst := acquireRenderInstance(t, k, "scenarios", "mislabeled")
 
-	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
+	assertGateAgrees(t, built, true)
 	var rerr *kernel.RenderError
 	require.ErrorAs(t, err, &rerr)
 
@@ -307,14 +363,17 @@ func TestRender_MislabeledCandidateRefusedAsMissingLabel(t *testing.T) {
 	assert.Equal(t, tieredFQN, d.FQN)
 	assert.Empty(t, d.Disqualified)
 	assert.Empty(t, d.Alternatives)
-	assert.Equal(t, []string{"tiered"}, rerr.Diagnostics.Unmatched)
+	assert.Equal(t, []oerrors.UnmatchedComponent{{
+		Component: "tiered",
+		Candidates: []oerrors.CandidateVerdict{
+			{Transformer: tieredTx, Matched: false, MissingLabels: []string{"render.test/tier"}},
+		},
+	}}, rerr.Diagnostics.Unmatched, "the candidate matrix is on the diagnostics, not only on the refusal")
 
 	var unmatched *oerrors.UnmatchedComponentsError
 	require.ErrorAs(t, err, &unmatched)
-	assert.Equal(t, []string{"tiered"}, unmatched.Components)
-	assert.Equal(t, map[string]oerrors.MatchResult{
-		tieredTx: {Matched: false, MissingLabels: []string{"render.test/tier"}},
-	}, unmatched.Matches["tiered"], "the candidate was evaluated and refused on the mismatched int label")
+	assert.Equal(t, rerr.Diagnostics.Unmatched, unmatched.Components,
+		"the typed cause carries the same row")
 	assert.Contains(t, unmatched.Error(), "render.test/tier")
 }
 
@@ -323,14 +382,13 @@ func TestRender_EffectivelyOptionalTraitWarns(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform")
 	inst := acquireRenderInstance(t, k, "scenarios", "warning")
 
-	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
-	require.NoError(t, err, "an advisory unhandled trait degrades to a warning")
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err, "an advisory unhandled trait does not refuse the render")
+	assertGateAgrees(t, built, false)
 	assert.Equal(t, []string{"web :: deployment-transformer@0.1.0"}, renderPairSet(res.Diagnostics.Pairs))
 	sidecar := renderCatPath + "/traits/sidecar@v1"
-	assert.Equal(t, map[string][]string{"web": {sidecar}}, res.Diagnostics.UnhandledTraits)
-	require.Len(t, res.Warnings, 1)
-	assert.Contains(t, res.Warnings[0], sidecar)
-	assert.Contains(t, res.Warnings[0], "not handled by any matched transformer")
+	assert.Equal(t, map[string][]string{"web": {sidecar}}, res.Diagnostics.UnhandledTraits,
+		"the advisory fact is a row; no field of the result holds a formatted message")
 	assert.Equal(t, []string{"web/Deployment/warning-demo-web"}, compiledSummary(t, res.Compiled))
 }
 
@@ -360,8 +418,8 @@ func TestRender_IncompletePairRefusesNamingPair(t *testing.T) {
 	assert.Empty(t, rerr.Diagnostics.FailedPairs, "an incomplete output is not bottom: invisible to the glue's guards")
 	var terr *oerrors.TransformError
 	require.ErrorAs(t, err, &terr, "the kernel's own concreteness check names the pair")
-	assert.Equal(t, "hole", terr.ComponentName)
-	assert.Equal(t, renderTxPath+"/incomplete-transformer@0.1.0", terr.TransformerFQN)
+	assert.Equal(t, "hole", terr.Component)
+	assert.Equal(t, renderTxPath+"/incomplete-transformer@0.1.0", terr.Transformer)
 	assert.Contains(t, terr.Cause.Error(), "not concrete")
 	assert.Contains(t, terr.Cause.Error(), "metadata.name")
 	// The healthy sibling pair was matched and is not blamed.
@@ -390,8 +448,8 @@ func TestRender_FailingPairIsDataBesideHealthy(t *testing.T) {
 	}, renderPairSet(rerr.Diagnostics.Pairs), "sibling verdicts stay readable")
 	var terr *oerrors.TransformError
 	require.ErrorAs(t, err, &terr)
-	assert.Equal(t, "crash", terr.ComponentName)
-	assert.Equal(t, brokenTx, terr.TransformerFQN)
+	assert.Equal(t, "crash", terr.Component)
+	assert.Equal(t, brokenTx, terr.Transformer)
 	assert.NotContains(t, err.Error(), `component "web"`)
 }
 
@@ -400,12 +458,9 @@ func TestRender_Skew_NewerModuleWarnsByDefault(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform") // carries cat 0.1.0
 	inst := synthRenderInstance(t, k, "0.2.0")      // requires cat 0.2.0
 
-	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err, "warn-and-render is the default")
-	require.Len(t, res.Warnings, 1)
-	assert.Contains(t, res.Warnings[0], renderCatPath+"@v0")
-	assert.Contains(t, res.Warnings[0], "v0.2.0")
-	assert.Contains(t, res.Warnings[0], "v0.1.0")
+	assertGateAgrees(t, built, false)
 	assert.Equal(t, []kernel.ResolvedVersion{
 		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: "v2.0.0-alpha.7"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.2.0", PlatformVersion: "v0.1.0", Newer: true},
@@ -438,9 +493,9 @@ func TestRender_Skew_OlderModuleIsData(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform_next") // carries cat 0.2.0
 	inst := synthRenderInstance(t, k, "0.1.0")           // requires cat 0.1.0
 
-	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", Skew: kernel.SkewRefuse})
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", Skew: kernel.SkewRefuse})
 	require.NoError(t, err, "older-than-platform is not skew, even under the refuse policy")
-	assert.Empty(t, res.Warnings)
+	assertGateAgrees(t, built, false)
 	assert.Equal(t, []kernel.ResolvedVersion{
 		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: "v2.0.0-alpha.7"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.2.0"},
@@ -475,7 +530,6 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	assert.Equal(t, before, stagingDirs(t), "each render removes its staging directory on return")
 
 	assert.Equal(t, first.Diagnostics, second.Diagnostics)
-	assert.Equal(t, first.Warnings, second.Warnings)
 	require.Len(t, second.Compiled, len(first.Compiled))
 	for i := range first.Compiled {
 		a, err := first.Compiled[i].Value.MarshalJSON()
@@ -502,18 +556,21 @@ func TestRender_OverSubscribedProviderRefused(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform_oversubscribed")
 	inst := acquireRenderInstance(t, k, "instance")
 
-	_, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
+	assertGateAgrees(t, built, true)
 	var rerr *kernel.RenderError
 	require.ErrorAs(t, err, &rerr, "the refusal is the gate, with the decoded diagnostics beside it")
 
 	gateway := renderCatPath + "/resources/gateway@v1"
-	var ose oerrors.OverSubscribedContractError
+	var ose *oerrors.OverSubscribedContractsError
 	require.ErrorAs(t, err, &ose)
-	assert.Equal(t, gateway, ose.Key)
-	assert.Equal(t, []string{renderPrefix + "/cat2@v0", renderCatPath + "@v0"}, ose.Catalogs,
+	require.Len(t, ose.Contracts, 1, "every row is joined into the gate once, as one cause")
+	assert.Equal(t, gateway, ose.Contracts[0].Key)
+	assert.Equal(t, []string{renderPrefix + "/cat2@v0", renderCatPath + "@v0"}, ose.Contracts[0].Catalogs,
 		"provenance is the registry key of each supplying entry, sorted")
-	assert.Equal(t, []oerrors.OverSubscribedContractError{ose}, rerr.Diagnostics.OverSubscribed)
+	assert.Equal(t, rerr.Diagnostics.OverSubscribed, ose.Contracts,
+		"the cause carries the diagnostics rows unchanged")
 	assert.Contains(t, err.Error(), `fulfilment "provider"`)
 	assert.Contains(t, err.Error(), "exactly one provider")
 
@@ -540,8 +597,9 @@ func TestRender_CatalogFulfilledPluralityRenders(t *testing.T) {
 	plat := acquireRenderPlatform(t, k, "platform_two")
 	inst := acquireRenderInstance(t, k, "instance")
 
-	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err, "catalog-fulfilled keys admit any number of suppliers")
+	assertGateAgrees(t, built, false)
 	assert.Empty(t, res.Diagnostics.OverSubscribed)
 	assert.Equal(t, []string{
 		"config :: configmap-transformer@0.1.0",
@@ -582,7 +640,7 @@ func TestRender_WithRegistryDoesNotMutateEnv(t *testing.T) {
 
 // summarize is compiledSummary without test assertions, safe to call from a
 // goroutine.
-func summarize(compiled []*core.Compiled) ([]string, error) {
+func summarize(compiled []*kernel.Compiled) ([]string, error) {
 	out := make([]string, 0, len(compiled))
 	for _, c := range compiled {
 		kind, err := c.Value.LookupPath(cue.ParsePath("kind")).String()

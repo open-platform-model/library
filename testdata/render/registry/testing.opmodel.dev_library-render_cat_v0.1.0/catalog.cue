@@ -89,6 +89,61 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	spec: orphan: size!: string
 }
 
+// The ladder family pins the D34/D4 apiVersion ordering of a demand's
+// same-base alternatives: the three levels below are each implemented by a
+// transformer, ladder@v2 is not, so a demand for ladder@v2 is a hard miss
+// whose alternatives must arrive alpha < beta < GA -- an order lexical
+// sorting does not produce.
+#LadderV1Alpha1Resource: c.#Resource & {
+	metadata: {
+		name:           "ladder"
+		modulePath:     "\(_res)/v1alpha1"
+		apiVersion:     "v1alpha1"
+		catalogVersion: _version
+		fqn:            "\(_res)/ladder@v1alpha1"
+		description:    "The ladder contract at apiVersion v1alpha1"
+	}
+	spec: ladder: rung!: string
+}
+
+#LadderV1Beta1Resource: c.#Resource & {
+	metadata: {
+		name:           "ladder"
+		modulePath:     "\(_res)/v1beta1"
+		apiVersion:     "v1beta1"
+		catalogVersion: _version
+		fqn:            "\(_res)/ladder@v1beta1"
+		description:    "The ladder contract at apiVersion v1beta1"
+	}
+	spec: ladder: rung!: string
+}
+
+#LadderV1Resource: c.#Resource & {
+	metadata: {
+		name:           "ladder"
+		modulePath:     "\(_res)/v1"
+		apiVersion:     "v1"
+		catalogVersion: _version
+		fqn:            "\(_res)/ladder@v1"
+		description:    "The ladder contract at apiVersion v1"
+	}
+	spec: ladder: rung!: string
+}
+
+// No transformer requires this: a demand for it is the hard miss the ladder
+// alternatives are reported against.
+#LadderV2Resource: c.#Resource & {
+	metadata: {
+		name:           "ladder"
+		modulePath:     "\(_res)/v2"
+		apiVersion:     "v2"
+		catalogVersion: _version
+		fqn:            "\(_res)/ladder@v2"
+		description:    "The ladder contract at apiVersion v2"
+	}
+	spec: ladder: rung!: string
+}
+
 // Required by narrow-transformer NARROWED to a name the demanding component
 // never uses, so the always-unify rung disqualifies the only candidate.
 #NarrowResource: c.#Resource & {
@@ -366,6 +421,57 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 			output: {
 				apiVersion: "v1"
 				kind:       "OrphanStore"
+				metadata: name: #component.#names.resourceName
+			}
+		}
+	}
+
+	"\(_tx)/ladder-v1alpha1-transformer@\(_version)": {
+		metadata: {
+			name:        "ladder-v1alpha1-transformer"
+			fqn:         "\(_tx)/ladder-v1alpha1-transformer@\(_version)"
+			description: "Handles the ladder contract at apiVersion v1alpha1 only"
+		}
+		requiredResources: (#LadderV1Alpha1Resource.metadata.fqn): #LadderV1Alpha1Resource
+		#transform: {
+			#component: _
+			output: {
+				apiVersion: "v1"
+				kind:       "LadderRung"
+				metadata: name: #component.#names.resourceName
+			}
+		}
+	}
+
+	"\(_tx)/ladder-v1beta1-transformer@\(_version)": {
+		metadata: {
+			name:        "ladder-v1beta1-transformer"
+			fqn:         "\(_tx)/ladder-v1beta1-transformer@\(_version)"
+			description: "Handles the ladder contract at apiVersion v1beta1 only"
+		}
+		requiredResources: (#LadderV1Beta1Resource.metadata.fqn): #LadderV1Beta1Resource
+		#transform: {
+			#component: _
+			output: {
+				apiVersion: "v1"
+				kind:       "LadderRung"
+				metadata: name: #component.#names.resourceName
+			}
+		}
+	}
+
+	"\(_tx)/ladder-v1-transformer@\(_version)": {
+		metadata: {
+			name:        "ladder-v1-transformer"
+			fqn:         "\(_tx)/ladder-v1-transformer@\(_version)"
+			description: "Handles the ladder contract at apiVersion v1 only"
+		}
+		requiredResources: (#LadderV1Resource.metadata.fqn): #LadderV1Resource
+		#transform: {
+			#component: _
+			output: {
+				apiVersion: "v1"
+				kind:       "LadderRung"
 				metadata: name: #component.#names.resourceName
 			}
 		}

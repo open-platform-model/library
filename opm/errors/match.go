@@ -4,32 +4,24 @@ import (
 	"fmt"
 )
 
-// UnifyError is the structured diagnostic for a unification failure between a
-// consumer component's primitive body and a candidate transformer's required
-// primitive body at the same FQN (the always-unify rung).
+// UnifyRefusal is one row of the always-unify rung: a candidate transformer
+// whose required primitive bodies conflict with the component's own bodies.
+// It is data, not an error — the rung's verdicts are carried on the render
+// diagnostics and aggregated into a gate cause, never raised on their own.
 //
-// Cause carries the CUE error tree verbatim — no Go-side reformatting — so a
-// frontend can walk it via [Unwrap] / [errors.As] for a
-// cuelang.org/go/cue/errors.Error and render the native
-// `conflicting values "X" and "Y": file:line file:line` message.
-type UnifyError struct {
-	// Component is the component whose body diverged.
+// The conflict is reported as the FQNs it occurred at, not as a CUE error
+// tree: the glue decides the verdict inside the build and a CUE error is not
+// exportable from there (0019 D10).
+type UnifyRefusal struct {
+	// Component is the component whose bodies diverged.
 	Component string
 
-	// FQN is the primitive FQN at which the bodies conflicted.
-	FQN string
+	// Transformer is the FQN of the candidate that was disqualified.
+	Transformer string
 
-	// Cause is the verbatim CUE error tree, reachable via errors.As for
-	// cuelang.org/go/cue/errors.Error.
-	Cause error
-}
-
-func (e UnifyError) Error() string {
-	return fmt.Sprintf("component %q, fqn %q: %v", e.Component, e.FQN, e.Cause)
-}
-
-func (e UnifyError) Unwrap() error {
-	return e.Cause
+	// Conflicts are the primitive FQNs at which the bodies conflicted, in
+	// the build's order.
+	Conflicts []string
 }
 
 // UnresolvedDemand is the structured diagnostic for a demanded contract key
@@ -43,6 +35,8 @@ func (e UnifyError) Unwrap() error {
 // The D4 contract-key diagnostic is carried by Alternatives: empty means
 // nothing on this platform implements the contract at any version; non-empty
 // means the contract base is implemented at a different apiVersion only.
+//
+// It is data, not an error; [UnresolvedDemandsError] is the gate cause.
 type UnresolvedDemand struct {
 	// Component is the component whose demand went unresolved.
 	Component string
@@ -55,50 +49,43 @@ type UnresolvedDemand struct {
 
 	// Alternatives is the same-base contract-key set the platform does
 	// implement, in contract-key order (kube-aware apiVersion ladder,
-	// D34/D4). Empty when nothing implements the contract.
+	// D34/D4, applied inside the build). Empty when nothing implements the
+	// contract.
 	Alternatives []string
 
-	// Disqualified carries, when candidates existed, the unify failures that
+	// Disqualified carries, when candidates existed, the unify refusals that
 	// disqualified them. Predicate-disqualified candidates contribute no
-	// entry (there is no unify cause to carry).
-	Disqualified []UnifyError
+	// entry (there is no unify conflict to carry).
+	Disqualified []UnifyRefusal
 }
 
-func (e UnresolvedDemand) Error() string {
-	msg := fmt.Sprintf("component %q: unresolved %s demand %q", e.Component, e.Kind, e.FQN)
-	if len(e.Alternatives) > 0 {
-		msg += fmt.Sprintf(": implemented at a different apiVersion (alternatives: %v)", e.Alternatives)
+// describe renders one unresolved demand as a line of an aggregate's message.
+func (d UnresolvedDemand) describe() string {
+	msg := fmt.Sprintf("component %q: unresolved %s demand %q", d.Component, d.Kind, d.FQN)
+	if len(d.Alternatives) > 0 {
+		msg += fmt.Sprintf(": implemented at a different apiVersion (alternatives: %v)", d.Alternatives)
 	} else {
 		msg += ": nothing on this platform implements this contract"
 	}
-	if len(e.Disqualified) > 0 {
-		msg += fmt.Sprintf("; %d candidate(s) disqualified", len(e.Disqualified))
+	if len(d.Disqualified) > 0 {
+		msg += fmt.Sprintf("; %d candidate(s) disqualified", len(d.Disqualified))
 	}
 	return msg
 }
 
-// UnresolvedDemandsError aggregates every unresolved demand of a plan into
-// the typed error Render fails with through the gate (D28). Each demand is reachable via
-// Unwrap() []error for errors.As routing.
+// UnresolvedDemandsError aggregates every unresolved demand of a render into
+// the typed cause Render fails with through the fail-closed gate (D28). It
+// carries the diagnostics' rows unchanged and wraps nothing: a row is data,
+// so there is no cause of another kind underneath.
 type UnresolvedDemandsError struct {
-	// Demands is the full unresolved-demand set, in plan order.
+	// Demands is the full unresolved-demand set, in build order.
 	Demands []UnresolvedDemand
 }
 
 func (e *UnresolvedDemandsError) Error() string {
 	msg := fmt.Sprintf("%d unresolved demand(s):", len(e.Demands))
 	for _, d := range e.Demands {
-		msg += "\n  " + d.Error()
+		msg += "\n  " + d.describe()
 	}
 	return msg
-}
-
-// Unwrap exposes each UnresolvedDemand so callers can route on the value type
-// via errors.As.
-func (e *UnresolvedDemandsError) Unwrap() []error {
-	errs := make([]error, 0, len(e.Demands))
-	for _, d := range e.Demands {
-		errs = append(errs, d)
-	}
-	return errs
 }

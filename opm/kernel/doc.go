@@ -98,15 +98,33 @@
 // imports its catalogs), stages one generated render module that imports
 // both, builds it once, and decodes the matching verdicts
 // ([RenderDiagnostics]) and the rendered output ([RenderResult.Compiled],
-// one entry per rendered object with instance, component and transformer
-// provenance). Matching and transformer execution are CUE inside the build,
+// one entry per rendered object as a [*Compiled] carrying instance,
+// component and transformer provenance). Matching and transformer execution are CUE inside the build,
 // not Go; the build reports its verdicts as data and the kernel's fail-closed
 // gate turns an unresolved demand, an unmatched component or an
 // over-subscribed provider-fulfilled contract into a [*RenderError] that
 // carries the full diagnostics, with the typed causes reachable through
 // errors.As. Catalog version skew (the instance module requiring a newer
-// OPM-namespace build than the platform carries) is warned by default
-// ([SkewWarn]) or refused before evaluation ([SkewRefuse]).
+// OPM-namespace build than the platform carries) marks a resolved-versions
+// row Newer by default ([SkewWarn]) or refuses before evaluation
+// ([SkewRefuse]).
+//
+// A render result carries no presentation strings. The two advisory facts a
+// render can report are rows on the diagnostics: an unhandled optional trait
+// on RenderDiagnostics.UnhandledTraits, and a module requiring a newer build
+// than the platform carries on a RenderDiagnostics.ResolvedVersions row with
+// Newer set. A frontend words both:
+//
+//	for comp, traits := range result.Diagnostics.UnhandledTraits {
+//		for _, fqn := range traits {
+//			log.Printf("component %q: trait %q is unhandled", comp, fqn)
+//		}
+//	}
+//	for _, r := range result.Diagnostics.ResolvedVersions {
+//		if r.Newer {
+//			log.Printf("%s: module requires %s, platform carries %s", r.Path, r.ModuleVersion, r.PlatformVersion)
+//		}
+//	}
 //
 // A dry run is Render with the output discarded: the build evaluates every
 // matched pair regardless, and RenderDiagnostics carries the pairing

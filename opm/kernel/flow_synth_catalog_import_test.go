@@ -111,5 +111,7 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 		"the container resource must render a Deployment")
 	// The instance module's own catalog dependency and the platform's are
 	// the same build: a row, not skew.
-	assert.Empty(t, res.Warnings)
+	for _, r := range res.Diagnostics.ResolvedVersions {
+		assert.False(t, r.Newer, "no path is newer than the platform's build: %s", r.Path)
+	}
 }

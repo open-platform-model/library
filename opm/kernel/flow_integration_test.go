@@ -148,7 +148,6 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	t.Run("resolved versions", func(t *testing.T) {
 		// The instance module and the platform module pin the same catalog
 		// build (D18: rows, not warnings).
-		assert.Empty(t, res.Warnings)
 		var catalogRow *kernel.ResolvedVersion
 		for i := range res.Diagnostics.ResolvedVersions {
 			if res.Diagnostics.ResolvedVersions[i].Path == "opmodel.dev/catalogs/opm@v4" {

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 
-	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
@@ -23,8 +23,9 @@ import (
 type SkewPolicy int
 
 const (
-	// SkewWarn renders against the platform's build and reports the skew on
-	// [RenderResult.Warnings]. The default.
+	// SkewWarn renders against the platform's build and marks that path's
+	// row on [RenderDiagnostics.ResolvedVersions] as Newer. The default;
+	// the wording of any advisory is the frontend's.
 	SkewWarn SkewPolicy = iota
 
 	// SkewRefuse fails the render before evaluation with an
@@ -53,20 +54,37 @@ type RenderInput struct {
 	Skew SkewPolicy
 }
 
+// Compiled is the terminal output of an OPM render: [Kernel.Render] emits
+// *Compiled values carrying the rendered CUE value plus OPM provenance. It
+// carries no platform-native fields — keeping platform vocabulary out of the
+// kernel keeps it platform-neutral, and each consumer wraps *Compiled in its
+// own resource type.
+type Compiled struct {
+	// Value is the CUE value produced by the transformer. Concrete and
+	// fully evaluated — safe to encode directly to YAML or JSON.
+	Value cue.Value
+
+	// Instance is the name of the ModuleInstance that produced this resource.
+	// Was: Release
+	Instance string
+
+	// Component is the source component name within the instance.
+	Component string
+
+	// Transformer is the FQN of the transformer that produced this resource.
+	Transformer string
+}
+
 // RenderResult is the output of a successful [Kernel.Render].
 type RenderResult struct {
 	// Compiled is the rendered output, one entry per rendered object, in
 	// the build's deterministic pair order, each carrying instance,
 	// component and transformer provenance.
-	Compiled []*core.Compiled
+	Compiled []*Compiled
 
 	// Diagnostics are the matching verdicts and version rows decoded from
 	// the build.
 	Diagnostics RenderDiagnostics
-
-	// Warnings are advisory, human-readable messages: unhandled optional
-	// traits and (under [SkewWarn]) version skew. Non-empty is not failure.
-	Warnings []string
 }
 
 // RenderPair names one matched (component, transformer) pair.
@@ -99,26 +117,33 @@ type ResolvedVersion struct {
 // RenderDiagnostics is everything the build reports as data (0019 D10),
 // decoded into the kernel's structured types. It is populated on success and
 // carried by [*RenderError] on a refusal, so a caller can always read the
-// full verdict set.
+// full verdict set. Every field is a row the build emitted, in the build's
+// order; the kernel derives, joins and re-sorts nothing.
+//
+// It also holds the two advisory facts a render can report, as rows rather
+// than as messages: an unhandled optional trait is on UnhandledTraits, and a
+// module requiring a newer build than the platform carries is a
+// ResolvedVersions row with Newer set. A frontend words both.
 type RenderDiagnostics struct {
 	// Pairs is the matched pair set in build order.
 	Pairs []RenderPair
 
-	// Unmatched lists components no transformer matched.
-	Unmatched []string
+	// Unmatched lists components no transformer matched, each carrying
+	// every candidate the demand walk reached for it.
+	Unmatched []oerrors.UnmatchedComponent
 
 	// Unresolved is every demand the platform failed to resolve (0010 D28):
 	// an empty bucket (Disqualified empty, Alternatives naming same-base
 	// keys the platform does implement) or every candidate disqualified.
 	Unresolved []oerrors.UnresolvedDemand
 
-	// Unify is every candidate the always-unify rung disqualified, one entry
-	// per conflicting FQN. Cause names the transformer and the FQN; the
+	// Unify is every candidate the always-unify rung disqualified, one row
+	// per (component, transformer) carrying the FQNs it conflicted at. The
 	// verbatim CUE cause is not recoverable from inside the build (D10).
-	Unify []oerrors.UnifyError
+	Unify []oerrors.UnifyRefusal
 
 	// UnhandledTraits maps a component to the effectively-optional traits
-	// no matched transformer handles (rendered as warnings).
+	// no matched transformer handles. Advisory: a frontend formats it.
 	UnhandledTraits map[string][]string
 
 	// FailedPairs names matched pairs whose transformer output errored.
@@ -128,7 +153,7 @@ type RenderDiagnostics struct {
 	// transformers from more than one enabled registry entry require (the
 	// single-provider guard, 0010 D32/D37), key-sorted. Any row refuses the
 	// render through the gate.
-	OverSubscribed []oerrors.OverSubscribedContractError
+	OverSubscribed []oerrors.OverSubscribedContract
 
 	// ResolvedVersions holds the per-path version rows, in path order.
 	ResolvedVersions []ResolvedVersion
@@ -139,8 +164,8 @@ type RenderDiagnostics struct {
 // provider-fulfilled contract), a failed pair, or a non-concrete pair output.
 // Diagnostics carries everything the build reported; Err carries the typed
 // causes ([*oerrors.UnresolvedDemandsError], [*oerrors.UnmatchedComponentsError],
-// [oerrors.OverSubscribedContractError], [*oerrors.TransformError]), reachable
-// through errors.As.
+// [*oerrors.OverSubscribedContractsError], [*oerrors.TransformError]),
+// reachable through errors.As.
 type RenderError struct {
 	Diagnostics RenderDiagnostics
 	Err         error
@@ -169,86 +194,83 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // [SkewRefuse]) return plain errors; refusals after evaluation return a
 // [*RenderError] carrying the decoded diagnostics.
 func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, error) {
+	_, res, err := k.render(ctx, in)
+	return res, err
+}
+
+// render is Render with the built value exposed. The value is returned on
+// every path that reached the build, refusal included, so a test can assert
+// that the render module's own `gate` agrees with the kernel's verdict; the
+// exported verb drops it, since no built value survives a render (D8).
+func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *RenderResult, error) {
+	var none cue.Value
 	if in.Instance == nil {
-		return nil, errors.New("RenderInput.Instance is required")
+		return none, nil, errors.New("RenderInput.Instance is required")
 	}
 	if in.Instance.Source == nil {
-		return nil, fmt.Errorf("instance %q carries no Source: the render build imports the instance as a package (acquire it with SynthesizeInstance or AcquireInstanceFromDir)", in.Instance.Metadata.Name)
+		return none, nil, fmt.Errorf("instance %q carries no Source: the render build imports the instance as a package (acquire it with SynthesizeInstance or AcquireInstanceFromDir)", in.Instance.Metadata.Name)
 	}
 	if in.Platform == nil {
-		return nil, errors.New("RenderInput.Platform is required")
+		return none, nil, errors.New("RenderInput.Platform is required")
 	}
 	if in.Platform.Source == nil {
-		return nil, fmt.Errorf("platform %q carries no Source: the render build imports the platform as a package (acquire it with AcquirePlatformFromDir)", platformName(in.Platform))
+		return none, nil, fmt.Errorf("platform %q carries no Source: the render build imports the platform as a package (acquire it with AcquirePlatformFromDir)", platformName(in.Platform))
 	}
 	if in.RuntimeName == "" {
-		return nil, errors.New("RenderInput.RuntimeName must be non-empty")
+		return none, nil, errors.New("RenderInput.RuntimeName must be non-empty")
 	}
 	if in.Skew != SkewWarn && in.Skew != SkewRefuse {
-		return nil, fmt.Errorf("RenderInput.Skew %d is not a SkewPolicy", in.Skew)
+		return none, nil, fmt.Errorf("RenderInput.Skew %d is not a SkewPolicy", in.Skew)
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return none, nil, err
 	}
 
 	dir, err := os.MkdirTemp("", "opm-render-")
 	if err != nil {
-		return nil, fmt.Errorf("creating render staging directory: %w", err)
+		return none, nil, fmt.Errorf("creating render staging directory: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 
 	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName)
 	if err != nil {
-		return nil, fmt.Errorf("staging render module: %w", err)
+		return none, nil, fmt.Errorf("staging render module: %w", err)
 	}
 
 	rows := make([]ResolvedVersion, 0, len(staged.Skew))
-	var warnings []string
 	var refusals []error
 	for _, r := range staged.Skew {
 		rows = append(rows, ResolvedVersion(r))
-		if !r.Newer {
-			continue
-		}
-		switch in.Skew {
-		case SkewRefuse:
+		if r.Newer && in.Skew == SkewRefuse {
 			refusals = append(refusals, &oerrors.SkewError{Path: r.Path, ModuleVersion: r.ModuleVersion, PlatformVersion: r.PlatformVersion})
-		default:
-			warnings = append(warnings, fmt.Sprintf(
-				"version skew on %q: module requires %s, platform carries %s; rendering against the platform's build",
-				r.Path, r.ModuleVersion, r.PlatformVersion))
 		}
 	}
 	if len(refusals) > 0 {
-		return nil, fmt.Errorf("render refused before evaluation: %w", errors.Join(refusals...))
+		return none, nil, fmt.Errorf("render refused before evaluation: %w", errors.Join(refusals...))
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return none, nil, err
 	}
 
 	// One build, one context, dropped with the render (D8).
 	built, err := renderstage.Build(cuecontext.New(), staged, cueenv.Override(k.registry, ""))
 	if err != nil {
-		return nil, fmt.Errorf("building render module: %w", err)
+		return none, nil, fmt.Errorf("building render module: %w", err)
 	}
 
-	diag, matrix, err := decodeRenderDiagnostics(built, rows)
+	diag, err := decodeRenderDiagnostics(built, rows)
 	if err != nil {
-		return nil, err
+		return built, nil, err
 	}
-	if gate := gateErrors(diag, matrix); gate != nil {
-		return nil, &RenderError{Diagnostics: diag, Err: gate}
+	if gate := gateErrors(diag); gate != nil {
+		return built, nil, &RenderError{Diagnostics: diag, Err: gate}
 	}
 	compiled, err := decodeRendered(built, diag, in.Instance.Metadata.Name)
 	if err != nil {
-		return nil, &RenderError{Diagnostics: diag, Err: err}
+		return built, nil, &RenderError{Diagnostics: diag, Err: err}
 	}
 
-	warnings = append(warnings, unhandledTraitWarnings(diag.UnhandledTraits)...)
-	if warnings == nil {
-		warnings = []string{}
-	}
-	return &RenderResult{Compiled: compiled, Diagnostics: diag, Warnings: warnings}, nil
+	return built, &RenderResult{Compiled: compiled, Diagnostics: diag}, nil
 }
 
 func platformName(p *platform.Platform) string {

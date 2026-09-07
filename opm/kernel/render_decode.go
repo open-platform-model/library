@@ -7,48 +7,22 @@ import (
 
 	"cuelang.org/go/cue"
 
-	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	"github.com/open-platform-model/library/opm/internal/renderstage"
 )
 
 // glueDiagnostics mirrors the `diagnostics` struct the embedded glue emits
-// (opm/internal/renderstage/render.cue.tmpl).
+// (opm/internal/renderstage/render.cue.tmpl) exactly: every field the build
+// exports is decoded and read, and nothing is derived, joined, grouped or
+// re-sorted on this side.
 type glueDiagnostics struct {
-	Pairs               []gluePair       `json:"pairs"`
-	UnmatchedComponents []string         `json:"unmatchedComponents"`
-	Missing             []glueDemand     `json:"missing"`
-	Unresolved          []glueUnresolved `json:"unresolved"`
-	Warnings            []glueDemand     `json:"warnings"`
-	UnifyFailures       []glueUnify      `json:"unifyFailures"`
-	Candidates          []glueCandidate  `json:"candidates"`
-	BucketKeys          struct {
-		Resources []string `json:"resources"`
-		Traits    []string `json:"traits"`
-	} `json:"bucketKeys"`
-	Resolved       bool                 `json:"resolved"`
-	OverSubscribed []glueOverSubscribed `json:"overSubscribed"`
-	FailedPairs    []gluePair           `json:"failedPairs"`
+	Pairs          []gluePair                       `json:"pairs"`
+	Unmatched      []oerrors.UnmatchedComponent     `json:"unmatched"`
+	Unresolved     []oerrors.UnresolvedDemand       `json:"unresolved"`
+	Warnings       []glueDemand                     `json:"warnings"`
+	UnifyFailures  []oerrors.UnifyRefusal           `json:"unifyFailures"`
+	OverSubscribed []oerrors.OverSubscribedContract `json:"overSubscribed"`
+	FailedPairs    []gluePair                       `json:"failedPairs"`
 }
-
-type glueOverSubscribed struct {
-	Key      string   `json:"key"`
-	Catalogs []string `json:"catalogs"`
-}
-
-// glueCandidate is one (component, transformer) the rung-1 walk reached,
-// with the predicate rung's verdict on it.
-type glueCandidate struct {
-	Component     string   `json:"component"`
-	Transformer   string   `json:"transformer"`
-	Matched       bool     `json:"matched"`
-	MissingLabels []string `json:"missingLabels"`
-}
-
-// matchMatrix is the per-component candidate verdicts decoded from the
-// glue's candidate rows, the value [oerrors.UnmatchedComponentsError.Matches]
-// carries for each unmatched component.
-type matchMatrix map[string]map[string]oerrors.MatchResult
 
 type gluePair struct {
 	Component   string `json:"component"`
@@ -61,19 +35,6 @@ type glueDemand struct {
 	FQN       string `json:"fqn"`
 }
 
-type glueUnresolved struct {
-	Component    string   `json:"component"`
-	Kind         string   `json:"kind"`
-	FQN          string   `json:"fqn"`
-	Disqualified []string `json:"disqualified"`
-}
-
-type glueUnify struct {
-	Component   string   `json:"component"`
-	Transformer string   `json:"transformer"`
-	Conflicts   []string `json:"conflicts"`
-}
-
 var (
 	pathDiagnostics   = cue.ParsePath("diagnostics")
 	pathTraitPostures = cue.ParsePath("traitPostures")
@@ -84,61 +45,39 @@ var (
 // decodeRenderDiagnostics reads `diagnostics` off the built value. It is read
 // through LookupPath so it stays decodable beside a failing gate; a value that
 // cannot decode (the unstated-posture case, an incomplete bool at the trait's
-// own `optional`) is a build error surfaced verbatim. The second result is
-// the candidate match matrix the gate hands to UnmatchedComponentsError.
-func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDiagnostics, matchMatrix, error) {
+// own `optional`) is a build error surfaced verbatim. The glue's rows land on
+// the diagnostics as they were emitted: alternatives, disqualification
+// conflicts, the candidate matrix and the ladder order are all decided inside
+// the build.
+func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDiagnostics, error) {
 	dv := built.LookupPath(pathDiagnostics)
 	if !dv.Exists() {
-		return RenderDiagnostics{}, nil, fmt.Errorf("render module carries no diagnostics field: %w", built.Err())
+		return RenderDiagnostics{}, fmt.Errorf("render module carries no diagnostics field: %w", built.Err())
+	}
+	// Every verdict must be concrete before it is read. A comprehension whose
+	// guard did not evaluate decodes as an empty list, which would read as
+	// "no verdict" rather than "the verdict is unknown", so concreteness is
+	// asserted first and the fail-closed refusal is raised here.
+	if err := dv.Validate(cue.Concrete(true)); err != nil {
+		if perr := unstatedPosture(dv); perr != nil {
+			return RenderDiagnostics{}, perr
+		}
+		return RenderDiagnostics{}, fmt.Errorf("decoding render diagnostics (a matching verdict did not evaluate): %w", err)
 	}
 	var g glueDiagnostics
 	if err := dv.Decode(&g); err != nil {
-		if perr := unstatedPosture(dv); perr != nil {
-			return RenderDiagnostics{}, nil, perr
-		}
-		return RenderDiagnostics{}, nil, fmt.Errorf("decoding render diagnostics (a matching verdict did not evaluate): %w", err)
+		return RenderDiagnostics{}, fmt.Errorf("decoding render diagnostics (a matching verdict did not evaluate): %w", err)
 	}
 
 	diag := RenderDiagnostics{
 		Pairs:            pairsOf(g.Pairs),
-		Unmatched:        append([]string(nil), g.UnmatchedComponents...),
+		Unmatched:        g.Unmatched,
+		Unresolved:       g.Unresolved,
+		Unify:            g.UnifyFailures,
+		OverSubscribed:   g.OverSubscribed,
 		UnhandledTraits:  map[string][]string{},
 		FailedPairs:      pairsOf(g.FailedPairs),
 		ResolvedVersions: rows,
-	}
-	sort.Strings(diag.Unmatched)
-
-	// Always-unify disqualifications, one UnifyError per conflicting FQN,
-	// indexed by (component, transformer) for demand attribution.
-	byCandidate := map[gluePair][]oerrors.UnifyError{}
-	for _, u := range g.UnifyFailures {
-		for _, fqn := range u.Conflicts {
-			ue := oerrors.UnifyError{
-				Component: u.Component,
-				FQN:       fqn,
-				Cause:     fmt.Errorf("component %q primitive %q conflicts with the required body of transformer %q", u.Component, fqn, u.Transformer),
-			}
-			diag.Unify = append(diag.Unify, ue)
-			key := gluePair{Component: u.Component, Transformer: u.Transformer}
-			byCandidate[key] = append(byCandidate[key], ue)
-		}
-	}
-
-	for _, u := range g.Unresolved {
-		universe := g.BucketKeys.Resources
-		if u.Kind == "trait" {
-			universe = g.BucketKeys.Traits
-		}
-		d := oerrors.UnresolvedDemand{
-			Component:    u.Component,
-			FQN:          u.FQN,
-			Kind:         u.Kind,
-			Alternatives: renderstage.Alternatives(universe, u.FQN),
-		}
-		for _, tfqn := range u.Disqualified {
-			d.Disqualified = append(d.Disqualified, byCandidate[gluePair{Component: u.Component, Transformer: tfqn}]...)
-		}
-		diag.Unresolved = append(diag.Unresolved, d)
 	}
 
 	for _, w := range g.Warnings {
@@ -147,33 +86,7 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDia
 	for c := range diag.UnhandledTraits {
 		sort.Strings(diag.UnhandledTraits[c])
 	}
-
-	// Single-provider guard rows (0010 D32/D37), key-sorted with sorted
-	// registry keys so the refusal is deterministic.
-	for _, o := range g.OverSubscribed {
-		catalogs := append([]string(nil), o.Catalogs...)
-		sort.Strings(catalogs)
-		diag.OverSubscribed = append(diag.OverSubscribed, oerrors.OverSubscribedContractError{Key: o.Key, Catalogs: catalogs})
-	}
-	sort.Slice(diag.OverSubscribed, func(i, j int) bool { return diag.OverSubscribed[i].Key < diag.OverSubscribed[j].Key })
-
-	// Candidate verdicts, keyed (component, transformer), missing labels
-	// sorted so the matrix is deterministic.
-	matrix := matchMatrix{}
-	for _, c := range g.Candidates {
-		row := matrix[c.Component]
-		if row == nil {
-			row = map[string]oerrors.MatchResult{}
-			matrix[c.Component] = row
-		}
-		var labels []string
-		if len(c.MissingLabels) > 0 {
-			labels = append([]string(nil), c.MissingLabels...)
-			sort.Strings(labels)
-		}
-		row[c.Transformer] = oerrors.MatchResult{Matched: c.Matched, MissingLabels: labels}
-	}
-	return diag, matrix, nil
+	return diag, nil
 }
 
 func pairsOf(rows []gluePair) []RenderPair {
@@ -187,27 +100,18 @@ func pairsOf(rows []gluePair) []RenderPair {
 // gateErrors is the fail-closed gate (0010 D28, D37) as the kernel enforces
 // it from the decoded verdicts: unresolved demands, unmatched components and
 // over-subscribed provider-fulfilled contracts all refuse, through one exit
-// path, each reachable via errors.As. An unmatched component carries its
-// row of the candidate matrix (every transformer evaluated for it, with the
-// labels the predicate found missing) so a frontend can say why.
-func gateErrors(diag RenderDiagnostics, matrix matchMatrix) error {
+// path, each reachable via errors.As. Each cause carries the diagnostics'
+// rows unchanged and in the same order.
+func gateErrors(diag RenderDiagnostics) error {
 	var gate []error
 	if len(diag.Unresolved) > 0 {
 		gate = append(gate, &oerrors.UnresolvedDemandsError{Demands: diag.Unresolved})
 	}
-	for _, o := range diag.OverSubscribed {
-		gate = append(gate, o)
+	if len(diag.OverSubscribed) > 0 {
+		gate = append(gate, &oerrors.OverSubscribedContractsError{Contracts: diag.OverSubscribed})
 	}
 	if len(diag.Unmatched) > 0 {
-		matches := map[string]map[string]oerrors.MatchResult{}
-		for _, c := range diag.Unmatched {
-			row := matrix[c]
-			if row == nil {
-				row = map[string]oerrors.MatchResult{}
-			}
-			matches[c] = row
-		}
-		gate = append(gate, &oerrors.UnmatchedComponentsError{Components: diag.Unmatched, Matches: matches})
+		gate = append(gate, &oerrors.UnmatchedComponentsError{Components: diag.Unmatched})
 	}
 	if len(gate) == 0 {
 		return nil
@@ -220,7 +124,7 @@ func gateErrors(diag RenderDiagnostics, matrix matchMatrix) error {
 // whose output is not concrete (invisible to the glue's `== _|_` guards) is
 // refused here at a path naming the pair. Output kind dispatch: a struct is
 // one object, a list is one object per item.
-func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string) ([]*core.Compiled, error) {
+func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string) ([]*Compiled, error) {
 	rendered := built.LookupPath(pathRendered)
 	if !rendered.Exists() {
 		return nil, fmt.Errorf("render module carries no rendered field: %w", built.Err())
@@ -230,13 +134,13 @@ func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string
 		failed[p] = true
 	}
 
-	compiled := make([]*core.Compiled, 0, len(diag.Pairs))
+	compiled := make([]*Compiled, 0, len(diag.Pairs))
 	var errs []error
 	for _, p := range diag.Pairs {
 		key := fmt.Sprintf("%s :: %s", p.Component, p.Transformer)
 		out := rendered.LookupPath(cue.MakePath(cue.Str(key))).LookupPath(pathOutput)
 		if !out.Exists() {
-			errs = append(errs, &oerrors.TransformError{ComponentName: p.Component, TransformerFQN: p.Transformer,
+			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer,
 				Cause: fmt.Errorf("rendered output missing at %q", key)})
 			continue
 		}
@@ -244,11 +148,11 @@ func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string
 			if err == nil {
 				err = errors.New("transformer output is an error")
 			}
-			errs = append(errs, &oerrors.TransformError{ComponentName: p.Component, TransformerFQN: p.Transformer, Cause: err})
+			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer, Cause: err})
 			continue
 		}
 		if err := out.Validate(cue.Concrete(true)); err != nil {
-			errs = append(errs, &oerrors.TransformError{ComponentName: p.Component, TransformerFQN: p.Transformer,
+			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer,
 				Cause: fmt.Errorf("output is not concrete: %w", err)})
 			continue
 		}
@@ -265,45 +169,24 @@ func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string
 	return compiled, nil
 }
 
-func splitOutput(out cue.Value, p RenderPair, instanceName string) ([]*core.Compiled, error) {
+func splitOutput(out cue.Value, p RenderPair, instanceName string) ([]*Compiled, error) {
 	switch out.Kind() {
 	case cue.StructKind:
-		return []*core.Compiled{{Value: out, Instance: instanceName, Component: p.Component, Transformer: p.Transformer}}, nil
+		return []*Compiled{{Value: out, Instance: instanceName, Component: p.Component, Transformer: p.Transformer}}, nil
 	case cue.ListKind:
 		iter, err := out.List()
 		if err != nil {
-			return nil, &oerrors.TransformError{ComponentName: p.Component, TransformerFQN: p.Transformer, Cause: fmt.Errorf("iterating output list: %w", err)}
+			return nil, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer, Cause: fmt.Errorf("iterating output list: %w", err)}
 		}
-		var items []*core.Compiled
+		var items []*Compiled
 		for iter.Next() {
-			items = append(items, &core.Compiled{Value: iter.Value(), Instance: instanceName, Component: p.Component, Transformer: p.Transformer})
+			items = append(items, &Compiled{Value: iter.Value(), Instance: instanceName, Component: p.Component, Transformer: p.Transformer})
 		}
 		return items, nil
 	default:
-		return nil, &oerrors.TransformError{ComponentName: p.Component, TransformerFQN: p.Transformer,
+		return nil, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer,
 			Cause: fmt.Errorf("unexpected output kind %s (must be struct for a single resource or list for multiple)", out.Kind())}
 	}
-}
-
-// unhandledTraitWarnings renders the unhandled-trait map as one advisory
-// line per (component, trait).
-func unhandledTraitWarnings(unhandled map[string][]string) []string {
-	if len(unhandled) == 0 {
-		return nil
-	}
-	comps := make([]string, 0, len(unhandled))
-	for c := range unhandled {
-		comps = append(comps, c)
-	}
-	sort.Strings(comps)
-	var out []string
-	for _, c := range comps {
-		for _, fqn := range unhandled[c] {
-			out = append(out, fmt.Sprintf(
-				"component %q: trait %q is not handled by any matched transformer (values will be ignored)", c, fqn))
-		}
-	}
-	return out
 }
 
 // unstatedPosture finds, in the diagnostics' traitPostures table, an attached

@@ -5,17 +5,15 @@ import (
 	"strings"
 )
 
-// OverSubscribedContractError is the render refusal for a contract key
-// declared `fulfilment: "provider"` on a required demand of transformers from
-// more than one of the platform's enabled registry entries (the
-// single-provider guard, enhancement 0010 D32 as corrected by D37; enforced
-// inside the render build since library-render-cutover). A platform must
-// carry exactly one provider for such a key; two is a misconfigured
-// platform, not an arbitration.
+// OverSubscribedContract is one row of the single-provider guard: a contract
+// key declared `fulfilment: "provider"` on a required demand of transformers
+// from more than one of the platform's enabled registry entries (enhancement
+// 0010 D32 as corrected by D37; enforced inside the render build since
+// library-render-cutover). A platform must carry exactly one provider for
+// such a key; two is a misconfigured platform, not an arbitration.
 //
-// It is carried on the kernel's render diagnostics as a row and joined into
-// the fail-closed gate error, reachable via errors.As.
-type OverSubscribedContractError struct {
+// It is data, not an error; [OverSubscribedContractsError] is the gate cause.
+type OverSubscribedContract struct {
 	// Key is the provider-fulfilled contract key (a resource or trait FQN).
 	Key string
 
@@ -25,12 +23,30 @@ type OverSubscribedContractError struct {
 	Catalogs []string
 }
 
-func (e OverSubscribedContractError) Error() string {
-	quoted := make([]string, 0, len(e.Catalogs))
-	for _, c := range e.Catalogs {
-		quoted = append(quoted, fmt.Sprintf("%q", c))
+// describe renders one over-subscription row as a line of the aggregate's
+// message.
+func (c OverSubscribedContract) describe() string {
+	quoted := make([]string, 0, len(c.Catalogs))
+	for _, cat := range c.Catalogs {
+		quoted = append(quoted, fmt.Sprintf("%q", cat))
 	}
 	return fmt.Sprintf(
 		"contract %q declares fulfilment \"provider\" but is supplied by transformers from %d catalogs (%s): a platform must carry exactly one provider for it",
-		e.Key, len(e.Catalogs), strings.Join(quoted, ", "))
+		c.Key, len(c.Catalogs), strings.Join(quoted, ", "))
+}
+
+// OverSubscribedContractsError aggregates every over-subscription row into
+// the one typed cause the fail-closed gate joins. It carries the
+// diagnostics' rows unchanged and wraps nothing.
+type OverSubscribedContractsError struct {
+	// Contracts is the over-subscription set, key-sorted.
+	Contracts []OverSubscribedContract
+}
+
+func (e *OverSubscribedContractsError) Error() string {
+	msg := fmt.Sprintf("%d over-subscribed provider contract(s):", len(e.Contracts))
+	for _, c := range e.Contracts {
+		msg += "\n  " + c.describe()
+	}
+	return msg
 }

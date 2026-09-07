@@ -70,18 +70,18 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
         build once in a fresh cue.Context, dropped on return
         decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, unify, unhandled traits, over-subscribed, resolved versions)
         fail-closed gate     -> *RenderError carrying the diagnostics and typed causes (errors.As)
-        decode `rendered`    -> []*core.Compiled with instance / component / transformer provenance
+        decode `rendered`    -> []*kernel.Compiled with instance / component / transformer provenance
 ```
 
 `Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `AcquireInstanceFromDir` and `SynthesizeInstance` unify them inside the instance build and assert concreteness on the result, and `Render` performs no validation pass of its own.
 
 Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005). Nothing built is shared between renders, concurrency is across renders with one Kernel per goroutine, and a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
 
-`*core.Compiled` is the kernel's terminal output. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
+`*kernel.Compiled` is the kernel's terminal output. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
 ## Quick start
 
-See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, acquiring an instance and a platform module, and rendering the instance into `*core.Compiled` values.
+See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkthrough — constructing a `Kernel`, loading a Module, layered values validation, acquiring an instance and a platform module, and rendering the instance into `*kernel.Compiled` values.
 
 ## API stability
 
@@ -107,7 +107,7 @@ Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to
 
 Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `opm/helper/` is part of the kernel contract.
 
-The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/core`, `opm/compat` and every package under `opm/internal/` from importing anything under `opm/helper/`.
+The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/compat` and every package under `opm/internal/` from importing anything under `opm/helper/`.
 
 Today this layer holds exactly one subpackage:
 
