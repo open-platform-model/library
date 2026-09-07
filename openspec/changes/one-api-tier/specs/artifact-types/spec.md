@@ -96,6 +96,31 @@ A directory-acquired artifact and a registry-acquired artifact SHALL be gated id
 - **WHEN** a consumer inspects the exported identifiers of `opm/kernel`, `opm/module`, `opm/platform` and `opm/helper/**`
 - **THEN** none of them declares `ErrInvalidPackage`, `ErrWrongKind` or `ErrMissingRequiredField`; the three are declared in `opm/errors` only
 
+### Requirement: An overlay source can be written to a directory
+
+`module.Source` SHALL expose `WriteTo(dir string) ([]string, error)`, which writes every entry of an overlay-mode source under `dir` at the entry's path relative to `Root`, creating parent directories as needed, and returns the dir-relative paths it wrote, sorted. The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. The kernel's render stage SHALL materialize an overlay-mode input through this method, so the library has exactly one overlay writer.
+
+#### Scenario: A fetched module is written to disk
+
+- **WHEN** a frontend acquires a module from a registry and calls `Source.WriteTo(dest)` on it
+- **THEN** every file of the fetched module is written under `dest` at its module-relative path, the returned list names each written path relative to `dest` in sorted order, and no registry fetch happens
+
+#### Scenario: On-disk source refused
+
+- **WHEN** `WriteTo` is called on a source with a nil `Overlay`
+- **THEN** it returns an error and writes nothing
+
+#### Scenario: Entry outside the root refused
+
+- **WHEN** an overlay entry's absolute path is not under `Root`
+- **THEN** `WriteTo` returns an error naming the entry and writes nothing, including entries that were valid
+
+#### Scenario: Frontends stop copying fetched modules themselves
+
+- **WHEN** a frontend scaffolds a new module from a published template
+- **THEN** it writes the acquired module's `Source` into place with `WriteTo`
+- **AND** it performs no second registry fetch and no filesystem walk of its own
+
 ## MODIFIED Requirements
 
 ### Requirement: Constructor Helpers from cue.Value

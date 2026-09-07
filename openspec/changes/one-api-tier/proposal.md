@@ -1,10 +1,11 @@
 ## Why
 
-The kernel says its helpers are opt-in, but nothing can call the kernel without them, and the one verb that is missing forces the cli to fake what the helpers do. Three facts on `main` today:
+The kernel says its helpers are opt-in, but nothing can call the kernel without them, and the one verb that is missing forces the cli to fake what the helpers do. Four facts on `main` today:
 
 1. **The helper boundary is inverted.** `opm/kernel` imports `opm/helper/loader/file`, `opm/helper/loader/registry` and `opm/helper/synth` (`acquire.go:16`, `wrappers.go:8-9`, `synth.go:9`). Every `Acquire*` signature takes `loaderfile.LoadOptions`, `SynthesizeInstance` takes `synth.InstanceInput`, and the operator branches on `loaderfile.ErrWrongKind` returned by a kernel method (`opm-operator/internal/render/kernel_package_renderer.go:63`). The cli imports `loaderfile` at nine sites and the operator at four, only to spell `LoadOptions{Registry: r}` or match a sentinel. The helper tier is the contract; `CLAUDE.md`, `opm/helper/doc.go` and the `helper-packages` spec describe a boundary the code does not have, so the SemVer labels are wrong.
 2. **A second raw-value tier sits beside `Acquire*` and is nearly unused.** `LoadModulePackage` / `LoadPlatformPackage` / `LoadInstancePackage` then `NewModuleFromValue` / `NewPlatformFromValue`. The operator uses none of it. The cli uses it at five sites, one of which (`cli/internal/publish/kernel_gate.go:30`) calls the helper directly with a bare `cue.Context` and bypasses the Kernel it built ten lines earlier; two (`scaffold.go:284`, `repair.go:251`) load a module only to read two metadata strings `Module.Metadata` already holds; one (`config/platform.go:95-99`) is `AcquirePlatformFromDir` minus the Source stamp.
 3. **No verb produces a Source-carrying module from a directory.** Synthesis builds the instance inside the module's own tree and accepts only overlay-mode sources (`Module.HasSource()`, `opm/module/source.go:51-53`). So the cli walks the module directory into memory itself (`cli/internal/workflow/render/module.go:139-181`, `stageLocalModuleSource`, 45 lines with its own skip list), the hand-rolled shim Principle V forbids. Since `dedupe-internals` the library carries the same walker in `opm/internal/sourcetree`, unreachable from a consumer.
+4. **The cli fetches a module twice to copy it.** `cli/internal/scaffold/scaffold.go:219-268` (`copyFetched`) runs `modconfig.NewRegistry`, `Fetch` and a filesystem walk to copy a template into place, ten lines after `AcquireModuleFromRegistry` returned that module with every file in `Source.Overlay`. The library's writer for exactly that tree (`sourcetree.WriteTo`, the one the render stage uses to materialize an overlay) is internal, so the cli cannot call it. Slice 5 listed the export; it lands here because this change already changes the overlay's element type and rewrites the scaffold's acquisition.
 
 Around them: the registry mapping lives at three altitudes (`WithRegistry`, `LoadOptions.Registry`, `OCILoader.Registry`). The cli passes the same string to all three at every site; the operator sets only the first and third (`opm-operator/cmd/main.go:253`), so its schema fetch silently reads the process `CUE_REGISTRY` while its renders use the explicit mapping. And `synth.InstanceInput.Values` is a `cue.Value` the kernel immediately renders back to text (`opm/helper/synth/instance.go:216`), forcing the operator to call `Kernel.CueContext().CompileBytes` (`kernel_module_renderer.go:112`), a method documented as "typically tests".
 
@@ -34,6 +35,7 @@ This is slice 2 of the eight-slice simplification plan reviewed on 2026-09-05. `
 **`opm/module` (BREAKING):**
 
 - **BREAKING** `module.Source.Overlay` becomes `map[string][]byte`. Every overlay the library builds comes from bytes; `load.FromBytes` is applied at the two build sites, and the reflection in `sourcetree.Bytes` is deleted.
+- `(*module.Source).WriteTo(dir) ([]string, error)` writes an overlay-mode source into a directory and returns the dir-relative paths written, sorted (the shape `platformmodule.Files.WriteTo` already has). On-disk mode is refused: `Root` already is the directory. `sourcetree.WriteTo` is deleted and the render stage calls the method, so the library has one overlay writer and a frontend can reach it.
 
 **Lint and docs:**
 
@@ -51,7 +53,7 @@ None.
 ### Modified Capabilities
 
 - `helper-packages`: the boundary requirement gains "the kernel imports nothing under `opm/helper/`"; the layout requirement lists `platformmodule` as the only subpackage; the loader, registry-loader, shared-gate and gate-behaviour requirements are removed (the gate behaviour moves to `artifact-types`); the no-platform-synthesis requirement is restated without a synth package.
-- `artifact-types`: adds module acquisition from a directory and the acquisition shape gate (sentinels in `opm/errors`); constructors are Source-less and have no kernel wrappers; `Source.Overlay` carries bytes; instance acquisition takes values as a variadic `Source` list and no load options.
+- `artifact-types`: adds module acquisition from a directory and the acquisition shape gate (sentinels in `opm/errors`); constructors are Source-less and have no kernel wrappers; `Source.Overlay` carries bytes and can be written to a directory through `Source.WriteTo`; instance acquisition takes values as a variadic `Source` list and no load options.
 - `kernel-runtime`: default construction seeds the schema loader from the registry; the registry option is the one mapping for every operation; the wrapper requirement is removed; the values-input, `SynthesizeInstance`, documentation and Tier-2 requirements are restated for `kernel.InstanceInput` with `Values []Source`; the utility-methods requirement drops "load".
 - `instance-synthesis`: the helper-location and caller-supplied-cache requirements are removed; the input requirement is restated as `kernel.InstanceInput`; the staged-source requirement accepts a module from either acquire verb and refuses a subpackage; the shared-gate and staged-tree requirements are restated against directory acquisition and byte overlays.
 - `platform-artifact`: the platform loader requirement is removed; directory acquisition takes no load options and wraps the `opm/errors` sentinels.
@@ -63,11 +65,11 @@ None.
 
 **SemVer:** MAJOR on the alpha line (Principle VI): exported methods, a type, two option constructors and three packages leave `opm/`; a public struct field changes type; a Kernel method's input type changes package. Pre-GA, so no migration fragment (ADR-004).
 
-**Downstream migration cost, `cli` (12 non-test sites, 1 test file):**
+**Downstream migration cost, `cli` (13 non-test sites, 1 test file):**
 
 - `internal/workflow/render/module.go`: `LoadModulePackage` + `NewModuleFromValue` + `stageLocalModuleSource` become `AcquireModuleFromDir`; the walker and its `load`/`fs` imports are deleted. `synth.InstanceInput` becomes `kernel.InstanceInput`.
 - `internal/config/platform.go`: `LoadPlatformPackage` + `NewPlatformFromValue` become `AcquirePlatformFromDir`; sentinel checks read `oerrors`.
-- `internal/scaffold/scaffold.go`, `internal/scaffold/repair.go`: `AcquireModuleFromDir`, then `Module.Metadata.ModulePath` / `.Version` instead of `LookupPath`.
+- `internal/scaffold/scaffold.go`, `internal/scaffold/repair.go`: `AcquireModuleFromDir`, then `Module.Metadata.ModulePath` / `.Version` instead of `LookupPath`. `scaffold.go` also keeps the module `AcquireModuleFromRegistry` returns and writes it into place with `Source.WriteTo(dest)`; `copyFetched` and its `modconfig`, `mod/module` and `io/fs` imports are deleted.
 - `internal/publish/kernel_gate.go` and `publish.Options`: the gate receives the `*kernel.Kernel` `RunPublish` already builds and calls `AcquireModuleFromDir`; sentinel mapping reads `oerrors`.
 - `internal/workflow/render/kernel.go`, `render.go`: drop `LoadOptions` and `WithValues`; `NewKernel` may drop its duplicate `WithSchemaLoader`.
 - `internal/cmd/module/vet.go`, `internal/cmdutil/publish.go`: may drop the duplicate `WithSchemaLoader`.
@@ -82,4 +84,4 @@ None.
 
 **Library:** `opm/kernel` (`acquire.go`, `synth.go`, `wrappers.go`, `kernel.go`, `source.go`, `doc.go`), `opm/module/source.go`, `opm/errors` (new sentinels file), `opm/internal/loader` (new, from `opm/helper/loader/**`), `opm/internal/synth` (new, from `opm/helper/synth`), `opm/internal/sourcetree`, `opm/internal/renderstage/stage.go`, `.golangci.yml`, docs. Tests: about 75 `LoadOptions{}` sites, 24 `InstanceInput{}` sites and 31 raw-loader calls move onto the acquire verbs; the file and registry loader tests move under `opm/internal/loader`; `TestKernel_PrunedSurface` gains the removed names. `catalog_opm`, `modules`, `core`: no impact.
 
-**Complexity justification (Principle VII):** net deletion of roughly 300 non-test lines (the cli walker, two inlined loader sequences, the alias file, the second `LoadOptions`, the five kernel wrappers, the `SchemaCache` plumbing, the overlay reflection) against one new verb of about 30 lines and one merge-and-attribute helper shared by both values paths. No new option type, interface or injection slot.
+**Complexity justification (Principle VII):** net deletion of roughly 350 non-test lines (the cli walker, the cli's second fetch-and-copy, two inlined loader sequences, the alias file, the second `LoadOptions`, the five kernel wrappers, the `SchemaCache` plumbing, the overlay reflection) against one new verb of about 30 lines, one overlay writer of about 15 lines that replaces an internal one, and one merge-and-attribute helper shared by both values paths. No new option type, interface or injection slot.

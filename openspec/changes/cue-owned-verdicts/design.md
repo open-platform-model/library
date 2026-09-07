@@ -31,6 +31,7 @@ Constraints: matching semantics are pinned by the parity oracle (`render-parity`
 - `renderstage` imports nothing outside `opm/internal` and `opm/module`.
 - `opm/errors` has one shape rule: rows are data, gate causes are pointer-receiver aggregates over rows.
 - A successful or partially-refused render exposes the same candidate evidence as a refusal.
+- `Render`'s output type is declared beside the verb that produces it; `opm/` carries no single-type package.
 
 **Non-Goals:**
 
@@ -105,6 +106,13 @@ type SkewError struct{ Path, ModuleVersion, PlatformVersion string }
 
 **Decision**: `missing` and `resolved` (deferred here by `cut-dead-surface`) and `bucketKeys` (consumed only by the deleted `Alternatives`) are removed from `diagnostics`; `glueDiagnostics` mirrors the export exactly so a stray field is a compile-time question, not a silent decode.
 
+### `Compiled` lives beside `Render`
+
+**Context**: `opm/core` holds one type, `Compiled`, documented as "shared domain primitives" (CONSTITUTION III). No second primitive arrived in the twenty-six alphas since; `Render` is its only producer, and the two consumers wrap it on arrival (`opm-operator/pkg/core/compiled_adapter.go`, `cli/internal/workflow/render/render.go:143`).
+**Explored**: keeping the package as the landing place for future shared primitives (none is planned; Principle VII); a type alias `core.Compiled = kernel.Compiled` for one release (pre-GA, consumers re-pin in the same wave, so the alias is a second name with no reader).
+**Decision**: `kernel.Compiled` with the same four fields and doc, declared in `render.go` beside `RenderResult`; `opm/core` is deleted; CONSTITUTION III's package list drops it.
+**Rationale**: the type is the render verb's output and nothing else; declaring it where it is produced removes one import from every consumer and one package from the SemVer surface. It lands first, as one mechanical commit, because every later task in this change rewrites the two files that name it.
+
 ## Risks / Trade-offs
 
 - [A comprehension that yields an empty list where Go used to join] → the existing refusal fixtures assert `Disqualified` and `Alternatives` contents (`render_test.go` missing-FQN and disqualified-candidate tests); a dropped row fails a test, not a user.
@@ -114,6 +122,6 @@ type SkewError struct{ Path, ModuleVersion, PlatformVersion string }
 
 ## Migration Plan
 
-1. Land tasks 1 and 2 (glue and decoder) as one commit group: the tree is green with the old public shapes still in place, because the decoder adapts internally first.
-2. Land task 3 (`opm/errors` reshape) and task 4 (`Warnings` removal) as the breaking group; `refactor(kernel)!:` and `refactor(errors)!:`.
+1. Land task 1 (the `Compiled` move) as one mechanical `refactor(kernel)!:` commit, then tasks 2 and 3 (glue and decoder) as one commit group: the tree is green with the old verdict shapes still in place, because the decoder adapts internally first.
+2. Land task 4 (`opm/errors` reshape) and task 5 (`Warnings` removal) as the breaking group; `refactor(kernel)!:` and `refactor(errors)!:`.
 3. Consumers migrate in their own PRs against the next alpha, applying only the edits `proposal.md` § Impact lists. Rollback is a re-pin to the previous alpha; no persisted state changes shape.

@@ -85,6 +85,25 @@ The generated glue SHALL compute, over the platform's enabled `#registry` entrie
 - **WHEN** many transformers across catalogs require a contract with default fulfilment
 - **THEN** the render proceeds and every candidate participates in matching
 
+### Requirement: Rendered output decodes with provenance and per-pair concreteness
+
+On a passing gate, `Render` SHALL decode `rendered` into `[]*kernel.Compiled`, each carrying instance, component and transformer provenance, in the build's deterministic order. `Compiled` SHALL be declared in `opm/kernel`, beside the verb that produces it, with exactly the fields `Value cue.Value`, `Instance`, `Component` and `Transformer`; no other package under `opm/` SHALL declare a compiled-output type. The kernel SHALL validate per-pair output concreteness itself: an incomplete (non-error) pair output SHALL fail the render at a path naming the pair.
+
+#### Scenario: Provenance on every object
+
+- **WHEN** a render of two matched pairs succeeds
+- **THEN** every returned `*kernel.Compiled` names its instance, component and transformer FQN
+
+#### Scenario: Incomplete pair output refuses
+
+- **WHEN** a transformer's output evaluates non-concrete without erroring
+- **THEN** `Render` fails with an error whose path names the (component, transformer) pair
+
+#### Scenario: One compiled-output type
+
+- **WHEN** a consumer inspects the packages under `opm/`
+- **THEN** `Compiled` is declared in `opm/kernel` only and no `opm/core` package exists
+
 ## ADDED Requirements
 
 ### Requirement: A render result carries no presentation strings

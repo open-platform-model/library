@@ -26,6 +26,7 @@ Constraints: `Render`'s stage, build and decode path is untouched; every existin
 - One boundary, enforced by lint: nothing outside `opm/helper/` imports it.
 - One registry knob and one values shape across the kernel.
 - Clear the five items slices 1 and 3 parked here.
+- One overlay writer, owned by `module.Source` and reachable by a frontend.
 
 **Non-Goals:**
 
@@ -81,6 +82,13 @@ Constraints: `Render`'s stage, build and decode path is untouched; every existin
 **Decision**: `Overlay map[string][]byte`. `loader.LoadDir` builds the `load.Config.Overlay` map with `load.FromBytes` at the one place cue/load is called with an overlay; `sourcetree.WriteTo` and `ReadFile` use the bytes directly; `sourcetree.Bytes` and its tests are deleted. Synthesis clones the map with `maps.Clone` and appends its two entries.
 **Rationale**: no consumer reads the field, and the only consumer that constructed one is the cli walker this change deletes; the reflection was the cost of storing the wrong type.
 
+### The overlay writer is a method on `Source`
+
+**Context**: the cli's scaffold needs a fetched module's tree on disk and re-fetches it to get one (`cli/internal/scaffold/scaffold.go:219-268`), while `sourcetree.WriteTo` already writes exactly that tree for the render stage. `sourcetree` imports `module` for the `Source` type, so a method on `Source` cannot delegate to it.
+**Explored**: (A) a kernel verb, `Kernel.WriteSource(src, dir)`: no kernel state is involved, wrong altitude; (B) exporting from `sourcetree`: internal by design, unreachable from a consumer; (C) `(*Source).WriteTo(dir) ([]string, error)` with the loop in `opm/module`, `sourcetree.WriteTo` deleted and `serveDir` calling the method.
+**Decision**: C, landing right after the byte overlay (task 4.2): over `map[string][]byte` the loop is about fifteen lines with no reflection, whereas over `load.Source` it would need the `Bytes` reflection this change deletes, which is why it cannot lead the task list. The method validates every entry before writing (nil receiver, on-disk mode since `Root` already is the directory, an entry outside `Root`), creates parent directories, and returns the dir-relative paths written, sorted, so a caller never iterates the overlay itself and the overlay's element type stays invisible to it. The name matches `platformmodule.Files.WriteTo(dir string)`; `go vet`'s standard-method check applies only when the first parameter is an `io.Writer`.
+**Rationale**: one writer, owned by the type that holds the data; the scaffold's second fetch, its `modconfig` dependency and its walk are deleted for a method the render stage already needed.
+
 ### The boundary is a lint rule
 
 **Decision**: `.golangci.yml` gains a `depguard` rule: files under `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/core`, `opm/compat` and `opm/internal/**` may not import `github.com/open-platform-model/library/opm/helper/**`. `task lint` is already a merge gate.
@@ -102,7 +110,7 @@ Constraints: `Render`'s stage, build and decode path is untouched; every existin
 
 1. Library PR: tasks in order; `task check` and the race pass green; `go build ./...` in `../cli` and `../opm-operator` against a temporary `replace` to prove the consumer edits are the ones the proposal lists.
 2. Release-please cuts the next alpha.
-3. cli PR: the twelve sites in `proposal.md` § Impact, `stageLocalModuleSource` deleted, `publish.Options.Kernel` added.
+3. cli PR: the thirteen sites in `proposal.md` § Impact, `stageLocalModuleSource` and `copyFetched` deleted, `publish.Options.Kernel` added.
 4. operator PR: the four sites plus the integration helper; values through `LoadSourceFromBytes`; note the schema-resolution change.
 5. Rollback: consumers pin the previous alpha; no data or on-disk format changes.
 
