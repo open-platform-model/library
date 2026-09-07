@@ -1,0 +1,10 @@
+# Enhancement declaration, read by `task enhancements:delivery:log` at archive time.
+# See enhancements/schema.cue #ChangeDeclaration.
+#
+# This change implements no new decision: it relocates 0011 D9's comparator
+# (opm/compat) from the library to cli/internal/compat, the home of its only
+# callers. Logged against D9 so the entry's record says where the code lives.
+implements:
+  - enhancement: "0011"
+    decisions: [D9]
+    resolves: []
