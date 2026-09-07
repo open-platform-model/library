@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -14,8 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/module"
 )
 
 const acquirePlatformFixture = `
@@ -54,7 +56,7 @@ func TestKernel_AcquirePlatformFromDir_CarriesSource(t *testing.T) {
 	k := kernel.New()
 	ctx := context.Background()
 
-	plat, err := k.AcquirePlatformFromDir(ctx, dir, loaderfile.LoadOptions{})
+	plat, err := k.AcquirePlatformFromDir(ctx, dir)
 	require.NoError(t, err)
 	require.NotNil(t, plat)
 
@@ -62,9 +64,10 @@ func TestKernel_AcquirePlatformFromDir_CarriesSource(t *testing.T) {
 	assert.Equal(t, "acquire-platform", plat.Metadata.Name)
 	assert.Equal(t, "kubernetes", plat.Metadata.Type)
 
-	want, err := k.LoadPlatformPackage(ctx, dir, loaderfile.LoadOptions{})
-	require.NoError(t, err)
-	assert.True(t, plat.Package.Equals(want), "Package is what LoadPlatformPackage returns for the directory")
+	// platform-artifact spec, "Frontends stop composing load and construct":
+	// the raw value is the artifact's Package field, not a second verb.
+	require.True(t, plat.Package.Exists())
+	assert.Equal(t, "acquire-platform", lookupString(t, plat.Package, "metadata.name"))
 
 	absDir, err := filepath.Abs(dir)
 	require.NoError(t, err)
@@ -80,7 +83,7 @@ func TestKernel_AcquirePlatformFromDir_RelativePathAbsolutized(t *testing.T) {
 	parent, leaf := filepath.Split(dir)
 	t.Chdir(parent)
 
-	plat, err := kernel.New().AcquirePlatformFromDir(context.Background(), leaf, loaderfile.LoadOptions{})
+	plat, err := kernel.New().AcquirePlatformFromDir(context.Background(), leaf)
 	require.NoError(t, err)
 	assert.True(t, filepath.IsAbs(plat.Source.Root))
 	assert.Equal(t, dir, plat.Source.Root)
@@ -91,9 +94,7 @@ func TestKernel_AcquirePlatformFromDir_RelativePathAbsolutized(t *testing.T) {
 func TestKernel_AcquirePlatformFromDir_RegistryOverride(t *testing.T) {
 	dir := writeTempPlatformDir(t, acquirePlatformFixture)
 
-	plat, err := kernel.New().AcquirePlatformFromDir(context.Background(), dir, loaderfile.LoadOptions{
-		Registry: "testing.opmodel.dev=localhost:5000+insecure",
-	})
+	plat, err := kernel.New().AcquirePlatformFromDir(context.Background(), dir)
 	require.NoError(t, err, "registry override must be accepted even when no imports use it")
 	require.NotNil(t, plat.Source)
 }
@@ -105,7 +106,7 @@ func TestKernel_AcquirePlatformFromDir_Errors(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("missing directory", func(t *testing.T) {
-		plat, err := k.AcquirePlatformFromDir(ctx, filepath.Join(t.TempDir(), "nope"), loaderfile.LoadOptions{})
+		plat, err := k.AcquirePlatformFromDir(ctx, filepath.Join(t.TempDir(), "nope"))
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, fs.ErrNotExist), "got %v", err)
 		assert.Nil(t, plat)
@@ -118,9 +119,9 @@ kind: "Module"
 metadata: name: "not-a-platform"
 type: "kubernetes"
 `)
-		plat, err := k.AcquirePlatformFromDir(ctx, dir, loaderfile.LoadOptions{})
+		plat, err := k.AcquirePlatformFromDir(ctx, dir)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, loaderfile.ErrWrongKind), "got %v", err)
+		assert.True(t, errors.Is(err, oerrors.ErrWrongKind), "got %v", err)
 		assert.Nil(t, plat)
 	})
 
@@ -130,9 +131,9 @@ package platform
 kind: "Platform"
 metadata: name: "typeless"
 `)
-		plat, err := k.AcquirePlatformFromDir(ctx, dir, loaderfile.LoadOptions{})
+		plat, err := k.AcquirePlatformFromDir(ctx, dir)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, loaderfile.ErrMissingRequiredField), "got %v", err)
+		assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "got %v", err)
 		assert.Nil(t, plat)
 	})
 }
@@ -143,7 +144,7 @@ func TestKernel_AcquireInstanceFromDir_CarriesSource(t *testing.T) {
 	k := kernel.New()
 	ctx := context.Background()
 
-	inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+	inst, err := k.AcquireInstanceFromDir(ctx, dir)
 	require.NoError(t, err)
 	require.NotNil(t, inst)
 
@@ -151,9 +152,8 @@ func TestKernel_AcquireInstanceFromDir_CarriesSource(t *testing.T) {
 	assert.Equal(t, "acquire-demo", inst.Metadata.Name)
 	assert.Equal(t, "ns", inst.Metadata.Namespace)
 
-	want, err := k.LoadInstancePackage(ctx, dir, loaderfile.LoadOptions{})
-	require.NoError(t, err)
-	assert.True(t, inst.Package.Equals(want), "Package is what LoadInstancePackage returns for the directory")
+	require.True(t, inst.Package.Exists())
+	assert.Equal(t, "acquire-demo", lookupString(t, inst.Package, "metadata.name"))
 
 	absDir, err := filepath.Abs(dir)
 	require.NoError(t, err)
@@ -177,7 +177,7 @@ metadata: {
 values: {replicas: int}
 `)
 
-	inst, err := kernel.New().AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{})
+	inst, err := kernel.New().AcquireInstanceFromDir(context.Background(), dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not fully concrete")
 	assert.Nil(t, inst)
@@ -189,7 +189,7 @@ func TestKernel_AcquireInstanceFromDir_LoaderErrors(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("missing directory", func(t *testing.T) {
-		inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(t.TempDir(), "nope"), loaderfile.LoadOptions{})
+		inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(t.TempDir(), "nope"))
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, fs.ErrNotExist), "got %v", err)
 		assert.Nil(t, inst)
@@ -202,9 +202,9 @@ kind: "Platform"
 metadata: {name: "not-an-instance", namespace: "ns"}
 #module: {kind: "Module"}
 `)
-		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+		inst, err := k.AcquireInstanceFromDir(ctx, dir)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, loaderfile.ErrWrongKind), "got %v", err)
+		assert.True(t, errors.Is(err, oerrors.ErrWrongKind), "got %v", err)
 		assert.Nil(t, inst)
 	})
 
@@ -215,9 +215,9 @@ kind: "ModuleInstance"
 metadata: {namespace: "ns"}
 #module: {kind: "Module"}
 `)
-		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+		inst, err := k.AcquireInstanceFromDir(ctx, dir)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, loaderfile.ErrMissingRequiredField), "got %v", err)
+		assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "got %v", err)
 		assert.Nil(t, inst)
 	})
 }
@@ -240,16 +240,14 @@ func dirListing(t *testing.T, dir string) []string {
 // unify with the package's own values in one build, the Source turns to
 // overlay mode carrying the on-disk files plus the rendered values file,
 // and the caller's directory is untouched.
-func TestKernel_AcquireInstanceFromDir_WithValues_Layers(t *testing.T) {
+func TestKernel_AcquireInstanceFromDir_WithSources_Layers(t *testing.T) {
 	k := newRenderKernel(t)
 	dir := renderFixtureDir(t, "instance_partial")
 	before := dirListing(t, dir)
 
-	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
-		kernel.WithValues(
-			mustSource(t, k, "/values/a.cue", `replicas: 3`),
-			mustSource(t, k, "/values/b.cue", `image: "nginx:1.27"`),
-		))
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
+		mustSource(t, k, "/values/a.cue", `replicas: 3`),
+		mustSource(t, k, "/values/b.cue", `image: "nginx:1.27"`))
 	require.NoError(t, err)
 	require.NotNil(t, inst)
 
@@ -276,17 +274,17 @@ func TestKernel_AcquireInstanceFromDir_WithValues_Layers(t *testing.T) {
 // The overlay mirrors the on-disk tree: layering a source that adds nothing
 // beyond what the package states yields the very same Package the plain
 // acquire returns, so no file class cue/load reads from disk is missed.
-func TestKernel_AcquireInstanceFromDir_WithValues_MirrorsDisk(t *testing.T) {
+func TestKernel_AcquireInstanceFromDir_WithSources_MirrorsDisk(t *testing.T) {
 	k := newRenderKernel(t)
 	dir := renderFixtureDir(t, "instance_partial")
 	ctx := context.Background()
 
-	plain, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+	plain, err := k.AcquireInstanceFromDir(ctx, dir)
 	require.NoError(t, err)
-	assert.Nil(t, plain.Source.Overlay, "no option: on-disk mode unchanged")
+	assert.Nil(t, plain.Source.Overlay, "no sources: on-disk mode unchanged")
 
-	layered, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-		kernel.WithValues(mustSource(t, k, "/values/same.cue", `image: "nginx:1.27"`)))
+	layered, err := k.AcquireInstanceFromDir(ctx, dir,
+		mustSource(t, k, "/values/same.cue", `image: "nginx:1.27"`))
 	require.NoError(t, err)
 	// cue.Value.Equals is false even across two plain acquires of this
 	// fixture (definitions and hidden fields); the exported syntax is the
@@ -295,18 +293,18 @@ func TestKernel_AcquireInstanceFromDir_WithValues_MirrorsDisk(t *testing.T) {
 	assert.Equal(t, plain.Source.Root, layered.Source.Root)
 	assert.Equal(t, plain.Source.Pkg, layered.Source.Pkg)
 
-	// An empty option list is the plain path.
-	same, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{}, kernel.WithValues())
+	// No trailing sources is the plain path.
+	same, err := k.AcquireInstanceFromDir(ctx, dir)
 	require.NoError(t, err)
 	assert.Nil(t, same.Source.Overlay)
 }
 
 // A module-less package (no cue.mod, no imports) layers without a registry.
-func TestKernel_AcquireInstanceFromDir_WithValues_ModuleLess(t *testing.T) {
+func TestKernel_AcquireInstanceFromDir_WithSources_ModuleLess(t *testing.T) {
 	dir := writeTempInstanceDir(t, acquireInstanceFixture)
 	k := kernel.New()
-	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, loaderfile.LoadOptions{},
-		kernel.WithValues(mustSource(t, k, "/values/extra.cue", `tag: "v1"`)))
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
+		mustSource(t, k, "/values/extra.cue", `tag: "v1"`))
 	require.NoError(t, err)
 	replicas, err := inst.Package.LookupPath(cue.ParsePath("values.replicas")).Int64()
 	require.NoError(t, err)
@@ -322,14 +320,14 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ModuleLess(t *testing.T) {
 // artifact-types spec, "Conflicting extra values fail at acquisition": the
 // error names the conflicting path with positions attributable to the
 // values source, and no partial instance is returned.
-func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.T) {
+func TestKernel_AcquireInstanceFromDir_WithSources_ConflictAttributed(t *testing.T) {
 	k := newRenderKernel(t)
 	dir := renderFixtureDir(t, "instance_partial")
 	ctx := context.Background()
 
 	t.Run("against the package's own values", func(t *testing.T) {
-		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-			kernel.WithValues(mustSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`)))
+		inst, err := k.AcquireInstanceFromDir(ctx, dir,
+			mustSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`))
 		require.Error(t, err)
 		assert.Nil(t, inst)
 		assert.Contains(t, err.Error(), "image")
@@ -337,8 +335,8 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.
 	})
 
 	t.Run("against the module's #config", func(t *testing.T) {
-		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-			kernel.WithValues(mustSource(t, k, "/values/bad.cue", `replicas: "three"`)))
+		inst, err := k.AcquireInstanceFromDir(ctx, dir,
+			mustSource(t, k, "/values/bad.cue", `replicas: "three"`))
 		require.Error(t, err)
 		assert.Nil(t, inst)
 		assert.Contains(t, err.Error(), "replicas")
@@ -346,15 +344,205 @@ func TestKernel_AcquireInstanceFromDir_WithValues_ConflictAttributed(t *testing.
 	})
 
 	t.Run("between sources", func(t *testing.T) {
-		inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{},
-			kernel.WithValues(
-				mustSource(t, k, "/values/a.cue", `replicas: 2`),
-				mustSource(t, k, "/values/b.cue", `replicas: 3`),
-			))
+		inst, err := k.AcquireInstanceFromDir(ctx, dir,
+			mustSource(t, k, "/values/a.cue", `replicas: 2`),
+			mustSource(t, k, "/values/b.cue", `replicas: 3`))
 		require.Error(t, err)
 		assert.Nil(t, inst)
 		assert.True(t, positionsName(err, "/values/a.cue") || positionsName(err, "/values/b.cue"), "no position names a source: %v", err)
 	})
+}
+
+// acquireModuleFixture is a self-contained, import-free #Module package: the
+// acquire path needs no registry to build it.
+const acquireModuleFixture = `
+package mod
+kind: "Module"
+metadata: {
+	name:       "demo"
+	modulePath: "example.com/modules/demo@v0"
+	version:    "0.1.0"
+}
+`
+
+// writeTempModuleRoot lays out a CUE module root holding the module package
+// at pkgDir (empty for the root package) and returns the root.
+func writeTempModuleRoot(t *testing.T, pkgDir, content string) string {
+	t.Helper()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cue.mod", "module.cue"),
+		[]byte("module: \"example.com/modules/demo@v0\"\nlanguage: version: \"v0.17.0\"\n"), 0o644))
+	dir := root
+	if pkgDir != "" {
+		dir = filepath.Join(root, pkgDir)
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "module.cue"), []byte(content), 0o644))
+	return root
+}
+
+// overlayKeys returns the overlay's keys relative to root, sorted.
+func overlayKeys(t *testing.T, src *module.Source) []string {
+	t.Helper()
+	out := make([]string, 0, len(src.Overlay))
+	for key := range src.Overlay {
+		rel, err := filepath.Rel(src.Root, key)
+		require.NoError(t, err)
+		out = append(out, filepath.ToSlash(rel))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// artifact-types spec, "Acquired module carries an overlay source": every
+// .cue file under the module root and nothing else, an empty Pkg at the
+// root, and HasSource() true so the module is a SynthesizeInstance input.
+func TestKernel_AcquireModuleFromDir_CarriesOverlaySource(t *testing.T) {
+	root := writeTempModuleRoot(t, "", acquireModuleFixture)
+	// A non-.cue sibling must not enter the overlay: cue/load does not read it.
+	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("not cue"), 0o644))
+
+	k := kernel.New()
+	mod, err := k.AcquireModuleFromDir(context.Background(), root)
+	require.NoError(t, err)
+	require.NotNil(t, mod)
+
+	require.NotNil(t, mod.Metadata)
+	assert.Equal(t, "demo", mod.Metadata.Name)
+	assert.Equal(t, "example.com/modules/demo@v0", mod.Metadata.ModulePath)
+	assert.Equal(t, "0.1.0", mod.Metadata.Version)
+
+	require.True(t, mod.Package.Exists(), "Package is the built module package")
+	assert.Equal(t, "demo", lookupString(t, mod.Package, "metadata.name"))
+
+	require.NotNil(t, mod.Source)
+	assert.Equal(t, root, mod.Source.Root)
+	assert.Empty(t, mod.Source.Pkg, "root package")
+	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue"}, overlayKeys(t, mod.Source))
+	assert.True(t, mod.HasSource(), "an acquired module satisfies the synthesis precondition")
+}
+
+// A package in a subdirectory names its module root and a relative Pkg; the
+// overlay still spans the whole root, so the module file drives resolution.
+func TestKernel_AcquireModuleFromDir_Subpackage(t *testing.T) {
+	root := writeTempModuleRoot(t, "sub", acquireModuleFixture)
+
+	mod, err := kernel.New().AcquireModuleFromDir(context.Background(), filepath.Join(root, "sub"))
+	require.NoError(t, err)
+	require.NotNil(t, mod.Source)
+	assert.Equal(t, root, mod.Source.Root)
+	assert.Equal(t, "sub", mod.Source.Pkg)
+	assert.Equal(t, []string{"cue.mod/module.cue", "sub/module.cue"}, overlayKeys(t, mod.Source))
+}
+
+// A relative directory path is stamped as its absolute form.
+func TestKernel_AcquireModuleFromDir_RelativePathAbsolutized(t *testing.T) {
+	root := writeTempModuleRoot(t, "", acquireModuleFixture)
+	parent, leaf := filepath.Split(root)
+	t.Chdir(parent)
+
+	mod, err := kernel.New().AcquireModuleFromDir(context.Background(), leaf)
+	require.NoError(t, err)
+	assert.True(t, filepath.IsAbs(mod.Source.Root))
+	assert.Equal(t, root, mod.Source.Root)
+}
+
+// artifact-types spec, "Shape-gate failures propagate": each sentinel wraps
+// through unchanged and no partial module is returned.
+func TestKernel_AcquireModuleFromDir_Errors(t *testing.T) {
+	k := kernel.New()
+	ctx := context.Background()
+
+	t.Run("missing directory", func(t *testing.T) {
+		mod, err := k.AcquireModuleFromDir(ctx, filepath.Join(t.TempDir(), "nope"))
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, fs.ErrNotExist), "got %v", err)
+		assert.Nil(t, mod)
+	})
+
+	t.Run("non-struct root", func(t *testing.T) {
+		root := writeTempModuleRoot(t, "", "package mod\n\n\"just a string\"\n")
+		mod, err := k.AcquireModuleFromDir(ctx, root)
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, oerrors.ErrInvalidPackage), "got %v", err)
+		assert.Nil(t, mod)
+	})
+
+	t.Run("wrong kind", func(t *testing.T) {
+		root := writeTempModuleRoot(t, "", `
+package mod
+kind: "Platform"
+metadata: {
+	name:       "not-a-module"
+	modulePath: "example.com/modules/demo@v0"
+	version:    "0.1.0"
+}
+`)
+		mod, err := k.AcquireModuleFromDir(ctx, root)
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, oerrors.ErrWrongKind), "got %v", err)
+		assert.Nil(t, mod)
+	})
+
+	t.Run("missing required field", func(t *testing.T) {
+		root := writeTempModuleRoot(t, "", `
+package mod
+kind: "Module"
+metadata: {
+	modulePath: "example.com/modules/demo@v0"
+	version:    "0.1.0"
+}
+`)
+		mod, err := k.AcquireModuleFromDir(ctx, root)
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "got %v", err)
+		assert.Contains(t, err.Error(), "metadata.name")
+		assert.Nil(t, mod)
+	})
+}
+
+// artifact-types spec, "Acquired module synthesizes like a registry module":
+// the render fixture module is served from the in-process registry and read
+// from the very tree that registry serves; both acquisitions synthesize and
+// render to the same set of objects.
+func TestKernel_AcquireModuleFromDir_SynthesizesLikeRegistryModule(t *testing.T) {
+	k := newRenderKernel(t)
+	ctx := context.Background()
+
+	fromDir, err := k.AcquireModuleFromDir(ctx, renderFixtureDir(t, "registry", "testing.opmodel.dev_library-render_web_app_v0.1.0"))
+	require.NoError(t, err)
+	require.True(t, fromDir.HasSource())
+
+	fromRegistry, err := k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
+	require.NoError(t, err)
+	assert.Equal(t, fromRegistry.Metadata, fromDir.Metadata, "the same module, read two ways")
+
+	plat := acquireRenderPlatform(t, k, "platform")
+	values := k.CueContext().CompileString(`{image: "nginx:1.27", replicas: 3}`)
+	require.NoError(t, values.Err())
+
+	renderObjects := func(t *testing.T, mod *module.Module) []string {
+		t.Helper()
+		inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+			Module:    mod,
+			Name:      "web-synth",
+			Namespace: "default",
+			Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
+		})
+		require.NoError(t, err)
+		res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+		require.NoError(t, err)
+		return compiledSummary(t, res.Compiled)
+	}
+
+	want := renderObjects(t, fromRegistry)
+	assert.ElementsMatch(t, []string{
+		"config/ConfigMap/app",
+		"web/Deployment/web-synth-web",
+		"web/Service/web-synth-web",
+	}, want, "the registry-acquired module renders the fixture's objects")
+	assert.ElementsMatch(t, want, renderObjects(t, fromDir))
 }
 
 // exportedSyntax renders v (definitions and hidden fields included) as

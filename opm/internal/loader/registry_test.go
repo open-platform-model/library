@@ -1,4 +1,4 @@
-package registry_test
+package loader_test
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	registry "github.com/open-platform-model/library/opm/helper/loader/registry"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 )
 
@@ -30,7 +30,7 @@ func lookupString(t *testing.T, v cue.Value, path string) string {
 // path@version with its author-set, self-referential metadata intact (the
 // fields that regressed under the operator's wrapper approach), and its
 // transitive catalog dependency resolves through the in-memory Overlay load.
-func TestLoadModulePackageWithSource_HappyPathAndTransitiveDeps(t *testing.T) {
+func TestFetchModule_HappyPathAndTransitiveDeps(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	catPath := base + "/cat"
 	modMetaPath := base + "/modules"
@@ -50,9 +50,9 @@ func TestLoadModulePackageWithSource_HappyPathAndTransitiveDeps(t *testing.T) {
 
 	envBefore := os.Getenv("CUE_REGISTRY")
 
-	val, src, err := registry.LoadModulePackageWithSource(
+	val, src, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.NoError(t, err)
 
 	// The staged tree comes back as the artifact Source type, overlay mode.
@@ -77,7 +77,7 @@ func TestLoadModulePackageWithSource_HappyPathAndTransitiveDeps(t *testing.T) {
 // The staged overlay carries the fetched module's .cue files only: a license
 // or a readme in the archive is not part of what cue/load reads and is not
 // staged, while a .cue file in a subdirectory is.
-func TestLoadModulePackageWithSource_OverlayCarriesCueFilesOnly(t *testing.T) {
+func TestFetchModule_OverlayCarriesCueFilesOnly(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/hello"
 	mod := registrytest.ModuleFixture{
@@ -91,9 +91,9 @@ func TestLoadModulePackageWithSource_OverlayCarriesCueFilesOnly(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, src, err := registry.LoadModulePackageWithSource(
+	_, src, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.NoError(t, err)
 	require.NotNil(t, src)
 
@@ -110,7 +110,7 @@ func TestLoadModulePackageWithSource_OverlayCarriesCueFilesOnly(t *testing.T) {
 // 5.3a — a registry artifact whose kind != "Module" is rejected with an error
 // wrapping the SAME ErrWrongKind sentinel exposed from loader/file, proving the
 // shape gate is single-sourced across both loaders.
-func TestLoadModulePackageWithSource_WrongKind(t *testing.T) {
+func TestFetchModule_WrongKind(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/wrong"
 	mod := registrytest.ModuleFixture{
@@ -119,17 +119,17 @@ func TestLoadModulePackageWithSource_WrongKind(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	val, _, err := registry.LoadModulePackageWithSource(
+	val, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err)
 	assert.False(t, val.Exists(), "wrong-kind load returns a zero value")
-	assert.True(t, errors.Is(err, loaderfile.ErrWrongKind), "want ErrWrongKind, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrWrongKind), "want ErrWrongKind, got %v", err)
 }
 
 // 5.3b — a module missing a required identity field (metadata.modulePath) is
 // rejected with an error wrapping the shared ErrMissingRequiredField sentinel.
-func TestLoadModulePackageWithSource_MissingRequiredField(t *testing.T) {
+func TestFetchModule_MissingRequiredField(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/nomp"
 	mod := registrytest.ModuleFixture{
@@ -138,16 +138,16 @@ func TestLoadModulePackageWithSource_MissingRequiredField(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, _, err := registry.LoadModulePackageWithSource(
+	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, loaderfile.ErrMissingRequiredField), "want ErrMissingRequiredField, got %v", err)
+	assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "want ErrMissingRequiredField, got %v", err)
 }
 
 // D11 — a module whose metadata declares a different modulePath than the one
 // it was fetched by is rejected with a typed IdentityError naming both values.
-func TestLoadModulePackageWithSource_IdentityPathMismatch(t *testing.T) {
+func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/hello"
 	otherPath := base + "/other@v0"
@@ -157,9 +157,9 @@ func TestLoadModulePackageWithSource_IdentityPathMismatch(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, _, err := registry.LoadModulePackageWithSource(
+	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
@@ -174,7 +174,7 @@ func TestLoadModulePackageWithSource_IdentityPathMismatch(t *testing.T) {
 // like any other disagreement: the schema the library consumes requires the
 // major-suffixed form, so there is no convention fallback and the typed error
 // carries the declared parent path and the fetched path.
-func TestLoadModulePackageWithSource_IdentityMajorFreeDeclarationRefused(t *testing.T) {
+func TestFetchModule_IdentityMajorFreeDeclarationRefused(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/hello"
 	mod := registrytest.ModuleFixture{
@@ -183,9 +183,9 @@ func TestLoadModulePackageWithSource_IdentityMajorFreeDeclarationRefused(t *test
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, _, err := registry.LoadModulePackageWithSource(
+	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err, "a major-free declaration cannot equal the fetched path")
 
 	var ie oerrors.IdentityError
@@ -198,7 +198,7 @@ func TestLoadModulePackageWithSource_IdentityMajorFreeDeclarationRefused(t *test
 // D9 — a module whose metadata declares a different version than the tag it
 // was fetched by is rejected with a typed IdentityError naming both values
 // (the "three published jellyfin artifacts carried one label value" defect).
-func TestLoadModulePackageWithSource_IdentityVersionMismatch(t *testing.T) {
+func TestFetchModule_IdentityVersionMismatch(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
 	modPath := base + "/hello"
 	mod := registrytest.ModuleFixture{
@@ -207,9 +207,9 @@ func TestLoadModulePackageWithSource_IdentityVersionMismatch(t *testing.T) {
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
 
-	_, _, err := registry.LoadModulePackageWithSource(
+	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
@@ -221,13 +221,13 @@ func TestLoadModulePackageWithSource_IdentityVersionMismatch(t *testing.T) {
 
 // 5.4 — an unresolvable path@version surfaces a wrapped fetch/load error
 // without mutating inputs or process environment.
-func TestLoadModulePackageWithSource_Unresolvable(t *testing.T) {
+func TestFetchModule_Unresolvable(t *testing.T) {
 	reg := registrytest.NewModuleRegistry(t, nil, nil)
 	envBefore := os.Getenv("CUE_REGISTRY")
 
-	val, _, err := registry.LoadModulePackageWithSource(
+	val, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), "test.example/does/not/exist@v0", "v9.9.9",
-		registry.LoadOptions{Registry: reg})
+		cueenv.Override(reg, ""))
 	require.Error(t, err)
 	assert.False(t, val.Exists(), "unresolvable load returns a zero value")
 	assert.Equal(t, envBefore, os.Getenv("CUE_REGISTRY"))
@@ -235,9 +235,9 @@ func TestLoadModulePackageWithSource_Unresolvable(t *testing.T) {
 
 // Invalid caller input (a malformed version) is wrapped, not panicked
 // (NewVersion, not MustNewVersion).
-func TestLoadModulePackageWithSource_BadVersionWrapped(t *testing.T) {
-	_, _, err := registry.LoadModulePackageWithSource(
+func TestFetchModule_BadVersionWrapped(t *testing.T) {
+	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), "test.example/x@v0", "not-a-version",
-		registry.LoadOptions{})
+		nil)
 	require.Error(t, err)
 }

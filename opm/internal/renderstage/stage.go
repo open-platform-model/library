@@ -170,7 +170,7 @@ func serveDir(dir, name string, src *module.Source) (string, error) {
 		return root, nil
 	}
 	target := filepath.Join(dir, name)
-	if err := sourcetree.WriteTo(target, src); err != nil {
+	if _, err := src.WriteTo(target); err != nil {
 		return "", err
 	}
 	return target, nil

@@ -1,8 +1,8 @@
-// Package schematest is a test-only helper for constructing
-// [schema.Cache] instances against the workspace-local CUE module cache
-// and for handing tests a CUE module cache directory to build in.
+// Package schematest is a test-only helper for pointing tests at the
+// workspace-local CUE module cache, and for handing a test a CUE module
+// cache directory to build in.
 //
-// Tests across opm/schema/, opm/helper/synth/, and opm/kernel/ exercise
+// Tests across opm/schema/, opm/internal/synth/ and opm/kernel/ exercise
 // the real OCILoader code path; no test-only Loader exists in the
 // library. The workspace cache directory (library/.cue-cache/) is
 // gitignored. First test run on a fresh checkout fetches
@@ -31,9 +31,9 @@
 //
 //   - Tests that serve fixtures through opm/internal/registrytest get the
 //     private tier automatically; its constructors call [PrivateCacheDir].
-//   - Tests that need only opmodel.dev (schema cache tests, file-loader
-//     tests, synth unit tests, the flow and live tests) call [SetEnv] or
-//     [NewCache] and build against the shared cache directly.
+//   - Tests that need only opmodel.dev (schema cache tests, loader tests,
+//     synth unit tests, the flow and live tests) call [SetEnv] and build
+//     against the shared cache directly.
 //
 // This package is under opm/internal/ — only opm/* packages may import it.
 package schematest
@@ -131,19 +131,4 @@ func SetEnv(t testing.TB) {
 	t.Helper()
 	t.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 	t.Setenv("CUE_CACHE_DIR", WorkspaceCacheDir(t))
-}
-
-// NewCache returns a fresh *schema.Cache backed by a zero-value
-// [schema.OCILoader]. It also configures CUE_REGISTRY and CUE_CACHE_DIR
-// via [SetEnv] so the loader resolves opmodel.dev/core@v2 against the
-// public registry into the workspace-local cache.
-//
-// Memoization is per-call: distinct tests get distinct caches to keep
-// per-test state explicit. Tests that need to share a Cache across
-// multiple synth calls within one test should hold the returned pointer
-// for the duration of the test.
-func NewCache(t testing.TB) *schema.Cache {
-	t.Helper()
-	SetEnv(t)
-	return &schema.Cache{Loader: schema.OCILoader{}}
 }

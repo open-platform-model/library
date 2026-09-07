@@ -6,22 +6,19 @@
 // contract that every frontend (CLI, controller, Crossplane fn, future
 // runtimes) MUST honour.
 //
+// The boundary is real in the import graph, not just described: no package
+// outside opm/helper/ — opm/kernel, opm/module, opm/platform, opm/schema,
+// opm/errors, opm/core, opm/compat and every package under opm/internal/ —
+// imports anything under it, no exported kernel signature names a type
+// declared here, and no kernel operation returns an error whose sentinel is
+// declared here. A depguard rule in .golangci.yml enforces it on every PR.
+//
 // Helper subpackages are added by their owning slices of the
 // kernel-redesign-around-platform enhancement. Drift requires a deliberate
 // enhancement; one-off additions are not allowed.
 //
 // Current subpackages:
 //
-//   - loader/file  — filesystem-coupled loading of modules, instances, and
-//     providers from a CUE module directory or .cue file. Use when the
-//     frontend has access to a real filesystem.
-//   - synth        — artifact synthesis from in-memory typed inputs.
-//     synth.Instance composes a #ModuleInstance CUE value by unifying
-//     (Module, name, namespace, values, labels, annotations) against the
-//     embedded #ModuleInstance schema. Peer of loader/ (loading parses
-//     bytes; synth creates from typed inputs). Recommended entry point is
-//     (*Kernel).SynthesizeInstance, which chains synth.Instance into the
-//     kernel's instance processing for a fully validated *module.Instance.
 //   - platformmodule — platform CUE module generation from catalog
 //     coordinates (0019 D5/D13): Generate renders cue.mod/module.cue and
 //     platform.cue deterministically from typed registry entries and a
@@ -31,10 +28,20 @@
 //     The result is what (*Kernel).AcquirePlatformFromDir accepts. A
 //     frontend MAY write its platform module by hand instead.
 //
-// Layered values validation now lives on the kernel itself: see
-// Kernel.ValidateConfigDetailed and the Source type in opm/kernel. The
-// earlier opm/helper/values subpackage was removed as part of
-// redesign-config-validation.
+// It is the only one. Three subpackages were folded into the kernel because
+// the kernel itself depended on them, which made the "opt-in" tier mandatory:
+//
+//   - loader/file and loader/registry became opm/internal/loader, reached
+//     through the acquire verbs (Kernel.AcquireModuleFromDir,
+//     AcquireModuleFromRegistry, AcquirePlatformFromDir,
+//     AcquireInstanceFromDir). Their shape-gate sentinels are declared in
+//     opm/errors (ErrInvalidPackage, ErrWrongKind, ErrMissingRequiredField).
+//   - synth became opm/internal/synth, reached through
+//     Kernel.SynthesizeInstance with kernel.InstanceInput. Its sentinels are
+//     in opm/errors too (ErrMissingModule, ErrMissingName,
+//     ErrMissingNamespace, ErrMissingSource, ErrSchemaUnavailable).
+//   - values was removed earlier: layered values validation lives on the
+//     kernel as Kernel.ValidateConfigDetailed with the Source type.
 //
 // The opm/helper/platform subpackage (the Compose helper) was removed as
 // part of rewrite-match-materialized, and platform synthesis (synth.Platform)
@@ -51,12 +58,10 @@
 // In scope: opinionated convenience that wraps kernel primitives for a
 // specific embedding pattern.
 //
-// Out of scope: anything the kernel must own (artifact types, render
-// pipeline, validation rules, version dispatch). Those live outside
-// opm/helper/.
+// Out of scope: anything the kernel must own (artifact types, artifact
+// loading, synthesis, render pipeline, validation rules, version dispatch).
+// Those live outside opm/helper/.
 //
-// Slice 07 (reorganize-helpers-under-helper) established this boundary by
-// moving opm/loader to opm/helper/loader/file. See the umbrella enhancement
-// at enhancements/001-kernel-redesign-around-platform/ for the full
-// design.
+// See the umbrella enhancement at
+// enhancements/001-kernel-redesign-around-platform/ for the full design.
 package helper

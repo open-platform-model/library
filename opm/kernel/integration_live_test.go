@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -35,14 +34,11 @@ func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 	k := kernel.New()
 	ctx := context.Background()
 
-	modVal, err := k.LoadModulePackage(ctx, moduleDir, loader.LoadOptions{Registry: registry})
-	require.NoErrorf(t, err, "loading module package from %s", moduleDir)
-
-	mod, err := k.NewModuleFromValue(modVal)
-	require.NoError(t, err)
+	mod, err := k.AcquireModuleFromDir(ctx, moduleDir)
+	require.NoErrorf(t, err, "acquiring module from %s", moduleDir)
 	require.Equal(t, "web_app", mod.Metadata.Name)
 
-	debugValues := modVal.LookupPath(schema.DebugValues)
+	debugValues := mod.Package.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
 
 	out, err := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{{Value: debugValues, Origin: moduleDir}})

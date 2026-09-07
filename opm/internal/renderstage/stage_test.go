@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"cuelang.org/go/cue/load"
 	"cuelang.org/go/cue/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,13 +69,13 @@ func overlayInstance(root string) *module.Source {
 	return &module.Source{
 		Root: root,
 		Pkg:  pkg,
-		Overlay: map[string]load.Source{
-			filepath.Join(root, "cue.mod", "module.cue"):   load.FromString(instanceModFile),
-			filepath.Join(root, "module.cue"):              load.FromString("package web_app\n\nx: 1\n"),
-			filepath.Join(root, pkg, "instance.cue"):       load.FromBytes([]byte("package instance\n\ny: 2\n")),
-			filepath.Join(root, pkg, "values.cue"):         load.FromString("package instance\n\nz: 3\n"),
-			filepath.Join(root, pkg, "notes.md"):           load.FromString("not cue"),
-			filepath.Join(root, pkg, "nested", "deep.cue"): load.FromString("package other\n"),
+		Overlay: map[string][]byte{
+			filepath.Join(root, "cue.mod", "module.cue"):   []byte(instanceModFile),
+			filepath.Join(root, "module.cue"):              []byte("package web_app\n\nx: 1\n"),
+			filepath.Join(root, pkg, "instance.cue"):       []byte([]byte("package instance\n\ny: 2\n")),
+			filepath.Join(root, pkg, "values.cue"):         []byte("package instance\n\nz: 3\n"),
+			filepath.Join(root, pkg, "notes.md"):           []byte("not cue"),
+			filepath.Join(root, pkg, "nested", "deep.cue"): []byte("package other\n"),
 		},
 	}
 }
@@ -143,13 +142,13 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 	// An overlay entry outside its root is refused rather than written
 	// somewhere else.
 	escaped := overlayInstance(root)
-	escaped.Overlay[filepath.Join(string(filepath.Separator), "elsewhere", "x.cue")] = load.FromString("package x\n")
+	escaped.Overlay[filepath.Join(string(filepath.Separator), "elsewhere", "x.cue")] = []byte("package x\n")
 	_, err = Stage(t.TempDir(), escaped, plat, "rt")
 	require.ErrorContains(t, err, "outside the source root")
 
 	// Two package clauses in one package directory.
 	mixed := overlayInstance(root)
-	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = load.FromString("package other\n")
+	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = []byte("package other\n")
 	_, err = Stage(t.TempDir(), mixed, plat, "rt")
 	require.ErrorContains(t, err, "more than one package")
 
@@ -160,7 +159,7 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 			delete(bare.Overlay, k)
 		}
 	}
-	bare.Overlay[filepath.Join(root, "opm-synth-instance", "data.cue")] = load.FromString("a: 1\n")
+	bare.Overlay[filepath.Join(root, "opm-synth-instance", "data.cue")] = []byte("a: 1\n")
 	_, err = Stage(t.TempDir(), bare, plat, "rt")
 	require.ErrorContains(t, err, "no package clause")
 }

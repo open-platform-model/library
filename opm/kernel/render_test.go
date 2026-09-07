@@ -17,8 +17,6 @@ import (
 
 	"github.com/open-platform-model/library/opm/core"
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
-	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -55,7 +53,7 @@ func newRenderKernel(t *testing.T) *kernel.Kernel {
 
 func acquireRenderPlatform(t *testing.T, k *kernel.Kernel, dir string) *platform.Platform {
 	t.Helper()
-	p, err := k.AcquirePlatformFromDir(context.Background(), renderFixtureDir(t, dir), loaderfile.LoadOptions{})
+	p, err := k.AcquirePlatformFromDir(context.Background(), renderFixtureDir(t, dir))
 	require.NoError(t, err, "acquiring platform fixture %s", dir)
 	require.NotNil(t, p.Source)
 	return p
@@ -63,7 +61,7 @@ func acquireRenderPlatform(t *testing.T, k *kernel.Kernel, dir string) *platform
 
 func acquireRenderInstance(t *testing.T, k *kernel.Kernel, parts ...string) *module.Instance {
 	t.Helper()
-	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, parts...), loaderfile.LoadOptions{})
+	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, parts...))
 	require.NoError(t, err, "acquiring instance fixture %v", parts)
 	require.NotNil(t, inst.Source)
 	return inst
@@ -143,12 +141,11 @@ func synthRenderInstance(t *testing.T, k *kernel.Kernel, version string) *module
 	mod, err := k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v"+version)
 	require.NoError(t, err, "acquiring fixture module %s", version)
 	require.True(t, mod.HasSource())
-	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "web-synth",
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString(`{image: "nginx:1.27", replicas: 3}`),
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "web-synth",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `{image: "nginx:1.27", replicas: 3}`)},
 	})
 	require.NoError(t, err, "synthesizing overlay-mode instance")
 	require.NotNil(t, inst.Source)
@@ -572,9 +569,9 @@ func TestRender_WithRegistryDoesNotMutateEnv(t *testing.T) {
 	before := os.Getenv("CUE_REGISTRY")
 
 	k := kernel.New(kernel.WithRegistry(mapping))
-	plat, err := k.AcquirePlatformFromDir(context.Background(), renderFixtureDir(t, "platform"), loaderfile.LoadOptions{Registry: mapping})
+	plat, err := k.AcquirePlatformFromDir(context.Background(), renderFixtureDir(t, "platform"))
 	require.NoError(t, err)
-	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance"), loaderfile.LoadOptions{Registry: mapping})
+	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance"))
 	require.NoError(t, err)
 
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
@@ -626,12 +623,12 @@ func TestRender_ConcurrentKernelsShareNothing(t *testing.T) {
 			defer wg.Done()
 			ctx := context.Background()
 			k := kernel.New(kernel.WithRegistry(mapping)) // one Kernel per goroutine
-			plat, err := k.AcquirePlatformFromDir(ctx, platDir, loaderfile.LoadOptions{})
+			plat, err := k.AcquirePlatformFromDir(ctx, platDir)
 			if err != nil {
 				results[i] = result{err: err}
 				return
 			}
-			inst, err := k.AcquireInstanceFromDir(ctx, instDir, loaderfile.LoadOptions{})
+			inst, err := k.AcquireInstanceFromDir(ctx, instDir)
 			if err != nil {
 				results[i] = result{err: err}
 				return
@@ -691,8 +688,8 @@ func TestRender_CancelledContextRefused(t *testing.T) {
 func TestRender_LayeredInstanceReflectsValues(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
-	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance_partial"), loaderfile.LoadOptions{},
-		kernel.WithValues(mustSource(t, k, "/values/scale.cue", `replicas: 5`)))
+	inst, err := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "instance_partial"),
+		mustSource(t, k, "/values/scale.cue", `replicas: 5`))
 	require.NoError(t, err)
 	require.NotNil(t, inst.Source.Overlay)
 

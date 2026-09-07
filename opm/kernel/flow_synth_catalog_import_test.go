@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/helper/synth"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -92,12 +91,11 @@ debugValues: catalogModulePath: cat.metadata.modulePath
 
 	plat := acquireCatalogPlatform(t, k, registryMapping, catPath, version)
 
-	inst, err := k.SynthesizeInstance(ctx, synth.InstanceInput{
-		Module:      mod,
-		Name:        "web-inst",
-		Namespace:   "default",
-		Values:      k.CueContext().CompileString("{}"),
-		SchemaCache: k.SchemaCache(),
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module:    mod,
+		Name:      "web-inst",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", "{}")},
 	})
 	require.NoErrorf(t, err, "synthesizing an instance from a catalog-importing module (library#31 regression)")
 	if err != nil {

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loader "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -52,17 +51,14 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 
 	k := kernel.New(kernel.WithRegistry(registry))
 	ctx := context.Background()
-	opts := loader.LoadOptions{Registry: registry}
 
 	// ── The consumer Module, for its identity ────────────────────────
-	modVal, err := k.LoadModulePackage(ctx, moduleDir, opts)
-	require.NoErrorf(t, err, "loading module package from %s", moduleDir)
-	mod, err := k.NewModuleFromValue(modVal)
-	require.NoError(t, err, "constructing module.Module from CUE value")
+	mod, err := k.AcquireModuleFromDir(ctx, moduleDir)
+	require.NoErrorf(t, err, "acquiring module from %s", moduleDir)
 	require.Equal(t, "web_app", mod.Metadata.Name)
 
 	// ── Acquire the Platform module ──────────────────────────────────
-	plat, err := k.AcquirePlatformFromDir(ctx, platformDir, opts)
+	plat, err := k.AcquirePlatformFromDir(ctx, platformDir)
 	require.NoErrorf(t, err, "acquiring platform module from %s", platformDir)
 	require.Equal(t, "kubernetes", plat.Metadata.Type)
 	require.NotNil(t, plat.Source)
@@ -73,7 +69,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	// (testdata/modules/web_app/instance): it names the module by import,
 	// so every component's #instance and #names resolve and core derives
 	// metadata.uuid from the instance fqn (0019 D3).
-	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(moduleDir, "instance"), opts)
+	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(moduleDir, "instance"))
 	require.NoErrorf(t, err, "acquiring instance package from %s", moduleDir)
 	require.Equal(t, "web-app-demo", inst.Metadata.Name)
 	require.Equal(t, "instance", inst.Source.Pkg, "the instance package sits inside the module fixture's root")

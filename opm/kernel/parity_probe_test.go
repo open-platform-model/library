@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -147,12 +146,11 @@ oracle.#Render & {
 
 	ctx := context.Background()
 	k := kernel.New(kernel.WithRegistry(mapping))
-	opts := loaderfile.LoadOptions{Registry: mapping}
 
 	// ── kernel side ──────────────────────────────────────────────────
-	inst, err := k.AcquireInstanceFromDir(ctx, instDir, opts)
+	inst, err := k.AcquireInstanceFromDir(ctx, instDir)
 	require.NoError(t, err, "acquiring the probe instance package")
-	plat, err := k.AcquirePlatformFromDir(ctx, platDir, opts)
+	plat, err := k.AcquirePlatformFromDir(ctx, platDir)
 	require.NoError(t, err, "acquiring the #CatalogEntry-form probe platform")
 	res, renderErr := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: parityRuntimeName})
 	require.NoError(t, renderErr, "Render must render the probe instance")

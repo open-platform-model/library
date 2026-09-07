@@ -36,10 +36,17 @@ type Option func(*Kernel)
 // supplied options. Defaults are:
 //
 //   - cue.Context: a fresh [cuecontext.New]
-//   - SchemaCache: a fresh [*schema.Cache] backed by zero-value
-//     [schema.OCILoader]; resolves [schema.DefaultSchemaModule] (the pinned
-//     core release) against CUE_REGISTRY / CUE_CACHE_DIR from the process
-//     environment
+//   - SchemaCache: a fresh [*schema.Cache] backed by a [schema.OCILoader]
+//     whose Registry is the kernel's [WithRegistry] value (empty when the
+//     option is absent, which resolves [schema.DefaultSchemaModule] against
+//     CUE_REGISTRY / CUE_CACHE_DIR from the process environment)
+//
+// Seeding the loader from the registry option is what makes [WithRegistry]
+// the ONE mapping every kernel operation resolves through — schema fetch
+// included — so a consumer cannot end up rendering against an explicit
+// mapping while its schema silently resolves from the process environment.
+// An explicit [WithSchemaLoader] still wins, whatever order the options are
+// given in: the loader is chosen after every option has been applied.
 //
 // New never returns nil. The returned Kernel is NOT safe for concurrent
 // use across method calls.
@@ -54,12 +61,13 @@ func New(opts ...Option) *Kernel {
 	for _, opt := range opts {
 		opt(k)
 	}
-	// One Cache per Kernel. WithSchemaLoader sets schemaLoader; absent
-	// the option, the zero-value OCILoader resolves schema.DefaultSchemaModule
-	// against the process environment.
+	// One Cache per Kernel. Options are all applied first, so option order
+	// cannot decide the outcome: an explicit WithSchemaLoader wins, and
+	// otherwise the default loader carries the kernel's registry mapping
+	// (empty falls back to the process environment).
 	loader := k.schemaLoader
 	if loader == nil {
-		loader = schema.OCILoader{}
+		loader = schema.OCILoader{Registry: k.registry}
 	}
 	k.schemaCache = &schema.Cache{Loader: loader}
 	return k
@@ -67,8 +75,11 @@ func New(opts ...Option) *Kernel {
 
 // WithSchemaLoader configures the [schema.Loader] used to populate the
 // kernel's [*schema.Cache]. Omitting this option defaults to a
-// zero-value [schema.OCILoader] that resolves [schema.DefaultSchemaModule]
-// via CUE_REGISTRY / CUE_CACHE_DIR from the process environment.
+// [schema.OCILoader] carrying the kernel's [WithRegistry] mapping, which
+// resolves [schema.DefaultSchemaModule] through it (and through CUE_REGISTRY
+// / CUE_CACHE_DIR from the process environment when no mapping was given).
+// The option wins over that default regardless of the order the options are
+// passed in.
 //
 // The Kernel wraps the supplied Loader in a fresh Cache; callers cannot
 // inject a pre-built Cache. This guarantees one Kernel = one Cache, so
@@ -85,10 +96,18 @@ func WithSchemaLoader(l schema.Loader) Option {
 	}
 }
 
-// WithRegistry sets the OCI registry mapping (CUE_REGISTRY syntax, e.g.
-// "opmodel.dev=ghcr.io/open-platform-model") used for catalog and module
-// resolution: the render build's catalog imports ([Kernel.Render]) and
-// registry module acquisition ([Kernel.AcquireModuleFromRegistry]).
+// WithRegistry sets the ONE OCI registry mapping (CUE_REGISTRY syntax, e.g.
+// "opmodel.dev=ghcr.io/open-platform-model") every kernel operation uses for
+// catalog, module and schema resolution:
+//
+//   - the render build's catalog imports ([Kernel.Render]);
+//   - registry module acquisition ([Kernel.AcquireModuleFromRegistry]);
+//   - directory acquisition ([Kernel.AcquireModuleFromDir],
+//     [Kernel.AcquirePlatformFromDir], [Kernel.AcquireInstanceFromDir]);
+//   - instance synthesis ([Kernel.SynthesizeInstance]);
+//   - the default schema cache (absent [WithSchemaLoader]).
+//
+// No acquire verb takes a per-call registry override.
 //
 // Omitting this option (or passing an empty string) inherits CUE_REGISTRY from
 // the process environment; the kernel applies no built-in default registry —
@@ -120,9 +139,10 @@ func (k *Kernel) CueContext() *cue.Context {
 // [schema.Cache.Get] invocation contacts CUE; the load is lazy and
 // memoized.
 //
-// Typical use: pass to [synth.InstanceInput.SchemaCache] before calling
-// instance synthesis, or read [schema.Cache.ResolvedVersion] for
-// diagnostics after a schema-touching operation has run.
+// Typical use: read [schema.Cache.ResolvedVersion] for diagnostics after a
+// schema-touching operation has run. Nothing needs to be passed back in —
+// every kernel operation that needs the schema, instance synthesis
+// included, resolves it through this cache on its own.
 func (k *Kernel) SchemaCache() *schema.Cache {
 	return k.schemaCache
 }

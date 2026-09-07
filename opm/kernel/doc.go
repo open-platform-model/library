@@ -8,6 +8,28 @@
 // methods on it instead of importing the individual loader / module /
 // validate packages.
 //
+// # Surface
+//
+// One tier: every artifact a frontend can hold comes from an acquire verb, or
+// from the package constructor it already has a value for.
+//
+//   - [Kernel.AcquireModuleFromRegistry] and [Kernel.AcquireModuleFromDir]
+//     return a source-carrying [*module.Module];
+//   - [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform];
+//   - [Kernel.AcquireInstanceFromDir] returns a validated
+//     [*module.Instance], with optional values as trailing [Source] values;
+//   - [Kernel.SynthesizeInstance] builds one from typed inputs
+//     ([InstanceInput]);
+//   - [Kernel.ValidateConfigDetailed] validates layered values;
+//   - [Kernel.Render] renders an instance against a platform.
+//
+// There is no second, value-only tier: a caller that wants the raw value of
+// an acquired artifact reads its Package field, and a caller holding a value
+// it built itself calls [module.NewModuleFromValue] or
+// [platform.NewPlatformFromValue] directly. The registry mapping is
+// [WithRegistry] for every one of these operations, the schema cache
+// included; no verb takes a per-call override.
+//
 // # Goroutine safety
 //
 // A single Kernel is NOT safe for concurrent use across its own method calls.
@@ -42,12 +64,12 @@
 //	        go func(dir string) {
 //	            defer wg.Done()
 //	            k := kernel.New() // one Kernel per goroutine
-//	            plat, err := k.AcquirePlatformFromDir(ctx, platformDir, loaderfile.LoadOptions{})
+//	            plat, err := k.AcquirePlatformFromDir(ctx, platformDir)
 //	            if err != nil {
 //	                errs <- err
 //	                return
 //	            }
-//	            inst, err := k.AcquireInstanceFromDir(ctx, dir, loaderfile.LoadOptions{})
+//	            inst, err := k.AcquireInstanceFromDir(ctx, dir)
 //	            if err != nil {
 //	                errs <- err
 //	                return
@@ -92,11 +114,12 @@
 // OverSubscribed, ResolvedVersions). There is no separate match verb.
 //
 // Render consumes the instance as processed: values are validated where
-// they are applied. [Kernel.AcquireInstanceFromDir] unifies [WithValues]
-// sources inside the package build and checks them against the module's
-// `#config` at their own positions; [Kernel.SynthesizeInstance] renders
-// in.Values into the synthesized package; both then assert concreteness on
-// the whole built spec. Render performs no validation pass of its own.
+// they are applied. [Kernel.AcquireInstanceFromDir] unifies its trailing
+// [Source] values inside the package build and checks them against the
+// module's `#config` at their own positions; [Kernel.SynthesizeInstance]
+// does the same for [InstanceInput.Values], rendering them into the
+// synthesized package; both then assert concreteness on the whole built
+// spec. Render performs no validation pass of its own.
 //
 // # Configuration validation
 //

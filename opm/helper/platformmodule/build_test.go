@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	loaderfile "github.com/open-platform-model/library/opm/helper/loader/file"
 	"github.com/open-platform-model/library/opm/helper/platformmodule"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
@@ -72,7 +71,7 @@ func TestGenerate_BuildsThroughTheKernel(t *testing.T) {
 	require.NoError(t, files.WriteTo(dir))
 
 	k := kernel.New(kernel.WithRegistry(mapping))
-	plat, err := k.AcquirePlatformFromDir(ctx, dir, loaderfile.LoadOptions{Registry: mapping})
+	plat, err := k.AcquirePlatformFromDir(ctx, dir)
 	require.NoError(t, err, "generated module does not build:\n%s\n%s", files[platformmodule.ModuleFileName], files[platformmodule.PlatformFileName])
 	require.NotNil(t, plat.Source)
 	assert.Equal(t, dir, plat.Source.Root)
