@@ -4,16 +4,19 @@ import (
 	"fmt"
 )
 
-// TransformError indicates transformer execution failed.
+// TransformError indicates transformer execution failed for one matched
+// (component, transformer) pair. Unlike the verdict rows, it wraps a real
+// cause: the CUE error the pair's output carried, or the kernel's own
+// concreteness refusal.
 type TransformError struct {
-	ComponentName  string
-	TransformerFQN string
-	Cause          error
+	Component   string
+	Transformer string
+	Cause       error
 }
 
 func (e *TransformError) Error() string {
 	return fmt.Sprintf("component %q, transformer %q: %v",
-		e.ComponentName, e.TransformerFQN, e.Cause)
+		e.Component, e.Transformer, e.Cause)
 }
 
 func (e *TransformError) Unwrap() error {

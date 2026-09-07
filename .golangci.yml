@@ -24,7 +24,6 @@ linters:
             - "**/opm/platform/**"
             - "**/opm/schema/**"
             - "**/opm/errors/**"
-            - "**/opm/core/**"
             - "**/opm/compat/**"
             - "**/opm/internal/**"
           deny:

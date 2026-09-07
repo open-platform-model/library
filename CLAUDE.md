@@ -90,8 +90,7 @@ Read these on entry:
 ```text
 opm/
   compat/                     Publish-side catalog compatibility: D27 comparison walk (with D30 provenance skip), D34 level ladder, predecessor selection (pure, no I/O)
-  core/                       Platform-neutral primitives: Compiled (terminal output)
-  errors/                     Structured errors + grouped CUE diagnostics (alias as oerrors in consumers); typed render-gate causes (unmatched.go: UnmatchedComponentsError + MatchResult; oversubscribed.go, skew.go, match.go)
+  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, skew.go)
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
@@ -204,12 +203,21 @@ catalogs), stages one generated render module in a per-render temp dir
   versions). The fail-closed gate refuses on an unresolved demand, an
   unmatched component or an over-subscribed provider-fulfilled key; a refusal
   is a `*RenderError` carrying the full diagnostics with typed causes
-  (`oerrors.UnresolvedDemandsError`, `UnmatchedComponentsError`,
-  `OverSubscribedContractError`, `TransformError`) reachable via `errors.As`.
-  A dry run is `Render` with `Compiled` discarded; there is no match verb.
+  (`*oerrors.UnresolvedDemandsError`, `*UnmatchedComponentsError`,
+  `*OverSubscribedContractsError`, `*TransformError`) reachable via
+  `errors.As`. Each cause carries the diagnostics rows unchanged and wraps
+  nothing. A dry run is `Render` with `Compiled` discarded; there is no match
+  verb. The render module's own `gate` field agrees with the kernel: it errors
+  exactly when the kernel refuses, so a staged module is self-refusing under a
+  plain `cue eval`.
+- **A render result carries no presentation strings.** The two advisory facts
+  are rows: an unhandled optional trait on `Diagnostics.UnhandledTraits`, and
+  a module requiring a newer build than the platform carries on a
+  `Diagnostics.ResolvedVersions` row with `Newer` set. Frontends word both.
 - **Catalog skew** (the instance module requiring a newer OPM-namespace
-  build than the platform carries) is warned by default (`SkewWarn`) or
-  refused before evaluation (`SkewRefuse`, `*oerrors.SkewError`).
+  build than the platform carries) marks the row `Newer` by default
+  (`SkewWarn`) or refuses before evaluation (`SkewRefuse`,
+  `*oerrors.SkewError`).
 - **Registry config mirrors the schema loader.** `WithRegistry` sets the
   `CUE_REGISTRY` mapping the build uses for the platform's catalog imports;
   absent it, the kernel inherits process `CUE_REGISTRY` and auto-applies no
@@ -273,11 +281,11 @@ task cue:test:flow                              # acquire→render integration t
 
 `*kernel.Kernel` is the single entry point. One render verb maps to the frontend's render / apply / dry-run subcommands:
 
-- `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*core.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
+- `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
 
 Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache included. Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
-`*core.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
+`*kernel.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
 
 ### Render pipeline (per instance)
 
@@ -289,9 +297,9 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
                                coverage invariant: every OPM-namespace path either input requires is promoted
                                skew rows (D7/D18) → warn or refuse per SkewPolicy
         renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env)
-        decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (+ the unmatched match matrix)
+        decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
         gateErrors             unresolved | unmatched | overSubscribed → *RenderError
-        decodeRendered         rendered → []*core.Compiled with Instance/Component/Transformer FQN provenance
+        decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
 ```
 
 Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the single-provider guard as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder.

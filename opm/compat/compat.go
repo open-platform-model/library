@@ -32,7 +32,7 @@ type Violation struct {
 }
 
 // The violation kinds. KindDomainNarrowed carries the CUE subsumption
-// diagnostic verbatim in New (no reformatting, consistent with UnifyError);
+// diagnostic verbatim in New (no reformatting);
 // the default kinds carry the rendered defaults in Old/New.
 const (
 	KindFieldRemoved      = "field removed"

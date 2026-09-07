@@ -1,6 +1,6 @@
 # Getting started
 
-This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, acquiring an instance and a platform module, and rendering the instance down to `*core.Compiled` values.
+This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, acquiring an instance and a platform module, and rendering the instance down to `*kernel.Compiled` values.
 
 The recommended entry point is the `kernel.Kernel` struct, which owns the `*cue.Context` and schema cache used by every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use. `Render` does not use that context: each render is its own CUE build in a fresh context that is dropped when the call returns, so concurrency is across renders, one Kernel per goroutine, with nothing shared (ADR-005).
 
@@ -211,8 +211,8 @@ result, err := k.Render(ctx, kernel.RenderInput{
     Platform:    plat,
     RuntimeName: "opm-cli",
     // Skew: kernel.SkewWarn (default) renders against the platform's build and
-    // reports module-newer-than-platform catalog skew on result.Warnings;
-    // kernel.SkewRefuse fails before evaluation with *oerrors.SkewError.
+    // marks the path's ResolvedVersions row Newer; kernel.SkewRefuse fails
+    // before evaluation with *oerrors.SkewError.
 })
 if err != nil {
     var rerr *kernel.RenderError
@@ -221,25 +221,31 @@ if err != nil {
         // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
         // UnhandledTraits, OverSubscribed, ResolvedVersions) and rerr.Err the
         // typed cause (*oerrors.UnresolvedDemandsError,
-        // *oerrors.UnmatchedComponentsError, oerrors.OverSubscribedContractError,
+        // *oerrors.UnmatchedComponentsError, *oerrors.OverSubscribedContractsError,
         // *oerrors.TransformError), reachable through errors.As.
         var unmatched *oerrors.UnmatchedComponentsError
         if errors.As(rerr.Err, &unmatched) {
-            // unmatched.Components, unmatched.Matches
+            // unmatched.Components: one row per component, each carrying its
+            // CandidateVerdicts (transformer, matched, missing labels).
         }
     }
     return err
 }
-for _, w := range result.Warnings {
-    // advisory: unhandled optional traits, version skew under SkewWarn
-    _ = w
+// Advisory facts are rows, not messages: the frontend words them.
+for comp, traits := range result.Diagnostics.UnhandledTraits {
+    _, _ = comp, traits // an optional trait no matched transformer handles
+}
+for _, r := range result.Diagnostics.ResolvedVersions {
+    if r.Newer {
+        // the module requires r.ModuleVersion, the platform carries r.PlatformVersion
+    }
 }
 for _, r := range result.Compiled {
     // r.Value is concrete, fully evaluated CUE — encode to YAML/JSON
 }
 ```
 
-Each `*core.Compiled` carries Instance / Component / Transformer FQN provenance. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
+Each `*kernel.Compiled` carries Instance / Component / Transformer FQN provenance. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 
 ### Dry run
 
@@ -267,7 +273,7 @@ default:
 | `Kernel.AcquirePlatformFromDir`       | (platform load)              | Platform module from disk (hand-written or `platformmodule`-generated), `Source` stamped |
 | `Kernel.AcquireInstanceFromDir`       | (instance load)              | Authored instance package, validated, `Source` stamped; trailing `Source` values layer on |
 | `Kernel.SynthesizeInstance`           | (typed inputs)               | Instance from module + values, validated, `Source` stamped                   |
-| `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*core.Compiled` plus `RenderDiagnostics`         |
+| `Kernel.Render`                       | `render` / `apply` / dry run | One CUE build — rendered `[]*kernel.Compiled` plus `RenderDiagnostics`         |
 
 Values are validated where they are applied, inside the build each instance acquirer runs, and `Render` renders the instance as processed.
 

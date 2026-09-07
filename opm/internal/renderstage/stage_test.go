@@ -163,10 +163,3 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 	_, err = Stage(t.TempDir(), bare, plat, "rt")
 	require.ErrorContains(t, err, "no package clause")
 }
-
-func TestAlternatives(t *testing.T) {
-	universe := []string{"x.example/cat/resources/a@v2", "x.example/cat/resources/b@v1", "x.example/cat/resources/a@v1beta1", "x.example/cat/resources/a@v1"}
-	assert.Equal(t, []string{"x.example/cat/resources/a@v1beta1", "x.example/cat/resources/a@v2"},
-		Alternatives(universe, "x.example/cat/resources/a@v1"))
-	assert.Nil(t, Alternatives(universe, "x.example/cat/resources/c@v1"))
-}

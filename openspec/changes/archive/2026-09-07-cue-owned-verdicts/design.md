@@ -104,7 +104,20 @@ type SkewError struct{ Path, ModuleVersion, PlatformVersion string }
 
 ### Unread glue fields leave the export
 
-**Decision**: `missing` and `resolved` (deferred here by `cut-dead-surface`) and `bucketKeys` (consumed only by the deleted `Alternatives`) are removed from `diagnostics`; `glueDiagnostics` mirrors the export exactly so a stray field is a compile-time question, not a silent decode.
+**Decision**: `missing` and `resolved` (deferred here by `cut-dead-surface`) and `bucketKeys` (consumed only by the deleted `Alternatives`) are removed from `diagnostics`; `glueDiagnostics` mirrors the export exactly so a stray field is a compile-time question, not a silent decode. `missing` was the only reader of the per-component `missingResources` / `missingTraits` lists, so those go with it.
+
+### The decoder asserts concreteness, because `resolved` was carrying it
+
+**Context**: an unhandled trait whose `optional` posture the catalog never stated must refuse as a build error naming that field (0010 D28/D46). On `main` that works by accident: `diagnostics.resolved` is a scalar `bool` derived from `len(unresolved)`, so an incomplete guard anywhere upstream makes it incomplete and `dv.Decode` fails, which is what `unstatedPosture` keys off. Removing `resolved` from the export removes that mechanism — and CUE decodes a comprehension whose `if` did not evaluate as an EMPTY LIST, not as an error, so the render would silently succeed with no verdicts. Measured: the unstated fixture renders green with `Unresolved: []`, while `gate` correctly errors.
+**Explored**: (A) keep `resolved` on the export purely to hold the invariant (a field with no reader, which this change exists to remove); (B) decode `traitPostures` into `glueDiagnostics` so its incomplete bool fails the decode (a second field with no reader, and it only covers the posture case); (C) assert `dv.Validate(cue.Concrete(true))` before decoding and raise `unstatedPosture` from there.
+**Decision**: C.
+**Rationale**: the rule is "every verdict the kernel reads is concrete", which is what was being relied on all along; stating it covers any future incomplete verdict, not just the posture one, and it stops a fail-closed guarantee from depending on a field kept alive for a side effect. The new `gate`-agreement helper is the independent check that the two refusals still coincide.
+
+### Ordering that left Go had to arrive in the build
+
+**Context**: the decoder used to sort three things Go no longer touches: the same-base alternatives (the apiVersion ladder), and — less visibly — the single-provider guard's rows and each row's `catalogs`, which arrived from CUE struct iteration and were sorted in `decodeRenderDiagnostics`.
+**Decision**: the guard sorts in the glue too: `overSubscribed` is `list.Sort` on the key, and each row's `catalogs` is `list.Sort(..., list.Ascending)`.
+**Rationale**: "decoded without derivation" is one rule, not a rule about alternatives. A row that arrives unsorted and is sorted in Go is the same defect as an alternative computed in Go, and the refusal's determinism (pinned by the over-subscription test) would otherwise depend on CUE's field order.
 
 ### `Compiled` lives beside `Render`
 
@@ -124,4 +137,4 @@ type SkewError struct{ Path, ModuleVersion, PlatformVersion string }
 
 1. Land task 1 (the `Compiled` move) as one mechanical `refactor(kernel)!:` commit, then tasks 2 and 3 (glue and decoder) as one commit group: the tree is green with the old verdict shapes still in place, because the decoder adapts internally first.
 2. Land task 4 (`opm/errors` reshape) and task 5 (`Warnings` removal) as the breaking group; `refactor(kernel)!:` and `refactor(errors)!:`.
-3. Consumers migrate in their own PRs against the next alpha, applying only the edits `proposal.md` § Impact lists. Rollback is a re-pin to the previous alpha; no persisted state changes shape.
+3. Consumers migrate in their own PRs against the next alpha, as the sibling changes `migrate-kernel-api-and-verdicts` in `cli` and in `opm-operator`. Each carries this change's edits together with `one-api-tier`'s, because both library changes ship in the same alpha and neither consumer compiles between them. This change edits no other repo; its task 7.2 only records the breakage against a local `replace`. Rollback is a re-pin to the previous alpha; no persisted state changes shape.

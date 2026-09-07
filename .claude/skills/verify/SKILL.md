@@ -34,7 +34,7 @@ Drive the full pipeline through public exports only (recipe mirrors
   `*kernel.RenderResult`: `Compiled`, `Diagnostics` (`Pairs`, `Unmatched`,
   `Unresolved`, `Unify`, `OverSubscribed`, `ResolvedVersions`), `Warnings`.
   A refusal is a `*kernel.RenderError` carrying the same diagnostics.
-- Inspect `*core.Compiled` fields: `Value`, `Instance`, `Component`, `Transformer`.
+- Inspect `*kernel.Compiled` fields: `Value`, `Instance`, `Component`, `Transformer`.
 
 Run with the canonical GHCR mapping (reads only, no local registry):
 

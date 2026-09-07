@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/core"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 )
@@ -119,7 +118,7 @@ debugValues: {}
 
 // compiledKinds returns the sorted `kind` strings of every rendered object,
 // a stable fingerprint of a render's output for parity comparison.
-func compiledKinds(t *testing.T, compiled []*core.Compiled) []string {
+func compiledKinds(t *testing.T, compiled []*kernel.Compiled) []string {
 	t.Helper()
 	kinds := make([]string, 0, len(compiled))
 	for _, c := range compiled {
