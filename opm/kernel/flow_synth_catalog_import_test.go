@@ -21,15 +21,15 @@ import (
 // (AcquireModuleFromRegistry → synth-in-module-root → Render) in CI without a
 // real registry.
 //
-// NOTE: this hermetic test does NOT by itself prove the library#31 fix is
-// non-vacuous. The in-memory registrytest resolver walks a dependency's
-// cue.mod/module.cue transitively, so the OLD fabricated-{core, module} synth
-// would ALSO have resolved this fixture's catalog import. The real modconfig
-// resolver does not transitively resolve, which is what actually broke #31. The
-// faithful, non-vacuous #31 guard (proven to fail under the old path and pass
-// under the new one) is TestFlow_Redis_CatalogSubpackage_Regression, which runs
-// against a real registry. Keep both: this one guards the construction/render
-// wiring in CI; redis guards the actual resolution semantics.
+// This is the library#31 coverage. The GHCR-gated guard that once sat beside
+// it (TestInstance_CatalogSubpackageImport_Regression, importing the real
+// catalogs/opm blueprints subpackage) left with opm/helper/synth in #116 and
+// was not re-created. The module here is fetched through modconfig and built
+// by cue/load against the in-process OCI host, CUE's production resolver, so
+// a synthesized package whose main cue.mod lacked the catalog dependency (the
+// #31 failure) would fail here too; that path is gone, and the
+// instance-synthesis spec forbids fabricating a cue.mod, so this test is the
+// guard against its return.
 func TestFlow_ImportedModule_CatalogSubpackageImport_SynthToRender(t *testing.T) {
 	const version = "0.1.0"
 	catPath := registrytest.UniquePath(t, "cat")
