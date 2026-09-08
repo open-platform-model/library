@@ -38,7 +38,7 @@ k := kernel.New()
 
 `kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required. `WithRegistry` sets the registry mapping the render build uses for the platform's catalog imports and that `AcquireModuleFromRegistry` uses for module pulls; without it the kernel inherits the process `CUE_REGISTRY`. The mapping is plumbed into the load configuration only, never written back to the environment.
 
-The Kernel owns a single `*schema.Cache` for its lifetime. The first method that needs the schema (validation, instance synthesis, instance processing) triggers one `OCILoader.Load` call; subsequent operations on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization. `Render` does not read the schema cache: the render build resolves core through the staged module's own `cue.mod`.
+The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCache().Get()` triggers one `OCILoader.Load` call; subsequent calls on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization. No kernel verb loads the schema on a pinned kernel (the default): `SynthesizeInstance` reads the core import major off the pin, and acquisition and `Render` resolve core through the module's own `cue.mod` inside the build. Only a bare-major loader (`opmodel.dev/core@v2`) makes synthesis load the schema to learn the release.
 
 ### Pin a specific schema version
 
@@ -51,7 +51,7 @@ k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
     Module: "opmodel.dev/core@v2.0.0-alpha.7",
 }))
 
-// After any schema-touching call:
+// After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
 // → "v2.0.0-alpha.7"
 ```

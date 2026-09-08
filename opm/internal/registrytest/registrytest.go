@@ -14,8 +14,11 @@
 // its current bytes and two test processes never read or write the same
 // fixture directory; the opmodel.dev tier of that cache is the shared
 // workspace cache, so opmodel.dev/core@v2 stays warm across tests and
-// processes. Nothing here deletes from the shared cache: CUE's module cache
-// assumes an extracted directory is immutable while any process can read it.
+// processes. The one exception is [NewRegistryWithCore], which serves a
+// stand-in opmodel.dev/core and therefore uses a cache that shares nothing
+// ([schematest.IsolatedCacheDir]). Nothing here deletes from the shared
+// cache: CUE's module cache assumes an extracted directory is immutable while
+// any process can read it.
 //
 // It lives under opm/internal/ so it stays out of the library's public SemVer
 // surface (kernel neutrality) while remaining importable from any opm/* test
@@ -159,6 +162,39 @@ func NewModuleRegistry(t *testing.T, modules []ModuleFixture, catalogs []Catalog
 	addCatalogs(mapfs, catalogs...)
 	addModules(mapfs, modules...)
 	return buildRegistry(t, mapfs)
+}
+
+// NewRegistryWithCore stands up an in-memory OCI registry serving the given
+// modules AND a stand-in opmodel.dev/core at [DefaultCoreVersion], whose one
+// package file (package core) is coreFile. Both opmodel.dev and [CatalogPrefix]
+// route to the in-process host, and CUE_CACHE_DIR is an
+// [schematest.IsolatedCacheDir]: nothing resolves from the public registry
+// and the stand-in core never reaches the shared workspace cache. Returns the
+// CUE_REGISTRY mapping string.
+//
+// It exists for tests that need the core a module's own cue.mod resolves
+// inside a build to differ from the real schema (a core lacking a
+// definition); every other test keeps the real core from the warm workspace
+// cache through [NewModuleRegistry].
+func NewRegistryWithCore(t *testing.T, coreFile string, modules ...ModuleFixture) string {
+	t.Helper()
+
+	mapfs := fstest.MapFS{}
+	coreDir := strings.ReplaceAll("opmodel.dev/core", "/", "_") + "_" + DefaultCoreVersion
+	mapfs[coreDir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
+		"module: %q\nlanguage: version: \"v0.17.0\"\n", coreDep(DefaultCoreVersion),
+	)}
+	mapfs[coreDir+"/core.cue"] = &fstest.MapFile{Data: []byte(coreFile)}
+	addModules(mapfs, modules...)
+
+	reg, err := modregistrytest.New(mapfs, "")
+	require.NoError(t, err, "stand up in-memory registry")
+	t.Cleanup(reg.Close)
+
+	registry := "opmodel.dev=" + reg.Host() + "+insecure," + CatalogPrefix + "=" + reg.Host() + "+insecure"
+	t.Setenv("CUE_REGISTRY", registry)
+	t.Setenv("CUE_CACHE_DIR", schematest.IsolatedCacheDir(t))
+	return registry
 }
 
 // NewRegistryFromDir stands up an in-memory OCI registry serving the modules

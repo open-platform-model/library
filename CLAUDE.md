@@ -101,9 +101,9 @@ opm/
   internal/cueenv/            The one CUE_REGISTRY / CUE_CACHE_DIR override (Override: nil when nothing is overridden, else a copy of the process environment with the variables replaced or appended; never os.Setenv) every cue/load and modconfig call site under opm/ passes as its Env
   internal/sourcetree/        Walking, reading and naming a module.Source in both modes: PackageName, OverlayFromDir / OverlayFromFS (.cue files only, cue.mod/module.cue included), SyntheticRoot, ReadFile; shared by the kernel's values overlay, the registry loader's staged overlay and the render stage. Writing an overlay out is module.Source.WriteTo, not this package
   internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), temp-dir staging + one cue/load build
-  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures or a committed fixture tree; every constructor points CUE_CACHE_DIR at a private per-test module cache (schematest.PrivateCacheDir), so served coordinates extract fresh per test and nothing is ever deleted from the shared cache
+  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures or a committed fixture tree; every constructor points CUE_CACHE_DIR at a private per-test module cache (schematest.PrivateCacheDir), so served coordinates extract fresh per test and nothing is ever deleted from the shared cache; NewRegistryWithCore also serves a stand-in opmodel.dev/core, into a cache that shares nothing (schematest.IsolatedCacheDir)
   internal/cueregression/     Canary pair for the v0.17.x closedness regression
-  internal/schematest/        Test-only cache helpers: SetEnv / NewCache build against the shared workspace cache (.cue-cache, the opmodel.dev tier); PrivateCacheDir hands a test its own cache whose opmodel.dev subtrees are symlinks into the shared one
+  internal/schematest/        Test-only cache helpers: SetEnv / NewCache build against the shared workspace cache (.cue-cache, the opmodel.dev tier); PrivateCacheDir hands a test its own cache whose opmodel.dev subtrees are symlinks into the shared one; IsolatedCacheDir hands it one that shares nothing (for a served stand-in core)
 adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root CLAUDE.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
@@ -142,6 +142,7 @@ The local registry at `localhost:5000` is required only for:
 
 - **Shared:** `.cue-cache/` (gitignored) holds the `opmodel.dev` namespace — `opmodel.dev/core@v2` and the GHCR catalogs — for every test and test process. A cold checkout fetches core once through CUE's own lock-protected fetch path; nothing removes entries from it. Tests that need only `opmodel.dev` (schema cache, file loader, synth unit, flow and live tests) use `schematest.SetEnv` / `NewCache` and build here directly.
 - **Private:** every `registrytest` constructor points `CUE_CACHE_DIR` at `schematest.PrivateCacheDir(t)`, a temp cache whose `mod/extract/opmodel.dev` and `mod/download/opmodel.dev` are symlinks into the shared tier. Served fixture prefixes (`test.example`, `testing.opmodel.dev/...`) extract into it fresh, so a committed fixture edited under a fixed version is always built from its current bytes, two packages serving the same coordinate never touch the same directory, and the cache is removed at test end (read-only extracted directories included).
+- **Isolated:** `registrytest.NewRegistryWithCore` serves a stand-in `opmodel.dev/core` (a core lacking a definition, for the synth-build failure test) and so uses `schematest.IsolatedCacheDir(t)`, a temp cache with no link into the shared tier: the stand-in never reaches `.cue-cache`.
 
 If `.cue-cache` ever holds `test.example` or `testing.opmodel.dev` entries, they predate this layout and can be deleted by hand once; the suite no longer writes them there.
 
@@ -167,6 +168,15 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
   across operations.** The schema fetch happens once per Kernel-instance on
   first `Cache.Get`; subsequent calls return the cached value with no
   registry round-trip.
+- **No kernel verb loads the schema on a pinned kernel.** The default loader
+  pins an exact release (`schema.DefaultSchemaModule`), and
+  `SynthesizeInstance` reads the core import major off that pin
+  (`OCILoader.PinnedVersion`) with no load; only a bare-major loader
+  (`opmodel.dev/core@v2`) makes synthesis resolve the release through the
+  cache. The callers that still load it are the consumers' own: the cli
+  publish gate and the operator's startup smoke check call
+  `SchemaCache().Get` for their own reasons. Acquisition and `Render` never
+  read the cache: the module's own `cue.mod` resolves core inside the build.
 - **Short-lived consumers (CLI, tests) pay one fetch per cold disk cache,
   then hit the warm CUE cache.** A repeated CLI invocation in the same
   process tree gets the same disk cache; a fresh checkout (or a deleted
@@ -313,7 +323,7 @@ Operators wanting reproducibility pin the schema version explicitly:
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-alpha.4"}))
 ```
 
-Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call.
+Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).
 
 A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, additive schema changes are absorbed transparently by floating-major resolution.
 

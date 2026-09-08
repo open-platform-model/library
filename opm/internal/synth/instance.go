@@ -122,10 +122,10 @@ const synthPkgDir = "opm-synth-instance"
 // value pre-merge: the schema's own `let unifiedModule = #module & {#config:
 // values}` performs the values merge in CUE.
 //
-// coreVersion is the core release the caller's schema cache resolved; only its
-// major selects the synthesized package's core import. The concrete core
-// version the import resolves to comes from the module's own
-// cue.mod/module.cue (design D4), never from this argument.
+// coreVersion is the kernel's core release (its loader's pin, or the release
+// its schema cache resolved); only its major selects the synthesized package's
+// core import. The concrete core version the import resolves to comes from the
+// module's own cue.mod/module.cue (design D4), never from this argument.
 //
 // Instance REQUIRES the module to carry staged source (Module.HasSource());
 // acquire it via Kernel.AcquireModuleFromRegistry or
