@@ -18,6 +18,7 @@ import (
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // newSynthKernel returns a fresh kernel.Kernel configured with the
@@ -29,18 +30,14 @@ func newSynthKernel(t *testing.T) *kernel.Kernel {
 	return kernel.New()
 }
 
-// publishSynthModule publishes a #Module (bodyFields is the text after the
-// metadata block) to an in-memory registry against the default (v2) core,
-// then returns a Kernel wired to that registry plus the module loaded back
-// through Kernel.AcquireModuleFromRegistry. This mirrors how a frontend acquires
-// a module before synthesizing an instance: synthesis imports the module
-// by its registry path, so the module MUST be resolvable from a registry — a
-// locally-built value no longer works.
+// synthModuleFixture authors a #Module (bodyFields is the text after the
+// metadata block) against the default (v2) core as an in-memory registry
+// fixture, returning the module's major-free path and the fixture.
 //
 // Per core v2's identity rules (D8), the module is published at its
 // snake_case leaf, metadata.name IS that leaf, and metadata.modulePath is the
 // full module path with the major suffix.
-func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel.Kernel, *module.Module) {
+func synthModuleFixture(t *testing.T, name, version, bodyFields string) (string, registrytest.ModuleFixture) {
 	t.Helper()
 
 	snake := strings.ReplaceAll(name, "-", "_")
@@ -54,19 +51,35 @@ func publishSynthModule(t *testing.T, name, version, bodyFields string) (*kernel
 	fmt.Fprintf(&file, "metadata: {\n\tname:       %q\n\tmodulePath: %q\n\tversion:    %q\n}\n", snake, modPath+"@v0", version)
 	file.WriteString(bodyFields)
 
-	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{{
-		Path:    modPath,
-		Version: version,
-		File:    file.String(),
-	}}, nil)
+	return modPath, registrytest.ModuleFixture{Path: modPath, Version: version, File: file.String()}
+}
 
-	k := kernel.New(kernel.WithRegistry(reg))
-	// Acquire WITH source: synth builds the instance inside the module's own
-	// staged root, so the module must carry its source.
+// acquireSynthModule loads the published module back through
+// Kernel.AcquireModuleFromRegistry, WITH source: synth builds the instance
+// inside the module's own staged root, so the module must carry its source.
+func acquireSynthModule(t *testing.T, k *kernel.Kernel, modPath, version string) *module.Module {
+	t.Helper()
 	mod, err := k.AcquireModuleFromRegistry(context.Background(), modPath+"@v0", "v"+version)
 	require.NoErrorf(t, err, "acquiring published module %s@v%s", modPath, version)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source for synth")
-	return k, mod
+	return mod
+}
+
+// publishSynthModule publishes a #Module (bodyFields is the text after the
+// metadata block) to an in-memory registry against the default (v2) core,
+// then returns a Kernel wired to that registry (plus opts) and the module
+// loaded back through Kernel.AcquireModuleFromRegistry. This mirrors how a
+// frontend acquires a module before synthesizing an instance: synthesis
+// imports the module by its registry path, so the module MUST be resolvable
+// from a registry — a locally-built value no longer works.
+func publishSynthModule(t *testing.T, name, version, bodyFields string, opts ...kernel.Option) (*kernel.Kernel, *module.Module) {
+	t.Helper()
+
+	modPath, fixture := synthModuleFixture(t, name, version, bodyFields)
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{fixture}, nil)
+
+	k := kernel.New(append([]kernel.Option{kernel.WithRegistry(reg)}, opts...)...)
+	return k, acquireSynthModule(t, k, modPath, version)
 }
 
 const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"ok\"}\ndebugValues: {sentinel: \"from-debug\"}\n"
@@ -148,8 +161,10 @@ func TestKernel_SynthesizeInstance_UnconcreteRejected(t *testing.T) {
 
 // instance-synthesis spec, "Instance synthesis input": InstanceInput carries
 // no schema cache — the Kernel's own is the only one — so a caller supplies
-// identity and values and nothing else.
-func TestKernel_SynthesizeInstance_UsesKernelOwnedSchemaCache(t *testing.T) {
+// identity and values and nothing else. schema-dispatch spec, "Synthesis on a
+// pinned kernel loads no schema": the default loader pins an exact release,
+// so the core import major is read off the pin and the cache stays unloaded.
+func TestKernel_SynthesizeInstance_PinnedKernelLoadsNoSchema(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
 	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
@@ -163,7 +178,79 @@ func TestKernel_SynthesizeInstance_UsesKernelOwnedSchemaCache(t *testing.T) {
 
 	_, found := reflect.TypeOf(kernel.InstanceInput{}).FieldByName("SchemaCache")
 	assert.False(t, found, "InstanceInput carries no schema cache; the Kernel owns the only one")
-	assert.NotEmpty(t, k.SchemaCache().ResolvedVersion(), "synthesis resolved the core release through the kernel's cache")
+	assert.Empty(t, k.SchemaCache().ResolvedVersion(), "a pinned kernel synthesizes without loading the schema")
+	assert.Contains(t, synthesizedInstanceFile(t, inst), `"opmodel.dev/core@v2"`,
+		"the synthesized package imports core at the pinned release's major")
+}
+
+// schema-dispatch spec, "Synthesis on a bare-major kernel resolves through
+// the cache": a loader naming only the major has no release to read, so the
+// kernel loads the schema once and derives the import major from what it
+// resolved. Resolving the bare major reaches the public registry for the
+// line's latest release, like the schema loader tests do.
+func TestKernel_SynthesizeInstance_BareMajorKernelResolvesThroughCache(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody,
+		kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2"}))
+
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, inst)
+
+	resolved := k.SchemaCache().ResolvedVersion()
+	assert.True(t, strings.HasPrefix(resolved, "v2."), "the cache resolved a v2 release, got %q", resolved)
+	assert.Contains(t, synthesizedInstanceFile(t, inst), `"opmodel.dev/core@v2"`,
+		"the synthesized package imports core at the resolved release's major")
+}
+
+// The kernel no longer checks the schema it resolved for #ModuleInstance
+// before synthesizing: the core the module's own cue.mod resolves inside the
+// build is the one the synthesized package imports, and a core lacking the
+// definition fails there, at the import that needs it, with CUE's own error
+// naming it. The stand-in core carries #Module (so the module acquires) and
+// nothing else.
+func TestKernel_SynthesizeInstance_CoreWithoutModuleInstanceFailsInBuild(t *testing.T) {
+	const coreWithoutModuleInstance = `package core
+
+#Module: {
+	kind: "Module"
+	metadata: {
+		name!:       string
+		modulePath!: string
+		version!:    string
+	}
+	...
+}
+`
+	modPath, fixture := synthModuleFixture(t, "demo", "0.1.0", kernelSynthConfigBody)
+	reg := registrytest.NewRegistryWithCore(t, coreWithoutModuleInstance, fixture)
+	k := kernel.New(kernel.WithRegistry(reg))
+	mod := acquireSynthModule(t, k, modPath, "0.1.0")
+
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
+	})
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.Contains(t, err.Error(), "#ModuleInstance", "the build names the missing definition")
+	assert.False(t, errors.Is(err, oerrors.ErrSchemaUnavailable), "the failure is the build's, not a pre-build schema check")
+	assert.Empty(t, k.SchemaCache().ResolvedVersion(), "no schema load ran")
+}
+
+// synthesizedInstanceFile returns the instance.cue synthesis staged for inst.
+func synthesizedInstanceFile(t *testing.T, inst *module.Instance) string {
+	t.Helper()
+	require.NotNil(t, inst.Source)
+	data, ok := inst.Source.Overlay[filepath.Join(inst.Source.Root, inst.Source.Pkg, "instance.cue")]
+	require.True(t, ok, "the synthesized instance.cue is in the staged overlay")
+	return string(data)
 }
 
 // instance-synthesis spec, "Required inputs validated": each missing required

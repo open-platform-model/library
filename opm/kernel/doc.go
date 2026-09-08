@@ -19,7 +19,11 @@
 //   - [Kernel.AcquireInstanceFromDir] returns a validated
 //     [*module.Instance], with optional values as trailing [Source] values;
 //   - [Kernel.SynthesizeInstance] builds one from typed inputs
-//     ([InstanceInput]);
+//     ([InstanceInput]); the module it takes comes from the two module
+//     acquire verbs, and the core release the synthesized package imports is
+//     the kernel's pinned schema release, read from the configured
+//     [schema.OCILoader] with no schema load when it pins an exact release
+//     (the default) and resolved through the schema cache otherwise;
 //   - [Kernel.ValidateConfigDetailed] validates layered values;
 //   - [Kernel.Render] renders an instance against a platform.
 //

@@ -55,7 +55,8 @@ import (
 // not displace schema-derived fields.
 //
 // It carries no schema cache and no *cue.Context: the kernel owns both and
-// hands this package the resolved core version and its own context.
+// hands this package its core release (the loader's pin, or the release its
+// cache resolved) and its own context.
 type Input struct {
 	// Module is the source #Module the instance deploys. Required. Its
 	// metadata.modulePath / metadata.version identify the published module
@@ -122,10 +123,10 @@ const synthPkgDir = "opm-synth-instance"
 // value pre-merge: the schema's own `let unifiedModule = #module & {#config:
 // values}` performs the values merge in CUE.
 //
-// coreVersion is the core release the caller's schema cache resolved; only its
-// major selects the synthesized package's core import. The concrete core
-// version the import resolves to comes from the module's own
-// cue.mod/module.cue (design D4), never from this argument.
+// coreVersion is the kernel's core release (its loader's pin, or the release
+// its schema cache resolved); only its major selects the synthesized package's
+// core import. The concrete core version the import resolves to comes from the
+// module's own cue.mod/module.cue (design D4), never from this argument.
 //
 // Instance REQUIRES the module to carry staged source (Module.HasSource());
 // acquire it via Kernel.AcquireModuleFromRegistry or

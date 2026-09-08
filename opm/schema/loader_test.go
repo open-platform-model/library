@@ -176,3 +176,30 @@ func TestDefaultSchemaVersion_IsTheDefaultModulesVersion(t *testing.T) {
 	assert.Equal(t, "v2.0.0-alpha.7", schema.DefaultSchemaVersion())
 	assert.Equal(t, "opmodel.dev/core@"+schema.DefaultSchemaVersion(), schema.DefaultSchemaModule)
 }
+
+// TestOCILoader_PinnedVersion pins the schema-dispatch requirement "A pinned
+// schema release is known without a load": the accessor reads the release off
+// the module identifier and reports one only for a full release. No test case
+// sets CUE_REGISTRY or a cache: the accessor does no I/O.
+func TestOCILoader_PinnedVersion(t *testing.T) {
+	t.Setenv("CUE_REGISTRY", "")
+	t.Setenv("CUE_CACHE_DIR", t.TempDir())
+
+	for name, tc := range map[string]struct {
+		module string
+		want   string
+		pinned bool
+	}{
+		"default":            {"", schema.DefaultSchemaVersion(), true},
+		"explicit alpha pin": {"opmodel.dev/core@v2.0.0-alpha.4", "v2.0.0-alpha.4", true},
+		"bare major":         {"opmodel.dev/core@v2", "", false},
+		"malformed":          {"opmodel.dev/core@banana", "", false},
+		"no version":         {"opmodel.dev/core", "", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, pinned := schema.OCILoader{Module: tc.module}.PinnedVersion()
+			assert.Equal(t, tc.pinned, pinned)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

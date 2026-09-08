@@ -10,10 +10,10 @@ import (
 )
 
 // corePath is the module path of the OPM core schema the synthesized instance
-// imports. The import major is derived from the core version the schema cache
-// resolved (the v2 line, schema.DefaultSchemaModule); the concrete core
-// version the import resolves to comes from the module's own
-// cue.mod/module.cue (design D4), not from a fabricated pin.
+// imports. The import major is derived from the kernel's core release (the v2
+// line, schema.DefaultSchemaModule); the concrete core version the import
+// resolves to comes from the module's own cue.mod/module.cue (design D4), not
+// from a fabricated pin.
 const corePath = "opmodel.dev/core"
 
 // moduleImportPath returns the CUE registry module path — major suffix

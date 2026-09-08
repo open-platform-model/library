@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"cuelang.org/go/cue"
-
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
@@ -71,8 +69,13 @@ type InstanceInput struct {
 // values sources against #config at their own positions — so a violation is
 // reported with the source's Origin rather than the rendered values file —
 // asserts concreteness on the whole built spec and decodes instance metadata.
-// The schema is the Kernel's own cache; no additional values source is
-// consulted.
+// No additional values source is consulted.
+//
+// The synthesized package imports core at the major of the kernel's schema
+// release: read from the configured [schema.OCILoader] when it pins an exact
+// release (the default), with no schema load, and resolved through the
+// kernel's schema cache when it names a bare major. The release the import
+// resolves to inside the build is the one the module's own cue.mod pins.
 //
 // The returned instance carries [module.Instance.Source]: the staged tree the
 // build evaluated, in overlay mode, with Pkg naming the reserved instance
@@ -157,22 +160,39 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	return inst, nil
 }
 
-// resolveCoreVersion reads the core release the kernel's schema cache
-// resolved, confirming the schema exposes #ModuleInstance on the way. Only the
-// major reaches the synthesized package's core import; the concrete version
-// the import resolves to comes from the module's own cue.mod/module.cue
-// (0019 D4).
+// resolveCoreVersion returns the core release whose major the synthesized
+// package imports core at. A kernel whose loader pins an exact release (the
+// default, [schema.DefaultSchemaModule]) reads it off the pin with no schema
+// load; a bare-major loader, or any other [schema.Loader], resolves it
+// through the schema cache. Only the major reaches the import; the concrete
+// version the import resolves to comes from the module's own
+// cue.mod/module.cue (0019 D4). A core that lacks #ModuleInstance is not
+// checked for here: the synth build fails on the import that needs it.
 func (k *Kernel) resolveCoreVersion() (string, error) {
-	schemaPkg, err := k.schemaCache.Get(k.cueCtx)
-	if err != nil {
-		return "", fmt.Errorf("loading schema: %w", err)
+	if version, ok := pinnedCoreVersion(k.schemaCache.Loader); ok {
+		return version, nil
 	}
-	if !schemaPkg.LookupPath(cue.ParsePath("#ModuleInstance")).Exists() {
-		return "", fmt.Errorf("%w: #ModuleInstance not found in resolved schema", oerrors.ErrSchemaUnavailable)
+	if _, err := k.schemaCache.Get(k.cueCtx); err != nil {
+		return "", fmt.Errorf("loading schema: %w", err)
 	}
 	version := k.schemaCache.ResolvedVersion()
 	if version == "" {
 		return "", fmt.Errorf("%w: resolved core schema version unavailable, cannot derive synth core import major", oerrors.ErrSchemaUnavailable)
 	}
 	return version, nil
+}
+
+// pinnedCoreVersion reports the release an [schema.OCILoader] pins, by value
+// or by pointer; any other loader pins nothing.
+func pinnedCoreVersion(l schema.Loader) (string, bool) {
+	switch oci := l.(type) {
+	case schema.OCILoader:
+		return oci.PinnedVersion()
+	case *schema.OCILoader:
+		if oci == nil {
+			return "", false
+		}
+		return oci.PinnedVersion()
+	}
+	return "", false
 }

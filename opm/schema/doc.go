@@ -28,8 +28,9 @@
 //
 // Loader is the strategy interface for resolving the schema; OCILoader is
 // the sole public implementation, fetching [DefaultSchemaModule] through
-// CUE's module system. Cache memoizes a single Loader.Load per instance
-// (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
+// CUE's module system, and its PinnedVersion reports the exact release the
+// identifier names with no load. Cache memoizes a single Loader.Load per
+// instance (sync.Once-guarded) and exposes ResolvedVersion for diagnostics.
 //
 // Long-running consumers attach the Cache to a Kernel (via
 // kernel.WithSchemaLoader) and reuse the kernel-owned cache via

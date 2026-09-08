@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/load"
+	"cuelang.org/go/mod/module"
 
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
@@ -85,6 +86,30 @@ type OCILoader struct {
 	// CacheDir overrides CUE_CACHE_DIR for this load. Empty inherits from
 	// the process environment (or CUE's default ~/.cache/cuelang/).
 	CacheDir string
+}
+
+// PinnedVersion reports, without any I/O, the exact core release the
+// loader's module identifier names: the version suffix of [OCILoader.Module]
+// (or of [DefaultSchemaModule] when Module is empty) and true when that
+// suffix is a full release ("v2.0.0-alpha.7"), or ("", false) when the
+// identifier names a bare major ("opmodel.dev/core@v2", resolved to
+// ".latest" only by a load) or is not a module identifier at all.
+//
+// A kernel whose loader pins a release reads the core release its
+// synthesized instances import from here instead of loading the schema; a
+// bare-major loader resolves it through the schema cache.
+func (l OCILoader) PinnedVersion() (string, bool) {
+	moduleID := l.Module
+	if moduleID == "" {
+		moduleID = DefaultSchemaModule
+	}
+	// module.ParseVersion is ast.SplitPackageVersion plus CUE's own rule for
+	// a release: the version must be canonical, which a bare major is not.
+	mv, err := module.ParseVersion(moduleID)
+	if err != nil {
+		return "", false
+	}
+	return mv.Version(), true
 }
 
 // Load implements [Loader].

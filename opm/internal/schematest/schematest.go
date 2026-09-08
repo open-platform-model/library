@@ -83,18 +83,14 @@ func WorkspaceCacheDir(t testing.TB) string {
 	return filepath.Join(LibraryRoot(t), ".cue-cache")
 }
 
-// PrivateCacheDir returns a CUE module cache directory owned by the
-// current test: a fresh temp root holding mod/extract and mod/download,
-// each with its opmodel.dev entry symlinked to the same directory
-// of [WorkspaceCacheDir] (created empty first when the shared cache is
-// cold). Every other coordinate a build under this cache resolves is
-// extracted privately, so the cache is empty for a test's served fixtures
-// and is removed at test end, read-only extracted directories included.
-//
-// The caller points CUE_CACHE_DIR at the returned root (registrytest's
-// constructors do). Tests that resolve only opmodel.dev use [SetEnv]
-// instead.
-func PrivateCacheDir(t testing.TB) string {
+// IsolatedCacheDir returns a CUE module cache directory owned by the current
+// test that shares nothing with [WorkspaceCacheDir]: a fresh temp root with no
+// tier linked to the shared cache, removed at test end (read-only extracted
+// directories included). Every coordinate a build under it resolves,
+// opmodel.dev included, is fetched and extracted privately, so a test may
+// serve a stand-in opmodel.dev/core without it ever reaching the shared tier.
+// The caller points CUE_CACHE_DIR at the returned root.
+func IsolatedCacheDir(t testing.TB) string {
 	t.Helper()
 	root := t.TempDir()
 	// Registered after t.TempDir so it runs first (LIFO) and TempDir's own
@@ -106,6 +102,23 @@ func PrivateCacheDir(t testing.TB) string {
 			t.Errorf("schematest: removing private cache %s: %v", root, err)
 		}
 	})
+	return root
+}
+
+// PrivateCacheDir returns a CUE module cache directory owned by the
+// current test: an [IsolatedCacheDir] holding mod/extract and mod/download,
+// each with its opmodel.dev entry symlinked to the same directory
+// of [WorkspaceCacheDir] (created empty first when the shared cache is
+// cold). Every other coordinate a build under this cache resolves is
+// extracted privately, so the cache is empty for a test's served fixtures
+// and is removed at test end, read-only extracted directories included.
+//
+// The caller points CUE_CACHE_DIR at the returned root (registrytest's
+// constructors do). Tests that resolve only opmodel.dev use [SetEnv]
+// instead.
+func PrivateCacheDir(t testing.TB) string {
+	t.Helper()
+	root := IsolatedCacheDir(t)
 	shared := WorkspaceCacheDir(t)
 	for _, tier := range cacheTiers {
 		target := filepath.Join(shared, "mod", tier, sharedNamespace)

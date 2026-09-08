@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. `resolveCoreVersion` exists because the synthesized `instance.cue` imports `core` at a major derived from the version (`internal/synth/render.go`, `major(version)`), so synthesis needs the release string before it renders the file. Today that string comes from the schema cache after a full build. Constraints: the bare-major loader form (`opmodel.dev/core@v2`, resolved to `.latest` by `OCILoader.Load`) has no version until a load resolves it; the parity fixtures pin an exact release; the kernel keeps its `schemaLoader` field, so it can inspect the configured loader.
+See `proposal.md` § Why. `resolveCoreVersion` exists because the synthesized `instance.cue` imports `core` at a major derived from the version (`internal/synth/render.go`, `major(version)`), so synthesis needs the release string before it renders the file. Today that string comes from the schema cache after a full build. Constraints: the bare-major loader form (`opmodel.dev/core@v2`, resolved to `.latest` by `OCILoader.Load`) has no version until a load resolves it; the parity fixtures pin an exact release; the kernel's cache carries the effective loader (`schemaCache.Loader`: the explicit `WithSchemaLoader` value, else the default `OCILoader` seeded with the registry mapping), so `resolveCoreVersion` can inspect it.
 
 ## Goals / Non-Goals
 
@@ -22,7 +22,7 @@ See `proposal.md` § Why. `resolveCoreVersion` exists because the synthesized `i
 
 **Context**: `OCILoader.Load` already parses the module identifier and treats a bare major specially (`isBareMajorVersion`); the exact-release case is the identifier's version suffix.
 **Explored**: (A) resolve the version through `load.Instances` without `BuildInstance` (still a module-cache lookup and a fetch on a cold cache); (B) a `Cache.Version()` that special-cases its loader (puts loader knowledge in the cache); (C) `OCILoader.PinnedVersion()` and a kernel branch on the configured loader type.
-**Decision**: C. `PinnedVersion` uses `ast.SplitPackageVersion` on the identifier (`DefaultSchemaModule` when empty) and reports the version only when it is a full release (`vN.N.N[-pre]`), `("", false)` otherwise. `resolveCoreVersion` checks `k.schemaLoader` (nil means the default `OCILoader{Registry: k.registry}`), returns the pinned release when present, and otherwise falls back to `Get()` and `ResolvedVersion()`.
+**Decision**: C. `PinnedVersion` uses `ast.SplitPackageVersion` on the identifier (`DefaultSchemaModule` when empty) and reports the version only when it is a full release (`vN.N.N[-pre]`), `("", false)` otherwise. `resolveCoreVersion` checks the cache's effective loader (`schemaCache.Loader`, an `OCILoader` by value or pointer), returns the pinned release when present, and otherwise falls back to `Get()` and `ResolvedVersion()`.
 **Rationale**: no I/O for the default and the pinned cases, which are every production configuration; the bare-major case is unchanged; the loader is the type that knows how it names releases.
 
 ### The existence check goes

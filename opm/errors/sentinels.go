@@ -48,8 +48,9 @@ var (
 	// Kernel.AcquireModuleFromRegistry or Kernel.AcquireModuleFromDir.
 	ErrMissingSource = errors.New("instance synthesis: Module has no staged source; acquire it via Kernel.AcquireModuleFromRegistry or Kernel.AcquireModuleFromDir")
 
-	// ErrSchemaUnavailable marks a resolved core schema that does not expose
-	// #ModuleInstance, or that surfaces no resolved version to derive the
-	// synthesized package's core import major from.
+	// ErrSchemaUnavailable marks a schema resolution that surfaces no core
+	// release to derive the synthesized package's core import major from (a
+	// bare-major loader whose load reports no version). A pinned loader never
+	// produces it: the release is read off the pin without a load.
 	ErrSchemaUnavailable = errors.New("instance synthesis: schema unavailable")
 )
