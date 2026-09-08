@@ -62,7 +62,6 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, load, process, validate, synthesize, render)
 - `opm/module/` — module and release model, value-validation accessors
 - `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
-- `opm/compat/` — publish-side catalog compatibility: the additive-only comparison walk (which skips provenance metadata at every depth), contract-level ladder, predecessor selection (pure `cue.Value` logic, no I/O)
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
 - `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `synth`); a frontend MAY skip the entire tree
 

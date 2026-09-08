@@ -8,7 +8,7 @@
 //
 // The boundary is real in the import graph, not just described: no package
 // outside opm/helper/ — opm/kernel, opm/module, opm/platform, opm/schema,
-// opm/errors, opm/compat and every package under opm/internal/ —
+// opm/errors and every package under opm/internal/ —
 // imports anything under it, no exported kernel signature names a type
 // declared here, and no kernel operation returns an error whose sentinel is
 // declared here. A depguard rule in .golangci.yml enforces it on every PR.
