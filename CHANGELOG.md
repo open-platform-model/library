@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0-alpha.27](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.26...v1.0.0-alpha.27) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compat:** opm/compat is deleted. Check, CheckAtLevel, Violation and its Kind constants, Level with ParseLevel and Enforced, CompareAPIVersions and HighestStable no longer ship in the library. The cli receives the comparator and the ladder verbatim as internal/compat and the float selector as an unexported scaffold helper.
+* **kernel:** let the render build own every verdict ([#118](https://github.com/open-platform-model/library/issues/118))
+* **kernel:** the raw value tier and the per-call load options are gone. LoadModulePackage / LoadInstancePackage / LoadPlatformPackage and the NewModuleFromValue / NewPlatformFromValue wrappers are removed; use the acquire verbs and read the artifact's Package field. AcquirePlatformFromDir and AcquireInstanceFromDir drop LoadOptions, and AcquireOption / WithValues become a variadic Source tail. SynthesizeInstance takes kernel.InstanceInput with Values as []Source. opm/helper/loader and opm/helper/synth move to opm/internal/loader and opm/internal/synth, with their sentinels declared in opm/errors. module.Source.Overlay carries bytes and gains WriteTo.
+* **loader:** a module declaring a major-free metadata.modulePath, the core v0/v1 shape, now fails Kernel.AcquireModuleFromRegistry with a typed identity error. Core v2 requires the major suffix, so no renderable module is affected. The synth import path is the declared path verbatim, and the v1-only synth integration tests are re-homed on core-v2 kernel fixtures.
+* **kernel:** see openspec/changes/cut-dead-surface/proposal.md for every removed name and its replacement.
+
+### Code Refactoring
+
+* **compat:** move the catalog comparator out of the library ([#119](https://github.com/open-platform-model/library/issues/119)) ([e4c8d6f](https://github.com/open-platform-model/library/commit/e4c8d6f412bc2ec608db2668cbe35cde8df3312b))
+* **kernel:** cut dead surface ([#112](https://github.com/open-platform-model/library/issues/112)) ([3dbe20d](https://github.com/open-platform-model/library/commit/3dbe20dcee4dea9621db3aa09a4a87dd34de33b5))
+* **kernel:** fold the loader and synth helpers into one API tier ([#117](https://github.com/open-platform-model/library/issues/117)) ([ce61647](https://github.com/open-platform-model/library/commit/ce61647201c6f858f983393956899fd1c911fa9f))
+* **kernel:** let the render build own every verdict ([#118](https://github.com/open-platform-model/library/issues/118)) ([8fbb35e](https://github.com/open-platform-model/library/commit/8fbb35efbd84f4e814496a45a033ef845b94a6fe))
+* **loader:** strict module identity and single-sourced internals ([#116](https://github.com/open-platform-model/library/issues/116)) ([1edba54](https://github.com/open-platform-model/library/commit/1edba544510e97528fabb94ed431f3abf930aa2b))
+
 ## [1.0.0-alpha.26](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.25...v1.0.0-alpha.26) (2026-09-04)
 
 
