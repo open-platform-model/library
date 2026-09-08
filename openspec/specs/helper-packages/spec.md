@@ -6,7 +6,7 @@ The `opm/helper/` subdirectory is the opt-in convenience boundary of the OPM lib
 
 ### Requirement: Helper Boundary at opm/helper/
 
-The library SHALL maintain a `opm/helper/` subdirectory whose subpackages are opt-in, opinionated frontend conveniences. Anything outside `opm/helper/` SHALL be considered part of the kernel core contract. The boundary SHALL be real in the import graph: no package outside `opm/helper/` (`opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/core`, `opm/compat`, `opm/internal/**`) SHALL import a package under `opm/helper/`, no exported kernel signature SHALL name a type declared under `opm/helper/`, and no kernel operation SHALL return an error whose sentinel is declared under `opm/helper/`. The rule SHALL be enforced by the repository lint gate, not only by documentation.
+The library SHALL maintain a `opm/helper/` subdirectory whose subpackages are opt-in, opinionated frontend conveniences. Anything outside `opm/helper/` SHALL be considered part of the kernel core contract. The boundary SHALL be real in the import graph: no package outside `opm/helper/` (`opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/internal/**`) SHALL import a package under `opm/helper/`, no exported kernel signature SHALL name a type declared under `opm/helper/`, and no kernel operation SHALL return an error whose sentinel is declared under `opm/helper/`. The rule SHALL be enforced by the repository lint gate, not only by documentation. The exported packages outside `opm/helper/` SHALL be exactly `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema` and `opm/errors`: no publish-side or presentation package SHALL ship in the library.
 
 #### Scenario: Helper boundary documented
 
@@ -28,6 +28,11 @@ The library SHALL maintain a `opm/helper/` subdirectory whose subpackages are op
 
 - **WHEN** a change adds an import of a package under `opm/helper/` to `opm/kernel` or `opm/internal/**`
 - **THEN** the repository lint task fails naming the forbidden import
+
+#### Scenario: No publish-side package in the library
+
+- **WHEN** a consumer lists the exported packages under `opm/`
+- **THEN** neither `opm/compat` nor `opm/core` exists, and the catalog compatibility comparator is reachable only through the cli
 
 ### Requirement: Helper Layout for Future Subpackages
 
