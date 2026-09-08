@@ -51,9 +51,9 @@ type Option func(*Kernel)
 // New never returns nil. The returned Kernel is NOT safe for concurrent
 // use across method calls.
 //
-// New does NOT trigger a schema load. The first [Kernel] method that
-// needs the schema invokes [Cache.Get] internally, which performs the
-// fetch lazily.
+// New does NOT trigger a schema load, and on a pinned loader (the default)
+// no Kernel method does either: only a bare-major loader's instance
+// synthesis, or a caller's own [schema.Cache.Get], runs the lazy fetch.
 func New(opts ...Option) *Kernel {
 	k := &Kernel{
 		cueCtx: cuecontext.New(),
@@ -140,9 +140,11 @@ func (k *Kernel) CueContext() *cue.Context {
 // memoized.
 //
 // Typical use: read [schema.Cache.ResolvedVersion] for diagnostics after a
-// schema-touching operation has run. Nothing needs to be passed back in —
-// every kernel operation that needs the schema, instance synthesis
-// included, resolves it through this cache on its own.
+// load has run. Nothing needs to be passed back in: a kernel whose loader
+// names a bare major resolves the core release for [Kernel.SynthesizeInstance]
+// through this cache on its own, and a pinned kernel (the default) runs no
+// load at all, so a consumer that wants the diagnostic calls
+// [schema.Cache.Get] itself.
 func (k *Kernel) SchemaCache() *schema.Cache {
 	return k.schemaCache
 }

@@ -32,7 +32,7 @@ None.
 
 ### Modified Capabilities
 
-- `schema-dispatch`: a pinned release is known without a load (new requirement); the OCILoader requirement names the accessor.
+- `schema-dispatch`: a pinned release is known without a load (new requirement).
 - `kernel-runtime`: the synthesis requirement states which core release the synthesized package imports and that a pinned kernel loads no schema for it.
 
 ## Impact
