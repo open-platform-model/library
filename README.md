@@ -42,7 +42,6 @@ opm/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
-  compat/                 Publish-side catalog compatibility (comparison walk, level ladder, predecessor selection)
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
   internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (directory or overlay), FetchModule (published module by path@version)
@@ -107,7 +106,7 @@ Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to
 
 Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `opm/helper/` is part of the kernel contract.
 
-The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors`, `opm/compat` and every package under `opm/internal/` from importing anything under `opm/helper/`.
+The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors` and every package under `opm/internal/` from importing anything under `opm/helper/`.
 
 Today this layer holds exactly one subpackage:
 
