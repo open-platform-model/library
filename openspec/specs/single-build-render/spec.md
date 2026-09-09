@@ -16,7 +16,7 @@ The render path as one CUE build per render: the kernel stages the instance and 
 #### Scenario: Overlay-mode instance accepted
 
 - **WHEN** `Render` is invoked with a synthesized instance whose `Source` is an overlay tree
-- **THEN** the tree is materialized into the render's staging directory and the build proceeds
+- **THEN** the tree is served to the build from memory through the load configuration's overlay, no file of it is written, and the build proceeds
 
 ### Requirement: The render module's dependency list is derived by promotion
 
@@ -67,12 +67,17 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 ### Requirement: Each render is its own build in its own context
 
-`Render` SHALL create a fresh `cue.Context` for the render, evaluate the staged render module exactly once with it, and release it when `Render` returns. No built value SHALL be shared between renders, and the render SHALL NOT use the Kernel's long-lived context. The staging directory SHALL be removed when the render completes.
+`Render` SHALL create a fresh `cue.Context` for the render, evaluate the staged render module exactly once with it, and release it when `Render` returns. No built value SHALL be shared between renders, and the render SHALL NOT use any long-lived context. The staging directory SHALL hold only the generated render module (its `cue.mod` and glue); an overlay-mode input SHALL be served from memory and an on-disk input from its own directory, so nothing of either input is copied. The staging directory SHALL be removed when the render completes.
 
 #### Scenario: Repeated renders share nothing
 
 - **WHEN** `Render` is invoked twice with the same inputs
 - **THEN** each invocation stages, builds and decodes independently, and the results are byte-identical
+
+#### Scenario: The staging directory holds no input files
+
+- **WHEN** a render of an overlay-mode instance against an overlay-mode platform is staged
+- **THEN** the staging directory contains `cue.mod/module.cue`, `cue.mod/local-module.cue` and the glue file, and no `instance/` or `platform/` directory
 
 ### Requirement: Matching runs inside the build with verdicts as data
 
