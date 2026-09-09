@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"cuelang.org/go/cue"
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/internal/registrytest"
@@ -224,15 +223,6 @@ func pairsByComponent(pairs []kernel.RenderPair) map[string][]string {
 		out[p.Component] = append(out[p.Component], p.Transformer)
 	}
 	return out
-}
-
-// cueVal compiles src in the kernel's context with a stable filename so
-// per-source attribution (used by ValidateConfigDetailed) is meaningful.
-func cueVal(t *testing.T, k *kernel.Kernel, src, filename string) cue.Value {
-	t.Helper()
-	v := k.CueContext().CompileString(src, cue.Filename(filename))
-	require.NoError(t, v.Err(), "compiling %s", filename)
-	return v
 }
 
 func writeFile(t *testing.T, path, content string) {

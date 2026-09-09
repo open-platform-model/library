@@ -18,13 +18,13 @@ func TestIntegration_SynthesizeInstance(t *testing.T) {
 	// module must be published (a locally-built value no longer resolves).
 	k, mod := publishSynthModule(t, "demo", "0.1.0",
 		"#components: {}\n#config: {replicas: int | *1, image: string}\ndebugValues: {}\n")
-	values := cueVal(t, k, `{ image: "nginx" }`, "values.cue")
+	values := mustSource(t, k, "values.cue", `{ image: "nginx" }`)
 
 	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
 		Module:    mod,
 		Name:      "web",
 		Namespace: "default",
-		Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
+		Values:    []kernel.Source{values},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, inst)

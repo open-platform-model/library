@@ -10,31 +10,41 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
+// kernel-runtime spec, "Default construction": a Kernel holds a schema cache
+// and nothing else that evaluates; construction creates no cue.Context.
 func TestNew_Default(t *testing.T) {
 	k := kernel.New()
 	require.NotNil(t, k)
-	require.NotNil(t, k.CueContext(), "default Kernel must own a non-nil cue.Context")
+	require.NotNil(t, k.SchemaCache(), "default Kernel owns a schema cache")
+	assert.Empty(t, k.SchemaCache().ResolvedVersion(), "construction evaluates nothing")
 }
 
-func TestNew_CueContextStableAcrossCalls(t *testing.T) {
-	k := kernel.New()
-	first := k.CueContext()
-	for range 5 {
-		assert.Same(t, first, k.CueContext(), "CueContext must return the same *cue.Context for the lifetime of the Kernel")
+// kernel-runtime spec, "No context accessor": no exported method of Kernel
+// returns or accepts a *cue.Context. The build context is created per
+// operation and reachable only through the values an operation returns.
+func TestKernel_NoContextAccessor(t *testing.T) {
+	kt := reflect.TypeOf(&kernel.Kernel{})
+	ctxType := reflect.TypeFor[*cue.Context]()
+	for i := range kt.NumMethod() {
+		m := kt.Method(i)
+		for j := range m.Type.NumIn() {
+			assert.NotEqual(t, ctxType, m.Type.In(j), "%s accepts a *cue.Context", m.Name)
+		}
+		for j := range m.Type.NumOut() {
+			assert.NotEqual(t, ctxType, m.Type.Out(j), "%s returns a *cue.Context", m.Name)
+		}
 	}
-}
-
-func TestNew_DistinctKernelsHaveDistinctContexts(t *testing.T) {
-	a := kernel.New()
-	b := kernel.New()
-	assert.NotSame(t, a.CueContext(), b.CueContext(), "each Kernel owns its own *cue.Context")
+	_, found := kt.MethodByName("CueContext")
+	assert.False(t, found, "*kernel.Kernel must not expose CueContext")
 }
 
 // stubSchemaLoader is a [schema.Loader] that never touches a registry; it
@@ -65,7 +75,7 @@ func TestNew_RegistryOptionSeedsSchemaLoader(t *testing.T) {
 	unsetRegistry(t)
 
 	k := kernel.New(kernel.WithRegistry("opmodel.dev=localhost:1+insecure"))
-	_, err := k.SchemaCache().Get(k.CueContext())
+	_, err := k.SchemaCache().Get()
 	require.Error(t, err, "the seeded mapping serves nothing, so the fetch must fail through it")
 	assert.Contains(t, err.Error(), "localhost:1", "the kernel's mapping, not the process environment, resolved the schema")
 	assert.Empty(t, os.Getenv("CUE_REGISTRY"), "the process environment is not mutated")
@@ -89,7 +99,7 @@ func TestNew_ExplicitSchemaLoaderWinsInEitherOrder(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			before := calls
 			k := kernel.New(opts...)
-			v, err := k.SchemaCache().Get(k.CueContext())
+			v, err := k.SchemaCache().Get()
 			require.NoError(t, err, "the explicit loader never contacts the unreachable mapping")
 			assert.True(t, v.LookupPath(cue.ParsePath("#ModuleInstance")).Exists())
 			assert.Equal(t, before+1, calls, "the explicit loader ran")
@@ -113,7 +123,7 @@ func writeTempInstanceDir(t *testing.T, content string) string {
 
 func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
 	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
 
@@ -130,10 +140,11 @@ func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 // the built spec, metadata decoding, Source stamped) is covered through the
 // acquirers in acquire_test.go and synth_test.go.
 
-// --- Goroutine-safety regression: N kernels (one per goroutine) each drive
-// the context-owning path (load + process). With -race enabled, this
-// confirms no shared state leaks across kernels. The render side of the
-// same claim (Render shares nothing, 0019 D8) is
+// --- Goroutine-safety regression: N goroutines drive the acquire path on
+// ONE Kernel (kernel-runtime spec, "Concurrent acquisitions on one Kernel").
+// With -race enabled, this confirms every operation builds in a context of
+// its own and nothing on the Kernel is shared between them. The render side
+// of the same claim (Render shares nothing, 0019 D8) is
 // TestRender_ConcurrentKernelsShareNothing in render_test.go.
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
@@ -158,13 +169,13 @@ metadata: {
 values: {replicas: 3}
 `)
 
+	k := kernel.New() // one Kernel, shared by every goroutine
 	var wg sync.WaitGroup
 	errCh := make(chan error, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			k := kernel.New() // one Kernel per goroutine
 			ctx := context.Background()
 
 			mod, err := k.AcquireModuleFromDir(ctx, dir)
@@ -193,6 +204,98 @@ values: {replicas: 3}
 	}
 }
 
+// kernel-runtime spec, "Artifacts cross Kernels": a module acquired with one
+// Kernel, synthesized into an instance with a second, rendered with a third
+// against a platform acquired with a fourth produces the same objects as the
+// same sequence on one Kernel. Every verb reads only Metadata and Source from
+// its inputs, never Package, so the context an input was built in is
+// irrelevant to the operation that consumes it.
+func TestKernel_ArtifactsCrossKernels(t *testing.T) {
+	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
+	ctx := context.Background()
+	values := `{image: "nginx:1.27", replicas: 3}`
+
+	renderWith := func(t *testing.T, acquireMod, synth, acquirePlat, render *kernel.Kernel) []string {
+		t.Helper()
+		mod, err := acquireMod.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
+		require.NoError(t, err)
+		inst, err := synth.SynthesizeInstance(ctx, kernel.InstanceInput{
+			Module:    mod,
+			Name:      "web-synth",
+			Namespace: "default",
+			Values:    []kernel.Source{mustSource(t, synth, "values.cue", values)},
+		})
+		require.NoError(t, err)
+		plat, err := acquirePlat.AcquirePlatformFromDir(ctx, renderFixtureDir(t, "platform"))
+		require.NoError(t, err)
+		res, err := render.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+		require.NoError(t, err)
+		return compiledSummary(t, res.Compiled)
+	}
+
+	one := kernel.New(kernel.WithRegistry(mapping))
+	want := renderWith(t, one, one, one, one)
+	assert.ElementsMatch(t, []string{
+		"config/ConfigMap/app",
+		"web/Deployment/web-synth-web",
+		"web/Service/web-synth-web",
+	}, want, "one Kernel renders the fixture's objects")
+
+	newK := func() *kernel.Kernel { return kernel.New(kernel.WithRegistry(mapping)) }
+	got := renderWith(t, newK(), newK(), newK(), newK())
+	assert.ElementsMatch(t, want, got, "four Kernels render the same objects")
+}
+
+// kernel-runtime spec, "Concurrent acquisitions on one Kernel": several
+// goroutines acquire and synthesize on one Kernel at the same time; every
+// call succeeds with the sequential result and the race detector (task test
+// runs this package under -race) reports nothing.
+func TestKernel_ConcurrentAcquireAndSynth(t *testing.T) {
+	k := newRenderKernel(t)
+	ctx := context.Background()
+
+	synthesize := func() (string, error) {
+		mod, err := k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
+		if err != nil {
+			return "", err
+		}
+		inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+			Module:    mod,
+			Name:      "web-synth",
+			Namespace: "default",
+			Values:    []kernel.Source{mustSource(t, k, "values.cue", `{image: "nginx:1.27", replicas: 3}`)},
+		})
+		if err != nil {
+			return "", err
+		}
+		plat, err := k.AcquirePlatformFromDir(ctx, renderFixtureDir(t, "platform"))
+		if err != nil {
+			return "", err
+		}
+		return inst.Metadata.UUID + " " + plat.Metadata.Name, nil
+	}
+
+	want, err := synthesize()
+	require.NoError(t, err)
+
+	const n = 8
+	results := make([]string, n)
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results[i], errs[i] = synthesize()
+		}()
+	}
+	wg.Wait()
+	for i := range n {
+		require.NoError(t, errs[i], "goroutine %d", i)
+		assert.Equal(t, want, results[i], "goroutine %d", i)
+	}
+}
+
 // TestKernel_NoFinalizeMethod pins the absence of any finalization step on
 // the kernel (spec kernel-runtime: "No finalization method on the Kernel";
 // enhancement 0019 D1). Transformer inputs are bound as evaluated inside the
@@ -216,8 +319,10 @@ func TestKernel_NoFinalizeMethod(t *testing.T) {
 // (Load*Package plus the constructor wrappers) is gone, so an artifact comes
 // from an acquire verb or from the package constructor a caller already holds
 // a value for (kernel-runtime, "No raw-load methods on the Kernel";
-// artifact-types, "No kernel constructor wrappers"). Any of these reappearing
-// is a deliberate act, not drift.
+// artifact-types, "No kernel constructor wrappers"), and the removal of
+// kernel-owns-no-build-context: the Kernel holds no cue.Context, so the
+// CueContext accessor is gone. Any of these reappearing is a deliberate act,
+// not drift.
 func TestKernel_PrunedSurface(t *testing.T) {
 	kt := reflect.TypeOf(&kernel.Kernel{})
 	for _, name := range []string{
@@ -228,6 +333,7 @@ func TestKernel_PrunedSurface(t *testing.T) {
 		"NewInstanceFromValue", "LoadSourceFromString",
 		"LoadModulePackage", "LoadPlatformPackage", "LoadInstancePackage",
 		"NewModuleFromValue", "NewPlatformFromValue",
+		"CueContext",
 	} {
 		_, found := kt.MethodByName(name)
 		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
@@ -255,6 +361,19 @@ func TestKernel_PrunedSurface(t *testing.T) {
 	assert.False(t, found, "RenderInput must not carry a Values field; values enter through the acquire verbs and SynthesizeInstance")
 	_, found = reflect.TypeOf(kernel.Source{}).FieldByName("Name")
 	assert.False(t, found, "Source carries no display label; Origin is the attribution key")
+
+	// config-validation, "Source struct shape": a Source is bytes plus an
+	// origin and nothing else, so it is bound to no context.
+	st := reflect.TypeOf(kernel.Source{})
+	assert.Equal(t, 2, st.NumField(), "Source exposes exactly Origin and Data")
+	origin, ok := st.FieldByName("Origin")
+	require.True(t, ok)
+	assert.Equal(t, reflect.TypeFor[string](), origin.Type)
+	data, ok := st.FieldByName("Data")
+	require.True(t, ok)
+	assert.Equal(t, reflect.TypeFor[[]byte](), data.Type)
+	_, found = st.FieldByName("Value")
+	assert.False(t, found, "Source carries no cue.Value; the kernel compiles Data where it is used")
 }
 
 // markerLoader is a schema.Loader that compiles a marker definition instead
@@ -275,10 +394,10 @@ func TestKernel_WithSchemaLoaderBacksTheCache(t *testing.T) {
 	k := kernel.New(kernel.WithSchemaLoader(ml))
 	require.NotNil(t, k.SchemaCache())
 
-	val, err := k.SchemaCache().Get(k.CueContext())
+	val, err := k.SchemaCache().Get()
 	require.NoError(t, err)
 	assert.True(t, val.LookupPath(cue.ParsePath("#Marker")).Exists(), "the cache resolves through the supplied loader")
-	_, err = k.SchemaCache().Get(k.CueContext())
+	_, err = k.SchemaCache().Get()
 	require.NoError(t, err)
 	assert.Equal(t, 1, ml.calls, "one Load per cache")
 

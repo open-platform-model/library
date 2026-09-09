@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -40,8 +42,14 @@ func TestIntegration_Live_ValidateRealConfig(t *testing.T) {
 
 	debugValues := mod.Package.LookupPath(schema.DebugValues)
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
+	// A Source carries bytes: render the module's own debugValues back to CUE
+	// source, the way a frontend layering a debug overlay would hand them in.
+	rendered, err := format.Node(debugValues.Syntax(cue.Final(), cue.Concrete(false)))
+	require.NoError(t, err)
+	src, err := k.LoadSourceFromBytes(moduleDir, rendered)
+	require.NoError(t, err)
 
-	out, err := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{{Value: debugValues, Origin: moduleDir}})
+	out, err := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{src})
 	require.NoError(t, err, "real debugValues must satisfy the real #config schema")
 	assert.True(t, out.Exists())
 }

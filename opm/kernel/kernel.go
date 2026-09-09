@@ -1,25 +1,25 @@
 package kernel
 
 import (
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
-
 	"github.com/open-platform-model/library/opm/schema"
 )
 
 // Kernel is the public anchor type for the OPM runtime. It owns a
-// [*cue.Context] and a [*schema.Cache] for its lifetime.
+// [*schema.Cache] for its lifetime and no build context: every operation
+// that evaluates CUE creates its own [cue.Context], builds in it, and lets
+// it go when it returns, so the values an operation returns (an artifact's
+// Package, a validated value) keep that operation's runtime alive for
+// exactly as long as the caller holds them, and nothing else does.
 //
-// Kernel is NOT safe for concurrent use across method calls — see the
-// package documentation for the one-Kernel-per-goroutine pattern.
+// A single Kernel is safe for concurrent use across its method calls — see
+// the package documentation.
 //
 // The Kernel owns exactly one [*schema.Cache] for its lifetime. Long-
-// running consumers (operator, server) MUST keep the Kernel alive
-// across operations to reuse the in-process schema cache; constructing
-// a fresh Kernel per request pays the schema-fetch cost on every cold
-// disk cache. The CUE module cache on disk is shared across Kernels.
+// running consumers (operator, server) keep one Kernel alive for the
+// process to reuse the in-process schema cache; constructing a fresh Kernel
+// per request pays the schema-fetch cost on every cold disk cache. The CUE
+// module cache on disk is shared across Kernels.
 type Kernel struct {
-	cueCtx       *cue.Context
 	schemaLoader schema.Loader
 	schemaCache  *schema.Cache
 	registry     string
@@ -33,13 +33,11 @@ type Kernel struct {
 type Option func(*Kernel)
 
 // New constructs a [Kernel] with default dependencies and applies the
-// supplied options. Defaults are:
-//
-//   - cue.Context: a fresh [cuecontext.New]
-//   - SchemaCache: a fresh [*schema.Cache] backed by a [schema.OCILoader]
-//     whose Registry is the kernel's [WithRegistry] value (empty when the
-//     option is absent, which resolves [schema.DefaultSchemaModule] against
-//     CUE_REGISTRY / CUE_CACHE_DIR from the process environment)
+// supplied options. The one default is the schema cache: a fresh
+// [*schema.Cache] backed by a [schema.OCILoader] whose Registry is the
+// kernel's [WithRegistry] value (empty when the option is absent, which
+// resolves [schema.DefaultSchemaModule] against CUE_REGISTRY / CUE_CACHE_DIR
+// from the process environment).
 //
 // Seeding the loader from the registry option is what makes [WithRegistry]
 // the ONE mapping every kernel operation resolves through — schema fetch
@@ -48,16 +46,14 @@ type Option func(*Kernel)
 // An explicit [WithSchemaLoader] still wins, whatever order the options are
 // given in: the loader is chosen after every option has been applied.
 //
-// New never returns nil. The returned Kernel is NOT safe for concurrent
-// use across method calls.
+// New never returns nil, creates no [cue.Context] and evaluates nothing. The
+// returned Kernel is safe for concurrent use across method calls.
 //
 // New does NOT trigger a schema load, and on a pinned loader (the default)
 // no Kernel method does either: only a bare-major loader's instance
 // synthesis, or a caller's own [schema.Cache.Get], runs the lazy fetch.
 func New(opts ...Option) *Kernel {
-	k := &Kernel{
-		cueCtx: cuecontext.New(),
-	}
+	k := &Kernel{}
 	for _, opt := range opts {
 		opt(k)
 	}
@@ -120,24 +116,15 @@ func WithRegistry(registry string) Option {
 	}
 }
 
-// CueContext returns the [*cue.Context] owned by this Kernel.
-//
-// Advanced: most callers do not need this. Use it only when building
-// [cue.Value]s outside the kernel (typically tests or programmatic CUE
-// construction). Values built with this context are safe to pass back
-// into Kernel methods. The same [*cue.Context] is returned for the
-// lifetime of the Kernel.
-func (k *Kernel) CueContext() *cue.Context {
-	return k.cueCtx
-}
-
 // SchemaCache returns the [*schema.Cache] owned by this Kernel. The same
 // pointer is returned for the lifetime of the Kernel; callers MAY hold
 // it across operations to ensure cache reuse.
 //
 // Calling SchemaCache does NOT trigger a schema load. Only the first
 // [schema.Cache.Get] invocation contacts CUE; the load is lazy and
-// memoized.
+// memoized into a context the cache owns and never exposes. A caller that
+// must compile a value against the schema (the cli's publish gate does)
+// takes the returned value's Context.
 //
 // Typical use: read [schema.Cache.ResolvedVersion] for diagnostics after a
 // load has run. Nothing needs to be passed back in: a kernel whose loader

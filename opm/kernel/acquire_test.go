@@ -519,8 +519,7 @@ func TestKernel_AcquireModuleFromDir_SynthesizesLikeRegistryModule(t *testing.T)
 	assert.Equal(t, fromRegistry.Metadata, fromDir.Metadata, "the same module, read two ways")
 
 	plat := acquireRenderPlatform(t, k, "platform")
-	values := k.CueContext().CompileString(`{image: "nginx:1.27", replicas: 3}`)
-	require.NoError(t, values.Err())
+	values := mustSource(t, k, "values.cue", `{image: "nginx:1.27", replicas: 3}`)
 
 	renderObjects := func(t *testing.T, mod *module.Module) []string {
 		t.Helper()
@@ -528,7 +527,7 @@ func TestKernel_AcquireModuleFromDir_SynthesizesLikeRegistryModule(t *testing.T)
 			Module:    mod,
 			Name:      "web-synth",
 			Namespace: "default",
-			Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
+			Values:    []kernel.Source{values},
 		})
 		require.NoError(t, err)
 		res, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})

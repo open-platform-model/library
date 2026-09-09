@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -136,7 +137,7 @@ func TestKernel_SynthesizeInstance_DerivedFieldsFromSchema(t *testing.T) {
 	// metadata.uuid is the canonical UUID v5 of the instance fqn.
 	registryPath, err := mod.Package.LookupPath(cue.ParsePath("metadata.registryPath")).String()
 	require.NoError(t, err, "a core-v2 module exposes metadata.registryPath")
-	assert.Equal(t, expectedInstanceUUID(t, k.CueContext(), registryPath+":myrel:default"), inst.Metadata.UUID,
+	assert.Equal(t, expectedInstanceUUID(t, cuecontext.New(), registryPath+":myrel:default"), inst.Metadata.UUID,
 		"schema-derived UUID must equal uuid.SHA1(OPMNamespace, <registryPath>:<name>:<namespace>)")
 
 	// components fanned from #components.

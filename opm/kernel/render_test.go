@@ -545,7 +545,7 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	// render builds in its own context, never the Kernel's).
 	assert.NotSame(t, first.Compiled[0].Value.Context(), second.Compiled[0].Value.Context(), //nolint:staticcheck // D8 lifetime assertion, not value combination
 		"each render builds in its own context")
-	assert.NotSame(t, k.CueContext(), first.Compiled[0].Value.Context(), "the Kernel's context is not the render context") //nolint:staticcheck // same
+	assert.NotSame(t, plat.Package.Context(), first.Compiled[0].Value.Context(), "the platform's context is the acquire's, not the render's") //nolint:staticcheck // same
 }
 
 // The single-provider guard in-build (0010 D32/D37; library-render-cutover).

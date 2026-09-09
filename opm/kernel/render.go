@@ -184,8 +184,8 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // cue.Context that is dropped when Render returns (D8), and decodes
 // `diagnostics` and `rendered` off the built value.
 //
-// The Kernel's own context is not used and no built value survives the call
-// except the returned output; repeated renders share nothing. The staging
+// The Kernel holds no context of its own, and no built value survives the
+// call except the returned output; repeated renders share nothing. The staging
 // directory is removed on return, success or failure. Registry resolution
 // for the platform's catalog imports uses [WithRegistry] when set, else the
 // process CUE_REGISTRY, plumbed through the load configuration only.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"cuelang.org/go/cue/cuecontext"
+
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
@@ -15,7 +17,8 @@ import (
 // the instance only when present, so an empty field never displaces a
 // schema-derived one.
 //
-// It carries no schema cache and no [*cue.Context]: the Kernel owns both, and
+// It carries no schema cache and no [*cue.Context]: the Kernel owns the
+// schema cache, synthesis builds in a context it creates for the call, and
 // the registry mapping is the Kernel's [WithRegistry].
 type InstanceInput struct {
 	// Module is the source #Module the instance deploys. Required, and it
@@ -37,10 +40,11 @@ type InstanceInput struct {
 
 	// Values are the configuration sources, in stack order — the same
 	// [Source] type [Kernel.ValidateConfigDetailed] and
-	// [Kernel.AcquireInstanceFromDir] take. They are unified, rendered into
-	// the synthesized package's values file so the merge is the schema's own
-	// values unification in CUE, and checked against the module's #config at
-	// their own positions after the build.
+	// [Kernel.AcquireInstanceFromDir] take. They are compiled in the call's
+	// own context, unified, rendered into the synthesized package's values
+	// file so the merge is the schema's own values unification in CUE, and
+	// checked against the module's #config at their own positions after the
+	// build.
 	//
 	// Empty means "no values supplied": the values path is left unfilled and
 	// the concreteness check then fails unless every #config field has a
@@ -77,9 +81,13 @@ type InstanceInput struct {
 // kernel's schema cache when it names a bare major. The release the import
 // resolves to inside the build is the one the module's own cue.mod pins.
 //
-// The returned instance carries [module.Instance.Source]: the staged tree the
-// build evaluated, in overlay mode, with Pkg naming the reserved instance
-// subdirectory inside the module's staged root.
+// The build runs in a [cue.Context] created for the call and reads only the
+// module's Metadata and Source, never its Package, so a module acquired by
+// another Kernel is a valid input. The returned instance carries
+// [module.Instance.Source]: the staged tree the build evaluated, in overlay
+// mode, with Pkg naming the reserved instance subdirectory inside the
+// module's staged root; Instance.Package keeps the call's context alive for
+// as long as the caller holds the instance.
 //
 // A missing required input fails before any build runs, wrapping the matching
 // sentinel from opm/errors ([oerrors.ErrMissingModule],
@@ -115,12 +123,13 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
 
-	merged, err := mergeSources(in.Values)
+	cueCtx := cuecontext.New()
+	merged, err := mergeSources(cueCtx, in.Values)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
 
-	spec, src, err := synth.Instance(k.cueCtx, coreVersion, synth.Input{
+	spec, src, err := synth.Instance(cueCtx, coreVersion, synth.Input{
 		Module:      in.Module,
 		Name:        in.Name,
 		Namespace:   in.Namespace,
@@ -172,7 +181,7 @@ func (k *Kernel) resolveCoreVersion() (string, error) {
 	if version, ok := pinnedCoreVersion(k.schemaCache.Loader); ok {
 		return version, nil
 	}
-	if _, err := k.schemaCache.Get(k.cueCtx); err != nil {
+	if _, err := k.schemaCache.Get(); err != nil {
 		return "", fmt.Errorf("loading schema: %w", err)
 	}
 	version := k.schemaCache.ResolvedVersion()

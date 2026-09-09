@@ -3,7 +3,7 @@ package kernel
 import (
 	"testing"
 
-	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func internalSource(t *testing.T, k *Kernel, origin, src string) Source {
 func TestValidateSources_PartialAllowsMissingRequiredFields(t *testing.T) {
 	k := New()
 	// Schema requires both `replicas` and `name` to be concrete.
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
 	// Partial value sets only `replicas`; `name` is missing.
 	partial := internalSource(t, k, "partial.cue", `{ replicas: 3 }`)
@@ -38,7 +38,7 @@ func TestValidateSources_PartialAllowsMissingRequiredFields(t *testing.T) {
 
 func TestValidateSources_PartialTypeErrorStillSurfaces(t *testing.T) {
 	k := New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
 	// `replicas` set but with the wrong type — partial validation MUST flag it.
 	wrongType := internalSource(t, k, "wrong.cue", `{ replicas: "three" }`)
@@ -49,11 +49,10 @@ func TestValidateSources_PartialTypeErrorStillSurfaces(t *testing.T) {
 }
 
 func TestValidateSources_PartialZeroValueIsNoOp(t *testing.T) {
-	k := New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
-	got, err := validateSources(schema, []Source{{Value: cue.Value{}, Origin: "none"}}, false)
+	got, err := validateSources(schema, []Source{{Origin: "none"}}, false)
 	require.NoError(t, err)
 	assert.False(t, got.Exists())
 
@@ -65,7 +64,7 @@ func TestValidateSources_PartialZeroValueIsNoOp(t *testing.T) {
 func TestValidateSources_PartialSkipsConcreteButRunsWalkDisallowed(t *testing.T) {
 	k := New()
 	// Closed schema requiring two fields. Stray field is disallowed.
-	schema := k.CueContext().CompileString(`close({ replicas: int & >0, name: string })`)
+	schema := cuecontext.New().CompileString(`close({ replicas: int & >0, name: string })`)
 	require.NoError(t, schema.Err())
 
 	// Single source with only `replicas` set + a stray field.
@@ -92,7 +91,7 @@ func TestValidateSources_PartialSkipsConcreteButRunsWalkDisallowed(t *testing.T)
 
 func TestValidateSources_PartialLayeredSources(t *testing.T) {
 	k := New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string, image: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string, image: string }`)
 	require.NoError(t, schema.Err())
 
 	a := internalSource(t, k, "a.cue", `replicas: 2`)
