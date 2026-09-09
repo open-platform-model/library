@@ -2,7 +2,7 @@
 
 This guide walks through embedding the OPM kernel in a Go program: loading a Module, validating user values against its `#config` schema, acquiring an instance and a platform module, and rendering the instance down to `*kernel.Compiled` values.
 
-The recommended entry point is the `kernel.Kernel` struct, which owns the `*cue.Context` and schema cache used by every operation. **Construct one Kernel per goroutine** — the underlying `*cue.Context` is not safe for concurrent use. `Render` does not use that context: each render is its own CUE build in a fresh context that is dropped when the call returns, so concurrency is across renders, one Kernel per goroutine, with nothing shared (ADR-005).
+The recommended entry point is the `kernel.Kernel` struct, which owns the schema cache used by every operation and no build context: every operation creates its own `cue.Context`, builds in it, and drops it when the call returns, so an artifact you hold pins the context that built it and the Kernel retains nothing (ADR-005, ADR-007). **A single Kernel is safe for concurrent use across its method calls**; construct one per process and share it between goroutines, with nothing else shared.
 
 ## Prerequisites
 
@@ -79,7 +79,7 @@ Need the acquired module's tree on disk (scaffolding from a published template)?
 
 ## Validate user values (layered)
 
-Layered validation unifies every values source in stack order, then validates the merged value against the module's `#config` schema. Per-source attribution flows through `cue.Filename(Origin)` baked at load time, so error positions report the originating file (or a stable identifier for non-file sources).
+Layered validation compiles every values source in the schema's own context, unifies them in stack order, then validates the merged value against the module's `#config` schema. A `kernel.Source` is CUE source bytes plus their origin, bound to no context; the loader helpers check syntax and evaluate nothing, and the kernel compiles each source with `cue.Filename(Origin)` where it is used, so error positions report the originating file (or a stable identifier for non-file sources). You need no `cue.Context` of your own.
 
 ```go
 defaults, _ := k.LoadSourceFromBytes("embedded", []byte(`replicas: 1`))
@@ -296,6 +296,9 @@ The previous entry points have all been removed. If you have old code calling an
 | `(*Kernel).LoadSourceFromString`                 | `(*Kernel).LoadSourceFromBytes(origin, []byte(s))`                          |
 | `(*Kernel).NewInstanceFromValue`, `module.NewInstanceFromValue` | `(*Kernel).AcquireInstanceFromDir` / `(*Kernel).SynthesizeInstance` |
 | `module.CueContextOwner`, `platform.CueContextOwner` | `module.NewModuleFromValue(v)` / `platform.NewPlatformFromValue(v)` take the value only |
+| `(*Kernel).CueContext()`                         | `cuecontext.New()` for a value that stands alone; `v.Context()` of the value it will unify with; the schema's is `k.SchemaCache().Get()` then `.Context()` |
+| `kernel.Source{Value: v, Origin: o}`             | `kernel.Source{Origin: o, Data: b}` (`LoadSourceFromBytes` / `LoadSourceFromFile`; the kernel compiles the bytes where it uses them) |
+| `(*schema.Cache).Get(ctx)`                       | `(*schema.Cache).Get()`; the cache owns a private context                  |
 | `loaderfile.LoadInstanceFile`                    | `Kernel.AcquireInstanceFromDir`                                             |
 | `opm/loader/` shim, `opm/helper/loader/**`       | `Kernel.Acquire*` (the loader is `opm/internal/loader`)                     |
 | `loaderfile.LoadOptions{Registry: r}`            | `kernel.WithRegistry(r)` at construction                                    |

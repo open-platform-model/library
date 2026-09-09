@@ -71,7 +71,7 @@ The heart of the threat model — user-influenced data flows into CUE evaluation
 
 ### Dimension 5: Concurrency & Resource Safety
 
-- `*cue.Context` is **not goroutine-safe**: the one-kernel-per-goroutine contract is upheld — no code shares a single Kernel/`cue.Context` across concurrent calls
+- `*cue.Context` is **not goroutine-safe**: the shares-nothing contract (ADR-007) is upheld — the Kernel holds no context, every verb builds in a `cue.Context` it creates for the call, and the schema cache's private context is reached only through `Cache.Get()`; one Kernel per process is safe for concurrent use, so flag any new long-lived context, mutex, or value shared across calls
 - `Render` shares nothing between renders (0019 D8): each render builds in a fresh `cue.Context` that is released on return, no built value is retained on the Kernel, and the per-render staging directory is removed on every exit path — confirm no shared platform value or cache crept back in
 - The staging directory is created with `os.MkdirTemp` per render and every write stays under it (no artifact-influenced path joins)
 - No package-level mutable state / singletons (kernel neutrality) that could race or leak across embedders

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-03). Supersedes ADR-002. Records enhancement 0019 D8 (workspace root, `enhancements/0019/03-decisions.md`) together with the `cue.Context` lifetime rule that resolves its OQ12. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted).
+Accepted (2026-09-03). Supersedes ADR-002. Records enhancement 0019 D8 (workspace root, `enhancements/0019/03-decisions.md`) together with the `cue.Context` lifetime rule that resolves its OQ12. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). Amended by ADR-007 (2026-09-08): the shares-nothing rule now holds for every kernel verb, not only `Render`; the Kernel holds no context of its own, and the "one Kernel per goroutine" sentence below is superseded by one Kernel per process, safe for concurrent use.
 
 ## Context
 
