@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-alpha.28](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.27...v1.0.0-alpha.28) (2026-09-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** Kernel.CueContext is removed; kernel.Source is {Origin string; Data []byte} instead of carrying a cue.Value; schema.Cache.Get takes no context. Values compiled by a consumer become LoadSourceFromBytes calls, and a consumer that compiled against the schema uses the Context of the value Get returns.
+
+### Features
+
+* **kernel:** read the synth core release off the pin, not the schema ([#120](https://github.com/open-platform-model/library/issues/120)) ([fda0ab7](https://github.com/open-platform-model/library/commit/fda0ab70ba752c251d5a5e094368f2fb6c2833c0))
+
+
+### Code Refactoring
+
+* **kernel:** build every verb in its own cue.Context ([#123](https://github.com/open-platform-model/library/issues/123)) ([5db1a8c](https://github.com/open-platform-model/library/commit/5db1a8ca1b6b16e1cb674a661ef786e0cbe719f2))
+
 ## [1.0.0-alpha.27](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.26...v1.0.0-alpha.27) (2026-09-08)
 
 
