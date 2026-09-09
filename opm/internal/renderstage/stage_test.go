@@ -1,15 +1,22 @@
 package renderstage
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
+	"github.com/open-platform-model/library/opm/internal/schematest"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -89,7 +96,27 @@ func diskPlatform(t *testing.T) *module.Source {
 	return &module.Source{Root: dir}
 }
 
-func TestStage_MaterializesOverlayAndWritesRenderModule(t *testing.T) {
+// stagedFiles lists every file under dir, slash-separated and relative to
+// it, sorted: what one render leaves on disk.
+func stagedFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	var files []string
+	require.NoError(t, filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			rel, err := filepath.Rel(dir, p)
+			require.NoError(t, err)
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	}))
+	sort.Strings(files)
+	return files
+}
+
+func TestStage_ServesOverlayFromMemoryAndWritesRenderModule(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
 	inst := overlayInstance(root)
 	plat := diskPlatform(t)
@@ -99,15 +126,18 @@ func TestStage_MaterializesOverlayAndWritesRenderModule(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, dir, staged.Dir)
 
-	// The overlay tree landed under <dir>/instance, rebased from its root.
+	// The overlay tree is re-keyed under <dir>/instance (the directory the
+	// local-module.cue replacement names) on Staged.Overlay, every entry
+	// included, and nothing of it is written.
 	instDir := filepath.Join(dir, "instance")
-	for _, rel := range []string{"cue.mod/module.cue", "module.cue", "opm-synth-instance/instance.cue", "opm-synth-instance/values.cue", "opm-synth-instance/nested/deep.cue"} {
-		_, err := os.Stat(filepath.Join(instDir, filepath.FromSlash(rel)))
-		assert.NoError(t, err, rel)
+	_, err = os.Stat(instDir)
+	assert.True(t, os.IsNotExist(err), "no instance/ directory is written for an overlay-mode input")
+	require.Len(t, staged.Overlay, len(inst.Overlay))
+	for _, rel := range []string{"cue.mod/module.cue", "module.cue", "opm-synth-instance/instance.cue", "opm-synth-instance/values.cue", "opm-synth-instance/notes.md", "opm-synth-instance/nested/deep.cue"} {
+		assert.Contains(t, staged.Overlay, filepath.Join(instDir, filepath.FromSlash(rel)), rel)
 	}
-	got, err := os.ReadFile(filepath.Join(instDir, "opm-synth-instance", "instance.cue"))
-	require.NoError(t, err)
-	assert.Equal(t, "package instance\n\ny: 2\n", string(got))
+	assert.Equal(t, "package instance\n\ny: 2\n", string(staged.Overlay[filepath.Join(instDir, "opm-synth-instance", "instance.cue")]))
+	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir), "the staging directory holds only the generated render module")
 
 	// Generated files. The on-disk platform is referenced in place through
 	// the local-module.cue replacement.
@@ -126,6 +156,92 @@ func TestStage_MaterializesOverlayAndWritesRenderModule(t *testing.T) {
 	// Skew rows ride along (the instance pins a newer catalog).
 	require.Len(t, staged.Skew, 2)
 	assert.True(t, staged.Skew[0].Newer)
+}
+
+// rekeyed returns the .cue files under dir as an overlay-mode source keyed
+// under root, a path that exists nowhere on disk.
+func rekeyed(t *testing.T, dir, root string) *module.Source {
+	t.Helper()
+	files, err := sourcetree.OverlayFromDir(dir)
+	require.NoError(t, err)
+	overlay := make(map[string][]byte, len(files))
+	for p, data := range files {
+		rel, err := filepath.Rel(dir, p)
+		require.NoError(t, err)
+		overlay[filepath.Join(root, rel)] = data
+	}
+	return &module.Source{Root: root, Overlay: overlay}
+}
+
+func TestStage_OverlayInputsLeaveOnlyTheRenderModule(t *testing.T) {
+	inst := overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app"))
+	plat := rekeyed(t, diskPlatform(t).Root, filepath.Join(string(filepath.Separator), "opm-registry-module", "platform"))
+	dir := t.TempDir()
+
+	staged, err := Stage(dir, inst, plat, "rt")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
+	for _, name := range []string{"instance", "platform"} {
+		_, err := os.Stat(filepath.Join(dir, name))
+		assert.True(t, os.IsNotExist(err), "%s/ is served from memory, never written", name)
+	}
+	assert.Len(t, staged.Overlay, len(inst.Overlay)+len(plat.Overlay))
+	assert.Contains(t, staged.Overlay, filepath.Join(dir, "platform", "platform.cue"))
+	assert.Contains(t, staged.Overlay, filepath.Join(dir, "platform", "cue.mod", "module.cue"))
+	localCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "local-module.cue"))
+	require.NoError(t, err)
+	assert.Contains(t, string(localCue), filepath.Join(dir, "platform"), "the replacement names the in-memory directory")
+}
+
+func TestStage_OnDiskInputsCarryNoOverlay(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	inst := &module.Source{Root: filepath.Join(fixture, "instance")}
+	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
+	dir := t.TempDir()
+
+	staged, err := Stage(dir, inst, plat, "rt")
+	require.NoError(t, err)
+	assert.Empty(t, staged.Overlay, "on-disk inputs are referenced in place")
+	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
+}
+
+// TestStageBuild_OverlayInstanceServedFromMemory is the change's spike
+// (overlay-served-in-memory): cue/load serves a local-module.cue directory
+// replacement that exists only in load.Config.Overlay. The on-disk render
+// fixture instance is re-keyed under a synthetic root so no file of it can be
+// read from disk, staged against the on-disk fixture platform, and built
+// with the catalog and module served by the in-process registry.
+func TestStageBuild_OverlayInstanceServedFromMemory(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	registrytest.NewRegistryFromDir(t, filepath.Join(fixture, "registry"), "testing.opmodel.dev/library-render")
+
+	inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
+	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
+	dir := t.TempDir()
+
+	staged, err := Stage(dir, inst, plat, "rt")
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(dir, "instance"))
+	require.True(t, os.IsNotExist(err), "the instance tree is not written")
+	require.Len(t, staged.Overlay, len(inst.Overlay))
+
+	// Build with the process environment: the registry helper set
+	// CUE_REGISTRY and CUE_CACHE_DIR for this test.
+	built, err := Build(cuecontext.New(), staged, nil)
+	require.NoError(t, err, "cue/load serves the replacement directory from the overlay")
+	require.NoError(t, built.Err())
+
+	components := built.LookupPath(cue.MakePath(cue.Hid("_components", RenderModulePath+":render")))
+	require.NoError(t, components.Err())
+	require.True(t, components.Exists(), "_components resolves through the in-memory instance import")
+	fields, err := components.Fields()
+	require.NoError(t, err)
+	var names []string
+	for fields.Next() {
+		names = append(names, fields.Selector().String())
+	}
+	assert.ElementsMatch(t, []string{"web", "config"}, names)
 }
 
 func TestStage_RefusesBadInputs(t *testing.T) {

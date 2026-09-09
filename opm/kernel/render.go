@@ -178,7 +178,9 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // Render renders an instance against a platform as ONE CUE build (enhancement
 // 0019 D9): it stages a generated render module in a per-render temporary
 // directory (the promoted cue.mod, D13; directory replacements bringing both
-// inputs in; the embedded matching and execution glue), verifies the
+// inputs in, an on-disk input in place and an overlay-mode input from memory,
+// so the directory holds only the generated module; the embedded matching
+// and execution glue), verifies the
 // promoted list covers every OPM-namespace path either input requires,
 // applies the skew policy (D7/D18), builds the module once in a fresh
 // cue.Context that is dropped when Render returns (D8), and decodes

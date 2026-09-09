@@ -69,10 +69,11 @@ type Source struct {
 // nil — Root already IS the directory) and any entry whose path is not under
 // Root are refused with a plain error.
 //
-// This is the library's one overlay writer. The kernel's render stage
-// materializes an overlay-mode input through it, and a frontend that needs a
-// fetched module's tree on disk (scaffolding from a published template) calls
-// it instead of fetching the module a second time and walking it.
+// This is the library's one overlay writer, for a frontend that needs a
+// fetched module's tree on disk (scaffolding from a published template): it
+// calls this instead of fetching the module a second time and walking it.
+// The kernel itself never writes an overlay: the render stage serves an
+// overlay-mode input to its build from memory.
 func (s *Source) WriteTo(dir string) ([]string, error) {
 	if s == nil || s.Root == "" {
 		return nil, errors.New("source carries no module root")
