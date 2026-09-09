@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,17 +15,17 @@ import (
 
 func TestKernel_ValidateConfigDetailed_ZeroValueSourceIsNoOp(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
-	got, err := k.ValidateConfigDetailed(schema, []kernel.Source{{Value: cue.Value{}, Origin: "none"}})
-	require.NoError(t, err, "a source whose merged value does not exist MUST be treated as 'no values' and succeed")
+	got, err := k.ValidateConfigDetailed(schema, []kernel.Source{{Origin: "none"}})
+	require.NoError(t, err, "a source carrying no payload MUST be treated as 'no values' and succeed")
 	assert.False(t, got.Exists(), "no values supplied → returned cue.Value is the zero value")
 }
 
 func TestKernel_ValidateConfigDetailed_SchemaErrorReturnsCueError(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 	bad := mustSource(t, k, "bad.cue", `{ replicas: -1 }`)
 
@@ -36,7 +37,7 @@ func TestKernel_ValidateConfigDetailed_SchemaErrorReturnsCueError(t *testing.T) 
 
 func TestKernel_ValidateConfigDetailed_FieldNotAllowed(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`close({ replicas: int })`)
+	schema := cuecontext.New().CompileString(`close({ replicas: int })`)
 	require.NoError(t, schema.Err())
 	stray := mustSource(t, k, "stray.cue", `{ replicas: 1, stray: "x" }`)
 
@@ -47,7 +48,7 @@ func TestKernel_ValidateConfigDetailed_FieldNotAllowed(t *testing.T) {
 func TestKernel_ValidateConfigDetailed_MissingRequiredFieldFails(t *testing.T) {
 	k := kernel.New()
 	// Schema requires both `replicas` and `name` to be concrete.
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, name: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
 	require.NoError(t, schema.Err())
 	// Only `replicas` is set; `name` is missing.
 	partial := mustSource(t, k, "partial.cue", `{ replicas: 3 }`)
@@ -58,7 +59,7 @@ func TestKernel_ValidateConfigDetailed_MissingRequiredFieldFails(t *testing.T) {
 
 func TestKernel_ValidateConfigDetailed_EmptySourcesReturnsZeroNil(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
 	got, err := k.ValidateConfigDetailed(schema, nil)
@@ -68,7 +69,7 @@ func TestKernel_ValidateConfigDetailed_EmptySourcesReturnsZeroNil(t *testing.T) 
 
 func TestKernel_ValidateConfigDetailed_SingleSourceSuccess(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 	v := mustSource(t, k, "user.cue", `replicas: 3`)
 
@@ -79,7 +80,7 @@ func TestKernel_ValidateConfigDetailed_SingleSourceSuccess(t *testing.T) {
 
 func TestKernel_ValidateConfigDetailed_TwoSourceUnifySuccess(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0, image: string }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, image: string }`)
 	require.NoError(t, schema.Err())
 
 	a := mustSource(t, k, "defaults.cue", `replicas: 1`)
@@ -96,7 +97,7 @@ func TestKernel_ValidateConfigDetailed_TwoSourceUnifySuccess(t *testing.T) {
 
 func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.T) {
 	k := kernel.New()
-	schema := k.CueContext().CompileString(`{ replicas: int & >0 }`)
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
 	a := mustSource(t, k, "a.cue", `replicas: 3`)
@@ -122,17 +123,18 @@ func TestKernel_ValidateConfigDetailed_ConflictSurfacesBothPositions(t *testing.
 // #config via the ConfigSchema() accessors and handing it to the primitive.
 
 // configFixture is a minimal Module + Instance pair sharing one #config
-// schema (replicas: int & >0, name: string), built as bare values in the
-// kernel's context: the ConfigSchema() accessors read Package only, so no
-// source, registry or platform is involved.
+// schema (replicas: int & >0, name: string), built as bare values in a
+// context of the test's own: the ConfigSchema() accessors read Package only,
+// so no source, registry or platform is involved, and the kernel compiles
+// the sources it validates in the schema's context.
 type configFixture struct {
 	mod  *module.Module
 	inst *module.Instance
 }
 
-func newConfigFixture(t *testing.T, k *kernel.Kernel) configFixture {
+func newConfigFixture(t *testing.T) configFixture {
 	t.Helper()
-	ctx := k.CueContext()
+	ctx := cuecontext.New()
 
 	modPkg := ctx.CompileString(`
 kind: "Module"
@@ -191,7 +193,7 @@ components: {}
 
 func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing.T) {
 	k := kernel.New()
-	f := newConfigFixture(t, k)
+	f := newConfigFixture(t)
 
 	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
 	merged, err := k.ValidateConfigDetailed(f.mod.ConfigSchema(), []kernel.Source{values})
@@ -217,7 +219,7 @@ func TestKernel_ValidateConfigDetailed_ComposedWithModuleConfigSchema(t *testing
 
 func TestKernel_ValidateConfigDetailed_ComposedWithInstanceConfigSchema(t *testing.T) {
 	k := kernel.New()
-	f := newConfigFixture(t, k)
+	f := newConfigFixture(t)
 
 	values := mustSource(t, k, "values.cue", `{ replicas: 3, name: "demo" }`)
 	merged, err := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{values})
@@ -229,4 +231,38 @@ func TestKernel_ValidateConfigDetailed_ComposedWithInstanceConfigSchema(t *testi
 	layered, vErr := k.ValidateConfigDetailed(f.inst.ConfigSchema(), []kernel.Source{a, b})
 	require.NoError(t, vErr)
 	assert.True(t, layered.Exists())
+}
+
+// config-validation spec, "Positions survive compilation at use": a source
+// carrying bytes that violate the schema on their third line is compiled in
+// the schema value's own context when it is used, and the error is reported
+// at Origin, line 3. The schema is built in a context of the test's own: the
+// attribution property rests on the filename travelling with the bytes, not
+// on which context compiled them.
+func TestKernel_ValidateConfigDetailed_ViolationPositionedAtOriginLine(t *testing.T) {
+	k := kernel.New()
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
+	require.NoError(t, schema.Err())
+
+	const origin = "/values/user.cue"
+	data := []byte("name: \"demo\"\n// the violation is on the next line\nreplicas: -1\n")
+	src := kernel.Source{Origin: origin, Data: data}
+
+	_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{src})
+	require.Error(t, vErr)
+
+	var positions []string
+	atOriginLine3 := false
+	for _, ce := range cueerrors.Errors(vErr) {
+		for _, pos := range cueerrors.Positions(ce) {
+			if !pos.IsValid() {
+				continue
+			}
+			positions = append(positions, pos.String())
+			if pos.Filename() == origin && pos.Line() == 3 {
+				atOriginLine3 = true
+			}
+		}
+	}
+	assert.True(t, atOriginLine3, "the violation is positioned at %s:3; positions: %v", origin, positions)
 }

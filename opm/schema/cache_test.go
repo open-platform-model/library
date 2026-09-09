@@ -2,6 +2,7 @@ package schema_test
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,9 +38,9 @@ func TestCache_RepeatedGetReturnsSameValue(t *testing.T) {
 
 	cache := &schema.Cache{Loader: loader}
 
-	v1, err := cache.Get(ctx)
+	v1, err := cache.Get()
 	require.NoError(t, err)
-	v2, err := cache.Get(ctx)
+	v2, err := cache.Get()
 	require.NoError(t, err)
 
 	// Same cached cue.Value — comparable via underlying source/struct
@@ -72,7 +73,7 @@ func TestCache_ConcurrentFirstGetIsSafe(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			results[i], errs[i] = cache.Get(ctx)
+			results[i], errs[i] = cache.Get()
 		}(i)
 	}
 	close(start)
@@ -95,9 +96,8 @@ func TestCache_LoaderErrorsAreCached(t *testing.T) {
 	loader := &countingLoader{err: sentinel}
 	cache := &schema.Cache{Loader: loader}
 
-	ctx := cuecontext.New()
 	for i := 0; i < 3; i++ {
-		_, err := cache.Get(ctx)
+		_, err := cache.Get()
 		require.ErrorIs(t, err, sentinel)
 	}
 	assert.Equal(t, int64(1), loader.calls.Load(),
@@ -114,10 +114,10 @@ func TestCache_TwoInstancesDoNotShareState(t *testing.T) {
 	c1 := &schema.Cache{Loader: l1}
 	c2 := &schema.Cache{Loader: l2}
 
-	_, _ = c1.Get(ctx)
-	_, _ = c2.Get(ctx)
-	_, _ = c1.Get(ctx)
-	_, _ = c2.Get(ctx)
+	_, _ = c1.Get()
+	_, _ = c2.Get()
+	_, _ = c1.Get()
+	_, _ = c2.Get()
 
 	assert.Equal(t, int64(1), l1.calls.Load(), "cache 1 keeps its own once")
 	assert.Equal(t, int64(1), l2.calls.Load(), "cache 2 keeps its own once")
@@ -141,8 +141,7 @@ func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
 	schematest.SetEnv(t)
 	cache := &schema.Cache{Loader: schema.OCILoader{}}
 
-	ctx := cuecontext.New()
-	val, err := cache.Get(ctx)
+	val, err := cache.Get()
 	require.NoError(t, err)
 	require.True(t, val.Exists())
 
@@ -160,7 +159,7 @@ func TestCache_ResolvedVersionAfterOCIGet(t *testing.T) {
 func TestCache_ResolvedVersionStaysEmptyOnFailedLoad(t *testing.T) {
 	loader := &countingLoader{err: errors.New("boom")}
 	cache := &schema.Cache{Loader: loader}
-	_, err := cache.Get(cuecontext.New())
+	_, err := cache.Get()
 	require.Error(t, err)
 	assert.Empty(t, cache.ResolvedVersion())
 }
@@ -171,13 +170,29 @@ func TestCache_ResolvedVersionStaysEmptyOnFailedLoad(t *testing.T) {
 // the same workspace cache directory.
 func TestCache_WorkspaceCacheReuse(t *testing.T) {
 	schematest.SetEnv(t)
-	ctx := cuecontext.New()
 
 	first := &schema.Cache{Loader: schema.OCILoader{}}
-	_, err := first.Get(ctx)
+	_, err := first.Get()
 	require.NoError(t, err)
 
 	second := &schema.Cache{Loader: schema.OCILoader{}}
-	_, err = second.Get(ctx)
+	_, err = second.Get()
 	require.NoError(t, err, "second Cache must load from warm workspace cache without re-fetch")
+}
+
+// schema-dispatch spec, "The schema context is private": no exported method
+// of Cache returns or accepts a *cue.Context; the schema value's context is
+// reachable only through Value.Context on what Get returns.
+func TestCache_NoContextInExportedSurface(t *testing.T) {
+	ct := reflect.TypeOf(&schema.Cache{})
+	ctxType := reflect.TypeFor[*cue.Context]()
+	for i := range ct.NumMethod() {
+		m := ct.Method(i)
+		for j := range m.Type.NumIn() {
+			assert.NotEqual(t, ctxType, m.Type.In(j), "%s accepts a *cue.Context", m.Name)
+		}
+		for j := range m.Type.NumOut() {
+			assert.NotEqual(t, ctxType, m.Type.Out(j), "%s returns a *cue.Context", m.Name)
+		}
+	}
 }

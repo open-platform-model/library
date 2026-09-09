@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,8 +13,7 @@ import (
 )
 
 func TestNewModuleFromValue_SuccessPath(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
+	v := cuecontext.New().CompileString(`
 kind: "Module"
 metadata: {
 	name: "demo-mod"
@@ -38,8 +38,7 @@ metadata: {
 }
 
 func TestNewModuleFromValue_MissingMetadata(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`kind: "Module"`)
+	v := cuecontext.New().CompileString(`kind: "Module"`)
 	require.NoError(t, v.Err())
 
 	mod, err := module.NewModuleFromValue(v)
@@ -53,8 +52,7 @@ func TestNewModuleFromValue_MissingMetadata(t *testing.T) {
 // the constructor — a frontend holding a value calls the package constructor
 // directly, and one wanting a source-carrying module uses an acquire verb.
 func TestNewModuleFromValue_NoSourceAndNoKernelWrapper(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
+	v := cuecontext.New().CompileString(`
 kind: "Module"
 metadata: {
 	name: "demo-mod"
@@ -72,6 +70,6 @@ metadata: {
 	assert.Nil(t, mod.Source, "a value-constructed module carries no staged source")
 	assert.False(t, mod.HasSource())
 
-	_, found := reflect.TypeOf(k).MethodByName("NewModuleFromValue")
+	_, found := reflect.TypeFor[*kernel.Kernel]().MethodByName("NewModuleFromValue")
 	assert.False(t, found, "*kernel.Kernel must not wrap module.NewModuleFromValue")
 }

@@ -166,8 +166,12 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
   `~/.cache/cuelang/mod/`) but not the in-process memoized `cue.Value`.
 - **Long-running consumers (operator, server) MUST keep the Kernel alive
   across operations.** The schema fetch happens once per Kernel-instance on
-  first `Cache.Get`; subsequent calls return the cached value with no
-  registry round-trip.
+  first `Cache.Get()`, into a private `cue.Context` the cache creates and
+  never exposes; subsequent calls return the cached value with no registry
+  round-trip. `Get` takes no context: a caller that must compile against the
+  schema (the cli publish gate) uses the returned value's `Context()`. The
+  cache is the one long-lived evaluation state a Kernel owns; every verb
+  builds in a context of its own (ADR-007).
 - **No kernel verb loads the schema on a pinned kernel.** The default loader
   pins an exact release (`schema.DefaultSchemaModule`), and
   `SynthesizeInstance` reads the core import major off that pin
@@ -198,13 +202,15 @@ catalogs), stages one generated render module in a per-render temp dir
 `rendered`. Rules:
 
 - **Shares nothing.** Each render builds in a fresh `cue.Context` that is
-  dropped when `Render` returns; the Kernel's own context is not used and no
-  built value is retained. Concurrency is across renders (one Kernel per
-  goroutine), never within one. A render pool is sized by memory (about
-  61 MB + 7.75 MB per component per concurrent render), not by core count.
-  No mutex, no shared platform value, no materialize cache: those shapes are
-  retracted (ADR-002, superseded by ADR-005). `task test` runs `opm/kernel`
-  and `opm/internal/renderstage` under `-race` to keep the claim checked.
+  dropped when `Render` returns; the Kernel owns no context of its own and
+  no built value is retained. Every other verb does the same (ADR-007), so
+  a single Kernel is safe for concurrent use across its method calls:
+  concurrency is across operations (one Kernel per process), never within
+  one. A render pool is sized by memory (about 61 MB + 7.75 MB per component
+  per concurrent render), not by core count. No mutex, no shared platform
+  value, no materialize cache: those shapes are retracted (ADR-002,
+  superseded by ADR-005). `task test` runs `opm/kernel` and
+  `opm/internal/renderstage` under `-race` to keep the claim checked.
 - **Matching and execution are CUE inside the build**
   (`opm/internal/renderstage/render.cue.tmpl`), not Go. Verdicts arrive as
   data (`RenderDiagnostics`: pairs, unmatched, unresolved demands, unify
@@ -292,7 +298,7 @@ task cue:test:flow                              # acquire→render integration t
 
 - `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
 
-Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache included. Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache included. The Kernel holds no `cue.Context` and exposes none (ADR-007): every verb creates a context for the call, builds in it and returns, an artifact's `Package` pins the context that built it for as long as the caller holds the artifact, and the cross-artifact verbs read only `Metadata` and `Source` from their inputs, so artifacts cross Kernels. A `kernel.Source` is `{Origin, Data []byte}`, bound to no context: `LoadSourceFromFile` / `LoadSourceFromBytes` parse and evaluate nothing, and each verb compiles the sources it receives with `cue.Filename(Origin)` in the context of the schema they meet (a file-backed origin through cue/load at the file's directory, with the top-level `values:` unwrap applied there). Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
 `*kernel.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
 

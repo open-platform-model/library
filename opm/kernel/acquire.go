@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
@@ -35,16 +36,18 @@ func (k *Kernel) loadEnv() []string {
 
 // AcquireModuleFromRegistry loads a #Module published in an OCI registry by
 // its major-qualified path (e.g. "example.com/modules/hello@v0") and version
-// (e.g. "v0.0.2"), using the kernel's [*cue.Context] and configured registry
-// (set via [WithRegistry], inheriting CUE_REGISTRY from the process
-// environment when unset). It returns a decoded [*module.Module] whose staged
-// source ([module.Source]) is populated, so the module can be reused as the
-// main module of a follow-on build — notably by [Kernel.SynthesizeInstance],
-// which stages the instance inside the module's own root so the module's
-// already-tidied cue.mod/module.cue drives transitive dependency resolution.
-// A caller that wants only the raw module value reads Module.Package.
+// (e.g. "v0.0.2"), in a [cue.Context] created for the call, through the
+// kernel's configured registry (set via [WithRegistry], inheriting
+// CUE_REGISTRY from the process environment when unset). It returns a decoded
+// [*module.Module] whose staged source ([module.Source]) is populated, so the
+// module can be reused as the main module of a follow-on build — notably by
+// [Kernel.SynthesizeInstance], which stages the instance inside the module's
+// own root so the module's already-tidied cue.mod/module.cue drives
+// transitive dependency resolution. A caller that wants only the raw module
+// value reads Module.Package, which keeps the call's runtime alive for as
+// long as the caller holds the module.
 func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
-	val, src, err := loader.FetchModule(ctx, k.cueCtx, modPath, version, k.loadEnv())
+	val, src, err := loader.FetchModule(ctx, cuecontext.New(), modPath, version, k.loadEnv())
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +79,11 @@ func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version
 // module whose Source.Pkg is non-empty; acquiring a subdirectory package is
 // still valid for reading its value and metadata.
 //
-// The registry mapping is the kernel's ([WithRegistry]), applied via the
-// load configuration's environment and never os.Setenv. The caller's
-// directory is never written to.
+// The package is built in a [cue.Context] created for the call; Module.Package
+// keeps it alive for as long as the caller holds the module. The registry
+// mapping is the kernel's ([WithRegistry]), applied via the load
+// configuration's environment and never os.Setenv. The caller's directory is
+// never written to.
 //
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial module is returned.
@@ -87,7 +92,7 @@ func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*modul
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: resolving module directory: %w", err)
 	}
-	val, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.ModuleSpec)
+	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.ModuleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -117,10 +122,11 @@ func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*modul
 // It is the directory peer of [Kernel.AcquireModuleFromRegistry] ("Acquire"
 // returns a typed artifact that knows where its source lives) and the only
 // way to obtain a platform: a caller that wants the raw value reads
-// Platform.Package. The registry mapping used for the platform's catalog
-// imports is the kernel's ([WithRegistry]), applied via the load
-// configuration's environment and never os.Setenv; the verb takes no per-call
-// override.
+// Platform.Package, which keeps the call's [cue.Context] alive for as long
+// as the caller holds the platform; the kernel retains nothing. The registry
+// mapping used for the platform's catalog imports is the kernel's
+// ([WithRegistry]), applied via the load configuration's environment and
+// never os.Setenv; the verb takes no per-call override.
 //
 // Loader failures propagate unchanged (missing directory, no package, or a
 // shape-gate sentinel such as [oerrors.ErrWrongKind]); no partial platform is
@@ -130,7 +136,7 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: resolving platform directory: %w", err)
 	}
-	val, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.PlatformSpec)
+	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.PlatformSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -155,13 +161,14 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 //
 // The trailing values sources — the same [Source] type
 // [Kernel.ValidateConfigDetailed] takes, in stack order — layer extra values
-// onto the package: the on-disk files under the module root are read into an
-// in-memory overlay, the unified sources are rendered as a package file
-// declaring `values` (opm-values.cue) beside the package's own files, and the
-// package is built in one pass through the same instance shape gate, so the
-// merge is the schema's own values unification in CUE. Nothing is filled from
-// Go and nothing is written into the caller's directory. The returned Source
-// is then overlay mode: the same Root and Pkg, with Overlay carrying every
+// onto the package: the sources are compiled in the call's own context, the
+// on-disk files under the module root are read into an in-memory overlay, the
+// unified sources are rendered as a package file declaring `values`
+// (opm-values.cue) beside the package's own files, and the package is built
+// in one pass through the same instance shape gate, so the merge is the
+// schema's own values unification in CUE. Nothing is filled from Go and
+// nothing is written into the caller's directory. The returned Source is
+// then overlay mode: the same Root and Pkg, with Overlay carrying every
 // on-disk .cue file plus the rendered values file, exactly as
 // load.Config.Overlay expects, so [Kernel.Render] imports the layered package
 // by source. A source conflicting with the package's own values or the
@@ -171,28 +178,31 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 // Passing no sources is the "no values supplied" path: the package is built
 // from disk as authored and the Source stays on-disk mode.
 //
-// This is the same bar [Kernel.SynthesizeInstance] output meets. Loader
-// failures propagate unchanged (missing directory, no package, or a
-// shape-gate sentinel); a non-concrete package surfaces the concreteness
-// error, framed `instance "<name>": …`. No partial instance is returned.
-func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, values ...Source) (*module.Instance, error) {
+// The build runs in a [cue.Context] created for the call; Instance.Package
+// keeps it alive for as long as the caller holds the instance. This is the
+// same bar [Kernel.SynthesizeInstance] output meets. Loader failures
+// propagate unchanged (missing directory, no package, or a shape-gate
+// sentinel); a non-concrete package surfaces the concreteness error, framed
+// `instance "<name>": …`. No partial instance is returned.
+func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, values ...Source) (*module.Instance, error) {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: resolving instance directory: %w", err)
 	}
 
+	cueCtx := cuecontext.New()
 	var (
 		spec cue.Value
 		src  *module.Source
 	)
 	if len(values) == 0 {
-		spec, err = loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
+		spec, err = loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
 		if err != nil {
 			return nil, err
 		}
 		src = sourceForDir(absDir)
 	} else {
-		spec, src, err = k.loadInstanceWithValues(ctx, absDir, values)
+		spec, src, err = k.loadInstanceWithValues(cueCtx, absDir, values)
 		if err != nil {
 			return nil, err
 		}
@@ -206,18 +216,20 @@ func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, val
 	return inst, nil
 }
 
-// mergeSources unifies a values stack in order and returns the merged value.
-// It is the one merge both values paths run: the extra sources of
-// [Kernel.AcquireInstanceFromDir] and InstanceInput.Values on
-// [Kernel.SynthesizeInstance]. An empty stack is the zero value with no
-// error — the "no values supplied" path.
-func mergeSources(sources []Source) (cue.Value, error) {
-	if len(sources) == 0 {
-		return cue.Value{}, nil
+// mergeSources compiles a values stack in cueCtx, unifies it in order and
+// returns the merged value. It is the one merge both values paths run: the
+// extra sources of [Kernel.AcquireInstanceFromDir] and InstanceInput.Values
+// on [Kernel.SynthesizeInstance], each in the context of the build the merged
+// value is rendered into. An empty stack, or one whose sources carry no
+// values, is the zero value with no error — the "no values supplied" path.
+func mergeSources(cueCtx *cue.Context, sources []Source) (cue.Value, error) {
+	values, err := compileSources(cueCtx, sources)
+	if err != nil {
+		return cue.Value{}, fmt.Errorf("compiling values sources: %w", err)
 	}
-	merged := sources[0].Value
-	for _, s := range sources[1:] {
-		merged = merged.Unify(s.Value)
+	merged := unifyValues(values)
+	if !merged.Exists() {
+		return cue.Value{}, nil
 	}
 	if err := merged.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("unifying values sources: %w", err)
@@ -225,10 +237,11 @@ func mergeSources(sources []Source) (cue.Value, error) {
 	return merged, nil
 }
 
-// loadInstanceWithValues builds the on-disk instance package at absDir with
-// the unified values sources overlaid as a rendered package file, and
-// returns the built value with the overlay-mode Source the build used.
-func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, sources []Source) (cue.Value, *module.Source, error) {
+// loadInstanceWithValues builds the on-disk instance package at absDir in
+// cueCtx with the unified values sources overlaid as a rendered package
+// file, and returns the built value with the overlay-mode Source the build
+// used.
+func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sources []Source) (cue.Value, *module.Source, error) {
 	info, err := os.Stat(absDir)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("accessing instance directory %q: %w", absDir, err)
@@ -237,7 +250,7 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, sour
 		return cue.Value{}, nil, fmt.Errorf("instance path %q is not a directory", absDir)
 	}
 
-	merged, err := mergeSources(sources)
+	merged, err := mergeSources(cueCtx, sources)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
@@ -267,9 +280,9 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, sour
 	if src.Pkg != "" {
 		pkg = "./" + src.Pkg
 	}
-	spec, err := loader.LoadDir(k.cueCtx, src.Root, pkg, overlay, k.loadEnv(), loader.InstanceSpec)
+	spec, err := loader.LoadDir(cueCtx, src.Root, pkg, overlay, k.loadEnv(), loader.InstanceSpec)
 	if err != nil {
-		if vErr := k.attributeValuesError(ctx, absDir, sources); vErr != nil {
+		if vErr := k.attributeValuesError(cueCtx, absDir, sources); vErr != nil {
 			return cue.Value{}, nil, vErr
 		}
 		return cue.Value{}, nil, err
@@ -289,24 +302,29 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, absDir string, sour
 }
 
 // attributeValuesError explains a failed layered build in terms of the
-// values sources: it loads the package as authored, unifies the package's
-// own values with the sources and validates the result against the module's
-// #config exactly as [Kernel.ValidateConfigDetailed] does, so a conflict is
-// reported at positions attributable to the source (its Origin) rather than
-// at the rendered overlay file. It returns nil when the failure is not a
-// values problem (the caller then reports the build error itself).
-func (k *Kernel) attributeValuesError(_ context.Context, absDir string, sources []Source) error {
-	authored, err := loader.LoadDir(k.cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
+// values sources: it loads the package as authored in cueCtx, compiles the
+// sources in that same context, unifies the package's own values with them
+// and validates the result against the module's #config exactly as
+// [Kernel.ValidateConfigDetailed] does, so a conflict is reported at
+// positions attributable to the source (its Origin) rather than at the
+// rendered overlay file. It returns nil when the failure is not a values
+// problem (the caller then reports the build error itself).
+func (k *Kernel) attributeValuesError(cueCtx *cue.Context, absDir string, sources []Source) error {
+	authored, err := loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}
 	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
-	all := make([]Source, 0, len(sources)+1)
+	all := make([]cue.Value, 0, len(sources)+1)
 	if own := authored.LookupPath(schema.Values); own.Exists() {
-		all = append(all, Source{Value: own, Origin: absDir})
+		all = append(all, own)
 	}
-	all = append(all, sources...)
-	if _, vErr := validateSources(configSchema, all, true); vErr != nil {
+	compiled, err := compileSources(cueCtx, sources)
+	if err != nil {
+		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: compiling values sources: %w", bestEffortInstanceName(authored), err)
+	}
+	all = append(all, compiled...)
+	if _, vErr := validateValues(configSchema, all, true); vErr != nil {
 		name := bestEffortInstanceName(authored)
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
 	}

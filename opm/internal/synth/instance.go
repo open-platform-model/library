@@ -10,9 +10,10 @@
 //
 // It lives under opm/internal/ so it stays off the library's public SemVer
 // surface: [Kernel.SynthesizeInstance] is the one synthesis entry point, and
-// it owns the *cue.Context, the schema cache and the registry mapping this
-// package is handed. The dependency edge runs synth -> loader (synthesis
-// builds THROUGH [loader.LoadDir]); loader never imports synth.
+// it hands this package the *cue.Context it created for the call, the core
+// release its schema cache pins and the registry mapping. The dependency
+// edge runs synth -> loader (synthesis builds THROUGH [loader.LoadDir]);
+// loader never imports synth.
 //
 // Single-build construction (ADR-006): [Instance] does NOT stitch an instance
 // value together from separate CUE evaluations. It synthesizes a virtual CUE
@@ -54,9 +55,10 @@ import (
 // instance only when present (non-nil / non-empty / non-zero); empty values do
 // not displace schema-derived fields.
 //
-// It carries no schema cache and no *cue.Context: the kernel owns both and
-// hands this package its core release (the loader's pin, or the release its
-// cache resolved) and its own context.
+// It carries no schema cache and no *cue.Context: the kernel owns the schema
+// cache and hands this package its core release (the loader's pin, or the
+// release its cache resolved) together with the context it created for the
+// call.
 type Input struct {
 	// Module is the source #Module the instance deploys. Required. Its
 	// metadata.modulePath / metadata.version identify the published module

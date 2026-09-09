@@ -87,14 +87,11 @@ const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"
 func TestKernel_SynthesizeInstance_HappyPath(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
 
-	values := k.CueContext().CompileString(`sentinel: "from-values"`)
-	require.NoError(t, values.Err())
-
 	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
 		Module:    mod,
 		Name:      "myrel",
 		Namespace: "default",
-		Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, inst)
@@ -328,29 +325,35 @@ func TestKernel_SynthesizeInstance_ViolationAttributedToSource(t *testing.T) {
 	assert.True(t, positionsName(err, "/values/bad.cue"), "no position names the source: %v", err)
 }
 
-func TestKernel_SynthesizeInstance_UsesKernelContext(t *testing.T) {
+// kernel-runtime spec, "SynthesizeInstance uses the Kernel's cue.Context":
+// the Kernel has no context to use. Two syntheses on one Kernel build in two
+// contexts the method created, neither reachable through the Kernel, and
+// each instance's Package pins its own; the module's Package (a third
+// context, the acquire's) is never touched, so the instance carries no
+// value from it.
+func TestKernel_SynthesizeInstance_BuildsInItsOwnContext(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
-	values := k.CueContext().CompileString(`sentinel: "from-values"`)
-	require.NoError(t, values.Err())
 
-	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
-		Module:    mod,
-		Name:      "myrel",
-		Namespace: "default",
-		Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, inst)
+	synthesize := func() *module.Instance {
+		inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+			Module:    mod,
+			Name:      "myrel",
+			Namespace: "default",
+			Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, inst)
+		return inst
+	}
+	first := synthesize()
+	second := synthesize()
 
-	// Cross-runtime sanity check: a cue.Value built with k.CueContext() must
-	// unify with inst.Package without triggering "values are not from the
-	// same runtime". The unification succeeds only if both values share the
-	// kernel's context, proving SynthesizeInstance threaded the kernel's
-	// *cue.Context end-to-end.
-	probe := k.CueContext().CompileString(`metadata: name: "myrel"`)
-	require.NoError(t, probe.Err())
-	merged := inst.Package.Unify(probe)
-	require.NoError(t, merged.Err())
+	// Value.Context is deprecated for combining values, which is not what
+	// happens here: it is read only to assert the lifetime rule.
+	assert.NotSame(t, first.Package.Context(), second.Package.Context(), //nolint:staticcheck // lifetime assertion, not value combination
+		"each synthesis builds in a context of its own")
+	assert.NotSame(t, mod.Package.Context(), first.Package.Context(), //nolint:staticcheck // same
+		"the module's context is the acquire's, not the synthesis's")
 }
 
 // instance-synthesis spec, "Synthesized instance carries the tree":
@@ -359,14 +362,12 @@ func TestKernel_SynthesizeInstance_UsesKernelContext(t *testing.T) {
 // the synthesized package under the reserved subdirectory.
 func TestKernel_SynthesizeInstance_CarriesSource(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", kernelSynthConfigBody)
-	values := k.CueContext().CompileString(`sentinel: "from-values"`)
-	require.NoError(t, values.Err())
 
 	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
 		Module:    mod,
 		Name:      "myrel",
 		Namespace: "default",
-		Values:    []kernel.Source{{Value: values, Origin: "values.cue"}},
+		Values:    []kernel.Source{mustSource(t, k, "values.cue", `sentinel: "from-values"`)},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, inst)

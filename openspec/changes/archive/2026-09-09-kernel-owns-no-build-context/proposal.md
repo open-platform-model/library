@@ -44,17 +44,19 @@ None.
 
 **SemVer:** MAJOR on the alpha line (Principle VI): a public method and a struct field are removed, a public field changes type, a public method loses its parameter. Pre-GA, so no migration fragment (ADR-004); both consumers migrate in the same PR wave as slices 2, 4 and 5.
 
-**Downstream migration cost, `cli` (3 sites):**
+**Downstream migration cost, `cli` (3 sites plus tests):**
 
 - `internal/cmd/module/vet.go:169`: values compiled through `k.LoadSourceFromFile` and `ValidateConfigDetailed`; no context needed.
 - `internal/cmdutil/publish.go:53,71`: `k.SchemaCache().Get()` and `Context: schemaVal.Context()`.
-- Sources are already built with `LoadSourceFromFile` (`internal/workflow/render/values.go:22`); no `.Value` read exists.
+- Sources are already built with `LoadSourceFromFile` (`internal/workflow/render/values.go:22`); no production `.Value` read exists. Two tests do read it and must go through `ValidateConfigDetailed` instead: `internal/workflow/render/module_test.go` (debugValues fallback) and `internal/workflow/render/render_test.go` (values-file unwrap); `internal/publish/realtree_test.go` and `internal/workflow/render/module_test.go` also call `CueContext()`.
+- Target tree: the edits land in the `migrate-kernel-api-and-verdicts` worktree (already on alpha.27 with slices 2, 4 and 5), not the `main` checkout, which pre-dates the wave.
 
 **Downstream migration cost, `opm-operator` (3 files):**
 
 - `cmd/main.go:358`: `k.SchemaCache().Get()`.
 - `internal/platform/store.go`: `kernelMu` and `AcquireKernel` are deleted with their three call sites (`platform_controller.go:193`, `kernel_package_renderer.go:99`, `kernel_module_renderer.go:99`); acquire and synth run concurrently like `Render`.
 - `internal/render/kernel_module_renderer.go:112`: already leaving with the slice 2 migration (`LoadSourceFromBytes`).
+- Target tree: the `migrate-kernel-api-and-verdicts` worktree, as for the cli.
 
 **Library:** `opm/kernel` (`kernel.go`, `source.go`, `source_loader.go`, `validate.go`, `acquire.go`, `synth.go`, `doc.go`), `opm/schema/cache.go`, `opm/internal/schematest` (the test cache helper), docs, one ADR. Tests: 41 `CueContext()` uses in 11 test files compile their values with `cuecontext.New()` or the schema value's context.
 

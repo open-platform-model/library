@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -13,8 +14,7 @@ import (
 )
 
 func TestNewPlatformFromValue_SuccessPath(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
+	v := cuecontext.New().CompileString(`
 kind: "Platform"
 metadata: {
 	name: "demo-platform"
@@ -42,8 +42,7 @@ type: "kubernetes"
 // TestNewPlatformFromValue_MissingMetadata exercises the malformed-metadata
 // path: the decoder treats an absent metadata field as fatal.
 func TestNewPlatformFromValue_MissingMetadata(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
+	v := cuecontext.New().CompileString(`
 kind: "Platform"
 type: "kubernetes"
 `)
@@ -67,8 +66,7 @@ func TestNewPlatformFromValue_NoKernelWrapper(t *testing.T) {
 // "Value-constructed platform has no source": a platform built from a bare
 // cue.Value carries no staged source tree.
 func TestNewPlatformFromValue_NoSource(t *testing.T) {
-	k := kernel.New()
-	v := k.CueContext().CompileString(`
+	v := cuecontext.New().CompileString(`
 kind: "Platform"
 metadata: name: "no-source"
 type: "kubernetes"

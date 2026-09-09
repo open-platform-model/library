@@ -1,11 +1,12 @@
 // Package kernel exposes the OPM runtime as a single struct, [Kernel].
 //
-// Kernel owns its [*cue.Context] and its [*schema.Cache] for its entire
-// lifetime. Construction is [New] plus two options, [WithSchemaLoader]
-// and [WithRegistry]; the kernel exposes no injection slot that no
-// kernel operation reads. Downstream binaries (CLI, controller,
-// Crossplane function) construct one Kernel per goroutine and call
-// methods on it instead of importing the individual loader / module /
+// Kernel owns its [*schema.Cache] for its entire lifetime and no build
+// context: every operation that evaluates CUE creates its own [cue.Context],
+// builds in it, and lets it go when it returns. Construction is [New] plus
+// two options, [WithSchemaLoader] and [WithRegistry]; the kernel exposes no
+// injection slot that no kernel operation reads. Downstream binaries (CLI,
+// controller, Crossplane function) construct one Kernel per process and
+// call methods on it instead of importing the individual loader / module /
 // validate packages.
 //
 // # Surface
@@ -34,23 +35,38 @@
 // [WithRegistry] for every one of these operations, the schema cache
 // included; no verb takes a per-call override.
 //
+// # Every operation shares nothing
+//
+// The Kernel holds no [cue.Context] (ADR-007). Each acquire verb, synthesis,
+// validation and render creates a context for the call, builds in it, and
+// returns; the values an operation returns (an artifact's Package, a
+// validated value) keep that operation's runtime alive for exactly as long
+// as the caller holds them, and the Kernel retains nothing. Memory held by a
+// long-lived Kernel is therefore bounded by the artifacts its caller holds,
+// not by the number of operations it has run. The cross-artifact verbs read
+// only Metadata and Source from their inputs, never Package, so a module
+// acquired by one Kernel synthesizes on another and an instance from either
+// renders on a third. No method returns or accepts a [*cue.Context]; a
+// caller that must compile a value against the schema takes the context of
+// the value [schema.Cache.Get] returns.
+//
 // # Goroutine safety
 //
-// A single Kernel is NOT safe for concurrent use across its own method calls.
-// The owned [*cue.Context] (acquisition, synthesis and validation build in
-// it) is driven single-threaded; sharing one Kernel between goroutines can
-// cause data races inside CUE evaluation. Callers that need concurrency MUST
-// construct one Kernel per goroutine.
+// A single Kernel is safe for concurrent use across its own method calls:
+// no operation shares evaluation state with another, and the schema cache is
+// memoized under synchronization into a private context of its own. A
+// consumer that needs concurrent operations shares one Kernel across its
+// goroutines; there is nothing to gain from constructing more than one.
+// Concurrency is across operations, never within one.
 //
 // [Kernel.Render] shares nothing between renders (ADR-005, enhancement 0019
 // D8). Each render is its own CUE build in a fresh cue.Context created for
-// that call and dropped when Render returns; the Kernel's own context is not
-// used, no built value is retained between calls, and a caller cannot obtain
-// one to hold. Concurrency is across renders, never within one: a consumer
-// rendering from several goroutines gives each goroutine its own Kernel and
-// calls Render, with no shared platform value and no mutex. There is no
-// materialized platform to share and no serialised render path; the earlier
-// shared-platform contract (ADR-002) is superseded, not supported.
+// that call and dropped when Render returns; no built value is retained
+// between calls, and a caller cannot obtain one to hold. A consumer
+// rendering from several goroutines calls Render on one Kernel, with no
+// shared platform value and no mutex. There is no materialized platform to
+// share and no serialised render path; the earlier shared-platform contract
+// (ADR-002) is superseded, not supported.
 //
 // A render is single-threaded and its working set grows with the module, so
 // a render pool is sized by memory rather than by core count: about 61 MB
@@ -58,22 +74,20 @@
 // throughput saturates at roughly physical cores divided by 1.6 renders in
 // flight. Size against the largest module the pool will see.
 //
-// # One-Kernel-per-goroutine example
+// # One-Kernel-per-process example
 //
-//	func renderAll(ctx context.Context, platformDir string, instanceDirs []string) error {
+//	func renderAll(ctx context.Context, k *kernel.Kernel, platformDir string, instanceDirs []string) error {
+//	    plat, err := k.AcquirePlatformFromDir(ctx, platformDir) // once; the platform is shared as data
+//	    if err != nil {
+//	        return err
+//	    }
 //	    var wg sync.WaitGroup
 //	    errs := make(chan error, len(instanceDirs))
 //	    for _, dir := range instanceDirs {
 //	        wg.Add(1)
 //	        go func(dir string) {
 //	            defer wg.Done()
-//	            k := kernel.New() // one Kernel per goroutine
-//	            plat, err := k.AcquirePlatformFromDir(ctx, platformDir)
-//	            if err != nil {
-//	                errs <- err
-//	                return
-//	            }
-//	            inst, err := k.AcquireInstanceFromDir(ctx, dir)
+//	            inst, err := k.AcquireInstanceFromDir(ctx, dir) // the one Kernel, concurrently
 //	            if err != nil {
 //	                errs <- err
 //	                return
@@ -146,14 +160,23 @@
 // # Configuration validation
 //
 // One primitive forms the validation surface: [Kernel.ValidateConfigDetailed]
-// accepts an ordered slice of [Source], unifies in stack order, then
-// validates the merged value against a schema with concreteness enforced. A
-// single value is a one-element slice. Per-source attribution flows through
-// [token.Pos.Filename] populated from [cue.Filename](Origin) at compile time;
-// use [Kernel.LoadSourceFromFile] or [Kernel.LoadSourceFromBytes] to construct
-// sources whose Value satisfies the filename contract automatically. There is
+// accepts an ordered slice of [Source], compiles each in the schema's own
+// context, unifies in stack order, then validates the merged value against
+// the schema with concreteness enforced. A single value is a one-element
+// slice. A [Source] is CUE source bytes plus their origin and is bound to no
+// context; per-source attribution flows through [token.Pos.Filename],
+// populated from [cue.Filename](Origin) when the kernel compiles the source
+// where it is used. Use [Kernel.LoadSourceFromFile] or
+// [Kernel.LoadSourceFromBytes] to construct sources that are checked for
+// syntax up front; a frontend needs no [cue.Context] of its own. There is
 // no partial-mode entry: partial validation is an internal attribution pass
 // under AcquireInstanceFromDir with extra values, not a public contract.
+//
+// Because the sources are compiled into the schema value's own context,
+// validating against one acquired artifact from several goroutines at once
+// shares that artifact's context; a consumer that needs that gives each
+// goroutine its own acquired artifact. The kernel's own verbs never share a
+// context this way.
 //
 // The primitive returns CUE-native errors. Walk them via
 // [cuelang.org/go/cue/errors.Errors] / [cuelang.org/go/cue/errors.Positions],
@@ -163,12 +186,4 @@
 // A caller holding a *module.Module or *module.Instance composes its
 // ConfigSchema() accessor with the primitive, e.g.
 // k.ValidateConfigDetailed(m.ConfigSchema(), []kernel.Source{src}).
-//
-// # Advanced: CueContext accessor
-//
-// [Kernel.CueContext] returns the underlying [*cue.Context] for callers that
-// need to build [cue.Value]s outside the kernel (typically tests). Values
-// built with this context are safe to pass back into Kernel methods. Most
-// callers should not need this. Render never uses it: the render build has
-// its own context.
 package kernel

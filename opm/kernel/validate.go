@@ -10,19 +10,21 @@ import (
 
 const fieldNotAllowed = "field not allowed"
 
-// ValidateConfigDetailed is the kernel's one validation entry: it unifies an
-// ordered slice of [Source] values in stack order, runs the closed-schema
-// disallowed-field walk, and asserts concreteness on the merged value via
-// [cue.Concrete](true). A single value is a one-element slice.
+// ValidateConfigDetailed is the kernel's one validation entry: it compiles an
+// ordered slice of [Source] values in the schema's own context, unifies them
+// in stack order, runs the closed-schema disallowed-field walk, and asserts
+// concreteness on the merged value via [cue.Concrete](true). A single value
+// is a one-element slice.
 //
-// Per-source attribution flows through [token.Pos.Filename], populated from
-// [cue.Filename](Origin) at the time each Source.Value was compiled — see
-// [Kernel.LoadSourceFromFile] and [Kernel.LoadSourceFromBytes] for
-// constructors that bake the filename for you.
+// Per-source attribution flows through [token.Pos.Filename]: each source is
+// compiled with [cue.Filename](Origin) here, where it meets the schema, so
+// every position in the returned error names the source's Origin — see
+// [Kernel.LoadSourceFromFile] and [Kernel.LoadSourceFromBytes] for the
+// constructors, and [Source] for what a file-backed origin means.
 //
 // Returns the merged [cue.Value] on success and the zero value on failure.
-// The returned error is the raw CUE error tree; walk it via
-// [cuelang.org/go/cue/errors.Errors] and
+// The returned error is the raw CUE error tree (a source that fails to
+// compile included); walk it via [cuelang.org/go/cue/errors.Errors] and
 // [cuelang.org/go/cue/errors.Positions], or print it via
 // [cuelang.org/go/cue/errors.Print]. Presentation is outside the kernel's
 // contract — frontends own their own formatting. Module-name framing is the
@@ -36,31 +38,45 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 	return validateSources(schema, sources, true)
 }
 
-// validateSources unifies sources in stack order and validates the merged
-// value against schema: the closed-schema disallowed-field walk first, so a
-// stray field is reported at the source's own position, then CUE's own
-// Validate on the unified value, with concreteness enforced when
-// requireConcrete is set. It backs [Kernel.ValidateConfigDetailed]
-// (requireConcrete true) and the kernel's internal per-source attribution
-// pass under [Kernel.AcquireInstanceFromDir] with extra values
-// (requireConcrete false: type errors, constraint violations and disallowed
-// fields on the fields that are set still surface, missing required fields
-// do not, since the whole built instance is checked for concreteness
-// afterwards).
+// validateSources compiles sources in the schema's own context, in stack
+// order, and hands the values to [validateValues]. It backs
+// [Kernel.ValidateConfigDetailed] (requireConcrete true) and the kernel's
+// internal per-source attribution pass under [Kernel.AcquireInstanceFromDir]
+// with extra values and [Kernel.SynthesizeInstance] (requireConcrete false:
+// type errors, constraint violations and disallowed fields on the fields
+// that are set still surface, missing required fields do not, since the
+// whole built instance is checked for concreteness afterwards).
 //
 // Returns the unified value on success and the zero value plus the raw CUE
 // error tree on failure; callers wrap with [fmt.Errorf] if they want context
 // framing. Empty sources, a zero schema or a merged value that does not
 // exist short-circuit to (zero, nil).
 func validateSources(schema cue.Value, sources []Source, requireConcrete bool) (cue.Value, error) {
-	if len(sources) == 0 {
+	if len(sources) == 0 || !schema.Exists() {
 		return cue.Value{}, nil
 	}
-	merged := sources[0].Value
-	for i := 1; i < len(sources); i++ {
-		merged = merged.Unify(sources[i].Value)
+	// The sources are compiled in the context that built the schema so the
+	// two can unify; Value.Context is deprecated for combining values from
+	// different contexts, which is exactly what compiling here avoids.
+	values, err := compileSources(schema.Context(), sources) //nolint:staticcheck // the schema's own context is the one the sources must be built in
+	if err != nil {
+		return cue.Value{}, err
 	}
-	if !schema.Exists() || !merged.Exists() {
+	return validateValues(schema, values, requireConcrete)
+}
+
+// validateValues unifies values (already compiled in schema's context) in
+// stack order and validates the merged value against schema: the
+// closed-schema disallowed-field walk first, so a stray field is reported at
+// the source's own position, then CUE's own Validate on the unified value,
+// with concreteness enforced when requireConcrete is set.
+//
+// Returns the unified value on success and the zero value plus the raw CUE
+// error tree on failure. A merged value that does not exist short-circuits
+// to (zero, nil).
+func validateValues(schema cue.Value, values []cue.Value, requireConcrete bool) (cue.Value, error) {
+	merged := unifyValues(values)
+	if !merged.Exists() {
 		return cue.Value{}, nil
 	}
 

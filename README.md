@@ -74,7 +74,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
 
 `Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `AcquireInstanceFromDir` and `SynthesizeInstance` unify them inside the instance build and assert concreteness on the result, and `Render` performs no validation pass of its own.
 
-Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005). Nothing built is shared between renders, concurrency is across renders with one Kernel per goroutine, and a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
+Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005), and every other verb works the same way (ADR-007): the Kernel holds no build context, an acquired artifact's `Package` pins the context of the call that built it for as long as the caller holds the artifact, and nothing else is retained. A single Kernel is safe for concurrent use across its method calls, so a consumer shares one Kernel per process; a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
 
 `*kernel.Compiled` is the kernel's terminal output. Platform identity for compiled output is the frontend's concern — each consumer wraps `Compiled` in its own platform-specific resource type.
 

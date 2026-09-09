@@ -1,0 +1,27 @@
+# Tasks: kernel-owns-no-build-context
+
+## 1. Spike
+
+- [x] 1.1 Scratch probe (not committed): on a branch with `AcquirePlatformFromDir` and `AcquireModuleFromRegistry`+`SynthesizeInstance` building in a per-call `cuecontext.New()`, run twenty acquisitions of `testdata/parity/opm_platform` and twenty acquire+synth cycles of `testdata/parity/web_app` with results dropped, `runtime.GC` twice and read `HeapAlloc` after each; verify the heap after the twentieth is within 5 MB of the first (today it grows about 37 MB and 14 MB per cycle) and record both series in ADR-007's Context section. (The synth series ran against the served render fixture module: `testdata/parity/web_app` is a subpackage of the parity module and `SynthesizeInstance` refuses it.)
+- [x] 1.2 `opm/kernel/validate_test.go`: a source compiled from bytes in the schema value's own context violates `#config` at line 3 and the returned error's position reports `Origin:3`; verify the test passes against the current tree with a `cuecontext.New()`-built schema (it is the attribution property the byte source must keep).
+
+## 2. `Source` carries bytes
+
+- [x] 2.1 `opm/kernel/source.go`: `Source{Origin string; Data []byte}` with the doc stating the kernel compiles `Data` with `cue.Filename(Origin)` where it is used; `source_loader.go`: `LoadSourceFromFile` reads the file and `LoadSourceFromBytes` wraps the bytes, both parse with `cue/parser` and return a syntax error positioned at `Origin`; add unexported `compileSource(ctx *cue.Context, s Source) (cue.Value, error)` (file-backed origin through `load.Instances` with the file overlaid at its directory, otherwise `CompileBytes`; then the top-level `values:` unwrap); `validate.go`: `ValidateConfigDetailed` and `validateSources` compile in `schema.Context()`; verify `source_loader_test.go` and `validate_test.go` pass with the unwrap and syntax-error scenarios added.
+- [x] 2.2 `opm/kernel/acquire.go`, `synth.go`: `mergeSources(ctx, sources)` compiles then unifies; `attributeValuesError` compiles the package's own `values` and the sources in one context; verify `acquire_test.go` and `synth_test.go` attribution tests pass (positions still name each source's `Origin`).
+
+## 3. Per-verb contexts
+
+- [x] 3.1 `opm/kernel/kernel.go`: drop `cueCtx` and `CueContext()`; `acquire.go`, `synth.go`: each verb calls `cuecontext.New()` at entry and passes it to `loader.LoadDir`, `loader.FetchModule`, `synth.Instance` and `compileSource`; verify `go build ./...` is green and `grep -rn 'k\.cueCtx\|CueContext()' opm --include='*.go' | grep -v _test` is empty.
+- [x] 3.2 `opm/schema/cache.go`: `Get() (cue.Value, error)` creating a private context inside the `sync.Once` and passing it to `Loader.Load`; `resolveCoreVersion` and the kernel's other cache reads call `Get()`; `cache_test.go` follows (there is no `schematest.NewCache`; `schematest` exposes `SetEnv` and the cache-directory helpers only) and gains a reflect check that no exported method of `Cache` names `*cue.Context`; verify `go test ./opm/schema/... ./opm/internal/schematest/...` is green.
+- [x] 3.3 Migrate the 41 `CueContext()` uses across the 11 kernel and synth test files (`cuecontext.New()` for hand-built values, `schemaVal.Context()` where a test unifies with the schema); add `TestKernel_ArtifactsCrossKernels` (module acquired with one Kernel, synthesized with a second, platform acquired with a third, rendered with a fourth, same objects as one Kernel) and `TestKernel_ConcurrentAcquireAndSynth` (eight goroutines on one Kernel); verify `go test -race ./opm/kernel/...` is green.
+
+## 4. Docs and ADR
+
+- [x] 4.1 `opm/kernel/doc.go` (goroutine section: safe for concurrent use, one Kernel per process, example rewritten; `CueContext` section deleted), `CLAUDE.md` (Render contract: "one Kernel per goroutine" sentence, Kernel API surface, schema cache lifetime bullet), `README.md`, `docs/getting-started.md` (the "owns the *cue.Context" sentence); `kernel_test.go` `TestKernel_PrunedSurface` gains `CueContext`; verify `grep -rn 'CueContext\|per goroutine' CLAUDE.md README.md docs opm/kernel/doc.go` reports nothing outside the retired-name rows of the migration table in `docs/getting-started.md` (`CueContextOwner`, and the new `(*Kernel).CueContext()` row that names the replacement).
+- [x] 4.2 `adr/007-shares-nothing-verbs.md` from `adr/TEMPLATE.md`: the rule for every verb, the measured retention, the byte-carrying `Source`, and an "amends" line in ADR-005's header; verify both files render and ADR-005's status line names 007.
+
+## 5. Validation gates
+
+- [x] 5.1 `task fmt`, `task vet`, `task lint`, `task test` green; `go test -race ./opm/kernel/... ./opm/internal/renderstage/...` green; `task cue:test:flow` green against GHCR; verify `openspec validate --changes` passes.
+- [x] 5.2 In the `migrate-kernel-api-and-verdicts` worktrees of `../cli` and `../opm-operator` (the trees already on alpha.27 with slices 2, 4 and 5; the `main` checkouts pre-date the wave), against a scratch `go.work` using each worktree and this library tree (equivalent to a temporary `replace`, nothing to revert), apply only the edits `proposal.md` § Impact lists (cli: `vet.go`, `cmdutil/publish.go`, the two `.Value`-reading tests and the two `CueContext()` tests; operator: `main.go` smoke check, delete `kernelMu`/`AcquireKernel` and its three call sites); verify `go build ./...` and `go vet ./...` pass in both and `grep -rn 'CueContext()\|AcquireKernel' <both worktrees> --include='*.go'` is empty.
