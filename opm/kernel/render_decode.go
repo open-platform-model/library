@@ -48,8 +48,9 @@ var (
 // own `optional`) is a build error surfaced verbatim. The glue's rows land on
 // the diagnostics as they were emitted: alternatives, disqualification
 // conflicts, the candidate matrix and the ladder order are all decided inside
-// the build.
-func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDiagnostics, error) {
+// the build. rows and replacements are the staging's own facts, carried
+// through unchanged.
+func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacements []Replacement) (RenderDiagnostics, error) {
 	dv := built.LookupPath(pathDiagnostics)
 	if !dv.Exists() {
 		return RenderDiagnostics{}, fmt.Errorf("render module carries no diagnostics field: %w", built.Err())
@@ -78,6 +79,7 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion) (RenderDia
 		UnhandledTraits:  map[string][]string{},
 		FailedPairs:      pairsOf(g.FailedPairs),
 		ResolvedVersions: rows,
+		Replacements:     replacements,
 	}
 
 	for _, w := range g.Warnings {

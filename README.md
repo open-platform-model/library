@@ -63,8 +63,10 @@ The OPM core schema is no longer vendored or embedded — it is fetched at runti
 ```text
 Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance  ->  *module.Instance   (validated, carries Source)
 Kernel.AcquirePlatformFromDir                             ->  *platform.Platform (carries Source)
-Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
+Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements})
         stage one generated render module (cue.mod promoted from both inputs; each input imported by directory replacement)
+        promote the inputs' own local-module.cue replacements under LocalReplacements (platform whole, instance on
+        instance-only paths) -> RenderDiagnostics.Replacements rows; refuse an input carrying one when the opt-in is off
         verify every OPM-namespace path either input requires is covered; apply the skew policy (SkewWarn | SkewRefuse)
         build once in a fresh cue.Context, dropped on return
         decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, unify, unhandled traits, over-subscribed, resolved versions)
@@ -72,7 +74,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
         decode `rendered`    -> []*kernel.Compiled with instance / component / transformer provenance
 ```
 
-`Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. Values are validated where they are applied: `AcquireInstanceFromDir` and `SynthesizeInstance` unify them inside the instance build and assert concreteness on the result, and `Render` performs no validation pass of its own.
+`Render` is the kernel's single render verb. Matching and transformer execution are CUE inside the build (the glue in `opm/internal/renderstage/render.cue.tmpl`), not Go; the build reports its verdicts as data and the kernel decodes them. A dry run is `Render` with `Compiled` discarded: the build evaluates every pair regardless, and `RenderDiagnostics` carries the pairing diagnosis. A developer's `cue.mod/local-module.cue` (a dependency redirected to a directory or another module) reaches the render only under `RenderInput.LocalReplacements`; off, an input carrying a replacement is refused rather than silently rendered against the published pin. Values are validated where they are applied: `AcquireInstanceFromDir` and `SynthesizeInstance` unify them inside the instance build and assert concreteness on the result, and `Render` performs no validation pass of its own.
 
 Each render is its own CUE build in its own `cue.Context` that does not outlive the call (ADR-005), and every other verb works the same way (ADR-007): the Kernel holds no build context, an acquired artifact's `Package` pins the context of the call that built it for as long as the caller holds the artifact, and nothing else is retained. A single Kernel is safe for concurrent use across its method calls, so a consumer shares one Kernel per process; a render pool is sized by memory rather than by core count; see the `opm/kernel` package documentation.
 

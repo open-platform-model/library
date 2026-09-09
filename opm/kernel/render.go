@@ -52,6 +52,19 @@ type RenderInput struct {
 
 	// Skew is the response to catalog version skew. Zero is [SkewWarn].
 	Skew SkewPolicy
+
+	// LocalReplacements enables an input's own cue.mod/local-module.cue
+	// replacements (a developer redirecting a dependency to a directory or
+	// another module) for this render. Off, the default, refuses an input
+	// whose file carries a replacement rather than silently rendering
+	// against the published pin. On, the replacements are promoted into
+	// the render module under the precedence dependencies get (the
+	// platform's whole, the instance's only for paths the platform does
+	// not name) and reported on [RenderDiagnostics.Replacements]. This is
+	// the one switch that lets a render read a directory an artifact names;
+	// a frontend sets it for a developer's checkout, never for an artifact
+	// it did not author.
+	LocalReplacements bool
 }
 
 // Compiled is the terminal output of an OPM render: [Kernel.Render] emits
@@ -157,6 +170,24 @@ type RenderDiagnostics struct {
 
 	// ResolvedVersions holds the per-path version rows, in path order.
 	ResolvedVersions []ResolvedVersion
+
+	// Replacements holds one row per local replacement the render honoured
+	// under [RenderInput.LocalReplacements], in path order; nil otherwise.
+	// A replaced path keeps its pinned versions on ResolvedVersions; the
+	// row says where its bytes were served from. Advisory data a frontend
+	// words (an instance replacement the platform's list made inert is not
+	// here, so a frontend computes the inert set from its own file).
+	Replacements []Replacement
+}
+
+// Replacement is one honoured local replacement: the replaced major-qualified
+// module path, its target (an absolute directory, or a module path for a
+// module replacement) and the input whose cue.mod/local-module.cue supplied
+// it, "platform" or "instance".
+type Replacement struct {
+	Path   string
+	Target string
+	By     string
 }
 
 // RenderError is a refusal after the build: the fail-closed gate (an
@@ -234,7 +265,7 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName)
+	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, in.LocalReplacements)
 	if err != nil {
 		return none, nil, fmt.Errorf("staging render module: %w", err)
 	}
@@ -260,7 +291,11 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 		return none, nil, fmt.Errorf("building render module: %w", err)
 	}
 
-	diag, err := decodeRenderDiagnostics(built, rows)
+	var replacements []Replacement
+	for _, r := range staged.Replacements {
+		replacements = append(replacements, Replacement(r))
+	}
+	diag, err := decodeRenderDiagnostics(built, rows, replacements)
 	if err != nil {
 		return built, nil, err
 	}

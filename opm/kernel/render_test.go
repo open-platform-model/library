@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -768,5 +769,340 @@ func TestRender_LayeredInstanceReflectsValues(t *testing.T) {
 		image, err := c.Value.LookupPath(cue.ParsePath("spec.image")).String()
 		require.NoError(t, err)
 		assert.Equal(t, "nginx:1.27", image)
+	}
+}
+
+// ── Local replacements (render-local-replacements) ──────────────────
+//
+// A developer's cue.mod/local-module.cue reaches the render only when the
+// caller opts in; off, an input carrying a replacement is refused rather than
+// silently rendered against the published pin. The temp copies below are the
+// shapes a developer's checkout has: a platform redirecting its catalog to a
+// working copy, and an instance importing a module no registry serves.
+
+// libModulePath is a module no registry serves.
+const libModulePath = "test.example/lib@v0"
+
+// writeFiles writes slash-relative paths under dir.
+func writeFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for rel, content := range files {
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+}
+
+// copyTree copies every regular file under src to the same relative path
+// under dst.
+func copyTree(t *testing.T, src, dst string) {
+	t.Helper()
+	require.NoError(t, filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		out := filepath.Join(dst, rel)
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(out, data, 0o644)
+	}))
+}
+
+// writeLibModule writes the never-published module: one package exporting
+// the image the instance copy reads.
+func writeLibModule(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"cue.mod/module.cue": "module: \"" + libModulePath + "\"\nlanguage: version: \"v0.17.0\"\n",
+		"lib.cue":            "package lib\n\nImage: \"nginx:from-lib\"\n",
+	})
+	return dir
+}
+
+// catalogWithLabel copies the fixture catalog (0.1.0) and stamps one extra
+// label on its deployment transformer's output, so a render that evaluated
+// the copy is distinguishable from one that evaluated the published build.
+func catalogWithLabel(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	copyTree(t, renderFixtureDir(t, "registry", "testing.opmodel.dev_library-render_cat_v0.1.0"), dir)
+	catalog := filepath.Join(dir, "catalog.cue")
+	src, err := os.ReadFile(catalog)
+	require.NoError(t, err)
+	const anchor = "labels:    #context.labels" // the deployment transformer's line
+	require.Contains(t, string(src), anchor)
+	patched := strings.Replace(string(src), anchor,
+		"labels: {\n\t\t\t\t\t\tfor k, v in #context.labels {(k): v}\n\t\t\t\t\t\t\"render.test/catalog\": \"local\"\n\t\t\t\t\t}", 1)
+	require.NoError(t, os.WriteFile(catalog, []byte(patched), 0o644))
+	return dir
+}
+
+// platformReplacingCatalog copies the fixture platform and redirects its
+// catalog path to catDir through cue.mod/local-module.cue. The local file is
+// the whole main-module view when the platform is built on its own (cue/load
+// reads it in place of module.cue's deps), so it lists every dependency,
+// versions inherited from module.cue where omitted: the shape cue writes.
+func platformReplacingCatalog(t *testing.T, catDir string) string {
+	t.Helper()
+	dir := t.TempDir()
+	copyTree(t, renderFixtureDir(t, "platform"), dir)
+	writeFiles(t, dir, map[string]string{
+		"cue.mod/local-module.cue": `deps: {
+	"opmodel.dev/core@v2": {}
+	"` + renderCatPath + `@v0": replaceWith: "` + catDir + `"
+}
+`,
+	})
+	return dir
+}
+
+// instanceImportingLib copies the fixture instance, makes it import the
+// never-published lib module for its image, lists that module version-less
+// in cue.mod/module.cue and replaces it with libDir in
+// cue.mod/local-module.cue (which, as above, lists every dependency).
+func instanceImportingLib(t *testing.T, libDir string) string {
+	t.Helper()
+	dir := t.TempDir()
+	copyTree(t, renderFixtureDir(t, "instance"), dir)
+	writeFiles(t, dir, map[string]string{
+		"cue.mod/module.cue": `module: "` + renderPrefix + `/instance@v0"
+language: version: "v0.17.0"
+deps: {
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"` + libModulePath + `": {}
+	"` + renderCatPath + `@v0": v: "v0.1.0"
+	"` + renderModPath + `@v0": v: "v0.1.0"
+}
+`,
+		"cue.mod/local-module.cue": `deps: {
+	"opmodel.dev/core@v2": {}
+	"` + libModulePath + `": replaceWith: "` + libDir + `"
+	"` + renderCatPath + `@v0": {}
+	"` + renderModPath + `@v0": {}
+}
+`,
+		"instance.cue": `package instance
+
+import (
+	c "opmodel.dev/core@v2"
+	lib "` + libModulePath + `"
+	webapp "` + renderModPath + `@v0"
+)
+
+c.#ModuleInstance
+
+metadata: {
+	name:      "web-local"
+	namespace: "default"
+}
+
+#module: webapp
+
+values: {
+	image:    lib.Image
+	replicas: 2
+}
+`,
+	})
+	return dir
+}
+
+// deploymentOf returns the rendered Deployment among compiled.
+func deploymentOf(t *testing.T, compiled []*kernel.Compiled) cue.Value {
+	t.Helper()
+	for _, c := range compiled {
+		if kind, _ := c.Value.LookupPath(cue.ParsePath("kind")).String(); kind == "Deployment" {
+			return c.Value
+		}
+	}
+	t.Fatal("no Deployment rendered")
+	return cue.Value{}
+}
+
+func TestRender_LocalReplacementRefusedUnlessEnabled(t *testing.T) {
+	k := newRenderKernel(t)
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platformReplacingCatalog(t, catalogWithLabel(t)))
+	require.NoError(t, err, "as the main module, the platform loads with its own replacement")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	before := stagingDirs(t)
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assert.Nil(t, res)
+	assert.Contains(t, err.Error(), `platform "`+renderPrefix+`/platform@v0"`)
+	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
+	assert.Contains(t, err.Error(), "did not enable local replacements")
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "refused before any build")
+	assert.Equal(t, before, stagingDirs(t), "no staging directory is left behind")
+}
+
+func TestRender_PlatformLocalReplacementRendersTheDirectory(t *testing.T) {
+	k := newRenderKernel(t)
+	catDir := catalogWithLabel(t)
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platformReplacingCatalog(t, catDir))
+	require.NoError(t, err)
+	inst := acquireRenderInstance(t, k, "instance")
+
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.NoError(t, err)
+	assertGateAgrees(t, built, false)
+
+	label, err := deploymentOf(t, res.Compiled).LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
+	require.NoError(t, err)
+	assert.Equal(t, "local", label, "the build evaluated the directory's transformer bytes")
+	assert.Equal(t, []kernel.Replacement{{Path: renderCatPath + "@v0", Target: catDir, By: "platform"}}, res.Diagnostics.Replacements)
+	// The replaced path keeps its pinned versions on the resolved rows.
+	assert.Equal(t, []kernel.ResolvedVersion{
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: "v2.0.0-alpha.7"},
+		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
+		{Path: renderModPath + "@v0", ModuleVersion: "v0.1.0"},
+	}, res.Diagnostics.ResolvedVersions)
+}
+
+func TestRender_InstanceLocalReplacementRendersNeverPublishedModule(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	libDir := writeLibModule(t)
+	inst, err := k.AcquireInstanceFromDir(context.Background(), instanceImportingLib(t, libDir))
+	require.NoError(t, err, "as the main module, the instance loads its version-less, replaced import")
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.NoError(t, err)
+	image, err := deploymentOf(t, res.Compiled).LookupPath(cue.ParsePath("spec.image")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "nginx:from-lib", image, "the instance's import resolved from the replacement directory")
+	assert.Equal(t, []kernel.Replacement{{Path: libModulePath, Target: libDir, By: "instance"}}, res.Diagnostics.Replacements)
+	for _, r := range res.Diagnostics.ResolvedVersions {
+		assert.NotEqual(t, libModulePath, r.Path, "a non-OPM path is no resolved-versions row")
+	}
+
+	// Off, the same instance is refused.
+	_, err = k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `instance "`+renderPrefix+`/instance@v0"`)
+	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
+}
+
+// instanceReplacingCatalog is instanceImportingLib with one more redirection:
+// the catalog path, which the platform names, to catDir. The platform decides
+// which bytes execute for every path it names, so that one is inert.
+func instanceReplacingCatalog(t *testing.T, libDir, catDir string) string {
+	t.Helper()
+	dir := instanceImportingLib(t, libDir)
+	writeFiles(t, dir, map[string]string{
+		"cue.mod/local-module.cue": `deps: {
+	"opmodel.dev/core@v2": {}
+	"` + libModulePath + `": replaceWith: "` + libDir + `"
+	"` + renderCatPath + `@v0": replaceWith: "` + catDir + `"
+	"` + renderModPath + `@v0": {}
+}
+`,
+	})
+	return dir
+}
+
+func TestRender_InstanceReplacementOnPlatformPathIsInert(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform") // pins the published catalog 0.1.0
+	libDir := writeLibModule(t)
+	catDir := catalogWithLabel(t)
+	inst, err := k.AcquireInstanceFromDir(context.Background(), instanceReplacingCatalog(t, libDir, catDir))
+	require.NoError(t, err, "on its own, the instance builds against its redirected catalog")
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.NoError(t, err)
+	deployment := deploymentOf(t, res.Compiled)
+	label := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`))
+	assert.False(t, label.Exists(), "the build evaluated the platform's pinned catalog bytes, not the instance's redirected copy")
+	image, err := deployment.LookupPath(cue.ParsePath("spec.image")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "nginx:from-lib", image, "the instance-only replacement beside it is still honoured")
+	assert.Equal(t, []kernel.Replacement{{Path: libModulePath, Target: libDir, By: "instance"}}, res.Diagnostics.Replacements,
+		"no row names the platform-named path")
+	assert.Equal(t, []kernel.ResolvedVersion{
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: "v2.0.0-alpha.7"},
+		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
+		{Path: renderModPath + "@v0", ModuleVersion: "v0.1.0"},
+	}, res.Diagnostics.ResolvedVersions)
+}
+
+func TestRender_VersionlessDependencyWithoutReplacementRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	libDir := writeLibModule(t)
+	inst, err := k.AcquireInstanceFromDir(context.Background(), instanceImportingLib(t, libDir))
+	require.NoError(t, err)
+	// Drop the replacement from the acquired instance's tree: the version-less
+	// entry is then covered by nothing. The Source is on-disk, so the file
+	// on disk is what Render reads.
+	require.NoError(t, os.Remove(filepath.Join(inst.Source.Root, "cue.mod", "local-module.cue")))
+
+	before := stagingDirs(t)
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.Error(t, err)
+	assert.Nil(t, res)
+	assert.Contains(t, err.Error(), `instance dependency "`+libModulePath+`"`)
+	assert.Contains(t, err.Error(), "carries no version")
+	assert.NotContains(t, err.Error(), "formatting", "the refusal is promotion's, not a modfile formatting error")
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "refused before any build")
+	assert.Equal(t, before, stagingDirs(t))
+}
+
+func TestRender_ReplacementRowsAreDataInPathOrder(t *testing.T) {
+	k := newRenderKernel(t)
+	catDir := catalogWithLabel(t)
+	plat, err := k.AcquirePlatformFromDir(context.Background(), platformReplacingCatalog(t, catDir))
+	require.NoError(t, err)
+	libDir := writeLibModule(t)
+	inst, err := k.AcquireInstanceFromDir(context.Background(), instanceImportingLib(t, libDir))
+	require.NoError(t, err)
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.NoError(t, err)
+	assert.Equal(t, []kernel.Replacement{
+		{Path: libModulePath, Target: libDir, By: "instance"},
+		{Path: renderCatPath + "@v0", Target: catDir, By: "platform"},
+	}, res.Diagnostics.Replacements, "one row per honoured replacement, path-sorted, each naming its source")
+	deployment := deploymentOf(t, res.Compiled)
+	image, err := deployment.LookupPath(cue.ParsePath("spec.image")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "nginx:from-lib", image)
+	label, err := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
+	require.NoError(t, err)
+	assert.Equal(t, "local", label)
+}
+
+func TestRender_LocalReplacementsFlagIsInertWithoutTheFile(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "instance")
+	ctx := context.Background()
+
+	off, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err)
+	on, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
+	require.NoError(t, err)
+
+	assert.Nil(t, on.Diagnostics.Replacements)
+	assert.Equal(t, off.Diagnostics, on.Diagnostics, "diagnostics are identical under either setting")
+	require.Len(t, on.Compiled, len(off.Compiled))
+	for i := range off.Compiled {
+		a, err := off.Compiled[i].Value.MarshalJSON()
+		require.NoError(t, err)
+		b, err := on.Compiled[i].Value.MarshalJSON()
+		require.NoError(t, err)
+		assert.Equal(t, string(a), string(b), "object %d is byte-identical", i)
 	}
 }

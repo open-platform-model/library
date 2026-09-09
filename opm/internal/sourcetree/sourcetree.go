@@ -179,7 +179,9 @@ func SyntheticRoot(modPath, version string) string {
 }
 
 // ReadFile returns the contents of path inside src: the overlay entry in
-// overlay mode, the file on disk otherwise.
+// overlay mode, the file on disk otherwise. A file that does not exist in
+// either mode is reported with an error wrapping [fs.ErrNotExist], so a
+// caller reading an optional file checks absence the same way for both.
 func ReadFile(src *module.Source, path string) ([]byte, error) {
 	if src == nil || src.Root == "" {
 		return nil, errors.New("source carries no module root")
@@ -187,7 +189,7 @@ func ReadFile(src *module.Source, path string) ([]byte, error) {
 	if src.Overlay != nil {
 		entry, ok := src.Overlay[path]
 		if !ok {
-			return nil, fmt.Errorf("%s: not present in the staged overlay under %s", path, src.Root)
+			return nil, fmt.Errorf("%s: not present in the staged overlay under %s: %w", path, src.Root, fs.ErrNotExist)
 		}
 		return entry, nil
 	}

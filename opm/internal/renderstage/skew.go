@@ -45,11 +45,15 @@ func CompareSkew(platform, instance *ModFile) ([]VersionRow, error) {
 		row := VersionRow{Path: path, ModuleVersion: dep.Version}
 		if pdep, ok := platform.Deps[path]; ok {
 			row.PlatformVersion = pdep.Version
-			newer, err := isNewer(dep.Version, pdep.Version)
-			if err != nil {
-				return nil, fmt.Errorf("comparing %q: %w", path, err)
+			// A version-less entry (a path a local replacement serves) has
+			// nothing to compare: the row records it and flags nothing.
+			if dep.Version != "" && pdep.Version != "" {
+				newer, err := isNewer(dep.Version, pdep.Version)
+				if err != nil {
+					return nil, fmt.Errorf("comparing %q: %w", path, err)
+				}
+				row.Newer = newer
 			}
-			row.Newer = newer
 		}
 		rows = append(rows, row)
 	}

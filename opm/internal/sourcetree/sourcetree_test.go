@@ -1,6 +1,7 @@
 package sourcetree
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -200,6 +201,7 @@ func TestReadFile_OverlayAndDisk(t *testing.T) {
 	assert.Equal(t, modFile, string(data))
 	_, err = ReadFile(src, filepath.Join(root, "absent.cue"))
 	require.ErrorContains(t, err, "not present in the staged overlay")
+	assert.ErrorIs(t, err, fs.ErrNotExist, "a missing overlay entry is absence, checked like a missing file")
 
 	disk := diskSource(t, "", map[string]string{"cue.mod/module.cue": modFile})
 	data, err = ReadFile(disk, filepath.Join(disk.Root, "cue.mod", "module.cue"))
@@ -207,6 +209,7 @@ func TestReadFile_OverlayAndDisk(t *testing.T) {
 	assert.Equal(t, modFile, string(data))
 	_, err = ReadFile(disk, filepath.Join(disk.Root, "absent.cue"))
 	require.Error(t, err)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
 
 	_, err = ReadFile(nil, "x")
 	require.Error(t, err)
