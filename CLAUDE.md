@@ -199,7 +199,12 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
 platform (`AcquirePlatformFromDir`: a CUE module on disk importing its
 catalogs), stages one generated render module in a per-render temp dir
 (`opm/internal/renderstage`), builds it once, and decodes `diagnostics` and
-`rendered`. Rules:
+`rendered`. The temp dir holds only the generated module (its `cue.mod` pair
+and the glue): an on-disk input is referenced in place through its
+`local-module.cue` replacement, and an overlay-mode input (a synthesized
+instance, an instance layered with values) is served to the build from memory
+through `load.Config.Overlay`, keyed under the directory its replacement
+names, with no file of it written. Rules:
 
 - **Shares nothing.** Each render builds in a fresh `cue.Context` that is
   dropped when `Render` returns; the Kernel owns no context of its own and
@@ -309,9 +314,10 @@ Kernel.AcquirePlatformFromDir                                → *platform.Platf
 Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
 Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
         renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
+                               overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
                                coverage invariant: every OPM-namespace path either input requires is promoted
                                skew rows (D7/D18) → warn or refuse per SkewPolicy
-        renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env)
+        renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)
         decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
         gateErrors             unresolved | unmatched | overSubscribed → *RenderError
         decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance

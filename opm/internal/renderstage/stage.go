@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
@@ -17,9 +18,15 @@ import (
 // to build it and to report on the version skew it was staged under.
 type Staged struct {
 	// Dir is the render module's root: cue.mod/module.cue,
-	// cue.mod/local-module.cue and render.cue live here, as does a
-	// materialized overlay-mode input tree.
+	// cue.mod/local-module.cue and render.cue live here, and nothing else.
 	Dir string
+
+	// Overlay holds every file of an overlay-mode input, keyed under Dir at
+	// the directory its local-module.cue replacement names (<Dir>/instance,
+	// <Dir>/platform). Build serves them to cue/load through
+	// load.Config.Overlay; none of them is written to Dir. Empty when both
+	// inputs are on disk.
+	Overlay map[string][]byte
 
 	// Skew holds the per-path resolved-versions rows (D18), instance list
 	// against platform list.
@@ -27,9 +34,11 @@ type Staged struct {
 }
 
 // Stage writes the render module for instance and platform into dir (which
-// must exist and be empty): materializes an overlay-mode input under it,
-// promotes the two module files, writes the cue.mod pair, verifies OPM-path
-// coverage, compares skew, and writes the glue. It performs no build.
+// must exist and be empty): promotes the two module files, writes the
+// cue.mod pair, verifies OPM-path coverage, compares skew, and writes the
+// glue. An overlay-mode input is not written: its entries are re-keyed under
+// dir onto Staged.Overlay for Build to serve from memory, and an on-disk
+// input is referenced in place. It performs no build.
 func Stage(dir string, instance, platform *module.Source, runtimeName string) (*Staged, error) {
 	if instance == nil {
 		return nil, errors.New("instance carries no source")
@@ -45,11 +54,12 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string) (*
 		return nil, fmt.Errorf("resolving staging directory: %w", err)
 	}
 
-	instDir, err := serveDir(absDir, "instance", instance)
+	overlay := map[string][]byte{}
+	instDir, err := serveDir(absDir, "instance", instance, overlay)
 	if err != nil {
 		return nil, fmt.Errorf("staging instance tree: %w", err)
 	}
-	platDir, err := serveDir(absDir, "platform", platform)
+	platDir, err := serveDir(absDir, "platform", platform, overlay)
 	if err != nil {
 		return nil, fmt.Errorf("staging platform tree: %w", err)
 	}
@@ -127,12 +137,14 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string) (*
 		return nil, fmt.Errorf("writing %s: %w", gluePath, err)
 	}
 
-	return &Staged{Dir: absDir, Skew: skew}, nil
+	return &Staged{Dir: absDir, Overlay: overlay, Skew: skew}, nil
 }
 
 // Build evaluates the staged render module exactly once in cueCtx and returns
 // the built value. env is the environment slice cue/load consults (nil for
-// the process environment). A load failure (an import that does not resolve,
+// the process environment). The overlay-mode inputs Stage collected are
+// handed to cue/load as load.Config.Overlay, so their replacement directories
+// are served from memory. A load failure (an import that does not resolve,
 // a malformed module file) is returned as an error; an evaluation error on
 // the built value is NOT, because the fail-closed gate is one such error and
 // the kernel reads `diagnostics` beside it.
@@ -145,6 +157,12 @@ func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error)
 		ModuleRoot: staged.Dir,
 		Env:        env,
 	}
+	if len(staged.Overlay) > 0 {
+		cfg.Overlay = make(map[string]load.Source, len(staged.Overlay))
+		for path, data := range staged.Overlay {
+			cfg.Overlay[path] = load.FromBytes(data)
+		}
+	}
 	instances := load.Instances([]string{"."}, cfg)
 	if len(instances) != 1 {
 		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in the render module, found %d", len(instances))
@@ -156,9 +174,12 @@ func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error)
 }
 
 // serveDir returns the absolute directory cue/load serves src from: its own
-// Root in on-disk mode, or a fresh subdirectory of dir into which the overlay
-// is materialized.
-func serveDir(dir, name string, src *module.Source) (string, error) {
+// Root in on-disk mode, or <dir>/<name> in overlay mode. Nothing is written
+// for an overlay-mode source: every entry is re-keyed from src.Root to that
+// directory and added to overlay, so the replacement exists only in the
+// build's overlay filesystem. An entry outside src.Root is refused, the same
+// check the library's overlay writer applies.
+func serveDir(dir, name string, src *module.Source, overlay map[string][]byte) (string, error) {
 	if src.Root == "" {
 		return "", errors.New("source carries no module root")
 	}
@@ -170,8 +191,13 @@ func serveDir(dir, name string, src *module.Source) (string, error) {
 		return root, nil
 	}
 	target := filepath.Join(dir, name)
-	if _, err := src.WriteTo(target); err != nil {
-		return "", err
+	root := filepath.Clean(src.Root)
+	for key, data := range src.Overlay {
+		rel, err := filepath.Rel(root, key)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("overlay entry %s is outside the source root %s", key, root)
+		}
+		overlay[filepath.Join(target, rel)] = data
 	}
 	return target, nil
 }

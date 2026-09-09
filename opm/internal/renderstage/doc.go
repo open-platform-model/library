@@ -6,6 +6,12 @@
 // (D7/D18), stages the generated render module into a directory, and builds it
 // once in a caller-supplied cue.Context (D8).
 //
+// The directory holds only the generated module: its cue.mod pair and the
+// glue. An on-disk input is referenced in place through its local-module.cue
+// replacement; an overlay-mode input is re-keyed under the directory that
+// replacement names and served to the build through load.Config.Overlay, so
+// no file of it is written.
+//
 // It is internal: the kernel's Render entry point owns the public types and
 // the decode of the built value. Nothing here performs registry I/O of its own
 // beyond the one cue/load build; the dependency list is string-level modfile

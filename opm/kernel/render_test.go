@@ -184,7 +184,7 @@ func TestRender_OverlayModeInstance(t *testing.T) {
 	inst := synthRenderInstance(t, k, "0.1.0")
 
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "render-test"})
-	require.NoError(t, err, "an overlay-mode instance is materialized into the staging directory and builds")
+	require.NoError(t, err, "an overlay-mode instance is served to the build from memory and builds")
 	assert.Equal(t, []string{
 		"config :: configmap-transformer@0.1.0",
 		"web :: deployment-transformer@0.1.0",

@@ -114,7 +114,9 @@
 // [Kernel.SynthesizeInstance]) and a source-carrying platform
 // ([Kernel.AcquirePlatformFromDir]: a platform is a CUE module on disk that
 // imports its catalogs), stages one generated render module that imports
-// both, builds it once, and decodes the matching verdicts
+// both (an on-disk input in place, an overlay-mode input served from memory;
+// the per-render staging directory holds only the generated module), builds
+// it once, and decodes the matching verdicts
 // ([RenderDiagnostics]) and the rendered output ([RenderResult.Compiled],
 // one entry per rendered object as a [*Compiled] carrying instance,
 // component and transformer provenance). Matching and transformer execution are CUE inside the build,

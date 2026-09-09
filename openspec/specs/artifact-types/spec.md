@@ -358,7 +358,7 @@ A directory-acquired artifact and a registry-acquired artifact SHALL be gated id
 
 ### Requirement: An overlay source can be written to a directory
 
-`module.Source` SHALL expose `WriteTo(dir string) ([]string, error)`, which writes every entry of an overlay-mode source under `dir` at the entry's path relative to `Root`, creating parent directories as needed, and returns the dir-relative paths it wrote, sorted. The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. The kernel's render stage SHALL materialize an overlay-mode input through this method, so the library has exactly one overlay writer.
+`module.Source` SHALL expose `WriteTo(dir string) ([]string, error)`, which writes every entry of an overlay-mode source under `dir` at the entry's path relative to `Root`, creating parent directories as needed, and returns the dir-relative paths it wrote, sorted. The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. `WriteTo` SHALL be the library's one overlay writer, for frontends that need a fetched tree on disk; the kernel's render stage SHALL serve an overlay-mode input from memory and SHALL NOT write it.
 
 #### Scenario: A fetched module is written to disk
 
@@ -380,3 +380,8 @@ A directory-acquired artifact and a registry-acquired artifact SHALL be gated id
 - **WHEN** a frontend scaffolds a new module from a published template
 - **THEN** it writes the acquired module's `Source` into place with `WriteTo`
 - **AND** it performs no second registry fetch and no filesystem walk of its own
+
+#### Scenario: The render stage writes nothing for an overlay input
+
+- **WHEN** `Kernel.Render` stages an overlay-mode instance or platform
+- **THEN** `WriteTo` is not called and no entry of the overlay appears on disk
