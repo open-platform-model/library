@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0-alpha.29](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.28...v1.0.0-alpha.29) (2026-09-09)
+
+
+### Features
+
+* **render:** honour local-module.cue replacements under an opt-in ([#126](https://github.com/open-platform-model/library/issues/126)) ([08cc88c](https://github.com/open-platform-model/library/commit/08cc88c1f22a7bb76eff130548ec39a67c083c6b))
+
+
+### Performance Improvements
+
+* **renderstage:** serve overlay-mode inputs from memory ([#124](https://github.com/open-platform-model/library/issues/124)) ([8c9fc4f](https://github.com/open-platform-model/library/commit/8c9fc4f024c15beb73f836fcf1ac4c6c71d2ea74))
+
 ## [1.0.0-alpha.28](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.27...v1.0.0-alpha.28) (2026-09-09)
 
 
