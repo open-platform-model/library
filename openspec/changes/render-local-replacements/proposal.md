@@ -10,6 +10,8 @@ CUE v0.17's `cue.mod/local-module.cue` is the sanctioned way to develop against 
 
 The kernel already writes a `local-module.cue` for the render module with two `replaceWith` entries (the instance and the platform directories). Promoting the inputs' own replacements into that same file, under the precedence 0019 D13 already fixes for dependencies, closes the gap with no new mechanism.
 
+**Enhancement declaration.** None: 0006 (D37) and 0019 (D9, D13) are archived as delivered, and this change closes a gap between decisions already delivered whole rather than delivering one, so it carries no `enhancement.yaml` (the same footing as `overlay-served-in-memory` and `kernel-owns-no-build-context`).
+
 **Scope statement (Principle VIII).** One internal package (`opm/internal/renderstage`: `Stage`, `Promote`, `modfile.go`, `skew.go` untouched) plus two additive fields on `opm/kernel` types. A spike test opens the change because the claim that a promoted replacement of a *dependency* of a replaced input resolves inside one build rests on 0019 experiment 02's "replaced" mode, which the library has never exercised in its own tests.
 
 ## What Changes
@@ -18,7 +20,7 @@ The kernel already writes a `local-module.cue` for the render module with two `r
 
 - `Stage` reads each input's `cue.mod/local-module.cue` when present (through `sourcetree`, so overlay-mode and on-disk inputs behave alike), parses it against that input's `module.cue`, and resolves a relative directory target against the input's root. Absent is the normal case and changes nothing.
 - `Promote` gains the two local views. Replacements promote exactly like dependencies: the platform's whole, the instance's only for paths the platform's dependency list does not name. A replaced path absent from the promoted list is listed in the render `module.cue` with the same placeholder version the two inputs already use, so `VerifyCoverage` holds by construction. `LocalModuleFile` already writes every entry in `Replacements`; it needs no change.
-- A version-less dependency in an input's `module.cue` that no replacement covers is refused by `ParseModFile` with an error naming the path, instead of surfacing as a modfile formatting error later.
+- A version-less dependency in an input's `module.cue` that no promoted replacement covers is refused by `Promote` with an error naming the path and the input, instead of surfacing as a modfile formatting error later (`ParseModFile` keeps accepting the shape, since cue does).
 - `Staged` gains the list of honoured replacements.
 
 **`opm/kernel`:**
@@ -38,7 +40,7 @@ None.
 
 ### Modified Capabilities
 
-- `single-build-render`: the promotion requirement gains replacement promotion with its precedence and the placeholder listing; a new requirement states the opt-in, the refusal when it is off, and the diagnostics row; the source-carrying-inputs requirement gains the refusal scenario.
+- `single-build-render`: the promotion requirement gains replacement promotion with its precedence, the placeholder listing and the version-less refusal; a new requirement states the opt-in, the refusal when it is off (its own scenario), the diagnostics rows, and that an input without the file is unaffected.
 
 ## Impact
 

@@ -100,7 +100,7 @@ opm/
   internal/synth/             Instance(cueCtx, coreVersion, Input) → the synthesized #ModuleInstance value + its staged tree, built through loader.LoadDir inside the module's own overlay. Internal: reached only through Kernel.SynthesizeInstance; no platform synthesis
   internal/cueenv/            The one CUE_REGISTRY / CUE_CACHE_DIR override (Override: nil when nothing is overridden, else a copy of the process environment with the variables replaced or appended; never os.Setenv) every cue/load and modconfig call site under opm/ passes as its Env
   internal/sourcetree/        Walking, reading and naming a module.Source in both modes: PackageName, OverlayFromDir / OverlayFromFS (.cue files only, cue.mod/module.cue included), SyntheticRoot, ReadFile; shared by the kernel's values overlay, the registry loader's staged overlay and the render stage. Writing an overlay out is module.Source.WriteTo, not this package
-  internal/renderstage/       Single-build render staging (0019 D9): modfile intake, promotion (D13) + coverage invariant, skew (D7/D18), embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), temp-dir staging + one cue/load build
+  internal/renderstage/       Single-build render staging (0019 D9): modfile intake (module.cue + the optional local-module.cue view), promotion (D13, local replacements under the opt-in) + coverage invariant, skew (D7/D18), embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), temp-dir staging + one cue/load build
   internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures or a committed fixture tree; every constructor points CUE_CACHE_DIR at a private per-test module cache (schematest.PrivateCacheDir), so served coordinates extract fresh per test and nothing is ever deleted from the shared cache; NewRegistryWithCore also serves a stand-in opmodel.dev/core, into a cache that shares nothing (schematest.IsolatedCacheDir)
   internal/cueregression/     Canary pair for the v0.17.x closedness regression
   internal/schematest/        Test-only cache helpers: SetEnv / NewCache build against the shared workspace cache (.cue-cache, the opmodel.dev tier); PrivateCacheDir hands a test its own cache whose opmodel.dev subtrees are symlinks into the shared one; IsolatedCacheDir hands it one that shares nothing (for a served stand-in core)
@@ -243,9 +243,31 @@ names, with no file of it written. Rules:
   absent it, the kernel inherits process `CUE_REGISTRY` and auto-applies no
   default. The mapping is plumbed into `load.Config.Env` for the operation,
   never written back to the process environment.
+- **Local replacements are opt-in.** An input's own `cue.mod/local-module.cue`
+  (a developer redirecting a dependency to a directory or another module)
+  reaches the render only under `RenderInput.LocalReplacements`. Off (the
+  default), an input whose file carries a replacement is refused before
+  staging with an error naming the input and the file; the file is never
+  silently dropped. On, the replacements are promoted into the render
+  module's `local-module.cue` under the precedence dependencies get: the
+  platform's whole, the instance's only for paths the platform's dependency
+  list does not name (an instance replacement on a platform-named path is
+  inert; the platform decides which bytes execute for every path it names).
+  A relative directory target is resolved against the input's own module
+  root; a replaced path the promoted list lacks is listed with a placeholder
+  version of its major so coverage holds; a version-less dependency no
+  promoted replacement covers is refused naming the path and the input. Each
+  honoured replacement is a `Diagnostics.Replacements` row (path, target,
+  `platform`|`instance`), path-sorted; the replaced path keeps its pinned
+  versions on `ResolvedVersions`. An input without the file renders
+  identically under either setting. The switch is a security boundary, not
+  an extension point: it is the one place the render may read a directory an
+  artifact names, so a frontend sets it for a developer's checkout, never for
+  an artifact it did not author (the operator never sets it).
 - **Inputs are not mutated; the staging directory is removed on return**,
   success or failure. Refusals before evaluation (missing Source, uncovered
-  OPM path, skew under `SkewRefuse`) are plain errors.
+  OPM path, skew under `SkewRefuse`, a local replacement without the opt-in)
+  are plain errors.
 - Tests serve catalogs and modules from the in-process registry
   (`opm/internal/registrytest`) while resolving `opmodel.dev/core@v2` from
   the warm workspace cache; the production stage → build → decode path runs
@@ -301,7 +323,7 @@ task cue:test:flow                              # acquire→render integration t
 
 `*kernel.Kernel` is the single entry point. One render verb maps to the frontend's render / apply / dry-run subcommands:
 
-- `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew}`; a dry run discards `Compiled`.
+- `Kernel.Render` — the single-build render path (0019 D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew, LocalReplacements}`; a dry run discards `Compiled`.
 
 Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache included. The Kernel holds no `cue.Context` and exposes none (ADR-007): every verb creates a context for the call, builds in it and returns, an artifact's `Package` pins the context that built it for as long as the caller holds the artifact, and the cross-artifact verbs read only `Metadata` and `Source` from their inputs, so artifacts cross Kernels. A `kernel.Source` is `{Origin, Data []byte}`, bound to no context: `LoadSourceFromFile` / `LoadSourceFromBytes` parse and evaluate nothing, and each verb compiles the sources it receives with `cue.Filename(Origin)` in the context of the schema they meet (a file-backed origin through cue/load at the file's directory, with the top-level `values:` unwrap applied there). Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
 
@@ -312,9 +334,11 @@ Everything before `Render` produces its inputs, and every one of them is an acqu
 ```text
 Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
 Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
-Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew})
+Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements})
         renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
                                overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
+                               inputs' own local-module.cue replacements promoted under LocalReplacements (platform whole, instance on
+                               instance-only paths) onto Staged.Replacements, refused without the opt-in
                                coverage invariant: every OPM-namespace path either input requires is promoted
                                skew rows (D7/D18) → warn or refuse per SkewPolicy
         renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)

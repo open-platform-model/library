@@ -12,6 +12,17 @@
 // replacement names and served to the build through load.Config.Overlay, so
 // no file of it is written.
 //
+// An input's own cue.mod/local-module.cue (a developer's redirection of a
+// dependency to a directory or another module) is read in either mode
+// ([ReadLocalModFile]) and, when the caller enables local replacements,
+// promoted into the render module's main-module view under the precedence
+// dependencies get: the platform's replacements whole, the instance's only
+// for paths the platform's list does not name. A replaced path the promoted
+// list lacks is listed with a placeholder version of its major, so the
+// coverage invariant holds; the honoured set is reported as
+// [ReplacementRow] values on [Staged]. With local replacements off, an input
+// whose file carries a replacement is refused before anything is written.
+//
 // It is internal: the kernel's Render entry point owns the public types and
 // the decode of the built value. Nothing here performs registry I/O of its own
 // beyond the one cue/load build; the dependency list is string-level modfile

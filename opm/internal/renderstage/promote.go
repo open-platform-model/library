@@ -2,6 +2,7 @@ package renderstage
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"cuelang.org/go/mod/modfile"
@@ -46,15 +47,54 @@ type Promotion struct {
 	// two inputs' declared versions, floored at MinLanguageVersion.
 	Language string
 
-	// Replacements maps each input module's qualified path to the absolute
-	// directory cue/load serves it from (the local-module.cue replaceWith).
+	// Replacements maps each replaced qualified path to its target (the
+	// local-module.cue replaceWith): each input module's own path to the
+	// absolute directory cue/load serves it from, plus every promoted
+	// replacement from the inputs' own local views, an absolute directory
+	// or a module path.
 	Replacements map[string]string
+
+	// Rows is one row per promoted local replacement, in path order: the
+	// developer's redirections the render honours, for the kernel to report
+	// as data. The two input directories are the mechanism, not a row.
+	Rows []ReplacementRow
 }
 
+// ReplacementRow names one local replacement the render module honours: the
+// replaced major-qualified path, its target (an absolute directory, or a
+// module path for a module replacement) and the input whose
+// cue.mod/local-module.cue supplied it.
+type ReplacementRow struct {
+	Path   string
+	Target string
+
+	// By is "platform" or "instance".
+	By string
+}
+
+// Input labels on a ReplacementRow and in promotion errors.
+const (
+	byPlatform = "platform"
+	byInstance = "instance"
+)
+
 // Promote derives the render module's dependency list from the platform's and
-// the instance's committed module files. platformDir and instanceDir are the
-// absolute directories the two inputs are served from during the build.
-func Promote(platform, instance *ModFile, platformDir, instanceDir string) (*Promotion, error) {
+// the instance's committed module files, and its main-module view from their
+// local views (nil when an input carries no cue.mod/local-module.cue, or
+// when the caller did not enable local replacements). platformDir and
+// instanceDir are the absolute directories the two inputs are served from
+// during the build.
+//
+// Local replacements promote under the precedence dependencies do: the
+// platform's whole, the instance's only for paths the platform's dependency
+// list does not name (an instance replacement on a platform-named path is
+// inert: the platform decides which bytes execute for every path it names).
+// Entries a local file lists that the promoted list lacks join it, so a
+// module-path replacement's target arrives with its version. Every replaced
+// path is listed with a placeholder version of its major when the inputs
+// give it none, so the coverage invariant holds for a replaced OPM path; a
+// version-less dependency no promoted replacement covers is refused.
+func Promote(platform, instance *ModFile, platformLocal, instanceLocal *LocalModFile, platformDir, instanceDir string) (*Promotion, error) {
 	if platform == nil || instance == nil {
 		return nil, fmt.Errorf("promotion needs both input module files")
 	}
@@ -85,6 +125,66 @@ func Promote(platform, instance *ModFile, platformDir, instanceDir string) (*Pro
 		deps[path] = dep
 	}
 
+	// Local replacements, platform whole, instance on instance-only paths.
+	// A replacement of either input's own path is refused: the inputs are
+	// served from their staged directories by construction.
+	replacements := map[string]string{}
+	var rows []ReplacementRow
+	views := []struct {
+		by    string
+		local *LocalModFile
+	}{{byPlatform, platformLocal}, {byInstance, instanceLocal}}
+	for _, v := range views {
+		if v.local == nil {
+			continue
+		}
+		for _, path := range sortedPaths(v.local.Replacements) {
+			if path == platform.Module || path == instance.Module {
+				return nil, fmt.Errorf("%s %s replaces %q, a render input; inputs are served from their own directories", v.by, LocalModFileName, path)
+			}
+			if v.by == byInstance {
+				if _, named := platform.Deps[path]; named {
+					continue
+				}
+			}
+			replacements[path] = v.local.Replacements[path]
+			rows = append(rows, ReplacementRow{Path: path, Target: v.local.Replacements[path], By: v.by})
+		}
+		for path, dep := range v.local.Deps {
+			if _, listed := deps[path]; listed {
+				continue
+			}
+			if dep.Default && defaultRoots(deps)[rootPath(path)] {
+				dep.Default = false
+			}
+			deps[path] = dep
+		}
+	}
+	for path := range replacements {
+		dep := deps[path]
+		if dep.Version == "" {
+			v, err := ReplacedVersion(path)
+			if err != nil {
+				return nil, err
+			}
+			dep.Version = v
+		}
+		deps[path] = dep
+	}
+	// A version-less entry no promoted replacement covers would only fail
+	// later, inside modfile formatting, with an error naming neither the
+	// path nor the input.
+	for _, path := range sortedPaths(deps) {
+		if deps[path].Version != "" {
+			continue
+		}
+		by := byInstance
+		if _, ok := platform.Deps[path]; ok {
+			by = byPlatform
+		}
+		return nil, fmt.Errorf("%s dependency %q carries no version and no promoted local replacement covers it", by, path)
+	}
+
 	// Each input module's own path: a replace-only entry marked default so
 	// the input's unqualified self-imports resolve, the platform first. The
 	// default yields (as above) when some promoted entry already marks the
@@ -104,20 +204,31 @@ func Promote(platform, instance *ModFile, platformDir, instanceDir string) (*Pro
 		}
 		deps[in.Module] = dep
 	}
+	replacements[platform.Module] = platformDir
+	replacements[instance.Module] = instanceDir
 
 	lang, err := maxLanguage(platform.Language, instance.Language)
 	if err != nil {
 		return nil, err
 	}
 
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Path < rows[j].Path })
 	return &Promotion{
-		Deps:     deps,
-		Language: lang,
-		Replacements: map[string]string{
-			platform.Module: platformDir,
-			instance.Module: instanceDir,
-		},
+		Deps:         deps,
+		Language:     lang,
+		Replacements: replacements,
+		Rows:         rows,
 	}, nil
+}
+
+// sortedPaths returns the keys of a path-keyed map in lexical order.
+func sortedPaths[V any](m map[string]V) []string {
+	paths := make([]string, 0, len(m))
+	for path := range m {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 // ModuleFile renders the render module's cue.mod/module.cue: identity,
@@ -135,20 +246,21 @@ func (p *Promotion) ModuleFile() ([]byte, error) {
 // LocalModuleFile renders the render module's cue.mod/local-module.cue: the
 // main-module dependency view, which is the promoted list with each input's
 // entry directing cue/load to serve that module path from its staged
-// directory. cue/load reads this file in place of module.cue's deps when
-// present, so the promoted list is repeated here rather than patched in.
+// directory and every promoted local replacement written as the input wrote
+// it. cue/load reads this file in place of module.cue's deps when present,
+// so the promoted list is repeated here rather than patched in.
 func (p *Promotion) LocalModuleFile() ([]byte, error) {
 	base := p.baseFile()
 	local := p.baseFile()
-	for path, dir := range p.Replacements {
+	for path, target := range p.Replacements {
 		if dep, listed := local.Deps[path]; listed {
-			// Promote lists every input; the entry keeps its version and
-			// marker and is served from its directory.
-			dep.ReplaceWith = dir
+			// Promote lists every replaced path; the entry keeps its
+			// version and marker and is served from its target.
+			dep.ReplaceWith = target
 			continue
 		}
-		// A hand-built Promotion without the input's entry: replace-only.
-		local.Deps[path] = &modfile.Dep{ReplaceWith: dir}
+		// A hand-built Promotion without the entry: replace-only.
+		local.Deps[path] = &modfile.Dep{ReplaceWith: target}
 	}
 	data, err := modfile.FormatLocal(local, base)
 	if err != nil {

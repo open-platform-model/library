@@ -151,6 +151,24 @@
 // diagnosis (Pairs, Unmatched, Unresolved, Unify, UnhandledTraits,
 // OverSubscribed, ResolvedVersions). There is no separate match verb.
 //
+// An input's own cue.mod/local-module.cue (a developer redirecting a
+// dependency to a directory or another module) reaches the render only under
+// [RenderInput.LocalReplacements]. Off, the default, Render refuses before
+// staging an input whose file carries a replacement rather than silently
+// rendering against the published pin. On, the replacements are promoted
+// into the render module under the precedence dependencies get (the
+// platform's whole, the instance's only for paths the platform's dependency
+// list does not name) and each honoured one is a
+// [RenderDiagnostics.Replacements] row naming the path, the target and the
+// input that supplied it; a replaced path keeps its pinned versions on
+// ResolvedVersions. A frontend sets the flag for a developer's checkout and
+// words the rows (an instance replacement the platform made inert is not a
+// row, so the frontend computes the inert set from the file it read):
+//
+//	for _, r := range result.Diagnostics.Replacements {
+//		log.Printf("%s: served from %s (%s local-module.cue)", r.Path, r.Target, r.By)
+//	}
+//
 // Render consumes the instance as processed: values are validated where
 // they are applied. [Kernel.AcquireInstanceFromDir] unifies its trailing
 // [Source] values inside the package build and checks them against the

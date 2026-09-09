@@ -19,6 +19,11 @@ Spikes run 2026-09-09 on `main` (throwaway `go test -overlay`, nothing committed
 - `modfile.ParseLocal` accepts a replace-only entry absent from `module.cue`, and also one listed with a `v0.0.0` placeholder plus `replaceWith`.
 - 0019 experiment 02, mode `replaced`, measured that a directory replacement of the catalog in the render main module serves the directory's bytes with platform authority intact.
 
+Task 1.1's spike (`TestStageBuild_LocalReplacementsResolveInOneBuild`, kept as a regression test) passed on the first build: a hand-written render module replacing an instance-only, never-published path with a directory and the platform's catalog path with a patched copy resolved both inside the one build; the instance's import came from the directory and the deployment's label from the copy. Two facts measured while implementing, both of which a frontend needs:
+
+- `cue.mod/local-module.cue` is the *whole* main-module dependency view, not a patch: `modfile.ParseLocal` takes `Deps` from the local file alone (versions and default markers inherited from `module.cue` where omitted). A local file listing only the replaced path makes every other import fail with "cannot find module providing package" when the input is built on its own (the platform copy in the tests only loaded because the replaced catalog's own `module.cue` pulled core in transitively). `cue mod tidy` writes the full list; a hand-written file must too. Promotion keys precedence on `module.cue` (D13) and carries local-listed entries only for paths the promoted list lacks (a module-path replacement's target), so a local file that only re-pins a version without replacing anything is inert at render time: out of scope here, worth a follow-up if a developer expects `vet` and `render` to agree on it.
+- `cue/load` classifies a `replaceWith` value as a directory iff it starts with `.` or `/` (or is a host-absolute path); everything else is a module path. `ReadLocalModFile` mirrors that rule.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -31,7 +36,7 @@ Spikes run 2026-09-09 on `main` (throwaway `go test -overlay`, nothing committed
 
 - Deciding what a frontend says about an inert replacement; the cli reads the rows and words it.
 - Module-path replacements (`replaceWith: "fork@v0"`) beyond passing them through; the target must already be listed with a version in the same local file, as cue requires, and promotion carries that entry with the rest.
-- Any change to `CompareSkew` or `VerifyCoverage`.
+- Any change to `VerifyCoverage`. `CompareSkew` gains one guard only (see Risks): a version-less entry has no version to compare, so the row records it and flags nothing.
 
 ## Research & Decisions
 
@@ -90,6 +95,8 @@ for path := range repl {
 - [A module-path replacement target is not listed with a version] → cue refuses with "replacement target … must be listed as a dependency with a version"; the local view carries the target entry, promotion carries it through, so a tidy local file passes. Not special-cased.
 - [The cli renders with a replacement, applies, and the operator's re-render diverges] → by design (0006 D7.4 digest abort); provenance already flips to `source: local` on file presence.
 - [Two changes editing `Stage`] → sequenced after `overlay-served-in-memory`; rebase cost is one function.
+- [A platform developing a never-published catalog lists it version-less and replaces it, while the instance pins a published build] → `CompareSkew` compared `"v4.2.0"` against `""` and failed with a semver error naming neither input. It now skips the comparison when either side is empty (the row still carries both strings, `Newer` false), the one guard added to a function this change otherwise leaves alone. Pinned by `TestCompareSkew_VersionlessReplacedPathIsNotCompared`.
+- [A local file replaces one of the two render inputs' own module paths] → refused by `Promote` ("replaces …, a render input"): the inputs are served from their staged directories by construction, and a row pointing elsewhere would misreport what executed.
 - [Refusal-by-default breaks a consumer that passes such inputs today] → only the cli does, and it sets the field in its own change; called out in the proposal's Impact.
 
 ## Migration Plan

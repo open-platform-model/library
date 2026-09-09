@@ -31,6 +31,12 @@ type Staged struct {
 	// Skew holds the per-path resolved-versions rows (D18), instance list
 	// against platform list.
 	Skew []VersionRow
+
+	// Replacements holds one row per local replacement the render module
+	// honours (an input's own cue.mod/local-module.cue, promoted), in path
+	// order. Nil unless the caller enabled local replacements and an input
+	// carried one that promotion kept.
+	Replacements []ReplacementRow
 }
 
 // Stage writes the render module for instance and platform into dir (which
@@ -39,7 +45,15 @@ type Staged struct {
 // glue. An overlay-mode input is not written: its entries are re-keyed under
 // dir onto Staged.Overlay for Build to serve from memory, and an on-disk
 // input is referenced in place. It performs no build.
-func Stage(dir string, instance, platform *module.Source, runtimeName string) (*Staged, error) {
+//
+// localReplacements decides what an input's own cue.mod/local-module.cue
+// means: true promotes its replacements into the render module's
+// main-module view (platform's whole, instance's on paths the platform does
+// not name) and reports them on Staged.Replacements; false refuses, before
+// anything is written, an input whose file carries a replacement, since
+// silently dropping the file is what made a developer's redirection invisible
+// at render time. An input without the file stages identically either way.
+func Stage(dir string, instance, platform *module.Source, runtimeName string, localReplacements bool) (*Staged, error) {
 	if instance == nil {
 		return nil, errors.New("instance carries no source")
 	}
@@ -72,8 +86,28 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string) (*
 	if err != nil {
 		return nil, fmt.Errorf("platform module file: %w", err)
 	}
+	instLocal, err := ReadLocalModFile(instance, instMF)
+	if err != nil {
+		return nil, fmt.Errorf("instance local module file: %w", err)
+	}
+	platLocal, err := ReadLocalModFile(platform, platMF)
+	if err != nil {
+		return nil, fmt.Errorf("platform local module file: %w", err)
+	}
+	if !localReplacements {
+		for _, in := range []struct {
+			by    string
+			mod   string
+			local *LocalModFile
+		}{{byPlatform, platMF.Module, platLocal}, {byInstance, instMF.Module, instLocal}} {
+			if in.local != nil && len(in.local.Replacements) > 0 {
+				return nil, fmt.Errorf("%s %q carries %s with replacements; the caller did not enable local replacements", in.by, in.mod, LocalModFileName)
+			}
+		}
+		instLocal, platLocal = nil, nil
+	}
 
-	promotion, err := Promote(platMF, instMF, platDir, instDir)
+	promotion, err := Promote(platMF, instMF, platLocal, instLocal, platDir, instDir)
 	if err != nil {
 		return nil, fmt.Errorf("promoting dependency lists: %w", err)
 	}
@@ -137,7 +171,7 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string) (*
 		return nil, fmt.Errorf("writing %s: %w", gluePath, err)
 	}
 
-	return &Staged{Dir: absDir, Overlay: overlay, Skew: skew}, nil
+	return &Staged{Dir: absDir, Overlay: overlay, Skew: skew, Replacements: promotion.Rows}, nil
 }
 
 // Build evaluates the staged render module exactly once in cueCtx and returns
