@@ -64,7 +64,7 @@ This repo is the **OPM kernel** — the reference Go runtime for Open Platform M
 ## Repository Rules
 
 - `CONSTITUTION.md` is the human-readable principle source; `openspec/config.yaml` is normative. Read both before non-trivial changes.
-- **Principle VIII (Small Batch Sizes) has a hard execution gate** that blocks oversized requests. If a request is too large (e.g. multi-package refactor, redesigning the render pipeline in one go, design+implement+test a major feature in one go), respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split.
+- **Principle VIII (Mergeable Sections) has a hard execution gate** that blocks a request that cannot be cut into at most about five `tasks.md` sections, each ending green and closing with its own commit so that `main` stays releasable. Respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split into changes.
 - **Kernel neutrality (Principle I).** The library is consumed by CLI, controller, and future runtimes. Do not introduce:
   - Global mutable state or package-level singletons hiding behavior.
   - `os.Exit`, direct logging output to stdout/stderr, shell invocation.
@@ -382,7 +382,7 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 
 ## Working Style for Agents
 
-- Apply the small-batch hard gate before starting work — split oversized requests using `openspec/config.yaml` § Execution Gate phrasing.
+- Apply the mergeable-sections gate before starting work — split requests that do not cut into a handful of green, committable sections using `openspec/config.yaml` § Execution Gate phrasing.
 - Pick the right destination for new work:
   - **Cross-cutting OPM design** (spans `core/`, `library/`, `catalog/`, `opm-operator/`, etc.) — workspace-root `enhancements/`, never `library/enhancements/`.
   - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here. Create `enhancement.yaml` in the change directory at creation time (`implements: [{enhancement: "NNNN", decisions: [D1], resolves: []}]`; validated by `enhancements/schema.cue` `#ChangeDeclaration`); it is the only link between the change and the entry, and `task enhancements:delivery:log FROM=<change-dir>` reads it at archive time. A change that implements no enhancement carries no such file.
