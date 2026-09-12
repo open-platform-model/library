@@ -17,7 +17,7 @@ The library is the **kernel** of OPM. It provides the generic, reusable building
 | **V** | [CUE-Native Module Resolution](#v-cue-native-module-resolution) | The library owns CUE module and OCI plumbing on behalf of all downstream implementations |
 | **VI** | [Semantic Versioning & Public API Discipline](#vi-semantic-versioning--public-api-discipline) | SemVer is contractual; downstream consumers depend on it |
 | **VII** | [Simplicity & YAGNI](#vii-simplicity--yagni) | New abstractions must be justified by a real downstream need |
-| **VIII** | [Small Batch Sizes](#viii-small-batch-sizes-iterative--incremental-delivery) | Changes must stay tiny, incremental, and independently verifiable |
+| **VIII** | [Mergeable Sections](#viii-mergeable-sections-iterative--incremental-delivery) | Every section ends green and commits; every merge leaves `main` releasable |
 
 ---
 
@@ -139,24 +139,24 @@ Every public symbol increases the SemVer surface and the burden of long-term sup
 
 ---
 
-### VIII. Small Batch Sizes (Iterative & Incremental Delivery)
+### VIII. Mergeable Sections (Iterative & Incremental Delivery)
 
-All work MUST be delivered in tiny, independently verifiable steps.
+A change is delivered as the sections of its `tasks.md` (`## N. Title` headings with `N.M` checkboxes). Two invariants hold at every section boundary; they replace any size limit on the change itself.
 
-- Large requests SHOULD be split into smaller sequential changes
-- Tiny changes produce focused, atomic commits
-- A single change SHOULD ideally address one specific concern
-- Validation SHOULD remain practical at every step
+- Every merge leaves `main` releasable: a section MUST end green under the validation gates and MUST close with a commit task naming its Conventional Commit
+- Work survives a session boundary: the commit task is the pause point, leaving checked boxes and a clean tree for the next session to resume from
+- A change SHOULD cut into at most about five sections; one PR per change with one commit per section is the default
+- Section 1 is a spike whenever the design carries an unverified assumption
 
-This principle applies to both planning and implementation. Large bundled changes hide risk, slow review, and weaken validation.
+This principle applies to both planning and implementation. A section that cannot end green on its own hides risk, slows review, and weakens validation.
 
 #### Execution Gate
 
-Before beginning any implementation, the scope of the request MUST be evaluated against the small-batch principle.
+Before beginning any implementation, the request MUST be evaluated against the mergeable-sections principle.
 
-If the request is too large, the required response is:
+If the request cannot be cut into sections that each end green and leave `main` releasable, or needs more than about five, the required response is:
 
-> "🛑 **Scope Warning**: This request is too large for a single safe iteration. I suggest we split it into the following smaller steps: [list 2-3 logical, tiny steps]. Should we start with step 1?"
+> "🛑 **Scope Warning**: This request does not cut into a handful of mergeable sections. I suggest we split it into the following changes: [list 2-3 changes, each a few sections that leave main releasable]. Should we start with the first?"
 
 ---
 
@@ -257,10 +257,10 @@ Recommended `Research & Decisions` shape:
 
 - Focus on implementation steps
 - Update tasks as work completes, blockers appear, or new work is discovered
-- Break tasks into tiny chunks, ideally no more than 1-2 hours each
-- If the list grows beyond roughly 10 items or spans multiple features, split it into another OpenSpec change
+- Every section ends green and closes with a commit task naming its Conventional Commit
+- At most about five sections; more, or a section that cannot end green alone, is another OpenSpec change
 - Group tasks by package (`core`, `loader`, `module`, `provider`, `render`, `validate`, `errors`)
-- Include validation gates as final tasks: `task fmt`, `task vet`, `task lint`, `task test`
+- Run the validation gates in every section's commit task: `task fmt`, `task vet`, `task lint`, `task test`
 
 ---
 
@@ -272,7 +272,7 @@ These principles reinforce each other:
 - Type safety and CUE-native resolution make load behavior predictable across implementations
 - Separation of concerns and composability keep the public API small and explainable
 - SemVer and API discipline keep downstream upgrades safe
-- Small batch sizes keep change quality high and validation practical
+- Mergeable sections keep `main` releasable and work resumable across sessions
 
 When principles appear to conflict, treat that as a design smell and document the trade-off explicitly.
 
