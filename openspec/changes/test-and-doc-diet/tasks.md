@@ -1,8 +1,8 @@
 ## 1. Spike: the parity probe without its -short skip (opm/kernel)
 
-- [ ] 1.1 Remove the `testing.Short()` skip from `TestParity_Probes` in `opm/kernel/parity_probe_test.go` and time `go test ./opm/kernel/ -run TestParity_Probes -count=1` on the warm workspace cache; if it exceeds about five seconds, restore the skip with a message that names the measured cost, and record the number under "Retire the fill tests" in `design.md` either way.
-- [ ] 1.2 Delete `opm/kernel/component_fill_test.go` and `opm/kernel/instance_fill_test.go`; verify `go test ./opm/kernel/ -run 'TestParity_Probes|TestRender'` passes and `grep -rn 'names-regression' opm/kernel/*_test.go` hits only `parity_probe_test.go`.
-- [ ] 1.3 `task check` green, then commit `test(kernel): retire the fill tests in favour of the parity probe`.
+- [x] 1.1 Remove the `testing.Short()` skip from `TestParity_Probes` in `opm/kernel/parity_probe_test.go` and time `go test ./opm/kernel/ -run TestParity_Probes -count=1` on the warm workspace cache; if it exceeds about five seconds, restore the skip with a message that names the measured cost, and record the number under "Retire the fill tests" in `design.md` either way.
+- [x] 1.2 Delete `opm/kernel/component_fill_test.go` and `opm/kernel/instance_fill_test.go`; verify `go test ./opm/kernel/ -run 'TestParity_Probes|TestRender'` passes and `grep -rn 'names-regression' opm/kernel/*_test.go` hits only `parity_probe_test.go`.
+- [x] 1.3 `task check` green, then commit `test(kernel): retire the fill tests in favour of the parity probe`.
 
 ## 2. One exact-set surface test (opm/kernel, opm/module)
 

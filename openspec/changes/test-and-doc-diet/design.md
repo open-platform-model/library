@@ -43,6 +43,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 **Explored**: both files' fixtures and assertions against `parity_probe_test.go`; the skip's message.
 **Decision**: delete both fill tests. Section 1 removes the probe's `-short` skip and times `go test -run TestParity_Probes -count=1`; the skip stays out if the probe takes under about five seconds on the warm cache, otherwise it stays in and the finding is recorded here. Either way the fills go: `-short` is not a CI mode.
 **Rationale**: the probe pins the same values against the oracle, which is strictly more than the fills assert.
+**Spike result (2026-09-13)**: without the skip, `go test ./opm/kernel/ -run TestParity_Probes -count=1` takes 0.12 s on the warm workspace cache (0.06 s per probe; about 1.3 s including package compilation on the first run). The skip stays out.
 
 ### Fold the live validate test into the flow test
 

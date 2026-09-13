@@ -84,9 +84,6 @@ var parityProbes = []parityProbe{
 }
 
 func TestParity_Probes(t *testing.T) {
-	if testing.Short() {
-		t.Skip("parity probes resolve core from the workspace cache seeded from GHCR; skipping under -short")
-	}
 	glue, err := os.ReadFile(filepath.Join(repoLibraryRoot(t), "testdata", "parity", "oracle", "render.cue"))
 	require.NoError(t, err, "reading the oracle glue")
 
