@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.30](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.29...v1.0.0-alpha.30) (2026-09-13)
+
+
+### Features
+
+* **platform:** read the contract inventory off a built platform ([#128](https://github.com/open-platform-model/library/issues/128)) ([cd629b4](https://github.com/open-platform-model/library/commit/cd629b4d1d56ad3f2c68e992da0318d7eb5971e3))
+
 ## [1.0.0-alpha.29](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.28...v1.0.0-alpha.29) (2026-09-09)
 
 
