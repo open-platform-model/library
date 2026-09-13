@@ -17,8 +17,6 @@ import (
 // stamped at construction. It is a cache, not a parallel source of truth —
 // when Metadata and the corresponding subtree of Package disagree, Package
 // wins.
-//
-// Was: Release
 type Instance struct {
 	// Metadata is the decoded instance-level metadata cache. May be nil when
 	// the metadata could not be decoded.
@@ -40,8 +38,6 @@ type Instance struct {
 
 // InstanceMetadata is a re-export of [schema.InstanceMetadata] so callers can
 // keep working with `module.InstanceMetadata`.
-//
-// Was: ReleaseMetadata
 type InstanceMetadata = schema.InstanceMetadata
 
 // Components returns the instance's components value as evaluated,

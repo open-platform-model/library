@@ -78,7 +78,6 @@ type Compiled struct {
 	Value cue.Value
 
 	// Instance is the name of the ModuleInstance that produced this resource.
-	// Was: Release
 	Instance string
 
 	// Component is the source component name within the instance.

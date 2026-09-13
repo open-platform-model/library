@@ -193,85 +193,18 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
 
 ### Render contract
 
-`Render` (`opm/kernel/render.go`, `(*Kernel).Render`) is the sole render path
-(0019 D9/D10, ADR-005). It takes a source-carrying instance
-(`AcquireInstanceFromDir` / `SynthesizeInstance`) and a source-carrying
-platform (`AcquirePlatformFromDir`: a CUE module on disk importing its
-catalogs), stages one generated render module in a per-render temp dir
-(`opm/internal/renderstage`), builds it once, and decodes `diagnostics` and
-`rendered`. The temp dir holds only the generated module (its `cue.mod` pair
-and the glue): an on-disk input is referenced in place through its
-`local-module.cue` replacement, and an overlay-mode input (a synthesized
-instance, an instance layered with values) is served to the build from memory
-through `load.Config.Overlay`, keyed under the directory its replacement
-names, with no file of it written. Rules:
+The render contract is the `opm/kernel` package doc (`go doc ./opm/kernel`; source
+`opm/kernel/doc.go`): the single render verb, every operation building in a context of
+its own, verdicts as data, the fail-closed gate, catalog skew, the `WithRegistry`
+mapping and the local-replacements opt-in are specified there. Edit the godoc; do not
+restate it here. Two rules are for this repo's tests only:
 
-- **Shares nothing.** Each render builds in a fresh `cue.Context` that is
-  dropped when `Render` returns; the Kernel owns no context of its own and
-  no built value is retained. Every other verb does the same (ADR-007), so
-  a single Kernel is safe for concurrent use across its method calls:
-  concurrency is across operations (one Kernel per process), never within
-  one. A render pool is sized by memory (about 61 MB + 7.75 MB per component
-  per concurrent render), not by core count. No mutex, no shared platform
-  value, no materialize cache: those shapes are retracted (ADR-002,
-  superseded by ADR-005). `task test` runs `opm/kernel` and
-  `opm/internal/renderstage` under `-race` to keep the claim checked.
-- **Matching and execution are CUE inside the build**
-  (`opm/internal/renderstage/render.cue.tmpl`), not Go. Verdicts arrive as
-  data (`RenderDiagnostics`: pairs, unmatched, unresolved demands, unify
-  refusals, unhandled traits, over-subscribed provider keys, resolved
-  versions). The fail-closed gate refuses on an unresolved demand, an
-  unmatched component or an over-subscribed provider-fulfilled key; a refusal
-  is a `*RenderError` carrying the full diagnostics with typed causes
-  (`*oerrors.UnresolvedDemandsError`, `*UnmatchedComponentsError`,
-  `*OverSubscribedContractsError`, `*TransformError`) reachable via
-  `errors.As`. Each cause carries the diagnostics rows unchanged and wraps
-  nothing. A dry run is `Render` with `Compiled` discarded; there is no match
-  verb. The render module's own `gate` field agrees with the kernel: it errors
-  exactly when the kernel refuses, so a staged module is self-refusing under a
-  plain `cue eval`.
-- **A render result carries no presentation strings.** The two advisory facts
-  are rows: an unhandled optional trait on `Diagnostics.UnhandledTraits`, and
-  a module requiring a newer build than the platform carries on a
-  `Diagnostics.ResolvedVersions` row with `Newer` set. Frontends word both.
-- **Catalog skew** (the instance module requiring a newer OPM-namespace
-  build than the platform carries) marks the row `Newer` by default
-  (`SkewWarn`) or refuses before evaluation (`SkewRefuse`,
-  `*oerrors.SkewError`).
-- **Registry config mirrors the schema loader.** `WithRegistry` sets the
-  `CUE_REGISTRY` mapping the build uses for the platform's catalog imports;
-  absent it, the kernel inherits process `CUE_REGISTRY` and auto-applies no
-  default. The mapping is plumbed into `load.Config.Env` for the operation,
-  never written back to the process environment.
-- **Local replacements are opt-in.** An input's own `cue.mod/local-module.cue`
-  (a developer redirecting a dependency to a directory or another module)
-  reaches the render only under `RenderInput.LocalReplacements`. Off (the
-  default), an input whose file carries a replacement is refused before
-  staging with an error naming the input and the file; the file is never
-  silently dropped. On, the replacements are promoted into the render
-  module's `local-module.cue` under the precedence dependencies get: the
-  platform's whole, the instance's only for paths the platform's dependency
-  list does not name (an instance replacement on a platform-named path is
-  inert; the platform decides which bytes execute for every path it names).
-  A relative directory target is resolved against the input's own module
-  root; a replaced path the promoted list lacks is listed with a placeholder
-  version of its major so coverage holds; a version-less dependency no
-  promoted replacement covers is refused naming the path and the input. Each
-  honoured replacement is a `Diagnostics.Replacements` row (path, target,
-  `platform`|`instance`), path-sorted; the replaced path keeps its pinned
-  versions on `ResolvedVersions`. An input without the file renders
-  identically under either setting. The switch is a security boundary, not
-  an extension point: it is the one place the render may read a directory an
-  artifact names, so a frontend sets it for a developer's checkout, never for
-  an artifact it did not author (the operator never sets it).
-- **Inputs are not mutated; the staging directory is removed on return**,
-  success or failure. Refusals before evaluation (missing Source, uncovered
-  OPM path, skew under `SkewRefuse`, a local replacement without the opt-in)
-  are plain errors.
 - Tests serve catalogs and modules from the in-process registry
-  (`opm/internal/registrytest`) while resolving `opmodel.dev/core@v2` from
-  the warm workspace cache; the production stage → build → decode path runs
-  unchanged.
+  (`opm/internal/registrytest`) while resolving `opmodel.dev/core@v2` from the warm
+  workspace cache; the production stage → build → decode path runs unchanged.
+- The parity harness (`opm/kernel/parity_*_test.go` against `testdata/parity`, the
+  pure-CUE oracle) is the oracle for rendered values, and `task test` runs `opm/kernel`
+  and `opm/internal/renderstage` under `-race` to keep the shares-nothing claim checked.
 
 ## Build And Dev Commands
 

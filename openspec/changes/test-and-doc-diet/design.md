@@ -61,6 +61,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 
 **Decision**: `opm/helper/doc.go` keeps the boundary statement, the `platformmodule` description and one line per folded subpackage saying where it went; it drops the "planned subpackages" list, the "added by their owning slices" process text and replaces the `enhancements/001-kernel-redesign-around-platform/` path with `legacy:001`. The six `// Was: Release…` lines go. CLAUDE.md's "Render contract" section is cut to a pointer at the `opm/kernel` package doc plus the two agent-only rules it carries (tests use the in-process registry; the parity harness is the oracle).
 **Rationale**: the godoc is the published contract; two copies drift.
+**Implementation note (2026-09-13)**: four rules the CLAUDE.md section carried were in method godoc or the spec but not in the package doc (the `WithRegistry` fallback and never-written-back mapping; the gate-agrees-with-the-kernel and inputs-not-mutated statements; the local-replacements edge cases and its security-boundary framing). They were added to `opm/kernel/doc.go` as three short passages so the pointer drops nothing; the `-race` note stays in CLAUDE.md as a test-only rule.
 
 ## Risks / Trade-offs
 

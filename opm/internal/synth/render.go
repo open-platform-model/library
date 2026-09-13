@@ -39,8 +39,6 @@ func moduleImportPath(m *module.Module) string {
 // `opmModule` import (the module's own path@major) resolves LOCALLY to the
 // module's root package, and `core` resolves from the module's own tidied
 // cue.mod/module.cue — no fabricated dependency declaration is involved.
-//
-// Was: renderReleaseFile
 func renderInstanceFile(in Input, coreVersion string) string {
 	modImport := moduleImportPath(in.Module)
 

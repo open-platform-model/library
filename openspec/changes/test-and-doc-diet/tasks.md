@@ -19,6 +19,6 @@
 
 ## 4. Doc trim (opm/helper, opm/module, opm/kernel, opm/schema, opm/internal/synth, CLAUDE.md)
 
-- [ ] 4.1 Trim `opm/helper/doc.go` per `design.md` "Doc trim" (boundary, `platformmodule`, one line per folded subpackage, `legacy:001`); delete the six `// Was: Release…` breadcrumbs (`opm/module/instance.go:21,44`, `opm/kernel/synth.go:98`, `opm/kernel/render.go:81`, `opm/schema/metadata.go:37`, `opm/internal/synth/render.go:43`); verify `grep -rn '// Was:' opm --include='*.go' | grep -v _test` is empty and `go vet ./...` passes.
-- [ ] 4.2 Replace the body of CLAUDE.md "### Render contract" with a pointer to the `opm/kernel` package doc (`go doc ./opm/kernel`) and the two agent-only rules it carries (tests serve catalogs from `opm/internal/registrytest`; the parity harness is the oracle); verify the section is under fifteen lines and every rule it dropped is present in `opm/kernel/doc.go`.
-- [ ] 4.3 `task check` green, then commit `chore(library): trim stale package docs and rename breadcrumbs`.
+- [x] 4.1 Trim `opm/helper/doc.go` per `design.md` "Doc trim" (boundary, `platformmodule`, one line per folded subpackage, `legacy:001`); delete the six `// Was: Release…` breadcrumbs (`opm/module/instance.go:21,44`, `opm/kernel/synth.go:98`, `opm/kernel/render.go:81`, `opm/schema/metadata.go:37`, `opm/internal/synth/render.go:43`); verify `grep -rn '// Was:' opm --include='*.go' | grep -v _test` is empty and `go vet ./...` passes.
+- [x] 4.2 Replace the body of CLAUDE.md "### Render contract" with a pointer to the `opm/kernel` package doc (`go doc ./opm/kernel`) and the two agent-only rules it carries (tests serve catalogs from `opm/internal/registrytest`; the parity harness is the oracle); verify the section is under fifteen lines and every rule it dropped is present in `opm/kernel/doc.go`.
+- [x] 4.3 `task check` green, then commit `chore(library): trim stale package docs and rename breadcrumbs`.
