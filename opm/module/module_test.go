@@ -1,14 +1,12 @@
 package module_test
 
 import (
-	"reflect"
 	"testing"
 
 	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -48,10 +46,11 @@ func TestNewModuleFromValue_MissingMetadata(t *testing.T) {
 }
 
 // artifact-types spec, "Constructor Helpers from cue.Value": a module built
-// from a bare value carries no Source, and the kernel exposes no wrapper for
-// the constructor — a frontend holding a value calls the package constructor
-// directly, and one wanting a source-carrying module uses an acquire verb.
-func TestNewModuleFromValue_NoSourceAndNoKernelWrapper(t *testing.T) {
+// from a bare value carries no Source. That the kernel exposes no wrapper for
+// the constructor is pinned by TestKernel_ExportedSurface in opm/kernel: a
+// frontend holding a value calls the package constructor directly, and one
+// wanting a source-carrying module uses an acquire verb.
+func TestNewModuleFromValue_NoSource(t *testing.T) {
 	v := cuecontext.New().CompileString(`
 kind: "Module"
 metadata: {
@@ -69,7 +68,4 @@ metadata: {
 	assert.Equal(t, "demo-mod", mod.Metadata.Name)
 	assert.Nil(t, mod.Source, "a value-constructed module carries no staged source")
 	assert.False(t, mod.HasSource())
-
-	_, found := reflect.TypeFor[*kernel.Kernel]().MethodByName("NewModuleFromValue")
-	assert.False(t, found, "*kernel.Kernel must not wrap module.NewModuleFromValue")
 }

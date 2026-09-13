@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -52,10 +53,24 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	k := kernel.New(kernel.WithRegistry(registry))
 	ctx := context.Background()
 
-	// ── The consumer Module, for its identity ────────────────────────
+	// ── The consumer Module, for its identity and its debugValues ────
 	mod, err := k.AcquireModuleFromDir(ctx, moduleDir)
 	require.NoErrorf(t, err, "acquiring module from %s", moduleDir)
 	require.Equal(t, "web_app", mod.Metadata.Name)
+
+	// The fixture's authored debugValues satisfy its own #config against the
+	// published core and catalog, the paths the in-memory validate cases
+	// bypass. A Source carries bytes: render the field back to CUE source,
+	// the way a frontend layering a debug overlay would hand it in.
+	debugValues := mod.Package.LookupPath(schema.DebugValues)
+	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
+	rendered, err := format.Node(debugValues.Syntax(cue.Final(), cue.Concrete(false)))
+	require.NoError(t, err)
+	src, err := k.LoadSourceFromBytes(moduleDir, rendered)
+	require.NoError(t, err)
+	validated, err := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{src})
+	require.NoError(t, err, "real debugValues must satisfy the real #config schema")
+	assert.True(t, validated.Exists())
 
 	// ── Acquire the Platform module ──────────────────────────────────
 	plat, err := k.AcquirePlatformFromDir(ctx, platformDir)

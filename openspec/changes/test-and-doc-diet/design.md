@@ -36,6 +36,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 3. One test asserting `reflect.TypeOf(&kernel.Kernel{})`'s exported method names equal a sorted literal list, with `*ForTest` names filtered out.
 **Decision**: option 3, `TestKernel_ExportedSurface` in `kernel_test.go`, replacing `NoFinalizeMethod`, `PrunedSurface` and `NoLoadModuleFromRegistryMethod`; the `NewModuleFromValue` check in `module_test.go` is dropped because the exact set covers it. `NoContextAccessor` stays.
 **Rationale**: an exact set is the strongest form of every absence pin at once, and a future removal edits one literal instead of adding a name.
+**Implementation note (2026-09-13)**: `TestKernel_PrunedSurface` also carried three shape assertions a method list cannot express (the variadic `kernel.Source` tail of `AcquireInstanceFromDir`, no `Values` field on `RenderInput`, the two-field `Source` struct; scenarios artifact-types "No option type for values" and config-validation "Source struct shape"). They stay, as `TestKernel_ValuesEnterThroughSources` in `kernel_test.go`, so no scenario loses its pin.
 
 ### Retire the fill tests; spike the probe's skip
 
