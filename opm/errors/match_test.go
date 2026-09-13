@@ -37,14 +37,14 @@ func TestUnifyRefusal_CarriesItsConflicts(t *testing.T) {
 }
 
 func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
-	// No alternatives: the contract is unimplemented on this platform.
+	// No alternatives, no defining catalog: nothing enabled lists the key.
 	bare := &oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{
 		{Component: "web", FQN: "example.com/r/volume@v1", Kind: "resource"},
 	}}
 	assert.Contains(t, bare.Error(), "1 unresolved demand(s)")
 	assert.Contains(t, bare.Error(), `component "web"`)
 	assert.Contains(t, bare.Error(), "unresolved resource demand")
-	assert.Contains(t, bare.Error(), "nothing on this platform implements this contract")
+	assert.Contains(t, bare.Error(), "no enabled catalog defines this contract")
 
 	// Alternatives present: the D4 different-apiVersion diagnostic.
 	alt := &oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{{
@@ -64,6 +64,51 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 		Disqualified: []oerrors.UnifyRefusal{{Component: "web", Transformer: "cat/t/backup@0.1.0"}},
 	}}}
 	assert.Contains(t, disq.Error(), "1 candidate(s) disqualified")
+}
+
+// single-build-render spec, "Unresolved demands are diagnosed with
+// alternatives": the row words three cases, and the defining catalog (0015
+// D18) is named wherever an enabled catalog lists the key.
+func TestUnresolvedDemand_ThreeCases(t *testing.T) {
+	const cat = "example.com/catalogs/main@v1"
+	cases := []struct {
+		name   string
+		row    oerrors.UnresolvedDemand
+		want   string
+		absent string
+	}{
+		{
+			name:   "defined by a catalog, implemented by nothing",
+			row:    oerrors.UnresolvedDemand{Component: "web", FQN: "example.com/t/backup@v1", Kind: "trait", DefinedBy: cat},
+			want:   `unresolved trait demand "example.com/t/backup@v1": defined by "example.com/catalogs/main@v1" and nothing on this platform implements it`,
+			absent: "no enabled catalog defines",
+		},
+		{
+			name:   "implemented at a different apiVersion, defining catalog named",
+			row:    oerrors.UnresolvedDemand{Component: "web", FQN: "example.com/r/volume@v1", Kind: "resource", DefinedBy: cat, Alternatives: []string{"example.com/r/volume@v2"}},
+			want:   `defined by "example.com/catalogs/main@v1", implemented at a different apiVersion (alternatives: [example.com/r/volume@v2])`,
+			absent: "nothing on this platform implements",
+		},
+		{
+			name:   "implemented at a different apiVersion, no defining catalog",
+			row:    oerrors.UnresolvedDemand{Component: "web", FQN: "example.com/r/volume@v1", Kind: "resource", Alternatives: []string{"example.com/r/volume@v2"}},
+			want:   `unresolved resource demand "example.com/r/volume@v1": implemented at a different apiVersion (alternatives: [example.com/r/volume@v2])`,
+			absent: "defined by",
+		},
+		{
+			name:   "no enabled catalog defines it",
+			row:    oerrors.UnresolvedDemand{Component: "web", FQN: "example.com/r/volume@v1", Kind: "resource"},
+			want:   `unresolved resource demand "example.com/r/volume@v1": no enabled catalog defines this contract`,
+			absent: "defined by",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := (&oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{tc.row}}).Error()
+			assert.Contains(t, msg, tc.want)
+			assert.NotContains(t, msg, tc.absent)
+		})
+	}
 }
 
 func TestUnresolvedDemandsError_CarriesRowsAndWrapsNothing(t *testing.T) {

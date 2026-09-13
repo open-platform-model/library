@@ -16,7 +16,8 @@ Core `v2.0.0-alpha.9` derives `#Platform.#contracts`, the contract inventory enh
 
 ## Downstream consumers
 
-- **`cli`** (library `alpha.29`): picks up the next release through Dependabot. The 0015 `opm platform check` change is the first reader of `Contracts()`; the render-validation path that already counts providing catalogs keeps working unchanged. Any test asserting the unresolved-demand message text re-pins its sentence.
+- **`cli`** (library `alpha.29`): picks up the next release through Dependabot. The 0015 `opm platform check` change is the first reader of `Contracts()`; the render-validation path that already counts providing catalogs keeps working unchanged. Measured at task 3.4 (cli built against this tree through a scratch `go.mod` replace): no cli test asserts the library's `UnresolvedDemandsError.Error()` sentence. The cli words the rows itself in `internal/cmdutil/output.go` `FormatUnresolvedDemands` (line 71, its own "nothing on this platform implements this contract" line, pinned by `internal/cmdutil/output_test.go` line 127), so the Dependabot bump changes no cli output; the cli's 0015 slice is where that presenter gains the `DefinedBy` arm.
+- **`opm-operator`** (library `alpha.28`): built against this tree through a scratch `go.mod` replace at task 3.4, no signature it uses changed, and nothing in it asserts the unresolved-demand sentence.
 - **`opm-operator`** (library `alpha.28`): the 0015 operator slice reads `Contracts().Unfulfilled` and `DefinedBy` for the non-gating `ContractsFulfilled` condition and `Routable` for the generation refusal (D18). Nothing until that slice.
 - **`catalog_opm`**: independent. Its `catalog-contract-listing` change is what makes the inventory non-vacuous in production; this change's fixtures make it non-vacuous in the library's tests, so the two can land in either order.
 

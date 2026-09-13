@@ -16,7 +16,7 @@ Every resource a component declares is a required demand. A demanded contract fo
 
 #### Scenario: A defined but unimplemented contract names its catalog
 
-- **WHEN** an enabled catalog lists a provider-fulfilled trait in its contract maps, no transformer on the platform requires it, and a component attaches it load-bearing
+- **WHEN** an enabled catalog lists a trait in its contract maps (whatever its fulfilment), no transformer on the platform requires it, and a component attaches it load-bearing
 - **THEN** `Render` fails with an unresolved-demands cause whose row carries that catalog's registry key as the defining catalog and no alternatives, and the message names the catalog beside the component and key
 
 #### Scenario: A disabled catalog defines nothing

@@ -17,13 +17,13 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 
 #### Scenario: The inventory of a healthy platform reads as fulfilled and routable
 
-- **WHEN** an acquired platform embeds one enabled catalog whose contract maps list a provider-fulfilled trait and whose transformers require it
-- **THEN** `Contracts()` returns `DefinedBy` mapping that trait to the catalog's registry key, `RequiredBy` listing the requiring transformer, empty `Unfulfilled` and `OverSubscribed`, and `Fulfilled` and `Routable` both true
+- **WHEN** an acquired platform embeds one enabled catalog whose contract maps list a provider-fulfilled contract (a resource or a trait) and whose transformers require it
+- **THEN** `Contracts()` returns `DefinedBy` mapping that contract to the catalog's registry key, `RequiredBy` listing the requiring transformer, empty `Unfulfilled` and `OverSubscribed`, and `Fulfilled` and `Routable` both true
 
 #### Scenario: An over-subscribed platform is reported, not refused
 
-- **WHEN** an acquired platform embeds two enabled catalogs whose transformers both require one provider-fulfilled trait that an enabled catalog lists
-- **THEN** the platform acquires, `Contracts()` returns `OverSubscribed` naming the trait and `Routable` false, and no error is returned from acquisition or from the accessor
+- **WHEN** an acquired platform embeds two enabled catalogs whose transformers both require one provider-fulfilled contract that an enabled catalog lists
+- **THEN** the platform acquires, `Contracts()` returns `OverSubscribed` naming the contract and `Routable` false, and no error is returned from acquisition or from the accessor
 
 #### Scenario: An unlisted demand leaves the inventory empty
 
