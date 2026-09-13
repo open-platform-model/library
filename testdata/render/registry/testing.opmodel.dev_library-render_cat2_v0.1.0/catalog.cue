@@ -4,7 +4,9 @@
 // byte-identical copies. 0.1.0 ships one transformer requiring the
 // catalog-fulfilled container contract: many suppliers across catalogs are
 // admitted for such a key, so a platform carrying both catalogs renders and
-// every candidate participates in matching.
+// every candidate participates in matching. It defines no contract of its
+// own, so its contract maps (#resources, #traits) stay empty and a platform
+// embedding only this catalog derives an empty inventory (0015 D1).
 package cat2
 
 import (

@@ -9,9 +9,11 @@
 // version and the platform's #composedTransformers from it (enhancement
 // 0019 D5/D17). The kernel acquires it with Kernel.AcquirePlatformFromDir,
 // which stamps Source, and renders against it with Kernel.Render, which
-// imports the platform package into the render build. No Go code navigates
-// the platform value by path: the composed transformers are read by the
-// render glue, in CUE, inside the build.
+// imports the platform package into the render build. The composed
+// transformers are read by the render glue, in CUE, inside the build; the
+// one derived view Go reads by path is the contract inventory
+// (#Platform.#contracts, enhancement 0015), on demand through
+// Platform.Contracts and never at construction.
 //
 // See:
 //   - enhancements/0019 (workspace root) — single-build render

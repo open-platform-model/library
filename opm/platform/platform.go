@@ -13,10 +13,11 @@ import (
 // shape: { Metadata, Package }.
 //
 // Package is the source of truth: it is the loaded CUE value for the
-// platform, and metadata decoding reads it. The CUE-computed view
-// (#composedTransformers) is NOT decoded into Go fields and is not read from
-// Go at all: the render build imports the platform package and the glue
-// reads the view in CUE.
+// platform, and metadata decoding reads it. The derived CUE views
+// (#composedTransformers, #contracts) are NOT decoded into Go fields at
+// construction: the render build imports the platform package and the glue
+// reads #composedTransformers in CUE, and the contract inventory is read
+// off Package on demand through [Platform.Contracts] (enhancement 0015).
 //
 // Metadata is an ergonomic decoded projection of the platform-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —
