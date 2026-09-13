@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -187,7 +188,7 @@ func TestKernel_SynthesizeInstance_ParityWithAuthoredPackage(t *testing.T) {
 
 	// Authored path: an on-disk instance package importing the published
 	// module, resolved through the same registry mapping the kernel carries.
-	modPath := strings.TrimSuffix(mod.Metadata.ModulePath, "@"+majorOf(version))
+	modPath := strings.TrimSuffix(mod.Metadata.ModulePath, "@"+registrytest.Major(version))
 	instDir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, version, "myrel", "default", "{}", nil)
 	authored, err := k.AcquireInstanceFromDir(ctx, instDir)
 	require.NoError(t, err, "authored instance.cue importing the published module must acquire")

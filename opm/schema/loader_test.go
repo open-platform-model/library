@@ -94,7 +94,7 @@ func TestOCILoader_ModuleOverride(t *testing.T) {
 	// Pin to the major-only form — the loader expands it to vN.latest
 	// internally; the resolved value should still expose the schema.
 	val, err := schema.OCILoader{
-		Module: "opmodel.dev/core@v1",
+		Module: "opmodel.dev/core@v2",
 	}.Load(ctx)
 	require.NoError(t, err)
 	require.True(t, val.Exists())

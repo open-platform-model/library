@@ -136,6 +136,36 @@ func PrivateCacheDir(t testing.TB) string {
 	return root
 }
 
+// WritePkgDir writes content as file under a fresh temp directory and
+// returns the directory: a single-file CUE package with no cue.mod, the
+// shape the directory acquire verbs and the loader's shape gate build.
+func WritePkgDir(t testing.TB, file, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o644); err != nil {
+		t.Fatalf("schematest: writing %s: %v", file, err)
+	}
+	return dir
+}
+
+// WriteModuleDir is [WritePkgDir] with the file named module.cue.
+func WriteModuleDir(t testing.TB, content string) string {
+	t.Helper()
+	return WritePkgDir(t, "module.cue", content)
+}
+
+// WriteInstanceDir is [WritePkgDir] with the file named instance.cue.
+func WriteInstanceDir(t testing.TB, content string) string {
+	t.Helper()
+	return WritePkgDir(t, "instance.cue", content)
+}
+
+// WritePlatformDir is [WritePkgDir] with the file named platform.cue.
+func WritePlatformDir(t testing.TB, content string) string {
+	t.Helper()
+	return WritePkgDir(t, "platform.cue", content)
+}
+
 // SetEnv configures CUE_REGISTRY and CUE_CACHE_DIR for the test scope
 // via t.Setenv. Registry defaults to [schema.PublicRegistry]; the cache
 // directory is the shared [WorkspaceCacheDir]. The settings revert at

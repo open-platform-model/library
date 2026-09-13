@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/helper/platformmodule"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -57,13 +58,6 @@ func resFQN(path, name string) string {
 	return fmt.Sprintf("%s/resources/%s@%s", path, name, registrytest.ContractAPIVersion)
 }
 
-// majorOf returns the major-qualified suffix a served fixture at version is
-// published under: "0.1.0" → "v0".
-func majorOf(version string) string {
-	major, _, _ := strings.Cut(version, ".")
-	return "v" + major
-}
-
 // newKernelWithCatalogs stands up an in-memory registry serving the given
 // catalogs and returns a kernel wired to it, plus the registry mapping for
 // the loaders.
@@ -75,33 +69,25 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 
 // writeCatalogPlatform writes, as a nested module under dir, a
 // #CatalogEntry-form platform (core 0019 D5) importing the served catalog
-// catPath at version, and returns the platform module directory.
+// catPath at version, and returns the platform module directory. The files
+// come from opm/helper/platformmodule, the generator a frontend runs for the
+// same coordinates, so the render tests exercise its output end to end.
 func writeCatalogPlatform(t *testing.T, dir, catPath, version string) string {
 	t.Helper()
 	platDir := filepath.Join(dir, "platform")
-	dep := catPath + "@" + majorOf(version)
-	writeFile(t, filepath.Join(platDir, "cue.mod", "module.cue"), fmt.Sprintf(`module: "testing.opmodel.dev/library-kernel-test/platform@v0"
-language: version: "v0.17.0"
-deps: {
-	"opmodel.dev/core@v2": v: %q
-	%q: v: %q
-}
-`, registrytest.DefaultCoreVersion, dep, "v"+version))
-	writeFile(t, filepath.Join(platDir, "platform.cue"), fmt.Sprintf(`package platform
-
-import (
-	core "opmodel.dev/core@v2"
-	cat %q
-)
-
-core.#Platform
-metadata: name: "hermetic"
-type: "kubernetes"
-#registry: %q: {
-	enable:   true
-	#catalog: cat
-}
-`, dep, dep))
+	dep := catPath + "@" + registrytest.Major(version)
+	files, err := platformmodule.Generate(platformmodule.Input{
+		Name:       "hermetic",
+		Type:       "kubernetes",
+		ModulePath: "testing.opmodel.dev/library-kernel-test/platform@v0",
+		Entries:    []platformmodule.Entry{{Path: dep, Version: version, Enable: true}},
+		Deps: []platformmodule.Dep{
+			{Path: platformmodule.CorePath, Version: registrytest.DefaultCoreVersion},
+			{Path: dep, Version: "v" + version},
+		},
+	})
+	require.NoErrorf(t, err, "generating the #CatalogEntry-form platform for %s", dep)
+	require.NoError(t, files.WriteTo(platDir), "writing the generated platform module")
 	return platDir
 }
 
@@ -124,7 +110,7 @@ func writeImportedInstance(t *testing.T, root, modulePath, modPath, version, nam
 	t.Helper()
 	var deps strings.Builder
 	fmt.Fprintf(&deps, "\t\"opmodel.dev/core@v2\": v: %q\n", registrytest.DefaultCoreVersion)
-	fmt.Fprintf(&deps, "\t%q: v: %q\n", modPath+"@"+majorOf(version), "v"+version)
+	fmt.Fprintf(&deps, "\t%q: v: %q\n", modPath+"@"+registrytest.Major(version), "v"+version)
 	for p, v := range extraDeps {
 		fmt.Fprintf(&deps, "\t%q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 	}
@@ -149,7 +135,7 @@ metadata: {
 
 #module: opmModule
 values: %s
-`, modPath+"@"+majorOf(version), name, namespace, values))
+`, modPath+"@"+registrytest.Major(version), name, namespace, values))
 	return filepath.Join(root, "instance")
 }
 
@@ -159,7 +145,7 @@ values: %s
 func synthesizeInstance(t *testing.T, k *kernel.Kernel, modPath, version, name string) *module.Instance {
 	t.Helper()
 	ctx := context.Background()
-	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+majorOf(version), "v"+version)
+	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+registrytest.Major(version), "v"+version)
 	require.NoErrorf(t, err, "acquiring served module %s", modPath)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source")
 	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
@@ -210,7 +196,7 @@ debugValues: {}
 		}
 	}
 }
-`, modPath+"@"+majorOf(version), version,
+`, modPath+"@"+registrytest.Major(version), version,
 		containerFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, containerFQN,
 		configFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, configFQN)
 }

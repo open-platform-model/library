@@ -19,6 +19,10 @@ linters:
         # every acquire signature.
         kernel-never-imports-helper:
           files:
+            # Test files are outside the build graph a consumer links, so a
+            # kernel test may drive a helper (the fixtures in opm/kernel build
+            # their platform module through opm/helper/platformmodule).
+            - "!**/*_test.go"
             - "**/opm/kernel/**"
             - "**/opm/module/**"
             - "**/opm/platform/**"

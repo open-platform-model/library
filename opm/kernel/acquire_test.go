@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -43,16 +44,9 @@ metadata: {
 values: {replicas: 3}
 `
 
-func writeTempPlatformDir(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "platform.cue"), []byte(content), 0o644))
-	return dir
-}
-
 // platform-artifact spec, "Acquired platform carries its source".
 func TestKernel_AcquirePlatformFromDir_CarriesSource(t *testing.T) {
-	dir := writeTempPlatformDir(t, acquirePlatformFixture)
+	dir := schematest.WritePlatformDir(t, acquirePlatformFixture)
 	k := kernel.New()
 	ctx := context.Background()
 
@@ -79,7 +73,7 @@ func TestKernel_AcquirePlatformFromDir_CarriesSource(t *testing.T) {
 
 // A relative directory path is stamped as its absolute form.
 func TestKernel_AcquirePlatformFromDir_RelativePathAbsolutized(t *testing.T) {
-	dir := writeTempPlatformDir(t, acquirePlatformFixture)
+	dir := schematest.WritePlatformDir(t, acquirePlatformFixture)
 	parent, leaf := filepath.Split(dir)
 	t.Chdir(parent)
 
@@ -92,7 +86,7 @@ func TestKernel_AcquirePlatformFromDir_RelativePathAbsolutized(t *testing.T) {
 // platform-artifact spec, "Registry override honored": the option reaches the
 // loader (a platform with no registry-backed imports still loads).
 func TestKernel_AcquirePlatformFromDir_RegistryOverride(t *testing.T) {
-	dir := writeTempPlatformDir(t, acquirePlatformFixture)
+	dir := schematest.WritePlatformDir(t, acquirePlatformFixture)
 
 	plat, err := kernel.New().AcquirePlatformFromDir(context.Background(), dir)
 	require.NoError(t, err, "registry override must be accepted even when no imports use it")
@@ -113,7 +107,7 @@ func TestKernel_AcquirePlatformFromDir_Errors(t *testing.T) {
 	})
 
 	t.Run("wrong kind", func(t *testing.T) {
-		dir := writeTempPlatformDir(t, `
+		dir := schematest.WritePlatformDir(t, `
 package platform
 kind: "Module"
 metadata: name: "not-a-platform"
@@ -126,7 +120,7 @@ type: "kubernetes"
 	})
 
 	t.Run("missing type", func(t *testing.T) {
-		dir := writeTempPlatformDir(t, `
+		dir := schematest.WritePlatformDir(t, `
 package platform
 kind: "Platform"
 metadata: name: "typeless"
@@ -140,7 +134,7 @@ metadata: name: "typeless"
 
 // artifact-types spec, "Acquired instance carries its source".
 func TestKernel_AcquireInstanceFromDir_CarriesSource(t *testing.T) {
-	dir := writeTempInstanceDir(t, acquireInstanceFixture)
+	dir := schematest.WriteInstanceDir(t, acquireInstanceFixture)
 	k := kernel.New()
 	ctx := context.Background()
 
@@ -166,7 +160,7 @@ func TestKernel_AcquireInstanceFromDir_CarriesSource(t *testing.T) {
 // artifact-types spec, "Validation failures propagate": a non-concrete
 // package fails the kernel's concreteness check and yields no instance.
 func TestKernel_AcquireInstanceFromDir_NonConcreteRejected(t *testing.T) {
-	dir := writeTempInstanceDir(t, `
+	dir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: {
@@ -196,7 +190,7 @@ func TestKernel_AcquireInstanceFromDir_LoaderErrors(t *testing.T) {
 	})
 
 	t.Run("wrong kind", func(t *testing.T) {
-		dir := writeTempInstanceDir(t, `
+		dir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "Platform"
 metadata: {name: "not-an-instance", namespace: "ns"}
@@ -209,7 +203,7 @@ metadata: {name: "not-an-instance", namespace: "ns"}
 	})
 
 	t.Run("missing required field", func(t *testing.T) {
-		dir := writeTempInstanceDir(t, `
+		dir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: {namespace: "ns"}
@@ -301,7 +295,7 @@ func TestKernel_AcquireInstanceFromDir_WithSources_MirrorsDisk(t *testing.T) {
 
 // A module-less package (no cue.mod, no imports) layers without a registry.
 func TestKernel_AcquireInstanceFromDir_WithSources_ModuleLess(t *testing.T) {
-	dir := writeTempInstanceDir(t, acquireInstanceFixture)
+	dir := schematest.WriteInstanceDir(t, acquireInstanceFixture)
 	k := kernel.New()
 	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
 		mustSource(t, k, "/values/extra.cue", `tag: "v1"`))

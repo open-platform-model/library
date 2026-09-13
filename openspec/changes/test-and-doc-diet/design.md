@@ -55,6 +55,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 
 **Decision**: `writeCatalogPlatform` builds `platformmodule.Input{Name: "hermetic", Type: "kubernetes", ModulePath: "testing.opmodel.dev/library-kernel-test/platform@v0", Entries: [{Path: dep, Version: version, Enable: true}], Deps: [{core pin}, {dep, "v"+version}]}`, calls `Generate` and `Files.WriteTo(platDir)`. `schematest` gains `WriteModuleDir`, `WriteInstanceDir`, `WritePlatformDir` (and the `WritePkgDir` they share), replacing both copies. `registrytest` exports `Major(version string) string`, used by `coreMajor`'s callers and by `integration_fixtures_test.go`; `synth.major` is production code in an internal package and stays.
 **Rationale**: a hand-written copy of the generator's output cannot catch generator drift; the shared helpers already live in the package both test trees import.
+**Implementation note (2026-09-13)**: the `kernel-never-imports-helper` depguard rule in `.golangci.yml` matched test files too, so `integration_fixtures_test.go` importing `platformmodule` failed `task lint`. The rule now excludes `**/*_test.go`: a `_test.go` file is outside the build graph a consumer links, so the boundary the rule enforces (a frontend may skip `opm/helper/`) is untouched. `writeTempModuleRoot` in `acquire_test.go` (a module root with a `cue.mod`, one caller) is not one of the three single-file helpers and stays.
 
 ### Doc trim
 

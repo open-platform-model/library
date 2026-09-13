@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/internal/registrytest"
+	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -109,20 +109,6 @@ func TestNew_ExplicitSchemaLoaderWinsInEitherOrder(t *testing.T) {
 	}
 }
 
-func writeTempModuleDir(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "module.cue"), []byte(content), 0o644))
-	return dir
-}
-
-func writeTempInstanceDir(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(content), 0o644))
-	return dir
-}
-
 func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 	k := kernel.New()
 	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
@@ -151,7 +137,7 @@ func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
 	const n = 8
-	dir := writeTempModuleDir(t, `
+	dir := schematest.WriteModuleDir(t, `
 package mod
 kind: "Module"
 metadata: {
@@ -160,7 +146,7 @@ metadata: {
 	version:    "0.1.0"
 }
 `)
-	instDir := writeTempInstanceDir(t, `
+	instDir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: {
