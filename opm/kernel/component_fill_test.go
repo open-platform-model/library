@@ -76,7 +76,7 @@ func TestRender_ComponentFillPreservesDefinitions(t *testing.T) {
 
 	// The values core computes for component `web` of instance
 	// probe-demo/default (resourceName is <instance>-<component> since core
-	// 2.0.0-alpha.7); the same the parity oracle renders (D3).
+	// 2.0.0-alpha.9); the same the parity oracle renders (D3).
 	assert.Equal(t, "probe-demo-web", resourceName)
 	assert.Equal(t, "probe-demo-web.default.svc.cluster.local", fqdn)
 }

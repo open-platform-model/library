@@ -2,7 +2,9 @@
 // SECOND provider for the first catalog's provider-fulfilled gateway
 // contract. A platform carrying cat and this build supplies that key from
 // two catalogs, which the in-build single-provider guard (0010 D32/D37)
-// refuses naming the key and both registry keys.
+// refuses naming the key and both registry keys, and which the platform's
+// derived contract inventory reports as over-subscribed (0015 D18). Like
+// 0.1.0 it defines no contract of its own: its contract maps stay empty.
 package cat2
 
 import (

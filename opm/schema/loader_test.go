@@ -164,7 +164,7 @@ func TestPublicRegistry_Value(t *testing.T) {
 // Advancing it is a deliberate change that re-verifies the glue and the
 // fixtures against the new release, never a drift.
 func TestDefaultSchemaModule_PinsVerifiedRelease(t *testing.T) {
-	assert.Equal(t, "opmodel.dev/core@v2.0.0-alpha.7", schema.DefaultSchemaModule)
+	assert.Equal(t, "opmodel.dev/core@v2.0.0-alpha.9", schema.DefaultSchemaModule)
 	assert.False(t, strings.HasSuffix(schema.DefaultSchemaModule, "@v2"),
 		"the default must name an exact release, never the floating major")
 }
@@ -173,7 +173,7 @@ func TestDefaultSchemaModule_PinsVerifiedRelease(t *testing.T) {
 // the version suffix of DefaultSchemaModule: a generated platform module
 // (opm/helper/platformmodule) pins core at exactly this release by default.
 func TestDefaultSchemaVersion_IsTheDefaultModulesVersion(t *testing.T) {
-	assert.Equal(t, "v2.0.0-alpha.7", schema.DefaultSchemaVersion())
+	assert.Equal(t, "v2.0.0-alpha.9", schema.DefaultSchemaVersion())
 	assert.Equal(t, "opmodel.dev/core@"+schema.DefaultSchemaVersion(), schema.DefaultSchemaModule)
 }
 

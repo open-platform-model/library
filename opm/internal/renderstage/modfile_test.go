@@ -21,7 +21,7 @@ deps: {
 		default: true
 	}
 	"opmodel.dev/catalogs/opm@v4": v: "v4.2.0"
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
 }
 `
 
@@ -29,7 +29,7 @@ const instanceModFile = `module: "testing.opmodel.dev/modules/web_app@v1"
 language: version: "v0.17.1"
 deps: {
 	"opmodel.dev/catalogs/opm@v4": v: "v4.3.0"
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
 	"example.com/helpers@v1": {
 		v:       "v1.0.0"
 		default: true
@@ -170,7 +170,7 @@ func TestReadLocalModFile_Targets(t *testing.T) {
 	// target on any of them.
 	assert.Equal(t, Dep{Version: "v4.3.0"}, local.Deps["opmodel.dev/catalogs/opm@v4"])
 	assert.Equal(t, Dep{Version: "v1.0.0", Default: true}, local.Deps["example.com/helpers@v1"])
-	assert.Equal(t, Dep{Version: "v2.0.0-alpha.7"}, local.Deps["opmodel.dev/core@v2"])
+	assert.Equal(t, Dep{Version: "v2.0.0-alpha.9"}, local.Deps["opmodel.dev/core@v2"])
 	assert.Equal(t, Dep{Version: "v2.1.0"}, local.Deps["fork.example/core@v2"])
 	assert.Equal(t, Dep{}, local.Deps["lib.example/never@v0"])
 	assert.Len(t, local.Deps, 5)
@@ -226,7 +226,7 @@ func TestPromote_PlatformWinsSharedPath(t *testing.T) {
 	p, err := Promote(mustParse(t, platformModFile, "p"), mustParse(t, instanceModFile, "i"), nil, nil, "/tmp/plat", "/tmp/inst")
 	require.NoError(t, err)
 	assert.Equal(t, "v4.2.0", p.Deps["opmodel.dev/catalogs/opm@v4"].Version, "the platform's entry wins the shared catalog path")
-	assert.Equal(t, "v2.0.0-alpha.7", p.Deps["opmodel.dev/core@v2"].Version)
+	assert.Equal(t, "v2.0.0-alpha.9", p.Deps["opmodel.dev/core@v2"].Version)
 	assert.Equal(t, "v0.17.1", p.Language, "language.version is the inputs' maximum")
 }
 
@@ -410,7 +410,7 @@ func TestCompareSkew_NewerOlderAndEqual(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []VersionRow{
 		{Path: "opmodel.dev/catalogs/opm@v4", ModuleVersion: "v4.3.0", PlatformVersion: "v4.2.0", Newer: true},
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: "v2.0.0-alpha.7"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.9", PlatformVersion: "v2.0.0-alpha.9"},
 	}, rows, "non-OPM paths are not compared; the newer catalog pin is flagged")
 
 	older := mustParse(t, `module: "testing.opmodel.dev/modules/old@v1"
@@ -425,7 +425,7 @@ deps: {
 	require.NoError(t, err)
 	require.Equal(t, []VersionRow{
 		{Path: "opmodel.dev/catalogs/opm@v4", ModuleVersion: "v4.1.0", PlatformVersion: "v4.2.0"},
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.6", PlatformVersion: "v2.0.0-alpha.7"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.6", PlatformVersion: "v2.0.0-alpha.9"},
 		{Path: "testing.opmodel.dev/fixtures/only@v0", ModuleVersion: "v0.3.0"},
 	}, rows, "older-than-platform and instance-only paths are rows with no Newer flag")
 	for _, r := range rows {
@@ -518,7 +518,7 @@ func TestPromote_ReplaceOnlyDependencyGetsPlaceholder(t *testing.T) {
 	inst, instLocal := localView(t, "/inst", `module: "testing.opmodel.dev/modules/web_app@v1"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
 	"lib.example/never@v0": {}
 	"testing.opmodel.dev/fixtures/never@v3": {}
 }
@@ -597,7 +597,7 @@ func TestPromote_RefusesVersionlessDependencyWithoutReplacement(t *testing.T) {
 	inst := mustParse(t, `module: "testing.opmodel.dev/modules/web_app@v1"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
 	"lib.example/never@v0": {}
 }
 `, "i")
@@ -613,7 +613,7 @@ deps: {
 	_, instLocal := localView(t, "/inst", `module: "testing.opmodel.dev/modules/web_app@v1"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.7"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
 	"lib.example/never@v0": {}
 	"other.example/x@v0": v: "v0.1.0"
 }
@@ -668,6 +668,6 @@ deps: "opmodel.dev/catalogs/opm@v4": {}
 	require.NoError(t, err)
 	assert.Equal(t, []VersionRow{
 		{Path: "opmodel.dev/catalogs/opm@v4", ModuleVersion: "v4.3.0", PlatformVersion: ""},
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.7", PlatformVersion: ""},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.9", PlatformVersion: ""},
 	}, rows)
 }

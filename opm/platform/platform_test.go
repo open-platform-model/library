@@ -39,6 +39,22 @@ type: "kubernetes"
 	assert.True(t, p.Package.Equals(v), "Package set unchanged from input")
 }
 
+// TestPlatform_FieldSet pins the platform-artifact scenario "Platform struct
+// fields": exactly Metadata, Package and Source are exported, so no decoded
+// derived view (#composedTransformers, #contracts) ever becomes a struct
+// field. The contract inventory is read on demand through Contracts().
+func TestPlatform_FieldSet(t *testing.T) {
+	typ := reflect.TypeOf(platform.Platform{})
+	var exported []string
+	for i := 0; i < typ.NumField(); i++ {
+		if f := typ.Field(i); f.IsExported() {
+			exported = append(exported, f.Name)
+		}
+	}
+	assert.Equal(t, []string{"Metadata", "Package", "Source"}, exported,
+		"the artifact shape is {Metadata, Package, Source}; derived CUE views are never decoded into fields")
+}
+
 // TestNewPlatformFromValue_MissingMetadata exercises the malformed-metadata
 // path: the decoder treats an absent metadata field as fatal.
 func TestNewPlatformFromValue_MissingMetadata(t *testing.T) {

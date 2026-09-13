@@ -15,6 +15,7 @@ thing that differs between them:
 | `unstated` | an unhandled trait whose posture the catalog never stated: refused as a build error naming `optional` |
 | `incomplete` | a pair whose output never becomes concrete: refused at a path naming the pair |
 | `failing` | a healthy pair beside a pair whose output conflicts: the failing pair is reported as data |
+| `unlisted` | a resource demand for a contract no catalog lists or implements (authored inline): refused, the row carries no defining catalog |
 
 Consumed on-disk (subpackage acquisition through `Kernel.AcquireInstanceFromDir`);
 never published; not discovered by the repo's CUE tasks.
@@ -28,4 +29,5 @@ Each is its own CUE module in the D5 shape, importing the served catalogs:
 | `platform` | cat 0.1.0 | the happy path and every scenario above |
 | `platform_next` | cat 0.2.0 | older-than-platform skew (data, not a warning) |
 | `platform_two` | cat 0.1.0 + cat2 0.1.0 | catalog-fulfilled plurality: two catalogs supply the container contract and every candidate matches |
-| `platform_oversubscribed` | cat 0.1.0 + cat2 0.2.0 | the single-provider guard: two catalogs supply the provider-fulfilled gateway contract, refused in-build |
+| `platform_oversubscribed` | cat 0.1.0 + cat2 0.2.0 | the single-provider guard: two catalogs supply the provider-fulfilled gateway contract, refused in-build; the contract inventory reports it as over-subscribed |
+| `platform_disabled` | cat 0.1.0 (disabled) + cat2 0.1.0 | a disabled catalog defines nothing: a demand for a contract only cat lists carries no defining catalog on its unresolved row |

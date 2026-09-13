@@ -101,6 +101,11 @@ _components:   instance.components
 #Match: {
 	#transformers: [string]: _
 	#components: [string]:   _
+	// Contract FQN -> registry key of the enabled catalog listing it, the
+	// platform's derived #contracts.definedBy (enhancement 0015 D18).
+	// Diagnostic only: copied onto the unresolved rows, never consulted by
+	// a rung, so it changes no verdict.
+	#definedBy: [string]: string
 
 	// ── Rung 1 index: primitive FQN -> transformers whose required ∪
 	// optional maps name it. A transformer is only ever CONSIDERED through
@@ -224,11 +229,19 @@ _components:   instance.components
 						}
 					}
 				}
+				// The defining catalog rides the row (0015 D18): the registry
+				// key of the enabled catalog listing the key, "" when none does.
+				// Read from the inventory by membership, never parsed off the
+				// FQN; the gate keys on the row's presence, not this field.
 				unresolvedResources: [
 					for _, _f in _resFqns if !_resOutcome[_f].satisfied {
 						{
-							kind:         "resource"
-							fqn:          _f
+							kind:      "resource"
+							fqn:       _f
+							definedBy: *"" | string
+							if #definedBy[_f] != _|_ {
+								definedBy: #definedBy[_f]
+							}
 							alternatives: (#alternatives & {universe: _bucketsResources, fqn: _f}).out
 							disqualified: _resOutcome[_f].disqualified
 						}
@@ -284,8 +297,12 @@ _components:   instance.components
 					if !_handled[_f]
 					if !comp.#traits[_f].optional {
 						{
-							kind:         "trait"
-							fqn:          _f
+							kind:      "trait"
+							fqn:       _f
+							definedBy: *"" | string
+							if #definedBy[_f] != _|_ {
+								definedBy: #definedBy[_f]
+							}
 							alternatives: (#alternatives & {universe: _bucketsTraits, fqn: _f}).out
 							disqualified: _traitOutcome[_f].disqualified
 						}
@@ -343,6 +360,7 @@ _components:   instance.components
 match: #Match & {
 	#transformers: _transformers
 	#components:   _components
+	#definedBy:    platform.#contracts.definedBy
 }
 
 // ── Single-provider guard (0010 D32/D37), in-build since

@@ -7,8 +7,13 @@
 // load-bearing backup trait, an advisory sidecar trait, a trait that states
 // no optional posture, a narrowed required copy that plain unification
 // disqualifies, and two sabotaged transformers (an output that conflicts, an
-// output that never becomes concrete). Every fqn lives under testing.opmodel.dev/library-render so
-// nothing here can collide with a published catalog.
+// output that never becomes concrete). Every resource and trait is also
+// listed in the catalog's contract maps (#resources, #traits; enhancement
+// 0015 D1), so a platform embedding this build derives a populated contract
+// inventory with no provider-fulfilled contract in it (this build drops
+// 0.1.0's gateway and tiered members). Every fqn lives under
+// testing.opmodel.dev/library-render so nothing here can collide with a
+// published catalog.
 package cat
 
 import (
@@ -243,6 +248,35 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	}
 	spec: unstated: note?: string
 	appliesTo: [#ContainerResource]
+}
+
+// ── Contract maps (enhancement 0015 D1) ─────────────────────────────
+// Every resource and trait above, listed by contract fqn as the contract
+// this catalog DEFINES, so a platform embedding it derives a non-empty
+// #contracts inventory (definedBy, requiredBy, unfulfilled, overSubscribed)
+// rather than a vacuous one. The stamp core applies to a listed member
+// (modulePath under the kind segment, catalogVersion) agrees with each
+// member's authored metadata, so listing changes no member's identity.
+
+#resources: {
+	(#ContainerResource.metadata.fqn):      #ContainerResource
+	(#ConfigMapsResource.metadata.fqn):     #ConfigMapsResource
+	(#OrphanResource.metadata.fqn):         #OrphanResource
+	(#OrphanV2Resource.metadata.fqn):       #OrphanV2Resource
+	(#LadderV1Alpha1Resource.metadata.fqn): #LadderV1Alpha1Resource
+	(#LadderV1Beta1Resource.metadata.fqn):  #LadderV1Beta1Resource
+	(#LadderV1Resource.metadata.fqn):       #LadderV1Resource
+	(#LadderV2Resource.metadata.fqn):       #LadderV2Resource
+	(#NarrowResource.metadata.fqn):         #NarrowResource
+	(#IncompleteResource.metadata.fqn):     #IncompleteResource
+	(#BrokenResource.metadata.fqn):         #BrokenResource
+}
+
+#traits: {
+	(#ExposeTrait.metadata.fqn):   #ExposeTrait
+	(#SidecarTrait.metadata.fqn):  #SidecarTrait
+	(#BackupTrait.metadata.fqn):   #BackupTrait
+	(#UnstatedTrait.metadata.fqn): #UnstatedTrait
 }
 
 // ── Transformers ────────────────────────────────────────────────────
