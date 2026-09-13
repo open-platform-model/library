@@ -4,7 +4,7 @@ language: {
 }
 deps: {
 	"opmodel.dev/core@v2": {
-		v: "v2.0.0-alpha.7"
+		v: "v2.0.0-alpha.9"
 	}
 	"testing.opmodel.dev/library-render/cat2@v0": {
 		v: "v0.2.0"

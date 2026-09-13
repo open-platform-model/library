@@ -103,7 +103,7 @@ type ModuleFixture struct {
 // instance module importing a served module). It is the release
 // [schema.DefaultSchemaModule] pins: the v2 kernel renders v2 modules only,
 // so no fixture pins another line.
-const DefaultCoreVersion = "v2.0.0-alpha.7"
+const DefaultCoreVersion = "v2.0.0-alpha.9"
 
 // ContractAPIVersion is the contract level every generated v2 fixture
 // primitive declares. Core v2 keys contracts by the primitive's own
@@ -125,7 +125,7 @@ func coreDep(coreVersion string) string {
 }
 
 // coreMajor returns the bare major of a (normalized) core version:
-// "v2.0.0-alpha.7" → "v2"; a bare major ("v2") passes through.
+// "v2.0.0-alpha.9" → "v2"; a bare major ("v2") passes through.
 func coreMajor(coreVersion string) string {
 	major, _, _ := strings.Cut(coreVersion, ".")
 	return major
