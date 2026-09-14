@@ -36,6 +36,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 3. One test asserting `reflect.TypeOf(&kernel.Kernel{})`'s exported method names equal a sorted literal list, with `*ForTest` names filtered out.
 **Decision**: option 3, `TestKernel_ExportedSurface` in `kernel_test.go`, replacing `NoFinalizeMethod`, `PrunedSurface` and `NoLoadModuleFromRegistryMethod`; the `NewModuleFromValue` check in `module_test.go` is dropped because the exact set covers it. `NoContextAccessor` stays.
 **Rationale**: an exact set is the strongest form of every absence pin at once, and a future removal edits one literal instead of adding a name.
+**Implementation note (2026-09-13)**: `TestKernel_PrunedSurface` also carried three shape assertions a method list cannot express (the variadic `kernel.Source` tail of `AcquireInstanceFromDir`, no `Values` field on `RenderInput`, the two-field `Source` struct; scenarios artifact-types "No option type for values" and config-validation "Source struct shape"). They stay, as `TestKernel_ValuesEnterThroughSources` in `kernel_test.go`, so no scenario loses its pin.
 
 ### Retire the fill tests; spike the probe's skip
 
@@ -43,6 +44,7 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 **Explored**: both files' fixtures and assertions against `parity_probe_test.go`; the skip's message.
 **Decision**: delete both fill tests. Section 1 removes the probe's `-short` skip and times `go test -run TestParity_Probes -count=1`; the skip stays out if the probe takes under about five seconds on the warm cache, otherwise it stays in and the finding is recorded here. Either way the fills go: `-short` is not a CI mode.
 **Rationale**: the probe pins the same values against the oracle, which is strictly more than the fills assert.
+**Spike result (2026-09-13)**: without the skip, `go test ./opm/kernel/ -run TestParity_Probes -count=1` takes 0.12 s on the warm workspace cache (0.06 s per probe; about 1.3 s including package compilation on the first run). The skip stays out.
 
 ### Fold the live validate test into the flow test
 
@@ -53,11 +55,13 @@ See proposal.md for motivation. Facts the approach rests on, checked on 2026-09-
 
 **Decision**: `writeCatalogPlatform` builds `platformmodule.Input{Name: "hermetic", Type: "kubernetes", ModulePath: "testing.opmodel.dev/library-kernel-test/platform@v0", Entries: [{Path: dep, Version: version, Enable: true}], Deps: [{core pin}, {dep, "v"+version}]}`, calls `Generate` and `Files.WriteTo(platDir)`. `schematest` gains `WriteModuleDir`, `WriteInstanceDir`, `WritePlatformDir` (and the `WritePkgDir` they share), replacing both copies. `registrytest` exports `Major(version string) string`, used by `coreMajor`'s callers and by `integration_fixtures_test.go`; `synth.major` is production code in an internal package and stays.
 **Rationale**: a hand-written copy of the generator's output cannot catch generator drift; the shared helpers already live in the package both test trees import.
+**Implementation note (2026-09-13)**: the `kernel-never-imports-helper` depguard rule in `.golangci.yml` matched test files too, so `integration_fixtures_test.go` importing `platformmodule` failed `task lint`. The rule now excludes `**/*_test.go`: a `_test.go` file is outside the build graph a consumer links, so the boundary the rule enforces (a frontend may skip `opm/helper/`) is untouched. `writeTempModuleRoot` in `acquire_test.go` (a module root with a `cue.mod`, one caller) is not one of the three single-file helpers and stays.
 
 ### Doc trim
 
 **Decision**: `opm/helper/doc.go` keeps the boundary statement, the `platformmodule` description and one line per folded subpackage saying where it went; it drops the "planned subpackages" list, the "added by their owning slices" process text and replaces the `enhancements/001-kernel-redesign-around-platform/` path with `legacy:001`. The six `// Was: Release…` lines go. CLAUDE.md's "Render contract" section is cut to a pointer at the `opm/kernel` package doc plus the two agent-only rules it carries (tests use the in-process registry; the parity harness is the oracle).
 **Rationale**: the godoc is the published contract; two copies drift.
+**Implementation note (2026-09-13)**: four rules the CLAUDE.md section carried were in method godoc or the spec but not in the package doc (the `WithRegistry` fallback and never-written-back mapping; the gate-agrees-with-the-kernel and inputs-not-mutated statements; the local-replacements edge cases and its security-boundary framing). They were added to `opm/kernel/doc.go` as three short passages so the pointer drops nothing; the `-race` note stays in CLAUDE.md as a test-only rule.
 
 ## Risks / Trade-offs
 

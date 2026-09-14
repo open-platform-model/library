@@ -117,18 +117,20 @@ const ContractAPIVersion = "v1"
 const PrimitiveMatchKey = "opm.test/primitive"
 
 // coreDep returns the major-qualified core module path for a full core version:
-// "v1.0.0-alpha.1" → "opmodel.dev/core@v1". The emitted import line and the
+// "v2.0.0-alpha.9" → "opmodel.dev/core@v2". The emitted import line and the
 // declared dep are both derived from it so they can never disagree on the
 // major.
 func coreDep(coreVersion string) string {
-	return "opmodel.dev/core@" + coreMajor(coreVersion)
+	return "opmodel.dev/core@" + Major(coreVersion)
 }
 
-// coreMajor returns the bare major of a (normalized) core version:
-// "v2.0.0-alpha.9" → "v2"; a bare major ("v2") passes through.
-func coreMajor(coreVersion string) string {
-	major, _, _ := strings.Cut(coreVersion, ".")
-	return major
+// Major returns the major-qualified suffix a module at version is published
+// under, with or without the "v" prefix: "0.1.0" → "v0", "v2.0.0-alpha.9" →
+// "v2"; a bare major ("v2") passes through. Fixture writers use it for the
+// dep key and import path of a served coordinate.
+func Major(version string) string {
+	major, _, _ := strings.Cut(strings.TrimPrefix(version, "v"), ".")
+	return "v" + major
 }
 
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given

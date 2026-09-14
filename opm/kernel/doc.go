@@ -33,7 +33,10 @@
 // it built itself calls [module.NewModuleFromValue] or
 // [platform.NewPlatformFromValue] directly. The registry mapping is
 // [WithRegistry] for every one of these operations, the schema cache
-// included; no verb takes a per-call override.
+// included; no verb takes a per-call override. Absent the option, every
+// operation inherits the process CUE_REGISTRY and applies no default; the
+// mapping is plumbed into the operation's load configuration and never
+// written back to the environment.
 //
 // # Every operation shares nothing
 //
@@ -129,6 +132,14 @@
 // row Newer by default ([SkewWarn]) or refuses before evaluation
 // ([SkewRefuse]).
 //
+// The render module's own gate field agrees with the kernel: it errors
+// exactly when the kernel refuses, so a staged module is self-refusing under
+// a plain cue eval. Each typed cause carries its diagnostics rows unchanged
+// and wraps nothing. Inputs are never mutated, and the staging directory is
+// removed on return, success or failure; refusals before evaluation (a
+// missing Source, an uncovered OPM-namespace path, skew under [SkewRefuse],
+// a local replacement without the opt-in) are plain errors.
+//
 // A render result carries no presentation strings. The two advisory facts a
 // render can report are rows on the diagnostics: an unhandled optional trait
 // on RenderDiagnostics.UnhandledTraits, and a module requiring a newer build
@@ -161,9 +172,18 @@
 // list does not name) and each honoured one is a
 // [RenderDiagnostics.Replacements] row naming the path, the target and the
 // input that supplied it; a replaced path keeps its pinned versions on
-// ResolvedVersions. A frontend sets the flag for a developer's checkout and
-// words the rows (an instance replacement the platform made inert is not a
-// row, so the frontend computes the inert set from the file it read):
+// ResolvedVersions. A relative directory target is resolved against the
+// input's own module root; a replaced path the promoted list lacks is listed
+// with a placeholder version of its major so coverage holds; a version-less
+// dependency no promoted replacement covers is refused naming the path and
+// the input; the rows are path-sorted, and an input without the file renders
+// identically under either setting. The switch is a security boundary, not
+// an extension point: it is the one place a render may read a directory an
+// artifact names, so a frontend sets it for a developer's checkout and never
+// for an artifact it did not author (the operator never sets it). The
+// frontend words the rows (an instance replacement the platform made inert
+// is not a row, so the frontend computes the inert set from the file it
+// read):
 //
 //	for _, r := range result.Diagnostics.Replacements {
 //		log.Printf("%s: served from %s (%s local-module.cue)", r.Path, r.Target, r.By)

@@ -33,8 +33,6 @@ type ModuleMetadata struct {
 
 // InstanceMetadata contains instance-level identity information.
 // Used for inventory tracking, resource labeling, and CLI output.
-//
-// Was: ReleaseMetadata
 type InstanceMetadata struct {
 	// Name is the instance name (from --name or module.metadata.name).
 	Name string `json:"name"`

@@ -3,7 +3,6 @@ package kernel_test
 import (
 	"context"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,13 +58,4 @@ func TestKernel_AcquireModuleFromRegistry(t *testing.T) {
 		}
 	}
 	assert.True(t, hasModuleFile, "staged overlay must include the module's cue.mod/module.cue")
-}
-
-// TestKernel_NoLoadModuleFromRegistryMethod pins the absence of the value-only
-// registry wrapper (library-dead-symbol-sweep): AcquireModuleFromRegistry is
-// the single kernel entry point for a published module. The method reappearing
-// here is a deliberate act, not drift.
-func TestKernel_NoLoadModuleFromRegistryMethod(t *testing.T) {
-	_, found := reflect.TypeOf(&kernel.Kernel{}).MethodByName("LoadModuleFromRegistry")
-	assert.False(t, found, "*kernel.Kernel must not expose LoadModuleFromRegistry; use AcquireModuleFromRegistry")
 }

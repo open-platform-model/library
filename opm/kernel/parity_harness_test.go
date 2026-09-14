@@ -33,8 +33,9 @@ import (
 // projected by core (0019 D12) there is no runtime-built value left to
 // exclude.
 //
-// Gating mirrors the flow tests: skipped under -short and when GHCR is
-// unreachable; OPM_FLOW_TEST_FORCE=1 makes the skip a failure.
+// Gating applies to the shipped group only, mirroring the flow test: skipped
+// under -short and when GHCR is unreachable, and OPM_FLOW_TEST_FORCE=1 makes
+// the skip a failure. The probe group is hermetic and never skips.
 
 // parityRuntimeName is the #runtimeName both renderers use. The oracle fixes
 // it in testdata/parity/shipped/shipped.cue (`#runtime`).

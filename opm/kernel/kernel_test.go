@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"reflect"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/internal/registrytest"
+	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -107,20 +109,6 @@ func TestNew_ExplicitSchemaLoaderWinsInEitherOrder(t *testing.T) {
 	}
 }
 
-func writeTempModuleDir(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "module.cue"), []byte(content), 0o644))
-	return dir
-}
-
-func writeTempInstanceDir(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "instance.cue"), []byte(content), 0o644))
-	return dir
-}
-
 func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 	k := kernel.New()
 	schema := cuecontext.New().CompileString(`{ replicas: int & >0, name: string }`)
@@ -149,7 +137,7 @@ func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
 	const n = 8
-	dir := writeTempModuleDir(t, `
+	dir := schematest.WriteModuleDir(t, `
 package mod
 kind: "Module"
 metadata: {
@@ -158,7 +146,7 @@ metadata: {
 	version:    "0.1.0"
 }
 `)
-	instDir := writeTempInstanceDir(t, `
+	instDir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: {
@@ -296,61 +284,55 @@ func TestKernel_ConcurrentAcquireAndSynth(t *testing.T) {
 	}
 }
 
-// TestKernel_NoFinalizeMethod pins the absence of any finalization step on
-// the kernel (spec kernel-runtime: "No finalization method on the Kernel";
-// enhancement 0019 D1). Transformer inputs are bound as evaluated inside the
-// render build; a Finalize method reappearing here is a deliberate act, not
-// drift.
-func TestKernel_NoFinalizeMethod(t *testing.T) {
-	_, found := reflect.TypeOf(&kernel.Kernel{}).MethodByName("Finalize")
-	assert.False(t, found, "*kernel.Kernel must not expose a Finalize method (0019 D1)")
+// TestKernel_ExportedSurface pins the exported method set of *kernel.Kernel
+// as one exact list, so every absence the specs name is proved at once:
+// no finalization step and no raw-load methods (kernel-runtime, "No
+// finalization method on the Kernel", "No raw-load methods on the Kernel";
+// enhancement 0019 D1), none of the old pipeline's verbs, typed validation
+// wrappers or the string source loader (single-build-render, "Old entry
+// points are gone"; config-validation, "Single Kernel Validation Primitive"),
+// no constructor wrappers (artifact-types, "No kernel constructor wrappers"),
+// no value-only registry wrapper (registry-module-loading:
+// AcquireModuleFromRegistry is the single entry point for a published module)
+// and no CueContext accessor (kernel-owns-no-build-context). A method
+// appearing or disappearing here is a deliberate act, not drift: the same
+// change edits the literal. Test-only seams end in ForTest (export_test.go)
+// and are filtered out.
+func TestKernel_ExportedSurface(t *testing.T) {
+	kt := reflect.TypeOf(&kernel.Kernel{})
+	var got []string
+	for i := range kt.NumMethod() {
+		name := kt.Method(i).Name
+		if strings.HasSuffix(name, "ForTest") {
+			continue
+		}
+		got = append(got, name)
+	}
+	sort.Strings(got)
+	want := []string{
+		"AcquireInstanceFromDir",
+		"AcquireModuleFromDir",
+		"AcquireModuleFromRegistry",
+		"AcquirePlatformFromDir",
+		"LoadSourceFromBytes",
+		"LoadSourceFromFile",
+		"Render",
+		"SchemaCache",
+		"SynthesizeInstance",
+		"ValidateConfigDetailed",
+	}
+	assert.Equal(t, want, got, "*kernel.Kernel exports exactly these methods; a surface change edits this list")
 }
 
-// TestKernel_PrunedSurface pins the removals of library-phase-and-values-prune,
-// library-render-cutover and cut-dead-surface: the kernel exposes exactly one
-// render verb (Render) and one validation primitive (ValidateConfigDetailed),
-// values enter through the acquire verbs and SynthesizeInstance, and the old
-// pipeline's verbs (Match, Compile, Materialize, SynthesizePlatform), the
-// typed validation wrappers, the single-value and partial validation
-// variants, the exported instance processing step, the instance constructor
-// wrapper and the string source loader are gone (spec single-build-render,
-// "Old entry points are gone"; config-validation, "Single Kernel Validation
-// Primitive"), and the removals of one-api-tier: the raw value tier
-// (Load*Package plus the constructor wrappers) is gone, so an artifact comes
-// from an acquire verb or from the package constructor a caller already holds
-// a value for (kernel-runtime, "No raw-load methods on the Kernel";
-// artifact-types, "No kernel constructor wrappers"), and the removal of
-// kernel-owns-no-build-context: the Kernel holds no cue.Context, so the
-// CueContext accessor is gone. Any of these reappearing is a deliberate act,
-// not drift.
-func TestKernel_PrunedSurface(t *testing.T) {
+// TestKernel_ValuesEnterThroughSources pins the shapes a method list cannot:
+// values are the variadic trailing kernel.Source argument of
+// AcquireInstanceFromDir, not an option list (artifact-types, "No option type
+// for values"); RenderInput carries no Values field, because values enter
+// through the acquire verbs and SynthesizeInstance; and a Source is bytes plus
+// an origin and nothing else, so it is bound to no context (config-validation,
+// "Source struct shape").
+func TestKernel_ValuesEnterThroughSources(t *testing.T) {
 	kt := reflect.TypeOf(&kernel.Kernel{})
-	for _, name := range []string{
-		"Plan", "Validate", "Match", "Compile", "Materialize", "SynthesizePlatform",
-		"ValidateModuleValues", "ValidateModuleValuesPartial", "ValidateModuleValuesDetailed",
-		"ValidateInstanceValues", "ValidateInstanceValuesPartial", "ValidateInstanceValuesDetailed",
-		"ValidateConfig", "ValidateConfigPartial", "ProcessModuleInstance",
-		"NewInstanceFromValue", "LoadSourceFromString",
-		"LoadModulePackage", "LoadPlatformPackage", "LoadInstancePackage",
-		"NewModuleFromValue", "NewPlatformFromValue",
-		"CueContext",
-	} {
-		_, found := kt.MethodByName(name)
-		assert.False(t, found, "*kernel.Kernel must not expose a %s method", name)
-	}
-	for _, name := range []string{
-		"Render", "ValidateConfigDetailed", "SynthesizeInstance",
-		"AcquireModuleFromDir", "AcquireModuleFromRegistry",
-		"AcquirePlatformFromDir", "AcquireInstanceFromDir",
-	} {
-		_, found := kt.MethodByName(name)
-		assert.True(t, found, "*kernel.Kernel exposes %s", name)
-	}
-
-	// artifact-types, "No option type for values": there is no AcquireOption
-	// and no WithValues, because values are the variadic trailing argument.
-	// A package-level function cannot be reflected on, so the shape of the
-	// signature is what pins their absence.
 	acquire, ok := kt.MethodByName("AcquireInstanceFromDir")
 	require.True(t, ok)
 	require.True(t, acquire.Type.IsVariadic(), "values are variadic, not an option list")

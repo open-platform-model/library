@@ -94,8 +94,6 @@ type InstanceInput struct {
 // [oerrors.ErrMissingName], [oerrors.ErrMissingNamespace]); a module with no
 // staged source wraps [oerrors.ErrMissingSource]; a module acquired from a
 // subdirectory of its CUE module fails stating the root-package requirement.
-//
-// Was: SynthesizeRelease
 func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*module.Instance, error) {
 	if in.Module == nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", oerrors.ErrMissingModule)

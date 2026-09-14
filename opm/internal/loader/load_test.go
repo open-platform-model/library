@@ -26,30 +26,6 @@ func loadDir(dir string, spec loader.ArtifactSpec) (cue.Value, error) {
 	return loader.LoadDir(cuecontext.New(), dir, ".", nil, nil, spec)
 }
 
-// writeTempPkgDir writes a single-file CUE package under a fresh temp dir as
-// file and returns the dir path.
-func writeTempPkgDir(t *testing.T, file, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte(content), 0o644))
-	return dir
-}
-
-func writeTempModuleDir(t *testing.T, content string) string {
-	t.Helper()
-	return writeTempPkgDir(t, "module.cue", content)
-}
-
-func writeTempInstanceDir(t *testing.T, content string) string {
-	t.Helper()
-	return writeTempPkgDir(t, "instance.cue", content)
-}
-
-func writeTempPlatformDir(t *testing.T, content string) string {
-	t.Helper()
-	return writeTempPkgDir(t, "platform.cue", content)
-}
-
 const platformFixture = `
 package platform
 kind: "Platform"
@@ -60,7 +36,7 @@ type: "kubernetes"
 `
 
 func TestLoadDir_Module(t *testing.T) {
-	dir := writeTempModuleDir(t, `
+	dir := schematest.WriteModuleDir(t, `
 package mod
 kind: "Module"
 metadata: {
@@ -76,7 +52,7 @@ metadata: {
 }
 
 func TestLoadDir_Instance(t *testing.T) {
-	dir := writeTempInstanceDir(t, `
+	dir := schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: {
@@ -92,7 +68,7 @@ metadata: {
 }
 
 func TestLoadDir_Platform(t *testing.T) {
-	dir := writeTempPlatformDir(t, platformFixture)
+	dir := schematest.WritePlatformDir(t, platformFixture)
 
 	val, err := loadDir(dir, loader.PlatformSpec)
 	require.NoError(t, err)
@@ -147,13 +123,13 @@ func TestLoadDir_RegistryOverrideAccepted(t *testing.T) {
 		dir  string
 		spec loader.ArtifactSpec
 	}{
-		"instance": {writeTempInstanceDir(t, `
+		"instance": {schematest.WriteInstanceDir(t, `
 package instance
 kind: "ModuleInstance"
 metadata: { name: "demo", namespace: "ns" }
 #module: {kind: "Module"}
 `), loader.InstanceSpec},
-		"platform": {writeTempPlatformDir(t, platformFixture), loader.PlatformSpec},
+		"platform": {schematest.WritePlatformDir(t, platformFixture), loader.PlatformSpec},
 	} {
 		t.Run(name, func(t *testing.T) {
 			val, err := loader.LoadDir(cuecontext.New(), tc.dir, ".", nil, env, tc.spec)
@@ -164,7 +140,7 @@ metadata: { name: "demo", namespace: "ns" }
 }
 
 func TestLoadDir_NotADirectory(t *testing.T) {
-	dir := writeTempPlatformDir(t, platformFixture)
+	dir := schematest.WritePlatformDir(t, platformFixture)
 
 	_, err := loadDir(filepath.Join(dir, "platform.cue"), loader.PlatformSpec)
 	require.Error(t, err)
@@ -267,7 +243,7 @@ metadata: {name: "demo"}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := writeTempPkgDir(t, "artifact.cue", tc.content)
+			dir := schematest.WritePkgDir(t, "artifact.cue", tc.content)
 
 			_, err := loadDir(dir, tc.spec)
 			require.Error(t, err)
@@ -298,7 +274,7 @@ func TestShapeGate_WellFormedArtifactsPass(t *testing.T) {
 		// The identity-package form: Version is a concrete literal and
 		// metadata.version references it. The counterpart of the
 		// defaulted-disjunction rejection above.
-		dir := writeTempModuleDir(t, `
+		dir := schematest.WriteModuleDir(t, `
 package mod
 Version: "1.0.1"
 kind:    "Module"
@@ -310,7 +286,7 @@ metadata: {name: "demo", modulePath: "example.com/modules", version: Version}
 	})
 
 	t.Run("platform with an empty registry", func(t *testing.T) {
-		dir := writeTempPlatformDir(t, `
+		dir := schematest.WritePlatformDir(t, `
 package platform
 kind:       "Platform"
 metadata: {name: "demo"}

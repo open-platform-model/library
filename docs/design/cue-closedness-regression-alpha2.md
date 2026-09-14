@@ -402,7 +402,8 @@ still live. Current guidance:
    path. Treat `catalog_opm/docs/cue-guard-closedness-workaround.md` as a
    permanent authoring rule, not a temporary patch.
 2. **The bump gate is `opm/internal/cueregression/closedness_test.go`**, not
-   `TestIntegration_Live_ValidateRealConfig` (dead — see above). When the
+   `TestIntegration_Live_ValidateRealConfig` (removed 2026-09-13; its assertion
+   lives in `TestFlow_WebApp_OnOpmPlatform`). When the
    trigger-form canary starts failing, upstream has fixed OPM's symptom: at that
    point re-run this matrix, then retire the authoring rule, the reproducer, and
    the canary together. The hoisted-form twin failing instead means the

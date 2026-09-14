@@ -15,6 +15,20 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
+// TestMajor accepts both spellings a fixture writer holds: the bare version
+// a served fixture is published at and the v-prefixed core release.
+func TestMajor(t *testing.T) {
+	for in, want := range map[string]string{
+		"0.1.0":          "v0",
+		"v0.1.0":         "v0",
+		"2.0.0-alpha.9":  "v2",
+		"v2.0.0-alpha.9": "v2",
+		"v2":             "v2",
+	} {
+		assert.Equal(t, want, registrytest.Major(in), "Major(%q)", in)
+	}
+}
+
 // TestDefaultCoreVersion_IsTheDefaultSchemaRelease pins the schema-dispatch
 // scenario "Served fixtures pin the default release" in both directions: the
 // version every registrytest fixture declares is the release
