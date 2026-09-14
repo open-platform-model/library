@@ -70,6 +70,13 @@ Alternative: leave `FetchModule` as is and fix only the values load. Rejected: t
 **Decision**: Four of five already pass the environment; the file-backed values load is the one that does not, and it is reachable from three public verbs.
 **Rationale**: The fix is one field on one config struct plus parameter plumbing; no new mechanism.
 
+### How a test proves the mapping is what routed an import
+
+**Context**: The negative half of the values-import test — a kernel without `WithRegistry` must fail at the import — only holds on a cold module cache.
+**Explored**: CUE's resolution order for a coordinate under `cue/load`.
+**Decision**: The negative case runs FIRST, before any positive case resolves the served package.
+**Rationale**: CUE serves a coordinate from the module cache (`CUE_CACHE_DIR`) before it consults any registry, so once a kernel carrying the mapping has fetched the served package, a kernel without the mapping finds it cached and succeeds — the assertion would pass for the wrong reason and keep passing with the fix reverted. Ordering the subtests is the whole guard; the test carries a comment saying so. A second consequence: with the process `CUE_REGISTRY` at `schema.PublicRegistry`, the unmapped prefix falls through to the `registry.cue.works` catch-all, so the negative case makes one network round trip (~0.3 s) and errors offline as well.
+
 ### Whether sorted output changes any consumer's rendered objects
 
 **Context**: A byte change in `instance.cue` could reorder `metadata.labels` in rendered objects.
