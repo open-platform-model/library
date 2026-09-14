@@ -6,8 +6,10 @@ context: |
   ## Core Principles (Kernel Library)
 
   The library is the kernel of OPM. It provides the generic, reusable building blocks
-  for loading, processing, validating, and rendering OPM `#Module`s, and will host the
-  full `#Workflow` and `#Lifecycle` system. Every implementation of OPM (CLI, controller,
+  for loading, processing, validating, and rendering OPM `#Module`s. When the schema
+  describes `#Workflow` and `#Lifecycle`, the library plans them and never runs them:
+  it emits a plan and advances it one step per call, and the caller performs every
+  action and owns the run state (ADR-008). Every implementation of OPM (CLI, controller,
   future runtimes) depends on this library and inherits its behavior.
 
   ### I. Kernel Neutrality & Determinism

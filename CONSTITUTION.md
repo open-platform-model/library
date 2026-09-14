@@ -4,7 +4,7 @@
 
 This document is the reader-friendly reference for the principles that shape the design, implementation, validation, and change management of the OPM library. The library is governed by the normative constitutional source in `openspec/config.yaml`.
 
-The library is the **kernel** of OPM. It provides the generic, reusable building blocks for loading, processing, validating, and rendering OPM `#Module`s, and will host the full `#Workflow` and `#Lifecycle` system. Every implementation of OPM — the CLI, the controller, and any future runtime — depends on this library and inherits its behavior. The principles below are written with that responsibility in mind.
+The library is the **kernel** of OPM. It provides the generic, reusable building blocks for loading, processing, validating, and rendering OPM `#Module`s. When the schema describes `#Workflow` and `#Lifecycle`, the library plans them and never runs them: it emits a plan and advances it one step per call, while the caller performs every action and owns the run state ([ADR-008](adr/008-kernel-plans-caller-runs.md)). Every implementation of OPM — the CLI, the controller, and any future runtime — depends on this library and inherits its behavior. The principles below are written with that responsibility in mind.
 
 ## Design Principles
 
