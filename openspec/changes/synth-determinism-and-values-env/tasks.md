@@ -1,8 +1,8 @@
 ## 1. Deterministic synthesized metadata (opm/internal/synth)
 
-- [ ] 1.1 In `opm/internal/synth/render.go` `writeStringMap`, iterate the keys in ascending order (`slices.Sorted(maps.Keys(m))`) instead of ranging the map; verify `go build ./...`
-- [ ] 1.2 Add a synth test that calls `Instance` twice with four or more labels and four annotations inserted in different map orders and asserts the `instance.cue` bytes on both returned `Source.Overlay` trees are identical and list keys ascending; verify `go test ./opm/internal/synth` passes and fails when the sort is reverted
-- [ ] 1.3 `task check` green, then commit `fix(synth): emit labels and annotations in sorted key order`
+- [x] 1.1 In `opm/internal/synth/render.go` `writeStringMap`, iterate the keys in ascending order (`slices.Sorted(maps.Keys(m))`) instead of ranging the map; verify `go build ./...`
+- [x] 1.2 Add a synth test that calls `Instance` twice with four or more labels and four annotations inserted in different map orders and asserts the `instance.cue` bytes on both returned `Source.Overlay` trees are identical and list keys ascending; verify `go test ./opm/internal/synth` passes and fails when the sort is reverted
+- [x] 1.3 `task check` green, then commit `fix(synth): emit labels and annotations in sorted key order`
 
 ## 2. Registry mapping for file-backed values sources (opm/kernel)
 
