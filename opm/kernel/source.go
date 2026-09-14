@@ -25,7 +25,9 @@ type Source struct {
 	// the kernel compiles Data under, so error positions report Origin via
 	// [token.Pos.Filename]. An absolute path naming an existing file marks a
 	// file-backed source: the kernel loads it through cue/load at that file's
-	// directory, so its imports resolve as they do for any CUE file.
+	// directory, so its imports resolve as they do for any CUE file, through
+	// the kernel's [WithRegistry] mapping like every other kernel load and
+	// never through a mutated process environment.
 	Origin string
 
 	// Data is the values payload as CUE source. It is compiled where it is

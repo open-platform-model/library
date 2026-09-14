@@ -2,6 +2,8 @@ package synth
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"cuelang.org/go/cue/literal"
@@ -64,13 +66,17 @@ func renderInstanceFile(in Input, coreVersion string) string {
 // quoting CUE itself parses, so a non-ASCII or control rune round-trips);
 // identity strings (name, namespace) are formatted the same way, keeping
 // every caller string a literal rather than interpolated CUE source.
+//
+// Entries are written in ascending key order, never in the map's iteration
+// order: the staged instance.cue must be byte-identical for identical inputs
+// across calls and processes (Principle I), and Go randomizes map iteration.
 func writeStringMap(sb *strings.Builder, indent, field string, m map[string]string) {
 	if len(m) == 0 {
 		return
 	}
 	fmt.Fprintf(sb, "%s%s: {\n", indent, field)
-	for k, v := range m {
-		fmt.Fprintf(sb, "%s\t%s: %s\n", indent, literal.String.Quote(k), literal.String.Quote(v))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		fmt.Fprintf(sb, "%s\t%s: %s\n", indent, literal.String.Quote(k), literal.String.Quote(m[k]))
 	}
 	fmt.Fprintf(sb, "%s}\n", indent)
 }

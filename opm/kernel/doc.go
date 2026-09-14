@@ -32,11 +32,12 @@
 // an acquired artifact reads its Package field, and a caller holding a value
 // it built itself calls [module.NewModuleFromValue] or
 // [platform.NewPlatformFromValue] directly. The registry mapping is
-// [WithRegistry] for every one of these operations, the schema cache
-// included; no verb takes a per-call override. Absent the option, every
-// operation inherits the process CUE_REGISTRY and applies no default; the
-// mapping is plumbed into the operation's load configuration and never
-// written back to the environment.
+// [WithRegistry] for every one of these operations, the schema cache and
+// the compilation of file-backed values sources (a values file that imports
+// a registry module) included; no verb takes a per-call override. Absent
+// the option, every operation inherits the process CUE_REGISTRY and applies
+// no default; the mapping is plumbed into the operation's load
+// configuration and never written back to the environment.
 //
 // # Every operation shares nothing
 //
@@ -208,9 +209,12 @@
 // populated from [cue.Filename](Origin) when the kernel compiles the source
 // where it is used. Use [Kernel.LoadSourceFromFile] or
 // [Kernel.LoadSourceFromBytes] to construct sources that are checked for
-// syntax up front; a frontend needs no [cue.Context] of its own. There is
-// no partial-mode entry: partial validation is an internal attribution pass
-// under AcquireInstanceFromDir with extra values, not a public contract.
+// syntax up front; a frontend needs no [cue.Context] of its own. A
+// file-backed source is loaded at its file's directory, so its imports
+// resolve through the kernel's [WithRegistry] mapping on every path that
+// compiles it. There is no partial-mode entry: partial validation is an
+// internal attribution pass under AcquireInstanceFromDir with extra values,
+// not a public contract.
 //
 // Because the sources are compiled into the schema value's own context,
 // validating against one acquired artifact from several goroutines at once

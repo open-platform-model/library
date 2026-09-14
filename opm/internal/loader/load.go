@@ -22,9 +22,10 @@ import (
 //   - overlay != nil  → in-memory package: the overlay supplies the .cue files
 //     under root (its cue.mod/module.cue included; the set cue/load reads) and
 //     root doubles as the module root, so the staged cue.mod/module.cue drives
-//     transitive dependency resolution. This is how a registry-fetched module,
-//     a values-layered instance package and a synthesized instance package are
-//     all built.
+//     transitive dependency resolution. This is how a registry-fetched module
+//     ([FetchModule] stages the fetch under a synthetic root and builds it
+//     here), a values-layered instance package and a synthesized instance
+//     package are all built.
 //
 // pkg is a package path relative to root ("." or "" for the root package,
 // "./sub" for a subdirectory). env, when non-nil, is the environment slice

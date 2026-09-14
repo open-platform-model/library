@@ -44,7 +44,7 @@ opm/
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
-  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (directory or overlay), FetchModule (published module by path@version)
+  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchModule (published module by path@version: fetch, stage as an overlay, build through LoadDir like a directory module)
   internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)
@@ -100,7 +100,7 @@ The library does NOT vendor or embed the OPM core schema. At runtime the kernel 
 Key pieces:
 
 - `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata types, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
-- `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to callers (a bare-major loader makes instance synthesis resolve the core release through it; a pinned loader, the default, needs no load). `kernel.WithRegistry(string)` sets the registry mapping the render build uses for the platform's catalog imports and for registry module acquisition.
+- `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to callers (a bare-major loader makes instance synthesis resolve the core release through it; a pinned loader, the default, needs no load). `kernel.WithRegistry(string)` sets the ONE registry mapping every kernel operation resolves through: the render build's catalog imports, registry module acquisition, directory acquisition, instance synthesis, the compilation of file-backed values sources (a values file that imports a registry module) and the default schema cache.
 
 Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
 

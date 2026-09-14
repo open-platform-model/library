@@ -108,7 +108,7 @@ func TestFetchModule_OverlayCarriesCueFilesOnly(t *testing.T) {
 }
 
 // 5.3a — a registry artifact whose kind != "Module" is rejected with an error
-// wrapping the SAME ErrWrongKind sentinel exposed from loader/file, proving the
+// wrapping the SAME ErrWrongKind sentinel directory acquisition wraps, proving the
 // shape gate is single-sourced across both loaders.
 func TestFetchModule_WrongKind(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")

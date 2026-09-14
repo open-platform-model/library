@@ -34,10 +34,12 @@ func (k *Kernel) LoadSourceFromBytes(origin string, b []byte) (Source, error) {
 // bytes, after checking that they parse as CUE. Nothing is evaluated here:
 // the operation that uses the source loads it through
 // [cuelang.org/go/cue/load.Instances] at the file's directory (so imports
-// resolve as they do for any CUE file), builds it in that operation's own
-// context, and unwraps a top-level `values:` field that exists without error
-// (OPM values files conventionally wrap their payload in one), so the value
-// carried into validation is the inner object.
+// resolve as they do for any CUE file, through the kernel's [WithRegistry]
+// mapping like every other kernel load, and never through a mutated process
+// environment), builds it in that operation's own context, and unwraps a
+// top-level `values:` field that exists without error (OPM values files
+// conventionally wrap their payload in one), so the value carried into
+// validation is the inner object.
 //
 // Returns an error if the file cannot be read, or one positioned at the
 // file's path if it does not parse.
@@ -75,16 +77,21 @@ func parseSource(origin string, data []byte) error {
 // names s.Origin. A file-backed source (an absolute Origin naming an existing
 // file) is loaded through cue/load at the file's directory with Data overlaid
 // at Origin, so its imports resolve exactly as they would for the file on
-// disk; any other source is compiled from Data with [cue.Filename](Origin).
-// After either, a top-level `values:` field that exists without error is
-// unwrapped: OPM values files conventionally wrap their payload in one, and
-// the value carried into validation must be the inner object so it unifies
-// against the module's #config directly.
+// disk, through env: the kernel's [WithRegistry] mapping as
+// [Kernel.loadEnv] builds it, nil to read the process environment unchanged.
+// This is the same mapping every other kernel load consults, so a values
+// file importing a registry module resolves it the way directory acquisition
+// would; the process environment is never mutated. Any other source is
+// compiled from Data with [cue.Filename](Origin) and carries no imports, so
+// env is unused for it. After either, a top-level `values:` field that
+// exists without error is unwrapped: OPM values files conventionally wrap
+// their payload in one, and the value carried into validation must be the
+// inner object so it unifies against the module's #config directly.
 //
 // An empty Data is "no values supplied" and compiles to the zero value, which
 // every consumer treats as absent. A compile failure is returned as the raw
 // CUE error tree, positioned at Origin.
-func compileSource(ctx *cue.Context, s Source) (cue.Value, error) {
+func compileSource(ctx *cue.Context, s Source, env []string) (cue.Value, error) {
 	if len(s.Data) == 0 {
 		return cue.Value{}, nil
 	}
@@ -93,6 +100,7 @@ func compileSource(ctx *cue.Context, s Source) (cue.Value, error) {
 		cfg := &load.Config{
 			Dir:     filepath.Dir(s.Origin),
 			Overlay: map[string]load.Source{s.Origin: load.FromBytes(s.Data)},
+			Env:     env,
 		}
 		instances := load.Instances([]string{filepath.Base(s.Origin)}, cfg)
 		if len(instances) == 0 {
@@ -114,11 +122,12 @@ func compileSource(ctx *cue.Context, s Source) (cue.Value, error) {
 	return v, nil
 }
 
-// compileSources compiles every source in ctx, in stack order.
-func compileSources(ctx *cue.Context, sources []Source) ([]cue.Value, error) {
+// compileSources compiles every source in ctx, in stack order, each
+// file-backed one through env (see [compileSource]).
+func compileSources(ctx *cue.Context, sources []Source, env []string) ([]cue.Value, error) {
 	values := make([]cue.Value, 0, len(sources))
 	for _, s := range sources {
-		v, err := compileSource(ctx, s)
+		v, err := compileSource(ctx, s, env)
 		if err != nil {
 			return nil, err
 		}
