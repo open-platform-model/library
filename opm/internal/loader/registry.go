@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modconfig"
 	"cuelang.org/go/mod/module"
 
@@ -31,18 +30,21 @@ import (
 // MUST clone it first.
 //
 // It fetches the module's source via CUE's native module machinery
-// (mod/modconfig) and loads it IN MEMORY AS THE MAIN MODULE: the fetched files
-// are injected through load.Config.Overlay under a deterministic synthetic
-// root, so the module's own cue.mod/module.cue drives transitive dependency
-// resolution and its kind/metadata are evaluated at the package root. No
-// wrapper package is synthesized and no temporary directory is written.
+// (mod/modconfig) and builds it IN MEMORY AS THE MAIN MODULE through
+// [LoadDir]'s overlay mode: the fetched files are the overlay under a
+// deterministic synthetic root, so the module's own cue.mod/module.cue
+// drives transitive dependency resolution and its kind/metadata are
+// evaluated at the package root. No wrapper package is synthesized and no
+// temporary directory is written.
 //
-// The built value is validated with the same module shape gate [LoadDir] runs
-// for a directory (concrete kind == "Module"; concrete metadata.name,
-// metadata.modulePath, metadata.version), wrapping the shared
-// ErrInvalidPackage / ErrWrongKind / ErrMissingRequiredField sentinels, so a
-// directory-acquired and a registry-acquired module fail identically. It does
-// NOT perform full schema validation, which remains the kernel's contract.
+// Because the build IS [LoadDir] — the kernel's one evaluate-and-shape-gate
+// routine, the same call directory acquisition makes — the fetched module
+// is evaluated, shape-gated (concrete kind == "Module"; concrete
+// metadata.name, metadata.modulePath, metadata.version) and error-wrapped
+// exactly as a directory module is, wrapping the shared ErrInvalidPackage /
+// ErrWrongKind / ErrMissingRequiredField sentinels. The two acquisition
+// paths differ only in where the package files come from. Neither performs
+// full schema validation, which remains the kernel's contract.
 //
 // env is the environment slice the fetch resolver and the load both consult —
 // the kernel's CUE_REGISTRY mapping via [cueenv.Override], nil to read the
@@ -77,39 +79,20 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: fetched module source has no CUE files: %w", mv, oerrors.ErrInvalidPackage)
 	}
 
-	// Overlay (with FS left nil), NOT load.Config.FS. The spike confirmed that
-	// pinning load.Config.FS to the fetched module's SourceLoc.FS FAILS on
-	// transitive deps: the loader then reads ALL source — including deps — only
-	// through that one FS, and the module's catalog/core deps live in separate
-	// cache directories ("cannot find package opmodel.dev/catalogs/opm/resources").
+	// Build and shape-gate through LoadDir's overlay mode: the staged files
+	// enter cue/load as an Overlay under the synthetic root (with FS left
+	// nil), NOT through load.Config.FS. The spike confirmed that pinning
+	// load.Config.FS to the fetched module's SourceLoc.FS FAILS on transitive
+	// deps: the loader then reads ALL source — including deps — only through
+	// that one FS, and the module's catalog/core deps live in separate cache
+	// directories ("cannot find package opmodel.dev/catalogs/opm/resources").
 	// Overlay injects only the target module's files while leaving normal
 	// registry/cache dependency resolution intact. Do not "simplify" this to
-	// FS-pinning. See design.md § Research & Decisions (add-registry-module-loader).
-	cueOverlay := make(map[string]load.Source, len(overlay))
-	for path, data := range overlay {
-		cueOverlay[path] = load.FromBytes(data)
-	}
-	cfg := &load.Config{
-		Dir:        synthRoot,
-		ModuleRoot: synthRoot,
-		Overlay:    cueOverlay,
-		Env:        env,
-	}
-	instances := load.Instances([]string{"."}, cfg)
-	if len(instances) != 1 {
-		return cue.Value{}, nil, fmt.Errorf("expected exactly one CUE package in module %s, found %d: %w", mv, len(instances), oerrors.ErrInvalidPackage)
-	}
-	if instances[0].Err != nil {
-		return cue.Value{}, nil, fmt.Errorf("loading module package %s: %w", mv, instances[0].Err)
-	}
-
-	val := cueCtx.BuildInstance(instances[0])
-	if err := val.Err(); err != nil {
-		return cue.Value{}, nil, fmt.Errorf("building module package %s: %w", mv, err)
-	}
-
-	if err := gate(val, ModuleSpec); err != nil {
-		return cue.Value{}, nil, fmt.Errorf("validating module package %s: %w", mv, err)
+	// FS-pinning; registry_internal_test.go pins the negative result. See
+	// design.md § Research & Decisions (add-registry-module-loader).
+	val, err := LoadDir(cueCtx, synthRoot, ".", overlay, env, ModuleSpec)
+	if err != nil {
+		return cue.Value{}, nil, err
 	}
 
 	if err := verifyModuleIdentity(val, modPath, version); err != nil {

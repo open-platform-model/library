@@ -13,7 +13,7 @@
 
 ## 3. One evaluate-and-shape-gate routine for registry modules (opm/internal/loader)
 
-- [ ] 3.1 In `FetchModule`, replace the overlay wrap, `load.Instances`, single-instance check, build and `gate` with one `LoadDir(cueCtx, synthRoot, ".", overlay, env, ModuleSpec)` call after the empty-overlay refusal, keeping `verifyModuleIdentity`; verify `go test ./opm/internal/loader ./opm/kernel`
-- [ ] 3.2 Confirm no test asserts the old "loading module package `<mv>`" wrap text (none does at alpha.30; re-grep), keep every sentinel assertion; add or extend a test that acquires the same malformed module from a registry and from a directory and asserts both wrap the same sentinel; verify `go test ./opm/internal/loader ./opm/kernel`
-- [ ] 3.3 Update the `FetchModule` and `LoadDir` doc comments and the `internal/loader` line in CLAUDE.md to say registry modules build through `LoadDir`; verify `go vet ./...` and `grep -rn 'load.Instances(' opm --include='*.go' | grep -v _test` lists exactly four sites (kernel/source_loader.go, schema/loader.go, renderstage/stage.go, loader/load.go)
-- [ ] 3.4 `task check` green, then commit `refactor(loader): build registry modules through LoadDir`
+- [x] 3.1 In `FetchModule`, replace the overlay wrap, `load.Instances`, single-instance check, build and `gate` with one `LoadDir(cueCtx, synthRoot, ".", overlay, env, ModuleSpec)` call after the empty-overlay refusal, keeping `verifyModuleIdentity`; verify `go test ./opm/internal/loader ./opm/kernel`
+- [x] 3.2 Confirm no test asserts the old "loading module package `<mv>`" wrap text (none does at alpha.30; re-grep), keep every sentinel assertion; add or extend a test that acquires the same malformed module from a registry and from a directory and asserts both wrap the same sentinel; verify `go test ./opm/internal/loader ./opm/kernel`
+- [x] 3.3 Update the `FetchModule` and `LoadDir` doc comments and the `internal/loader` line in CLAUDE.md to say registry modules build through `LoadDir`; verify `go vet ./...` and `grep -rn 'load.Instances(' opm --include='*.go' | grep -v _test` lists exactly four sites (kernel/source_loader.go, schema/loader.go, renderstage/stage.go, loader/load.go)
+- [x] 3.4 `task check` green, then commit `refactor(loader): build registry modules through LoadDir`
