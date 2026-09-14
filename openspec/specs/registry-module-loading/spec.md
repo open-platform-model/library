@@ -23,7 +23,7 @@ The registry module loader SHALL load the fetched module in memory and SHALL NOT
 
 ### Requirement: Registry-Loaded Modules Pass the Module Shape Gate
 
-The registry module loader SHALL validate the built value with the same module shape gate `opm/helper/loader/file` applies (concrete `kind == "Module"`; `metadata.name`, `metadata.modulePath`, `metadata.version` present and concrete), returning errors that wrap the same sentinels (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`). It SHALL NOT perform full schema validation, which remains the Kernel/Binding layer's contract.
+The registry module loader SHALL evaluate and shape-gate the fetched module through the kernel's one evaluate-and-shape-gate routine, the same routine directory acquisition uses (concrete `kind == "Module"`; `metadata.name`, `metadata.modulePath`, `metadata.version` present and concrete), returning errors that wrap the same sentinels (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`). The two acquisition paths SHALL differ only in where the package files come from: a fetched overlay under a synthetic root, or a directory on disk. It SHALL NOT perform full schema validation, which remains the Kernel's contract.
 
 #### Scenario: Wrong artifact kind rejected
 
@@ -34,6 +34,12 @@ The registry module loader SHALL validate the built value with the same module s
 
 - **WHEN** the resolved module lacks a concrete `metadata.modulePath`
 - **THEN** the loader returns an error wrapping `ErrMissingRequiredField`
+
+#### Scenario: Registry and directory acquisition fail identically
+
+- **WHEN** the same malformed module is acquired once from a registry and once from a directory
+- **THEN** both acquisitions return an error wrapping the same `opm/errors` sentinel
+- **AND** a well-formed module acquired both ways yields the same `metadata` values
 
 ### Requirement: Module Identity Verification
 
