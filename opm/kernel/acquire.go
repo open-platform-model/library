@@ -220,10 +220,12 @@ func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, value
 // returns the merged value. It is the one merge both values paths run: the
 // extra sources of [Kernel.AcquireInstanceFromDir] and InstanceInput.Values
 // on [Kernel.SynthesizeInstance], each in the context of the build the merged
-// value is rendered into. An empty stack, or one whose sources carry no
-// values, is the zero value with no error — the "no values supplied" path.
-func mergeSources(cueCtx *cue.Context, sources []Source) (cue.Value, error) {
-	values, err := compileSources(cueCtx, sources)
+// value is rendered into, and each file-backed source through env, the
+// kernel's registry mapping ([Kernel.loadEnv]). An empty stack, or one whose
+// sources carry no values, is the zero value with no error — the "no values
+// supplied" path.
+func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (cue.Value, error) {
+	values, err := compileSources(cueCtx, sources, env)
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("compiling values sources: %w", err)
 	}
@@ -250,7 +252,7 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sour
 		return cue.Value{}, nil, fmt.Errorf("instance path %q is not a directory", absDir)
 	}
 
-	merged, err := mergeSources(cueCtx, sources)
+	merged, err := mergeSources(cueCtx, sources, k.loadEnv())
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
 	}
@@ -294,7 +296,7 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sour
 	// than left for a later evaluation to trip over. Concreteness of the
 	// whole instance is enforced by processInstance afterwards.
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := validateSources(configSchema, sources, false); vErr != nil {
+	if _, vErr := validateSources(configSchema, sources, k.loadEnv(), false); vErr != nil {
 		name := bestEffortInstanceName(spec)
 		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
 	}
@@ -319,7 +321,7 @@ func (k *Kernel) attributeValuesError(cueCtx *cue.Context, absDir string, source
 	if own := authored.LookupPath(schema.Values); own.Exists() {
 		all = append(all, own)
 	}
-	compiled, err := compileSources(cueCtx, sources)
+	compiled, err := compileSources(cueCtx, sources, k.loadEnv())
 	if err != nil {
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: compiling values sources: %w", bestEffortInstanceName(authored), err)
 	}

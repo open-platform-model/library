@@ -29,10 +29,10 @@ func TestValidateSources_PartialAllowsMissingRequiredFields(t *testing.T) {
 	// Partial value sets only `replicas`; `name` is missing.
 	partial := internalSource(t, k, "partial.cue", `{ replicas: 3 }`)
 
-	_, partialErr := validateSources(schema, []Source{partial}, false)
+	_, partialErr := validateSources(schema, []Source{partial}, nil, false)
 	require.NoError(t, partialErr, "partial validation MUST allow missing required fields")
 
-	_, fullErr := validateSources(schema, []Source{partial}, true)
+	_, fullErr := validateSources(schema, []Source{partial}, nil, true)
 	require.Error(t, fullErr, "concrete validation MUST flag the missing required field")
 }
 
@@ -43,7 +43,7 @@ func TestValidateSources_PartialTypeErrorStillSurfaces(t *testing.T) {
 	// `replicas` set but with the wrong type — partial validation MUST flag it.
 	wrongType := internalSource(t, k, "wrong.cue", `{ replicas: "three" }`)
 
-	_, vErr := validateSources(schema, []Source{wrongType}, false)
+	_, vErr := validateSources(schema, []Source{wrongType}, nil, false)
 	require.Error(t, vErr, "partial validation still flags type errors on fields that ARE set")
 	require.NotEmpty(t, cueerrors.Errors(vErr))
 }
@@ -52,11 +52,11 @@ func TestValidateSources_PartialZeroValueIsNoOp(t *testing.T) {
 	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
 	require.NoError(t, schema.Err())
 
-	got, err := validateSources(schema, []Source{{Origin: "none"}}, false)
+	got, err := validateSources(schema, []Source{{Origin: "none"}}, nil, false)
 	require.NoError(t, err)
 	assert.False(t, got.Exists())
 
-	got, err = validateSources(schema, nil, false)
+	got, err = validateSources(schema, nil, nil, false)
 	require.NoError(t, err)
 	assert.False(t, got.Exists())
 }
@@ -71,11 +71,11 @@ func TestValidateSources_PartialSkipsConcreteButRunsWalkDisallowed(t *testing.T)
 	src := internalSource(t, k, "draft.cue", `{replicas: 1, stray: "x"}`)
 
 	// Concrete: missing `name` AND stray field both fail.
-	_, fullErr := validateSources(schema, []Source{src}, true)
+	_, fullErr := validateSources(schema, []Source{src}, nil, true)
 	require.Error(t, fullErr, "concrete check fails on missing required field")
 
 	// Partial: missing `name` ignored; stray STILL surfaces (walkDisallowed).
-	_, partErr := validateSources(schema, []Source{src}, false)
+	_, partErr := validateSources(schema, []Source{src}, nil, false)
 	require.Error(t, partErr, "partial mode does NOT silence walkDisallowed disallowed-field errors")
 
 	// Verify the partial error is specifically about the stray field, not missing-name.
@@ -97,10 +97,10 @@ func TestValidateSources_PartialLayeredSources(t *testing.T) {
 	a := internalSource(t, k, "a.cue", `replicas: 2`)
 	b := internalSource(t, k, "b.cue", `name: "inst"`)
 	// image still missing: partial tolerates it, concrete does not.
-	layered, vErr := validateSources(schema, []Source{a, b}, false)
+	layered, vErr := validateSources(schema, []Source{a, b}, nil, false)
 	require.NoError(t, vErr)
 	assert.True(t, layered.Exists())
 
-	_, fullErr := validateSources(schema, []Source{a, b}, true)
+	_, fullErr := validateSources(schema, []Source{a, b}, nil, true)
 	require.Error(t, fullErr)
 }

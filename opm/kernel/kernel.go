@@ -101,6 +101,11 @@ func WithSchemaLoader(l schema.Loader) Option {
 //   - directory acquisition ([Kernel.AcquireModuleFromDir],
 //     [Kernel.AcquirePlatformFromDir], [Kernel.AcquireInstanceFromDir]);
 //   - instance synthesis ([Kernel.SynthesizeInstance]);
+//   - the compilation of file-backed values sources on every path that
+//     accepts [Source] values ([Kernel.ValidateConfigDetailed],
+//     [Kernel.AcquireInstanceFromDir] with trailing values,
+//     [Kernel.SynthesizeInstance]), so a values file importing a registry
+//     module resolves it through this mapping;
 //   - the default schema cache (absent [WithSchemaLoader]).
 //
 // No acquire verb takes a per-call registry override.

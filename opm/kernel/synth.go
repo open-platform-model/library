@@ -122,7 +122,8 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	}
 
 	cueCtx := cuecontext.New()
-	merged, err := mergeSources(cueCtx, in.Values)
+	env := k.loadEnv()
+	merged, err := mergeSources(cueCtx, in.Values, env)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
@@ -134,7 +135,7 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 		Values:      merged,
 		Labels:      in.Labels,
 		Annotations: in.Annotations,
-		Env:         k.loadEnv(),
+		Env:         env,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
@@ -147,7 +148,7 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	// concreteness of the whole instance is enforced by processInstance
 	// afterwards.
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := validateSources(configSchema, in.Values, false); vErr != nil {
+	if _, vErr := validateSources(configSchema, in.Values, env, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
 	}
 

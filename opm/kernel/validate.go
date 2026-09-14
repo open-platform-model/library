@@ -35,7 +35,7 @@ const fieldNotAllowed = "field not allowed"
 // short-circuit to (zero, nil) — the "no values supplied" path documented
 // across the kernel's validation surface.
 func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error) {
-	return validateSources(schema, sources, true)
+	return validateSources(schema, sources, k.loadEnv(), true)
 }
 
 // validateSources compiles sources in the schema's own context, in stack
@@ -45,20 +45,22 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 // with extra values and [Kernel.SynthesizeInstance] (requireConcrete false:
 // type errors, constraint violations and disallowed fields on the fields
 // that are set still surface, missing required fields do not, since the
-// whole built instance is checked for concreteness afterwards).
+// whole built instance is checked for concreteness afterwards). env is the
+// environment slice a file-backed source's load consults, the kernel's
+// registry mapping ([Kernel.loadEnv]); nil reads the process environment.
 //
 // Returns the unified value on success and the zero value plus the raw CUE
 // error tree on failure; callers wrap with [fmt.Errorf] if they want context
 // framing. Empty sources, a zero schema or a merged value that does not
 // exist short-circuit to (zero, nil).
-func validateSources(schema cue.Value, sources []Source, requireConcrete bool) (cue.Value, error) {
+func validateSources(schema cue.Value, sources []Source, env []string, requireConcrete bool) (cue.Value, error) {
 	if len(sources) == 0 || !schema.Exists() {
 		return cue.Value{}, nil
 	}
 	// The sources are compiled in the context that built the schema so the
 	// two can unify; Value.Context is deprecated for combining values from
 	// different contexts, which is exactly what compiling here avoids.
-	values, err := compileSources(schema.Context(), sources) //nolint:staticcheck // the schema's own context is the one the sources must be built in
+	values, err := compileSources(schema.Context(), sources, env) //nolint:staticcheck // the schema's own context is the one the sources must be built in
 	if err != nil {
 		return cue.Value{}, err
 	}
