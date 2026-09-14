@@ -140,7 +140,7 @@ The local registry at `localhost:5000` is required only for:
 
 `go test ./...` runs every package as its own process, and CUE's module cache assumes an extracted directory is immutable while any process can read it (readers hold no lock). The test tree therefore keeps two cache tiers and never deletes from the shared one:
 
-- **Shared:** `.cue-cache/` (gitignored) holds the `opmodel.dev` namespace — `opmodel.dev/core@v2` and the GHCR catalogs — for every test and test process. A cold checkout fetches core once through CUE's own lock-protected fetch path; nothing removes entries from it. Tests that need only `opmodel.dev` (schema cache, file loader, synth unit, flow and live tests) use `schematest.SetEnv` / `NewCache` and build here directly.
+- **Shared:** `.cue-cache/` (gitignored) holds the `opmodel.dev` namespace — `opmodel.dev/core@v2` and the GHCR catalogs — for every test and test process. A cold checkout fetches core once through CUE's own lock-protected fetch path; nothing removes entries from it. Tests that need only `opmodel.dev` (schema cache, file loader, synth unit, flow test) use `schematest.SetEnv` / `NewCache` and build here directly.
 - **Private:** every `registrytest` constructor points `CUE_CACHE_DIR` at `schematest.PrivateCacheDir(t)`, a temp cache whose `mod/extract/opmodel.dev` and `mod/download/opmodel.dev` are symlinks into the shared tier. Served fixture prefixes (`test.example`, `testing.opmodel.dev/...`) extract into it fresh, so a committed fixture edited under a fixed version is always built from its current bytes, two packages serving the same coordinate never touch the same directory, and the cache is removed at test end (read-only extracted directories included).
 - **Isolated:** `registrytest.NewRegistryWithCore` serves a stand-in `opmodel.dev/core` (a core lacking a definition, for the synth-build failure test) and so uses `schematest.IsolatedCacheDir(t)`, a temp cache with no link into the shared tier: the stand-in never reaches `.cue-cache`.
 
@@ -241,12 +241,9 @@ task cue:publish PATH=modules/opm_platform [VERSION=vX.Y.Z]
 task cue:deps:update         # cue mod get + tidy across all
 ```
 
-### Schema-fixture + flow tests
+### Flow test
 
 ```bash
-task cue:test                                   # runs TestSchemaFixtures (table-driven CUE fixture harness)
-task cue:test:run CASE=<schemaCase.name>        # single fixture subtest
-task cue:test:eval FIXTURE=<file.cue>           # bypass Go harness — `cue eval -t test ./testdata/<f>`
 task cue:test:flow                              # acquire→render integration test against the published catalog (skips if registry unreachable; OPM_FLOW_TEST_FORCE=1 to require it)
 ```
 
