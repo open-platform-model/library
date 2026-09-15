@@ -34,6 +34,18 @@ var (
 	// data) is not.
 	Contracts = cue.MakePath(cue.Def("contracts"))
 
+	// Catalog. Transformers is #Catalog.#transformers, the implementations
+	// a catalog ships. RequiredResources, RequiredTraits and Fulfilment are
+	// read RELATIVE to a transformer and to one of its demand entries, not
+	// from an artifact root: the provider-fulfilled set a catalog implements
+	// is the fold of every contract those two demand maps require whose
+	// value carries fulfilment "provider" (ADR-009). Their one reader is
+	// (*catalog.Catalog).Provides, on demand.
+	Transformers      = cue.MakePath(cue.Def("transformers"))
+	RequiredResources = cue.ParsePath("requiredResources")
+	RequiredTraits    = cue.ParsePath("requiredTraits")
+	Fulfilment        = cue.ParsePath("fulfilment")
+
 	// Module-internal field. DebugValues is a Module field — NOT a separate
 	// kernel artifact. Frontends that want a debug overlay read it from
 	// Module.Package and decide whether to layer it into the values stack;

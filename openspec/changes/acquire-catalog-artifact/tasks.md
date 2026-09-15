@@ -12,11 +12,11 @@ be written convincingly the rest should not be built.
 
 ## 2. The catalog artifact and its shape gate
 
-- [ ] 2.1 Add `opm/internal/loader/shape.go`'s `CatalogSpec` beside `ModuleSpec`, `InstanceSpec` and `PlatformSpec`: kind `"Catalog"` plus the metadata fields core requires of a catalog. Verify: no new gating routine — the existing one handles it, and the sentinels are unchanged.
-- [ ] 2.2 Add `opm/catalog` with `Catalog` (Metadata, Package, Source) and `NewCatalogFromValue`, mirroring `opm/module`. Verify: the package has no dependency on `opm/kernel`, matching `opm/module`'s direction.
-- [ ] 2.3 Add `Catalog.Provides()`: fold over the catalog's own `#transformers`, collecting every required contract whose value carries `fulfilment: "provider"`, sorted. Decode on demand, never at construction, following `Platform.Contracts()`. A catalog implementing none returns an empty set and no error. Verify: a table test covers the provider case, the non-provider-fulfilment case, the empty case, and that two runs are equal element for element.
-- [ ] 2.4 Add `Catalog.Requires()` returning the `cue.mod/module.cue` requirements as path to version. Verify: the return type exposes no CUE module types to the caller.
-- [ ] 2.5 `task check` green, then commit `feat(catalog): add the Catalog artifact, its shape gate and its derivations`.
+- [x] 2.1 Add `opm/internal/loader/shape.go`'s `CatalogSpec` beside `ModuleSpec`, `InstanceSpec` and `PlatformSpec`: kind `"Catalog"` plus the metadata fields core requires of a catalog. Verify: no new gating routine — the existing one handles it, and the sentinels are unchanged.
+- [x] 2.2 Add `opm/catalog` with `Catalog` (Metadata, Package, Source) and `NewCatalogFromValue`, mirroring `opm/module`. Verify: the package has no dependency on `opm/kernel`, matching `opm/module`'s direction.
+- [x] 2.3 Add `Catalog.Provides()`: fold over the catalog's own `#transformers`, collecting every required contract whose value carries `fulfilment: "provider"`, sorted. Decode on demand, never at construction, following `Platform.Contracts()`. A catalog implementing none returns an empty set and no error. Verify: a table test covers the provider case, the non-provider-fulfilment case, the empty case, and that two runs are equal element for element.
+- [x] 2.4 Add `Catalog.Requires()` returning the `cue.mod/module.cue` requirements as path to version. Verify: the return type exposes no CUE module types to the caller.
+- [x] 2.5 `task check` green, then commit `feat(catalog): add the Catalog artifact, its shape gate and its derivations`.
 
 ## 3. The kernel verbs
 

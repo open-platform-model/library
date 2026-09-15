@@ -1,8 +1,8 @@
 // Package loader is the kernel's one artifact-loading routine: it builds a
 // single CUE package — from a directory or from an in-memory overlay — and
 // runs the OPM artifact shape gate over the result, and it fetches a
-// published #Module from an OCI registry through CUE's native module
-// machinery.
+// published artifact from an OCI registry through CUE's native module
+// machinery (FetchModule: kind-agnostic in fact, see ADR-009).
 //
 // The gate is the acquisition boundary's fast-fail structural check: it
 // confirms an artifact carries the right concrete kind and the identity
@@ -59,10 +59,11 @@ type ModuleRef struct {
 	Path string
 }
 
-// ModuleSpec, InstanceSpec, and PlatformSpec are the shape-gate definitions for
-// the three artifacts the kernel acquires. The required field lists carry only
-// the identity fields the schema never defaults — fields the schema fills in
-// (or leaves as open `_`) are out of scope here and validated by the kernel.
+// ModuleSpec, InstanceSpec, PlatformSpec and CatalogSpec are the shape-gate
+// definitions for the four artifacts the kernel acquires. The required field
+// lists carry only the identity fields the schema never defaults — fields the
+// schema fills in (or leaves as open `_`) are out of scope here and validated
+// by the kernel.
 var (
 	ModuleSpec = ArtifactSpec{
 		Label:                  "module",
@@ -89,6 +90,21 @@ var (
 		ExpectedKind:           "Platform",
 		RequiredConcreteFields: []string{"metadata.name", "type"},
 		CompleteEntryMaps:      []string{"#registry"},
+	}
+
+	// A #Catalog carries no metadata.name: its identity is the module path
+	// it is published under plus the version stamped on every member it
+	// ships (core src/catalog.cue). Those are the two fields core declares
+	// required with no default, so they are the two this gate requires;
+	// metadata.fqn is derived from modulePath and adds nothing to check.
+	// The member maps (#resources, #traits, #blueprints, #transformers) are
+	// pattern constraints whose values are member schemas, non-concrete by
+	// construction, so nothing here walks them — the catalog's derivations
+	// read them on demand (ADR-009).
+	CatalogSpec = ArtifactSpec{
+		Label:                  "catalog",
+		ExpectedKind:           "Catalog",
+		RequiredConcreteFields: []string{"metadata.modulePath", "metadata.version"},
 	}
 )
 
