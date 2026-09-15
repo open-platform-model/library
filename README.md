@@ -43,9 +43,10 @@ opm/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
+  catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
-  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchModule (published module by path@version: fetch, stage as an overlay, build through LoadDir like a directory module)
+  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchArtifact (a published artifact by path@version: fetch, stage as an overlay, build through LoadDir like a directory artifact, gated to the shape the caller names) with FetchModule the #Module entry over it, adding the coordinate identity check
   internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)

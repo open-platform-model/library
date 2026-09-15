@@ -102,7 +102,7 @@ No new gating routine. The registry path goes through the loader's one fetch rou
 
 ## Risks / Trade-offs
 
-- [A fourth acquired kind invites a fifth] -> ADR-009 states the test that admitted this one (a core kind the kernel already evaluates transitively, with two proven consumers, where the library reads and the caller judges). A fifth has to pass the same test in writing.
+- [A fourth acquired kind invites a fifth] -> ADR-009 states the test that admitted this one (a core kind the kernel already evaluates transitively, with at least one proven consumer that cannot ship without it, whose alternative is re-acquiring CUE machinery a migration removed, where the library reads and the caller judges). A fifth has to pass the same test in writing.
 - [`Provides` derivation drifts from what core means by `fulfilment: "provider"`] -> the derivation is a fold over values core defines, and `catalog_opm` 4.1.0 populated the contract maps it reads. A core change to the meaning breaks the fold loudly rather than silently, because the field's absence is distinguishable from `"provider"`.
 - [`Requires` exposes `cue.mod` shape to consumers] -> it returns path-to-version, not a parsed module file, so the consumer never sees CUE's module types. D8's comparison is version arithmetic on strings within a major.
 - [The change lands before its only consumer] -> it ships as an unused MINOR on the alpha line, and `registration-acceptance` picks it up in the same enhancement. The alternative, developing both repos against an unpublished pin, is worse.

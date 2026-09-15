@@ -81,7 +81,7 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string, spec ArtifactSpec) (cue.Value, *opmmodule.Source, error) {
 	mv, err := module.NewVersion(modPath, version)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
+		return cue.Value{}, nil, fmt.Errorf("parsing artifact version %s@%s: %w", modPath, version, err)
 	}
 
 	reg, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
@@ -89,11 +89,11 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 		return cue.Value{}, nil, fmt.Errorf("building module registry resolver: %w", err)
 	}
 
-	// Fetch downloads if necessary and returns the extracted module's source
+	// Fetch downloads if necessary and returns the extracted artifact's source
 	// location (the modcache returns {FS: OSDirFS(extractDir), Dir: "."}).
 	loc, err := reg.Fetch(ctx, mv)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("fetching module %s: %w", mv, err)
+		return cue.Value{}, nil, fmt.Errorf("fetching %s %s: %w", spec.Label, mv, err)
 	}
 
 	// Stage the fetched artifact's .cue files in memory under a deterministic
@@ -101,10 +101,10 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	synthRoot := sourcetree.SyntheticRoot(modPath, version)
 	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: %w", mv, err)
+		return cue.Value{}, nil, fmt.Errorf("staging %s %s in overlay: %w", spec.Label, mv, err)
 	}
 	if len(overlay) == 0 {
-		return cue.Value{}, nil, fmt.Errorf("staging module %s in overlay: fetched module source has no CUE files: %w", mv, oerrors.ErrInvalidPackage)
+		return cue.Value{}, nil, fmt.Errorf("staging %s %s in overlay: fetched source has no CUE files: %w", spec.Label, mv, oerrors.ErrInvalidPackage)
 	}
 
 	// Build and shape-gate through LoadDir's overlay mode: the staged files

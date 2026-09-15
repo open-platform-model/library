@@ -4,8 +4,9 @@ import "cuelang.org/go/cue"
 
 // CUE paths the kernel's Go code reads or writes on an OPM artifact: metadata
 // decoding, instance processing, the loaders' identity reads, the
-// instance's components and #config accessors and the platform's on-demand
-// contract inventory. This is the whole inventory. Matching and execution
+// instance's components and #config accessors, the platform's on-demand
+// contract inventory and the catalog's on-demand provider-set derivation.
+// This is the whole inventory. Matching and execution
 // read nothing by path from Go: the render build imports the instance and
 // the platform as packages and the generated glue reads `components` and
 // `#composedTransformers` in CUE (enhancement 0019 D9/D10). A path with no

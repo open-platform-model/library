@@ -166,6 +166,12 @@ func WritePlatformDir(t testing.TB, content string) string {
 	return WritePkgDir(t, "platform.cue", content)
 }
 
+// WriteCatalogDir is [WritePkgDir] with the file named catalog.cue.
+func WriteCatalogDir(t testing.TB, content string) string {
+	t.Helper()
+	return WritePkgDir(t, "catalog.cue", content)
+}
+
 // SetEnv configures CUE_REGISTRY and CUE_CACHE_DIR for the test scope
 // via t.Setenv. Registry defaults to [schema.PublicRegistry]; the cache
 // directory is the shared [WorkspaceCacheDir]. The settings revert at

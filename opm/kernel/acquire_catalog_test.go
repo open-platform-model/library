@@ -24,7 +24,15 @@ import (
 // never served: a provider implements contracts ANOTHER catalog defines, and
 // the transformer's demand entry carries the contract value, so the fixture
 // needs the FQNs and not the defining artifact.
-const baseCatalogPath = "test.example/catalogs/base"
+const (
+	baseCatalogPath = "test.example/catalogs/base"
+
+	// The version the provider catalog's own cue.mod commits to for the base
+	// catalog. cue/load expands the whole module graph, so the registry serves
+	// the base catalog at this version even though the provider's package
+	// never imports it.
+	baseCatalogVersion = "1.2.3"
+)
 
 func backupTraitFQN() string  { return baseCatalogPath + "/traits/backup@v1" }
 func containerResFQN() string { return baseCatalogPath + "/resources/container@v1" }
@@ -145,9 +153,17 @@ func listTree(t *testing.T, dir string) []string {
 func TestKernel_AcquireCatalogFromRegistry(t *testing.T) {
 	path := registrytest.UniquePath(t, "provider")
 	const version = "1.0.0"
-	mapping := registrytest.NewCatalogRegistry(t, registrytest.CatalogFixture{
-		Path: path, Version: version, Body: providerCatalogBody(path, version),
-	})
+	mapping := registrytest.NewCatalogRegistry(t,
+		registrytest.CatalogFixture{
+			Path: baseCatalogPath, Version: baseCatalogVersion,
+			Body: registrytest.BuildCatalog(baseCatalogPath, baseCatalogVersion),
+		},
+		registrytest.CatalogFixture{
+			Path: path, Version: version, Body: providerCatalogBody(path, version),
+			// The requirement scenario asks for a catalog committing to a core
+			// version AND a catalog version, so the fixture commits to both.
+			Deps: map[string]string{baseCatalogPath + "@v1": baseCatalogVersion},
+		})
 	// Route the served prefix only through the option under test.
 	t.Setenv("CUE_REGISTRY", schema.PublicRegistry)
 	ctx := context.Background()
@@ -177,7 +193,10 @@ func TestKernel_AcquireCatalogFromRegistry(t *testing.T) {
 
 	requires, err := cat.Requires()
 	require.NoError(t, err)
-	assert.Equal(t, registrytest.DefaultCoreVersion, requires["opmodel.dev/core@v2"])
+	assert.Equal(t, map[string]string{
+		"opmodel.dev/core@v2":   registrytest.DefaultCoreVersion,
+		baseCatalogPath + "@v1": "v" + baseCatalogVersion,
+	}, requires, "both committed requirements are readable, each as a path and a version")
 }
 
 // catalog-acquisition spec, "A non-catalog artifact is refused by shape",

@@ -101,14 +101,29 @@ func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*modul
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
 	}
-	src := sourceForDir(absDir)
-	overlay, err := sourcetree.OverlayFromDir(src.Root)
+	src, err := overlaySourceForDir(absDir)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
 	}
-	src.Overlay = overlay
 	mod.Source = src
 	return mod, nil
+}
+
+// overlaySourceForDir describes the package at absDir as an OVERLAY-mode
+// Source: [sourceForDir]'s Root and Pkg, with every .cue file under Root read
+// into the overlay. It is the stamping both directory acquirers that return
+// an overlay-mode artifact share — the module's and the catalog's — so the
+// two cannot drift on what "acquired from a directory" stages. The instance
+// path does NOT use it: its overlay carries a rendered values file beside the
+// on-disk ones, so it builds its own.
+func overlaySourceForDir(absDir string) (*module.Source, error) {
+	src := sourceForDir(absDir)
+	overlay, err := sourcetree.OverlayFromDir(src.Root)
+	if err != nil {
+		return nil, err
+	}
+	src.Overlay = overlay
+	return src, nil
 }
 
 // AcquireCatalogFromRegistry loads a #Catalog published in an OCI registry by
@@ -191,12 +206,10 @@ func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*cata
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
 	}
-	src := sourceForDir(absDir)
-	overlay, err := sourcetree.OverlayFromDir(src.Root)
+	src, err := overlaySourceForDir(absDir)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
 	}
-	src.Overlay = overlay
 	cat.Source = src
 	return cat, nil
 }

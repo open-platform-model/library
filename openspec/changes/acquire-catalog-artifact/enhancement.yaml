@@ -2,5 +2,13 @@
 # `task enhancements:delivery:log` at archive time.
 implements:
   - enhancement: "0015"
+    # D8 is deliberately NOT claimed here. Catalog.Requires() makes the
+    # catalog's committed resolution readable, which D8 needs, but D8 IS the
+    # refusal of a build-incompatible registration at acceptance — the
+    # comparison and the verdict are the operator's. enhancements/schema.cue
+    # #LogEntry.decisions: "a number belongs here only when the change
+    # delivered that decision whole; a decision spanning repos is claimed by
+    # the change that completes it", because an over-claim is the one error
+    # the derivation cannot absorb (it produces a false `implemented`).
     decisions: [D10, D11]
     resolves: []

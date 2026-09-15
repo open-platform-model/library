@@ -131,7 +131,11 @@ func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 // --- Goroutine-safety regression: N goroutines drive the acquire path on
 // ONE Kernel (kernel-runtime spec, "Concurrent acquisitions on one Kernel").
 // With -race enabled, this confirms every operation builds in a context of
-// its own and nothing on the Kernel is shared between them. The render side
+// its own and nothing on the Kernel is shared between them. Every acquire
+// verb that takes a directory is in the loop, the catalog one included
+// (catalog-acquisition spec: "each SHALL build in a cue.Context created for
+// the call, per ADR-007") — a verb left out of it is a verb whose per-call
+// context is documented and unchecked. The render side
 // of the same claim (Render shares nothing, 0019 D8) is
 // TestRender_ConcurrentKernelsShareNothing in render_test.go.
 
@@ -155,6 +159,14 @@ metadata: {
 }
 #module: {kind: "Module"}
 values: {replicas: 3}
+`)
+	catDir := schematest.WriteCatalogDir(t, `
+package cat
+kind: "Catalog"
+metadata: {
+	modulePath: "example.com/catalogs/demo@v1"
+	version:    "1.0.0"
+}
 `)
 
 	k := kernel.New() // one Kernel, shared by every goroutine
@@ -182,6 +194,15 @@ values: {replicas: 3}
 			}
 			if inst.Metadata.Name != "demo" {
 				errCh <- errors.New("instance metadata not decoded")
+				return
+			}
+			cat, err := k.AcquireCatalogFromDir(ctx, catDir)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if cat.Metadata.Version != "1.0.0" {
+				errCh <- errors.New("catalog metadata not decoded")
 			}
 		}()
 	}

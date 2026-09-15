@@ -1,0 +1,75 @@
+## MODIFIED Requirements
+
+### Requirement: Module Identity Verification
+
+After the artifact shape gate passes, the registry module loader SHALL verify the acquired artifact's declared identity against the coordinate it was fetched by: `metadata.modulePath` SHALL equal the requested module path (both in the full major-suffixed form, compared as strings without recomposition), and `metadata.version` SHALL equal the fetched tag with its `v` prefix stripped. A disagreement SHALL fail the load with a typed identity error naming both the declared and the fetched value. The verification SHALL sit on the single module entrypoint of the shared fetch routine, so every frontend acquiring a module through the kernel inherits one implementation.
+
+The verification SHALL be scoped to modules. The kind-parameterized fetch routine underneath the module entrypoint SHALL NOT run it, so an artifact of another kind traverses the shared fetch without a coordinate check; a kind whose requirements call for one states that requirement itself. The two behaviours SHALL be distinguishable in the code rather than by convention: the check lives in the module entrypoint, not in the routine both kinds share.
+
+There SHALL be no alternative verification for a major-free `metadata.modulePath`: the OPM schema the library consumes requires the major-suffixed form, so a declaration without the suffix cannot equal the fetched path and is refused with the same typed error. The library SHALL NOT compose a module address from a parent path and a name.
+
+The kernel SHALL NOT write or correct either value: the schema declares identity, the reader verifies it (the kernel is a verifier, never a stamper).
+
+#### Scenario: Address mismatch refused at acquire
+
+- **WHEN** a published module is fetched by `opmodel.dev/modules/demo@v1` but declares `metadata.modulePath: "opmodel.dev/modules/other@v1"`
+- **THEN** the load fails with a typed error carrying both paths
+
+#### Scenario: Version mismatch refused at acquire
+
+- **WHEN** a published module is fetched by tag `v2.0.2` but declares `metadata.version: "2.0.0"`
+- **THEN** the load fails with a typed error carrying both versions
+
+#### Scenario: Older-line parent-path declaration verified by convention
+
+- **WHEN** a module fetched by `testing.opmodel.dev/x/modules/hello@v0` declares the major-free `metadata.modulePath: "testing.opmodel.dev/x/modules"` (the core-v0/v1 shape)
+- **THEN** the load fails with the typed identity error for the `path` field, carrying the declared parent path and the fetched path
+- **AND** no publishing-convention fallback is attempted
+
+#### Scenario: Honest artifact loads
+
+- **WHEN** the declared path and version match the fetched coordinate
+- **THEN** the load proceeds exactly as before this requirement
+
+#### Scenario: A non-module kind traverses the shared fetch unchecked
+
+- **WHEN** an artifact of a kind other than `Module` is fetched through the shared fetch routine
+- **THEN** no coordinate identity check runs and no identity error can be raised by that routine
+- **AND** the module entrypoint above it still runs the check for every module
+
+### Requirement: Acquire a module from the registry
+
+The library SHALL provide exactly one registry acquisition entry point per artifact kind. For modules that entry point is `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery, loads it in memory as the main module (its own `cue.mod/module.cue` drives transitive resolution, its `kind`/`metadata` evaluate at the package root, no wrapper package is synthesized and no temporary directory is written), runs the acquisition shape gate, verifies the declared identity against the fetched coordinate, and returns a `*module.Module` whose staged source is attached: `Source.Root` the deterministic synthetic root, `Source.Overlay` the module's `.cue` files as bytes (its own `cue.mod/module.cue` included and nothing else). The staged source SHALL be the same tree used to build the module value, so no second fetch is required to reuse it. The registry mapping SHALL be the kernel's (`WithRegistry`), applied through the resolver and load configuration and never through `os.Setenv`. No value-only loader SHALL be exported from any package under `opm/`.
+
+Every kind's entry point SHALL be served by one fetch routine, parameterized by the shape it gates to. Fetching and staging a published CUE module artifact reads no `kind`, so a second fetch implementation SHALL NOT exist for any kind.
+
+The acquired module's staged source SHALL be consumable by `SynthesizeInstance` to construct an instance inside the module's own main module, so transitive dependencies resolve via the module's own `cue.mod/module.cue`.
+
+#### Scenario: Acquired module carries reusable staged source
+
+- **WHEN** `Kernel.AcquireModuleFromRegistry(ctx, "<path>@v2", "v2.1.0")` is called against a registry serving the module
+- **THEN** it returns a `*module.Module` whose staged source (overlay of bytes plus synthetic root) is populated and `HasSource()` reports true
+- **AND** the staged source is the one used to build the module value (no second fetch is performed to obtain it)
+- **AND** the process environment is not mutated
+
+#### Scenario: Registry mapping is the kernel's
+
+- **WHEN** a kernel constructed with `WithRegistry(mapping)` acquires a module
+- **THEN** the fetch and the module's transitive imports resolve through `mapping` with no per-call argument
+
+#### Scenario: No value-only loader
+
+- **WHEN** a consumer searches every package under `opm/` for a registry loader returning a bare `cue.Value`
+- **THEN** none exists; `Kernel.AcquireModuleFromRegistry` is the single module entry point and the raw value is `Module.Package`
+
+#### Scenario: One fetch routine serves every kind
+
+- **WHEN** a developer searches `opm/internal/loader` for the code that resolves a coordinate, fetches it and stages its files
+- **THEN** exactly one routine does it, taking the shape to gate to as a parameter
+- **AND** each kind's registry entry point calls that routine with its own shape rather than repeating the fetch
+
+#### Scenario: Staged source drives transitive resolution during synthesis
+
+- **WHEN** a module acquired via `AcquireModuleFromRegistry` is passed to `SynthesizeInstance`
+- **THEN** the instance is staged inside the module's source tree and the module's own `cue.mod/module.cue` resolves the transitive (catalog) closure
+- **AND** synthesis succeeds without the caller declaring the module's transitive dependencies

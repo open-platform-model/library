@@ -14,7 +14,7 @@ The kernel cannot do any of it. `opm/kernel` acquires `Module`, `Platform` and `
 
 - `opm/catalog` (new package): a `Catalog` type — the typed, source-carrying artifact, mirroring `module.Module` — plus `NewCatalogFromValue`, and the `provides` derivation as a method.
 - `opm/kernel`: `Kernel.AcquireCatalogFromRegistry(ctx, modPath, version)` and `Kernel.AcquireCatalogFromDir(ctx, dirPath)`, the registry and directory peers `AcquireModuleFrom*` already establishes.
-- `opm/internal/loader`: a `CatalogSpec` shape gate beside `ModuleSpec`, `InstanceSpec` and `PlatformSpec`. `FetchModule` is already kind-agnostic — a catalog is a CUE module artifact — so the registry path needs no new plumbing.
+- `opm/internal/loader`: a `CatalogSpec` shape gate beside `ModuleSpec`, `InstanceSpec` and `PlatformSpec`, and the registry fetch parameterized by shape — `FetchArtifact(…, spec)` carries the body, `FetchModule` becomes the `#Module` entry over it and keeps the coordinate identity check. Fetching and staging a published CUE module artifact reads no `kind`, so no second fetch path is written; only the build half was module-specific.
 - `adr/009`: why the kernel grows a fourth acquired kind after a program that deliberately shrank its surface.
 
 **Not in this change**: every verdict. Whether a claim's `provides` matches, whether a competing claim exists, whether a build is compatible, and what any refusal says are the operator's, in `registration-acceptance`. This change hands back a validated catalog and its derived provider set; it judges nothing.
@@ -29,7 +29,11 @@ Also not in this change, and not a follow-up either: `cli/internal/publish`. Its
 
 ### Modified Capabilities
 
-None. The existing acquisition capabilities describe their own kinds; this adds a fourth beside them rather than restating them.
+The acquisition capabilities describe their own kinds and are untouched: this adds a fourth beside them rather than restating them. Three capabilities that enumerate or scope across kinds are not so lucky and carry MODIFIED requirements:
+
+- `artifact-types`: "Kernel Artifact Type Set" states the accepted set exhaustively ("exactly three"). A fourth kind makes the requirement false, so it is amended to four and records that ADR-009 governs a fifth.
+- `registry-module-loading`: "Module Identity Verification" placed the coordinate check on "the shared load path so every entrypoint … inherits one implementation". After the fetch is parameterized, the shared routine deliberately does NOT run it — the check is the module entrypoint's. The requirement is amended to say so, rather than leaving a sentence a catalog acquisition silently contradicts. "Acquire a module from the registry" is amended in the same pass: "one registry acquisition entry point" becomes one per kind, over one shared fetch routine.
+- `schema-dispatch`: "Metadata decoders are free functions" enumerates the decoders and their packages. `opm/catalog`'s joins them, and `schema.CatalogMetadata` joins the exported metadata structs.
 
 ## Impact
 
