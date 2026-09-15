@@ -34,13 +34,13 @@ This is the load-bearing decision and the one a reviewer should attack. The kern
 The argument, recorded in `adr/009-catalog-is-an-acquired-kind.md`:
 
 1. **A catalog is already a kernel input, transitively.** Every platform build resolves and evaluates the subscribed catalogs; the kernel has always read catalogs, just never as an entry point. This makes an existing dependency explicit rather than introducing one.
-2. **The need is proven twice, which is the test `CONSTITUTION.md` line 138 sets.** The operator cannot implement D8, D10 or D11 without it, and `cli/internal/publish` already hand-rolled the operation (`compat.go:212-223`).
+2. **The need is proven by one consumer that cannot proceed without it**, which is the test `CONSTITUTION.md` line 138 sets — the operator implements D8, D10 and D11 or 0015's acceptance path does not ship. `cli/internal/publish` is deliberately NOT cited as a second consumer: its `loadPublishedPackage` probes published subpackages for member-shape compat, gating to no kind and treating absence as a scan signal, and its directory peer carries source positions for refusal messages. Both would fail this change's kind gate. One honest consumer is the argument; two inflated ones would be a worse one.
 3. **The alternative reverses a completed migration.** The operator reaching for `cue/load.Instances` in `internal/` puts CUE loading back in the controller, which the kernel migration removed, and makes it the third copy of OCI-fetch-and-evaluate.
 4. **The boundary that actually matters is read versus judge, and it is preserved.** The kernel returns a validated catalog and a derived set; every verdict stays with the consumer. That is the same line `Platform.Contracts()` draws — "Reports, never refusals".
 
 **Alternative considered — a narrower answer: the operator asks the kernel to validate a claim.** A verb such as `VerifyRegistration(claim) → verdict` keeps the catalog type out of the public surface. Rejected: it moves 0015's *policy* into the library, which is the boundary this design is trying to hold. The library would then own what a refusal says, and D8, D11 and D12's diagnostics are explicitly left to the operator slice.
 
-**Alternative considered — leave it in the frontends.** Honest and cheapest today; rejected on the duplication the slice-07 program (five changes, 2026-09-13) just finished removing between `cli` and `opm-operator`.
+**Alternative considered — leave it in the frontends.** Honest and cheapest today. Rejected because the only frontend that would hold it is the operator, which has no CUE machinery left after the kernel migration; putting `load.Instances` back in `internal/` to serve one controller path is what slice 07 (five changes, 2026-09-13) spent its effort undoing. Note this is a weaker rejection than it would be with two consumers — with one, it turns entirely on where CUE loading belongs, not on deduplication.
 
 ### `opm/catalog` mirrors `opm/module`, and derivation is a method
 
@@ -83,6 +83,13 @@ No new gating routine. The registry path calls the existing `FetchModule` unchan
 **Explored**: `opm/internal/loader/registry.go:53` — `FetchModule(ctx, cueCtx, modPath, version, env) (cue.Value, *Source, error)`.
 **Decision**: reuse it as-is; add only the shape gate and the typed constructor.
 **Rationale**: the function resolves `path@version` and stages the artifact's CUE files. Nothing in it reads `kind`; the kind assumption lives entirely in the caller's choice of `ArtifactSpec`. A catalog published by `opm catalog publish` is an ordinary CUE module artifact, so the fetch is byte-identical work. The name `FetchModule` becomes slightly misleading and is worth a doc note, not a rename this change pays for.
+
+### `cli/internal/publish` is not a consumer of this verb
+
+**Context**: the first draft of this design cited `cli` as a second proven consumer and listed `compat.go` as a later collapse candidate. Both claims needed checking before an implementer acted on them.
+**Explored**: `cli/internal/publish/compat.go` `loadPublishedPackage` and `load.go` `loadArtifact`/`loadPackage`.
+**Decision**: `cli` is not a consumer, now or later. The claims are withdrawn from the proposal and from ADR-009.
+**Rationale**: `loadPublishedPackage` loads ONE published subpackage by import path (`.../resources/v1beta1@4.2.0`) to compare member shapes level-aware. It gates to no kind — a resources subpackage has none — and returns `found=false` on module-not-found, because absence is the scan's negative signal rather than a failure. `loadArtifact` carries `packageClausePos`, `fieldPos` and `moduleLinePos` so publish refusals can point at source. This verb fetches a root package, requires `kind: "Catalog"`, errors on absence, and returns no positions. Every compat call would fail its gate. The shared `load.Instances` call is the only resemblance.
 
 ### `Platform.Contracts()` cannot answer this
 

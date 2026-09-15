@@ -8,7 +8,7 @@ Enhancement 0015 D3 gives transformers a second path onto a platform: a provider
 
 The kernel cannot do any of it. `opm/kernel` acquires `Module`, `Platform` and `Instance`; there is no catalog verb and no catalog type. `Platform.Contracts()` (alpha.30) is not a substitute: it decodes the inventory core derives from the platform's **enabled registry entries**, and a claimed catalog is by definition not subscribed yet — that is the whole point of the dynamic path.
 
-The capability is not hypothetical. `cli` already does it, by hand: `internal/publish/compat.go:212-223` fetches a published module artifact with `cue/load.Instances` and a registry env, and `internal/publish/load.go:75` does the directory peer. So one frontend has a private implementation and a second frontend now needs the same operation.
+`cli` is **not** a second consumer, though it looks like one. `internal/publish/compat.go`'s `loadPublishedPackage` also fetches through `cue/load.Instances` with a registry env, but it loads one published **subpackage** (`.../resources/v1beta1@4.2.0`) to compare member shapes level-aware, treats absence as a normal scan signal rather than an error, and gates to no kind at all — a resources subpackage carries none. Its directory peer builds an artifact carrying package-clause and field positions for publish refusal messages. Both would fail the kind gate this change adds, and neither wants what it returns. The resemblance is `load.Instances`, not the operation.
 
 ## What Changes
 
@@ -19,7 +19,7 @@ The capability is not hypothetical. `cli` already does it, by hand: `internal/pu
 
 **Not in this change**: every verdict. Whether a claim's `provides` matches, whether a competing claim exists, whether a build is compatible, and what any refusal says are the operator's, in `registration-acceptance`. This change hands back a validated catalog and its derived provider set; it judges nothing.
 
-Also not in this change: collapsing `cli/internal/publish/compat.go` onto the new verb. It becomes a candidate once this ships, and it is a `cli` change with its own publish-gate risk.
+Also not in this change, and not a follow-up either: `cli/internal/publish`. Its loading is a different operation (see Why), so there is nothing there to collapse onto this verb.
 
 ## Capabilities
 
@@ -38,6 +38,6 @@ None. The existing acquisition capabilities describe their own kinds; this adds 
 - **`cli`**: nothing required. `internal/publish` keeps its own loading; the new verb is a later simplification candidate, not a migration this change forces.
 - **SemVer: MINOR.** Additive public surface, no break. The library is pre-1.0 on the alpha line, so this lands as `feat` and cuts `v1.0.0-alpha.31`.
 
-**Complexity justification (Principle VII).** `CONSTITUTION.md` line 138 is the governing test — the library grows "when downstream needs prove it, not in anticipation". The need is proven twice over: the operator cannot implement D8, D10 or D11 without it, and `cli` already wrote the operation privately. The alternative is the operator calling `cue/load.Instances` in `internal/`, which reverses the kernel migration specifically so the controller can do CUE work again, and makes it the third hand-rolled copy of an OCI-fetch-and-evaluate. A catalog is also already a kernel input transitively: every platform build resolves and evaluates the subscribed catalogs. This makes an existing implicit dependency explicit.
+**Complexity justification (Principle VII).** `CONSTITUTION.md` line 138 is the governing test — the library grows "when downstream needs prove it, not in anticipation". The need is proven once, by one consumer that cannot proceed without it: the operator implements D8, D10 and D11 or 0015's acceptance path does not ship. One proven consumer is what line 138 asks for; it does not ask for two. The alternative is the operator calling `cue/load.Instances` in `internal/`, which reverses the kernel migration specifically so the controller can do CUE work again. A catalog is also already a kernel input transitively: every platform build resolves and evaluates the subscribed catalogs. This makes an existing implicit dependency explicit.
 
 The countervailing cost is real and named in ADR-009: this is a fourth kind on a surface that ADR-007 and the kernel-diet slices deliberately shrank, and the `Module`/`ModuleInstance`/`Platform` triple is a stated boundary. The ADR is the gate — if its argument cannot be written convincingly, the boundary should win and the operator should get a narrower answer instead.
