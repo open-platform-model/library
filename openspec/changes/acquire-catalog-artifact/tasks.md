@@ -20,8 +20,8 @@ be written convincingly the rest should not be built.
 
 ## 3. The kernel verbs
 
-- [ ] 3.1 Add `Kernel.AcquireCatalogFromRegistry(ctx, modPath, version)` calling the existing `loader.FetchModule` unchanged, then the shape gate and `NewCatalogFromValue`. Verify: `FetchModule` is not modified; `cuecontext.New()` is called at entry per ADR-007.
-- [ ] 3.2 Add `Kernel.AcquireCatalogFromDir(ctx, dirPath)` as the directory peer, stamping `Source` in overlay mode as `AcquireModuleFromDir` does. Verify: the caller's directory is not written to.
-- [ ] 3.3 Cover the refusals: a `kind: "Module"` artifact acquired as a catalog fails wrapping `ErrWrongKind` naming both kinds; an artifact with no `kind`, or a non-concrete one, fails the same way; no partial catalog is returned on any gate failure. Verify: each case asserts the sentinel with `errors.Is`, not a message match.
-- [ ] 3.4 Exercise the registry path against the test fixture registry (`opm/internal/registrytest`), so acquisition is proven end to end and not only against a directory. Verify: the negative registry case runs before any positive load warms the cache.
-- [ ] 3.5 `task check` green, then commit `feat(kernel): acquire a catalog from a registry or a directory`.
+- [x] 3.1 Add `Kernel.AcquireCatalogFromRegistry(ctx, modPath, version)` over the loader's one registry routine, then the shape gate and `NewCatalogFromValue`. That routine hard-wires `ModuleSpec` and the module coordinate check, so it is parameterized rather than reused as-is: `FetchArtifact(..., spec)` carries the body and `FetchModule` becomes the wrapper passing `ModuleSpec` (design.md § The registry plumbing is kind-agnostic only up to the build). Verify: no second fetch path exists; `FetchModule`'s signature, behaviour and call site are unchanged; `cuecontext.New()` is called at entry per ADR-007.
+- [x] 3.2 Add `Kernel.AcquireCatalogFromDir(ctx, dirPath)` as the directory peer, stamping `Source` in overlay mode as `AcquireModuleFromDir` does. Verify: the caller's directory is not written to.
+- [x] 3.3 Cover the refusals: a `kind: "Module"` artifact acquired as a catalog fails wrapping `ErrWrongKind` naming both kinds; an artifact with no `kind`, or a non-concrete one, fails the same way; no partial catalog is returned on any gate failure. Verify: each case asserts the sentinel with `errors.Is`, not a message match.
+- [x] 3.4 Exercise the registry path against the test fixture registry (`opm/internal/registrytest`), so acquisition is proven end to end and not only against a directory. Verify: the negative registry case runs before any positive load warms the cache.
+- [x] 3.5 `task check` green, then commit `feat(kernel): acquire a catalog from a registry or a directory`.

@@ -310,6 +310,8 @@ func TestKernel_ExportedSurface(t *testing.T) {
 	}
 	sort.Strings(got)
 	want := []string{
+		"AcquireCatalogFromDir",
+		"AcquireCatalogFromRegistry",
 		"AcquireInstanceFromDir",
 		"AcquireModuleFromDir",
 		"AcquireModuleFromRegistry",

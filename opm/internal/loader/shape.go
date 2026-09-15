@@ -1,8 +1,9 @@
 // Package loader is the kernel's one artifact-loading routine: it builds a
 // single CUE package — from a directory or from an in-memory overlay — and
 // runs the OPM artifact shape gate over the result, and it fetches a
-// published artifact from an OCI registry through CUE's native module
-// machinery (FetchModule: kind-agnostic in fact, see ADR-009).
+// published artifact of any OPM kind from an OCI registry through CUE's
+// native module machinery (FetchArtifact, with FetchModule the #Module
+// entry over it; ADR-009).
 //
 // The gate is the acquisition boundary's fast-fail structural check: it
 // confirms an artifact carries the right concrete kind and the identity

@@ -15,10 +15,32 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// FetchModule loads a #Module published in an OCI registry, identified by its
-// major-qualified module path (e.g. "example.com/modules/hello@v0") and
-// version (e.g. "v0.0.2"), and returns the value built in cueCtx together
-// with the staged source tree the build used, as the artifact
+// FetchModule loads a #Module published in an OCI registry: [FetchArtifact]
+// with [ModuleSpec], plus the coordinate identity check that is the module
+// path's alone ([verifyModuleIdentity], 0010 D11). It is the registry path's
+// single entry for modules, so the check runs for every caller behind it.
+//
+// Other kinds go through FetchArtifact with their own spec and do NOT get the
+// coordinate check: the requirement admitting the catalog kind (ADR-009) names
+// only the shape refusal, and a kernel that refuses on something no
+// requirement describes is worse than an unchecked coordinate. Generalizing
+// the check is its own change.
+func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string) (cue.Value, *opmmodule.Source, error) {
+	val, src, err := FetchArtifact(ctx, cueCtx, modPath, version, env, ModuleSpec)
+	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	if err := verifyModuleIdentity(val, modPath, version); err != nil {
+		return cue.Value{}, nil, err
+	}
+	return val, src, nil
+}
+
+// FetchArtifact loads an OPM artifact published in an OCI registry, identified
+// by its major-qualified module path (e.g. "example.com/modules/hello@v0") and
+// version (e.g. "v0.0.2"), gated to the shape spec names, and returns the
+// value built in cueCtx together with the staged source tree the build used,
+// as the artifact
 // [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
 // overlay key sits under, plus the Overlay carrying the module's .cue files
 // (its own cue.mod/module.cue included, nothing else: the set cue/load
@@ -38,19 +60,25 @@ import (
 // temporary directory is written.
 //
 // Because the build IS [LoadDir] — the kernel's one evaluate-and-shape-gate
-// routine, the same call directory acquisition makes — the fetched module
-// is evaluated, shape-gated (concrete kind == "Module"; concrete
-// metadata.name, metadata.modulePath, metadata.version) and error-wrapped
-// exactly as a directory module is, wrapping the shared ErrInvalidPackage /
-// ErrWrongKind / ErrMissingRequiredField sentinels. The two acquisition
-// paths differ only in where the package files come from. Neither performs
-// full schema validation, which remains the kernel's contract.
+// routine, the same call directory acquisition makes — the fetched artifact
+// is evaluated, shape-gated against spec (its concrete kind and its concrete
+// identity fields) and error-wrapped exactly as a directory artifact of that
+// kind is, wrapping the shared ErrInvalidPackage / ErrWrongKind /
+// ErrMissingRequiredField sentinels. The two acquisition paths differ only in
+// where the package files come from. Neither performs full schema validation,
+// which remains the kernel's contract.
+//
+// Everything up to and including the staging reads no kind: fetching and
+// unpacking a published CUE module artifact is the same work whatever OPM
+// kind its root package declares, which is why one routine serves every kind
+// and the kernel holds no second fetch path (ADR-009). spec is the only thing
+// that differs between them.
 //
 // env is the environment slice the fetch resolver and the load both consult —
 // the kernel's CUE_REGISTRY mapping via [cueenv.Override], nil to read the
 // process environment unchanged. The process environment is never mutated.
 // Parse failures on caller input are wrapped rather than panicked.
-func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string) (cue.Value, *opmmodule.Source, error) {
+func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string, spec ArtifactSpec) (cue.Value, *opmmodule.Source, error) {
 	mv, err := module.NewVersion(modPath, version)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("parsing module version %s@%s: %w", modPath, version, err)
@@ -68,8 +96,8 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 		return cue.Value{}, nil, fmt.Errorf("fetching module %s: %w", mv, err)
 	}
 
-	// Stage the fetched module's .cue files in memory under a deterministic
-	// synthetic root. A fetch carrying no .cue file is not a module.
+	// Stage the fetched artifact's .cue files in memory under a deterministic
+	// synthetic root. A fetch carrying no .cue file is not an artifact.
 	synthRoot := sourcetree.SyntheticRoot(modPath, version)
 	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	if err != nil {
@@ -90,12 +118,8 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 	// registry/cache dependency resolution intact. Do not "simplify" this to
 	// FS-pinning; registry_internal_test.go pins the negative result. See
 	// design.md § Research & Decisions (add-registry-module-loader).
-	val, err := LoadDir(cueCtx, synthRoot, ".", overlay, env, ModuleSpec)
+	val, err := LoadDir(cueCtx, synthRoot, ".", overlay, env, spec)
 	if err != nil {
-		return cue.Value{}, nil, err
-	}
-
-	if err := verifyModuleIdentity(val, modPath, version); err != nil {
 		return cue.Value{}, nil, err
 	}
 
@@ -110,9 +134,10 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // fields present and concrete (ModuleSpec.RequiredConcreteFields), so
 // the check cannot misfire on absence. A mismatch returns a bare
 // oerrors.IdentityError naming both values. Sitting after the gate in
-// FetchModule, the registry path's single entry, the check runs for every
-// caller (Kernel.AcquireModuleFromRegistry and the frontends behind it):
-// D11's one implementation.
+// FetchModule, the registry path's single entry FOR MODULES, the check runs
+// for every caller (Kernel.AcquireModuleFromRegistry and the frontends behind
+// it): D11's one implementation. It is module-only by decision, not by
+// oversight — see FetchModule.
 //
 // There is no alternative check for a major-free declaration: the core
 // schema the library consumes requires the major-suffixed form

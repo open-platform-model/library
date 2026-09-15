@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 
+	"github.com/open-platform-model/library/opm/catalog"
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
@@ -108,6 +109,96 @@ func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*modul
 	src.Overlay = overlay
 	mod.Source = src
 	return mod, nil
+}
+
+// AcquireCatalogFromRegistry loads a #Catalog published in an OCI registry by
+// its major-qualified path (e.g. "opmodel.dev/catalogs/opm@v4") and version
+// (e.g. "v4.3.0"), in a [cue.Context] created for the call, through the
+// kernel's configured registry (set via [WithRegistry], inheriting
+// CUE_REGISTRY from the process environment when unset). It is the registry
+// peer of [Kernel.AcquireCatalogFromDir] and the exact counterpart of
+// [Kernel.AcquireModuleFromRegistry]: one fetch routine serves both, and the
+// only thing that differs is the shape it gates to (ADR-009).
+//
+// It returns a decoded [*catalog.Catalog] whose staged source
+// ([catalog.Source]) is populated in overlay mode, so
+// [catalog.Catalog.Requires] reads the catalog's committed
+// cue.mod/module.cue without a second fetch. A caller that wants the raw
+// value reads Catalog.Package, which keeps the call's runtime alive for as
+// long as the caller holds the catalog.
+//
+// The catalog is evaluated and shape-gated (concrete kind == "Catalog";
+// concrete metadata.modulePath and metadata.version), never fully
+// schema-validated, which remains the kernel's contract. A gate failure
+// propagates unchanged, wrapping the shared sentinels
+// ([oerrors.ErrWrongKind] for an artifact of another kind or of none); no
+// partial catalog is returned. Unlike the module path, the fetched
+// coordinate is not compared against the catalog's declared one — see
+// loader.FetchModule for why that check is the module's alone.
+//
+// The kernel judges nothing beyond the shape: what a catalog provides and
+// what it requires are reported by [catalog.Catalog.Provides] and
+// [catalog.Catalog.Requires] on demand, and what either means is the
+// caller's.
+func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, version string) (*catalog.Catalog, error) {
+	val, src, err := loader.FetchArtifact(ctx, cuecontext.New(), modPath, version, k.loadEnv(), loader.CatalogSpec)
+	if err != nil {
+		return nil, err
+	}
+	cat, err := catalog.NewCatalogFromValue(val)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireCatalogFromRegistry: %w", err)
+	}
+	cat.Source = src
+	return cat, nil
+}
+
+// AcquireCatalogFromDir loads a #Catalog CUE package from a directory and
+// returns it as a typed, source-carrying [*catalog.Catalog]. It is the
+// directory peer of [Kernel.AcquireCatalogFromRegistry], and it mirrors
+// [Kernel.AcquireModuleFromDir] exactly: the package is evaluated and
+// shape-gated as the registry path gates a fetched catalog,
+// [catalog.NewCatalogFromValue] constructs the typed artifact, and
+// [catalog.Source] is stamped in OVERLAY mode — Root the enclosing module
+// root (the nearest ancestor holding cue.mod/module.cue, the directory
+// itself when it is the root or when no ancestor holds one), Pkg the package
+// directory relative to it, and Overlay every .cue file under Root (the
+// module's own cue.mod/module.cue included) keyed by its absolute path.
+//
+// Overlay mode is what makes [catalog.Catalog.Requires] answer identically
+// whichever route acquired the catalog: the committed cue.mod/module.cue is
+// carried on the artifact either way.
+//
+// The package is built in a [cue.Context] created for the call;
+// Catalog.Package keeps it alive for as long as the caller holds the
+// catalog. The registry mapping for the catalog's own imports is the
+// kernel's ([WithRegistry]), applied via the load configuration's
+// environment and never os.Setenv. The caller's directory is never written
+// to.
+//
+// Shape-gate failures propagate unchanged (missing directory, no package, or
+// a sentinel such as [oerrors.ErrWrongKind]); no partial catalog is returned.
+func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*catalog.Catalog, error) {
+	absDir, err := filepath.Abs(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: resolving catalog directory: %w", err)
+	}
+	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.CatalogSpec)
+	if err != nil {
+		return nil, err
+	}
+	cat, err := catalog.NewCatalogFromValue(val)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
+	}
+	src := sourceForDir(absDir)
+	overlay, err := sourcetree.OverlayFromDir(src.Root)
+	if err != nil {
+		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
+	}
+	src.Overlay = overlay
+	cat.Source = src
+	return cat, nil
 }
 
 // AcquirePlatformFromDir loads a #Platform CUE package from a directory and

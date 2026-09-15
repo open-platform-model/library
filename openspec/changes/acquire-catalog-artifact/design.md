@@ -6,7 +6,7 @@ See `proposal.md` for motivation. Current state, read 2026-09-15 at alpha.30:
 
 - `opm/kernel/acquire.go` holds four verbs: `AcquireModuleFromRegistry`, `AcquireModuleFromDir`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir`. Each calls `cuecontext.New()` at entry (ADR-007), loads, shape-gates, and constructs a typed artifact.
 - `opm/internal/loader/shape.go` defines `ArtifactSpec` and three instances — `ModuleSpec`, `InstanceSpec`, `PlatformSpec` — each naming the expected `kind` and the required metadata fields. One routine gates all three and wraps `ErrWrongKind`, `ErrInvalidPackage`, `ErrMissingRequiredField`.
-- `opm/internal/loader/registry.go`'s `FetchModule` resolves `path@version` through CUE's native module machinery and stages the artifact's `.cue` files as an overlay. It is **kind-agnostic**: it fetches a CUE module artifact and returns a value, with no assumption that the value is a `#Module`.
+- `opm/internal/loader/registry.go`'s `FetchModule` resolves `path@version` through CUE's native module machinery and stages the artifact's `.cue` files as an overlay. Its fetch and staging are **kind-agnostic** — any published CUE module artifact — but its build is not: it gates through `ModuleSpec` and then verifies the declared coordinate. See § The registry plumbing is kind-agnostic only up to the build.
 - `opm/module/module.go`'s `Module` is the shape a typed artifact takes: `Metadata`, `Package cue.Value`, `Source`.
 - `opm/platform/contracts.go` (alpha.30) decodes `#Platform.#contracts` on demand. It is the precedent for a core-defined derived view living in the library rather than in a consumer.
 - There is no catalog type, no catalog verb, and no `CatalogSpec`.
@@ -73,16 +73,18 @@ func (c *Catalog) Requires() (map[string]string, error)
 CatalogSpec = ArtifactSpec{ Kind: "Catalog", /* required metadata fields */ }
 ```
 
-No new gating routine. The registry path calls the existing `FetchModule` unchanged, because it already fetches a CUE module artifact without assuming its kind — the one place where a catalog and a module are genuinely the same thing.
+No new gating routine. The registry path goes through the loader's one fetch routine with `CatalogSpec` in place of `ModuleSpec` — the fetch and the staging are the one place where a catalog and a module are genuinely the same thing, and the spec is the only thing that differs.
 
 ## Research & Decisions
 
-### The registry plumbing needs no change
+### The registry plumbing is kind-agnostic only up to the build, and is parameterized
 
 **Context**: whether fetching a catalog artifact needs a second fetch path.
-**Explored**: `opm/internal/loader/registry.go:53` — `FetchModule(ctx, cueCtx, modPath, version, env) (cue.Value, *Source, error)`.
-**Decision**: reuse it as-is; add only the shape gate and the typed constructor.
-**Rationale**: the function resolves `path@version` and stages the artifact's CUE files. Nothing in it reads `kind`; the kind assumption lives entirely in the caller's choice of `ArtifactSpec`. A catalog published by `opm catalog publish` is an ordinary CUE module artifact, so the fetch is byte-identical work. The name `FetchModule` becomes slightly misleading and is worth a doc note, not a rename this change pays for.
+**Explored**: `opm/internal/loader/registry.go` — `FetchModule(ctx, cueCtx, modPath, version, env) (cue.Value, *Source, error)`.
+**Decision**: split the routine — `FetchArtifact(..., spec ArtifactSpec)` carries the body, `FetchModule` becomes a one-line wrapper passing `ModuleSpec`. No call site and no module behaviour changes. Do NOT write a second fetch path in the kernel.
+**Rationale**: an earlier reading of this function (recorded here, now withdrawn) called it kind-agnostic. Only its first half is. The fetch and the staging are indeed byte-identical work for any published CUE module artifact — `modconfig` resolution, `reg.Fetch`, `OverlayFromFS` under a synthetic root — but the build is not: it calls `LoadDir(..., ModuleSpec)` and then `verifyModuleIdentity`. A catalog fetched through it fails the kind gate and the `metadata.name` requirement, which a `#Catalog` does not carry. Parameterizing the spec keeps the one fetch implementation the whole design rests on; the alternative (a second fetch in the kernel) is the duplication ADR-009 argues against.
+
+**The coordinate identity check stays module-only.** `verifyModuleIdentity` would work on a catalog — a `#Catalog` declares `metadata.modulePath` major-qualified and `metadata.version` bare, exactly as a `#Module` does — but this change's delta spec names only the kind refusal, and a refusal the spec does not describe is out of scope. `FetchModule` keeps the check; `FetchArtifact` does not run it. Generalizing it is its own change.
 
 ### `cli/internal/publish` is not a consumer of this verb
 
