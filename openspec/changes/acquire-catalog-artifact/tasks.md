@@ -6,9 +6,9 @@ be written convincingly the rest should not be built.
 
 ## 1. The boundary argument
 
-- [ ] 1.1 Write `adr/009-catalog-is-an-acquired-kind.md` following `adr/TEMPLATE.md` (Status, Context, Decision, Consequences) and design.md § The kernel grows a fourth acquired kind: a catalog is already a transitive kernel input, the need is proven by two consumers per `CONSTITUTION.md` line 138, the alternative reverses the kernel migration, and the preserved boundary is read-versus-judge. State the test a fifth kind would have to pass. Verify: the ADR stands alone — a reader who has not seen enhancement 0015 can judge the argument.
-- [ ] 1.2 Record in ADR-009's Consequences that `loader.FetchModule`'s name is now kind-agnostic in fact but not in spelling, and — explicitly — that `cli/internal/publish` is NOT a consumer and its loading is not a collapse candidate, with the reason (it probes published subpackages, gates to no kind, treats absence as a scan signal, and carries source positions). Verify: the non-consumer note is present, so a later reader does not rediscover the resemblance and write a migration that cannot work.
-- [ ] 1.3 `task check` green, then commit `docs(adr): record why a catalog is an acquired kind`.
+- [x] 1.1 Write `adr/009-catalog-is-an-acquired-kind.md` following `adr/TEMPLATE.md` (Status, Context, Decision, Consequences) and design.md § The kernel grows a fourth acquired kind: a catalog is already a transitive kernel input, the need is proven by two consumers per `CONSTITUTION.md` line 138, the alternative reverses the kernel migration, and the preserved boundary is read-versus-judge. State the test a fifth kind would have to pass. Verify: the ADR stands alone — a reader who has not seen enhancement 0015 can judge the argument.
+- [x] 1.2 Record in ADR-009's Consequences that `loader.FetchModule`'s name is now kind-agnostic in fact but not in spelling, and — explicitly — that `cli/internal/publish` is NOT a consumer and its loading is not a collapse candidate, with the reason (it probes published subpackages, gates to no kind, treats absence as a scan signal, and carries source positions). Verify: the non-consumer note is present, so a later reader does not rediscover the resemblance and write a migration that cannot work.
+- [x] 1.3 `task check` green, then commit `docs(adr): record why a catalog is an acquired kind`.
 
 ## 2. The catalog artifact and its shape gate
 
