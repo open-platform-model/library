@@ -130,6 +130,11 @@ metadata: { name: "demo", namespace: "ns" }
 #module: {kind: "Module"}
 `), loader.InstanceSpec},
 		"platform": {schematest.WritePlatformDir(t, platformFixture), loader.PlatformSpec},
+		"catalog": {schematest.WriteCatalogDir(t, `
+package cat
+kind: "Catalog"
+metadata: { modulePath: "example.com/catalogs/demo@v1", version: "1.0.0" }
+`), loader.CatalogSpec},
 	} {
 		t.Run(name, func(t *testing.T) {
 			val, err := loader.LoadDir(cuecontext.New(), tc.dir, ".", nil, env, tc.spec)
@@ -173,6 +178,26 @@ kind:       "Platform"
 metadata: {name: "demo", modulePath: "example.com/modules", version: "0.1.0"}
 `,
 			sentinel: oerrors.ErrWrongKind,
+		},
+		{
+			name: "catalog loaded from a module package",
+			spec: loader.CatalogSpec,
+			content: `
+package cat
+kind:       "Module"
+metadata: {name: "demo", modulePath: "example.com/modules@v0", version: "0.1.0"}
+`,
+			sentinel: oerrors.ErrWrongKind,
+		},
+		{
+			name: "catalog missing metadata.version",
+			spec: loader.CatalogSpec,
+			content: `
+package cat
+kind:       "Catalog"
+metadata: modulePath: "example.com/catalogs/demo@v1"
+`,
+			sentinel: oerrors.ErrMissingRequiredField,
 		},
 		{
 			name: "module missing metadata.name",

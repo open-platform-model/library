@@ -16,6 +16,11 @@
 //
 //   - [Kernel.AcquireModuleFromRegistry] and [Kernel.AcquireModuleFromDir]
 //     return a source-carrying [*module.Module];
+//   - [Kernel.AcquireCatalogFromRegistry] and [Kernel.AcquireCatalogFromDir]
+//     return a source-carrying [*catalog.Catalog], the kind admitted by
+//     ADR-009: the kernel reads it and derives from it
+//     ([catalog.Catalog.Provides], [catalog.Catalog.Requires]) and judges
+//     nothing beyond its shape;
 //   - [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform];
 //   - [Kernel.AcquireInstanceFromDir] returns a validated
 //     [*module.Instance], with optional values as trailing [Source] values;

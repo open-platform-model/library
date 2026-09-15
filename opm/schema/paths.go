@@ -4,8 +4,9 @@ import "cuelang.org/go/cue"
 
 // CUE paths the kernel's Go code reads or writes on an OPM artifact: metadata
 // decoding, instance processing, the loaders' identity reads, the
-// instance's components and #config accessors and the platform's on-demand
-// contract inventory. This is the whole inventory. Matching and execution
+// instance's components and #config accessors, the platform's on-demand
+// contract inventory and the catalog's on-demand provider-set derivation.
+// This is the whole inventory. Matching and execution
 // read nothing by path from Go: the render build imports the instance and
 // the platform as packages and the generated glue reads `components` and
 // `#composedTransformers` in CUE (enhancement 0019 D9/D10). A path with no
@@ -33,6 +34,18 @@ var (
 	// six data fields under it are decoded; `defined` (member schemas, not
 	// data) is not.
 	Contracts = cue.MakePath(cue.Def("contracts"))
+
+	// Catalog. Transformers is #Catalog.#transformers, the implementations
+	// a catalog ships. RequiredResources, RequiredTraits and Fulfilment are
+	// read RELATIVE to a transformer and to one of its demand entries, not
+	// from an artifact root: the provider-fulfilled set a catalog implements
+	// is the fold of every contract those two demand maps require whose
+	// value carries fulfilment "provider" (ADR-009). Their one reader is
+	// (*catalog.Catalog).Provides, on demand.
+	Transformers      = cue.MakePath(cue.Def("transformers"))
+	RequiredResources = cue.ParsePath("requiredResources")
+	RequiredTraits    = cue.ParsePath("requiredTraits")
+	Fulfilment        = cue.ParsePath("fulfilment")
 
 	// Module-internal field. DebugValues is a Module field — NOT a separate
 	// kernel artifact. Frontends that want a debug overlay read it from

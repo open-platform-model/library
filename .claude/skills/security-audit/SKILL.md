@@ -31,7 +31,7 @@ Eight dimensions tailored to a CUE-evaluating Go kernel. Each is checked against
 
 ### Dimension 1: Artifact Input Validation & Shape-Gating
 
-The trust gate: all three artifact types must be validated before the kernel acts on them.
+The trust gate: all four artifact types must be validated before the kernel acts on them.
 
 - Every artifact (`Module`, `ModuleInstance`, `Platform`) passes the load-time shape gate before kernel processing: `kind` match, required concrete fields present, embedded `#Module` ref validation (ModuleInstance), empty-string rejection
 - No bypass path: a code route that reaches `Render` without a source-carrying instance from the kernel's acquirers (`AcquireInstanceFromDir` / `SynthesizeInstance`, the only instance constructors) and a platform that passed the `helper/loader/internal/shape` gate (`AcquirePlatformFromDir`), including the `#registry` completeness check

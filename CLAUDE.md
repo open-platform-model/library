@@ -93,10 +93,11 @@ opm/
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
+  catalog/                    *catalog.Catalog — the acquired #Catalog (ADR-009): Metadata, Package, Source, plus the on-demand derivations Provides() (provider-fulfilled contracts its own transformers require) and Requires() (its committed cue.mod deps, path → version). Reads and derives; never renders, never judges
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata types
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree; a depguard rule in .golangci.yml forbids every package outside it from importing it)
     platformmodule/           Platform CUE module from catalog coordinates (0019 D5/D13): Generate (pure files), Roots + Closure (once-at-generation tidy via caller-configured ModFileSource), Files.WriteTo; core pin defaults to schema.DefaultSchemaVersion()
-  internal/loader/            The kernel's one artifact loader: the shape gate + its three ArtifactSpecs (sentinels declared in opm/errors), LoadDir (the one build-and-gate step, for a directory or a byte overlay) and FetchModule (a published #Module by path@version: Fetch, stage as an overlay, then build through LoadDir like a directory module). Internal: reached only through the kernel's acquire verbs
+  internal/loader/            The kernel's one artifact loader: the shape gate + its four ArtifactSpecs (sentinels declared in opm/errors), LoadDir (the one build-and-gate step, for a directory or a byte overlay) and FetchArtifact (a published artifact by path@version: Fetch, stage as an overlay, then build through LoadDir like a directory artifact) with FetchModule the #Module entry over it, adding the coordinate identity check that is the module's alone. Internal: reached only through the kernel's acquire verbs
   internal/synth/             Instance(cueCtx, coreVersion, Input) → the synthesized #ModuleInstance value + its staged tree, built through loader.LoadDir inside the module's own overlay. Internal: reached only through Kernel.SynthesizeInstance; no platform synthesis
   internal/cueenv/            The one CUE_REGISTRY / CUE_CACHE_DIR override (Override: nil when nothing is overridden, else a copy of the process environment with the variables replaced or appended; never os.Setenv) every cue/load and modconfig call site under opm/ passes as its Env
   internal/sourcetree/        Walking, reading and naming a module.Source in both modes: PackageName, OverlayFromDir / OverlayFromFS (.cue files only, cue.mod/module.cue included), SyntheticRoot, ReadFile; shared by the kernel's values overlay, the registry loader's staged overlay and the render stage. Writing an overlay out is module.Source.WriteTo, not this package
@@ -115,7 +116,7 @@ migrations/                   Per-change migration fragments + policy (README.md
 .cue-cache/                   Gitignored shared CUE module cache: the opmodel.dev tier (core + GHCR catalogs) every test and test process reads; served fixtures live in per-test private caches, and nothing in the test tree deletes from it
 ```
 
-### Three artifact types — and nothing else
+### Four artifact types — and nothing else
 
 The kernel accepts exactly:
 
@@ -124,6 +125,9 @@ The kernel accepts exactly:
 | `Module`         | `#Module`            | `*module.Module`     |
 | `ModuleInstance`  | `#ModuleInstance`     | `*module.Instance`    |
 | `Platform`       | `#Platform`          | `*platform.Platform` |
+| `Catalog`        | `#Catalog`           | `*catalog.Catalog`   |
+
+`Catalog` is the fourth, admitted by **ADR-009** on stated terms: the kernel acquires, reads and derives; every verdict about what it reads stays with the caller. A catalog is never rendered. ADR-009 also states, in writing, the four-part test a FIFTH kind must pass — do not add one without meeting it there.
 
 `#ModuleDebug` was retired. `debugValues` is now a field on `Module`; whether the frontend layers it into the values stack is helper-layer policy. Don't reintroduce `ModuleDebug` as a top-level artifact.
 

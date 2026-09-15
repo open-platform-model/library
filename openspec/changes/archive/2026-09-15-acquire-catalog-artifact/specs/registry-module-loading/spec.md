@@ -1,45 +1,4 @@
-# registry-module-loading Specification
-
-## Purpose
-The library is the single place where CUE module-acquisition plumbing lives (Principle V — CUE-Native Module Resolution). This capability gives the library a first-class primitive for loading a `#Module` that is published in an OCI registry, identified by `path@version`, so that consumers (operator render path, a future CLI, the planned Crossplane composition function) never hand-roll OCI fetch logic, wrapper-package shims, or dependency walks. The module is fetched via CUE's native module machinery and loaded **as the main module** — its own `cue.mod/module.cue` drives transitive resolution and its `kind`/`metadata` evaluate at the package root — which preserves core@v0's self-referential metadata that the wrapper approach broke.
-## Requirements
-
-### Requirement: In-Memory Load Without a Temporary Directory
-
-The registry module loader SHALL load the fetched module in memory and SHALL NOT write the module's source to a temporary directory. It SHALL inject the fetched module's CUE files (every `.cue` file under the module root, the module's own `cue.mod/module.cue` included, and nothing else) via `load.Config.Overlay` under a deterministic synthetic root, leaving `load.Config.FS` nil so the module's transitive dependencies resolve through the registry and CUE module cache. The staged overlay the loader returns on the module's `Source` SHALL be that same set of files.
-
-#### Scenario: No temporary directory created
-
-- **WHEN** a module is loaded from the registry
-- **THEN** no temporary directory is created or left behind for the module's source
-- **AND** the module's transitive dependencies still resolve
-
-#### Scenario: Staged overlay carries the module's CUE files only
-
-- **WHEN** a fetched module's archive contains `.cue` files, a `cue.mod/module.cue`, and non-CUE files such as a license or a readme
-- **THEN** the staged overlay on `Module.Source` holds every `.cue` file and `cue.mod/module.cue`, each keyed under the synthetic root
-- **AND** the non-CUE files are not present in the overlay
-- **AND** a fetch that stages no `.cue` file fails the load with an error wrapping `ErrInvalidPackage` (a defensive branch: a module zip CUE's fetch accepts always carries `cue.mod/module.cue`, so the empty case is exercised at the walker, not through a registry)
-
-### Requirement: Registry-Loaded Modules Pass the Module Shape Gate
-
-The registry module loader SHALL evaluate and shape-gate the fetched module through the kernel's one evaluate-and-shape-gate routine, the same routine directory acquisition uses (concrete `kind == "Module"`; `metadata.name`, `metadata.modulePath`, `metadata.version` present and concrete), returning errors that wrap the same sentinels (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`). The two acquisition paths SHALL differ only in where the package files come from: a fetched overlay under a synthetic root, or a directory on disk. It SHALL NOT perform full schema validation, which remains the Kernel's contract.
-
-#### Scenario: Wrong artifact kind rejected
-
-- **WHEN** the resolved registry artifact has a concrete `kind` other than `"Module"`
-- **THEN** the loader returns a zero `cue.Value` and an error wrapping `ErrWrongKind`
-
-#### Scenario: Missing identity field rejected
-
-- **WHEN** the resolved module lacks a concrete `metadata.modulePath`
-- **THEN** the loader returns an error wrapping `ErrMissingRequiredField`
-
-#### Scenario: Registry and directory acquisition fail identically
-
-- **WHEN** the same malformed module is acquired once from a registry and once from a directory
-- **THEN** both acquisitions return an error wrapping the same `opm/errors` sentinel
-- **AND** a well-formed module acquired both ways yields the same `metadata` values
+## MODIFIED Requirements
 
 ### Requirement: Module Identity Verification
 

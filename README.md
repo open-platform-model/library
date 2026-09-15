@@ -20,13 +20,14 @@ The kernel does **not** own:
 
 ## Artifact types
 
-The kernel accepts exactly three artifact types — every input ultimately resolves to one of them:
+The kernel accepts exactly four artifact types — every input ultimately resolves to one of them:
 
 | Artifact         | Schema definition          | Go type              | Role                                                                                                                       |
 | ---------------- | -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).                                  |
 | `ModuleInstance` | `#ModuleInstance`          | `*module.Instance`   | Per-deployment instantiation of a `Module` with concrete user values.                                                      |
 | `Platform`       | `#Platform`                | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build. |
+| `Catalog`        | `#Catalog`                 | `*catalog.Catalog`   | The contracts a catalog defines beside the transformers implementing them. Acquired, read and derived from — never rendered (ADR-009).                     |
 
 `#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
@@ -42,9 +43,10 @@ opm/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
+  catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
-  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchModule (published module by path@version: fetch, stage as an overlay, build through LoadDir like a directory module)
+  internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchArtifact (a published artifact by path@version: fetch, stage as an overlay, build through LoadDir like a directory artifact, gated to the shape the caller names) with FetchModule the #Module entry over it, adding the coordinate identity check
   internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)

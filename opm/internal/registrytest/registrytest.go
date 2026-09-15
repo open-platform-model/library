@@ -55,6 +55,13 @@ type CatalogFixture struct {
 	Path    string // module path without the @major suffix, e.g. "test.example/x/cat"
 	Version string // bare SemVer, e.g. "0.1.0"
 	Body    string // catalog package body (metadata + #transformers)
+
+	// Deps lists any module deps BEYOND opmodel.dev/core the fixture's
+	// cue.mod/module.cue declares, keyed by major-qualified path → bare
+	// SemVer (as [ModuleFixture.Deps] does). cue/load expands the whole
+	// module graph, so every path listed here MUST also be served by the
+	// same registry, whether or not Body imports it.
+	Deps map[string]string
 }
 
 // TxFixture describes one transformer to author into a test catalog: its kebab
@@ -266,9 +273,14 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 		// The module's major suffix must match the published version's major.
 		major, _, _ := strings.Cut(f.Version, ".")
 		core := DefaultCoreVersion
+		var deps strings.Builder
+		fmt.Fprintf(&deps, "deps: %q: v: %q\n", coreDep(core), core)
+		for p, v := range f.Deps {
+			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
+		}
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0\"\ndeps: %q: v: %q\n",
-			f.Path+"@v"+major, coreDep(core), core,
+			"module: %q\nlanguage: version: \"v0.17.0\"\n%s",
+			f.Path+"@v"+major, deps.String(),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
 			"package " + pkg + "\n\nimport c \"" + coreDep(core) + "\"\n\nc.#Catalog\n" + f.Body,
