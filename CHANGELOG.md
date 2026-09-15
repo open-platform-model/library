@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-alpha.31](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.30...v1.0.0-alpha.31) (2026-09-15)
+
+
+### Features
+
+* **kernel:** acquire a catalog from a registry or a directory ([#133](https://github.com/open-platform-model/library/issues/133)) ([291f78f](https://github.com/open-platform-model/library/commit/291f78fd959ec25a4b6d00eac5f3b238dae04e81))
+
+
+### Bug Fixes
+
+* **kernel:** emit sorted metadata, apply WithRegistry to values sources ([#131](https://github.com/open-platform-model/library/issues/131)) ([254439a](https://github.com/open-platform-model/library/commit/254439ac3e4453754f95314f712f97bc961146e7))
+
+
+### Documentation
+
+* **adr:** add ADR-008, the kernel plans lifecycle and never runs it ([535f567](https://github.com/open-platform-model/library/commit/535f56728d31c637fa9418bbae5ac7e82e3cf980))
+
 ## [1.0.0-alpha.30](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.29...v1.0.0-alpha.30) (2026-09-13)
 
 
