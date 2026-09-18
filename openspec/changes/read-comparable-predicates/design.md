@@ -64,7 +64,17 @@ The per-path read table gains `{"comparable", &inv.Comparable, "2.0.0-alpha.10"}
 
 ### Fixture values pinned before the tests are written
 
-Section 2 opens with a throwaway read on `platform_oversubscribed` and `platform` through `contractsKernel`, recording the rows here. Expected from the fixture predicates: two rows over `container@v1`, `mirror-transformer@0.2.0` broader against `deployment-transformer@0.1.0` narrower and against `service-transformer@0.1.0` narrower; `deployment` against `service` incomparable (label against trait); `discriminated` false. `platform`, `platform_next`, `platform_disabled` and the cat2-only platform read `discriminated` true with an empty `comparable`.
+Section 2 opened with a throwaway read through `contractsKernel` on every served platform fixture, recording the rows here. **Measured on core `2.0.0-alpha.10`, 2026-09-18; every value matches the prediction, nothing was corrected.** The FQN prefix `testing.opmodel.dev/library-render` is elided below.
+
+| Fixture | `discriminated` | `comparable` |
+| --- | --- | --- |
+| `platform` | true | empty |
+| `platform_next` | true | empty |
+| `platform_two` | false | `cat2/transformers/mirror-transformer@0.1.0` broader against `cat/transformers/deployment-transformer@0.1.0` and against `cat/transformers/service-transformer@0.1.0`, each over `cat/resources/container@v1` |
+| `platform_oversubscribed` | false | the same two rows with `mirror-transformer@0.2.0` broader |
+| `platform_disabled` | true | empty |
+
+`deployment` against `service` is incomparable (a required label against a required trait), so neither appears as a pair: the two rows per undiscriminated fixture are exactly the resource-only `mirror-transformer` against each of them. The cat2-only platform the accessor tests author in a temp dir lists nothing and reads `discriminated` true with an empty `comparable`, like `platform_disabled`.
 
 ### Files touched
 
