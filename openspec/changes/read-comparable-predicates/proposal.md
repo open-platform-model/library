@@ -1,0 +1,43 @@
+## Why
+
+Core `v2.0.0-alpha.10` (core PR 68; release PR 69 cuts it) adds `comparable` and `discriminated` to `#Platform.#contracts`: the report half of enhancement 0015 D5, and the operational answer to its OQ9 (a transformer's predicate is every required demand it declares, resources, traits and label key-value pairs together; a pair is comparable when one predicate contains the other and the two share a catalog-fulfilled contract). The library pins `alpha.9` and `Contracts()` decodes six fields, so the two new ones reach no consumer: neither `opm platform check` nor the operator's generation step can refuse an undiscriminated platform, the accidental case being two enabled catalogs that both ship a daemonset adapter, which today renders a component twice with no diagnostic naming either transformer. Core's proposal names this change as the first follow-up and hands it a second obligation core cannot meet itself: core imports no catalog, so the check that the shipped `catalog_opm` catalog stays discriminated belongs in the library's parity harness.
+
+## What Changes
+
+- **Core pin to `v2.0.0-alpha.10`.** `schema.DefaultSchemaModule` and the doc comments citing the pinned release (`opm/schema/loader.go`, `opm/platform/contracts.go`, `opm/catalog/requires.go`, `opm/internal/renderstage/modfile.go`), the pin assertions in `opm/schema/loader_test.go`, `registrytest.DefaultCoreVersion` and its test, the version literals in `opm/kernel/render_test.go`, `opm/internal/renderstage/modfile_test.go` (the deliberately older skew rows stay), `stage_test.go`, `opm/helper/platformmodule/generate_test.go` and `opm/catalog/requires_test.go`; the four CUE modules `task cue:deps:update` discovers (`modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity`, `testdata/parity/opm_platform`), `testdata/cue.mod`, the twelve `testdata/render/**/cue.mod/module.cue` files, `testdata/render/scenarios/cue.mod`, and the five `testdata/render/platform*/platform.cue` headers. `alpha.9` to `alpha.10` is one core commit (PR 68): two derived fields on `#ContractInventory`, and no shape the render glue or the loader gate reads moved, so no glue change is expected; section 1 proves it before any reader is written. `task cue:deps:update` also moves `catalogs/opm` from 4.3.1 to 4.4.0 in the four modules, so the seven transformer literals in `opm/kernel/parity_harness_test.go` move with it (4.4.0 is `derive-registration-provides`, which touches the registration contract only, so the parity cases' rendered bytes are expected unchanged: verified by the harness, not assumed). Precondition: release PR 69 merged and `v2.0.0-alpha.10` resolvable from GHCR; section 1 cannot start before it.
+- **`Contracts()` reads the report.** `platform.ContractInventory` gains `Comparable []ComparablePredicates` (`Broader` and `Narrower`, the two implementation FQNs, and `Contracts`, the shared catalog-fulfilled contract FQNs) and `Discriminated bool`, both read by path exactly like the six existing fields. A platform that carries `#contracts` without them (a value built against `alpha.9`) is refused by the accessor with an error naming the missing field and the first release carrying it, the rule the missing-inventory case already follows: a report absent from the value is never defaulted to a verdict, in either direction.
+- **The served render fixtures already carry the case.** `cat2`'s `mirror-transformer` requires the container resource alone, so on `alpha.10` the `platform_oversubscribed` and `platform_two` fixtures report it comparable with `cat`'s `deployment-transformer` (container plus a required label) and `service-transformer` (container plus a required trait) over `container@v1`, and read `discriminated` false; `platform` (cat alone) and `platform_disabled` stay discriminated. No new fixture is needed; the accessor tests pin these values, and section 2's spike measures them before the tests are written. Every existing render assertion is unchanged: core reports and never refuses, and the library adds no gate.
+- **The shipped catalog is pinned discriminated.** The parity harness's shipped group already acquires the `opm_platform` fixture importing the published `catalogs/opm` build; it gains the assertion that `Contracts()` reads `Discriminated` true and an empty `Comparable`. This is the library-side half of the obligation `catalog_opm` acquired in core's change (a new transformer must be discriminated from every transformer sharing one of its contracts): it fails on the first catalog release that breaks it, before any platform embeds that release.
+- **Not changed, on purpose.** No render-time gate on `discriminated`: 0015 D5 fixes the guard at platform-package generation and calls render-build tripwires defense in depth, so the refusal is the operator's generation slice and `opm platform check`'s, both reading what this change decodes, and the kernel's render gate keeps reading render-time diagnostics only (design.md). `platformmodule.Generate` stays a pure file writer (read-contract-inventory, design). The in-build single-provider guard and the match glue are untouched.
+
+## Classification
+
+**MINOR, additive** (Principle VI): one new exported row type and two fields on a decoded view in `opm/platform`, no signature changes, no removed surface. One observable change: `Contracts()` on a platform whose own `cue.mod` pins core `alpha.9` now returns an error naming the missing `comparable` field where it returned the six-field inventory before. Both consumers generate their platform modules pinned at the library's verified core release, so they move with the pin; a hand-authored platform module pinning `alpha.9` sees the error from `opm platform check` and re-pins. Complexity added: one row type, with named readers in the cli's and the operator's D5 slices (Principle VII).
+
+## Downstream consumers
+
+- **`cli`** (library `alpha.31`): `platform.NewReport` copies the inventory field by field and compiles unchanged against the two new fields; `opm platform check` gains its `discriminated` refusal in the cli's own 0015 slice, reading `Comparable` and `Discriminated` from this change. Its generated cluster platform module pins core at the library's release and follows the bump through Dependabot.
+- **`opm-operator`** (library `alpha.31`): no reader today. Its generation-gate slice reads `Routable` and `Discriminated` together, closing the pre-existing gap core's proposal measured (the operator consults the inventory nowhere, not even for `routable`). Nothing until that slice.
+- **`catalog_opm`**: independent. The parity pin here enforces its discrimination obligation from outside; the catalog's own `task vet` cannot, because the report is derived on a platform, not on a catalog.
+- The last section builds `cli` and `opm-operator` against this tree through a scratch `go.mod` replace to confirm nothing compiles against a changed signature.
+
+## Capabilities
+
+### New Capabilities
+
+None.
+
+### Modified Capabilities
+
+- `schema-dispatch`: the `DefaultSchemaModule` constant requirement moves the pinned release to `opmodel.dev/core@v2.0.0-alpha.10`, the first release carrying the comparable-predicate report, and its scenarios follow.
+- `platform-artifact`: the Platform Type Shape requirement's `Contracts()` accessor gains `Comparable` and `Discriminated`, with the scenario for an undiscriminated two-catalog platform and the refusal of an inventory that predates the report.
+- `render-parity`: a new requirement that the shipped group asserts the published catalog stays discriminated, so a catalog release with comparable predicates fails the harness before any platform embeds it.
+
+## Impact
+
+- `opm/schema/loader.go`, `loader_test.go`; doc comments in `opm/platform/contracts.go`, `opm/catalog/requires.go`, `opm/internal/renderstage/modfile.go`.
+- `opm/internal/registrytest/registrytest.go` (`DefaultCoreVersion`), `registrytest_test.go`.
+- `opm/platform/contracts.go` (`ComparablePredicates`, the two fields, the two path reads), `contracts_test.go`.
+- `opm/kernel/parity_harness_test.go` (the shipped-catalog pin and the catalog literals), `render_test.go`; `opm/internal/renderstage/modfile_test.go`, `stage_test.go`; `opm/helper/platformmodule/generate_test.go`; `opm/catalog/requires_test.go`.
+- `modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity`, `testdata/parity/opm_platform`, `testdata/cue.mod`, `testdata/render/**` cue.mod pins and platform headers.
+- Release: `feat` (library `v1.0.0-alpha.32`).
