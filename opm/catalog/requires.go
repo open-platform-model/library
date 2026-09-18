@@ -15,7 +15,7 @@ const modFileName = "cue.mod/module.cue"
 // Requires returns the dependency requirements the catalog COMMITTED in its
 // own cue.mod/module.cue, keyed by major-qualified module path
 // ("opmodel.dev/core@v2") and valued with the canonical version the file
-// records ("v2.0.0-alpha.9"). Those are the two strings and nothing else: a
+// records ("v2.0.0-alpha.10"). Those are the two strings and nothing else: a
 // consumer comparing a catalog's committed resolution against a platform's
 // never sees CUE's module types, and version arithmetic within a major is
 // string work.
