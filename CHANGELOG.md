@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.32](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.31...v1.0.0-alpha.32) (2026-09-18)
+
+
+### Features
+
+* **platform:** read the comparable-predicate report off a built platform ([#134](https://github.com/open-platform-model/library/issues/134)) ([5524fad](https://github.com/open-platform-model/library/commit/5524fadb572f206b8791bb6e1594735eb49d3bec))
+
 ## [1.0.0-alpha.31](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.30...v1.0.0-alpha.31) (2026-09-15)
 
 
