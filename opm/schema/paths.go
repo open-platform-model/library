@@ -28,11 +28,11 @@ var (
 
 	// Platform. Contracts is #Platform.#contracts, the contract inventory
 	// core derives from the enabled catalogs' contract maps and the
-	// transformers' required demands (enhancement 0015 D1, D2, D18). Its
-	// one reader is (*platform.Platform).Contracts, on demand: never the
-	// loader gate, never a kernel verb, never platform construction. The
-	// six data fields under it are decoded; `defined` (member schemas, not
-	// data) is not.
+	// transformers' required demands (enhancement 0015 D1, D2, D5, D18).
+	// Its one reader is (*platform.Platform).Contracts, on demand: never
+	// the loader gate, never a kernel verb, never platform construction.
+	// The eight data fields under it are decoded; `defined` (member
+	// schemas, not data) is not.
 	Contracts = cue.MakePath(cue.Def("contracts"))
 
 	// Catalog. Transformers is #Catalog.#transformers, the implementations
