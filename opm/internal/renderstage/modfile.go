@@ -26,7 +26,7 @@ const LocalModFileName = "cue.mod/local-module.cue"
 // only while that path is a root dependency (0019 02-design.md, "The render
 // build"), so promotion must carry the marker into the render module.
 type Dep struct {
-	// Version is the canonical dependency version ("v1.2.3", "v2.0.0-alpha.9").
+	// Version is the canonical dependency version ("v1.2.3", "v2.0.0-alpha.10").
 	Version string
 
 	// Default marks this major as the default for imports of the path that

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -96,6 +97,44 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	}
 }
 
+// render-parity spec, "The shipped catalog stays discriminated": the
+// opm_platform fixture is the one place the library resolves the published
+// catalogs/opm build into a #Platform, so it is the one place that build can
+// be measured against the comparable-predicate report core derives
+// (enhancement 0015 D5; core imports no catalog and cannot check itself).
+// A separate function from the shipped render group, gated identically: a
+// catalog release that breaks discrimination fails by name under -run, and
+// a render-case divergence and a discrimination break never mask each other.
+func TestParity_ShippedCatalogDiscriminated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("parity harness pulls the catalog + core schema from GHCR; skipping under -short")
+	}
+	skipUnlessRegistry(t)
+
+	registry := flowRegistry()
+	t.Setenv("CUE_REGISTRY", registry)
+
+	k := kernel.New(kernel.WithRegistry(registry))
+	plat, err := k.AcquirePlatformFromDir(context.Background(),
+		filepath.Join(repoLibraryRoot(t), "testdata", "parity", "opm_platform"))
+	require.NoError(t, err, "acquiring the opm_platform fixture copy")
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err, "reading the contract inventory off the shipped platform")
+	require.NotNil(t, inv)
+
+	// Name every row, so the failure attributes the break to the catalog
+	// release rather than to a platform that later embeds it.
+	rows := make([]string, 0, len(inv.Comparable))
+	for _, c := range inv.Comparable {
+		rows = append(rows, fmt.Sprintf("%s -> %s over %v", c.Broader, c.Narrower, c.Contracts))
+	}
+	assert.Empty(t, inv.Comparable,
+		"the pinned catalog build ships transformers whose predicates are comparable over a contract it fulfils:\n\t%s",
+		strings.Join(rows, "\n\t"))
+	assert.True(t, inv.Discriminated, "discriminated is true exactly when comparable is empty")
+}
+
 const shippedCatalogPrefix = "opmodel.dev/catalogs/opm/transformers/"
 
 // shippedCases is the table for the shipped group, one row per pair the
@@ -108,28 +147,28 @@ var shippedCases = []parityCase{
 		Name:        "config :: configmap-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "config",
-		Transformer: shippedCatalogPrefix + "configmap-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "configmap-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: deployment-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "deployment-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "deployment-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "hpa-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "hpa-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: http-route-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "http-route-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "http-route-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
@@ -140,21 +179,21 @@ var shippedCases = []parityCase{
 		Name:        "worker :: deployment-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "worker",
-		Transformer: shippedCatalogPrefix + "deployment-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "deployment-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "worker :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "worker",
-		Transformer: shippedCatalogPrefix + "hpa-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "hpa-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: service-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "service-transformer@4.3.1",
+		Transformer: shippedCatalogPrefix + "service-transformer@4.4.0",
 		Equality:    equalityStructural,
 	},
 }

@@ -18,8 +18,12 @@ import (
 
 // The render fixtures (testdata/render) serve the catalogs whose contract
 // maps these tests read: cat lists every member it defines, cat2 defines no
-// member of its own and lists nothing. Values pinned by the read-contract-
-// inventory spike (design.md § `defined` is not decoded).
+// member of its own and lists nothing. The six original inventory fields
+// were pinned by the read-contract-inventory spike (archived at
+// openspec/changes/archive/2026-09-13-read-contract-inventory/design.md,
+// § `defined` is not decoded); the comparable-predicate rows below were
+// pinned by the read-comparable-predicates spike (that change's design.md,
+// § Fixture values pinned before the tests are written).
 const (
 	contractsPrefix = "testing.opmodel.dev/library-render"
 	contractsCat    = contractsPrefix + "/cat@v0"
@@ -85,6 +89,47 @@ func TestContracts_ListedCatalogReadsFulfilledAndRoutable(t *testing.T) {
 	assert.Empty(t, inv.OverSubscribed)
 	assert.True(t, inv.Fulfilled)
 	assert.True(t, inv.Routable)
+
+	// cat's two container-requiring transformers each add a demand the
+	// other lacks — deployment a required label, service a required trait —
+	// so neither predicate contains the other and the platform is
+	// discriminated.
+	assert.Empty(t, inv.Comparable)
+	assert.True(t, inv.Discriminated)
+}
+
+// platform-artifact spec, "An undiscriminated platform is reported, not
+// refused": cat 0.1.0 beside cat2 0.1.0, whose mirror-transformer requires
+// the catalog-fulfilled container resource alone. Its predicate therefore
+// contains both of cat's container-requiring predicates. Neither catalog
+// over-subscribes a provider-fulfilled contract here, so Routable stays
+// true and the discrimination report is read on its own.
+func TestContracts_UndiscriminatedIsReportedNotRefused(t *testing.T) {
+	k := contractsKernel(t)
+	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform_two"))
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err, "an undiscriminated platform is a report, never a refusal")
+	require.NotNil(t, inv)
+
+	assert.ElementsMatch(t, []platform.ComparablePredicates{
+		{
+			Broader:   contractsTx2 + "/mirror-transformer@0.1.0",
+			Narrower:  contractsTx + "/deployment-transformer@0.1.0",
+			Contracts: []string{contractsRes + "/container@v1"},
+		},
+		{
+			Broader:   contractsTx2 + "/mirror-transformer@0.1.0",
+			Narrower:  contractsTx + "/service-transformer@0.1.0",
+			Contracts: []string{contractsRes + "/container@v1"},
+		},
+	}, inv.Comparable, "deployment against service is incomparable: a required label against a required trait")
+	assert.False(t, inv.Discriminated)
+
+	// The report is orthogonal to routing: nothing here over-subscribes a
+	// provider-fulfilled contract.
+	assert.Empty(t, inv.OverSubscribed)
+	assert.True(t, inv.Routable)
 }
 
 // platform-artifact spec, "An over-subscribed platform is reported, not
@@ -116,6 +161,23 @@ func TestContracts_OverSubscribedIsReportedNotRefused(t *testing.T) {
 	}
 	assert.Empty(t, inv.Unfulfilled)
 	assert.True(t, inv.Fulfilled)
+
+	// cat2 0.2.0's mirror-transformer still requires the container alone,
+	// so the two undiscriminated pairs are reported here beside the
+	// over-subscription: the two verdicts are independent.
+	assert.ElementsMatch(t, []platform.ComparablePredicates{
+		{
+			Broader:   contractsTx2 + "/mirror-transformer@0.2.0",
+			Narrower:  contractsTx + "/deployment-transformer@0.1.0",
+			Contracts: []string{contractsRes + "/container@v1"},
+		},
+		{
+			Broader:   contractsTx2 + "/mirror-transformer@0.2.0",
+			Narrower:  contractsTx + "/service-transformer@0.1.0",
+			Contracts: []string{contractsRes + "/container@v1"},
+		},
+	}, inv.Comparable)
+	assert.False(t, inv.Discriminated)
 }
 
 // platform-artifact spec, "An unlisted demand leaves the inventory empty":
@@ -160,6 +222,24 @@ type: "kubernetes"
 	assert.Empty(t, inv.OverSubscribed)
 	assert.True(t, inv.Fulfilled)
 	assert.True(t, inv.Routable)
+	assert.Empty(t, inv.Comparable)
+	assert.True(t, inv.Discriminated)
+}
+
+// A disabled catalog's transformers leave the predicate fold entirely, so
+// the pairs platform_two reports are gone: cat is disabled beside cat2
+// 0.1.0 and the one remaining transformer has nothing to be comparable
+// with.
+func TestContracts_DisabledCatalogReadsDiscriminated(t *testing.T) {
+	k := contractsKernel(t)
+	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform_disabled"))
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+
+	assert.Empty(t, inv.Comparable)
+	assert.True(t, inv.Discriminated)
 }
 
 // A value carrying no #contracts (built against a core release before
@@ -179,4 +259,35 @@ type: "kubernetes"
 	require.Error(t, err)
 	assert.Nil(t, inv)
 	assert.Contains(t, err.Error(), "#contracts")
+}
+
+// platform-artifact spec, "An inventory that predates the
+// comparable-predicate report is refused": a #contracts carrying the six
+// alpha.9 fields and neither report field is a platform module pinning an
+// older core. The accessor refuses it rather than defaulting the missing
+// verdict, and names both the field and the release that derives it, so the
+// caller knows what to re-pin to.
+func TestContracts_InventoryPredatingTheReportErrors(t *testing.T) {
+	v := cuecontext.New().CompileString(`
+kind: "Platform"
+metadata: name: "alpha9"
+type: "kubernetes"
+#contracts: {
+	definedBy: {}
+	requiredBy: {}
+	unfulfilled: []
+	overSubscribed: []
+	fulfilled:      true
+	routable:       true
+}
+`)
+	require.NoError(t, v.Err())
+	plat, err := platform.NewPlatformFromValue(v)
+	require.NoError(t, err)
+
+	inv, err := plat.Contracts()
+	require.Error(t, err)
+	assert.Nil(t, inv, "a missing report is never a partial inventory")
+	assert.Contains(t, err.Error(), `"comparable"`)
+	assert.Contains(t, err.Error(), "2.0.0-alpha.10")
 }

@@ -19,19 +19,20 @@ import (
 //
 // It names an exact core release, never the floating "opmodel.dev/core@v2"
 // major: the release the kernel's render glue, fixtures and parity oracle
-// were verified against. 2.0.0-alpha.9 is the first release carrying the
-// derived #Platform.#contracts inventory (enhancement 0015 D1, D2, D18) on
-// top of the D5 registry shape (a #Platform.#registry entry embeds its
-// catalog by import and derives `version` from it) and the D12
-// transformer-context projection (enhancement 0019). The constant advances
-// only by a deliberate change that re-verifies the glue and the fixtures
-// against the new release; a default that floats ahead of the glue breaks
-// every synthesized artifact on a cold cache.
-const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.9"
+// were verified against. 2.0.0-alpha.10 is the first release carrying the
+// comparable-predicate report on the derived #Platform.#contracts inventory
+// (`comparable` and `discriminated`; enhancement 0015 D5 and OQ9) on top of
+// the D1, D2 and D18 inventory, the D5 registry shape (a #Platform.#registry
+// entry embeds its catalog by import and derives `version` from it) and the
+// D12 transformer-context projection (enhancement 0019). The constant
+// advances only by a deliberate change that re-verifies the glue and the
+// fixtures against the new release; a default that floats ahead of the glue
+// breaks every synthesized artifact on a cold cache.
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.10"
 
 // DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
 // pins, in the canonical "v"-prefixed form a cue.mod dependency carries
-// ("v2.0.0-alpha.9"). It is the version a generated platform module pins
+// ("v2.0.0-alpha.10"). It is the version a generated platform module pins
 // core at by default (opm/helper/platformmodule): the release the render
 // glue was verified against is the release a generated platform must embed.
 func DefaultSchemaVersion() string {
@@ -92,7 +93,7 @@ type OCILoader struct {
 // PinnedVersion reports, without any I/O, the exact core release the
 // loader's module identifier names: the version suffix of [OCILoader.Module]
 // (or of [DefaultSchemaModule] when Module is empty) and true when that
-// suffix is a full release ("v2.0.0-alpha.9"), or ("", false) when the
+// suffix is a full release ("v2.0.0-alpha.10"), or ("", false) when the
 // identifier names a bare major ("opmodel.dev/core@v2", resolved to
 // ".latest" only by a load) or is not a module identifier at all.
 //

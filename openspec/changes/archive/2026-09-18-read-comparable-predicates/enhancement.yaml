@@ -1,0 +1,12 @@
+# Declares which enhancement decisions this change implements. Consumed by
+# `task enhancements:delivery:log` at archive time.
+#
+# No decision is claimed: 0015 D5 is the REFUSAL of a platform carrying
+# comparable predicates, and this change only reads the report core derives
+# (its own proposal's "Not in this change" names the refusal). The operator's
+# generation gate claims D5 when it refuses; OQ9 was resolved by core's
+# comparable-predicate-guard and is not re-claimed here.
+implements:
+  - enhancement: "0015"
+    decisions: []
+    resolves: []

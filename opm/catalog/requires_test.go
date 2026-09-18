@@ -15,7 +15,7 @@ import (
 const testModFile = `module: "test.example/catalogs/provider@v1"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.9"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.10"
 	"test.example/catalogs/base@v1": v: "v1.2.3"
 }
 `
@@ -38,7 +38,7 @@ func withSource(t *testing.T, src *catalog.Source) *catalog.Catalog {
 // about either.
 func TestCatalog_Requires(t *testing.T) {
 	want := map[string]string{
-		"opmodel.dev/core@v2":           "v2.0.0-alpha.9",
+		"opmodel.dev/core@v2":           "v2.0.0-alpha.10",
 		"test.example/catalogs/base@v1": "v1.2.3",
 	}
 
