@@ -110,7 +110,7 @@ type ModuleFixture struct {
 // instance module importing a served module). It is the release
 // [schema.DefaultSchemaModule] pins: the v2 kernel renders v2 modules only,
 // so no fixture pins another line.
-const DefaultCoreVersion = "v2.0.0-alpha.9"
+const DefaultCoreVersion = "v2.0.0-alpha.10"
 
 // ContractAPIVersion is the contract level every generated v2 fixture
 // primitive declares. Core v2 keys contracts by the primitive's own
@@ -124,7 +124,7 @@ const ContractAPIVersion = "v1"
 const PrimitiveMatchKey = "opm.test/primitive"
 
 // coreDep returns the major-qualified core module path for a full core version:
-// "v2.0.0-alpha.9" → "opmodel.dev/core@v2". The emitted import line and the
+// "v2.0.0-alpha.10" → "opmodel.dev/core@v2". The emitted import line and the
 // declared dep are both derived from it so they can never disagree on the
 // major.
 func coreDep(coreVersion string) string {
@@ -132,7 +132,7 @@ func coreDep(coreVersion string) string {
 }
 
 // Major returns the major-qualified suffix a module at version is published
-// under, with or without the "v" prefix: "0.1.0" → "v0", "v2.0.0-alpha.9" →
+// under, with or without the "v" prefix: "0.1.0" → "v0", "v2.0.0-alpha.10" →
 // "v2"; a bare major ("v2") passes through. Fixture writers use it for the
 // dep key and import path of a served coordinate.
 func Major(version string) string {
