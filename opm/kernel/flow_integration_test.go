@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/helper/objectset"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -158,6 +159,11 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		// configmap entries → 2 objects from this single pair.
 		assert.Equal(t, 2, countFQNSub(seenTransformers, "transformers/configmap-transformer@"),
 			"configmap-transformer should emit one object per configmap entry (2 entries → 2 objects)")
+
+		// The shipped catalog's outputs are distinct at apply identity: two
+		// objects sharing one would reach apply as two writes to one object.
+		assert.Empty(t, objectset.Duplicates(res.Compiled),
+			"the shipped fixture must not render two objects with one apply identity")
 	})
 
 	t.Run("resolved versions", func(t *testing.T) {

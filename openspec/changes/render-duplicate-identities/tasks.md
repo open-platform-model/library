@@ -11,6 +11,6 @@ Two sections per design.md. design.md carries no unverified assumption: the iden
 
 ## 2. The healthy path and the consumers
 
-- [ ] 2.1 In `opm/kernel/flow_integration_test.go`, after the shipped fixture renders, assert `objectset.Duplicates(res.Compiled)` is empty, so the published catalog's outputs are pinned distinct. Verify: `task cue:test:flow` passes (skips offline, `OPM_FLOW_TEST_FORCE=1` requires it).
-- [ ] 2.2 Cross-cutting: build `cli` and `opm-operator` against this tree with a `replace` in a scratch copy of each `go.mod` (not committed) and confirm each can import `opm/helper/objectset` and call `Duplicates` on its render result at the site design.md § Where it runs names (a throwaway edit, not committed). Verify: both build; the two call sites are recorded in the proposal's downstream section by file and line.
-- [ ] 2.3 `task check` green, then commit `test(kernel): pin the shipped fixture free of duplicate object identities`.
+- [x] 2.1 In `opm/kernel/flow_integration_test.go`, after the shipped fixture renders, assert `objectset.Duplicates(res.Compiled)` is empty, so the published catalog's outputs are pinned distinct. Verify: `task cue:test:flow` passes (skips offline, `OPM_FLOW_TEST_FORCE=1` requires it).
+- [x] 2.2 Cross-cutting: build `cli` and `opm-operator` against this tree with a `replace` in a scratch copy of each `go.mod` (not committed) and confirm each can import `opm/helper/objectset` and call `Duplicates` on its render result at the site design.md § Where it runs names (a throwaway edit, not committed). Verify: both build; the two call sites are recorded in the proposal's downstream section by file and line.
+- [x] 2.3 `task check` green, then commit `test(kernel): pin the shipped fixture free of duplicate object identities`.

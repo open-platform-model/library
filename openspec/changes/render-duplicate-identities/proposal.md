@@ -15,8 +15,8 @@ Two rendered objects with the same apiVersion, kind, namespace and name reach ap
 
 ## Downstream consumers
 
-- **`cli`** (library `alpha.32`): its own change calls `objectset.Duplicates` in `internal/workflow/render` after `Render`, for `module build`, `instance build` and every apply, and formats the error through `cmdutil` like the other gate causes. Until then nothing changes.
-- **`opm-operator`** (library `alpha.32`): its own change calls it in `resultFromRender` before inventory entries are built, refusing with `RenderFailed` naming the identity and both producers; that change declares D15. Until then `buildInventoryEntries` keeps emitting one inventory entry per object and Flux applies both.
+- **`cli`** (library `alpha.32`): its own change calls `objectset.Duplicates` in `internal/workflow/render` after `Render`, for `module build`, `instance build` and every apply, and formats the error through `cmdutil` like the other gate causes. The call site is `internal/workflow/render/render.go:142`, in `renderInstance` between the replacement warnings and `converted := make(...)` — verified to compile against this tree. Until then nothing changes.
+- **`opm-operator`** (library `alpha.32`): its own change calls it in `resultFromRender` before inventory entries are built, refusing with `RenderFailed` naming the identity and both producers; that change declares D15. The call site is `internal/render/kernel_module_renderer.go:202`, immediately before `entries, err := buildInventoryEntries(resources)` — verified to compile against this tree. Until then `buildInventoryEntries` keeps emitting one inventory entry per object and Flux applies both.
 - **`catalog_opm`**, **`modules`**: nothing. A module that trips the guard was already broken at apply.
 
 ## Capabilities
