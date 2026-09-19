@@ -46,6 +46,7 @@ opm/
   catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
+    objectset/            Duplicate rendered object identities: Duplicates + DuplicateIdentitiesError, called by a runtime between render and apply
   internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchArtifact (a published artifact by path@version: fetch, stage as an overlay, build through LoadDir like a directory artifact, gated to the shape the caller names) with FetchModule the #Module entry over it, adding the coordinate identity check
   internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
@@ -112,9 +113,10 @@ Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a f
 
 The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors` and every package under `opm/internal/` from importing anything under `opm/helper/`.
 
-Today this layer holds exactly one subpackage:
+Today this layer holds exactly two subpackages:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
+- `opm/helper/objectset` — Duplicate rendered object identities: `Duplicates` scans a render's `[]*kernel.Compiled` for every Kubernetes apply identity (apiVersion, kind, namespace, name) two or more objects share, naming each producing component and transformer, and `DuplicateIdentitiesError` words the refusal a runtime raises from those rows before apply. Kubernetes vocabulary lives here rather than in the kernel; a frontend applying to something else skips it.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 

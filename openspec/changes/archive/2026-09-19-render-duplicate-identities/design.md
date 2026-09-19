@@ -78,6 +78,11 @@ Message shape:
   opmodel.dev/v1alpha1 TransformerRegistration backup-system.k8up rendered by component "registration" (…/transformer-registration-transformer@4.4.0) and component "registration-copy" (…/transformer-registration-transformer@4.4.0)
 ```
 
+The header counts what it names, so a render colliding on more than one identity says
+`5 rendered objects share 2 identities, so the last apply would silently overwrite the
+first:` above the same one-line-per-identity list. Producers on a line are joined with
+commas and a final "and", so a third producer reads naturally without a second wording.
+
 ### Where it runs
 
 Between render and apply in each runtime, on the `[]*kernel.Compiled` the kernel returned, before any wrapping that would lose the two provenance fields. The cli calls it in `internal/workflow/render` so `build` refuses too (the same objects would be written by `apply`); the operator calls it in `resultFromRender` before `buildInventoryEntries`. Both are their own changes; this one ships the function they call.
@@ -88,8 +93,9 @@ Between render and apply in each runtime, on the `[]*kernel.Compiled` the kernel
 | --- | --- |
 | `opm/helper/objectset/doc.go`, `objectset.go`, `objectset_test.go` | new |
 | `opm/helper/doc.go` | the subpackage list |
-| `CLAUDE.md` § Repository Layout | the subpackage list |
+| `CLAUDE.md` § Repository Layout, `README.md` § Helper boundary | the subpackage list |
 | `opm/kernel/flow_integration_test.go` | no-duplicate assertion on the shipped fixture |
+| `testdata/render/scenarios/colliding/`, `opm/kernel/render_test.go` | the colliding render: the kernel still succeeds |
 
 ## Research & Decisions
 
@@ -118,12 +124,12 @@ Between render and apply in each runtime, on the `[]*kernel.Compiled` the kernel
 **Decision**: first-seen render order, producers in render order.
 **Rationale**: the render's pair order is already deterministic (the build's), so the output is deterministic without a sort, and the first producer named is the one that rendered first, which is the natural reading of "the second overwrites the first".
 
-### No fixture module for the collision
+### No registration fixture for the collision
 
-**Context**: an end-to-end fixture (two components carrying the registration resource) would need catalog_opm's registration contract in the served render registry.
-**Explored**: adding such a module to `testdata/render`; unit tests over hand-built `Compiled` values with `cuecontext` plus a no-duplicate assertion on the shipped fixture.
-**Decision**: unit tests plus the flow assertion.
-**Rationale**: the helper takes `[]*kernel.Compiled` and reads four fields; every scenario in the spec is a value-level case, and the healthy path against the published catalog is what the flow test already renders. The registration-specific end-to-end case belongs with the operator change that refuses it, where the fixture pipeline already publishes provider modules.
+**Context**: an end-to-end fixture reproducing D15 exactly (two components carrying the registration resource) would need catalog_opm's registration contract in the served render registry.
+**Explored**: adding such a module to `testdata/render`; unit tests over hand-built `Compiled` values with `cuecontext` plus a no-duplicate assertion on the shipped fixture; a collision built from the fixture catalog already served.
+**Decision**: unit tests, the flow assertion, and one scenario package — `testdata/render/scenarios/colliding` — for the kernel-neutrality claim.
+**Rationale**: the helper takes `[]*kernel.Compiled` and reads four fields, so every spec scenario about detection is a value-level case. The one claim values cannot carry is that a colliding *render* still succeeds, and the served fixture catalog already makes that collision free: `configmap-transformer` names each ConfigMap after the map key alone, so two components declaring the same key render one identity with no catalog edit and no version bump. The registration-specific end-to-end case still belongs with the operator change that refuses it, where the fixture pipeline already publishes provider modules.
 
 ## Risks / Trade-offs
 

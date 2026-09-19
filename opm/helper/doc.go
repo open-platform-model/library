@@ -13,7 +13,7 @@
 // operation returns an error whose sentinel is declared here. A depguard
 // rule in .golangci.yml enforces it on every PR.
 //
-// One subpackage:
+// Two subpackages:
 //
 //   - platformmodule — platform CUE module generation from catalog
 //     coordinates (0019:D5/D13): Generate renders cue.mod/module.cue and
@@ -23,6 +23,13 @@
 //     registry, Files.WriteTo places the files in a caller-owned directory.
 //     The result is what (*Kernel).AcquirePlatformFromDir accepts. A
 //     frontend MAY write its platform module by hand instead.
+//   - objectset — duplicate rendered object identities (0015:D15/D12):
+//     Duplicates scans a render's compiled objects for every Kubernetes apply
+//     identity two or more of them share, naming each producing component and
+//     transformer, and DuplicateIdentitiesError words the refusal a runtime
+//     raises from those rows between render and apply. The kernel never calls
+//     it, and a frontend applying to something other than Kubernetes MAY skip
+//     it.
 //
 // Earlier subpackages were folded into the kernel once it depended on them,
 // which had made the opt-in tier mandatory:
