@@ -1,0 +1,11 @@
+# Declares which enhancement decisions this change implements. Consumed by
+# `task enhancements:delivery:log` at archive time.
+#
+# No decision is claimed. 0015 D15 is the REFUSAL of a module shipping two
+# registrations, before apply, naming both components. This change ships the
+# detector both runtimes call (a duplicate rendered object identity, of which
+# a second registration is one case); the refusal lands where each runtime
+# renders, and the operator's change completes D15 because the cluster is
+# where "before apply" is decided.
+implements:
+  - enhancement: "0015"
