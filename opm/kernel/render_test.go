@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/helper/objectset"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -391,6 +392,30 @@ func TestRender_EffectivelyOptionalTraitWarns(t *testing.T) {
 	assert.Equal(t, map[string][]string{"web": {sidecar}}, res.Diagnostics.UnhandledTraits,
 		"the advisory fact is a row; no field of the result holds a formatted message")
 	assert.Equal(t, []string{"web/Deployment/warning-demo-web"}, compiledSummary(t, res.Compiled))
+}
+
+// The kernel reads no Kubernetes identity, so two objects landing on one is
+// not its business: the render succeeds and both objects come back. Only a
+// caller of opm/helper/objectset learns that the second write would overwrite
+// the first — the helper is where the platform vocabulary lives, and this
+// pins that the kernel never grew the check.
+func TestRender_DuplicateObjectIdentitiesStillSucceed(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "colliding")
+
+	built, res, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err, "a duplicate apply identity is not a kernel refusal")
+	assertGateAgrees(t, built, false)
+	assert.Equal(t, []string{"primary/ConfigMap/app", "shadow/ConfigMap/app"}, compiledSummary(t, res.Compiled),
+		"both objects are returned, under one name")
+
+	rows := objectset.Duplicates(res.Compiled)
+	require.Len(t, rows, 1, "the helper, not the kernel, reports the collision")
+	assert.Equal(t, "ConfigMap", rows[0].Identity.Kind)
+	assert.Equal(t, "app", rows[0].Identity.Name)
+	assert.Equal(t, []string{"primary", "shadow"}, []string{rows[0].Producers[0].Component, rows[0].Producers[1].Component},
+		"both producing components are named, in render order")
 }
 
 func TestRender_UnstatedPostureIsBuildError(t *testing.T) {
