@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.33](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.32...v1.0.0-alpha.33) (2026-09-19)
+
+
+### Features
+
+* **helper:** detect duplicate rendered object identities ([#136](https://github.com/open-platform-model/library/issues/136)) ([437f51c](https://github.com/open-platform-model/library/commit/437f51cfb3ab32741ee347532d41f6af450a2380))
+
 ## [1.0.0-alpha.32](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.31...v1.0.0-alpha.32) (2026-09-18)
 
 
