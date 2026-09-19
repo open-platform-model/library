@@ -16,7 +16,7 @@
 // One subpackage:
 //
 //   - platformmodule — platform CUE module generation from catalog
-//     coordinates (0019 D5/D13): Generate renders cue.mod/module.cue and
+//     coordinates (0019:D5/D13): Generate renders cue.mod/module.cue and
 //     platform.cue deterministically from typed registry entries and a
 //     dependency list, Closure derives that list (the once-at-generation
 //     tidy) from published module files through a caller-configured

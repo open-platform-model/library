@@ -48,7 +48,7 @@ type ArtifactSpec struct {
 	// complete: each regular field of each entry validates under
 	// cue.Concrete(true). An absent map passes. Used for #Platform.#registry,
 	// where core derives an entry's `version` from the catalog the entry
-	// embeds (enhancement 0019 D5), so an entry with no embedded catalog is
+	// embeds (0019:D5), so an entry with no embedded catalog is
 	// incomplete exactly where the catalog would have completed it.
 	CompleteEntryMaps []string
 }
@@ -80,7 +80,7 @@ var (
 	}
 
 	// #Platform.#registry carries path-keyed #CatalogEntry values, each
-	// embedding its catalog by import (enhancement 0019 D5). Core derives the
+	// embedding its catalog by import (0019:D5). Core derives the
 	// entry's `version` from the embedded catalog's stamped metadata, so an
 	// entry that names no catalog (the retired subscription shape: a
 	// `version` scalar and nothing else) is refused here as a missing

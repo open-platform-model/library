@@ -8,7 +8,7 @@ import (
 // OverSubscribedContract is one row of the single-provider guard: a contract
 // key declared `fulfilment: "provider"` on a required demand of transformers
 // from more than one of the platform's enabled registry entries (enhancement
-// 0010 D32 as corrected by D37; enforced inside the render build since
+// 0010:D32 as corrected by 0010:D37; enforced inside the render build since
 // library-render-cutover). A platform must carry exactly one provider for
 // such a key; two is a misconfigured platform, not an arbitration.
 //

@@ -26,9 +26,9 @@ import (
 )
 
 // The render fixtures (testdata/render): a catalog and a module served by the
-// in-process registry, an on-disk D5 platform importing the catalog, an
+// in-process registry, an on-disk 0019:D5 platform importing the catalog, an
 // on-disk instance importing the module, and one scenario instance package
-// per outcome. Every fixture cue.mod pins core 2.0.0-alpha.10 (the D5/D17
+// per outcome. Every fixture cue.mod pins core 2.0.0-alpha.10 (the 0019:D5/D17
 // prerelease) explicitly.
 const (
 	renderPrefix  = "testing.opmodel.dev/library-render"
@@ -149,7 +149,7 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 		assert.Equal(t, "render-test", managedBy, "#runtimeName reaches every rendered object through core's #context projection")
 	}
 
-	// D18 rows: every OPM path the instance requires, as data. The module
+	// 0019:D18 rows: every OPM path the instance requires, as data. The module
 	// path is instance-only (the platform does not list it), so its row
 	// carries no platform version.
 	assert.Equal(t, []kernel.ResolvedVersion{
@@ -275,7 +275,7 @@ func TestRender_MissingFQN_RefusesWithAlternatives(t *testing.T) {
 	assert.Len(t, agg.Demands, 2)
 }
 
-// TestRender_AlternativesArriveInLadderOrder pins the D34/D4 apiVersion
+// TestRender_AlternativesArriveInLadderOrder pins the 0010:D34/D4 apiVersion
 // ladder as the build applies it (single-build-render, "Different apiVersion
 // named"): the platform implements the ladder base at v1alpha1, v1beta1 and
 // v1, the component demands v2, and the row lists the three in alpha < beta <
@@ -404,7 +404,7 @@ func TestRender_UnstatedPostureIsBuildError(t *testing.T) {
 	assert.Contains(t, err.Error(), renderCatPath+"/traits/unstated@v1")
 	assert.Contains(t, err.Error(), `component "web"`)
 	var rerr *kernel.RenderError
-	assert.False(t, errors.As(err, &rerr), "the refusal is a build error, not a diagnostics row (measured boundary, 0019 D10)")
+	assert.False(t, errors.As(err, &rerr), "the refusal is a build error, not a diagnostics row (measured boundary, 0019:D10)")
 }
 
 func TestRender_IncompletePairRefusesNamingPair(t *testing.T) {
@@ -542,14 +542,14 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 		assert.Equal(t, first.Compiled[i].Transformer, second.Compiled[i].Transformer)
 	}
 	// Value.Context is deprecated for combining values, which is not what
-	// happens here: it is read only to assert the D8 lifetime rule (each
+	// happens here: it is read only to assert the 0019:D8 lifetime rule (each
 	// render builds in its own context, never the Kernel's).
-	assert.NotSame(t, first.Compiled[0].Value.Context(), second.Compiled[0].Value.Context(), //nolint:staticcheck // D8 lifetime assertion, not value combination
+	assert.NotSame(t, first.Compiled[0].Value.Context(), second.Compiled[0].Value.Context(), //nolint:staticcheck // 0019:D8 lifetime assertion, not value combination
 		"each render builds in its own context")
 	assert.NotSame(t, plat.Package.Context(), first.Compiled[0].Value.Context(), "the platform's context is the acquire's, not the render's") //nolint:staticcheck // same
 }
 
-// The single-provider guard in-build (0010 D32/D37; library-render-cutover).
+// The single-provider guard in-build (0010:D32/D37; library-render-cutover).
 // platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
 // a transformer requiring cat's provider-fulfilled gateway contract.
 func TestRender_OverSubscribedProviderRefused(t *testing.T) {
@@ -659,7 +659,7 @@ func summarize(compiled []*kernel.Compiled) ([]string, error) {
 }
 
 // TestRender_ConcurrentKernelsShareNothing is the shares-nothing claim under
-// the race detector (0019 D8; spec kernel-runtime, "Goroutine Safety
+// the race detector (0019:D8; spec kernel-runtime, "Goroutine Safety
 // Contract"): N goroutines, one Kernel each, acquire the same on-disk
 // fixtures and render concurrently with no shared platform value and no
 // mutex. Each render must produce its own output (the runtime name it was

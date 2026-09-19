@@ -1,8 +1,8 @@
-// Two-catalog render fixture platform (core 2.0.0-alpha.10, D5 shape): cat
+// Two-catalog render fixture platform (core 2.0.0-alpha.10, 0019:D5 shape): cat
 // 0.1.0 DISABLED beside cat2 0.1.0 enabled. cat2's mirror transformer still
 // implements the container contract, while every contract cat lists is listed
 // by a disabled entry only, so an unresolved demand for one of them carries
-// no defining catalog (0015 D18: a disabled catalog defines nothing).
+// no defining catalog (0015:D18: a disabled catalog defines nothing).
 // Consumed on-disk by Kernel.AcquirePlatformFromDir; never published; not
 // discovered by the repo's CUE tasks (its catalog deps are served in-process).
 package platform

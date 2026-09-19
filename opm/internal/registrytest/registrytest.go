@@ -114,12 +114,12 @@ const DefaultCoreVersion = "v2.0.0-alpha.10"
 
 // ContractAPIVersion is the contract level every generated v2 fixture
 // primitive declares. Core v2 keys contracts by the primitive's own
-// apiVersion (enhancement 0010 D4), not by the catalog's build version.
+// apiVersion (0010:D4), not by the catalog's build version.
 const ContractAPIVersion = "v1"
 
 // PrimitiveMatchKey is the matchLabels key every generated v2 fixture
 // primitive authors (valued with the primitive's short name). Mirrors the
-// real catalog's shape: matching identity lives in matchLabels (0010 D36)
+// real catalog's shape: matching identity lives in matchLabels (0010:D36)
 // with a transitional duplicate under metadata.labels.
 const PrimitiveMatchKey = "opm.test/primitive"
 
@@ -382,7 +382,7 @@ func BuildCatalog(path, version string, txs ...TxFixture) string {
 				rfqn := contractFQN(path, "resources", r)
 				fmt.Fprintf(&b, "\t\t\t%q: {\n", rfqn)
 				b.WriteString("\t\t\t\tkind: \"Resource\"\n")
-				// matchLabels is the matching identity (0010 D36); the
+				// matchLabels is the matching identity (0010:D36); the
 				// metadata.labels duplicate mirrors the real catalog's
 				// transitional state (kept for descriptive reads).
 				fmt.Fprintf(&b, "\t\t\t\tmetadata: {name: %q, modulePath: %q, apiVersion: %q, catalogVersion: %q, fqn: %q, labels: %q: %q}\n",
@@ -405,7 +405,7 @@ func BuildCatalog(path, version string, txs ...TxFixture) string {
 }
 
 // contractFQN returns the FQN a generated fixture catalog keys a primitive
-// under: [ContractAPIVersion]-keyed (enhancement 0010 D4). Test harnesses
+// under: [ContractAPIVersion]-keyed (0010:D4). Test harnesses
 // authoring components against generated catalogs mirror this form so demanded
 // keys match the glue's buckets.
 func contractFQN(path, kind, name string) string {

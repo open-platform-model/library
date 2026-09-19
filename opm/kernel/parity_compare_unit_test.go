@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The negative test the harness rests on (design D4): the encoder MUST report
+// The negative test the harness rests on: the encoder MUST report
 // a reordering. If a future cuelang.org/go release starts sorting JSON output,
 // this fails first, before any parity case can be silently weakened.
 func TestParityEncoder_ReportsReordering(t *testing.T) {
@@ -103,7 +103,7 @@ func TestParityCheck_Contract(t *testing.T) {
 		err := checkParity(base, parityRender{Objects: other}, parityRender{Objects: same})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "object[0] differs at .kind")
-		assert.Contains(t, err.Error(), "0019 D1")
+		assert.Contains(t, err.Error(), "0019:D1")
 	})
 	t.Run("unexpected kernel failure fails", func(t *testing.T) {
 		err := checkParity(base, parityRender{Err: errors.New("boom")}, parityRender{Objects: same})
@@ -122,7 +122,7 @@ func TestParityCheck_Contract(t *testing.T) {
 		err := checkParity(c, parityRender{Objects: same}, parityRender{Objects: same})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not admitted")
-		assert.Contains(t, err.Error(), "0019 D12")
+		assert.Contains(t, err.Error(), "0019:D12")
 	})
 	t.Run("oracle error is a fixture failure, never a divergence", func(t *testing.T) {
 		err := checkParity(expecting, parityRender{Err: errors.New("x")}, parityRender{Err: errors.New("oracle broken")})

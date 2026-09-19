@@ -9,7 +9,7 @@ import "cuelang.org/go/cue"
 // This is the whole inventory. Matching and execution
 // read nothing by path from Go: the render build imports the instance and
 // the platform as packages and the generated glue reads `components` and
-// `#composedTransformers` in CUE (enhancement 0019 D9/D10). A path with no
+// `#composedTransformers` in CUE (0019:D9/D10). A path with no
 // reader is removed, not kept for a possible consumer.
 //
 // Definition fields (those starting with "#" in CUE) use cue.MakePath with
@@ -28,7 +28,7 @@ var (
 
 	// Platform. Contracts is #Platform.#contracts, the contract inventory
 	// core derives from the enabled catalogs' contract maps and the
-	// transformers' required demands (enhancement 0015 D1, D2, D5, D18).
+	// transformers' required demands (0015:D1, D2, D5, D18).
 	// Its one reader is (*platform.Platform).Contracts, on demand: never
 	// the loader gate, never a kernel verb, never platform construction.
 	// The eight data fields under it are decoded; `defined` (member

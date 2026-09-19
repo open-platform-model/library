@@ -28,7 +28,7 @@ type Staged struct {
 	// inputs are on disk.
 	Overlay map[string][]byte
 
-	// Skew holds the per-path resolved-versions rows (D18), instance list
+	// Skew holds the per-path resolved-versions rows (0019:D18), instance list
 	// against platform list.
 	Skew []VersionRow
 
@@ -132,7 +132,7 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, lo
 		return nil, fmt.Errorf("writing %s: %w", localPath, err)
 	}
 
-	// The D13 tripwire: re-read what was written, never the in-memory list.
+	// The 0019:D13 tripwire: re-read what was written, never the in-memory list.
 	written, err := os.ReadFile(modulePath)
 	if err != nil {
 		return nil, fmt.Errorf("re-reading %s: %w", modulePath, err)

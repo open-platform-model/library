@@ -10,7 +10,7 @@ import (
 
 // ComparablePredicates is one row of the comparable-predicate report: two
 // enabled transformers whose match predicates are comparable over at least
-// one shared catalog-fulfilled contract (enhancement 0015 D5). A
+// one shared catalog-fulfilled contract (0015:D5). A
 // transformer's predicate is every required demand it declares — resources,
 // traits and label key-value pairs together — and a pair is comparable when
 // one predicate contains the other, so Broader matches every component
@@ -31,7 +31,7 @@ type ComparablePredicates struct {
 
 // ContractInventory is the decoded view of #Platform.#contracts, the
 // inventory core derives from the enabled registry entries' contract maps
-// and the required demands of #composedTransformers (enhancement 0015 D1,
+// and the required demands of #composedTransformers (0015:D1,
 // D2, D5, D18). Every field is a report: an inventory that is not Fulfilled,
 // not Routable or not Discriminated is still a healthy value, and whether a
 // generation step withholds a platform package on Routable or Discriminated
@@ -51,23 +51,23 @@ type ContractInventory struct {
 	// RequiredBy maps each defined contract FQN to the implementation FQNs
 	// of every enabled transformer whose requiredResources or
 	// requiredTraits name it, in the build's order. Required demands only
-	// (0010 D32: optional consumption is tolerance, not fulfilment); a
+	// (0010:D32: optional consumption is tolerance, not fulfilment); a
 	// defined contract nothing requires maps to an empty list.
 	RequiredBy map[string][]string `json:"requiredBy"`
 
 	// Unfulfilled lists the provider-fulfilled resources and traits
 	// required by nothing on the platform. A report the operator surfaces
-	// as a non-gating condition (D18), never a refusal.
+	// as a non-gating condition (0015:D18), never a refusal.
 	Unfulfilled []string `json:"unfulfilled"`
 
 	// OverSubscribed lists the provider-fulfilled resources and traits
 	// required by transformers from more than one catalog: what the
-	// generation step refuses on (0010 D37).
+	// generation step refuses on (0010:D37).
 	OverSubscribed []string `json:"overSubscribed"`
 
 	// Comparable lists every pair of enabled transformers whose match
 	// predicates are comparable over at least one shared catalog-fulfilled
-	// contract (0015 D5), in the build's comprehension order. The accessor
+	// contract (0015:D5), in the build's comprehension order. The accessor
 	// does not sort; a caller that needs a stable order sorts.
 	Comparable []ComparablePredicates `json:"comparable"`
 

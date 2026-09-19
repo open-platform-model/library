@@ -34,7 +34,7 @@ func newSynthKernel(t *testing.T) *kernel.Kernel {
 // metadata block) against the default (v2) core as an in-memory registry
 // fixture, returning the module's major-free path and the fixture.
 //
-// Per core v2's identity rules (D8), the module is published at its
+// Per core v2's identity rules (0010:D8), the module is published at its
 // snake_case leaf, metadata.name IS that leaf, and metadata.modulePath is the
 // full module path with the major suffix.
 func synthModuleFixture(t *testing.T, name, version, bodyFields string) (string, registrytest.ModuleFixture) {

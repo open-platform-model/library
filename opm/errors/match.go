@@ -11,7 +11,7 @@ import (
 //
 // The conflict is reported as the FQNs it occurred at, not as a CUE error
 // tree: the glue decides the verdict inside the build and a CUE error is not
-// exportable from there (0019 D10).
+// exportable from there (0019:D10).
 type UnifyRefusal struct {
 	// Component is the component whose bodies diverged.
 	Component string
@@ -25,17 +25,17 @@ type UnifyRefusal struct {
 }
 
 // UnresolvedDemand is the structured diagnostic for a demanded contract key
-// the platform does not resolve (0010 D28): the matcher index holds no
+// the platform does not resolve (0010:D28): the matcher index holds no
 // candidate for it, or every candidate was disqualified (by unification or by
 // predicate). Every declared resource is a required demand; a trait demand is
 // unresolved only when its effective `optional` posture is load-bearing (a
 // trait whose posture the catalog never stated is a build error, not a
 // diagnostics row).
 //
-// The D4 contract-key diagnostic is carried by Alternatives: empty means
+// The 0010:D4 contract-key diagnostic is carried by Alternatives: empty means
 // nothing on this platform implements the contract at any version; non-empty
 // means the contract base is implemented at a different apiVersion only.
-// DefinedBy carries the 0015 D18 arm beside it: which enabled catalog lists
+// DefinedBy carries the 0015:D18 arm beside it: which enabled catalog lists
 // the demanded key in its contract maps, so the refusal can say "defined by
 // this catalog and implemented by nothing" rather than "unknown".
 //
@@ -52,7 +52,7 @@ type UnresolvedDemand struct {
 
 	// Alternatives is the same-base contract-key set the platform does
 	// implement, in contract-key order (kube-aware apiVersion ladder,
-	// D34/D4, applied inside the build). Empty when nothing implements the
+	// 0010:D34/D4, applied inside the build). Empty when nothing implements the
 	// contract.
 	Alternatives []string
 
@@ -64,7 +64,7 @@ type UnresolvedDemand struct {
 	// DefinedBy is the registry key (module path) of the enabled catalog
 	// whose contract maps list the demanded key, read inside the build from
 	// the platform's derived contract inventory (#contracts.definedBy,
-	// enhancement 0015 D18) and never parsed off the FQN. Empty when no
+	// 0015:D18) and never parsed off the FQN. Empty when no
 	// enabled catalog lists it. Diagnostic only: its presence or absence
 	// never changes whether the demand refuses.
 	DefinedBy string
@@ -94,7 +94,7 @@ func (d UnresolvedDemand) describe() string {
 }
 
 // UnresolvedDemandsError aggregates every unresolved demand of a render into
-// the typed cause Render fails with through the fail-closed gate (D28). It
+// the typed cause Render fails with through the fail-closed gate (0010:D28). It
 // carries the diagnostics' rows unchanged and wraps nothing: a row is data,
 // so there is no cause of another kind underneath.
 type UnresolvedDemandsError struct {

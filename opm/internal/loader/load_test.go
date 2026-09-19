@@ -352,7 +352,7 @@ type: "kubernetes"
 // artifact-types spec, "Registry entry with no embedded catalog rejected":
 // the retired subscription shape (a version scalar, no #catalog) is
 // incomplete exactly where the embedded catalog would have completed it
-// (core derives `version` from it, 0019 D5), and the gate names the entry.
+// (core derives `version` from it, 0019:D5), and the gate names the entry.
 func TestLoadDir_SubscriptionShapedRegistryRejected(t *testing.T) {
 	schematest.SetEnv(t)
 	dir := writePlatformModule(t, `"example.test/cat@v0": {enable: true, version: "0.1.0"}`, "")

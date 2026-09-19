@@ -23,5 +23,5 @@ oracle.#Render & {
 
 // The catalog build this oracle resolved. The harness requires the build
 // Render resolves for the platform's catalog import to be this one, so the
-// two renderers are kept on one set of catalog bytes (0019 OQ3, executable).
+// two renderers are kept on one set of catalog bytes (0019:OQ3, executable).
 catalogVersion: catalog.metadata.version

@@ -17,7 +17,7 @@ import (
 )
 
 // SkewPolicy is the caller's response to catalog version skew (enhancement
-// 0019 D7/D18): the instance module's cue.mod requiring a NEWER build of an
+// 0019:D7/D18): the instance module's cue.mod requiring a NEWER build of an
 // OPM-namespace path than the platform module carries. Exactly two responses
 // exist; the zero value is the default.
 type SkewPolicy int
@@ -41,7 +41,7 @@ type RenderInput struct {
 	// is never sufficient.
 	Instance *module.Instance
 
-	// Platform is the platform to render against, in the D5 shape (registry
+	// Platform is the platform to render against, in the 0019:D5 shape (registry
 	// entries carrying their catalog by import). It MUST carry a Source
 	// (Kernel.AcquirePlatformFromDir).
 	Platform *platform.Platform
@@ -105,7 +105,7 @@ type RenderPair struct {
 	Transformer string
 }
 
-// ResolvedVersion is one resolved-versions row (0019 D18): for an
+// ResolvedVersion is one resolved-versions row (0019:D18): for an
 // OPM-namespace path the instance module requires, what it asked for and
 // what the platform carries. Plain data with no severity; Newer marks the
 // skew case the policy decided.
@@ -126,7 +126,7 @@ type ResolvedVersion struct {
 	Newer bool
 }
 
-// RenderDiagnostics is everything the build reports as data (0019 D10),
+// RenderDiagnostics is everything the build reports as data (0019:D10),
 // decoded into the kernel's structured types. It is populated on success and
 // carried by [*RenderError] on a refusal, so a caller can always read the
 // full verdict set. Every field is a row the build emitted, in the build's
@@ -144,14 +144,14 @@ type RenderDiagnostics struct {
 	// every candidate the demand walk reached for it.
 	Unmatched []oerrors.UnmatchedComponent
 
-	// Unresolved is every demand the platform failed to resolve (0010 D28):
+	// Unresolved is every demand the platform failed to resolve (0010:D28):
 	// an empty bucket (Disqualified empty, Alternatives naming same-base
 	// keys the platform does implement) or every candidate disqualified.
 	Unresolved []oerrors.UnresolvedDemand
 
 	// Unify is every candidate the always-unify rung disqualified, one row
 	// per (component, transformer) carrying the FQNs it conflicted at. The
-	// verbatim CUE cause is not recoverable from inside the build (D10).
+	// verbatim CUE cause is not recoverable from inside the build (0019:D10).
 	Unify []oerrors.UnifyRefusal
 
 	// UnhandledTraits maps a component to the effectively-optional traits
@@ -163,7 +163,7 @@ type RenderDiagnostics struct {
 
 	// OverSubscribed is every provider-fulfilled contract key that
 	// transformers from more than one enabled registry entry require (the
-	// single-provider guard, 0010 D32/D37), key-sorted. Any row refuses the
+	// single-provider guard, 0010:D32/D37), key-sorted. Any row refuses the
 	// render through the gate.
 	OverSubscribed []oerrors.OverSubscribedContract
 
@@ -206,14 +206,14 @@ func (e *RenderError) Error() string { return "render refused: " + e.Err.Error()
 func (e *RenderError) Unwrap() error { return e.Err }
 
 // Render renders an instance against a platform as ONE CUE build (enhancement
-// 0019 D9): it stages a generated render module in a per-render temporary
-// directory (the promoted cue.mod, D13; directory replacements bringing both
+// 0019:D9): it stages a generated render module in a per-render temporary
+// directory (the promoted cue.mod, 0019:D13; directory replacements bringing both
 // inputs in, an on-disk input in place and an overlay-mode input from memory,
 // so the directory holds only the generated module; the embedded matching
 // and execution glue), verifies the
 // promoted list covers every OPM-namespace path either input requires,
-// applies the skew policy (D7/D18), builds the module once in a fresh
-// cue.Context that is dropped when Render returns (D8), and decodes
+// applies the skew policy (0019:D7/D18), builds the module once in a fresh
+// cue.Context that is dropped when Render returns (0019:D8), and decodes
 // `diagnostics` and `rendered` off the built value.
 //
 // The Kernel holds no context of its own, and no built value survives the
@@ -233,7 +233,7 @@ func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, err
 // render is Render with the built value exposed. The value is returned on
 // every path that reached the build, refusal included, so a test can assert
 // that the render module's own `gate` agrees with the kernel's verdict; the
-// exported verb drops it, since no built value survives a render (D8).
+// exported verb drops it, since no built value survives a render (0019:D8).
 func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *RenderResult, error) {
 	var none cue.Value
 	if in.Instance == nil {
@@ -284,7 +284,7 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 		return none, nil, err
 	}
 
-	// One build, one context, dropped with the render (D8).
+	// One build, one context, dropped with the render (0019:D8).
 	built, err := renderstage.Build(cuecontext.New(), staged, cueenv.Override(k.registry, ""))
 	if err != nil {
 		return none, nil, fmt.Errorf("building render module: %w", err)

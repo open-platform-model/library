@@ -3,7 +3,7 @@
 **Status:** Moot (2026-09-03). Neither C1 nor C2 exists any more: `library-render-cutover` deleted
 `opm/materialize` (`pullCatalog`, `indexCatalogs`, `MaterializedPlatform.Transformers` / `Matchers`) and the
 Go executor. The premise, `Materialize` selecting several versions of one catalog `path@major`, was
-made inexpressible by enhancement 0010 D14 (one build per subscription) and 0019 D5 (the platform is
+made inexpressible by 0010:D14 (one build per subscription) and 0019:D5 (the platform is
 a CUE module importing its catalogs, so minimum version selection admits one version per
 `path@major` per build). The trigger below cannot fire: under `Kernel.Render` every transformer is
 evaluated inside its own catalog's build by construction, because the whole render is one build.

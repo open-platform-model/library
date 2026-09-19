@@ -83,7 +83,7 @@
 
 ### Features
 
-* platform module generator helper and layered instance values (0019 D5/D13) ([#110](https://github.com/open-platform-model/library/issues/110)) ([0c8dd2e](https://github.com/open-platform-model/library/commit/0c8dd2ea24e3da34bd577c72210448d26b005e87))
+* platform module generator helper and layered instance values (0019:D5/D13) ([#110](https://github.com/open-platform-model/library/issues/110)) ([0c8dd2e](https://github.com/open-platform-model/library/commit/0c8dd2ea24e3da34bd577c72210448d26b005e87))
 
 ## [1.0.0-alpha.25](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.24...v1.0.0-alpha.25) (2026-09-04)
 
@@ -102,7 +102,7 @@
 
 ### Features
 
-* **kernel:** add Kernel.Render single-build render path (0019 D9) ([#104](https://github.com/open-platform-model/library/issues/104)) ([3d83129](https://github.com/open-platform-model/library/commit/3d83129ba902ad72ce936a57da0707fc033b4b8a))
+* **kernel:** add Kernel.Render single-build render path (0019:D9) ([#104](https://github.com/open-platform-model/library/issues/104)) ([3d83129](https://github.com/open-platform-model/library/commit/3d83129ba902ad72ce936a57da0707fc033b4b8a))
 * **kernel:** carry staged source on instances and platforms ([#101](https://github.com/open-platform-model/library/issues/101)) ([9fe1ee9](https://github.com/open-platform-model/library/commit/9fe1ee92a0a8c0c8764553642b0366e172f13e7c))
 * **kernel:** make Render the sole render path, drop the old pipeline ([#106](https://github.com/open-platform-model/library/issues/106)) ([7ca0198](https://github.com/open-platform-model/library/commit/7ca0198a2ab8be3bd83de413d8d3dd860e726587))
 * **render:** single-provider guard in-build, Compile-vs-Render proof ([#105](https://github.com/open-platform-model/library/issues/105)) ([d3badf3](https://github.com/open-platform-model/library/commit/d3badf39005a51ce128adfc44dbe6ef6f0cea9a8))

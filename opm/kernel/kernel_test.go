@@ -136,7 +136,7 @@ func TestKernel_ValidateConfigDetailed_HappyPath(t *testing.T) {
 // (catalog-acquisition spec: "each SHALL build in a cue.Context created for
 // the call, per ADR-007") — a verb left out of it is a verb whose per-call
 // context is documented and unchecked. The render side
-// of the same claim (Render shares nothing, 0019 D8) is
+// of the same claim (Render shares nothing, 0019:D8) is
 // TestRender_ConcurrentKernelsShareNothing in render_test.go.
 
 func TestKernel_GoroutineIsolation(t *testing.T) {
@@ -309,7 +309,7 @@ func TestKernel_ConcurrentAcquireAndSynth(t *testing.T) {
 // as one exact list, so every absence the specs name is proved at once:
 // no finalization step and no raw-load methods (kernel-runtime, "No
 // finalization method on the Kernel", "No raw-load methods on the Kernel";
-// enhancement 0019 D1), none of the old pipeline's verbs, typed validation
+// 0019:D1), none of the old pipeline's verbs, typed validation
 // wrappers or the string source loader (single-build-render, "Old entry
 // points are gone"; config-validation, "Single Kernel Validation Primitive"),
 // no constructor wrappers (artifact-types, "No kernel constructor wrappers"),

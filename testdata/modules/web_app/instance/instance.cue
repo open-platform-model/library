@@ -6,7 +6,7 @@
 // cross-references bound to the scope they were written in, so every
 // component's #instance and #names resolve (web.#names.dns.fqdn is
 // "web.default.svc.cluster.local"). uuid is not authored: core derives it from
-// the instance fqn (0019 D3; spec transform-input-fill).
+// the instance fqn (0019:D3; spec transform-input-fill).
 //
 // Intra-module import: this package lives inside the web_app fixture module,
 // so it needs no registry and no second cue.mod. LoadModulePackage(web_app)

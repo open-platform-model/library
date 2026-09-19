@@ -46,7 +46,7 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 	assert.Contains(t, bare.Error(), "unresolved resource demand")
 	assert.Contains(t, bare.Error(), "no enabled catalog defines this contract")
 
-	// Alternatives present: the D4 different-apiVersion diagnostic.
+	// Alternatives present: the 0010:D4 different-apiVersion diagnostic.
 	alt := &oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{{
 		Component:    "web",
 		FQN:          "example.com/r/volume@v1",
@@ -67,8 +67,8 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 }
 
 // single-build-render spec, "Unresolved demands are diagnosed with
-// alternatives": the row words three cases, and the defining catalog (0015
-// D18) is named wherever an enabled catalog lists the key.
+// alternatives": the row words three cases, and the defining catalog
+// (0015:D18) is named wherever an enabled catalog lists the key.
 func TestUnresolvedDemand_ThreeCases(t *testing.T) {
 	const cat = "example.com/catalogs/main@v1"
 	cases := []struct {

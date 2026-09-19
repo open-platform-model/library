@@ -21,7 +21,7 @@ metadata: {
 	#config: {}
 	#components: {
 		// The component's matchLabels are the wholesale unification of its
-		// primitives' (0010 D36): render.test/tier is the int 2 the
+		// primitives' (0010:D36): render.test/tier is the int 2 the
 		// resource declares. Its only candidate requires 3 under the same
 		// key, so the predicate rung refuses it and names the label.
 		tiered: {

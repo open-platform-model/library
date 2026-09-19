@@ -1,4 +1,4 @@
-// Render fixture platform in the D5 shape (core 2.0.0-alpha.10): the registry
+// Render fixture platform in the 0019:D5 shape (core 2.0.0-alpha.10): the registry
 // entry carries the fixture catalog by import, and which catalog build
 // executes is stated once, in this module's cue.mod/module.cue. Consumed
 // on-disk by Kernel.AcquirePlatformFromDir; never published. Not discovered

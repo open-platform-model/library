@@ -12,7 +12,7 @@ import (
 // RenderModulePath is the render module's own identity: a reserved, never
 // published module path under a host no registry mapping serves. It never
 // resolves anywhere because the render module is always the main module of
-// the build it is generated for (0019 D9); it is fixed rather than derived per
+// the build it is generated for (0019:D9); it is fixed rather than derived per
 // render so generated files are byte-stable across renders of the same
 // inputs.
 const RenderModulePath = "render.opmodel.dev/build@v0"
@@ -22,7 +22,7 @@ const RenderModulePath = "render.opmodel.dev/build@v0"
 // carries the directory replacements that bring the inputs into the build.
 const MinLanguageVersion = "v0.17.0"
 
-// Promotion is the render module's derived dependency list (0019 D13): the
+// Promotion is the render module's derived dependency list (0019:D13): the
 // platform module's tidied list adopted whole, the instance module's list
 // unioned in for paths only the instance carries, the platform's entry
 // winning every shared path, and each input module's own path entered as a
@@ -113,7 +113,7 @@ func Promote(platform, instance *ModFile, platformLocal, instanceLocal *LocalMod
 	// Instance-only paths join. A default-major marker on an instance-only
 	// path survives only when the platform marks no default for the same
 	// root path: two majors marked default for one path would be refused by
-	// cue/load, and on that disagreement the platform wins (D13).
+	// cue/load, and on that disagreement the platform wins (0019:D13).
 	platformDefaults := defaultRoots(platform.Deps)
 	for path, dep := range instance.Deps {
 		if _, shared := deps[path]; shared {

@@ -12,13 +12,13 @@ import (
 )
 
 // The defining catalog on an unresolved-demand row (single-build-render,
-// "Unresolved demands are diagnosed with alternatives"; enhancement 0015
-// D18): the row carries the registry key of the enabled catalog whose
-// contract maps list the demanded key, read inside the build from
-// platform.#contracts.definedBy, and the refusal's wording distinguishes
-// "defined by a catalog, implemented by nothing" from "implemented at a
-// different apiVersion" from "no enabled catalog defines it". The gate is
-// unchanged: every case below refuses exactly as it did before the field.
+// "Unresolved demands are diagnosed with alternatives"; 0015:D18): the row
+// carries the registry key of the enabled catalog whose contract maps list the
+// demanded key, read inside the build from platform.#contracts.definedBy, and
+// the refusal's wording distinguishes "defined by a catalog, implemented by
+// nothing" from "implemented at a different apiVersion" from "no enabled
+// catalog defines it". The gate is unchanged: every case below refuses exactly
+// as it did before the field.
 
 const renderCatKey = renderCatPath + "@v0"
 

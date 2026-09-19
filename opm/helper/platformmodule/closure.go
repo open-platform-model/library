@@ -55,7 +55,7 @@ func NewRegistry(cfg RegistryConfig) (ModFileSource, error) {
 // breadth-first walk over each reachable module version's published module
 // file, selecting the maximum version per major-qualified path, the roots
 // participating in the maximum. This is minimum version selection computed
-// the way `cue mod tidy` computes it (0019 D13: tidying happens once, at
+// the way `cue mod tidy` computes it (0019:D13: tidying happens once, at
 // platform-module generation), minus the prune of modules no import reaches,
 // which pins a path nothing evaluates and is harmless. Derived entries carry
 // no default-major marker; `cue mod tidy` writes none for a platform either,

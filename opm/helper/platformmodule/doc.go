@@ -1,5 +1,5 @@
 // Package platformmodule generates a platform CUE module from catalog
-// coordinates (enhancement 0019 D5/D13). A platform is a CUE module that
+// coordinates (0019:D5/D13). A platform is a CUE module that
 // imports its catalogs, and the kernel's only platform input is such a module
 // on disk ([kernel.Kernel.AcquirePlatformFromDir]); a frontend that starts
 // from typed coordinates (a Platform CR, a seeded local default) turns them
@@ -16,7 +16,7 @@
 //     modules' published module files: the roots ([Roots]: core and every
 //     subscribed catalog) plus everything they transitively require, at the
 //     maximum version any requirement names. It is the tidied list a
-//     `cue mod tidy` would write, computed once at generation (0019 D13).
+//     `cue mod tidy` would write, computed once at generation (0019:D13).
 //     Module files are read through a caller-configured [ModFileSource]
 //     ([NewRegistry]); tests supply a fixture graph.
 //   - [Files.WriteTo] places the generated files under a caller-owned
@@ -27,7 +27,7 @@
 // ([schema.DefaultSchemaVersion]); a caller that needs another core build
 // assembles its [Dep] roots directly. The generated module's own path is
 // caller input ([Input.ModulePath]) and lives under the reserved,
-// never-published platforms namespace (0019 D6).
+// never-published platforms namespace (0019:D6).
 //
 // This package is opt-in helper convenience (see package opm/helper): a
 // frontend MAY write its platform module by hand instead.

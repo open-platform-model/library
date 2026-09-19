@@ -174,7 +174,7 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 // load; a bare-major loader, or any other [schema.Loader], resolves it
 // through the schema cache. Only the major reaches the import; the concrete
 // version the import resolves to comes from the module's own
-// cue.mod/module.cue (0019 D4). A core that lacks #ModuleInstance is not
+// cue.mod/module.cue (0019:D4). A core that lacks #ModuleInstance is not
 // checked for here: the synth build fails on the import that needs it.
 func (k *Kernel) resolveCoreVersion() (string, error) {
 	if version, ok := pinnedCoreVersion(k.schemaCache.Loader); ok {

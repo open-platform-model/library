@@ -5,14 +5,14 @@
 // read side by side:
 //
 //     glue `match` (#Match)                    ->  `matched` / `pairs` (predicate rung only)
-//     core's #TransformerContext projection    ->  `_contextFor` (0019 D12; the kernel supplies #runtimeName only)
+//     core's #TransformerContext projection    ->  `_contextFor` (0019:D12; the kernel supplies #runtimeName only)
 //     glue `rendered`                          ->  `rendered`
 //
 // SCOPE OF `matched`. This is the predicate rung, enough to produce the right
-// pairs for the fixtures; it is not a specification of matching (0019 D10
+// pairs for the fixtures; it is not a specification of matching (0019:D10
 // owns that). The glue's reverse-index and always-unify rungs are absent: on
 // the shipped fixtures no primitive body conflicts with a transformer's
-// required copy, so the pair sets agree with no exemption (0019 D10); a
+// required copy, so the pair sets agree with no exemption (0019:D10); a
 // fixture that did conflict would be refused by the kernel and fail the
 // harness's pair-set comparison.
 package oracle
@@ -65,7 +65,7 @@ package oracle
 		if m.ok {{component: cid, transformer: tfqn}},
 	]
 
-	// ---- #context: the projection core performs (0019 D12) --------------
+	// ---- #context: the projection core performs (0019:D12) --------------
 	_contextFor: {
 		comp!: _
 		out: {
@@ -90,7 +90,7 @@ package oracle
 	// ---- Execute: one unification per matched pair (the glue's `rendered`)
 	// All three inputs core declares on #transform are supplied, whole:
 	// #moduleInstance is the instance as imported, siblings included, the
-	// same value the kernel fills since library-instance-fill (0019 D3, D11).
+	// same value the kernel fills since library-instance-fill (0019:D3, D11).
 	rendered: {
 		for p in pairs {
 			"\(p.component) :: \(p.transformer)": (#transformers[p.transformer].#transform & {

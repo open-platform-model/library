@@ -14,13 +14,13 @@ import (
 // corePath is the module path of the OPM core schema the synthesized instance
 // imports. The import major is derived from the kernel's core release (the v2
 // line, schema.DefaultSchemaModule); the concrete core version the import
-// resolves to comes from the module's own cue.mod/module.cue (design D4), not
-// from a fabricated pin.
+// resolves to comes from the module's own cue.mod/module.cue, not from a
+// fabricated pin.
 const corePath = "opmodel.dev/core"
 
 // moduleImportPath returns the CUE registry module path — major suffix
 // included — the synthesized package imports the module by: the module's
-// metadata.modulePath verbatim (enhancement 0010 D1: fqn = modulePath = the
+// metadata.modulePath verbatim (0010:D1: fqn = modulePath = the
 // import path; nothing is recombined). The schema requires the major-suffixed
 // form, so a value that somehow lacks it fails the build with CUE's own
 // import error naming the path.

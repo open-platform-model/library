@@ -20,10 +20,10 @@ import (
 // maps these tests read: cat lists every member it defines, cat2 defines no
 // member of its own and lists nothing. The six original inventory fields
 // were pinned by the read-contract-inventory spike (archived at
-// openspec/changes/archive/2026-09-13-read-contract-inventory/design.md,
-// § `defined` is not decoded); the comparable-predicate rows below were
-// pinned by the read-comparable-predicates spike (that change's design.md,
-// § Fixture values pinned before the tests are written).
+// openspec/changes/archive/2026-09-13-read-contract-inventory/design.md);
+// the comparable-predicate rows below were pinned by the
+// read-comparable-predicates spike, which fixed the fixture values before
+// these tests were written.
 const (
 	contractsPrefix = "testing.opmodel.dev/library-render"
 	contractsCat    = contractsPrefix + "/cat@v0"

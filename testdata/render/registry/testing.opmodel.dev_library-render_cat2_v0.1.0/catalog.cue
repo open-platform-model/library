@@ -6,7 +6,7 @@
 // admitted for such a key, so a platform carrying both catalogs renders and
 // every candidate participates in matching. It defines no contract of its
 // own, so its contract maps (#resources, #traits) stay empty and a platform
-// embedding only this catalog derives an empty inventory (0015 D1).
+// embedding only this catalog derives an empty inventory (0015:D1).
 package cat2
 
 import (

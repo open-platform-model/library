@@ -9,7 +9,7 @@
 // disqualifies, and two sabotaged transformers (an output that conflicts, an
 // output that never becomes concrete). Every resource and trait is also
 // listed in the catalog's contract maps (#resources, #traits; enhancement
-// 0015 D1), so a platform embedding this build derives a populated contract
+// 0015:D1), so a platform embedding this build derives a populated contract
 // inventory with no provider-fulfilled contract in it (this build drops
 // 0.1.0's gateway and tiered members). Every fqn lives under
 // testing.opmodel.dev/library-render so nothing here can collide with a
@@ -92,7 +92,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	spec: orphan: size!: string
 }
 
-// The ladder family pins the D34/D4 apiVersion ordering of a demand's
+// The ladder family pins the 0010:D34/D4 apiVersion ordering of a demand's
 // same-base alternatives: the three levels below are each implemented by a
 // transformer, ladder@v2 is not, so a demand for ladder@v2 is a hard miss
 // whose alternatives must arrive alpha < beta < GA -- an order lexical
@@ -250,7 +250,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	appliesTo: [#ContainerResource]
 }
 
-// ── Contract maps (enhancement 0015 D1) ─────────────────────────────
+// ── Contract maps (0015:D1) ─────────────────────────────
 // Every resource and trait above, listed by contract fqn as the contract
 // this catalog DEFINES, so a platform embedding it derives a non-empty
 // #contracts inventory (definedBy, requiredBy, unfulfilled, overSubscribed)
@@ -307,7 +307,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 					labels:    #context.labels
 				}
 				spec: {
-					// Read through #moduleInstance (0019 D3) when the module
+					// Read through #moduleInstance (0019:D3) when the module
 					// exposes a replica count; scenario modules with an empty
 					// #config render one replica.
 					replicas: *1 | int

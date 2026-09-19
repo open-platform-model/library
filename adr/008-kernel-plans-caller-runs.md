@@ -18,7 +18,7 @@ The runner half is the open question. A loop that walks a dependency graph, thre
 
 One asymmetry between the two first-party consumers decides it. A controller reconcile is level-triggered and must return promptly. It cannot block on a wait step while holding a work-queue slot, so its wait is a requeue, and its step state has to be reconstructed on each pass from the custom resource it owns. A cli invocation is one-shot and can block for as long as the operation takes. A blocking runner in the kernel therefore serves the cli and is unusable by the operator. That is the shape the 2026-09-11 kernel audit found below the render line, re-verified on 2026-09-14: ordering, digests, prune guards and object conversion each written twice, with the apply-time guard in one frontend and the delete-time guard in the other, and neither holding both.
 
-Two limits already constrain any answer. Enhancement 0009 OQ6 records that a caller's context reaches phase boundaries and registry fetches but never a running CUE evaluation, so cancellation can only ever land between steps. And core has no lifecycle vocabulary today: no ordering, dependency, phase, hook or health field on any construct.
+Two limits already constrain any answer. Enhancement 0009:OQ6 records that a caller's context reaches phase boundaries and registry fetches but never a running CUE evaluation, so cancellation can only ever land between steps. And core has no lifecycle vocabulary today: no ordering, dependency, phase, hook or health field on any construct.
 
 This ADR carries no measurements. Unlike ADR-005 and ADR-007 it settles a boundary before there is code to measure. What it rests on is the consumer asymmetry above and the duplication the audit found below the render line.
 
@@ -33,7 +33,7 @@ Four rules.
 
 Rejected alternatives:
 
-- **A blocking runner in the kernel, enhancement 0009 D3 and D4 as written.** It is usable by one of the two first-party consumers. The operator would keep the plan, ignore the runner and write its own resumable walk, which reproduces below the plan exactly the duplication this ADR exists to prevent above it.
+- **A blocking runner in the kernel, 0009:D3 and D4 as written.** It is usable by one of the two first-party consumers. The operator would keep the plan, ignore the runner and write its own resumable walk, which reproduces below the plan exactly the duplication this ADR exists to prevent above it.
 - **A plan the kernel emits and each frontend walks with its own loop.** Safest against ADR-005 and ADR-007, and it leaves the sequencing rules in two places. The audit already shows what happens to a rule with two homes: the cli lost weight-ordered apply when the render path changed under it, and nothing failed.
 - **Run state held by the Kernel, keyed by instance.** Reintroduces exactly the retention ADR-007 removed, with a new eviction question and a new concurrency question, so that a caller need not pass a value it already has.
 - **A goroutine-driven runner with callbacks.** Moves the process model into the library and hides it behind an interface. A controller cannot use callbacks that outlive its reconcile, and a caller cannot cancel between steps without a channel protocol the kernel would then own.
@@ -44,9 +44,9 @@ Rejected alternatives:
 
 **Negative:** Each frontend writes the loop that calls the step function, so a small amount of code is duplicated by design; what is not duplicated is any decision the loop makes. The public surface grows by a plan type, a state type and a step function, and every one of them is SemVer surface under Principle VI. The step function is more API than emitting a plan alone would be.
 
-**Trade-off:** Rule 2 requires the state to be serialisable, which bounds what a step may carry to the next one. A step cannot hand a live `cue.Value`, an open connection or a file handle to its successor; it hands data. This bears directly on enhancement 0009 OQ2, which asks whether steps pass typed data or only ordering: whatever that question answers, the answer has to survive a round trip through a custom resource.
+**Trade-off:** Rule 2 requires the state to be serialisable, which bounds what a step may carry to the next one. A step cannot hand a live `cue.Value`, an open connection or a file handle to its successor; it hands data. This bears directly on 0009:OQ2, which asks whether steps pass typed data or only ordering: whatever that question answers, the answer has to survive a round trip through a custom resource.
 
-**What this does not decide:** the executor artifact form (0009 OQ1), whether steps pass typed data or only ordering edges (OQ2), the run-state and idempotency model for on-demand workflows (OQ3), and where `#Lifecycle` and `#Workflow` attach on `#Module` (OQ4). All four remain open and none is blocked by this decision.
+**What this does not decide:** the executor artifact form (0009:OQ1), whether steps pass typed data or only ordering edges (OQ2), the run-state and idempotency model for on-demand workflows (OQ3), and where `#Lifecycle` and `#Workflow` attach on `#Module` (OQ4). All four remain open and none is blocked by this decision.
 
 **Relation to ADR-005, ADR-006 and ADR-007:** those three settle how the kernel evaluates, what it retains and how it may be called concurrently. This one settles what the kernel does with time. The first three are why the answer is a step function rather than a loop: a kernel that drops its evaluation state at the end of every call has nowhere to keep a half-finished run, and the caller does.
 

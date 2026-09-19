@@ -14,7 +14,7 @@ metadata: {
 
 // The rung component demands ladder@v2, which no transformer implements. The
 // platform implements the same base at v1alpha1, v1beta1 and v1, so the
-// unresolved-demand row must list those three in ladder order (D34/D4), which
+// unresolved-demand row must list those three in ladder order (0010:D34/D4), which
 // is not their lexical order.
 #module: {
 	metadata: {

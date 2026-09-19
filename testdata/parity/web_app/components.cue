@@ -1,6 +1,6 @@
 // COPY of testdata/modules/web_app/components.cue for the render-parity harness, extended
 // with the `worker` component and its #config fields (guarded-env fixture for
-// 0019 D14). Everything else is byte-identical to the source; both pin the
+// 0019:D14). Everything else is byte-identical to the source; both pin the
 // same published core and catalog builds. Edit the source, then refresh the
 // shared part of this copy.
 
@@ -22,15 +22,15 @@ import (
 //     and http-route-transformer in a single match cycle
 //   - StatelessWorkload blueprint → demonstrates Blueprint composition; its
 //     spec.statelessWorkload field is satisfied alongside the direct primitives.
-//     Imports name the apiVersion level (…/blueprints/v1beta1, 0010 D49).
+//     Imports name the apiVersion level (…/blueprints/v1beta1, 0010:D49).
 //
-// Matching reads the component's derived matchLabels (0010 D36) — the
+// Matching reads the component's derived matchLabels (0010:D36) — the
 // StatelessWorkload blueprint's matchLabels carry the
 // "core.opmodel.dev/workload-type": "stateless" key the
 // DeploymentTransformer's requiredLabels selects on. The explicit
 // metadata.labels duplicate below is DESCRIPTIVE and stays: render reads
 // (e.g. an hpa-style transformer's workload-type lookup off the component)
-// consume metadata.labels through the transformer context, which D36 keeps
+// consume metadata.labels through the transformer context, which 0010:D36 keeps
 // on the descriptive field.
 #components: {
 	web: {
@@ -107,7 +107,7 @@ import (
 	}
 
 	// Third component, parity-only: the guarded-env shape experiment 07
-	// measured as the one that reorders under finalization (0019 D14). The
+	// measured as the one that reorders under finalization (0019:D14). The
 	// env MAP is assembled from three sources, plainly declared fields, a
 	// feature-guarded block and a comprehension over #config.extraEnv, and
 	// the deployment transformer converts it to the Kubernetes env LIST, so

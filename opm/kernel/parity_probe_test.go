@@ -46,7 +46,7 @@ var parityProbes = []parityProbe{
 	{
 		parityCase: parityCase{
 			// Agrees since library-component-fill: #component is bound to
-			// the evaluated component, definitions included (0019 D1/D3).
+			// the evaluated component, definitions included (0019:D1/D3).
 			Name:      "names-probe :: web",
 			Component: "web",
 			Equality:  equalityStructural,
@@ -65,7 +65,7 @@ var parityProbes = []parityProbe{
 	{
 		parityCase: parityCase{
 			// Agrees since library-instance-fill: #moduleInstance is bound
-			// to the whole evaluated instance (0019 D3, library#65).
+			// to the whole evaluated instance (0019:D3, library#65).
 			Name:      "instance-probe :: web",
 			Component: "web",
 			Equality:  equalityStructural,

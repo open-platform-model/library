@@ -7,10 +7,10 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-// VersionRow is one resolved-versions comparison row (0019 D18): for an
+// VersionRow is one resolved-versions comparison row (0019:D18): for an
 // OPM-namespace path the instance module requires, the build the instance
 // asked for and the build the platform carries. It is plain data with no
-// severity; Newer flags the one case D7 makes a policy question.
+// severity; Newer flags the one case 0019:D7 makes a policy question.
 type VersionRow struct {
 	// Path is the major-qualified module path compared.
 	Path string
@@ -24,7 +24,7 @@ type VersionRow struct {
 	PlatformVersion string
 
 	// Newer is true when the instance requires a build newer than the
-	// platform carries: the D7 skew case the caller's policy decides.
+	// platform carries: the 0019:D7 skew case the caller's policy decides.
 	Newer bool
 }
 
@@ -32,7 +32,7 @@ type VersionRow struct {
 // the platform module's, per OPM-namespace path the instance requires, and
 // returns the rows in lexical path order. The render module's promoted list is
 // never an input here: the platform wins every shared path there by
-// construction, so skew would be invisible (D18).
+// construction, so skew would be invisible (0019:D18).
 func CompareSkew(platform, instance *ModFile) ([]VersionRow, error) {
 	if platform == nil || instance == nil {
 		return nil, fmt.Errorf("skew comparison needs both input module files")

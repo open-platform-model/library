@@ -21,10 +21,10 @@ import (
 // major: the release the kernel's render glue, fixtures and parity oracle
 // were verified against. 2.0.0-alpha.10 is the first release carrying the
 // comparable-predicate report on the derived #Platform.#contracts inventory
-// (`comparable` and `discriminated`; enhancement 0015 D5 and OQ9) on top of
-// the D1, D2 and D18 inventory, the D5 registry shape (a #Platform.#registry
+// (`comparable` and `discriminated`; 0015:D5, 0015:OQ9) on top of the
+// 0015:D1/D2/D18 inventory, the 0019:D5 registry shape (a #Platform.#registry
 // entry embeds its catalog by import and derives `version` from it) and the
-// D12 transformer-context projection (enhancement 0019). The constant
+// 0019:D12 transformer-context projection. The constant
 // advances only by a deliberate change that re-verifies the glue and the
 // fixtures against the new release; a default that floats ahead of the glue
 // breaks every synthesized artifact on a cold cache.

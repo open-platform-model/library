@@ -13,7 +13,7 @@ m.#Module
 
 metadata: {
 	// v2 identity: modulePath is the FULL module path, major included, and
-	// name is its snake_case leaf (enhancement 0010 D1/D8).
+	// name is its snake_case leaf (0010:D1/D8).
 	modulePath:  "testing.opmodel.dev/modules/web_app@v1"
 	name:        "web_app"
 	version:     "1.0.0"

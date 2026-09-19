@@ -1,10 +1,10 @@
 // Package renderstage assembles the single-build render module (enhancement
-// 0019 D9): it reads the two committed cue.mod/module.cue resolutions the
+// 0019:D9): it reads the two committed cue.mod/module.cue resolutions the
 // render inputs carry, promotes them into the render module's dependency list
-// (D13), checks that list for OPM-namespace coverage (the D13 refusal
+// (0019:D13), checks that list for OPM-namespace coverage (the 0019:D13 refusal
 // invariant), compares the two committed lists for catalog version skew
-// (D7/D18), stages the generated render module into a directory, and builds it
-// once in a caller-supplied cue.Context (D8).
+// (0019:D7/D18), stages the generated render module into a directory, and builds it
+// once in a caller-supplied cue.Context (0019:D8).
 //
 // The directory holds only the generated module: its cue.mod pair and the
 // glue. An on-disk input is referenced in place through its local-module.cue

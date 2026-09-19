@@ -366,7 +366,7 @@ func TestReplacedVersion(t *testing.T) {
 }
 
 // TestVerifyCoverage_DoctoredPromotionRefuses is the sole coverage of the
-// D13 refusal invariant: Promote cannot produce an uncovered OPM path by
+// 0019:D13 refusal invariant: Promote cannot produce an uncovered OPM path by
 // construction (every input entry is copied into the list), so the only way
 // to exercise the tripwire is to doctor the promotion after the fact. The
 // kernel runs VerifyCoverage inside Stage, before skew is compared and

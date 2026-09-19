@@ -19,7 +19,8 @@ import (
 )
 
 // 1.2 (footgun pinned) — re-verify in-library, against the library's pinned
-// cuelang.org/go version and modregistrytest substrate, the two halves of D2:
+// cuelang.org/go version and modregistrytest substrate, both halves of the
+// overlay-versus-FS load contract:
 //
 //   - the Overlay load (FS nil) resolves a catalog-importing module's
 //     transitive dependency, and

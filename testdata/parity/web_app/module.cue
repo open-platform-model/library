@@ -1,6 +1,6 @@
 // COPY of testdata/modules/web_app/module.cue for the render-parity harness, extended
 // with the `worker` component and its #config fields (guarded-env fixture for
-// 0019 D14). Everything else is byte-identical to the source; both pin the
+// 0019:D14). Everything else is byte-identical to the source; both pin the
 // same published core and catalog builds. Edit the source, then refresh the
 // shared part of this copy.
 
@@ -19,7 +19,7 @@ m.#Module
 
 metadata: {
 	// v2 identity: modulePath is the FULL module path, major included, and
-	// name is its snake_case leaf (enhancement 0010 D1/D8).
+	// name is its snake_case leaf (0010:D1/D8).
 	modulePath:  "testing.opmodel.dev/modules/web_app@v1"
 	name:        "web_app"
 	version:     "1.0.0"

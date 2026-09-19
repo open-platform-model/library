@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-// CoverageError is the D13 refusal: the written render module lists no entry
+// CoverageError is the 0019:D13 refusal: the written render module lists no entry
 // for an OPM-namespace path one of the inputs requires, so cue/load would
 // answer that path from the module graph's maximum-version selection instead
 // of from the render module's own roots. It is a kernel defect by definition;

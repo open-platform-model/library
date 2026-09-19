@@ -58,8 +58,8 @@ func TestIntegration_Render(t *testing.T) {
 	})
 }
 
-// TestIntegration_Render_PinnedCatalogBuildExecutes pins 0010 D14 on the
-// D5 shape: the platform module's cue.mod names the exact catalog build the
+// TestIntegration_Render_PinnedCatalogBuildExecutes pins 0010:D14 on the
+// 0019:D5 shape: the platform module's cue.mod names the exact catalog build the
 // render executes, not the highest published one.
 func TestIntegration_Render_PinnedCatalogBuildExecutes(t *testing.T) {
 	catPath := registrytest.UniquePath(t, "cat")
@@ -81,7 +81,7 @@ func TestIntegration_Render_PinnedCatalogBuildExecutes(t *testing.T) {
 }
 
 // TestIntegration_Render_UnpublishedCatalogFailsAtAcquire pins where an
-// unresolvable catalog surfaces on the D5 shape: the platform module's
+// unresolvable catalog surfaces on the 0019:D5 shape: the platform module's
 // import does not resolve, so acquisition fails naming the path and no
 // render is attempted.
 func TestIntegration_Render_UnpublishedCatalogFailsAtAcquire(t *testing.T) {

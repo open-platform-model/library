@@ -1,5 +1,5 @@
 // Package identity is the single source of this module's path and version
-// (core #IdentityPackage, enhancements 0010 D38 / 0011 D12). It sits at the
+// (core #IdentityPackage, 0010:D2, 0011:D12). It sits at the
 // bottom of the module's import graph: no intra-module imports, no core
 // import; validation is external (a publishing tool unifies this package
 // against core's #IdentityPackage). The library's own tests never load it;

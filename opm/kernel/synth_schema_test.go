@@ -31,7 +31,7 @@ debugValues: {}
 
 // expectedInstanceUUID computes the schema's instance UUID through CUE in the
 // kernel's own context: a UUID v5 of the instance fqn
-// ("<module registryPath>:<name>:<namespace>", core v2 0010 D41). Failing the
+// ("<module registryPath>:<name>:<namespace>", core v2 0010:D41). Failing the
 // assertion built on it is the drift sentinel for module_instance.cue.
 func expectedInstanceUUID(t *testing.T, ctx *cue.Context, fqn string) string {
 	t.Helper()

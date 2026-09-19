@@ -15,7 +15,7 @@ metadata: {
 // or implements with a transformer: authored inline under a path outside
 // every served catalog. A demand for it is a hard miss whose row carries no
 // defining catalog and no alternatives, so the refusal reads "no enabled
-// catalog defines this contract" (0015 D18, the third arm).
+// catalog defines this contract" (0015:D18, the third arm).
 #StrayResource: c.#Resource & {
 	metadata: {
 		name:           "stray"

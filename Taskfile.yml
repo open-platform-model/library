@@ -53,7 +53,7 @@ vars:
   # pin the drift check verifies exists on GHCR. CATALOG_FIXTURE_MODULES lists
   # cue.mod dep pins, the platform fixtures included: a platform module
   # imports its catalog, so its cue.mod pin IS the build the render executes
-  # (0019 D5). The platform fixture's derived #registry version is checked
+  # (0019:D5). The platform fixture's derived #registry version is checked
   # separately inside the task (see CATALOG_PLATFORM_FIXTURE) as the readout
   # of that pin.
   CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
@@ -62,7 +62,7 @@ vars:
     modules/opm_platform
     testdata/parity/opm_platform
   # Platform fixture whose #registry `version` (derived by core from the
-  # embedded catalog's stamped version, 0019 D5) names the build the render
+  # embedded catalog's stamped version, 0019:D5) names the build the render
   # executes. The drift check only verifies the named tag exists on GHCR;
   # bumping the cue.mod pin is an ordinary fixture update, any published tag
   # in the key's major.
@@ -126,7 +126,7 @@ tasks:
       # Every package once: the render packages run only in the -race pass
       # below, so they are excluded here rather than built and run twice.
       - go test $(go list ./... | grep -v -e /opm/kernel -e /opm/internal/renderstage)
-      # Render shares nothing between renders (0019 D8); run the render
+      # Render shares nothing between renders (0019:D8); run the render
       # packages under -race so the concurrency claim the docs make is
       # checked on every push (the earlier shared-platform claim went
       # unchecked and was measured false, see ADR-002).
@@ -351,7 +351,7 @@ tasks:
         - the platform fixture's derived #registry `version`
           (CATALOG_PLATFORM_FIXTURE), the readout of its cue.mod pin.
 
-      The pin is load-bearing (0010 D14, 0019 D5): the render build executes
+      The pin is load-bearing (0010:D14, 0019:D5): the render build executes
       exactly the build the platform module's cue.mod names, so the only
       drift that can break the suite is a pin that names a build the registry
       does not serve. Bumping a pin is an ordinary fixture update, not a
@@ -392,7 +392,7 @@ tasks:
           exit 1
         fi
 
-        # check NAME PINNED — the pin is load-bearing (0010 D14): the kernel
+        # check NAME PINNED — the pin is load-bearing (0010:D14): the kernel
         # pulls exactly the named build, so the check is existence, not
         # currency. Sets drift=1 when the pinned tag is not published.
         drift=0
