@@ -36,7 +36,7 @@ context: |
   - The public kernel surface lives under `opm/`; opt-in frontend convenience lives behind a clearly marked boundary a consumer MAY skip.
   - Errors, shared domain primitives, artifact loading, the artifact model, and the compile/render pipeline each own a distinct package.
   - Configuration validation lives on the `Kernel`, not in a standalone validation package.
-  The authoritative package map is `CLAUDE.md` § Repository Layout — consult it for current package names. This constitution governs the boundaries, not the inventory.
+  The authoritative package map is `AGENTS.md` § Repository Layout — consult it for current package names. This constitution governs the boundaries, not the inventory.
 
   ### IV. Composability via Stable Contracts
   The library is a kernel; its public API is contractual.
@@ -61,7 +61,7 @@ context: |
   - PATCH: bug fixes, performance improvements, internal refactors.
   - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
   - Types: feat, fix, refactor, docs, test, chore.
-  - Scope SHOULD name the affected package or subsystem; see CLAUDE.md for the current scope set.
+  - Scope SHOULD name the affected package or subsystem; see AGENTS.md for the current scope set.
 
   ### VII. Simplicity & YAGNI
   Start with the simplest implementation that satisfies a real downstream need.
@@ -76,7 +76,7 @@ context: |
   the change itself.
   - **Every merge leaves `main` releasable.** A section MUST end green under the validation
     gates and MUST close with a commit task naming the Conventional Commit it lands as
-    (Principle VI; scopes in CLAUDE.md § Commit style). Nothing that would break `main` is
+    (Principle VI; scopes in AGENTS.md § Commit style). Nothing that would break `main` is
     carried across a section boundary.
   - **Work survives a session boundary.** The commit task is the pause point: a session that
     stops there leaves checked boxes and a clean tree, and the next session resumes by running
@@ -191,14 +191,14 @@ rules:
     - "CRITICAL: Every `## N.` section MUST end green under the validation gates and MUST close
       with a commit task: an ordinary `- [ ] N.M` checkbox whose text names the Conventional
       Commit to make, e.g. `- [ ] 1.4 task check green, then commit refactor(kernel): compile
-      sources per verb` (types per Principle VI, scopes per CLAUDE.md § Commit style). The commit
+      sources per verb` (types per Principle VI, scopes per AGENTS.md § Commit style). The commit
       task is the pause point; nothing uncommitted is carried across a section boundary."
     - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
       leaves main releasable by itself. If it needs more, or a section cannot end green on its
       own, split into a new OpenSpec change. Section 1 is a spike whenever design.md carries an
       unverified assumption; its commit task lands what the spike produced (a test, a fixture,
       or the finding written into design.md)."
-    - Group tasks by affected package (see CLAUDE.md for the current package set).
+    - Group tasks by affected package (see AGENTS.md for the current package set).
     - Each task should be independently testable.
     - Include the validation gates (`task check`, or `task fmt`, `task vet`, `task lint`,
       `task test`) in every section's commit task, not as a trailing section; cross-cutting
@@ -218,7 +218,7 @@ operations:
     guidance:
       - "Work section by section: every `## N.` block of tasks.md ends with a commit task. Before
         checking that box, run the section's gates (`task check`) on the whole tree and make
-        exactly the named Conventional Commit (types per Principle VI, scopes per CLAUDE.md
+        exactly the named Conventional Commit (types per Principle VI, scopes per AGENTS.md
         § Commit style; optional plain Co-Authored-By: Claude <noreply@anthropic.com> trailer
         only, never a session link, never a bare @name, and no body line starting with word(
         because the squash body reaches release-please). Do not start the next section with

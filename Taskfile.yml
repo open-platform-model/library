@@ -31,13 +31,13 @@ vars:
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
   # All-local mapping, forced in-script by the publish tasks only (Registry
-  # Policy rule 2, root CLAUDE.md — local publish is a gated exception). Both
+  # Policy rule 2, root AGENTS.md — local publish is a gated exception). Both
   # opmodel.dev and testing.opmodel.dev route to localhost so the workspace
   # fixtures (modules/opm_platform, testdata/**) publish locally; an unmapped
   # prefix would fall through to registry.cue.works.
   CUE_LOCAL_REGISTRY: "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
-  # Canonical read mapping (Registry Policy, root CLAUDE.md): opmodel.dev/*
+  # Canonical read mapping (Registry Policy, root AGENTS.md): opmodel.dev/*
   # resolves from GHCR; testing.opmodel.dev/* from the local registry. Used by
   # the discover/fmt/vet/tidy tasks — no local registry needed for reads.
   CUE_CANONICAL_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"

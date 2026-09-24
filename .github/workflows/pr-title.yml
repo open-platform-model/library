@@ -42,7 +42,7 @@ jobs:
             build
             chore
             style
-          # Scopes are optional (CLAUDE.md lists them as "encouraged"), so do
+          # Scopes are optional (AGENTS.md lists them as "encouraged"), so do
           # not require one. The action accepts a trailing "!" for breaking
           # changes (e.g. "refactor(compile)!: ...") out of the box.
           requireScope: false
@@ -52,4 +52,4 @@ jobs:
           subjectPattern: ^(?![A-Z]).+$
           subjectPatternError: |
             The subject "{subject}" found in the PR title "{title}" must start
-            lowercase (imperative mood, no leading capital), per CLAUDE.md.
+            lowercase (imperative mood, no leading capital), per AGENTS.md.

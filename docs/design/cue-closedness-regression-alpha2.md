@@ -235,7 +235,7 @@ the pristine blueprint on `alpha.1`):
 **Adopted 2026-07-04:** workaround 1 (hoisted guards) is implemented across all
 five workload blueprints in `catalog_opm` (`src/blueprints/workload/*.cue`),
 with the authoring rule documented in the catalog repo at
-`docs/cue-guard-closedness-workaround.md` and a pitfall note in its `CLAUDE.md`.
+`docs/cue-guard-closedness-workaround.md` and a pitfall note in its `AGENTS.md`.
 Validated: catalog vet + the `web_app` repro module clean on both `alpha.1` and
 `v0.17.0`, flattened spec output byte-identical. The library-pin recommendation
 stands until a fixed catalog version is published and the operator/CLI/kernel

@@ -121,7 +121,7 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 
 #### Scenario: The enumerated set is stated once and agrees everywhere
 
-- **WHEN** a developer reads the kernel's accepted-kinds list in `README.md`, `CLAUDE.md` and this spec
+- **WHEN** a developer reads the kernel's accepted-kinds list in `README.md`, `AGENTS.md` and this spec
 - **THEN** all three enumerate the same four types
 - **AND** each names ADR-009 as the record of why the fourth was admitted and of the test a fifth must pass
 

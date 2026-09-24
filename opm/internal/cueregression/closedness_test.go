@@ -82,7 +82,7 @@ x: {#Derived, out: a: b: n: 2}
 //     docs/design/cue-closedness-regression-alpha2.md,
 //  3. deliberately re-evaluate — do not silently revert — the hoisted-guard
 //     authoring rule (catalog_opm docs/cue-guard-closedness-workaround.md and
-//     its CLAUDE.md pitfall entry),
+//     its AGENTS.md pitfall entry),
 //  4. then retire this canary and docs/design/repro-cue-closedness/ together.
 func TestTriggerForm_StillFails(t *testing.T) {
 	val := cuecontext.New().CompileString(triggerForm)
@@ -94,7 +94,7 @@ func TestTriggerForm_StillFails(t *testing.T) {
 This canary deliberately fails when upstream fixes the bug. Do not "repair" it.
 Re-run the regression matrix in docs/design/cue-closedness-regression-alpha2.md,
 re-evaluate (do NOT silently revert) the hoisted-guard rule in catalog_opm
-(docs/cue-guard-closedness-workaround.md + CLAUDE.md), then retire this canary
+(docs/cue-guard-closedness-workaround.md + AGENTS.md), then retire this canary
 and docs/design/repro-cue-closedness/ deliberately.
 
 If validation is clean because CUE reworded the diagnostic rather than fixed the
