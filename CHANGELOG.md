@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.0-alpha.34](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.33...v1.0.0-alpha.34) (2026-09-26)
+
+
+### Documentation
+
+* **openspec:** allow NNNN:DN:Rn enhancement requirement citations ([b6dbc6b](https://github.com/open-platform-model/library/commit/b6dbc6bfd85aa13bd32e3a7fb1fdb617d3c0ea08))
+* **site:** add the pages library owns on the documentation site ([afcfe0a](https://github.com/open-platform-model/library/commit/afcfe0ac3ca663dd12160cf52c71ebc4f2c51e9d))
+
 ## [1.0.0-alpha.33](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.32...v1.0.0-alpha.33) (2026-09-19)
 
 
