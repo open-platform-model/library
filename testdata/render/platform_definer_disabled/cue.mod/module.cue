@@ -1,4 +1,4 @@
-module: "testing.opmodel.dev/library-render/platform_oversubscribed@v0"
+module: "testing.opmodel.dev/library-render/platform_definer_disabled@v0"
 language: {
 	version: "v0.17.0"
 }
@@ -11,5 +11,8 @@ deps: {
 	}
 	"testing.opmodel.dev/library-render/cat@v0": {
 		v: "v0.1.0"
+	}
+	"testing.opmodel.dev/library-render/cat@v1": {
+		v: "v1.0.0"
 	}
 }
