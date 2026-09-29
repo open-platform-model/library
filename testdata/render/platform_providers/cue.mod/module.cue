@@ -1,4 +1,4 @@
-module: "testing.opmodel.dev/library-render/scenarios@v0"
+module: "testing.opmodel.dev/library-render/platform_providers@v0"
 language: {
 	version: "v0.17.0"
 }

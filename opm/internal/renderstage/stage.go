@@ -39,6 +39,24 @@ type Staged struct {
 	Replacements []ReplacementRow
 }
 
+// StageOptions are the caller's per-render switches Stage honours.
+type StageOptions struct {
+	// LocalReplacements decides what an input's own cue.mod/local-module.cue
+	// means: true promotes its replacements into the render module's
+	// main-module view (platform's whole, instance's on paths the platform
+	// does not name) and reports them on Staged.Replacements; false refuses,
+	// before anything is written, an input whose file carries a replacement,
+	// since silently dropping the file is what made a developer's redirection
+	// invisible at render time. An input without the file stages identically
+	// either way.
+	LocalReplacements bool
+
+	// SkipUnprovided is written into the glue as a literal: true moves every
+	// unprovided provider-fulfilled demand out of the refusal and onto the
+	// skipped verdict, inside the build.
+	SkipUnprovided bool
+}
+
 // Stage writes the render module for instance and platform into dir (which
 // must exist and be empty): promotes the two module files, writes the
 // cue.mod pair, verifies OPM-path coverage, compares skew, and writes the
@@ -46,14 +64,8 @@ type Staged struct {
 // dir onto Staged.Overlay for Build to serve from memory, and an on-disk
 // input is referenced in place. It performs no build.
 //
-// localReplacements decides what an input's own cue.mod/local-module.cue
-// means: true promotes its replacements into the render module's
-// main-module view (platform's whole, instance's on paths the platform does
-// not name) and reports them on Staged.Replacements; false refuses, before
-// anything is written, an input whose file carries a replacement, since
-// silently dropping the file is what made a developer's redirection invisible
-// at render time. An input without the file stages identically either way.
-func Stage(dir string, instance, platform *module.Source, runtimeName string, localReplacements bool) (*Staged, error) {
+// opts carries the caller's per-render switches; see [StageOptions].
+func Stage(dir string, instance, platform *module.Source, runtimeName string, opts StageOptions) (*Staged, error) {
 	if instance == nil {
 		return nil, errors.New("instance carries no source")
 	}
@@ -94,7 +106,7 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, lo
 	if err != nil {
 		return nil, fmt.Errorf("platform local module file: %w", err)
 	}
-	if !localReplacements {
+	if !opts.LocalReplacements {
 		for _, in := range []struct {
 			by    string
 			mod   string
@@ -162,7 +174,7 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, lo
 	if err != nil {
 		return nil, err
 	}
-	glue, err := RenderGlue(GlueInputs{InstancePath: instImport, PlatformPath: platImport, RuntimeName: runtimeName})
+	glue, err := RenderGlue(GlueInputs{InstancePath: instImport, PlatformPath: platImport, RuntimeName: runtimeName, SkipUnprovided: opts.SkipUnprovided})
 	if err != nil {
 		return nil, err
 	}

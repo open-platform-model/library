@@ -264,7 +264,10 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, in.LocalReplacements)
+	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, renderstage.StageOptions{
+		LocalReplacements: in.LocalReplacements,
+		SkipUnprovided:    false,
+	})
 	if err != nil {
 		return none, nil, fmt.Errorf("staging render module: %w", err)
 	}
