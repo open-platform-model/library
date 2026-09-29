@@ -7,7 +7,7 @@ The Platform as a typed kernel artifact: a CUE package importing its catalogs, h
 
 ### Requirement: Platform Type Shape
 
-The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact shape: `{ Metadata *PlatformMetadata; Package cue.Value; Source *Source }`. `Package` is the source of truth; `Metadata` is a decoded cache of the platform-level metadata; `Source` is the staged source tree a render imports the platform from. The platform's derived CUE views (`#composedTransformers`, `#contracts`) SHALL NOT be decoded at construction. The contract inventory core derives on `#Platform.#contracts` (enhancement 0015 D1, D2, D5, D18) SHALL be readable on demand through a `Contracts()` accessor returning a decoded `ContractInventory`: `DefinedBy` (contract FQN to the registry key of the enabled catalog listing it), `RequiredBy` (contract FQN to the implementation FQNs of the enabled transformers requiring it), `Unfulfilled` and `OverSubscribed` (provider-fulfilled contract FQNs required by nothing, and by transformers from more than one catalog), `Comparable` (every pair of enabled transformers whose match predicates are comparable over at least one shared catalog-fulfilled contract, each row naming the broader transformer, which matches every component the narrower one matches, the narrower transformer, and the shared contracts), and the booleans `Fulfilled`, `Routable` and `Discriminated`. The accessor SHALL NOT decode `defined`: its values are the catalogs' member schemas, which a caller reads off `Package`. The accessor SHALL NOT refuse on `Fulfilled: false`, `Routable: false` or `Discriminated: false`: all three are reports (D18, D5); whether a generation step withholds a platform package on `Routable: false` or `Discriminated: false` is that step's decision, outside the accessor. The accessor SHALL NOT default a report the value does not carry: a platform whose `#contracts` predates a report field is refused with an error naming the missing field and the first core release carrying it, never returned as a partial inventory whose missing verdict reads as pass or fail.
+The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact shape: `{ Metadata *PlatformMetadata; Package cue.Value; Source *Source }`. `Package` is the source of truth; `Metadata` is a decoded cache of the platform-level metadata; `Source` is the staged source tree a render imports the platform from. The platform's derived CUE views (`#composedTransformers`, `#contracts`) SHALL NOT be decoded at construction. The contract inventory core derives on `#Platform.#contracts` (enhancement 0015 D1, D2, D5, D18) SHALL be readable on demand through a `Contracts()` accessor returning a decoded `ContractInventory`: `DefinedBy` (contract FQN to the registry key of the enabled catalog listing it), `RequiredBy` (contract FQN to the implementation FQNs of the enabled transformers requiring it), `ProvidedBy` (every provider-fulfilled contract FQN some enabled transformer requires, whether or not an enabled catalog defines it, to the sorted registry keys, path plus major, of the enabled registry entries whose transformers require it), `Unfulfilled` (defined provider-fulfilled contract FQNs no enabled entry provides), `OverSubscribed` (provider-fulfilled contract FQNs `ProvidedBy` maps to two or more registry entries, defined or not), `Comparable` (every pair of enabled transformers whose match predicates are comparable over at least one shared catalog-fulfilled contract, each row naming the broader transformer, which matches every component the narrower one matches, the narrower transformer, and the shared contracts), and the booleans `Fulfilled`, `Routable` and `Discriminated`. Providers are counted per registry entry, the same count the render's single-provider guard reads: two majors of one catalog are two providers, and two transformers of one entry are one. The accessor SHALL NOT decode `defined`: its values are the catalogs' member schemas, which a caller reads off `Package`. The accessor SHALL NOT refuse on `Fulfilled: false`, `Routable: false` or `Discriminated: false`: all three are reports (D18, D5); whether a generation step withholds a platform package on `Routable: false` or `Discriminated: false` is that step's decision, outside the accessor. The accessor SHALL NOT default a report the value does not carry: a platform whose `#contracts` predates a report field is refused with an error naming the missing field and the first core release carrying it, never returned as a partial inventory whose missing verdict reads as pass or fail. A missing `providedBy` SHALL be refused with the typed `PlatformCoreTooOldError` (field `providedBy`, release `2.0.0-alpha.12`), the error `Kernel.Render` returns for the same platform.
 
 #### Scenario: Platform struct fields
 
@@ -23,12 +23,12 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 #### Scenario: The inventory of a healthy platform reads as fulfilled and routable
 
 - **WHEN** an acquired platform embeds one enabled catalog whose contract maps list a provider-fulfilled contract (a resource or a trait) and whose transformers require it, and whose transformers sharing a catalog-fulfilled contract each add a required label value or a required trait the others do not
-- **THEN** `Contracts()` returns `DefinedBy` mapping that contract to the catalog's registry key, `RequiredBy` listing the requiring transformer, empty `Unfulfilled`, `OverSubscribed` and `Comparable`, and `Fulfilled`, `Routable` and `Discriminated` all true
+- **THEN** `Contracts()` returns `DefinedBy` mapping that contract to the catalog's registry key, `RequiredBy` listing the requiring transformer, `ProvidedBy` mapping that contract to the one registry key, empty `Unfulfilled`, `OverSubscribed` and `Comparable`, and `Fulfilled`, `Routable` and `Discriminated` all true
 
 #### Scenario: An over-subscribed platform is reported, not refused
 
 - **WHEN** an acquired platform embeds two enabled catalogs whose transformers both require one provider-fulfilled contract that an enabled catalog lists
-- **THEN** the platform acquires, `Contracts()` returns `OverSubscribed` naming the contract and `Routable` false, and no error is returned from acquisition or from the accessor
+- **THEN** the platform acquires, `Contracts()` returns `OverSubscribed` naming the contract, `ProvidedBy` mapping it to both registry keys in ascending order, and `Routable` false, and no error is returned from acquisition or from the accessor
 
 #### Scenario: An undiscriminated platform is reported, not refused
 
@@ -37,13 +37,28 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 
 #### Scenario: An unlisted demand leaves the inventory empty
 
-- **WHEN** an acquired platform embeds catalogs whose contract maps are empty, however many transformers they carry
+- **WHEN** an acquired platform embeds catalogs whose contract maps are empty and whose transformers require no provider-fulfilled contract, however many transformers they carry
 - **THEN** `Contracts()` returns empty maps and lists with `Fulfilled`, `Routable` and `Discriminated` all true, and `defined` is not part of the returned value
 
 #### Scenario: An inventory that predates the comparable-predicate report is refused
 
 - **WHEN** a platform value carries `#contracts` with the six inventory fields and no `comparable` or `discriminated` (a value built against core `2.0.0-alpha.9`)
 - **THEN** `Contracts()` returns a nil inventory and an error naming the missing field and the first release carrying it, and no six-field inventory is returned in its place
+
+#### Scenario: Two majors of one provider catalog are two providers
+
+- **WHEN** an acquired platform enables `cat@v0` and `cat@v1`, and a transformer of each requires `cat@v0`'s provider-fulfilled gateway contract
+- **THEN** `Contracts()` returns `ProvidedBy` mapping the gateway key to the registry keys `cat@v0` and `cat@v1`, `OverSubscribed` naming it and `Routable` false, and no error
+
+#### Scenario: A disabled definer does not hide over-subscription
+
+- **WHEN** an acquired platform carries the defining `cat@v0` entry with `enable: false` and enables `cat2` 0.2.0 and `cat@v1`, whose transformers both require the gateway contract `cat@v0` lists
+- **THEN** `Contracts()` returns `ProvidedBy` mapping the gateway key to the registry keys `cat2@v0` and `cat@v1`, `OverSubscribed` naming it, `Routable` false, and neither `DefinedBy` nor `RequiredBy` carrying the gateway key, and no error
+
+#### Scenario: An inventory that predates the provider count is refused
+
+- **WHEN** a platform value carries `#contracts` with every other report field and no `providedBy` (a value built against core `2.0.0-alpha.11` or older)
+- **THEN** `Contracts()` returns a nil inventory and an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the field `providedBy` and the release `2.0.0-alpha.12`, and no inventory lacking `ProvidedBy` is returned in its place
 
 ### Requirement: Platform Constructor from cue.Value
 
