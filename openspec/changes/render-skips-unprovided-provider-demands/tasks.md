@@ -30,10 +30,10 @@
 
 ## 3. Docs and the consumer check
 
-- [ ] 3.1 `opm/kernel/doc.go`: describe the switch in the render contract, and list skipped demands with the other advisory rows in the frontend example. Update the `RenderInput` shape named in `AGENTS.md` (Kernel API surface, Render pipeline) and `README.md`. Verify `go doc ./opm/kernel` shows the text.
-- [ ] 3.2 `docs/site/diagnostics/unresolved-demands.md`, keeping the page's placeholder-comment convention:
+- [x] 3.1 `opm/kernel/doc.go`: describe the switch in the render contract, and list skipped demands with the other advisory rows in the frontend example. Update the `RenderInput` shape named in `AGENTS.md` (Kernel API surface, Render pipeline) and `README.md`. Verify `go doc ./opm/kernel` shows the text.
+- [x] 3.2 `docs/site/diagnostics/unresolved-demands.md`, keeping the page's placeholder-comment convention:
   - add the unprovided suffix to "The message";
   - in "The contract waits for a provider nobody installed", recognise the case by the suffix, and add the alternative fix: a caller may render without the contract through `RenderInput.SkipUnprovided`, which reports each skipped demand, and a frontend names its own switch;
   - add `library/opm/kernel/render.go` to the check-against list.
-- [ ] 3.3 Consumer check, with nothing committed to either consumer: point a scratch copy of `cli` and of `opm-operator` at this branch (a temporary `go.work` or `go mod edit -replace` outside the repos' tracked files). Run `go build ./...` and `go vet ./...` in both, `go test ./internal/workflow/render/... ./internal/cmdutil/...` in cli, and `go test ./internal/render/...` in opm-operator. Record any consumer test that compares a whole `UnresolvedDemand` and now fails on the new field, as a report item for the consumer's bump. Then run `task cue:test:flow`.
-- [ ] 3.4 `task check` green, then commit `docs(kernel): describe skipping unprovided provider-fulfilled demands`.
+- [x] 3.3 Consumer check, with nothing committed to either consumer: point a scratch copy of `cli` and of `opm-operator` at this branch (a temporary `go.work` or `go mod edit -replace` outside the repos' tracked files). Run `go build ./...` and `go vet ./...` in both, `go test ./internal/workflow/render/... ./internal/cmdutil/...` in cli, and `go test ./internal/render/...` in opm-operator. Record any consumer test that compares a whole `UnresolvedDemand` and now fails on the new field, as a report item for the consumer's bump. Then run `task cue:test:flow`.
+- [x] 3.4 `task check` green, then commit `docs(kernel): describe skipping unprovided provider-fulfilled demands`.

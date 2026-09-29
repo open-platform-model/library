@@ -301,20 +301,21 @@ Everything before `Render` produces its inputs, and every one of them is an acqu
 ```text
 Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
 Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
-Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements})
+Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements, SkipUnprovided})
         renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
                                overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
                                inputs' own local-module.cue replacements promoted under LocalReplacements (platform whole, instance on
                                instance-only paths) onto Staged.Replacements, refused without the opt-in
                                coverage invariant: every OPM-namespace path either input requires is promoted
                                skew rows (D7/D18) → warn or refuse per SkewPolicy
+                               SkipUnprovided written into the glue as a literal (the skip decision is made in the build)
         renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)
         decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
-        gateErrors             unresolved | unmatched | overSubscribed → *RenderError
+        gateErrors             unresolved | unmatched | overSubscribed → *RenderError (skipped rows and omitted components arrive already filtered)
         decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
 ```
 
-Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the single-provider guard as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder.
+Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung, the single-provider guard and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder.
 
 ### OPM schema versioning
 

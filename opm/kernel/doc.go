@@ -123,22 +123,42 @@
 // uncovered OPM-namespace path, skew under [SkewRefuse], a local replacement
 // without the opt-in) are plain errors.
 //
-// A render result carries no presentation strings. The two advisory facts a
+// A render result carries no presentation strings. The three advisory facts a
 // render can report are rows on the diagnostics: an unhandled optional trait
-// on RenderDiagnostics.UnhandledTraits, and a module requiring a newer build
-// than the platform carries on a RenderDiagnostics.ResolvedVersions row with
-// Newer set. A frontend words both:
+// on RenderDiagnostics.UnhandledTraits, a module requiring a newer build than
+// the platform carries on a RenderDiagnostics.ResolvedVersions row with Newer
+// set, and a demand skipped under [RenderInput.SkipUnprovided] on a
+// RenderDiagnostics.Skipped row. A frontend words all three:
 //
 // for comp, traits := range result.Diagnostics.UnhandledTraits { for _, fqn :=
 // range traits { log.Printf("component %q: trait %q is unhandled", comp, fqn)
 // } } for _, r := range result.Diagnostics.ResolvedVersions { if r.Newer {
 // log.Printf("%s: module requires %s, platform carries %s", r.Path,
-// r.ModuleVersion, r.PlatformVersion) } }
+// r.ModuleVersion, r.PlatformVersion) } } for _, s := range
+// result.Diagnostics.Skipped { log.Printf("component %q: skipped %s %q, no
+// provider on this platform (component rendered: %t)", s.Component, s.Kind,
+// s.FQN, !s.ComponentOmitted) }
 //
 // A dry run is Render with the output discarded: the build evaluates every
 // matched pair regardless, and RenderDiagnostics carries the pairing diagnosis
-// (Pairs, Unmatched, Unresolved, Unify, UnhandledTraits, OverSubscribed,
-// ResolvedVersions). There is no separate match verb.
+// (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits,
+// OverSubscribed, ResolvedVersions). There is no separate match verb.
+//
+// A demand is unprovided when its contract declares fulfilment "provider" and
+// no enabled registry entry carries a transformer requiring the key: the
+// single-provider guard's own count at zero. The build marks every unresolved
+// row with this fact on every render (UnresolvedDemand.Unprovided in opm/errors,
+// and a "provider-fulfilled, no provider on this platform" suffix on its
+// message), so a frontend can offer its skip switch without re-deriving
+// fulfilment. Under [RenderInput.SkipUnprovided] the build moves exactly
+// those demands out of the refusal: a skipped trait demand leaves its
+// component rendering every pair it matched, and a skipped resource demand
+// omits the whole component (no pair of it renders, it is not reported
+// unmatched, and every skipped row of it carries ComponentOmitted). Every
+// other refusal stands under the switch: a catalog-fulfilled unresolved
+// demand, a provider that exists but did not match, an over-subscribed
+// contract and an unmatched component. The switch is the caller's, per
+// render; the kernel never sets it, and a frontend names its own flag.
 //
 // An input's own cue.mod/local-module.cue (a developer redirecting a
 // dependency to a directory or another module) reaches the render only under
