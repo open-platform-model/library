@@ -1,7 +1,7 @@
 # instance-synthesis Specification
 
 ## Purpose
-TBD - created by archiving change rename-release-to-instance. Update Purpose after archive.
+Instance synthesis builds a ModuleInstance from an acquired Module and a caller-supplied name, namespace, values, labels and annotations, by overlaying a generated instance package into the module's staged source tree and evaluating it in one CUE build. Schema unification, not Go code, derives the instance UUID, the component fan-out, the secrets component and the stamped labels, and values come only from the caller. Covers the shape gate shared with directory-acquired instances, render coverage for imported modules, the refusal of modules without staged source or acquired from a subpackage, transitive dependency resolution through the module's own module file, the staged tree on the returned instance, and the single entry point with its input checks.
 ## Requirements
 
 ### Requirement: Derived fields come from schema unification
