@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-alpha.35](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.34...v1.0.0-alpha.35) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** Platform.Contracts refuses a platform whose #contracts lacks providedBy (a platform module pinning core older than 2.0.0-alpha.12) with the new typed errors.PlatformCoreTooOldError, which every since-guard now returns, the missing-inventory case included. Re-pin opmodel.dev/core in the platform module.
+
+### Features
+
+* **kernel:** read the provider count from the platform's core ([#146](https://github.com/open-platform-model/library/issues/146)) ([a0c6ed2](https://github.com/open-platform-model/library/commit/a0c6ed2eafe9f52617ea1e22cec94c0397a55765))
+
+
+### Documentation
+
+* **site:** document the cli skip-unprovided flag and platform precedence ([#144](https://github.com/open-platform-model/library/issues/144)) ([bec8ddd](https://github.com/open-platform-model/library/commit/bec8dddb1bddc76b12bb6c5e3b657e5a19b0f179))
+
 ## [1.0.0-alpha.34](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.33...v1.0.0-alpha.34) (2026-09-29)
 
 
