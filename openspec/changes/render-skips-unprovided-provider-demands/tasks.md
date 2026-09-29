@@ -9,7 +9,7 @@
   - `provided_unmatched` keeps its archive row in `unresolved` with `unprovided: false` under both values;
   - the build is concrete, with no cycle, in every case.
 
-  If an assumption in design.md fails (a cycle, or a `fulfilment` default that does not resolve in the marker's guard), write the finding and the chosen alternative into design.md before continuing.
+  If an assumption in design.md fails (a cycle, or a `fulfilment` default that does not resolve in the marker's guard), write the finding and the chosen alternative into design.md before continuing. (Spike finding, see design.md: the spike renders against `testdata/render/platform_providers`, not `testdata/render/platform`, since the members live in the `providers` fixture catalog.)
 - [x] 1.5 `go test ./opm/kernel/...` passes unchanged with the switch hard-wired off: the default path's rows decode with the new `unprovided` field present in the build. Then `task check` green, and commit `feat(renderstage): compute unprovided and skipped demands in the render glue`.
 
 ## 2. Kernel API: the switch, the skipped rows and the unprovided marker

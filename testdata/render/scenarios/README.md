@@ -19,6 +19,9 @@ thing that differs between them:
 | `unlisted` | a resource demand for a contract no catalog lists or implements (authored inline): refused, the row carries no defining catalog |
 | `unprovided` | on `platform_providers`: component `app` attaches the provider-fulfilled snapshot trait nothing provides, component `ledger` also declares the provider-fulfilled ledger resource nothing provides, beside a healthy sibling: refused with both rows marked unprovided, or, under `RenderInput.SkipUnprovided`, `app` renders, `ledger` is omitted and every skipped demand is a row |
 | `provided_unmatched` | on `platform_providers`: the provider-fulfilled archive trait whose one provider requires a label the component lacks: refused, the row not marked unprovided, with or without the switch |
+| `optional_unprovided` | on `platform_providers`: the snapshot trait made effectively optional at the attachment site: renders with an unhandled-trait entry and no skipped row, with or without the switch |
+| `skipped_beside_refused` | on `platform_providers`: `app` attaches the unprovided snapshot trait, sibling `vault` the label-less archive trait: under the switch, refused on the archive row alone with the snapshot row readable as skipped |
+| `omitted_refused` | on `platform_providers`: `ledger` is omitted for the unprovided ledger resource and also attaches the advisory sidecar, the catalog-fulfilled backup and the label-less archive trait, beside `web` with the sidecar: under the switch, only `web` stays on the unhandled-trait table, and backup and archive still refuse |
 
 Consumed on-disk (subpackage acquisition through `Kernel.AcquireInstanceFromDir`);
 never published; not discovered by the repo's CUE tasks.

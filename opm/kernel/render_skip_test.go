@@ -194,3 +194,86 @@ func rowsOfComponent(rows []oerrors.UnresolvedDemand, component string) []oerror
 	}
 	return out
 }
+
+// "An unhandled trait whose effective optional is true SHALL remain an
+// unhandled-trait table entry, never a skipped row": the snapshot trait made
+// optional at the attachment site renders as advisory under both switch
+// values.
+func TestRenderSkip_OptionalUnprovidedTraitStaysUnhandled(t *testing.T) {
+	for _, skip := range []bool{false, true} {
+		r := renderScenario(t, "platform_providers", "optional_unprovided", skip)
+		require.NoError(t, r.err, "skip=%v", skip)
+		r.gateAgrees(false)
+
+		d := r.res.Diagnostics
+		assert.Equal(t, map[string][]string{"app": {snapshotFQN}}, d.UnhandledTraits, "skip=%v", skip)
+		assert.Empty(t, d.Skipped, "skip=%v: an effectively-optional trait is never a skipped row", skip)
+		assert.Empty(t, d.Unresolved, "skip=%v", skip)
+		assert.Equal(t, []string{"app :: deployment-transformer@0.1.0"}, renderPairSet(d.Pairs), "skip=%v", skip)
+		assert.Equal(t, []string{"app/Deployment/optional-unprovided-demo-app"}, compiledSummary(t, r.res.Compiled), "skip=%v", skip)
+	}
+}
+
+// "The skipped-demand rows SHALL be readable on the diagnostics beside such
+// a refusal": app's unprovided snapshot trait is skipped while vault's
+// label-gated archive trait still refuses.
+func TestRenderSkip_SkippedRowsBesideRefusal(t *testing.T) {
+	r := renderScenario(t, "platform_providers", "skipped_beside_refused", true)
+	err := r.err
+	require.Error(t, err)
+	r.gateAgrees(true)
+
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+	var agg *oerrors.UnresolvedDemandsError
+	require.ErrorAs(t, err, &agg)
+
+	require.Len(t, agg.Demands, 1, "only the standing refusal is in the cause")
+	assert.Equal(t, "vault", agg.Demands[0].Component)
+	assert.Equal(t, archiveFQN, agg.Demands[0].FQN)
+	assert.False(t, agg.Demands[0].Unprovided, "a provider exists")
+	assert.Equal(t, rerr.Diagnostics.Unresolved, agg.Demands)
+
+	assert.Equal(t, []kernel.SkippedDemand{{
+		Component: "app", FQN: snapshotFQN, Kind: "trait",
+		DefinedBy: renderProvidersKey, Alternatives: []string{}, ComponentOmitted: false,
+	}}, rerr.Diagnostics.Skipped, "the skipped row is readable beside the refusal")
+}
+
+// design.md "An omitted component drops its warnings but keeps every other
+// refusal": ledger is omitted for its unprovided resource, so its advisory
+// sidecar leaves the unhandled-trait table while web's stays; its
+// catalog-fulfilled backup and provided-but-unmatched archive still refuse.
+func TestRenderSkip_OmittedComponentDropsWarningsKeepsRefusals(t *testing.T) {
+	r := renderScenario(t, "platform_providers", "omitted_refused", true)
+	err := r.err
+	require.Error(t, err)
+	r.gateAgrees(true)
+
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+	var agg *oerrors.UnresolvedDemandsError
+	require.ErrorAs(t, err, &agg)
+	d := rerr.Diagnostics
+
+	sidecar := renderCatPath + "/traits/sidecar@v1"
+	assert.Equal(t, map[string][]string{"web": {sidecar}}, d.UnhandledTraits,
+		"the omitted component's advisory trait is not on the table")
+
+	rows := unresolvedByFQN(d.Unresolved)
+	require.Len(t, d.Unresolved, 2)
+	for _, fqn := range []string{renderCatPath + "/traits/backup@v1", archiveFQN} {
+		row, ok := rows[fqn]
+		require.True(t, ok, "%s still refuses on the omitted component", fqn)
+		assert.Equal(t, "ledger", row.Component)
+		assert.False(t, row.Unprovided, "%s", fqn)
+	}
+	assert.Equal(t, d.Unresolved, agg.Demands)
+
+	require.Len(t, d.Skipped, 1)
+	assert.Equal(t, "ledger", d.Skipped[0].Component)
+	assert.Equal(t, ledgerFQN, d.Skipped[0].FQN)
+	assert.True(t, d.Skipped[0].ComponentOmitted)
+	assert.Empty(t, d.Unmatched, "the omitted component is not reported unmatched")
+	assert.Equal(t, []string{"web :: deployment-transformer@0.1.0"}, renderPairSet(d.Pairs))
+}
