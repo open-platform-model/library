@@ -28,7 +28,7 @@ Source: 0010:D37 and 0015:D2/D18, as recounted by core change `count-providers-p
 
 #### Scenario: Inventory and render agree on every served platform
 
-- **WHEN** the parity test acquires each of the seven served render platforms, reads `Contracts()` and renders the `instance` fixture against it
+- **WHEN** the parity test acquires every served render platform (each `testdata/render/platform*` directory), reads `Contracts()` and renders the `instance` fixture against it
 - **THEN** the sorted `OverSubscribed` list equals the keys of the render's over-subscription rows, `Routable` is true exactly when there are no rows, and every row's registry keys equal `ProvidedBy` for its key, whether or not the render also refuses for an unrelated reason
 
 ### Requirement: A caller may skip unprovided provider-fulfilled demands
@@ -83,7 +83,7 @@ Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as 
 
 ### Requirement: A render refuses a platform whose core predates the provider count
 
-`Kernel.Render` SHALL check, before staging, that the platform's `Package` carries `#contracts.providedBy`. When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL leave no staging directory behind and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it. The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from.
+`Kernel.Render` SHALL check, before staging, that the platform's `Package` carries `#contracts.providedBy`. When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL leave no staging directory behind and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it. The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from. The check SHALL only read the platform's `Package` (a path lookup and a presence test, never a unification or fill), so one acquired platform stays shareable, as data, across concurrent `Render` calls on one Kernel.
 
 #### Scenario: An older-core platform is refused before staging
 
@@ -94,3 +94,8 @@ Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as 
 
 - **WHEN** a platform module pinning core `2.0.0-alpha.12` or later is rendered
 - **THEN** the core floor raises no error and the render proceeds to staging
+
+#### Scenario: A platform shared by concurrent renders stays race-free
+
+- **WHEN** one acquired current-core platform is shared by several goroutines, each calling `Render` on one Kernel
+- **THEN** every render passes the core floor and produces the same objects, with no data race reported under the race detector

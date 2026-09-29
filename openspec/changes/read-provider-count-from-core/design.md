@@ -75,6 +75,8 @@ So the row comprehension MUST range over `platform.#contracts.providedBy` direct
 
 **Why no fallback.** With a fallback guard, render and inventory still disagree on an old core, because the old inventory is the buggy formula, and the second formula lives on in the glue. With the floor, no render runs on a platform whose inventory disagrees, so parity holds by construction.
 
+**Contract change: `Render` now reads the platform's `Package`.** Until this change the cross-artifact verbs read only `Metadata` and `Source` from their inputs, never `Package` (`opm/kernel/doc.go` "The cross-artifact verbs read only Metadata and Source", AGENTS.md § Kernel API surface, ADR-007 Context). The floor breaks that sentence: `Render` performs one read-only `LookupPath(...).Exists()` on `in.Platform.Package`, with no unification and no fill, so an artifact acquired by one Kernel still renders on another. The concern is concurrency: the package doc's own example shares one acquired platform across goroutines rendering on one Kernel, and a `cue.Value` is not documented as safe for concurrent reads. Measured during review (a scratch copy at this change's base, `go test -race`, 10 rounds of 32 goroutines each running `LookupPath(schema.Contracts)` plus `Exists`/`Bool` on `routable`, `overSubscribed` and a missing `providedBy`, on `platform_oversubscribed`, `platform_providers` and `platform_two`): zero races, since acquisition leaves the Package evaluated. That is evidence, not a guarantee across CUE bumps, so section 3 rewrites the three sentences to say what `Render` reads and pins it with a race test that shares one acquired platform across concurrent `Render` calls on one Kernel. The alternative, decoding the presence bit at acquisition into the `Platform` value so `Render` reads only `Metadata`, would keep the sentence true but miss platforms built with `platform.NewPlatformFromValue`. It is not taken.
+
 **Surface.**
 
 ```go
@@ -119,7 +121,7 @@ Decoded by path like the other fields, row `{"providedBy", &inv.ProvidedBy, "2.0
 
 The kernel is the only place both counts meet: `Contracts()` reads the inventory, `Render` reads the glue's rows. The test (`opm/kernel/render_inventory_parity_test.go`, name the worker's choice) serves `testdata/render/registry` through `newRenderKernel` and resolves core from the shared cache, like every render test.
 
-Table-driven over seven platforms: for each, acquire, `p.Contracts()`, then `Render` the `instance` fixture. The rows come from `res.Diagnostics.OverSubscribed` on success or `*RenderError.Diagnostics.OverSubscribed` on refusal; the render may also refuse for unrelated unresolved demands, and the rows stay decodable. Assertions:
+Table-driven over every served render platform, enumerated by globbing `testdata/render/platform*` (eight after this change), so a platform fixture added later joins the tripwire without anyone remembering to list it; the test fails if the glob finds a directory the explicit-pin table does not know as either a control or a pinned bad fixture. For each, acquire, `p.Contracts()`, then `Render` the `instance` fixture. The rows come from `res.Diagnostics.OverSubscribed` on success or `*RenderError.Diagnostics.OverSubscribed` on refusal; the render may also refuse for unrelated unresolved demands, and the rows stay decodable. Assertions:
 
 - `sorted(inv.OverSubscribed) == [row.Key for row in rows]`;
 - `inv.Routable == (len(rows) == 0)`;
@@ -131,6 +133,7 @@ Table-driven over seven platforms: for each, acquire, `p.Contracts()`, then `Ren
 | Platform | Carries | Role | Rows | Routable |
 | --- | --- | --- | --- | --- |
 | `platform` | cat 0.1.0 | control, healthy | none | true |
+| `platform_next` | cat 0.2.0 | control, the skew fixture (not previously listed; it is served, so it belongs in the tripwire) | none | true |
 | `platform_two` | cat 0.1.0 + cat2 0.1.0 | control, catalog-fulfilled plurality | none | true |
 | `platform_oversubscribed` | cat 0.1.0 + cat2 0.2.0 | control, both counts already agree | gateway: cat2@v0, cat@v0 | false |
 | `platform_providers` | cat 0.1.0 + providers 0.1.0 | control, unfulfilled but routable | none | true |
@@ -146,13 +149,13 @@ Table-driven over seven platforms: for each, acquire, `p.Contracts()`, then `Ren
 
 Both platforms follow the D5 shape and the header convention of the existing platforms, and join the table in `testdata/render/scenarios/README.md`.
 
-**Red first.** Section 1 writes the fixtures and the test pinned to `alpha.10` and runs it. Expected: the two new platforms fail (inventory `Routable` true, render rows present), the five controls pass. The worker records the output in its report. It then re-pins to `alpha.12` in the same section, where the test goes green with the glue still unchanged, because core now agrees with the guard. No red commit lands.
+**Red first.** Section 1 writes the fixtures and the test pinned to `alpha.10` and runs it. Expected: the two new platforms fail (inventory `Routable` true, render rows present), the six controls pass. The worker records the output in its report. It then re-pins to `alpha.12` in the same section, where the test goes green with the glue still unchanged, because core now agrees with the guard. No red commit lands.
 
 ### 6. Section plan
 
 1. **Parity test and core pin** (`fix(deps)`): fixtures, red run, `DefaultSchemaModule` and every fixture and literal to `alpha.12`, green. One commit, `fix(deps)`, because `DefaultSchemaModule` is shipped and moves generated platforms' pins downstream. The precedent (`read-comparable-predicates`) split the pin and the fixture re-pin into `fix(deps)` plus `test(fixtures)`; here the red-to-green proof needs both in one section, and a `test` commit would not release.
 2. **`ProvidedBy` and the typed error** (`feat(platform)!`): `Contracts()` decodes the field, all since-guards return `PlatformCoreTooOldError`, the parity test gains the `ProvidedBy` assertion.
-3. **Single source** (`feat(kernel)!`): the glue switch, the `Render` core floor, the older-core render test, doc comments.
+3. **Single source** (`feat(kernel)!`): the glue switch, the `Render` core floor, the older-core render test, the shared-platform race test, doc comments (including the rewritten "never Package" sentence).
 4. **Docs** (`docs(kernel)`): AGENTS.md, the diagnostics page, the scenarios README if not already done. It MAY fold into section 3.
 
 Every section ends green under `task check`.
