@@ -20,7 +20,8 @@ import (
 // inventory (Contracts(), core's #contracts) and renders the `instance`
 // fixture against it, then asserts the render's over-subscription rows are
 // exactly the inventory's verdict: the same keys, a routable platform
-// exactly when there are no rows. The render may also refuse for an
+// exactly when there are no rows, and every row naming the registry keys
+// the inventory's ProvidedBy holds for its key. The render may also refuse for an
 // unrelated reason (an unresolved demand on a platform that disables a
 // catalog); the rows stay decodable on the refusal, so neither the render
 // outcome nor Discriminated is asserted.
@@ -96,6 +97,10 @@ func TestRender_InventoryParity(t *testing.T) {
 			sort.Strings(over)
 			assert.Equal(t, over, rowKeys, "the inventory's over-subscribed keys are the render's rows")
 			assert.Equal(t, len(rows) == 0, inv.Routable, "the inventory is routable exactly when the render has no rows")
+			for _, r := range rows {
+				assert.Equal(t, inv.ProvidedBy[r.Key], r.Catalogs,
+					"row %s names exactly the registry keys the inventory's providedBy holds", r.Key)
+			}
 
 			want := expected[name]
 			if len(want) == 0 {
