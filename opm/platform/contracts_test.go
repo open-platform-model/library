@@ -2,6 +2,7 @@ package platform_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -28,6 +30,8 @@ const (
 	contractsPrefix = "testing.opmodel.dev/library-render"
 	contractsCat    = contractsPrefix + "/cat@v0"
 	contractsCat2   = contractsPrefix + "/cat2@v0"
+	contractsCatV1  = contractsPrefix + "/cat@v1"
+	contractsProv   = contractsPrefix + "/providers@v0"
 	contractsRes    = contractsPrefix + "/cat/resources"
 	contractsTraits = contractsPrefix + "/cat/traits"
 	contractsTx     = contractsPrefix + "/cat/transformers"
@@ -85,6 +89,10 @@ func TestContracts_ListedCatalogReadsFulfilledAndRoutable(t *testing.T) {
 		assert.Empty(t, inv.RequiredBy[unrequired], "requiredBy[%s]", unrequired)
 	}
 
+	// providedBy: the one provider-fulfilled contract, to the one registry
+	// entry supplying it.
+	assert.Equal(t, map[string][]string{contractsRes + "/gateway@v1": {contractsCat}}, inv.ProvidedBy)
+
 	assert.Empty(t, inv.Unfulfilled)
 	assert.Empty(t, inv.OverSubscribed)
 	assert.True(t, inv.Fulfilled)
@@ -128,6 +136,7 @@ func TestContracts_UndiscriminatedIsReportedNotRefused(t *testing.T) {
 
 	// The report is orthogonal to routing: nothing here over-subscribes a
 	// provider-fulfilled contract.
+	assert.Equal(t, map[string][]string{contractsRes + "/gateway@v1": {contractsCat}}, inv.ProvidedBy)
 	assert.Empty(t, inv.OverSubscribed)
 	assert.True(t, inv.Routable)
 }
@@ -146,6 +155,8 @@ func TestContracts_OverSubscribedIsReportedNotRefused(t *testing.T) {
 
 	assert.Equal(t, []string{contractsRes + "/gateway@v1"}, inv.OverSubscribed)
 	assert.False(t, inv.Routable)
+	assert.Equal(t, map[string][]string{contractsRes + "/gateway@v1": {contractsCat2, contractsCat}}, inv.ProvidedBy,
+		"both supplying registry keys, ascending")
 	assert.ElementsMatch(t,
 		[]string{contractsTx + "/gateway-transformer@0.1.0", contractsTx2 + "/gateway-transformer@0.2.0"},
 		inv.RequiredBy[contractsRes+"/gateway@v1"])
@@ -218,6 +229,7 @@ type: "kubernetes"
 	require.NotNil(t, inv)
 	assert.Empty(t, inv.DefinedBy)
 	assert.Empty(t, inv.RequiredBy)
+	assert.Empty(t, inv.ProvidedBy, "cat2 0.1.0 requires no provider-fulfilled contract")
 	assert.Empty(t, inv.Unfulfilled)
 	assert.Empty(t, inv.OverSubscribed)
 	assert.True(t, inv.Fulfilled)
@@ -240,6 +252,73 @@ func TestContracts_DisabledCatalogReadsDiscriminated(t *testing.T) {
 
 	assert.Empty(t, inv.Comparable)
 	assert.True(t, inv.Discriminated)
+	assert.Empty(t, inv.ProvidedBy, "the disabled catalog's gateway provider is not counted")
+	assert.True(t, inv.Routable)
+}
+
+// platform_providers: providers lists snapshot and ledger with no
+// transformer, and archive with one label-gated provider. ProvidedBy holds
+// only what some enabled transformer requires; the two unprovided keys are
+// Unfulfilled because an enabled catalog defines them and nothing provides
+// them.
+func TestContracts_ProvidersPlatformProvidedBy(t *testing.T) {
+	k := contractsKernel(t)
+	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform_providers"))
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+
+	assert.Equal(t, map[string][]string{
+		contractsRes + "/gateway@v1":                     {contractsCat},
+		contractsPrefix + "/providers/traits/archive@v1": {contractsProv},
+	}, inv.ProvidedBy)
+	assert.ElementsMatch(t, []string{
+		contractsPrefix + "/providers/resources/ledger@v1",
+		contractsPrefix + "/providers/traits/snapshot@v1",
+	}, inv.Unfulfilled)
+	assert.False(t, inv.Fulfilled)
+	assert.Empty(t, inv.OverSubscribed)
+	assert.True(t, inv.Routable)
+}
+
+// platform-artifact spec, "Two majors of one provider catalog are two
+// providers": cat 0.1.0 and cat 1.0.0 each carry a transformer requiring
+// the gateway contract cat 0.1.0 lists. Core stamps both with one
+// major-free transformer path; the count is per registry entry.
+func TestContracts_TwoMajorsAreTwoProviders(t *testing.T) {
+	k := contractsKernel(t)
+	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform_two_majors"))
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err, "an over-subscribed platform is a report, never a refusal")
+	require.NotNil(t, inv)
+
+	gateway := contractsRes + "/gateway@v1"
+	assert.Equal(t, []string{contractsCat, contractsCatV1}, inv.ProvidedBy[gateway])
+	assert.Equal(t, []string{gateway}, inv.OverSubscribed)
+	assert.False(t, inv.Routable)
+}
+
+// platform-artifact spec, "A disabled definer does not hide
+// over-subscription": cat 0.1.0 (the gateway's definer) is disabled, cat2
+// 0.2.0 and cat 1.0.0 both require the gateway. Nothing enabled defines it,
+// so DefinedBy and RequiredBy lack the key and ProvidedBy is the one field
+// naming the supplying entries.
+func TestContracts_DisabledDefinerDoesNotHideOverSubscription(t *testing.T) {
+	k := contractsKernel(t)
+	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform_definer_disabled"))
+
+	inv, err := plat.Contracts()
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+
+	gateway := contractsRes + "/gateway@v1"
+	assert.Equal(t, []string{contractsCat2, contractsCatV1}, inv.ProvidedBy[gateway])
+	assert.Equal(t, []string{gateway}, inv.OverSubscribed)
+	assert.False(t, inv.Routable)
+	assert.NotContains(t, inv.DefinedBy, gateway)
+	assert.NotContains(t, inv.RequiredBy, gateway)
 }
 
 // A value carrying no #contracts (built against a core release before
@@ -259,6 +338,9 @@ type: "kubernetes"
 	require.Error(t, err)
 	assert.Nil(t, inv)
 	assert.Contains(t, err.Error(), "#contracts")
+	var old *oerrors.PlatformCoreTooOldError
+	require.True(t, errors.As(err, &old), "the refusal is the typed core-floor error")
+	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "bare", Field: "#contracts", Since: "2.0.0-alpha.9", Require: "2.0.0-alpha.12"}, *old)
 }
 
 // platform-artifact spec, "An inventory that predates the
@@ -290,4 +372,43 @@ type: "kubernetes"
 	assert.Nil(t, inv, "a missing report is never a partial inventory")
 	assert.Contains(t, err.Error(), `"comparable"`)
 	assert.Contains(t, err.Error(), "2.0.0-alpha.10")
+	assert.Contains(t, err.Error(), "to v2.0.0-alpha.12 or later", "one re-pin, to the floor, clears every missing field")
+	var old *oerrors.PlatformCoreTooOldError
+	require.True(t, errors.As(err, &old), "the refusal is the typed core-floor error")
+	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "alpha9", Field: "comparable", Since: "2.0.0-alpha.10", Require: "2.0.0-alpha.12"}, *old)
+}
+
+// platform-artifact spec, "An inventory that predates the provider count is
+// refused": a #contracts carrying every report field but providedBy is a
+// platform module pinning core 2.0.0-alpha.11 or older. The accessor
+// refuses it with the error Kernel.Render returns for the same platform.
+func TestContracts_InventoryPredatingProvidedByErrors(t *testing.T) {
+	v := cuecontext.New().CompileString(`
+kind: "Platform"
+metadata: name: "alpha11"
+type: "kubernetes"
+#contracts: {
+	definedBy: {}
+	requiredBy: {}
+	unfulfilled: []
+	overSubscribed: []
+	comparable: []
+	fulfilled:     true
+	routable:      true
+	discriminated: true
+}
+`)
+	require.NoError(t, v.Err())
+	plat, err := platform.NewPlatformFromValue(v)
+	require.NoError(t, err)
+
+	inv, err := plat.Contracts()
+	require.Error(t, err)
+	assert.Nil(t, inv, "an inventory lacking ProvidedBy is never returned")
+	var old *oerrors.PlatformCoreTooOldError
+	require.True(t, errors.As(err, &old))
+	assert.Equal(t, "alpha11", old.Platform)
+	assert.Equal(t, "providedBy", old.Field)
+	assert.Equal(t, "2.0.0-alpha.12", old.Since)
+	assert.Equal(t, "2.0.0-alpha.12", old.Require)
 }

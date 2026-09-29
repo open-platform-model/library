@@ -51,9 +51,12 @@
 // holds them, and the Kernel retains nothing. Memory held by a long-lived
 // Kernel is therefore bounded by the artifacts its caller holds, not by the
 // number of operations it has run. The cross-artifact verbs read only Metadata
-// and Source from their inputs, never Package, so a module acquired by one
+// and Source from their inputs, with one exception: Render reads whether the
+// platform's Package carries #contracts.providedBy (the core floor), a
+// read-only path lookup and presence test with no unification and no fill.
+// Nothing is built into an input's context, so a module acquired by one
 // Kernel synthesizes on another and an instance from either renders on a
-// third. No method returns or accepts a [*cue.Context]; a caller that must
+// third, and one acquired platform may be shared by concurrent renders. No method returns or accepts a [*cue.Context]; a caller that must
 // compile a value against the schema takes the context of the value
 // [schema.Cache.Get] returns.
 //
@@ -70,10 +73,14 @@
 // render is its own CUE build in a fresh cue.Context created for that call and
 // dropped when Render returns; no built value is retained between calls, and a
 // caller cannot obtain one to hold. A consumer rendering from several
-// goroutines calls Render on one Kernel, with no shared platform value and no
-// mutex. There is no materialized platform to share and no serialised render
-// path; the earlier shared-platform contract (ADR-002) is superseded, not
-// supported.
+// goroutines calls Render on one Kernel with no mutex, and may share one
+// acquired platform across them: each render builds the platform from its
+// Source in its own context, and reads the shared Package only for the core
+// floor (a read-only lookup of #contracts.providedBy, no unification, no
+// fill), so concurrent renders never write to it. There is no materialized
+// platform to share and no serialised render path; the earlier shared-platform
+// contract (ADR-002, renders filling one shared platform value) is superseded,
+// not supported.
 //
 // A render is single-threaded and its working set grows with the module, so a
 // render pool is sized by memory rather than by core count: about 61 MB plus
@@ -109,7 +116,10 @@
 // Matching and transformer execution are CUE inside the build, not Go; the
 // build reports its verdicts as data and the kernel's fail-closed gate turns
 // an unresolved demand, an unmatched component or an over-subscribed
-// provider-fulfilled contract into a [*RenderError] that carries the full
+// provider-fulfilled contract (read from core's #contracts.overSubscribed and
+// routable, the count the platform's Contracts() reads, so the render refuses
+// on over-subscription exactly when the inventory reads not routable) into a
+// [*RenderError] that carries the full
 // diagnostics, with the typed causes reachable through errors.As. Catalog
 // version skew (the instance module requiring a newer OPM-namespace build than
 // the platform carries) marks a resolved-versions row Newer by default
@@ -119,9 +129,13 @@
 // when the kernel refuses, so a staged module is self-refusing under a plain
 // cue eval. Each typed cause carries its diagnostics rows unchanged and wraps
 // nothing. Inputs are never mutated, and the staging directory is removed on
-// return, success or failure; refusals before evaluation (a missing Source, an
-// uncovered OPM-namespace path, skew under [SkewRefuse], a local replacement
-// without the opt-in) are plain errors.
+// return, success or failure; refusals before evaluation (a missing Source, a
+// platform whose core predates #contracts.providedBy, an uncovered
+// OPM-namespace path, skew under [SkewRefuse], a local replacement without
+// the opt-in) are plain errors. The core floor runs before anything is
+// staged: a platform module pinning core older than [schema.ProvidedBySince]
+// is refused with an error wrapping the opm/errors PlatformCoreTooOldError, and
+// the render never falls back to a provider count of its own.
 //
 // A render result carries no presentation strings. The three advisory facts a
 // render can report are rows on the diagnostics: an unhandled optional trait
@@ -145,8 +159,9 @@
 // OverSubscribed, ResolvedVersions). There is no separate match verb.
 //
 // A demand is unprovided when its contract declares fulfilment "provider" and
-// no enabled registry entry carries a transformer requiring the key: the
-// single-provider guard's own count at zero. The build marks every unresolved
+// no enabled registry entry carries a transformer requiring the key: the key
+// is absent from core's #contracts.providedBy, the count the single-provider
+// guard reads. The build marks every unresolved
 // row with this fact on every render (UnresolvedDemand.Unprovided in opm/errors,
 // and a "provider-fulfilled, no provider on this platform" suffix on its
 // message), so a frontend can offer its skip switch without re-deriving

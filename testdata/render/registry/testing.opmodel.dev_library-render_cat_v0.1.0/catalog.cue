@@ -206,8 +206,10 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 
 // Declared `fulfilment: "provider"` (0010:D32): this catalog ships
 // gateway-transformer as its one provider, and a platform must carry exactly
-// one transformer requiring this key. cat2 0.2.0 ships a second one, which
-// is the over-subscription the in-build single-provider guard refuses.
+// one transformer requiring this key. cat2 0.2.0 and cat 1.0.0 each ship
+// another one: core counts every registry entry supplying the key in
+// #contracts.providedBy, and the in-build single-provider guard refuses on
+// that count when two entries are enabled together.
 #GatewayResource: c.#Resource & {
 	metadata: {
 		name:           "gateway"

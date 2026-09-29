@@ -5,6 +5,7 @@ import (
 
 	"cuelang.org/go/cue"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -32,7 +33,11 @@ type ComparablePredicates struct {
 // ContractInventory is the decoded view of #Platform.#contracts, the
 // inventory core derives from the enabled registry entries' contract maps
 // and the required demands of #composedTransformers (0015:D1,
-// D2, D5, D18). Every field is a report: an inventory that is not Fulfilled,
+// D2, D5, D18). Providers are counted per registry entry (path plus major),
+// the one count the render's single-provider guard reads too: two majors of
+// one catalog are two providers, two transformers of one entry are one, and
+// a provider counts whether or not an enabled catalog defines the contract.
+// Every field is a report: an inventory that is not Fulfilled,
 // not Routable or not Discriminated is still a healthy value, and whether a
 // generation step withholds a platform package on Routable or Discriminated
 // false is that step's decision, outside this type.
@@ -55,14 +60,27 @@ type ContractInventory struct {
 	// defined contract nothing requires maps to an empty list.
 	RequiredBy map[string][]string `json:"requiredBy"`
 
-	// Unfulfilled lists the provider-fulfilled resources and traits
-	// required by nothing on the platform. A report the operator surfaces
-	// as a non-gating condition (0015:D18), never a refusal.
+	// ProvidedBy maps every provider-fulfilled contract FQN some enabled
+	// transformer requires (defined by an enabled catalog or not) to the
+	// sorted registry keys (path@major) of the enabled entries whose
+	// transformers require it. OverSubscribed is exactly its keys with two
+	// or more entries; a key a defined provider contract lacks is
+	// Unfulfilled. It is the field a caller prints to name the supplying
+	// entries, including when DefinedBy and RequiredBy lack the key (the
+	// defining catalog is disabled or absent).
+	ProvidedBy map[string][]string `json:"providedBy"`
+
+	// Unfulfilled lists the provider-fulfilled resources and traits an
+	// enabled catalog defines and no enabled registry entry provides (no
+	// ProvidedBy key). A report the operator surfaces as a non-gating
+	// condition (0015:D18), never a refusal.
 	Unfulfilled []string `json:"unfulfilled"`
 
 	// OverSubscribed lists the provider-fulfilled resources and traits
-	// required by transformers from more than one catalog: what the
-	// generation step refuses on (0010:D37).
+	// required by transformers of two or more enabled registry entries
+	// (path plus major), whether or not an enabled catalog defines them:
+	// the ProvidedBy keys with two or more entries, and what the generation
+	// step refuses on (0010:D37). ProvidedBy names the entries.
 	OverSubscribed []string `json:"overSubscribed"`
 
 	// Comparable lists every pair of enabled transformers whose match
@@ -87,7 +105,7 @@ type ContractInventory struct {
 // it is read only when a caller asks (the operator's readiness loop, a
 // platform check), so a render pays nothing for it.
 //
-// The eight data fields are read by path, so the decoded set is exactly
+// The nine data fields are read by path, so the decoded set is exactly
 // this type's field list; `defined` stays on Package (see
 // [ContractInventory]). Reports, never refusals: an over-subscribed or
 // undiscriminated platform returns Routable or Discriminated false and a
@@ -95,15 +113,18 @@ type ContractInventory struct {
 //
 // A report the value does not carry is never defaulted, in either
 // direction: a platform whose #contracts predates a report field is refused
-// with an error naming the missing field and the first core release
-// carrying it, never returned as a partial inventory whose missing verdict
-// would read as a pass. The same refusal covers a platform carrying no
-// #contracts at all (a value built against a core release before
-// 2.0.0-alpha.9, or one that is not a #Platform).
+// with a [*oerrors.PlatformCoreTooOldError] naming the missing field, the
+// first core release carrying it and the floor to re-pin to
+// ([schema.ProvidedBySince]), never returned as a partial inventory
+// whose missing verdict would read as a pass. The same refusal covers a
+// platform carrying no #contracts at all (Field "#contracts": a value built
+// against a core release before 2.0.0-alpha.9, or one that is not a
+// #Platform). A missing providedBy is the refusal Kernel.Render returns for
+// the same platform.
 func (p *Platform) Contracts() (*ContractInventory, error) {
 	cv := p.Package.LookupPath(schema.Contracts)
 	if !cv.Exists() {
-		return nil, fmt.Errorf("platform carries no %s field (the contract inventory core derives from release 2.0.0-alpha.9 on)", schema.Contracts)
+		return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: "#contracts", Since: "2.0.0-alpha.9", Require: schema.ProvidedBySince}
 	}
 	if err := cv.Err(); err != nil {
 		return nil, fmt.Errorf("platform %s did not evaluate: %w", schema.Contracts, err)
@@ -124,14 +145,24 @@ func (p *Platform) Contracts() (*ContractInventory, error) {
 		{"fulfilled", &inv.Fulfilled, "2.0.0-alpha.9"},
 		{"routable", &inv.Routable, "2.0.0-alpha.9"},
 		{"discriminated", &inv.Discriminated, "2.0.0-alpha.10"},
+		{"providedBy", &inv.ProvidedBy, schema.ProvidedBySince},
 	} {
 		v := cv.LookupPath(cue.ParsePath(f.name))
 		if !v.Exists() {
-			return nil, fmt.Errorf("platform %s carries no %q field (core derives it from release %s on)", schema.Contracts, f.name, f.since)
+			return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: f.name, Since: f.since, Require: schema.ProvidedBySince}
 		}
 		if err := v.Decode(f.into); err != nil {
 			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)
 		}
 	}
 	return inv, nil
+}
+
+// name is the platform's metadata.name, or empty when no metadata was
+// decoded; it names the platform in a refusal.
+func (p *Platform) name() string {
+	if p.Metadata == nil {
+		return ""
+	}
+	return p.Metadata.Name
 }

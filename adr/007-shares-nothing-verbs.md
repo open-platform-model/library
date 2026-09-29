@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-08). Amends ADR-005: the shares-nothing rule it states for `Kernel.Render` now holds for every kernel verb, and its "one Kernel per goroutine" sentence is retired in favour of one Kernel per process. Implemented by `kernel-owns-no-build-context` (slice 6a of the simplification plan reviewed on 2026-09-05).
+Accepted (2026-09-08). Amends ADR-005: the shares-nothing rule it states for `Kernel.Render` now holds for every kernel verb, and its "one Kernel per goroutine" sentence is retired in favour of one Kernel per process. Implemented by `kernel-owns-no-build-context` (slice 6a of the simplification plan reviewed on 2026-09-05). Amended 2026-09-30 by `read-provider-count-from-core`: the Context's "never `Package`" no longer holds for `Render`, which reads the platform's `Package` once, before staging, to enforce the core floor (whether `#contracts.providedBy` exists, a read-only lookup with no unification and no fill), and reads nothing else from it. The rules below are unchanged: the render still builds in its own context and imports both inputs by source, so artifacts still cross Kernels and one acquired platform may be shared by concurrent renders.
 
 ## Context
 

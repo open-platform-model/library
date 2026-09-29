@@ -12,7 +12,8 @@
 //
 // Every unresolved demand carries `unprovided`: its contract declares
 // `fulfilment: "provider"` and no enabled registry entry carries a
-// transformer requiring it (the single-provider guard's own count at zero).
+// transformer requiring it (the key is absent from core's
+// #contracts.providedBy, the count the single-provider guard reads).
 // Under the caller's skip switch those demands leave the refusal for the
 // `skipped` verdict: a skipped trait leaves its component rendering, a
 // skipped resource omits the whole component.
@@ -119,8 +120,9 @@ _components:   instance.components
 	// a rung, so it changes no verdict.
 	#definedBy: [string]: string
 	// Contract key -> registry keys whose transformers REQUIRE it with
-	// provider fulfilment: the single-provider guard's own count. A demand
-	// whose provider-fulfilled key is absent here is unprovided.
+	// provider fulfilment: core's #contracts.providedBy, the count the
+	// single-provider guard reads. A demand whose provider-fulfilled key is
+	// absent here is unprovided.
 	#providers: [string]: _
 	// The caller's switch: skip unprovided demands instead of refusing them.
 	#skipUnprovided: bool
@@ -421,46 +423,42 @@ _components:   instance.components
 	resolved: len(unresolved) == 0 && len(unmatched) == 0
 }
 
-// `guard` reads only the platform's registry, never `match`, so binding its
-// provider count into the matcher adds no cycle.
+// The provider count is core's #contracts.providedBy, derived from the
+// platform's registry alone and never from `match`, so binding it into the
+// matcher adds no cycle.
 match: #Match & {
 	#transformers:   _transformers
 	#components:     _components
 	#definedBy:      platform.#contracts.definedBy
-	#providers:      guard._providerSuppliers
+	#providers:      platform.#contracts.providedBy
 	#skipUnprovided: _skipUnprovided
 }
 
 // ── Single-provider guard (0010 D32/D37), in-build since
-// library-render-cutover. For every enabled registry entry, every
-// transformer it contributes and every REQUIRED contract that transformer
-// declares with `fulfilment: "provider"`, the entry's registry key is
-// collected per contract key. Provenance is the registry key (core binds it
-// to the embedded catalog's metadata.modulePath, so it is the path@major
-// string), never a value parsed off an FQN or read off the transformer. A
-// key supplied by more than one entry is an over-subscription row and the
-// gate refuses. Divergent fulfilment across copies cannot occur in one build
-// (one set of catalog bytes) and is not checked; default (catalog)
-// fulfilment admits any number of suppliers.
+// library-render-cutover. The glue computes no count of its own: core
+// derives it once on the platform as #contracts.providedBy, for every
+// enabled registry entry, every transformer it contributes and every
+// REQUIRED contract that transformer declares with `fulfilment:
+// "provider"`, the sorted registry keys (path@major) supplying each
+// contract key, whether or not an enabled entry defines the key. Two
+// majors of one catalog are two providers; two transformers of one entry
+// are one. Core lists every key with two or more suppliers in
+// #contracts.overSubscribed, and each becomes a row here naming the key and
+// its suppliers; the gate reads #contracts.routable. The platform's
+// Contracts() decodes the same fields, so a render refuses on
+// over-subscription exactly when the inventory reads not routable. Default
+// (catalog) fulfilment admits any number of suppliers.
+//
+// The rows iterate providedBy UNCONDITIONALLY: a platform value lacking it
+// (a core older than the count) fails this build instead of reading as zero
+// providers. Never guard it with a presence test; the kernel refuses such a
+// platform before staging, and this is the fail-closed belt behind it.
 guard: {
-	_providerSuppliers: {
-		for rkey, entry in platform.#registry if entry.enable
-		for _, tf in entry.#transformers {
-			if tf.requiredResources != _|_ {
-				for fqn, req in tf.requiredResources
-				if req.fulfilment == "provider" {(fqn): (rkey): true}
-			}
-			if tf.requiredTraits != _|_ {
-				for fqn, req in tf.requiredTraits
-				if req.fulfilment == "provider" {(fqn): (rkey): true}
-			}
-		}
-	}
 	overSubscribed: list.Sort([
-		for _k, suppliers in _providerSuppliers
-		if len(suppliers) > 1 {{
+		for _k, _ps in platform.#contracts.providedBy
+		if list.Contains(platform.#contracts.overSubscribed, _k) {{
 			key:      _k
-			catalogs: list.Sort([for rkey, _ in suppliers {rkey}], list.Ascending)
+			catalogs: _ps
 		}},
 	], {x: _, y: _, less: x.key < y.key})
 }
@@ -518,7 +516,7 @@ diagnostics: {
 
 // The fail-closed gate (0010 D28, D37) as one unification: an unresolved
 // demand the switch did not skip, an unmatched component that was not
-// omitted or an over-subscribed provider-fulfilled contract refuses the
-// build here, while `diagnostics` stays readable and
-// concrete beside it through the Go API.
-gate: match.resolved & (len(guard.overSubscribed) == 0) & true
+// omitted or an over-subscribed provider-fulfilled contract (core's
+// #contracts.routable false) refuses the build here, while `diagnostics`
+// stays readable and concrete beside it through the Go API.
+gate: match.resolved & platform.#contracts.routable & true
