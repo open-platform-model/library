@@ -121,7 +121,7 @@ Read these on entry:
 
 ```text
 opm/
-  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, skew.go)
+  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, skew.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
@@ -302,6 +302,7 @@ Everything before `Render` produces its inputs, and every one of them is an acqu
 Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
 Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
 Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements, SkipUnprovided})
+        core floor             platform Package lacks #contracts.providedBy (core < 2.0.0-alpha.12) → PlatformCoreTooOldError, nothing staged
         renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
                                overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
                                inputs' own local-module.cue replacements promoted under LocalReplacements (platform whole, instance on
@@ -315,7 +316,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacemen
         decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
 ```
 
-Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung, the single-provider guard and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder.
+Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder. The single-provider guard computes no count of its own: it reads core's `#contracts.providedBy` (providers per registry entry, path plus major), `overSubscribed` and `routable`, the same fields `Platform.Contracts()` decodes, so a render refuses on over-subscription exactly when the platform inventory reads not routable. `opm/kernel/render_inventory_parity_test.go` is the tripwire over every served platform.
 
 ### OPM schema versioning
 
