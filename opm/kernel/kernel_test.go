@@ -217,8 +217,10 @@ metadata: {
 // Kernel, synthesized into an instance with a second, rendered with a third
 // against a platform acquired with a fourth produces the same objects as the
 // same sequence on one Kernel. Every verb reads only Metadata and Source from
-// its inputs, never Package, so the context an input was built in is
-// irrelevant to the operation that consumes it.
+// its inputs (Render also reads, read-only, whether the platform's Package
+// carries #contracts.providedBy), and nothing is built into an input's
+// context, so the context an input was built in is irrelevant to the
+// operation that consumes it.
 func TestKernel_ArtifactsCrossKernels(t *testing.T) {
 	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
 	ctx := context.Background()

@@ -574,8 +574,8 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	assert.NotSame(t, plat.Package.Context(), first.Compiled[0].Value.Context(), "the platform's context is the acquire's, not the render's") //nolint:staticcheck // same
 }
 
-// The single-provider guard in-build (0010:D32/D37; library-render-cutover).
-// platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
+// The single-provider guard in-build (0010:D32/D37; library-render-cutover),
+// reading core's #contracts.providedBy count. platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
 // a transformer requiring cat's provider-fulfilled gateway contract.
 func TestRender_OverSubscribedProviderRefused(t *testing.T) {
 	k := newRenderKernel(t)

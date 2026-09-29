@@ -14,6 +14,7 @@ import (
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // SkewPolicy is the caller's response to catalog version skew (enhancement
@@ -183,9 +184,12 @@ type RenderDiagnostics struct {
 	FailedPairs []RenderPair
 
 	// OverSubscribed is every provider-fulfilled contract key that
-	// transformers from more than one enabled registry entry require (the
-	// single-provider guard, 0010:D32/D37), key-sorted. Any row refuses the
-	// render through the gate.
+	// transformers of two or more enabled registry entries (path plus
+	// major) require (the single-provider guard, 0010:D32/D37), key-sorted,
+	// each row naming the registry keys core's #contracts.providedBy holds
+	// for it. The count is core's, the one the platform's Contracts() reads,
+	// so the rows are exactly its OverSubscribed. Any row refuses the render
+	// through the gate.
 	OverSubscribed []oerrors.OverSubscribedContract
 
 	// ResolvedVersions holds the per-path version rows, in path order.
@@ -270,9 +274,14 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // for the platform's catalog imports uses [WithRegistry] when set, else the
 // process CUE_REGISTRY, plumbed through the load configuration only.
 //
-// Refusals before evaluation (missing Source, uncovered OPM path, skew under
-// [SkewRefuse]) return plain errors; refusals after evaluation return a
-// [*RenderError] carrying the decoded diagnostics.
+// Refusals before evaluation (missing Source, a platform whose core predates
+// the provider count, uncovered OPM path, skew under [SkewRefuse]) return
+// plain errors; refusals after evaluation return a [*RenderError] carrying
+// the decoded diagnostics. A platform whose Package carries no
+// #contracts.providedBy (a platform module pinning core older than
+// [schema.ProvidedBySince]) is refused before staging, with no staging
+// directory created, by an error wrapping [*oerrors.PlatformCoreTooOldError]:
+// the render never falls back to a provider count of its own.
 func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, error) {
 	_, res, err := k.render(ctx, in)
 	return res, err
@@ -304,6 +313,18 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 	if err := ctx.Err(); err != nil {
 		return none, nil, err
+	}
+	// The core floor: the render build evaluates the platform module's own
+	// core pin, the one its Package was built from, so a Package lacking
+	// providedBy is a build whose glue would lack it. One read-only path
+	// lookup and presence test on the shared Package; no unification, no
+	// fill.
+	if !in.Platform.Package.LookupPath(schema.ContractsProvidedBy).Exists() {
+		return none, nil, fmt.Errorf("render refused before staging: %w", &oerrors.PlatformCoreTooOldError{
+			Platform: platformName(in.Platform),
+			Field:    "providedBy",
+			Since:    schema.ProvidedBySince,
+		})
 	}
 
 	dir, err := os.MkdirTemp("", "opm-render-")

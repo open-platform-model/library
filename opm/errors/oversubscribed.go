@@ -7,10 +7,15 @@ import (
 
 // OverSubscribedContract is one row of the single-provider guard: a contract
 // key declared `fulfilment: "provider"` on a required demand of transformers
-// from more than one of the platform's enabled registry entries (enhancement
-// 0010:D32 as corrected by 0010:D37; enforced inside the render build since
-// library-render-cutover). A platform must carry exactly one provider for
-// such a key; two is a misconfigured platform, not an arbitration.
+// from two or more of the platform's enabled registry entries (path plus
+// major: two majors of one catalog are two entries), whether or not an
+// enabled catalog defines the key (enhancement 0010:D32 as corrected by
+// 0010:D37; enforced inside the render build since library-render-cutover).
+// The count is core's #Platform.#contracts.providedBy, which the render glue
+// reads and never recomputes, so the rows are exactly the keys the platform's
+// contract inventory reports over-subscribed. A platform must carry exactly
+// one provider for such a key; two is a misconfigured platform, not an
+// arbitration. The refusal text is unchanged by where the count comes from.
 //
 // It is data, not an error; [OverSubscribedContractsError] is the gate cause.
 type OverSubscribedContract struct {
@@ -19,7 +24,8 @@ type OverSubscribedContract struct {
 
 	// Catalogs are the registry keys whose transformers require Key: the
 	// catalog module paths (path@major) core binds each entry's embedded
-	// catalog identity to. Sorted, so the refusal is deterministic.
+	// catalog identity to, exactly #contracts.providedBy[Key]. Sorted, so
+	// the refusal is deterministic.
 	Catalogs []string
 }
 
