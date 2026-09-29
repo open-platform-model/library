@@ -1,6 +1,9 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // PlatformCoreTooOldError reports a platform module pinning a core release
 // older than the first one deriving a #Platform.#contracts field the kernel
@@ -9,7 +12,7 @@ import "fmt"
 // module; the kernel never falls back to a count or a verdict of its own.
 type PlatformCoreTooOldError struct {
 	// Platform is the platform's metadata.name (empty when the value
-	// carries none).
+	// carries none; the message then reads <unnamed>).
 	Platform string
 
 	// Field is the missing field: a field under #contracts such as
@@ -20,10 +23,25 @@ type PlatformCoreTooOldError struct {
 	// Since is the first core release deriving Field, without the "v"
 	// prefix, e.g. "2.0.0-alpha.12".
 	Since string
+
+	// Require is the oldest core release the kernel accepts today, without
+	// the "v" prefix: the release the message tells the caller to re-pin
+	// to, so one re-pin clears every missing field at once. The kernel's
+	// callers fill it with the floor they enforce (schema.ProvidedBySince);
+	// empty, the message falls back to Since.
+	Require string
 }
 
 func (e *PlatformCoreTooOldError) Error() string {
+	name := "<unnamed>"
+	if e.Platform != "" {
+		name = strconv.Quote(e.Platform)
+	}
+	require := e.Require
+	if require == "" {
+		require = e.Since
+	}
 	return fmt.Sprintf(
-		"platform %q carries no %q (core derives it from release %s on): re-pin opmodel.dev/core in the platform module to v%s or later",
-		e.Platform, e.Field, e.Since, e.Since)
+		"platform %s carries no %q (core derives it from release %s on): re-pin opmodel.dev/core in the platform module to v%s or later",
+		name, e.Field, e.Since, require)
 }

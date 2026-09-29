@@ -113,8 +113,9 @@ type ContractInventory struct {
 //
 // A report the value does not carry is never defaulted, in either
 // direction: a platform whose #contracts predates a report field is refused
-// with a [*oerrors.PlatformCoreTooOldError] naming the missing field and the
-// first core release carrying it, never returned as a partial inventory
+// with a [*oerrors.PlatformCoreTooOldError] naming the missing field, the
+// first core release carrying it and the floor to re-pin to
+// ([schema.ProvidedBySince]), never returned as a partial inventory
 // whose missing verdict would read as a pass. The same refusal covers a
 // platform carrying no #contracts at all (Field "#contracts": a value built
 // against a core release before 2.0.0-alpha.9, or one that is not a
@@ -123,7 +124,7 @@ type ContractInventory struct {
 func (p *Platform) Contracts() (*ContractInventory, error) {
 	cv := p.Package.LookupPath(schema.Contracts)
 	if !cv.Exists() {
-		return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: "#contracts", Since: "2.0.0-alpha.9"}
+		return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: "#contracts", Since: "2.0.0-alpha.9", Require: schema.ProvidedBySince}
 	}
 	if err := cv.Err(); err != nil {
 		return nil, fmt.Errorf("platform %s did not evaluate: %w", schema.Contracts, err)
@@ -148,7 +149,7 @@ func (p *Platform) Contracts() (*ContractInventory, error) {
 	} {
 		v := cv.LookupPath(cue.ParsePath(f.name))
 		if !v.Exists() {
-			return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: f.name, Since: f.since}
+			return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: f.name, Since: f.since, Require: schema.ProvidedBySince}
 		}
 		if err := v.Decode(f.into); err != nil {
 			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)

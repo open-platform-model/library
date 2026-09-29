@@ -340,7 +340,7 @@ type: "kubernetes"
 	assert.Contains(t, err.Error(), "#contracts")
 	var old *oerrors.PlatformCoreTooOldError
 	require.True(t, errors.As(err, &old), "the refusal is the typed core-floor error")
-	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "bare", Field: "#contracts", Since: "2.0.0-alpha.9"}, *old)
+	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "bare", Field: "#contracts", Since: "2.0.0-alpha.9", Require: "2.0.0-alpha.12"}, *old)
 }
 
 // platform-artifact spec, "An inventory that predates the
@@ -372,9 +372,10 @@ type: "kubernetes"
 	assert.Nil(t, inv, "a missing report is never a partial inventory")
 	assert.Contains(t, err.Error(), `"comparable"`)
 	assert.Contains(t, err.Error(), "2.0.0-alpha.10")
+	assert.Contains(t, err.Error(), "to v2.0.0-alpha.12 or later", "one re-pin, to the floor, clears every missing field")
 	var old *oerrors.PlatformCoreTooOldError
 	require.True(t, errors.As(err, &old), "the refusal is the typed core-floor error")
-	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "alpha9", Field: "comparable", Since: "2.0.0-alpha.10"}, *old)
+	assert.Equal(t, oerrors.PlatformCoreTooOldError{Platform: "alpha9", Field: "comparable", Since: "2.0.0-alpha.10", Require: "2.0.0-alpha.12"}, *old)
 }
 
 // platform-artifact spec, "An inventory that predates the provider count is
@@ -409,4 +410,5 @@ type: "kubernetes"
 	assert.Equal(t, "alpha11", old.Platform)
 	assert.Equal(t, "providedBy", old.Field)
 	assert.Equal(t, "2.0.0-alpha.12", old.Since)
+	assert.Equal(t, "2.0.0-alpha.12", old.Require)
 }

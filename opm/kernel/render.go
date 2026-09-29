@@ -321,9 +321,10 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	// fill.
 	if !in.Platform.Package.LookupPath(schema.ContractsProvidedBy).Exists() {
 		return none, nil, fmt.Errorf("render refused before staging: %w", &oerrors.PlatformCoreTooOldError{
-			Platform: platformName(in.Platform),
+			Platform: platformMetadataName(in.Platform),
 			Field:    "providedBy",
 			Since:    schema.ProvidedBySince,
+			Require:  schema.ProvidedBySince,
 		})
 	}
 
@@ -379,6 +380,16 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 
 	return built, &RenderResult{Compiled: compiled, Diagnostics: diag}, nil
+}
+
+// platformMetadataName is the platform's raw metadata.name, empty when none
+// was decoded: the Platform field of a PlatformCoreTooOldError, which words
+// an empty name itself, so Render and Contracts() name a platform alike.
+func platformMetadataName(p *platform.Platform) string {
+	if p != nil && p.Metadata != nil {
+		return p.Metadata.Name
+	}
+	return ""
 }
 
 func platformName(p *platform.Platform) string {
