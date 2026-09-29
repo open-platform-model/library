@@ -1,7 +1,7 @@
 # platform-artifact Specification
 
 ## Purpose
-TBD - created by syncing change add-platform-construct. Update Purpose after archive.
+The Platform as a typed kernel artifact: a CUE package importing its catalogs, held as the built value with decoded metadata and the staged source tree a render imports it from. Covers the artifact's shape and its on-demand contract inventory, which reports fulfilment, routability and discrimination without refusing on them but refuses an inventory that predates a report field. Also covers construction from a bare CUE value, acquisition from a directory through the shape gate under the kernel's registry mapping, and the source the platform carries as its render input, absent on a value-constructed platform, which therefore cannot be rendered.
 
 ## Requirements
 
