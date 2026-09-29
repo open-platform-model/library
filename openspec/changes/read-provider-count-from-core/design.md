@@ -91,12 +91,13 @@ type PlatformCoreTooOldError struct {
 	Platform string // the platform's metadata.name
 	Field    string // the missing field, e.g. "providedBy"
 	Since    string // the first core release deriving it, e.g. "2.0.0-alpha.12"
+	Require  string // the oldest core the kernel accepts (callers fill schema.ProvidedBySince)
 }
 
 func (e *PlatformCoreTooOldError) Error() string
 ```
 
-The message names all three and says to re-pin `opmodel.dev/core` in the platform module. Pointer receiver, like the other gate causes in `opm/errors`.
+The message names the platform (`<unnamed>` when it has no name), the field and its `Since`, and says to re-pin `opmodel.dev/core` in the platform module to `Require`, so one re-pin is enough whichever field was missing. `opm/errors` stays a leaf package: the call sites fill `Require`, it does not import `opm/schema`. (`Require` was added in the review round.) Pointer receiver, like the other gate causes in `opm/errors`.
 
 `Contracts()` migrates every since-guard (including the missing-`#contracts` case, `Field: "#contracts"`, `Since: "2.0.0-alpha.9"`) to the typed error, so a frontend matches one type for every "re-pin core" refusal. The existing message substrings (field name, release) are kept, so the existing `contracts_test` assertions hold.
 

@@ -46,7 +46,7 @@ package errors // github.com/open-platform-model/library/opm/errors
 
 // Returned (wrapped) by Kernel.Render before staging, and by Contracts(),
 // when the platform module pins a core release predating a field the kernel reads.
-type PlatformCoreTooOldError struct{ Platform, Field, Since string }
+type PlatformCoreTooOldError struct{ Platform, Field, Since, Require string } // Require: the oldest core the kernel accepts (schema.ProvidedBySince), the one re-pin target
 ```
 
 `schema.DefaultSchemaModule` = `opmodel.dev/core@v2.0.0-alpha.12`. `OverSubscribedContract{Key, Catalogs}` and the render refusal text are unchanged.
