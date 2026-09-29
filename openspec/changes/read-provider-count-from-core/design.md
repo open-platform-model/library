@@ -23,7 +23,7 @@ The counting rule itself is core's (change A, `design.md` there) and is not rest
 
 - The counting rule (core's, change A). If the parity test disagrees after the re-pin, the fix is in core, not in the glue.
 - A fallback count for older cores (Decision 3).
-- The pre-existing conflict when two majors of a contract's DEFINING catalog are enabled together (`defined` and `definedBy` conflict, `Contracts()` errors). The gate reads `routable`, which does not depend on `defined`, so render behaviour there is unchanged. A separate core issue.
+- The pre-existing conflict when two majors of a contract's DEFINING catalog are enabled together. Measured during review on core's prototype and on today's core: the conflict in `defined` makes the whole platform value bottom, and `routable`, `providedBy` and `#composedTransformers` all read it. The earlier reasoning that the gate is unaffected because `routable` does not depend on `defined` was wrong. The conclusion stands for a different reason: nothing on that shape renders before or after this change, and the glue already read the conflicting `definedBy`. A separate core issue.
 - Operator and cli wording (changes C and D).
 
 ## Decisions
