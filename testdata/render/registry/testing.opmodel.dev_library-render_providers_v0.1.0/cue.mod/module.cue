@@ -1,4 +1,4 @@
-module: "testing.opmodel.dev/library-render/scenarios@v0"
+module: "testing.opmodel.dev/library-render/providers@v0"
 language: {
 	version: "v0.17.0"
 }
@@ -7,9 +7,6 @@ deps: {
 		v: "v2.0.0-alpha.10"
 	}
 	"testing.opmodel.dev/library-render/cat@v0": {
-		v: "v0.1.0"
-	}
-	"testing.opmodel.dev/library-render/providers@v0": {
 		v: "v0.1.0"
 	}
 }

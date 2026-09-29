@@ -58,9 +58,17 @@ func TestRenderGlue_QuotesCallerStrings(t *testing.T) {
 	assert.Contains(t, src, `platform "testing.opmodel.dev/x/platform@v0"`)
 	assert.Contains(t, src, `_runtimeName: "opm-\"cli\"\\n"`, "the runtime name is a CUE string literal, never raw interpolation")
 	assert.NotContains(t, src, "<<", "every template slot was filled")
+	assert.Contains(t, src, "_skipUnprovided: false", "the skip switch defaults off, as a bool literal")
 
 	// The generated file must parse as CUE.
 	_, err = parser.ParseFile(RenderFileName, glue)
+	require.NoError(t, err)
+
+	on, err := RenderGlue(GlueInputs{InstancePath: "a@v0", PlatformPath: "b@v0", RuntimeName: "rt", SkipUnprovided: true})
+	require.NoError(t, err)
+	assert.Contains(t, string(on), "_skipUnprovided: true", "the switch renders as the literal true")
+	assert.NotContains(t, string(on), "_skipUnprovided: false")
+	_, err = parser.ParseFile(RenderFileName, on)
 	require.NoError(t, err)
 
 	_, err = RenderGlue(GlueInputs{InstancePath: "a@v0", PlatformPath: "b@v0"})
@@ -123,7 +131,7 @@ func TestStage_ServesOverlayFromMemoryAndWritesRenderModule(t *testing.T) {
 	plat := diskPlatform(t)
 	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", false)
+	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, dir, staged.Dir)
 
@@ -179,7 +187,7 @@ func TestStage_OverlayInputsLeaveOnlyTheRenderModule(t *testing.T) {
 	plat := rekeyed(t, diskPlatform(t).Root, filepath.Join(string(filepath.Separator), "opm-registry-module", "platform"))
 	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", false)
+	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
@@ -201,7 +209,7 @@ func TestStage_OnDiskInputsCarryNoOverlay(t *testing.T) {
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
 	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", false)
+	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 	assert.Empty(t, staged.Overlay, "on-disk inputs are referenced in place")
 	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
@@ -221,7 +229,7 @@ func TestStageBuild_OverlayInstanceServedFromMemory(t *testing.T) {
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
 	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", false)
+	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(dir, "instance"))
 	require.True(t, os.IsNotExist(err), "the instance tree is not written")
@@ -249,24 +257,24 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
 	plat := diskPlatform(t)
 
-	_, err := Stage(t.TempDir(), nil, plat, "rt", false)
+	_, err := Stage(t.TempDir(), nil, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "instance carries no source")
-	_, err = Stage(t.TempDir(), overlayInstance(root), nil, "rt", false)
+	_, err = Stage(t.TempDir(), overlayInstance(root), nil, "rt", StageOptions{})
 	require.ErrorContains(t, err, "platform carries no source")
-	_, err = Stage(t.TempDir(), overlayInstance(root), plat, "", false)
+	_, err = Stage(t.TempDir(), overlayInstance(root), plat, "", StageOptions{})
 	require.ErrorContains(t, err, "runtime name")
 
 	// An overlay entry outside its root is refused rather than written
 	// somewhere else.
 	escaped := overlayInstance(root)
 	escaped.Overlay[filepath.Join(string(filepath.Separator), "elsewhere", "x.cue")] = []byte("package x\n")
-	_, err = Stage(t.TempDir(), escaped, plat, "rt", false)
+	_, err = Stage(t.TempDir(), escaped, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "outside the source root")
 
 	// Two package clauses in one package directory.
 	mixed := overlayInstance(root)
 	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = []byte("package other\n")
-	_, err = Stage(t.TempDir(), mixed, plat, "rt", false)
+	_, err = Stage(t.TempDir(), mixed, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "more than one package")
 
 	// No package clause at all.
@@ -277,7 +285,7 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 		}
 	}
 	bare.Overlay[filepath.Join(root, "opm-synth-instance", "data.cue")] = []byte("a: 1\n")
-	_, err = Stage(t.TempDir(), bare, plat, "rt", false)
+	_, err = Stage(t.TempDir(), bare, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "no package clause")
 }
 
@@ -447,7 +455,7 @@ func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
 	plat := withLocalFile(t, diskPlatform(t), `deps: "opmodel.dev/catalogs/opm@v4": replaceWith: "`+catDir+`"
 `)
 	dir := t.TempDir()
-	_, err := Stage(dir, overlayInstance(root), plat, "rt", false)
+	_, err := Stage(dir, overlayInstance(root), plat, "rt", StageOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `platform "testing.opmodel.dev/render/platform@v0"`)
 	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
@@ -457,7 +465,7 @@ func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
 	inst := withLocalFile(t, overlayInstance(root), `deps: "example.com/helpers@v1": replaceWith: "./helpers"
 `)
 	dir = t.TempDir()
-	_, err = Stage(dir, inst, diskPlatform(t), "rt", false)
+	_, err = Stage(dir, inst, diskPlatform(t), "rt", StageOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `instance "testing.opmodel.dev/modules/web_app@v1"`)
 	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
@@ -465,7 +473,7 @@ func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
 
 	// A file with no replacement is not a redirection: it stages.
 	noRepl := withLocalFile(t, diskPlatform(t), "deps: \"opmodel.dev/core@v2\": v: \"v2.0.0-alpha.10\"\n")
-	staged, err := Stage(t.TempDir(), overlayInstance(root), noRepl, "rt", false)
+	staged, err := Stage(t.TempDir(), overlayInstance(root), noRepl, "rt", StageOptions{})
 	require.NoError(t, err)
 	assert.Nil(t, staged.Replacements)
 }
@@ -476,10 +484,10 @@ func TestStage_AbsentLocalFileStagesIdenticallyEitherWay(t *testing.T) {
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
 
 	off := t.TempDir()
-	stagedOff, err := Stage(off, inst, plat, "rt", false)
+	stagedOff, err := Stage(off, inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 	on := t.TempDir()
-	stagedOn, err := Stage(on, inst, plat, "rt", true)
+	stagedOn, err := Stage(on, inst, plat, "rt", StageOptions{LocalReplacements: true})
 	require.NoError(t, err)
 
 	moduleOff, localOff := readPair(t, off)
@@ -502,7 +510,7 @@ func TestStage_HonoursLocalReplacements(t *testing.T) {
 }
 `)
 	dir := t.TempDir()
-	staged, err := Stage(dir, inst, plat, "rt", true)
+	staged, err := Stage(dir, inst, plat, "rt", StageOptions{LocalReplacements: true})
 	require.NoError(t, err)
 
 	helpersDir := filepath.Join(root, "helpers")

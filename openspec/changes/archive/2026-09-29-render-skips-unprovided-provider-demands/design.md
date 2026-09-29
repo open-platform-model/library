@@ -177,22 +177,28 @@ type UnresolvedDemand struct {
 component "db": unresolved trait demand "<cat>/traits/snapshot@v1": defined by "<cat>@v0" and nothing on this platform implements it; provider-fulfilled, no provider on this platform
 ```
 
-### Fixtures: provider-fulfilled members in the render fixture catalog
+### Fixtures: a provider-fulfilled fixture catalog beside the render fixture catalog
 
-Three members are added to `testdata/render/registry/testing.opmodel.dev_library-render_cat_v0.1.0/catalog.cue`, each listed in the catalog's contract maps:
+A new fixture catalog, `testing.opmodel.dev/library-render/providers@v0` 0.1.0 (`testdata/render/registry/testing.opmodel.dev_library-render_providers_v0.1.0/`), imports `cat` for the container resource and lists three members in its contract maps:
 
 - `#SnapshotTrait`: `fulfilment: "provider"`, `optional: bool | *false`, applies to the container resource. No transformer requires it, so it is unprovided and carries a defining catalog. This is the shape of the real `backup` trait.
 - `#LedgerResource`: `fulfilment: "provider"`. No transformer requires it, so it is an unprovided resource.
-- `#ArchiveTrait`: `fulfilment: "provider"`, `optional: bool | *false`, required by a new `archive-transformer` that also requires a label (`render.test/archive: "on"`). A component attaching it without the label has a provider that exists and does not match.
+- `#ArchiveTrait`: `fulfilment: "provider"`, `optional: bool | *false`, required by the catalog's `archive-transformer`, which also requires the container resource and the label `render.test/archive: "on"`. A component attaching it without the label has a provider that exists and does not match.
 
-New scenario packages under `testdata/render/scenarios`:
+A new platform, `testdata/render/platform_providers`, carries `cat` 0.1.0 and `providers` 0.1.0. The scenarios module requires `providers` 0.1.0.
 
-- `unprovided`: component `app` (container plus snapshot) and component `ledger` (container plus ledger), beside a healthy component.
-- `provided_unmatched`: archive attached without the label.
+New scenario packages under `testdata/render/scenarios`, rendered against `platform_providers`:
+
+- `unprovided`: component `app` (container plus snapshot) and component `ledger` (container plus ledger plus snapshot), beside a healthy component.
+- `provided_unmatched`: component `vault`, archive attached without the label.
 
 Existing scenarios and their assertions stay as they are. The scenarios README gains the rows.
 
+**Spike finding (section 1):** the members were first planned for `cat` 0.1.0 itself. A contract a catalog lists with `fulfilment: "provider"` and no requiring transformer lands on `platform.#contracts.unfulfilled` (core `platform.cue`: `unfulfilled: [for fqn, ps in _providers if len(ps) == 0 {fqn}]`), so adding snapshot and ledger to `cat` would turn the `platform` fixture's inventory to `Fulfilled: false`. That fixture is the one `TestContracts_ListedCatalogReadsFulfilledAndRoutable` uses for the live platform-artifact scenario "The inventory of a healthy platform reads as fulfilled and routable", so the scenario would lose its premise. The members therefore live in their own catalog on their own platform; the defining-catalog copy onto skipped rows is still tested, with `providers` as the defining catalog.
+
 **Alternative:** author the members inline in the scenario, as `unlisted` does. Rejected for the main case: inline contracts carry no defining catalog, while the real case (catalog_opm lists `backup` and ships no transformer) always does. The catalog route tests the `definedBy` copy onto skipped rows.
+
+**Spike result:** the switch-on and switch-off builds of both scenarios are concrete with no cycle, the `fulfilment` default resolves inside the marker's guard (a default-fulfilment row reads `unprovided: false`), and the module's own `gate` agrees with the verdicts (`opm/internal/renderstage/skip_test.go`).
 
 ## Research & Decisions
 

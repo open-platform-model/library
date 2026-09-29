@@ -65,6 +65,19 @@ type RenderInput struct {
 	// a frontend sets it for a developer's checkout, never for an artifact
 	// it did not author.
 	LocalReplacements bool
+
+	// SkipUnprovided renders what the platform can when a component demands
+	// a provider-fulfilled contract that no enabled catalog provides (zero
+	// providers). Off, the default, refuses such a render as always. On, a
+	// skipped trait demand leaves its component rendering every pair it
+	// matched; a skipped resource demand omits the whole component (a partly
+	// satisfied component never renders) without reporting it unmatched.
+	// Every skipped demand is a row on [RenderDiagnostics.Skipped]. Every
+	// other refusal stands: a catalog-fulfilled unresolved demand, a
+	// provider that exists but did not match, an over-subscribed contract,
+	// an unmatched component. The decision is made inside the build, so the
+	// render module's own gate agrees with the kernel under both values.
+	SkipUnprovided bool
 }
 
 // Compiled is the terminal output of an OPM render: [Kernel.Render] emits
@@ -132,10 +145,11 @@ type ResolvedVersion struct {
 // full verdict set. Every field is a row the build emitted, in the build's
 // order; the kernel derives, joins and re-sorts nothing.
 //
-// It also holds the two advisory facts a render can report, as rows rather
-// than as messages: an unhandled optional trait is on UnhandledTraits, and a
+// It also holds the three advisory facts a render can report, as rows rather
+// than as messages: an unhandled optional trait is on UnhandledTraits, a
 // module requiring a newer build than the platform carries is a
-// ResolvedVersions row with Newer set. A frontend words both.
+// ResolvedVersions row with Newer set, and a demand skipped under
+// [RenderInput.SkipUnprovided] is a Skipped row. A frontend words all three.
 type RenderDiagnostics struct {
 	// Pairs is the matched pair set in build order.
 	Pairs []RenderPair
@@ -148,6 +162,13 @@ type RenderDiagnostics struct {
 	// an empty bucket (Disqualified empty, Alternatives naming same-base
 	// keys the platform does implement) or every candidate disqualified.
 	Unresolved []oerrors.UnresolvedDemand
+
+	// Skipped is every demand the render skipped under
+	// [RenderInput.SkipUnprovided], in build order (every component's
+	// resource rows, then every component's trait rows). Always empty when
+	// the switch is off. Advisory: a skipped demand never refuses, and a
+	// frontend words it.
+	Skipped []SkippedDemand
 
 	// Unify is every candidate the always-unify rung disqualified, one row
 	// per (component, transformer) carrying the FQNs it conflicted at. The
@@ -177,6 +198,33 @@ type RenderDiagnostics struct {
 	// words (an instance replacement the platform's list made inert is not
 	// here, so a frontend computes the inert set from its own file).
 	Replacements []Replacement
+}
+
+// SkippedDemand is one provider-fulfilled demand skipped under
+// [RenderInput.SkipUnprovided] because nothing on the platform provides it.
+// Data, like every diagnostics row.
+type SkippedDemand struct {
+	// Component is the demanding component.
+	Component string
+
+	// FQN is the demanded contract key.
+	FQN string
+
+	// Kind is "resource" or "trait".
+	Kind string
+
+	// DefinedBy is the registry key of the enabled catalog listing the key
+	// in its contract maps; empty when none does.
+	DefinedBy string
+
+	// Alternatives is the same-base contract-key set the platform does
+	// implement at another apiVersion, in the build's ladder order.
+	Alternatives []string
+
+	// ComponentOmitted is true on every skipped row of a component that
+	// rendered nothing because it has a skipped resource demand, trait rows
+	// included, so a frontend can say "not rendered" once per component.
+	ComponentOmitted bool
 }
 
 // Replacement is one honoured local replacement: the replaced major-qualified
@@ -264,7 +312,10 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, in.LocalReplacements)
+	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, renderstage.StageOptions{
+		LocalReplacements: in.LocalReplacements,
+		SkipUnprovided:    in.SkipUnprovided,
+	})
 	if err != nil {
 		return none, nil, fmt.Errorf("staging render module: %w", err)
 	}

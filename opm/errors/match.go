@@ -68,13 +68,22 @@ type UnresolvedDemand struct {
 	// enabled catalog lists it. Diagnostic only: its presence or absence
 	// never changes whether the demand refuses.
 	DefinedBy string
+
+	// Unprovided is true when the demanded contract is provider-fulfilled
+	// and no enabled catalog provides it (no enabled registry entry carries
+	// a transformer requiring the key): exactly the demands
+	// kernel.RenderInput.SkipUnprovided would skip. Computed inside the
+	// build on every render, whatever the switch says.
+	Unprovided bool
 }
 
 // describe renders one unresolved demand as a line of an aggregate's
 // message, wording one of three cases: implemented at a different apiVersion
 // (alternatives listed, the defining catalog named when one lists the key);
 // defined by a named catalog and implemented by nothing; or no enabled
-// catalog defines the contract at all.
+// catalog defines the contract at all. An unprovided row adds that the
+// contract is provider-fulfilled and nothing on the platform provides it,
+// after the case text and before any disqualified-candidate count.
 func (d UnresolvedDemand) describe() string {
 	msg := fmt.Sprintf("component %q: unresolved %s demand %q", d.Component, d.Kind, d.FQN)
 	switch {
@@ -86,6 +95,9 @@ func (d UnresolvedDemand) describe() string {
 		msg += fmt.Sprintf(": defined by %q and nothing on this platform implements it", d.DefinedBy)
 	default:
 		msg += ": no enabled catalog defines this contract"
+	}
+	if d.Unprovided {
+		msg += "; provider-fulfilled, no provider on this platform"
 	}
 	if len(d.Disqualified) > 0 {
 		msg += fmt.Sprintf("; %d candidate(s) disqualified", len(d.Disqualified))
