@@ -18,6 +18,7 @@ type glueDiagnostics struct {
 	Pairs          []gluePair                       `json:"pairs"`
 	Unmatched      []oerrors.UnmatchedComponent     `json:"unmatched"`
 	Unresolved     []oerrors.UnresolvedDemand       `json:"unresolved"`
+	Skipped        []SkippedDemand                  `json:"skipped"`
 	Warnings       []glueDemand                     `json:"warnings"`
 	UnifyFailures  []oerrors.UnifyRefusal           `json:"unifyFailures"`
 	OverSubscribed []oerrors.OverSubscribedContract `json:"overSubscribed"`
@@ -74,6 +75,7 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacemen
 		Pairs:            pairsOf(g.Pairs),
 		Unmatched:        g.Unmatched,
 		Unresolved:       g.Unresolved,
+		Skipped:          g.Skipped,
 		Unify:            g.UnifyFailures,
 		OverSubscribed:   g.OverSubscribed,
 		UnhandledTraits:  map[string][]string{},

@@ -2,6 +2,7 @@ package errors_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -109,6 +110,55 @@ func TestUnresolvedDemand_ThreeCases(t *testing.T) {
 			assert.NotContains(t, msg, tc.absent)
 		})
 	}
+}
+
+// single-build-render spec, "An unprovided row says so" and "A
+// catalog-fulfilled row is not marked": the suffix follows each of the three
+// case texts, precedes the disqualified count, and is absent when the row is
+// not unprovided.
+func TestUnresolvedDemand_UnprovidedSuffix(t *testing.T) {
+	const (
+		cat    = "example.com/catalogs/main@v1"
+		suffix = "; provider-fulfilled, no provider on this platform"
+	)
+	cases := []struct {
+		name string
+		row  oerrors.UnresolvedDemand
+		want string
+	}{
+		{
+			name: "defined by a catalog, implemented by nothing",
+			row:  oerrors.UnresolvedDemand{Component: "db", FQN: "example.com/t/snapshot@v1", Kind: "trait", DefinedBy: cat, Unprovided: true},
+			want: `component "db": unresolved trait demand "example.com/t/snapshot@v1": defined by "example.com/catalogs/main@v1" and nothing on this platform implements it` + suffix,
+		},
+		{
+			name: "implemented at a different apiVersion",
+			row:  oerrors.UnresolvedDemand{Component: "db", FQN: "example.com/t/snapshot@v1", Kind: "trait", DefinedBy: cat, Alternatives: []string{"example.com/t/snapshot@v2"}, Unprovided: true},
+			want: `implemented at a different apiVersion (alternatives: [example.com/t/snapshot@v2])` + suffix,
+		},
+		{
+			name: "no enabled catalog defines it",
+			row:  oerrors.UnresolvedDemand{Component: "db", FQN: "example.com/t/snapshot@v1", Kind: "trait", Unprovided: true},
+			want: `no enabled catalog defines this contract` + suffix,
+		},
+		{
+			name: "before the disqualified count",
+			row: oerrors.UnresolvedDemand{Component: "db", FQN: "example.com/t/snapshot@v1", Kind: "trait", DefinedBy: cat, Unprovided: true,
+				Disqualified: []oerrors.UnifyRefusal{{Component: "db", Transformer: "cat/t/snapshot@0.1.0"}}},
+			want: `nothing on this platform implements it` + suffix + `; 1 candidate(s) disqualified`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := (&oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{tc.row}}).Error()
+			assert.Contains(t, msg, tc.want)
+		})
+	}
+
+	plain := oerrors.UnresolvedDemand{Component: "db", FQN: "example.com/t/backup@v1", Kind: "trait", DefinedBy: cat}
+	msg := (&oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{plain}}).Error()
+	assert.NotContains(t, msg, "provider-fulfilled", "no suffix when the row is not unprovided")
+	assert.True(t, strings.HasSuffix(msg, "nothing on this platform implements it"), "the existing tail is unchanged: %s", msg)
 }
 
 func TestUnresolvedDemandsError_CarriesRowsAndWrapsNothing(t *testing.T) {

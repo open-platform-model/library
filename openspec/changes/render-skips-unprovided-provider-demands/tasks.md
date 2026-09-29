@@ -14,9 +14,9 @@
 
 ## 2. Kernel API: the switch, the skipped rows and the unprovided marker
 
-- [ ] 2.1 `opm/errors/match.go`: add `UnresolvedDemand.Unprovided` with its doc comment. In `describe()`, append `; provider-fulfilled, no provider on this platform` to an unprovided row after the case text and before the disqualified count; every existing tail is unchanged. Verify with new cases in `opm/errors/match_test.go`: the suffix for each of the three case texts, its placement before `; <n> candidate(s) disqualified`, and no suffix when `Unprovided` is false.
-- [ ] 2.2 `opm/kernel/render.go`: add `RenderInput.SkipUnprovided`, passed to `Stage`; add `SkippedDemand` and `RenderDiagnostics.Skipped`, and extend the `RenderDiagnostics` doc to name skipped demands as the third advisory fact. In `opm/kernel/render_decode.go`, decode `diagnostics.skipped` into `glueDiagnostics` and copy it onto the diagnostics as emitted. `gateErrors` is unchanged. Verify with `go build ./...` and `go vet ./...`.
-- [ ] 2.3 `opm/kernel/render_skip_test.go`: one test per scenario in `specs/single-build-render/spec.md`, "A caller may skip unprovided provider-fulfilled demands":
+- [x] 2.1 `opm/errors/match.go`: add `UnresolvedDemand.Unprovided` with its doc comment. In `describe()`, append `; provider-fulfilled, no provider on this platform` to an unprovided row after the case text and before the disqualified count; every existing tail is unchanged. Verify with new cases in `opm/errors/match_test.go`: the suffix for each of the three case texts, its placement before `; <n> candidate(s) disqualified`, and no suffix when `Unprovided` is false.
+- [x] 2.2 `opm/kernel/render.go`: add `RenderInput.SkipUnprovided`, passed to `Stage`; add `SkippedDemand` and `RenderDiagnostics.Skipped`, and extend the `RenderDiagnostics` doc to name skipped demands as the third advisory fact. In `opm/kernel/render_decode.go`, decode `diagnostics.skipped` into `glueDiagnostics` and copy it onto the diagnostics as emitted. `gateErrors` is unchanged. Verify with `go build ./...` and `go vet ./...`.
+- [x] 2.3 `opm/kernel/render_skip_test.go`: one test per scenario in `specs/single-build-render/spec.md`, "A caller may skip unprovided provider-fulfilled demands":
   - switch off: refuses, and the snapshot row is marked;
   - snapshot skipped: `app` renders, and `Skipped` holds one trait row with `DefinedBy` set to the fixture catalog's registry key;
   - ledger component omitted: no `Compiled` entry for `ledger`, the healthy sibling renders, and the omission flag is set on every `ledger` row;
@@ -26,7 +26,7 @@
   - `assertGateAgrees` under both switch values.
 
   Add a scenario to `render_definedby_test.go` for the unprovided message suffix. Verify with `go test ./opm/kernel/... -race`.
-- [ ] 2.4 `task check` green, then commit `feat(kernel): let a render skip unprovided provider-fulfilled demands`.
+- [x] 2.4 `task check` green, then commit `feat(kernel): let a render skip unprovided provider-fulfilled demands`.
 
 ## 3. Docs and the consumer check
 
