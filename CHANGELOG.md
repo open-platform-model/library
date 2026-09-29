@@ -3,6 +3,11 @@
 ## [1.0.0-alpha.34](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.33...v1.0.0-alpha.34) (2026-09-29)
 
 
+### Features
+
+* **kernel:** let a render skip unprovided provider-fulfilled demands ([#141](https://github.com/open-platform-model/library/issues/141)) ([fc1aafd](https://github.com/open-platform-model/library/commit/fc1aafd2bf0b855f6ef97dc6c526f2ccd4db6fbe))
+
+
 ### Documentation
 
 * **openspec:** allow NNNN:DN:Rn enhancement requirement citations ([b6dbc6b](https://github.com/open-platform-model/library/commit/b6dbc6bfd85aa13bd32e3a7fb1fdb617d3c0ea08))
