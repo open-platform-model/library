@@ -149,10 +149,10 @@ tracked in the supervisor log after archive, never ticked in the archived file.
 
 ## 4. Verify and archive
 
-- [ ] 4.1 Whole-tree gates on the final tree against GHCR: `task check`, `task cue:check`,
+- [x] 4.1 Whole-tree gates on the final tree against GHCR: `task check`, `task cue:check`,
       `task cue:catalog:drift`, `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`, the parity and flow
       run of 1.7. Verify: all green.
-- [ ] 4.2 `openspec validate adopt-beta-release-line --strict` passes, and `/opsx:verify`
+- [x] 4.2 `openspec validate adopt-beta-release-line --strict` passes, and `/opsx:verify`
       (pointed at this worktree) reports no CRITICAL issue beyond the unchecked boxes that are
       open by design at this point (4.2 to 4.4, the release block R1 to R5, PR-GATE, G2);
       deviations go into the worker report.
