@@ -5,7 +5,7 @@ type: how-to
 weight: 21
 ---
 
-<!-- Diagnostics entry for the kernel's *UnmatchedComponentsError, the render gate's refusal for a component that no transformer matched. When the render also carries unresolved demands, both messages print together; the Unresolved demands entry covers that half. Check against: library/opm/errors/unmatched.go, library/opm/kernel/render_decode.go -->
+<!-- Diagnostics entry for the kernel's *UnmatchedComponentsError, the render gate's refusal for a component that no transformer matched. When the render also carries unresolved demands, both messages print together; the Unresolved demands entry covers that half. The gate joins this cause after colliding contracts, unresolved demands and over-subscribed contracts; under a Colliding contracts refusal, fix the collision first, since it refuses every render against the platform and its fix reshapes which transformers are enabled. Check against: library/opm/errors/unmatched.go, library/opm/kernel/render_decode.go -->
 
 ## The message
 
