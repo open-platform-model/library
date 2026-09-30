@@ -97,11 +97,11 @@ tracked in the supervisor log after archive, never ticked in the archived file.
 
 ## 2. Release line (release-please-config.json)
 
-- [ ] 2.1 `release-please-config.json`: `"prerelease-type": "beta"`; `versioning`,
+- [x] 2.1 `release-please-config.json`: `"prerelease-type": "beta"`; `versioning`,
       `prerelease` and every other key unchanged; no `release-as` key anywhere; the manifest
       is not touched. Verify: `git diff` shows exactly one changed line and
       `grep -ci release-as release-please-config.json` prints 0.
-- [ ] 2.2 `task check` green, then commit `chore(release): cut prereleases on the beta line`.
+- [x] 2.2 `task check` green, then commit `chore(release): cut prereleases on the beta line`.
 
 ## 3. Beta promise and beta migration notes (README, ADR, migrations, AGENTS, docs)
 
