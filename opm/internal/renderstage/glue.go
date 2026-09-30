@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -12,8 +13,9 @@ import (
 )
 
 // renderTemplate is the embedded glue: static matching, execution and
-// diagnostics text plus three generated slots (the two imports and the
-// runtime name literal). Nothing else is filled into the build.
+// diagnostics text plus four generated slots (the two imports, the runtime
+// name literal and the skip-unprovided switch literal). Nothing else is
+// filled into the build.
 //
 //go:embed render.cue.tmpl
 var renderTemplate string
@@ -38,6 +40,11 @@ type GlueInputs struct {
 	// RuntimeName is the executing runtime's identity, entering the build as
 	// a CUE string literal.
 	RuntimeName string
+
+	// SkipUnprovided is the caller's switch to skip unprovided
+	// provider-fulfilled demands, entering the build as the bool literal
+	// the matching verdicts and the module's own gate read.
+	SkipUnprovided bool
 }
 
 // RenderGlue renders the glue file for the given inputs. Caller-supplied
@@ -54,10 +61,12 @@ func RenderGlue(in GlueInputs) ([]byte, error) {
 		InstanceImport string
 		PlatformImport string
 		RuntimeName    string
+		SkipUnprovided string
 	}{
 		InstanceImport: literal.String.Quote(in.InstancePath),
 		PlatformImport: literal.String.Quote(in.PlatformPath),
 		RuntimeName:    literal.String.Quote(in.RuntimeName),
+		SkipUnprovided: strconv.FormatBool(in.SkipUnprovided),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("rendering glue: %w", err)

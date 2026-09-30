@@ -29,8 +29,8 @@ import (
 // The render fixtures (testdata/render): a catalog and a module served by the
 // in-process registry, an on-disk 0019:D5 platform importing the catalog, an
 // on-disk instance importing the module, and one scenario instance package
-// per outcome. Every fixture cue.mod pins core 2.0.0-alpha.10 (the 0019:D5/D17
-// prerelease) explicitly.
+// per outcome. Every fixture cue.mod pins core 2.0.0-alpha.13 (the release
+// schema.DefaultSchemaModule pins) explicitly.
 const (
 	renderPrefix  = "testing.opmodel.dev/library-render"
 	renderCatPath = renderPrefix + "/cat"
@@ -154,7 +154,7 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 	// path is instance-only (the platform does not list it), so its row
 	// carries no platform version.
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
 		{Path: renderModPath + "@v0", ModuleVersion: "v0.1.0"},
 	}, res.Diagnostics.ResolvedVersions)
@@ -203,7 +203,7 @@ func TestRender_OverlayModeInstance(t *testing.T) {
 	// The instance's own dependency list (the module's tidied cue.mod)
 	// carries the catalog and the core pin; both are rows, neither is skew.
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
 	}, res.Diagnostics.ResolvedVersions)
 }
@@ -488,7 +488,7 @@ func TestRender_Skew_NewerModuleWarnsByDefault(t *testing.T) {
 	require.NoError(t, err, "warn-and-render is the default")
 	assertGateAgrees(t, built, false)
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.2.0", PlatformVersion: "v0.1.0", Newer: true},
 	}, res.Diagnostics.ResolvedVersions)
 	// The platform's bytes executed: every transformer FQN carries 0.1.0.
@@ -523,7 +523,7 @@ func TestRender_Skew_OlderModuleIsData(t *testing.T) {
 	require.NoError(t, err, "older-than-platform is not skew, even under the refuse policy")
 	assertGateAgrees(t, built, false)
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.2.0"},
 	}, res.Diagnostics.ResolvedVersions)
 	for _, p := range res.Diagnostics.Pairs {
@@ -574,8 +574,8 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	assert.NotSame(t, plat.Package.Context(), first.Compiled[0].Value.Context(), "the platform's context is the acquire's, not the render's") //nolint:staticcheck // same
 }
 
-// The single-provider guard in-build (0010:D32/D37; library-render-cutover).
-// platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
+// The single-provider guard in-build (0010:D32/D37; library-render-cutover),
+// reading core's #contracts.providedBy count. platform_oversubscribed carries cat 0.1.0 and cat2 0.2.0, which both ship
 // a transformer requiring cat's provider-fulfilled gateway contract.
 func TestRender_OverSubscribedProviderRefused(t *testing.T) {
 	k := newRenderKernel(t)
@@ -903,7 +903,7 @@ func instanceImportingLib(t *testing.T, libDir string) string {
 		"cue.mod/module.cue": `module: "` + renderPrefix + `/instance@v0"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.10"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.13"
 	"` + libModulePath + `": {}
 	"` + renderCatPath + `@v0": v: "v0.1.0"
 	"` + renderModPath + `@v0": v: "v0.1.0"
@@ -989,7 +989,7 @@ func TestRender_PlatformLocalReplacementRendersTheDirectory(t *testing.T) {
 	assert.Equal(t, []kernel.Replacement{{Path: renderCatPath + "@v0", Target: catDir, By: "platform"}}, res.Diagnostics.Replacements)
 	// The replaced path keeps its pinned versions on the resolved rows.
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
 		{Path: renderModPath + "@v0", ModuleVersion: "v0.1.0"},
 	}, res.Diagnostics.ResolvedVersions)
@@ -1056,7 +1056,7 @@ func TestRender_InstanceReplacementOnPlatformPathIsInert(t *testing.T) {
 	assert.Equal(t, []kernel.Replacement{{Path: libModulePath, Target: libDir, By: "instance"}}, res.Diagnostics.Replacements,
 		"no row names the platform-named path")
 	assert.Equal(t, []kernel.ResolvedVersion{
-		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.10", PlatformVersion: "v2.0.0-alpha.10"},
+		{Path: "opmodel.dev/core@v2", ModuleVersion: "v2.0.0-alpha.13", PlatformVersion: "v2.0.0-alpha.13"},
 		{Path: renderCatPath + "@v0", ModuleVersion: "v0.1.0", PlatformVersion: "v0.1.0"},
 		{Path: renderModPath + "@v0", ModuleVersion: "v0.1.0"},
 	}, res.Diagnostics.ResolvedVersions)

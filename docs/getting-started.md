@@ -48,12 +48,12 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCach
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-alpha.10",
+    Module: "opmodel.dev/core@v2.0.0-alpha.12",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
-// → "v2.0.0-alpha.10"
+// → "v2.0.0-alpha.12"
 ```
 
 ## Acquire a module
@@ -219,10 +219,12 @@ if err != nil {
     if errors.As(err, &rerr) {
         // The build ran and the fail-closed gate refused: rerr.Diagnostics
         // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
-        // UnhandledTraits, OverSubscribed, ResolvedVersions) and rerr.Err the
-        // typed cause (*oerrors.UnresolvedDemandsError,
-        // *oerrors.UnmatchedComponentsError, *oerrors.OverSubscribedContractsError,
-        // *oerrors.TransformError), reachable through errors.As.
+        // UnhandledTraits, OverSubscribed, Collisions, Routable,
+        // ResolvedVersions) and rerr.Err the typed causes, joined in gate
+        // order (*oerrors.ContractCollisionsError,
+        // *oerrors.UnresolvedDemandsError, *oerrors.OverSubscribedContractsError,
+        // *oerrors.UnmatchedComponentsError, *oerrors.NotRoutableError) or
+        // *oerrors.TransformError, each reachable through errors.As.
         var unmatched *oerrors.UnmatchedComponentsError
         if errors.As(rerr.Err, &unmatched) {
             // unmatched.Components: one row per component, each carrying its

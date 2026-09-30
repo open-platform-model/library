@@ -54,6 +54,8 @@ func TestRender_DefinedCatalogNamedOnUnresolvedRow(t *testing.T) {
 	assert.Empty(t, backup.Alternatives)
 	assert.Contains(t, agg.Error(),
 		`component "orphan": unresolved trait demand "`+renderCatPath+`/traits/backup@v1": defined by "`+renderCatKey+`" and nothing on this platform implements it`)
+	assert.False(t, backup.Unprovided, "a catalog-fulfilled row is not marked")
+	assert.NotContains(t, agg.Error(), "provider-fulfilled")
 
 	orphan := byFQN[renderCatPath+"/resources/orphan@v1"]
 	assert.Equal(t, renderCatKey, orphan.DefinedBy)
@@ -87,6 +89,7 @@ func TestRender_UnlistedDemandNamesNoCatalog(t *testing.T) {
 	assert.Empty(t, d.DefinedBy, "no enabled catalog lists the key")
 	assert.Empty(t, d.Alternatives)
 	assert.Empty(t, d.Disqualified)
+	assert.Empty(t, d.Colliding, "no collision: nothing lists the key")
 	assert.Contains(t, agg.Error(),
 		`component "stray": unresolved resource demand "`+renderPrefix+`/elsewhere/resources/stray@v1": no enabled catalog defines this contract`)
 	assert.NotContains(t, agg.Error(), "defined by")
@@ -125,7 +128,37 @@ func TestRender_DisabledCatalogDefinesNothing(t *testing.T) {
 		require.True(t, ok, "unresolved row for %s", fqn)
 		assert.Empty(t, d.DefinedBy, "%s is listed by a disabled entry only", fqn)
 		assert.Empty(t, d.Alternatives, "%s: the disabled catalog's transformers are not candidates", fqn)
+		assert.Empty(t, d.Colliding, "%s: a disabled entry takes no part in a collision", fqn)
 	}
 	assert.Contains(t, agg.Error(), "no enabled catalog defines this contract")
 	assert.NotContains(t, agg.Error(), "defined by")
+}
+
+// "An unprovided row says so": the provider-fulfilled snapshot trait the
+// providers catalog lists and nothing requires is marked unprovided, and its
+// message names the defining catalog and then says no provider is on the
+// platform. "A catalog-fulfilled row is not marked" is asserted on the
+// missing scenario's backup row in TestRender_DefinedCatalogNamedOnUnresolvedRow.
+func TestRender_UnprovidedRowSaysSo(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform_providers")
+	inst := acquireRenderInstance(t, k, "scenarios", "unprovided")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var agg *oerrors.UnresolvedDemandsError
+	require.ErrorAs(t, err, &agg)
+
+	var snap *oerrors.UnresolvedDemand
+	for i, d := range agg.Demands {
+		if d.Component == "app" && d.FQN == snapshotFQN {
+			snap = &agg.Demands[i]
+		}
+	}
+	require.NotNil(t, snap)
+	assert.True(t, snap.Unprovided)
+	assert.Equal(t, renderProvidersKey, snap.DefinedBy)
+	assert.Contains(t, agg.Error(),
+		`component "app": unresolved trait demand "`+snapshotFQN+`": defined by "`+renderProvidersKey+`" and nothing on this platform implements it; provider-fulfilled, no provider on this platform`)
 }

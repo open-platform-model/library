@@ -2,6 +2,7 @@
 
 ## Purpose
 The render path as one CUE build per render: the kernel stages the instance and platform source trees into a generated render module, evaluates it once in a context that dies with the render, and reads matching verdicts and rendered output off the built value. Covers input requirements, the promoted dependency list and its refusal invariant, version-skew detection and policy, in-build matching, and decode.
+
 ## Requirements
 
 ### Requirement: Render inputs are source-carrying artifacts
@@ -127,7 +128,7 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 ### Requirement: Matching runs inside the build with verdicts as data
 
-The generated glue SHALL express matching over the platform's derived `#composedTransformers` with the verdicts as data fields the kernel decodes into the structured diagnostic types without deriving, joining, grouping or re-sorting them: the matched pair set; every unresolved demand with the same-base alternatives the platform implements (sorted in the build on the `alpha < beta < GA`, then major, then minor apiVersion ladder) and each disqualified candidate with the FQNs it conflicted at; every candidate the always-unify rung refused, with its conflicting FQNs; every unmatched component with every candidate the demand walk reached for it and, for a predicate refusal, the required labels the component lacked or carried with a different value; the unhandled-trait table; the over-subscription rows. Matching semantics are those of the render-parity oracle: the pair set the glue reports SHALL equal the pair set plain predicate matching over the same inputs produces (`render-parity`, "Matched pair sets agree"). The always-unify rung SHALL be plain unification with no provenance exclusion. The fail-closed demand gate SHALL hold: an unresolved demand or unmatched component refuses the render while the diagnostics remain readable and decoded; an effectively-optional unhandled trait is reported on the diagnostics' unhandled-trait table; an unhandled trait with an UNSTATED optional posture refuses as a build error naming the trait's own `optional` field.
+The generated glue SHALL express matching over the platform's derived `#composedTransformers` with the verdicts as data fields the kernel decodes into the structured diagnostic types without deriving, joining, grouping or re-sorting them: the matched pair set; every unresolved demand with the same-base alternatives the platform implements (sorted in the build on the `alpha < beta < GA`, then major, then minor apiVersion ladder), its unprovided marker, and each disqualified candidate with the FQNs it conflicted at; every demand skipped under the caller's switch (see "A caller may skip unprovided provider-fulfilled demands"); every candidate the always-unify rung refused, with its conflicting FQNs; every unmatched component with every candidate the demand walk reached for it and, for a predicate refusal, the required labels the component lacked or carried with a different value; the unhandled-trait table; the over-subscription rows. Matching semantics are those of the render-parity oracle: with the skip switch off, the pair set the glue reports SHALL equal the pair set plain predicate matching over the same inputs produces (`render-parity`, "Matched pair sets agree"); with it on, the reported pair set SHALL be that set minus every pair of an omitted component. The always-unify rung SHALL be plain unification with no provenance exclusion. The fail-closed demand gate SHALL hold: an unresolved demand that was not skipped, or an unmatched component that was not omitted, refuses the render while the diagnostics remain readable and decoded; an effectively-optional unhandled trait is reported on the diagnostics' unhandled-trait table; an unhandled trait with an UNSTATED optional posture refuses as a build error naming the trait's own `optional` field.
 
 #### Scenario: Verdicts decode beside a failing gate
 
@@ -148,6 +149,11 @@ The generated glue SHALL express matching over the platform's derived `#composed
 
 - **WHEN** a candidate's required primitive body conflicts with the component's body at two FQNs
 - **THEN** the diagnostics carry one unify-refusal row for that (component, transformer) listing both FQNs, and the demand's disqualified list names the same transformer with the same FQNs
+
+#### Scenario: An omitted component leaves the pair set
+
+- **WHEN** the skip switch is on and a component is omitted for an unprovided resource demand while its other resources match transformers
+- **THEN** the reported pair set carries no pair of that component, and no rendered output is decoded for it
 
 ### Requirement: Rendered output decodes with provenance and per-pair concreteness
 
@@ -184,7 +190,9 @@ On a passing gate, `Render` SHALL decode `rendered` into `[]*kernel.Compiled`, e
 
 ### Requirement: The single-provider guard runs inside the build
 
-The generated glue SHALL compute, over the platform's enabled `#registry` entries, every contract key declared `fulfilment: "provider"` on a required demand (`requiredResources` and `requiredTraits`) of any transformer in an entry's `#transformers`, and the set of registry keys (the catalog module paths, bound by core to each entry's `#catalog.metadata.modulePath`) whose transformers require it. Provenance is the registry key, never a value parsed out of an FQN or read off the transformer. A key supplied by more than one registry entry SHALL be reported as an over-subscription row naming the key and every registry key, and SHALL refuse the render through the fail-closed gate with one typed over-subscription cause carrying every such row. Keys with default (`catalog`) fulfilment MAY be supplied by any number of transformers from any number of catalogs.
+The generated glue SHALL read the platform's provider count from core's derived contract inventory and SHALL NOT compute a count of its own. The count is `#Platform.#contracts.providedBy`: for every contract key declared `fulfilment: "provider"` on a required demand (`requiredResources` and `requiredTraits`) of any transformer of an enabled `#registry` entry, the sorted registry keys (the catalog module paths with their major, bound by core to each entry's `#catalog.metadata.modulePath`) of the entries whose transformers require it, whether or not any enabled entry defines the contract. Provenance is the registry key, never a value parsed out of an FQN or read off the transformer, so two majors of one catalog are two providers and two transformers of one entry are one. Every key core lists in `#contracts.overSubscribed` SHALL be reported as an over-subscription row naming the key and the registry keys `providedBy` holds for it, and the render SHALL refuse through the fail-closed gate with one typed over-subscription cause carrying every such row. The rows SHALL be built by iterating `providedBy` unconditionally, so a platform value lacking it fails the build instead of reading as zero providers. Keys with default (`catalog`) fulfilment MAY be supplied by any number of transformers from any number of catalogs. Because both the render and the platform's `Contracts()` read this one count, a render SHALL refuse on over-subscription exactly when the platform's inventory reads a non-empty `OverSubscribed`; `Routable` reads false exactly when the render carries an over-subscription row or a collision row.
+
+Source: 0010:D37 and 0015:D2/D18, as recounted by core change `count-providers-per-registry-entry`.
 
 #### Scenario: Second provider refused in-build
 
@@ -196,14 +204,29 @@ The generated glue SHALL compute, over the platform's enabled `#registry` entrie
 - **WHEN** many transformers across catalogs require a contract with default fulfilment
 - **THEN** the render proceeds and every candidate participates in matching
 
+#### Scenario: Two majors of one provider catalog are two providers
+
+- **WHEN** the platform enables `cat@v0` and `cat@v1`, and a transformer of each requires `cat@v0`'s provider-fulfilled gateway contract
+- **THEN** `Render` fails with one over-subscription row naming the gateway key and the registry keys `cat@v0` and `cat@v1`, and the platform's `Contracts()` reads the same key in `OverSubscribed` and `Routable` false
+
+#### Scenario: Providers count when the defining catalog is disabled
+
+- **WHEN** the platform carries the defining `cat@v0` entry with `enable: false` and enables `cat2` 0.2.0 and `cat@v1`, whose transformers both require the gateway contract
+- **THEN** `Render` fails with one over-subscription row naming the gateway key and the registry keys `cat2@v0` and `cat@v1`, and the platform's `Contracts()` reads the same key in `OverSubscribed` and `Routable` false
+
+#### Scenario: Inventory and render agree on every served platform
+
+- **WHEN** the parity test acquires every served render platform (each `testdata/render/platform*` directory), reads `Contracts()` and renders that platform's classified instance fixture against it
+- **THEN** the sorted `OverSubscribed` list equals the keys of the render's over-subscription rows, every row's registry keys equal `ProvidedBy` for its key, `Routable` is true exactly when the render carries neither an over-subscription row nor a collision row, and the decoded routable diagnostic equals `Routable`, whether or not the render also refuses for an unrelated reason
+
 ### Requirement: Unresolved demands are diagnosed with alternatives
 
-Every resource a component declares is a required demand. A demanded contract for which the platform holds no candidate, or for which every candidate is disqualified (by unification or by predicate), SHALL be reported as an unresolved-demand row carrying the component, the contract key, the kind, the same-base alternatives the platform does implement (sorted in the build on the apiVersion ladder, so the row is deterministic), the registry key of the enabled catalog that lists the demanded key in its contract maps (empty when no enabled catalog lists it; read inside the build from the platform's derived contract inventory, never parsed off the FQN), and, when candidates existed, each disqualified candidate's transformer with the FQNs it conflicted at. `Render` SHALL fail on any unresolved demand through the typed gate cause while returning the full diagnosis. The row SHALL distinguish three cases: "defined by `<catalog>` and nothing on this platform implements it" (defining catalog named, no alternatives), "implemented at a different apiVersion" (alternatives listed), and "no enabled catalog defines this contract" (no defining catalog, no alternatives). The defining catalog is diagnostic only (enhancement 0015 D18): its presence or absence SHALL NOT change whether the demand refuses.
+Every resource a component declares is a required demand. A demanded contract for which the platform holds no candidate, or for which every candidate is disqualified (by unification or by predicate), SHALL be reported as an unresolved-demand row carrying the component, the contract key, the kind, the same-base alternatives the platform does implement (sorted in the build on the apiVersion ladder, so the row is deterministic), the registry key of the enabled catalog that lists the demanded key in its contract maps (empty when no enabled catalog lists it, or when more than one does; read inside the build from the platform's derived contract inventory, never parsed off the FQN), the registry keys of the enabled entries defining the key when it is a collision (read from `#contracts.collidingEntries` when the platform carries it, empty otherwise), whether the demand is unprovided (its contract declares `fulfilment: "provider"` and no enabled registry entry carries a transformer requiring the key), and, when candidates existed, each disqualified candidate's transformer with the FQNs it conflicted at. The unprovided marker SHALL be computed on every render, whatever the skip switch says. `Render` SHALL fail on any unresolved demand that the caller's switch did not skip, through the typed gate cause, while returning the full diagnosis. The row SHALL distinguish four cases: "defined by `<catalog>` and nothing on this platform implements it" (defining catalog named, no alternatives), "implemented at a different apiVersion" (alternatives listed), "defined by more than one enabled registry entry" (no alternatives, the colliding entries named), and "no enabled catalog defines this contract" (no defining catalog, no colliding entries, no alternatives). An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and nothing on the platform provides it, after the case text and before any disqualified-candidate count. The defining catalog and the colliding entries are diagnostic only (enhancement 0015 D18): their presence or absence SHALL NOT change whether the demand refuses.
 
 #### Scenario: Undemandable resource fails the render
 
 - **WHEN** a component demands a resource contract no embedded catalog implements or lists
-- **THEN** `Render` fails with an unresolved-demands cause whose row names the component and key with no alternatives and no defining catalog, and the message says no enabled catalog defines the contract
+- **THEN** `Render` fails with an unresolved-demands cause whose row names the component and key with no alternatives, no defining catalog and no colliding entries, and the message says no enabled catalog defines the contract
 
 #### Scenario: Different apiVersion named
 
@@ -218,7 +241,22 @@ Every resource a component declares is a required demand. A demanded contract fo
 #### Scenario: A disabled catalog defines nothing
 
 - **WHEN** the only catalog listing the demanded key is a registry entry with `enable: false`
-- **THEN** the unresolved-demand row carries no defining catalog
+- **THEN** the unresolved-demand row carries no defining catalog and no colliding entries
+
+#### Scenario: An unprovided row says so
+
+- **WHEN** a component attaches a load-bearing trait whose contract an enabled catalog lists and declares `fulfilment: "provider"`, no transformer on the platform requires it, and the skip switch is off
+- **THEN** the unresolved-demand row is marked unprovided, and its message names the defining catalog and then states that the contract is provider-fulfilled and nothing on the platform provides it
+
+#### Scenario: A catalog-fulfilled row is not marked
+
+- **WHEN** a component attaches a load-bearing trait with default (`catalog`) fulfilment that no transformer handles
+- **THEN** the unresolved-demand row is not marked unprovided, and its message carries no provider-fulfilled text
+
+#### Scenario: A colliding contract row names its entries
+
+- **WHEN** a component's demand on a colliding platform goes unresolved on a key two enabled entries define
+- **THEN** the row carries no defining catalog, carries the colliding registry keys, and its message says the contract is defined by more than one enabled registry entry and names them, never that no enabled catalog defines it
 
 ### Requirement: Trait posture governs unhandled traits
 
@@ -242,9 +280,10 @@ The predicate rung SHALL evaluate a transformer's `requiredLabels` against the c
 
 - **WHEN** a transformer requires a label whose value is a non-string type the schema admits and the component carries a different value
 - **THEN** the candidate is disqualified rather than silently skipped
+
 ### Requirement: A render result carries no presentation strings
 
-A render result and a render refusal SHALL expose verdicts as structured rows only. The kernel SHALL NOT attach human-readable warning or advisory messages to a result; every advisory fact (an unhandled optional trait, a module requiring a newer build than the platform carries) SHALL be readable from the diagnostics rows, and the diagnostics type SHALL document where each advisory fact lives. Each typed gate cause (unresolved demands, unmatched components, over-subscribed contracts) SHALL carry the same rows the diagnostics carry, in the same order, and SHALL NOT synthesize causes of another kind.
+A render result and a render refusal SHALL expose verdicts as structured rows only. The kernel SHALL NOT attach human-readable warning or advisory messages to a result; every advisory fact (an unhandled optional trait, a module requiring a newer build than the platform carries, a demand skipped under the caller's switch) SHALL be readable from the diagnostics rows, and the diagnostics type SHALL document where each advisory fact lives. Each row-carrying typed gate cause (colliding contracts, unresolved demands, unmatched components, over-subscribed contracts) SHALL carry the same rows the diagnostics carry, in the same order, and SHALL NOT synthesize causes of another kind. The not-routable cause carries no rows: it is raised only from the decoded routable diagnostic.
 
 #### Scenario: Advisory facts are rows
 
@@ -253,19 +292,136 @@ A render result and a render refusal SHALL expose verdicts as structured rows on
 
 #### Scenario: A gate cause is the diagnostics rows
 
-- **WHEN** `Render` refuses on two unresolved demands
-- **THEN** the unresolved-demands cause reachable through `errors.As` carries exactly the two rows the refusal's diagnostics carry, and unwrapping it yields no cause of a different kind
+- **WHEN** `Render` refuses on two unresolved demands, or on a platform with colliding contracts
+- **THEN** the unresolved-demands cause, or the collision cause, reachable through `errors.As` carries exactly the rows the refusal's diagnostics carry, and unwrapping it yields no cause of a different kind
+
+#### Scenario: A skipped demand is a row
+
+- **WHEN** a render succeeds under the skip switch with one skipped trait demand
+- **THEN** the result exposes the demand as a skipped-demand row, and no field of the result holds a formatted message for it
 
 ### Requirement: The render module's own gate agrees with the kernel's refusal
 
-The generated render module SHALL carry a `gate` field that evaluates to an error exactly when the kernel refuses the render on a decoded verdict (an unresolved demand, an unmatched component, an over-subscribed provider-fulfilled contract) and to `true` otherwise, so a staged render module refuses on its own under a plain CUE evaluation. The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed causes.
+The generated render module SHALL carry a `gate` field that evaluates to an error exactly when the kernel refuses the render on a decoded verdict (an unresolved demand, an unmatched component, an over-subscribed provider-fulfilled contract, a contract collision, or a not-routable platform) and to `true` otherwise, so a staged render module refuses on its own under a plain CUE evaluation. The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed causes, and SHALL be decided from decoded rows and the decoded routable diagnostic only, never by reading `gate`.
 
 #### Scenario: Refusal is visible in the module
 
-- **WHEN** a render refuses on an unmatched component
+- **WHEN** a render refuses on an unmatched component, or on a contract collision
 - **THEN** the built value's `gate` field is an error and the diagnostics beside it decode
 
 #### Scenario: Success is visible in the module
 
 - **WHEN** a render passes the gate
 - **THEN** the built value's `gate` field is `true`
+
+### Requirement: A caller may skip unprovided provider-fulfilled demands
+
+`Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip every **unprovided** demand: a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). With the switch off, the render's verdicts, refusals and rendered output SHALL be exactly those of a render without the switch. With the switch on:
+
+- A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it matched, and nothing SHALL render for the trait.
+- A skipped resource demand SHALL NOT refuse the render, and its component SHALL be omitted: no pair of that component SHALL render, and the component SHALL NOT be reported as unmatched. A partly satisfied component never renders.
+- Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the contract key, the kind (`resource` or `trait`), the defining catalog's registry key (empty when no enabled catalog lists the key), the same-base alternatives the platform implements, and whether the component was omitted. The omission flag SHALL be set on every skipped row of an omitted component, trait rows included.
+- Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified, an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal.
+- An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table entry, never a skipped row.
+- The generated render module SHALL carry the switch as a literal, so its own `gate` field agrees with the kernel's verdict under both values.
+
+Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+
+#### Scenario: Switch off refuses an unprovided trait as before
+
+- **WHEN** a component attaches a load-bearing trait whose contract declares `fulfilment: "provider"`, no transformer on the platform requires that contract, and the render runs with the switch off
+- **THEN** `Render` fails with an unresolved-demands cause whose row for the trait is marked unprovided, and the diagnostics carry no skipped-demand row
+
+#### Scenario: An unprovided trait is skipped and its component renders
+
+- **WHEN** the same render runs with the switch on
+- **THEN** `Render` succeeds, every pair the component matched renders, the diagnostics carry one skipped-demand row naming the component, the trait's contract key, kind `trait`, the defining catalog and an unset omission flag, and the unresolved-demand list is empty
+
+#### Scenario: An unprovided resource omits its component
+
+- **WHEN** one component declares a resource whose contract declares `fulfilment: "provider"` and has no provider on the platform, a sibling component is fully satisfied, and the render runs with the switch on
+- **THEN** `Render` succeeds, no object renders for the first component although its other resources have matching transformers, the sibling's objects render, the first component is not reported as unmatched, and its skipped-demand row carries kind `resource` and a set omission flag
+
+#### Scenario: A catalog-fulfilled demand still refuses
+
+- **WHEN** a component attaches a load-bearing trait whose contract has default (`catalog`) fulfilment and no transformer handles it, and the render runs with the switch on
+- **THEN** `Render` fails with an unresolved-demands cause carrying that row, marked not unprovided
+
+#### Scenario: A provider that exists but does not match still refuses
+
+- **WHEN** a component attaches a load-bearing, provider-fulfilled trait, one enabled catalog carries a transformer requiring it, that transformer is disqualified for the component, and the render runs with the switch on
+- **THEN** `Render` fails with an unresolved-demands cause carrying that row, marked not unprovided, and no skipped-demand row is reported for it
+
+#### Scenario: Over-subscription still refuses
+
+- **WHEN** two enabled catalogs each carry a transformer requiring the same provider-fulfilled contract and the render runs with the switch on
+- **THEN** `Render` fails with the typed over-subscription cause, exactly as with the switch off
+
+#### Scenario: The module's own gate agrees under the switch
+
+- **WHEN** a render whose only unresolved demand is unprovided runs with the switch on
+- **THEN** the built value's `gate` field is `true`, and with the switch off the same render's `gate` field is an error
+
+### Requirement: A render refuses a platform whose core predates the provider count
+
+`Kernel.Render` SHALL check, before staging, that the platform's `Package` carries `#contracts.providedBy`. When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL leave no staging directory behind and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it. The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from. The check SHALL only read the platform's `Package` (a path lookup and a presence test, never a unification or fill), so one acquired platform stays shareable, as data, across concurrent `Render` calls on one Kernel.
+
+#### Scenario: An older-core platform is refused before staging
+
+- **WHEN** a platform module identical to a served fixture but pinning core `2.0.0-alpha.10` is acquired and rendered
+- **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no render staging directory remains
+
+#### Scenario: A current-core platform is not affected
+
+- **WHEN** a platform module pinning core `2.0.0-alpha.12` or later is rendered
+- **THEN** the core floor raises no error and the render proceeds to staging
+
+#### Scenario: A platform shared by concurrent renders stays race-free
+
+- **WHEN** one acquired current-core platform is shared by several goroutines, each calling `Render` on one Kernel
+- **THEN** every render passes the core floor and produces the same objects, with no data race reported under the race detector
+
+### Requirement: A render refuses a platform whose enabled entries share contract keys
+
+The generated glue SHALL read the platform's contract collisions from core's derived contract inventory and SHALL NOT compute them: for every key in `#Platform.#contracts.collisions`, in that (ascending) order, it SHALL emit one collision row naming the key and the registry keys `#contracts.collidingEntries` holds for it (path plus major, ascending). The glue SHALL emit the rows only when the platform value carries `collisions`, and SHALL emit none otherwise: every core release carrying `#contracts` without the report fails to evaluate a platform whose enabled entries share a key, so an absent report provably means no collision. The kernel SHALL decode the rows onto the render diagnostics and SHALL refuse the render, through the fail-closed gate, with one typed collision cause carrying every row unchanged. The refusal is platform-wide: it SHALL hold for every instance and whatever the caller's skip switch says. When a render refuses for several reasons, the collision cause SHALL be the first joined cause, ahead of unresolved demands, over-subscribed contracts and unmatched components, because a colliding key is absent from `definedBy`, `requiredBy` and the comparability report and the other rows are read against a distorted inventory. The cause's message SHALL name, per row, the key, the number of enabled registry entries defining it and those entries, and SHALL say that a contract key must have exactly one enabled definer until side-by-side catalog majors are supported, so all but one of the entries must be disabled. Because the render and the platform's `Contracts()` read the same report, the render's collision rows SHALL equal the inventory's `CollidingEntries` on every platform.
+
+Source: enhancement 0026 OQ17 (the interim safety net ahead of 0026 D9), core change `fold-colliding-contract-keys`.
+
+#### Scenario: A colliding bridge platform is refused instead of rendering twice
+
+- **WHEN** the platform enables `maj@v0` 0.1.0 and `maj@v1` 1.4.0, which list the same container, expose and backup keys, and `maj@v1` ships a bridge transformer requiring `maj@v0`'s container, and an instance of a `maj@v0` module is rendered
+- **THEN** `Render` fails with a `*RenderError` whose joined causes start with a typed collision cause carrying three rows (the container, backup and expose keys in ascending order, each naming `maj@v0` and `maj@v1`), no compiled object is returned, and the diagnostics carry the same three rows
+
+#### Scenario: A collision refuses under the skip switch
+
+- **WHEN** the same colliding platform is rendered with the skip switch on
+- **THEN** `Render` fails with the same typed collision cause
+
+#### Scenario: A collision and an over-subscription are both named, collision first
+
+- **WHEN** the colliding platform also enables `bprov@v0` and `bprov@v1`, whose transformers both require the colliding provider-fulfilled backup trait
+- **THEN** `Render` fails with a collision cause and an over-subscription cause for the backup key, reachable through `errors.As`, and the collision cause is the first joined cause
+
+#### Scenario: Collision rows equal the inventory on every served platform
+
+- **WHEN** the parity test renders every served render platform
+- **THEN** the render's collision rows, keyed by contract, equal the platform inventory's `CollidingEntries`, and a platform with no collision carries no row
+
+#### Scenario: A platform pinning a core without the report renders unchanged
+
+- **WHEN** the served healthy platform, re-pinned to core `2.0.0-alpha.12`, is rendered
+- **THEN** the render succeeds exactly as before this change, with no collision row and a routable diagnostic reading true
+
+### Requirement: A render refuses a not-routable platform no row explains
+
+The kernel SHALL decode core's `#contracts.routable` onto the render diagnostics, and SHALL refuse the render with a typed not-routable cause when it reads false and the diagnostics carry neither a collision row nor an over-subscription row. The cause SHALL be the last joined cause. It exists so that the kernel's decision agrees with the render module's own gate (which reads `routable`) even when a future core adds a term to `routable` that no row reports; on every platform whose `routable` is explained by its rows it SHALL NOT be raised.
+
+#### Scenario: No served platform raises the catch-all
+
+- **WHEN** the parity test renders every served render platform
+- **THEN** no refusal carries the not-routable cause, and the decoded routable diagnostic equals the inventory's `Routable`
+
+#### Scenario: An unexplained not-routable verdict refuses
+
+- **WHEN** the gate is given decoded diagnostics whose routable reads false and which carry no collision or over-subscription row
+- **THEN** the gate refuses with the typed not-routable cause, joined after every other cause present

@@ -9,6 +9,20 @@
 // plain `&` (one build, one set of catalog bytes: no provenance carve-out),
 // the predicate rung, every verdict as data behind `== _|_` guards, and the
 // fail-closed demand gate (0010 D28) as one unification.
+//
+// Every unresolved demand carries `unprovided`: its contract declares
+// `fulfilment: "provider"` and no enabled registry entry carries a
+// transformer requiring it (the key is absent from core's
+// #contracts.providedBy, the count the single-provider guard reads).
+// Under the caller's skip switch those demands leave the refusal for the
+// `skipped` verdict: a skipped trait leaves its component rendering, a
+// skipped resource omits the whole component.
+//
+// The glue reads core's contract report and computes none of it: the
+// provider count (#contracts.providedBy and overSubscribed), the collision
+// report (#contracts.collisions and collidingEntries: contract keys more
+// than one enabled registry entry defines) and #contracts.routable. The
+// kernel decodes each as a diagnostics row and refuses from the rows.
 package render
 
 import (
@@ -24,6 +38,11 @@ import (
 // Identity of the executing runtime: the runtime's whole remaining
 // obligation to #context (0019 D12). Rendered as a literal by the kernel.
 _runtimeName: <<.RuntimeName>>
+
+// The caller's switch to skip unprovided provider-fulfilled demands.
+// Rendered as a literal by the kernel, so the module's own gate agrees with
+// the kernel's verdict under both values.
+_skipUnprovided: <<.SkipUnprovided>>
 
 _transformers: platform.#composedTransformers
 _components:   instance.components
@@ -106,6 +125,19 @@ _components:   instance.components
 	// Diagnostic only: copied onto the unresolved rows, never consulted by
 	// a rung, so it changes no verdict.
 	#definedBy: [string]: string
+	// Contract key -> registry keys whose transformers REQUIRE it with
+	// provider fulfilment: core's #contracts.providedBy, the count the
+	// single-provider guard reads. A demand whose provider-fulfilled key is
+	// absent here is unprovided.
+	#providers: [string]: _
+	// Contract key -> registry keys of the enabled entries defining it,
+	// for keys more than one enabled entry defines: core's
+	// #contracts.collidingEntries, or {} on a core without the report.
+	// Diagnostic only: copied onto the unresolved rows, never consulted by
+	// a rung, so it changes no verdict.
+	#collidingEntries: [string]: [...string]
+	// The caller's switch: skip unprovided demands instead of refusing them.
+	#skipUnprovided: bool
 
 	// ── Rung 1 index: primitive FQN -> transformers whose required ∪
 	// optional maps name it. A transformer is only ever CONSIDERED through
@@ -242,8 +274,16 @@ _components:   instance.components
 							if #definedBy[_f] != _|_ {
 								definedBy: #definedBy[_f]
 							}
+							colliding: *[] | [...string]
+							if #collidingEntries[_f] != _|_ {
+								colliding: #collidingEntries[_f]
+							}
 							alternatives: (#alternatives & {universe: _bucketsResources, fqn: _f}).out
 							disqualified: _resOutcome[_f].disqualified
+							unprovided: [
+								if comp.#resources[_f].fulfilment == "provider" && #providers[_f] == _|_ {true},
+								false,
+							][0]
 						}
 					},
 				]
@@ -303,18 +343,38 @@ _components:   instance.components
 							if #definedBy[_f] != _|_ {
 								definedBy: #definedBy[_f]
 							}
+							colliding: *[] | [...string]
+							if #collidingEntries[_f] != _|_ {
+								colliding: #collidingEntries[_f]
+							}
 							alternatives: (#alternatives & {universe: _bucketsTraits, fqn: _f}).out
 							disqualified: _traitOutcome[_f].disqualified
+							unprovided: [
+								if comp.#traits[_f].fulfilment == "provider" && #providers[_f] == _|_ {true},
+								false,
+							][0]
 						}
 					},
 				]
+
+				// The skip split. With the switch off the skip lists are
+				// empty and the refused lists are the unresolved lists. A
+				// component with a skipped resource demand is omitted: a
+				// partly satisfied component never renders.
+				_skipResources: [for u in unresolvedResources if #skipUnprovided && u.unprovided {u}]
+				_skipTraits: [for u in unresolvedTraits if #skipUnprovided && u.unprovided {u}]
+				refusedResources: [for u in unresolvedResources if !(#skipUnprovided && u.unprovided) {u}]
+				refusedTraits: [for u in unresolvedTraits if !(#skipUnprovided && u.unprovided) {u}]
+				omitted: len(_skipResources) > 0
 			}
 		}
 	}
 
-	// ── Flattened verdicts, every one plain data.
+	// ── Flattened verdicts, every one plain data. An omitted component
+	// contributes no pair, no unmatched row and no warning; its refused
+	// rows still refuse.
 	pairs: [
-		for cid, v in verdicts
+		for cid, v in verdicts if !v.omitted
 		for tfqn, _ in v.matched {{component: cid, transformer: tfqn}},
 	]
 	// One row per unmatched component carrying every candidate the rung-1
@@ -324,7 +384,7 @@ _components:   instance.components
 	// with no missing labels; its conflict is on unifyFailures. Sorted by
 	// component then transformer so the diagnosis is deterministic.
 	unmatched: list.Sort([
-		for cid, v in verdicts if len(v.matched) == 0 {{
+		for cid, v in verdicts if len(v.matched) == 0 && !v.omitted {{
 			component: cid
 			candidates: list.Sort([
 				for tfqn, _ in v._candidates {{
@@ -337,12 +397,36 @@ _components:   instance.components
 	], {x: _, y: _, less: x.component < y.component})
 	unresolved: [
 		for cid, v in verdicts
-		for _, u in v.unresolvedResources {{u, component: cid}},
+		for _, u in v.refusedResources {{u, component: cid}},
 		for cid, v in verdicts
-		for _, u in v.unresolvedTraits {{u, component: cid}},
+		for _, u in v.refusedTraits {{u, component: cid}},
+	]
+	// Every demand skipped under the switch, in the same build order as
+	// `unresolved` (all components' resources, then all components'
+	// traits). componentOmitted is set on every row of an omitted
+	// component, trait rows included.
+	skipped: [
+		for cid, v in verdicts
+		for _, u in v._skipResources {{
+			component:        cid
+			kind:             u.kind
+			fqn:              u.fqn
+			definedBy:        u.definedBy
+			alternatives:     u.alternatives
+			componentOmitted: v.omitted
+		}},
+		for cid, v in verdicts
+		for _, u in v._skipTraits {{
+			component:        cid
+			kind:             u.kind
+			fqn:              u.fqn
+			definedBy:        u.definedBy
+			alternatives:     u.alternatives
+			componentOmitted: v.omitted
+		}},
 	]
 	warnings: [
-		for cid, v in verdicts
+		for cid, v in verdicts if !v.omitted
 		for _, _f in v.unhandledWarnings {{component: cid, fqn: _f}},
 	]
 	// Every CANDIDATE the always-unify rung disqualified, with the
@@ -354,47 +438,71 @@ _components:   instance.components
 		if v._candidates[tfqn] != _|_
 		if !u.ok {{component: cid, transformer: tfqn, conflicts: u.conflicts}},
 	]
+	// Skipped rows are not in `unresolved`, and an omitted component is
+	// not in `unmatched`, so the switch reaches the gate through these two.
 	resolved: len(unresolved) == 0 && len(unmatched) == 0
 }
 
+// The provider count is core's #contracts.providedBy, derived from the
+// platform's registry alone and never from `match`, so binding it into the
+// matcher adds no cycle. The colliding entries are bound only when the
+// platform carries the report: a core without it cannot evaluate a
+// colliding platform, so its absence means no collision.
 match: #Match & {
 	#transformers: _transformers
 	#components:   _components
 	#definedBy:    platform.#contracts.definedBy
+	#providers:    platform.#contracts.providedBy
+	#collidingEntries: [
+		if platform.#contracts.collidingEntries != _|_ {platform.#contracts.collidingEntries},
+		{},
+	][0]
+	#skipUnprovided: _skipUnprovided
 }
 
 // ── Single-provider guard (0010 D32/D37), in-build since
-// library-render-cutover. For every enabled registry entry, every
-// transformer it contributes and every REQUIRED contract that transformer
-// declares with `fulfilment: "provider"`, the entry's registry key is
-// collected per contract key. Provenance is the registry key (core binds it
-// to the embedded catalog's metadata.modulePath, so it is the path@major
-// string), never a value parsed off an FQN or read off the transformer. A
-// key supplied by more than one entry is an over-subscription row and the
-// gate refuses. Divergent fulfilment across copies cannot occur in one build
-// (one set of catalog bytes) and is not checked; default (catalog)
-// fulfilment admits any number of suppliers.
+// library-render-cutover. The glue computes no count of its own: core
+// derives it once on the platform as #contracts.providedBy, for every
+// enabled registry entry, every transformer it contributes and every
+// REQUIRED contract that transformer declares with `fulfilment:
+// "provider"`, the sorted registry keys (path@major) supplying each
+// contract key, whether or not an enabled entry defines the key. Two
+// majors of one catalog are two providers; two transformers of one entry
+// are one. Core lists every key with two or more suppliers in
+// #contracts.overSubscribed, and each becomes a row here naming the key and
+// its suppliers; the gate reads #contracts.routable. The platform's
+// Contracts() decodes the same fields, so a render refuses on
+// over-subscription exactly when the inventory reads not routable. Default
+// (catalog) fulfilment admits any number of suppliers.
+//
+// The rows iterate providedBy UNCONDITIONALLY: a platform value lacking it
+// (a core older than the count) fails this build instead of reading as zero
+// providers. Never guard it with a presence test; the kernel refuses such a
+// platform before staging, and this is the fail-closed belt behind it.
+//
+// The collision rows are core's report, read and never recomputed: one row
+// per key in #contracts.collisions (already ascending), naming the registry
+// keys #contracts.collidingEntries holds for it. Unlike providedBy they ARE
+// guarded on presence: every core carrying #contracts without the report
+// fails to evaluate a platform whose enabled entries share a contract key
+// (its definedBy fold conflicts), so an absent report provably means no
+// collision, and a guard costs nothing. A present report whose entries do
+// not resolve fails the build.
 guard: {
-	_providerSuppliers: {
-		for rkey, entry in platform.#registry if entry.enable
-		for _, tf in entry.#transformers {
-			if tf.requiredResources != _|_ {
-				for fqn, req in tf.requiredResources
-				if req.fulfilment == "provider" {(fqn): (rkey): true}
-			}
-			if tf.requiredTraits != _|_ {
-				for fqn, req in tf.requiredTraits
-				if req.fulfilment == "provider" {(fqn): (rkey): true}
-			}
-		}
-	}
 	overSubscribed: list.Sort([
-		for _k, suppliers in _providerSuppliers
-		if len(suppliers) > 1 {{
+		for _k, _ps in platform.#contracts.providedBy
+		if list.Contains(platform.#contracts.overSubscribed, _k) {{
 			key:      _k
-			catalogs: list.Sort([for rkey, _ in suppliers {rkey}], list.Ascending)
+			catalogs: _ps
 		}},
 	], {x: _, y: _, less: x.key < y.key})
+	collisions: [
+		if platform.#contracts.collisions != _|_
+		for _k in platform.#contracts.collisions {{
+			key:      _k
+			catalogs: platform.#contracts.collidingEntries[_k]
+		}},
+	]
 }
 
 // Each matched pair's #transform, unified with all three inputs whole:
@@ -420,9 +528,15 @@ diagnostics: {
 	pairs:          match.pairs
 	unmatched:      match.unmatched
 	unresolved:     match.unresolved
+	skipped:        match.skipped
 	warnings:       match.warnings
 	unifyFailures:  match.unifyFailures
 	overSubscribed: guard.overSubscribed
+	collisions:     guard.collisions
+	// Core's verdict, decoded so the kernel refuses exactly when this
+	// module's gate does. Present on every accepted core, read
+	// unconditionally: it is concrete or the decode refuses.
+	routable: platform.#contracts.routable
 	// Every attached trait's effective posture. A posture the catalog never
 	// stated is an incomplete bool here, which is how the kernel names the
 	// trait behind an otherwise anonymous non-concrete verdict.
@@ -448,7 +562,10 @@ diagnostics: {
 }
 
 // The fail-closed gate (0010 D28, D37) as one unification: an unresolved
-// demand, an unmatched component or an over-subscribed provider-fulfilled
-// contract refuses the build here, while `diagnostics` stays readable and
-// concrete beside it through the Go API.
-gate: match.resolved & (len(guard.overSubscribed) == 0) & true
+// demand the switch did not skip, an unmatched component that was not
+// omitted, or core's #contracts.routable false (an over-subscribed
+// provider-fulfilled contract or a contract collision) refuses the build
+// here, while `diagnostics` stays readable and concrete beside it through
+// the Go API. The kernel decides from the decoded rows and the decoded
+// `routable`, never from this field.
+gate: match.resolved & platform.#contracts.routable & true

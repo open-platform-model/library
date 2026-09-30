@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.0.0-alpha.36](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.35...v1.0.0-alpha.36) (2026-09-30)
+
+
+### Features
+
+* **kernel:** refuse a platform whose enabled entries share contract keys ([#147](https://github.com/open-platform-model/library/issues/147)) ([3a53aed](https://github.com/open-platform-model/library/commit/3a53aed0e78983b5e5513d3a76a1f0574376ba70))
+
+## [1.0.0-alpha.35](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.34...v1.0.0-alpha.35) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** Platform.Contracts refuses a platform whose #contracts lacks providedBy (a platform module pinning core older than 2.0.0-alpha.12) with the new typed errors.PlatformCoreTooOldError, which every since-guard now returns, the missing-inventory case included. Re-pin opmodel.dev/core in the platform module.
+
+### Features
+
+* **kernel:** read the provider count from the platform's core ([#146](https://github.com/open-platform-model/library/issues/146)) ([a0c6ed2](https://github.com/open-platform-model/library/commit/a0c6ed2eafe9f52617ea1e22cec94c0397a55765))
+
+
+### Documentation
+
+* **site:** document the cli skip-unprovided flag and platform precedence ([#144](https://github.com/open-platform-model/library/issues/144)) ([bec8ddd](https://github.com/open-platform-model/library/commit/bec8dddb1bddc76b12bb6c5e3b657e5a19b0f179))
+
+## [1.0.0-alpha.34](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.33...v1.0.0-alpha.34) (2026-09-29)
+
+
+### Features
+
+* **kernel:** let a render skip unprovided provider-fulfilled demands ([#141](https://github.com/open-platform-model/library/issues/141)) ([fc1aafd](https://github.com/open-platform-model/library/commit/fc1aafd2bf0b855f6ef97dc6c526f2ccd4db6fbe))
+
+
+### Documentation
+
+* **openspec:** allow NNNN:DN:Rn enhancement requirement citations ([b6dbc6b](https://github.com/open-platform-model/library/commit/b6dbc6bfd85aa13bd32e3a7fb1fdb617d3c0ea08))
+* **site:** add the pages library owns on the documentation site ([afcfe0a](https://github.com/open-platform-model/library/commit/afcfe0ac3ca663dd12160cf52c71ebc4f2c51e9d))
+
 ## [1.0.0-alpha.33](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.32...v1.0.0-alpha.33) (2026-09-19)
 
 

@@ -1,5 +1,9 @@
-// Two-catalog render fixture platform (core 2.0.0-alpha.10, 0019:D5 shape): cat
-// 0.1.0 beside cat2 0.2.0, two catalogs each supplying a transformer requiring the provider-fulfilled gateway contract: refused by the single-provider guard.
+// Two-catalog render fixture platform (core 2.0.0-alpha.13, 0019:D5 shape): cat
+// 0.1.0 beside cat2 0.2.0, two registry entries each supplying a transformer
+// requiring the provider-fulfilled gateway contract: core's
+// #contracts.providedBy counts both, the inventory reports the key
+// over-subscribed and the render's single-provider guard, reading that count,
+// refuses it.
 // Consumed on-disk by Kernel.AcquirePlatformFromDir; never published; not
 // discovered by the repo's CUE tasks (its catalog deps are served in-process).
 package platform
