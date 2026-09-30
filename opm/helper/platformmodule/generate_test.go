@@ -224,14 +224,14 @@ func TestGenerate_ExplicitCorePin(t *testing.T) {
 	entries := []Entry{{Path: opmPath, Version: "4.0.1", Enable: true}}
 	roots := []Dep{
 		{Path: opmPath, Version: "v4.0.1"},
-		{Path: CorePath, Version: "v2.0.0-alpha.12"},
+		{Path: CorePath, Version: "v2.0.0-alpha.13"},
 	}
 
 	files, err := Generate(Input{Name: "cluster", Type: "kubernetes", ModulePath: modulePath, Entries: entries, Deps: roots})
 	require.NoError(t, err)
 	mf, err := modfile.Parse(files[ModuleFileName], ModuleFileName)
 	require.NoError(t, err)
-	assert.Equal(t, "v2.0.0-alpha.12", mf.Deps[CorePath].Version)
+	assert.Equal(t, "v2.0.0-alpha.13", mf.Deps[CorePath].Version)
 }
 
 func keys(files Files) []string {

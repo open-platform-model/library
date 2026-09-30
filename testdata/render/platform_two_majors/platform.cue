@@ -1,4 +1,4 @@
-// Two-major render fixture platform (core 2.0.0-alpha.12, 0019:D5 shape): cat
+// Two-major render fixture platform (core 2.0.0-alpha.13, 0019:D5 shape): cat
 // 0.1.0 beside cat 1.0.0, two majors of one catalog each supplying a
 // transformer requiring the provider-fulfilled gateway contract. Two registry
 // entries are two providers: the render refuses the key, and the contract
