@@ -68,7 +68,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       and `modules/opm_platform/platform.cue`. `opm/kernel/parity_harness_test.go` is not
       touched. Verify: `grep -rl 'v2.0.0-alpha.13' --include=module.cue testdata modules`
       prints nothing; `grep -rh -A1 '"opmodel.dev/core@v2"' --include=module.cue testdata
-      modules | grep -o 'v2[^"]*' | sort -u` prints exactly `v2.0.0-beta.1`; in the four
+      modules | grep -o 'v: "[^"]*"' | sort -u` prints exactly `v: "v2.0.0-beta.1"`; in the four
       modules above, `opmodel.dev/catalogs/opm@v4` still reads `v4.4.2` and `cue.dev/x/k8s.io@v0`
       (where present) still reads `v0.12.0` (`git diff` on their `module.cue` shows only the
       core line); `task cue:tidy` leaves no diff; `git diff --stat
@@ -156,11 +156,11 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       (pointed at this worktree) reports no CRITICAL issue beyond the unchecked boxes that are
       open by design at this point (4.2 to 4.4, the release block R1 to R5, PR-GATE, G2);
       deviations go into the worker report.
-- [ ] 4.3 Archive the change: `openspec archive adopt-beta-release-line --yes`. Verify: the
+- [x] 4.3 Archive the change: `openspec archive adopt-beta-release-line --yes`. Verify: the
       schema-dispatch, platform-artifact and migration-docs main specs carry the MODIFIED text,
       every scenario heading survived, and `openspec validate --all --strict` passes. No
       `enhancement.yaml` exists, so no delivery log runs.
-- [ ] 4.4 Commit `chore(openspec): archive adopt-beta-release-line`.
+- [x] 4.4 Commit `chore(openspec): archive adopt-beta-release-line`.
 
 ## Release block (not an apply section; the tasks-rule exception for a release deliverable)
 
@@ -190,9 +190,9 @@ PR (the only PR of this change, and the carrier):
       v2.0.0-beta.1 (#N)"` and exactly this body (auto-filled COMMIT_MESSAGES body discarded):
 
       ```text
-      The kernel's default schema, every served fixture and the release line move to
-      core's first beta, which carries the alpha.13 schema unchanged. The render floor
-      stays 2.0.0-alpha.12.
+      The kernel's default schema and every served fixture move to core's first beta,
+      which carries the alpha.13 schema unchanged, and the library's own release line
+      moves to beta. The render floor stays 2.0.0-alpha.12.
 
       Release-As: 1.0.0-beta.1
       Co-Authored-By: Claude <noreply@anthropic.com>

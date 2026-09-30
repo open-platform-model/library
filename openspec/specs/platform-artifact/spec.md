@@ -62,7 +62,7 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 
 #### Scenario: Two majors sharing contract keys are reported as collisions
 
-- **WHEN** an acquired platform pinning core `2.0.0-alpha.13` enables `maj@v0` 0.1.0 and `maj@v1` 1.4.0, both listing the container resource, the expose trait and the provider-fulfilled backup trait at the same keys, and `maj@v1` also lists a `container@v2` resource no other entry lists
+- **WHEN** an acquired platform pinning the default core release (`schema.DefaultSchemaModule`, a release carrying the collision report) enables `maj@v0` 0.1.0 and `maj@v1` 1.4.0, both listing the container resource, the expose trait and the provider-fulfilled backup trait at the same keys, and `maj@v1` also lists a `container@v2` resource no other entry lists
 - **THEN** the platform acquires, `Contracts()` returns `Collisions` naming the three shared keys in ascending order, `CollidingEntries` mapping each to the registry keys `maj@v0` and `maj@v1`, `DefinedBy` carrying `container@v2` to `maj@v1` and none of the three shared keys, empty `OverSubscribed`, and `Routable` false, and no error is returned from acquisition or from the accessor
 
 #### Scenario: A colliding key is left out of the other reports
