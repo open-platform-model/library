@@ -38,9 +38,18 @@ type ComparablePredicates struct {
 // one catalog are two providers, two transformers of one entry are one, and
 // a provider counts whether or not an enabled catalog defines the contract.
 // Every field is a report: an inventory that is not Fulfilled,
-// not Routable or not Discriminated is still a healthy value, and whether a
-// generation step withholds a platform package on Routable or Discriminated
-// false is that step's decision, outside this type.
+// not Routable or not Discriminated, or that carries Collisions, is still a
+// healthy value, and whether a generation step withholds a platform package
+// on Routable or Discriminated false is that step's decision, outside this
+// type.
+//
+// A contract key more than one enabled registry entry's catalog lists (two
+// majors of one catalog sharing a key, say) is a collision: core folds only
+// keys with exactly one enabled definer, so a colliding key is in Collisions
+// and CollidingEntries and in none of DefinedBy, RequiredBy, Unfulfilled or
+// Comparable. Fulfilled and Discriminated are computed without it and can
+// therefore read true while Collisions is non-empty; a caller never reads
+// either as safe while Collisions is non-empty. Routable reads false.
 //
 // `defined` (the listed members themselves) is not part of this view: its
 // values are the catalogs' member schemas, non-concrete by construction, so
@@ -48,16 +57,19 @@ type ComparablePredicates struct {
 // off Platform.Package under #contracts.defined; DefinedBy carries the same
 // key set.
 type ContractInventory struct {
-	// DefinedBy maps each contract FQN an enabled catalog lists to the
-	// registry key (the catalog's module path) of the catalog listing it:
-	// the value every diagnostic prints beside the contract.
+	// DefinedBy maps each contract FQN exactly one enabled catalog lists
+	// to the registry key (the catalog's module path) of the catalog
+	// listing it: the value every diagnostic prints beside the contract. A
+	// colliding key (Collisions) is absent.
 	DefinedBy map[string]string `json:"definedBy"`
 
 	// RequiredBy maps each defined contract FQN to the implementation FQNs
 	// of every enabled transformer whose requiredResources or
 	// requiredTraits name it, in the build's order. Required demands only
 	// (0010:D32: optional consumption is tolerance, not fulfilment); a
-	// defined contract nothing requires maps to an empty list.
+	// defined contract nothing requires maps to an empty list. A colliding
+	// key is not defined, so it is absent however many transformers
+	// require it.
 	RequiredBy map[string][]string `json:"requiredBy"`
 
 	// ProvidedBy maps every provider-fulfilled contract FQN some enabled
@@ -73,7 +85,8 @@ type ContractInventory struct {
 	// Unfulfilled lists the provider-fulfilled resources and traits an
 	// enabled catalog defines and no enabled registry entry provides (no
 	// ProvidedBy key). A report the operator surfaces as a non-gating
-	// condition (0015:D18), never a refusal.
+	// condition (0015:D18), never a refusal. A colliding key is not
+	// defined, so it is never listed here.
 	Unfulfilled []string `json:"unfulfilled"`
 
 	// OverSubscribed lists the provider-fulfilled resources and traits
@@ -86,17 +99,35 @@ type ContractInventory struct {
 	// Comparable lists every pair of enabled transformers whose match
 	// predicates are comparable over at least one shared catalog-fulfilled
 	// contract (0015:D5), in the build's comprehension order. The accessor
-	// does not sort; a caller that needs a stable order sorts.
+	// does not sort; a caller that needs a stable order sorts. Only
+	// defined contracts are compared, so no row shares a colliding key,
+	// even when two transformers require one under equal predicates.
 	Comparable []ComparablePredicates `json:"comparable"`
 
-	// Fulfilled is true exactly when Unfulfilled is empty.
+	// Fulfilled is true exactly when Unfulfilled is empty. It is blind to
+	// Collisions: it can read true while Collisions is non-empty.
 	Fulfilled bool `json:"fulfilled"`
 
-	// Routable is true exactly when OverSubscribed is empty.
+	// Routable is true exactly when OverSubscribed and Collisions are both
+	// empty.
 	Routable bool `json:"routable"`
 
-	// Discriminated is true exactly when Comparable is empty.
+	// Discriminated is true exactly when Comparable is empty. It is blind
+	// to Collisions: it can read true while Collisions is non-empty.
 	Discriminated bool `json:"discriminated"`
+
+	// Collisions lists, ascending, every contract FQN that two or more
+	// enabled registry entries' catalogs list in their contract maps. Such
+	// a key is in none of DefinedBy, RequiredBy, Unfulfilled or
+	// Comparable, and Routable is false while any exists. A disabled entry
+	// never counts as a definer. Empty on a platform pinning a core older
+	// than [schema.CollisionsSince], which cannot evaluate a colliding
+	// platform at all.
+	Collisions []string `json:"collisions"`
+
+	// CollidingEntries maps each Collisions key to the ascending registry
+	// keys (path@major) of the enabled entries whose catalogs list it.
+	CollidingEntries map[string][]string `json:"collidingEntries"`
 }
 
 // Contracts decodes the contract inventory off Package on demand
@@ -105,11 +136,11 @@ type ContractInventory struct {
 // it is read only when a caller asks (the operator's readiness loop, a
 // platform check), so a render pays nothing for it.
 //
-// The nine data fields are read by path, so the decoded set is exactly
+// The eleven data fields are read by path, so the decoded set is exactly
 // this type's field list; `defined` stays on Package (see
-// [ContractInventory]). Reports, never refusals: an over-subscribed or
-// undiscriminated platform returns Routable or Discriminated false and a
-// nil error.
+// [ContractInventory]). Reports, never refusals: an over-subscribed,
+// colliding or undiscriminated platform returns Routable or Discriminated
+// false and a nil error.
 //
 // A report the value does not carry is never defaulted, in either
 // direction: a platform whose #contracts predates a report field is refused
@@ -121,6 +152,15 @@ type ContractInventory struct {
 // against a core release before 2.0.0-alpha.9, or one that is not a
 // #Platform). A missing providedBy is the refusal Kernel.Render returns for
 // the same platform.
+//
+// The one exception is the collision report: an absent `collisions` or
+// `collidingEntries` decodes as empty. Every core release carrying
+// #contracts before [schema.CollisionsSince] folds definedBy over every
+// enabled entry, and registry keys are distinct strings, so two enabled
+// definers of one key always conflict there: such a core fails to evaluate
+// a colliding platform, and a value that evaluated without the report
+// provably has no collision. A collision field that is present but fails
+// to decode is still an error.
 func (p *Platform) Contracts() (*ContractInventory, error) {
 	cv := p.Package.LookupPath(schema.Contracts)
 	if !cv.Exists() {
@@ -154,6 +194,30 @@ func (p *Platform) Contracts() (*ContractInventory, error) {
 		if err := v.Decode(f.into); err != nil {
 			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)
 		}
+	}
+	// The collision report, absent read as empty (see above), never behind
+	// a since-guard: a guard would refuse every platform pinning a core
+	// between the floor and the report's first release.
+	for _, f := range []struct {
+		name string
+		into any
+	}{
+		{"collisions", &inv.Collisions},
+		{"collidingEntries", &inv.CollidingEntries},
+	} {
+		v := cv.LookupPath(cue.ParsePath(f.name))
+		if !v.Exists() {
+			continue
+		}
+		if err := v.Decode(f.into); err != nil {
+			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)
+		}
+	}
+	if inv.Collisions == nil {
+		inv.Collisions = []string{}
+	}
+	if inv.CollidingEntries == nil {
+		inv.CollidingEntries = map[string][]string{}
 	}
 	return inv, nil
 }

@@ -17,11 +17,11 @@ import (
 
 // TestRender_InventoryParity is the tripwire that keeps one provider count.
 // For every served render platform it reads the platform's contract
-// inventory (Contracts(), core's #contracts) and renders the `instance`
-// fixture against it, then asserts the render's over-subscription rows are
-// exactly the inventory's verdict: the same keys, a routable platform
-// exactly when there are no rows, and every row naming the registry keys
-// the inventory's ProvidedBy holds for its key. The render may also refuse for an
+// inventory (Contracts(), core's #contracts) and renders its classified
+// instance fixture against it, then asserts the render's over-subscription
+// rows are exactly the inventory's verdict: the same keys, a routable
+// platform exactly when there are no rows and no collision, and every row
+// naming the registry keys the inventory's ProvidedBy holds for its key. The render may also refuse for an
 // unrelated reason (an unresolved demand on a platform that disables a
 // catalog); the rows stay decodable on the refusal, so neither the render
 // outcome nor Discriminated is asserted.
@@ -32,26 +32,45 @@ import (
 func TestRender_InventoryParity(t *testing.T) {
 	gateway := renderCatPath + "/resources/gateway@v1"
 
+	majPrefix := renderPrefix + "/maj"
+	backup := majPrefix + "/traits/backup@v1"
+
 	// Every served platform, classified: a control carries the rows it
 	// renders today; a pinned bad fixture carries the verdict both counts
-	// must reach. nil rows means none.
-	expected := map[string][]oerrors.OverSubscribedContract{
-		"platform":           nil,
-		"platform_next":      nil,
-		"platform_two":       nil,
-		"platform_providers": nil,
-		"platform_disabled":  nil,
-		"platform_oversubscribed": {
+	// must reach. nil rows means none. instance is the instance fixture
+	// rendered against it ("instance" when empty), and routable is the
+	// inventory's expected verdict: a colliding platform carries no
+	// over-subscription row and still reads not routable.
+	type classified struct {
+		instance string
+		rows     []oerrors.OverSubscribedContract
+		routable bool
+	}
+	expected := map[string]classified{
+		"platform":           {routable: true},
+		"platform_next":      {routable: true},
+		"platform_two":       {routable: true},
+		"platform_providers": {routable: true},
+		"platform_disabled":  {routable: true},
+		"platform_oversubscribed": {rows: []oerrors.OverSubscribedContract{
 			{Key: gateway, Catalogs: []string{renderPrefix + "/cat2@v0", renderCatPath + "@v0"}},
-		},
+		}},
 		// Two majors of one catalog are two providers.
-		"platform_two_majors": {
+		"platform_two_majors": {rows: []oerrors.OverSubscribedContract{
 			{Key: gateway, Catalogs: []string{renderCatPath + "@v0", renderCatPath + "@v1"}},
-		},
+		}},
 		// A disabled definer does not hide over-subscription.
-		"platform_definer_disabled": {
+		"platform_definer_disabled": {rows: []oerrors.OverSubscribedContract{
 			{Key: gateway, Catalogs: []string{renderPrefix + "/cat2@v0", renderCatPath + "@v1"}},
-		},
+		}},
+		// Two majors listing the same keys collide: not routable with no
+		// over-subscription row.
+		"platform_collide":          {instance: "instance_maj0"},
+		"platform_collide_provider": {instance: "instance_maj0"},
+		// A collision and an over-subscription together.
+		"platform_collide_oversubscribed": {instance: "instance_maj0", rows: []oerrors.OverSubscribedContract{
+			{Key: backup, Catalogs: []string{renderPrefix + "/bprov@v0", renderPrefix + "/bprov@v1"}},
+		}},
 	}
 
 	dirs, err := filepath.Glob(renderFixtureDir(t, "platform*"))
@@ -65,7 +84,7 @@ func TestRender_InventoryParity(t *testing.T) {
 	require.NotEmpty(t, names, "the glob finds the served platforms")
 	for _, name := range names {
 		_, ok := expected[name]
-		require.True(t, ok, "served platform %s is not classified in this test's table: add its expected over-subscription rows", name)
+		require.True(t, ok, "served platform %s is not classified in this test's table: add its instance, expected over-subscription rows and routable verdict", name)
 	}
 	require.Len(t, names, len(expected), "every classified platform is served")
 
@@ -73,7 +92,12 @@ func TestRender_InventoryParity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			k := newRenderKernel(t)
 			plat := acquireRenderPlatform(t, k, name)
-			inst := acquireRenderInstance(t, k, "instance")
+			want := expected[name]
+			instance := want.instance
+			if instance == "" {
+				instance = "instance"
+			}
+			inst := acquireRenderInstance(t, k, instance)
 
 			inv, err := plat.Contracts()
 			require.NoError(t, err, "the inventory decodes")
@@ -96,20 +120,19 @@ func TestRender_InventoryParity(t *testing.T) {
 			over := append([]string{}, inv.OverSubscribed...)
 			sort.Strings(over)
 			assert.Equal(t, over, rowKeys, "the inventory's over-subscribed keys are the render's rows")
-			assert.Equal(t, len(rows) == 0, inv.Routable, "the inventory is routable exactly when the render has no rows")
+			assert.Equal(t, len(rows) == 0 && len(inv.Collisions) == 0, inv.Routable,
+				"the inventory is routable exactly when the render has no over-subscription row and there is no collision")
 			for _, r := range rows {
 				assert.Equal(t, inv.ProvidedBy[r.Key], r.Catalogs,
 					"row %s names exactly the registry keys the inventory's providedBy holds", r.Key)
 			}
 
-			want := expected[name]
-			if len(want) == 0 {
+			assert.Equal(t, want.routable, inv.Routable, "the pinned routable verdict")
+			if len(want.rows) == 0 {
 				assert.Empty(t, rows, "no over-subscription rows")
-				assert.True(t, inv.Routable)
 				return
 			}
-			assert.Equal(t, want, rows, "the pinned over-subscription rows")
-			assert.False(t, inv.Routable, "the pinned platform is not routable")
+			assert.Equal(t, want.rows, rows, "the pinned over-subscription rows")
 		})
 	}
 }
