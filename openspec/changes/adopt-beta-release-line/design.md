@@ -89,8 +89,9 @@ are what verify the default against them).
 following the precedent of the alpha.13 re-pin (`fix(deps): pin core v2.0.0-alpha.13`, archived
 change `refuse-colliding-contracts`, task 1.5). It carries the core pin of every fixture,
 including the parity platform: this is a named exception to `AGENTS.md` § Commit style, taken
-because the requirement couples the core pins to the default, and it needs supervisor sign-off
-(open question in the worker report). No other dependency pin moves (D4): a catalog move is
+because the requirement couples the core pins to the default. The supervisor accepted this
+exception (ruling R-d, 2026-09-30): the single `fix(deps)` carrier includes the core pins of all
+library `testdata` and `modules` fixtures, which are never published to GHCR. No other dependency pin moves (D4): a catalog move is
 not coupled to the default and goes to its own `test(fixtures)` PR. Inner branch commits keep
 their own types (`fix(deps)`, `chore(release)`, `docs`, `chore(openspec)`) for review; only the
 squash reaches main.
@@ -153,12 +154,15 @@ still migrate in the same PR wave); amend ADR-004 in place (rejected: rewrites a
 
 ### D7. Beta promise wording
 
-The README "API stability" section carries the canon wording, adapted to the library: from its
-first beta the library is on the path to GA; a breaking change during beta is only a `feat!`
-commit whose `BREAKING CHANGE:` footer is the migration note in the CHANGELOG, advances the
-`-beta.N` counter and never moves the Go module path or the core major; stable lines
-(`opmodel.dev/catalogs/opm@v4`, the module fleets) keep the normal SemVer rule; GA drops the
-suffix via `prerelease: false` plus a visible carrier commit, in dependency order. Note that
+The README "API stability" section carries the canon wording in full, adapted to the library:
+from its first beta the library is on the path to GA; a breaking change during beta is still
+allowed, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the
+CHANGELOG shows; it advances the `-beta.N` counter and never moves the Go module path to a new
+major; stable lines (`opmodel.dev/catalogs/opm@v4`, the module fleets) keep the normal SemVer
+rule, a break there is a new major; a core beta break that would force a catalogs/opm major
+needs owner sign-off; GA drops the suffix via `prerelease: false` plus a visible carrier commit
+per package, in dependency order. The library does not own core's major and the promise does
+not speak for it. Note that
 the Go module path has no `/vN` suffix today, so "never a new major" means no `v2` of the
 library during beta.
 
@@ -170,9 +174,14 @@ it stays a GA item).
 
 Principle VI states the same rule as law ("MAJOR: any breaking change to `opm/` types,
 signatures, or behavior"), and every proposal classifies itself against it. It gains a pre-GA
-clause in both `CONSTITUTION.md` and the `openspec/config.yaml` context: until GA, a breaking
-change is a `feat!` whose `BREAKING CHANGE:` footer is the migration note and which advances
-the prerelease counter, never a new major. Only `feat!` is named, matching the canon; a wider
+clause in both `CONSTITUTION.md` and the `openspec/config.yaml` context, carrying the same full
+promise as the README (supervisor ruling R-c: one wording in every constitution of the cutover):
+until GA, a breaking change is a `feat!` whose `BREAKING CHANGE:` footer is the migration note
+and which advances the prerelease counter, never a new major; stable lines
+(`opmodel.dev/catalogs/opm@v4`, the module fleets) keep the normal SemVer rule; a core beta break
+that would force a catalogs/opm major needs owner sign-off; GA drops the suffix via
+`prerelease: false` plus a visible carrier commit per package, in dependency order, and from GA
+the MAJOR line applies. Only `feat!` is named, matching the canon; a wider
 `!` rule would need owner sign-off and a canon change first.
 
 ## Risks / Trade-offs
@@ -194,7 +203,8 @@ the prerelease counter, never a new major. Only `feat!` is named, matching the c
   `chore(main): release 1.0.0-beta.1` within one release run; fallback is a
   BEGIN_COMMIT_OVERRIDE edit of the merged PR body and a re-run.
 - [#151 merged as alpha before the carrier] -> burns `1.0.0-alpha.37`; harmless but the carrier
-  must then still land. Held by the supervisor.
+  must then still land. Held by the supervisor (ruling R-e: only the supervisor merges it, and
+  only at its gate); a hold comment is already posted on #151.
 - [Partial or over-reaching re-pin] -> `TestDefaultCoreVersion_IsTheDefaultSchemaRelease`
   fails for `testdata/render`; task 1.4 also asserts that every core pin under `testdata` and
   `modules` is exactly `v2.0.0-beta.1` and that no catalog or k8s pin moved.

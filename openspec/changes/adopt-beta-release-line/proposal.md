@@ -31,7 +31,9 @@ adopt the beta line (gate G2).
 - README "API stability" states the beta promise and replaces "a breaking change here is a
   major bump" with its pre-GA and GA forms; it also tells consumers to pin an explicit
   `v1.0.0-beta.N`, because Go's `@latest` resolves the retired `v0.7.0`. Principle VI in
-  `CONSTITUTION.md` and the `openspec/config.yaml` context gains the matching pre-GA clause.
+  `CONSTITUTION.md` and the `openspec/config.yaml` context gains the matching pre-GA clause,
+  carrying the full promise (stable lines keep normal SemVer, the GA carrier rule) in the same
+  wording as the cli and opm-operator constitutions.
   `migrations/README.md`, `AGENTS.md` and a new ADR-010 record that during beta a breaking
   change's migration note is the `BREAKING CHANGE:` footer of its `feat!` commit as the
   CHANGELOG shows it, and that `migrations/` stays dormant until GA (ADR-004 unchanged: GA arms
@@ -80,7 +82,7 @@ None.
   `opm/internal/registrytest/registrytest_test.go`.
 - Release: `release-please-config.json`; open release PR #151 (`release 1.0.0-alpha.37`) is
   retitled by the carrier to `chore(main): release 1.0.0-beta.1` and must never be merged as
-  alpha.
+  alpha; it is held (hold comment posted) and only the supervisor merges it, at G2.
 - Downstream: cli (C3) and opm-operator (C4) bump to `v1.0.0-beta.1` after G2; from then their
   generated platform modules pin core `v2.0.0-beta.1`. Go `@latest` still resolves the stale
   `v0.7.0`; the README now says so and consumers pin explicitly, as they already do. Retiring

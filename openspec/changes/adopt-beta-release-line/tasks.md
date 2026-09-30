@@ -111,8 +111,10 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       Add one line: pin an explicit `v1.0.0-beta.N`, because `go get ...@latest` resolves the
       retired `v0.7.0`. Verify: the section names `feat!`, the `BREAKING CHANGE:` footer as the
       CHANGELOG migration note, the `-beta.N` counter, the stable-line rule for
-      `opmodel.dev/catalogs/opm@v4` and the fleets, the GA carrier rule and the explicit-pin
-      line; `grep -n 'major bump' README.md` shows only the GA-qualified sentence.
+      `opmodel.dev/catalogs/opm@v4` and the fleets, the owner sign-off for a core break that
+      would force a catalogs/opm major, the GA carrier rule and the explicit-pin line; it does
+      not say the library moves or holds core's major; `grep -n 'major bump' README.md` shows
+      only the GA-qualified sentence.
 - [ ] 3.2 New `adr/010-beta-migration-notes-in-changelog.md` from `adr/TEMPLATE.md`, status
       Accepted: during beta the migration note is the `BREAKING CHANGE:` footer rendered into
       `CHANGELOG.md`; `migrations/` stays dormant until GA; GA arms ADR-004; ADR-004 is not
@@ -131,11 +133,16 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       writing). Verify: `grep -n 'alpha' docs/getting-started.md
       docs/site/embedding/embed-the-kernel.md` prints nothing.
 - [ ] 3.5 Principle VI pre-GA clause per design D7, in `CONSTITUTION.md` (§ VI) and the
-      `openspec/config.yaml` `context` copy alike: until GA, a breaking change to `opm/` is a
-      `feat!` whose `BREAKING CHANGE:` footer is the migration note and which advances the
-      prerelease counter, never a new major; the MAJOR line applies from GA. Verify: both
-      files carry the clause with the same meaning, `openspec validate --all --strict` still
-      passes, and neither names any `!` type other than `feat!`.
+      `openspec/config.yaml` `context` copy alike, carrying the full canon promise: until GA, a
+      breaking change to `opm/` is a `feat!` whose `BREAKING CHANGE:` footer is the migration
+      note and which advances the prerelease counter, never a new major; stable lines
+      (`opmodel.dev/catalogs/opm@v4`, the module fleets) keep the normal SemVer rule; a core
+      beta break that would force a catalogs/opm major needs owner sign-off; GA drops the
+      suffix via `prerelease: false` plus a visible carrier commit per package, in dependency
+      order, and the MAJOR line applies from GA. Verify: both files carry the clause with the
+      same meaning, including the stable-line and GA sentences; neither says the library
+      moves or holds core's major; `openspec validate --all --strict` still passes, and
+      neither names any `!` type other than `feat!`.
 - [ ] 3.6 `task check` green, then commit `docs: state the beta promise and where beta migration
       notes live`.
 
@@ -167,7 +174,9 @@ PR (the only PR of this change, and the carrier):
   lowercase, no at-sign).
 - Squash commit type: `fix(deps)`. Carrier: YES. Footer: `Release-As: 1.0.0-beta.1`.
 - Merge gate: G1 plus green CI (test, lint, cue, pr-title, mention-guard).
-- Expected release PR: #151 retitled `chore(main): release 1.0.0-beta.1`.
+- Expected release PR: #151 retitled `chore(main): release 1.0.0-beta.1`. #151 is held: only
+  the supervisor merges it, and only at G2 (ruling R-e); the hold comment is already posted on
+  #151, so no worker step posts one.
 
 - [ ] R1 Worker: `git merge origin/main` if main moved (never rebase), rerun 1.7's gates if
       anything merged, then `git push -u origin beta/adopt-beta-release-line`.
