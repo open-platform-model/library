@@ -65,9 +65,19 @@ type UnresolvedDemand struct {
 	// whose contract maps list the demanded key, read inside the build from
 	// the platform's derived contract inventory (#contracts.definedBy,
 	// 0015:D18) and never parsed off the FQN. Empty when no
-	// enabled catalog lists it. Diagnostic only: its presence or absence
-	// never changes whether the demand refuses.
+	// enabled catalog lists it, or when more than one does (Colliding).
+	// Diagnostic only: its presence or absence never changes whether the
+	// demand refuses.
 	DefinedBy string
+
+	// Colliding carries, when the demanded key is a contract collision
+	// (more than one enabled registry entry's catalog lists it), the
+	// sorted registry keys (path@major) of those entries, read inside the
+	// build from #contracts.collidingEntries. Empty otherwise, and on a
+	// platform pinning a core without the collision report. Diagnostic
+	// only: its presence or absence never changes whether the demand
+	// refuses.
+	Colliding []string
 
 	// Unprovided is true when the demanded contract is provider-fulfilled
 	// and no enabled catalog provides it (no enabled registry entry carries
@@ -78,10 +88,11 @@ type UnresolvedDemand struct {
 }
 
 // describe renders one unresolved demand as a line of an aggregate's
-// message, wording one of three cases: implemented at a different apiVersion
+// message, wording one of four cases: implemented at a different apiVersion
 // (alternatives listed, the defining catalog named when one lists the key);
-// defined by a named catalog and implemented by nothing; or no enabled
-// catalog defines the contract at all. An unprovided row adds that the
+// defined by a named catalog and implemented by nothing; defined by more
+// than one enabled registry entry (a collision, the entries named); or no
+// enabled catalog defines the contract at all. An unprovided row adds that the
 // contract is provider-fulfilled and nothing on the platform provides it,
 // after the case text and before any disqualified-candidate count.
 func (d UnresolvedDemand) describe() string {
@@ -93,6 +104,8 @@ func (d UnresolvedDemand) describe() string {
 		msg += fmt.Sprintf(": implemented at a different apiVersion (alternatives: %v)", d.Alternatives)
 	case d.DefinedBy != "":
 		msg += fmt.Sprintf(": defined by %q and nothing on this platform implements it", d.DefinedBy)
+	case len(d.Colliding) > 0:
+		msg += fmt.Sprintf(": defined by more than one enabled registry entry (%v)", d.Colliding)
 	default:
 		msg += ": no enabled catalog defines this contract"
 	}

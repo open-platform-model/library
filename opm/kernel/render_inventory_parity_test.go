@@ -24,7 +24,9 @@ import (
 // naming the registry keys the inventory's ProvidedBy holds for its key. The render may also refuse for an
 // unrelated reason (an unresolved demand on a platform that disables a
 // catalog); the rows stay decodable on the refusal, so neither the render
-// outcome nor Discriminated is asserted.
+// outcome nor Discriminated is asserted. The render's collision rows equal
+// the inventory's CollidingEntries, its decoded routable verdict equals the
+// inventory's, and no refusal carries the not-routable catch-all.
 //
 // The platforms are found by glob, so a platform fixture added later joins
 // the tripwire; a directory the table below does not classify fails the
@@ -103,15 +105,27 @@ func TestRender_InventoryParity(t *testing.T) {
 			require.NoError(t, err, "the inventory decodes")
 
 			res, rerr := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
-			var rows []oerrors.OverSubscribedContract
+			var diag kernel.RenderDiagnostics
 			if rerr == nil {
-				rows = res.Diagnostics.OverSubscribed
+				diag = res.Diagnostics
 			} else {
 				var re *kernel.RenderError
 				require.True(t, errors.As(rerr, &re),
 					"a refusal after the build carries decodable diagnostics, got: %v", rerr)
-				rows = re.Diagnostics.OverSubscribed
+				diag = re.Diagnostics
+				var nr *oerrors.NotRoutableError
+				assert.False(t, errors.As(rerr, &nr), "no served platform raises the not-routable catch-all")
 			}
+			rows := diag.OverSubscribed
+
+			// Collision rows equal the inventory's CollidingEntries, and the
+			// decoded routable verdict equals the inventory's.
+			collided := map[string][]string{}
+			for _, c := range diag.Collisions {
+				collided[c.Key] = c.Catalogs
+			}
+			assert.Equal(t, inv.CollidingEntries, collided, "the render's collision rows are the inventory's CollidingEntries")
+			assert.Equal(t, inv.Routable, diag.Routable, "the decoded routable diagnostic is the inventory's")
 
 			rowKeys := make([]string, 0, len(rows))
 			for _, r := range rows {
