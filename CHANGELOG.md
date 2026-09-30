@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0-beta.1](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.36...v1.0.0-beta.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **deps:** pin core v2.0.0-beta.1 ([#152](https://github.com/open-platform-model/library/issues/152)) ([6081afd](https://github.com/open-platform-model/library/commit/6081afd01b46d0f09d153c7d0dffa7d28e288ece))
+
+
+### Documentation
+
+* **site:** adopt the hugo page dialect ([#149](https://github.com/open-platform-model/library/issues/149)) ([e623d40](https://github.com/open-platform-model/library/commit/e623d40b45976dae83fe0c676a52867374e647e2))
+* **site:** name the cli and operator collision surfaces ([#150](https://github.com/open-platform-model/library/issues/150)) ([46c8ca3](https://github.com/open-platform-model/library/commit/46c8ca3b45033dff664cc59fffb4c81664e9efad))
+
 ## [1.0.0-alpha.36](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.35...v1.0.0-alpha.36) (2026-09-30)
 
 
