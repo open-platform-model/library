@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.36](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.35...v1.0.0-alpha.36) (2026-09-30)
+
+
+### Features
+
+* **kernel:** refuse a platform whose enabled entries share contract keys ([#147](https://github.com/open-platform-model/library/issues/147)) ([3a53aed](https://github.com/open-platform-model/library/commit/3a53aed0e78983b5e5513d3a76a1f0574376ba70))
+
 ## [1.0.0-alpha.35](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.34...v1.0.0-alpha.35) (2026-09-29)
 
 
