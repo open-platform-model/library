@@ -1,4 +1,4 @@
-// Provider-fulfilled render fixture platform (core 2.0.0-alpha.13, 0019:D5
+// Provider-fulfilled render fixture platform (core 2.0.0-beta.1, 0019:D5
 // shape): cat 0.1.0 beside providers 0.1.0, which lists two provider-fulfilled
 // contracts nothing on this platform provides (snapshot, ledger) and one
 // whose provider requires a label (archive). Consumed on-disk by

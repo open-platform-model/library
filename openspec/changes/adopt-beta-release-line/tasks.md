@@ -14,7 +14,8 @@ were done; its `migration-docs` spec was created on archive) and this plan.
 
 ## Gates (supervisor ticks; not an apply section)
 
-- [ ] G1 core `v2.0.0-beta.1` is published on GHCR (`opmodel.dev/core@v2.0.0-beta.1` resolves).
+- [x] G1 core `v2.0.0-beta.1` is published on GHCR (`opmodel.dev/core@v2.0.0-beta.1` resolves).
+      Recorded by the supervisor: `v2.0.0-beta.1`.
       Sections 1 to 4 start only after this box is ticked.
 - [ ] PR-GATE carrier PR reviewed; supervisor merge checks of the release block passed.
 - [ ] G2 library `v1.0.0-beta.1` resolvable on the Go proxy (after the retitled #151 merges).
@@ -30,7 +31,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
 
 ## 1. Pin core v2.0.0-beta.1 (opm/schema, opm/internal/registrytest, fixtures, tests)
 
-- [ ] 1.1 Precondition: in a scratch module under the supervisor scratchpad, `cue mod get
+- [x] 1.1 Precondition: in a scratch module under the supervisor scratchpad, `cue mod get
       opmodel.dev/core@v2.0.0-beta.1` succeeds with the GHCR mapping; fetch
       `v2.0.0-alpha.13` the same way and `diff -r` the two module extract directories in the
       CUE cache (`$(cue env CUE_CACHE_DIR)/mod/extract/opmodel.dev/core@v2.0.0-alpha.13` and
@@ -38,7 +39,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       `src/` below them). Verify: the fetch succeeds and the schema sources are identical
       (identity, docs or comment-only differences are acceptable and noted). On any schema
       difference, stop with nothing edited and report.
-- [ ] 1.2 `opm/schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"`;
+- [x] 1.2 `opm/schema/loader.go`: `DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"`;
       rewrite the doc comment per design D3 (beta.1 is the pinned release and carries the
       alpha.13 schema unchanged; the list of what `2.0.0-alpha.13` first reported stays,
       attributed to alpha.13; in the "not the render floor" paragraph, "between the floor and
@@ -49,14 +50,14 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       `TestDefaultSchemaVersion_IsTheDefaultModulesVersion`); keep the `explicit alpha pin`
       case and add an `explicit beta pin` case (`opmodel.dev/core@v2.0.0-beta.1`).
       Verify: `go test ./opm/schema/...` passes.
-- [ ] 1.3 `opm/internal/registrytest/registrytest.go`: `DefaultCoreVersion = "v2.0.0-beta.1"`,
+- [x] 1.3 `opm/internal/registrytest/registrytest.go`: `DefaultCoreVersion = "v2.0.0-beta.1"`,
       and the `coreDep` / `Major` comment examples; `registrytest_test.go` `Major` table gains
       the beta rows (keep the alpha rows as parse cases). Doc-comment examples in
       `opm/internal/renderstage/modfile.go` (`Dep.Version`) and `opm/catalog/requires.go` move
       to `v2.0.0-beta.1`. `opm/schema/paths.go` (`ProvidedBySince`, `CollisionsSince`) is not
       touched. Verify: `grep -rn 'alpha\.13' opm --include=*.go | grep -v _test.go` lists only
       the loader.go history sentence and `CollisionsSince`.
-- [ ] 1.4 Re-pin the core fixtures per design D4 (core pin only; do NOT run
+- [x] 1.4 Re-pin the core fixtures per design D4 (core pin only; do NOT run
       `task cue:deps:update`, which moves every dependency to latest). In each of
       `modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity` and
       `testdata/parity/opm_platform`: `cue mod get opmodel.dev/core@v2.0.0-beta.1 && cue mod
@@ -72,7 +73,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       (where present) still reads `v0.12.0` (`git diff` on their `module.cue` shows only the
       core line); `task cue:tidy` leaves no diff; `git diff --stat
       opm/internal/renderstage/render.cue.tmpl` is empty.
-- [ ] 1.5 Test literals that carry the default: `opm/kernel/render_core_floor_test.go`
+- [x] 1.5 Test literals that carry the default: `opm/kernel/render_core_floor_test.go`
       (`acquireOlderCorePlatform` builds its `require.Contains` precondition and the
       replacement source from `registrytest.DefaultCoreVersion`, target stays `v2.0.0-alpha.10`;
       design D5), `opm/kernel/render_test.go` (fixture comment and the `ModuleVersion` /
@@ -83,14 +84,14 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       older pin listed in design D4. Verify: `grep -rn 'alpha\.13' opm --include=*_test.go`
       shows only `CollisionsSince`-related or deliberately historical cases, each justified in
       the worker report.
-- [ ] 1.6 `AGENTS.md` layout line for `testdata/` (render fixtures "pinned to core
+- [x] 1.6 `AGENTS.md` layout line for `testdata/` (render fixtures "pinned to core
       2.0.0-beta.1"). Verify: `grep -n 'alpha\.13' AGENTS.md` prints nothing.
-- [ ] 1.7 Cross-cutting checks against GHCR: `task check`; `task cue:check`;
+- [x] 1.7 Cross-cutting checks against GHCR: `task check`; `task cue:check`;
       `task cue:catalog:drift`; `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`;
       `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity|TestFlow' -count=1`;
       `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green; a
       parity divergence stops the section and is written into design.md Risks.
-- [ ] 1.8 `task check` green, then commit `fix(deps): pin core v2.0.0-beta.1` (body: one
+- [x] 1.8 `task check` green, then commit `fix(deps): pin core v2.0.0-beta.1` (body: one
       sentence that core's first beta carries the alpha.13 schema unchanged and the render
       floor stays 2.0.0-alpha.12; no body line starting with `word(`; no bare at-sign).
 

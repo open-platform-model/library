@@ -19,11 +19,13 @@ import (
 //
 // It names an exact core release, never the floating "opmodel.dev/core@v2"
 // major: the release the kernel's render glue, fixtures and parity oracle
-// were verified against. 2.0.0-alpha.13 is the first release reporting
-// contract collisions on the derived #Platform.#contracts inventory
-// (`collisions` and `collidingEntries`, with `routable` false while any
-// exist, and `defined` and `definedBy` folding only keys with exactly one
-// enabled definer), on top of the per-registry-entry provider count
+// were verified against. 2.0.0-beta.1 is that release; it is core's first
+// beta and carries the 2.0.0-alpha.13 schema unchanged. 2.0.0-alpha.13 is
+// the first release reporting contract collisions on the derived
+// #Platform.#contracts inventory (`collisions` and `collidingEntries`, with
+// `routable` false while any exist, and `defined` and `definedBy` folding
+// only keys with exactly one enabled definer), on top of the
+// per-registry-entry provider count
 // (`providedBy`, with `overSubscribed`, `unfulfilled` and `routable`
 // recounted from it), the comparable-predicate report (`comparable` and
 // `discriminated`; 0015:D5, 0015:OQ9), the 0015:D1/D2/D18 inventory, the
@@ -33,17 +35,17 @@ import (
 //
 // The default is not the render floor: Kernel.Render and Platform.Contracts
 // accept every core from [ProvidedBySince] on, and a platform pinning a
-// release between the floor and this default decodes an absent collision
+// release between the floor and [CollisionsSince] decodes an absent collision
 // report as no collision (such a core cannot evaluate a colliding platform
 // at all). The constant advances only by a deliberate change that
 // re-verifies the glue and the fixtures against the new release; a default
 // that floats ahead of the glue breaks every synthesized artifact on a cold
 // cache.
-const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-alpha.13"
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"
 
 // DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
 // pins, in the canonical "v"-prefixed form a cue.mod dependency carries
-// ("v2.0.0-alpha.13"). It is the version a generated platform module pins
+// ("v2.0.0-beta.1"). It is the version a generated platform module pins
 // core at by default (opm/helper/platformmodule): the release the render
 // glue was verified against is the release a generated platform must embed.
 func DefaultSchemaVersion() string {
@@ -104,7 +106,7 @@ type OCILoader struct {
 // PinnedVersion reports, without any I/O, the exact core release the
 // loader's module identifier names: the version suffix of [OCILoader.Module]
 // (or of [DefaultSchemaModule] when Module is empty) and true when that
-// suffix is a full release ("v2.0.0-alpha.13"), or ("", false) when the
+// suffix is a full release ("v2.0.0-beta.1"), or ("", false) when the
 // identifier names a bare major ("opmodel.dev/core@v2", resolved to
 // ".latest" only by a load) or is not a module identifier at all.
 //

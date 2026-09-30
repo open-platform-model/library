@@ -23,6 +23,8 @@ func TestMajor(t *testing.T) {
 		"v0.1.0":          "v0",
 		"2.0.0-alpha.13":  "v2",
 		"v2.0.0-alpha.13": "v2",
+		"2.0.0-beta.1":    "v2",
+		"v2.0.0-beta.1":   "v2",
 		"v2":              "v2",
 	} {
 		assert.Equal(t, want, registrytest.Major(in), "Major(%q)", in)
