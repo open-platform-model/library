@@ -2,13 +2,16 @@
 //
 // The render path splits the two. A ROW is plain data with no Error method:
 // [UnresolvedDemand], [UnifyRefusal], [UnmatchedComponent],
-// [CandidateVerdict] and [OverSubscribedContract] are the verdicts the render
-// build decided, decoded as they were emitted and carried on the kernel's
-// render diagnostics. A CAUSE is a pointer-receiver aggregate over those rows
-// that the fail-closed gate raises: [*UnresolvedDemandsError],
+// [CandidateVerdict], [OverSubscribedContract] and [ContractCollision] are
+// the verdicts the render build decided, decoded as they were emitted and
+// carried on the kernel's render diagnostics. A CAUSE is a pointer-receiver
+// aggregate over those rows that the fail-closed gate raises:
+// [*ContractCollisionsError], [*UnresolvedDemandsError],
 // [*UnmatchedComponentsError] and [*OverSubscribedContractsError]. Each
 // carries its rows unchanged and in the same order, and wraps nothing, so
-// errors.As on one never yields a cause of another kind. [*TransformError]
+// errors.As on one never yields a cause of another kind. [*NotRoutableError]
+// is the gate's rowless catch-all, raised from the decoded routable verdict
+// alone. [*TransformError]
 // and [*SkewError] are ordinary wrappers with a real cause underneath.
 //
 // Configuration validation errors are CUE-native — see

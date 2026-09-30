@@ -89,6 +89,7 @@ func TestRender_UnlistedDemandNamesNoCatalog(t *testing.T) {
 	assert.Empty(t, d.DefinedBy, "no enabled catalog lists the key")
 	assert.Empty(t, d.Alternatives)
 	assert.Empty(t, d.Disqualified)
+	assert.Empty(t, d.Colliding, "no collision: nothing lists the key")
 	assert.Contains(t, agg.Error(),
 		`component "stray": unresolved resource demand "`+renderPrefix+`/elsewhere/resources/stray@v1": no enabled catalog defines this contract`)
 	assert.NotContains(t, agg.Error(), "defined by")
@@ -127,6 +128,7 @@ func TestRender_DisabledCatalogDefinesNothing(t *testing.T) {
 		require.True(t, ok, "unresolved row for %s", fqn)
 		assert.Empty(t, d.DefinedBy, "%s is listed by a disabled entry only", fqn)
 		assert.Empty(t, d.Alternatives, "%s: the disabled catalog's transformers are not candidates", fqn)
+		assert.Empty(t, d.Colliding, "%s: a disabled entry takes no part in a collision", fqn)
 	}
 	assert.Contains(t, agg.Error(), "no enabled catalog defines this contract")
 	assert.NotContains(t, agg.Error(), "defined by")

@@ -342,7 +342,7 @@ func instanceImportingLib(t *testing.T, fixture, libDir string) string {
 		"cue.mod/module.cue": `module: "testing.opmodel.dev/library-render/instance@v0"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.12"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.13"
 	"` + libModulePath + `": {}
 	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
 	"testing.opmodel.dev/library-render/web_app@v0": v: "v0.1.0"
@@ -472,7 +472,7 @@ func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
 	assert.Empty(t, stagedFiles(t, dir))
 
 	// A file with no replacement is not a redirection: it stages.
-	noRepl := withLocalFile(t, diskPlatform(t), "deps: \"opmodel.dev/core@v2\": v: \"v2.0.0-alpha.12\"\n")
+	noRepl := withLocalFile(t, diskPlatform(t), "deps: \"opmodel.dev/core@v2\": v: \"v2.0.0-alpha.13\"\n")
 	staged, err := Stage(t.TempDir(), overlayInstance(root), noRepl, "rt", StageOptions{})
 	require.NoError(t, err)
 	assert.Nil(t, staged.Replacements)
@@ -566,7 +566,7 @@ func TestStageBuild_LocalReplacementsResolveInOneBuild(t *testing.T) {
 		"cue.mod/module.cue": `module: "` + RenderModulePath + `"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-alpha.12"
+	"opmodel.dev/core@v2": v: "v2.0.0-alpha.13"
 	"` + libModulePath + `": v: "v0.0.0"
 	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
 	"testing.opmodel.dev/library-render/instance@v0": {v: "v0.0.0", default: true}

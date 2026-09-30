@@ -61,9 +61,9 @@ func acquireOlderCorePlatform(t *testing.T, k *kernel.Kernel) *platform.Platform
 	modFile := filepath.Join(dir, "cue.mod", "module.cue")
 	data, err := os.ReadFile(modFile)
 	require.NoError(t, err)
-	require.Contains(t, string(data), `v: "v2.0.0-alpha.12"`)
+	require.Contains(t, string(data), `v: "v2.0.0-alpha.13"`)
 	require.NoError(t, os.WriteFile(modFile,
-		[]byte(strings.Replace(string(data), `v: "v2.0.0-alpha.12"`, `v: "v2.0.0-alpha.10"`, 1)), 0o644))
+		[]byte(strings.Replace(string(data), `v: "v2.0.0-alpha.13"`, `v: "v2.0.0-alpha.10"`, 1)), 0o644))
 
 	plat, err := k.AcquirePlatformFromDir(context.Background(), dir)
 	require.NoError(t, err, "acquisition does not read the inventory")

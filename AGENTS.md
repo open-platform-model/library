@@ -121,7 +121,7 @@ Read these on entry:
 
 ```text
 opm/
-  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, skew.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts
+  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract, ContractCollision) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, collision.go, skew.go), plus the rowless NotRoutableError catch-all (collision.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
@@ -142,7 +142,7 @@ adr/                          Architecture decision records (use TEMPLATE.md)
 enhancements/                 Long-form library proposals (000-TEMPLATE, 001..007). NOTE: per root AGENTS.md these are frozen historical predecessors — cite via `legacy:NNN`, never edit, never fork. New cross-cutting OPM work goes in workspace-root enhancements/.
 openspec/                     OpenSpec proposals/specs/archives (active change workflow)
 modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
-testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to core 2.0.0-alpha.12 and served in-process, so not discovered by the CUE tasks)
+testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to core 2.0.0-alpha.13 and served in-process, so not discovered by the CUE tasks)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
 migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
@@ -312,11 +312,11 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacemen
                                SkipUnprovided written into the glue as a literal (the skip decision is made in the build)
         renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)
         decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
-        gateErrors             unresolved | unmatched | overSubscribed → *RenderError (skipped rows and omitted components arrive already filtered)
+        gateErrors             collisions | unresolved | overSubscribed | unmatched | not routable → *RenderError (skipped rows and omitted components arrive already filtered)
         decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
 ```
 
-Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder. The single-provider guard computes no count of its own: it reads core's `#contracts.providedBy` (providers per registry entry, path plus major), `overSubscribed` and `routable`, the same fields `Platform.Contracts()` decodes, so a render refuses on over-subscription exactly when the platform inventory reads not routable. `opm/kernel/render_inventory_parity_test.go` is the tripwire over every served platform.
+Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder. The single-provider guard computes no count of its own: it reads core's `#contracts.providedBy` (providers per registry entry, path plus major) and `overSubscribed`. The glue also reads core's collision report (`#contracts.collisions` and `collidingEntries`, keys more than one enabled registry entry defines; guarded on presence, since an older core cannot evaluate a colliding platform) and `routable`, and emits both as diagnostics. These are the fields `Platform.Contracts()` decodes, so a render refuses on a collision or an over-subscription exactly when the platform inventory reads not routable, and the kernel decides from the decoded rows and `routable`, never from the module's `gate`. `opm/kernel/render_inventory_parity_test.go` is the tripwire over every served platform.
 
 ### OPM schema versioning
 

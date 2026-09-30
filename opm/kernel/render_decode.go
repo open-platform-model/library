@@ -22,6 +22,8 @@ type glueDiagnostics struct {
 	Warnings       []glueDemand                     `json:"warnings"`
 	UnifyFailures  []oerrors.UnifyRefusal           `json:"unifyFailures"`
 	OverSubscribed []oerrors.OverSubscribedContract `json:"overSubscribed"`
+	Collisions     []oerrors.ContractCollision      `json:"collisions"`
+	Routable       bool                             `json:"routable"`
 	FailedPairs    []gluePair                       `json:"failedPairs"`
 }
 
@@ -78,6 +80,8 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacemen
 		Skipped:          g.Skipped,
 		Unify:            g.UnifyFailures,
 		OverSubscribed:   g.OverSubscribed,
+		Collisions:       g.Collisions,
+		Routable:         g.Routable,
 		UnhandledTraits:  map[string][]string{},
 		FailedPairs:      pairsOf(g.FailedPairs),
 		ResolvedVersions: rows,
@@ -102,12 +106,24 @@ func pairsOf(rows []gluePair) []RenderPair {
 }
 
 // gateErrors is the fail-closed gate (0010:D28, D37) as the kernel enforces
-// it from the decoded verdicts: unresolved demands, unmatched components and
-// over-subscribed provider-fulfilled contracts all refuse, through one exit
-// path, each reachable via errors.As. Each cause carries the diagnostics'
-// rows unchanged and in the same order.
+// it from the decoded verdicts: contract collisions, unresolved demands,
+// over-subscribed provider-fulfilled contracts and unmatched components all
+// refuse, through one exit path, each reachable via errors.As. Each cause
+// carries the diagnostics' rows unchanged and in the same order.
+//
+// The collision cause is joined first: a colliding key has left core's
+// definedBy, requiredBy and comparability report, so every other row is
+// read against a distorted inventory, and its fix (disable all but one
+// entry) comes before any other. The not-routable catch-all is joined last
+// and only when core's decoded routable reads false with no
+// over-subscription or collision row to explain it, so the kernel refuses
+// exactly when the render module's own gate does, even for a routable term
+// a future core adds without a row the kernel decodes.
 func gateErrors(diag RenderDiagnostics) error {
 	var gate []error
+	if len(diag.Collisions) > 0 {
+		gate = append(gate, &oerrors.ContractCollisionsError{Contracts: diag.Collisions})
+	}
 	if len(diag.Unresolved) > 0 {
 		gate = append(gate, &oerrors.UnresolvedDemandsError{Demands: diag.Unresolved})
 	}
@@ -116,6 +132,9 @@ func gateErrors(diag RenderDiagnostics) error {
 	}
 	if len(diag.Unmatched) > 0 {
 		gate = append(gate, &oerrors.UnmatchedComponentsError{Components: diag.Unmatched})
+	}
+	if !diag.Routable && len(diag.OverSubscribed) == 0 && len(diag.Collisions) == 0 {
+		gate = append(gate, &oerrors.NotRoutableError{})
 	}
 	if len(gate) == 0 {
 		return nil

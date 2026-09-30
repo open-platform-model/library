@@ -30,7 +30,7 @@ var (
 	// Platform. Contracts is #Platform.#contracts, the contract inventory
 	// core derives from the enabled registry entries' contract maps and the
 	// transformers' required demands (0015:D1, D2, D5, D18).
-	// (*platform.Platform).Contracts decodes its nine data fields on
+	// (*platform.Platform).Contracts decodes its eleven data fields on
 	// demand; `defined` (member schemas, not data) is not decoded. Never
 	// the loader gate, never platform construction.
 	Contracts = cue.MakePath(cue.Def("contracts"))
@@ -43,6 +43,20 @@ var (
 	// platform's Package carries it (a presence test, nothing more), so a
 	// platform pinning a core older than [ProvidedBySince] is refused.
 	ContractsProvidedBy = cue.MakePath(cue.Def("contracts"), cue.Str("providedBy"))
+
+	// ContractsCollisions is #Platform.#contracts.collisions: every
+	// contract FQN more than one enabled registry entry's catalog lists,
+	// ascending. Such a key is folded into none of definedBy, requiredBy,
+	// unfulfilled or comparable, and routable is false while any exists.
+	// The render glue reads it and Contracts() decodes it, both guarded on
+	// presence: a core without it cannot evaluate a colliding platform, so
+	// absence means no collision ([CollisionsSince]).
+	ContractsCollisions = cue.MakePath(cue.Def("contracts"), cue.Str("collisions"))
+
+	// ContractsCollidingEntries is #Platform.#contracts.collidingEntries:
+	// each [ContractsCollisions] key to the ascending registry keys (path
+	// plus major) of the enabled entries whose catalogs list it.
+	ContractsCollidingEntries = cue.MakePath(cue.Def("contracts"), cue.Str("collidingEntries"))
 
 	// Catalog. Transformers is #Catalog.#transformers, the implementations
 	// a catalog ships. RequiredResources, RequiredTraits and Fulfilment are
@@ -68,3 +82,13 @@ var (
 // prefix: the oldest core a platform module may pin for Kernel.Render and
 // Platform.Contracts, named in their PlatformCoreTooOldError.
 const ProvidedBySince = "2.0.0-alpha.12"
+
+// CollisionsSince is the first core release reporting contract collisions
+// (#Platform.#contracts.collisions and collidingEntries,
+// [ContractsCollisions]), without the "v" prefix. It documents the report
+// and is used by tests; it is never a floor. Every older core carrying
+// #contracts fails to evaluate a platform whose enabled entries share a
+// contract key (the definedBy fold conflicts), so a platform pinning a core
+// between [ProvidedBySince] and this release decodes an absent report as no
+// collision.
+const CollisionsSince = "2.0.0-alpha.13"

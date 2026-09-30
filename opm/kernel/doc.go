@@ -115,19 +115,28 @@
 // [*Compiled] carrying instance, component and transformer provenance).
 // Matching and transformer execution are CUE inside the build, not Go; the
 // build reports its verdicts as data and the kernel's fail-closed gate turns
-// an unresolved demand, an unmatched component or an over-subscribed
-// provider-fulfilled contract (read from core's #contracts.overSubscribed and
-// routable, the count the platform's Contracts() reads, so the render refuses
-// on over-subscription exactly when the inventory reads not routable) into a
-// [*RenderError] that carries the full
-// diagnostics, with the typed causes reachable through errors.As. Catalog
+// them into a [*RenderError] that carries the full diagnostics, with the
+// typed causes reachable through errors.As and joined in this order: a
+// contract collision (a key more than one enabled registry entry defines,
+// read from core's #contracts.collisions and collidingEntries; the
+// opm/errors ContractCollisionsError, first because the other rows are read
+// against the inventory a collision distorts, platform-wide and standing
+// under the skip switch), an unresolved demand, an over-subscribed
+// provider-fulfilled contract (read from core's #contracts.overSubscribed
+// and providedBy), an unmatched component, and last the NotRoutableError
+// catch-all, raised only when core's decoded #contracts.routable reads
+// false and no collision or over-subscription row explains it. The rows are
+// the ones the platform's Contracts() reads, so the render refuses on a
+// collision or an over-subscription exactly when the inventory reads not
+// routable. Catalog
 // version skew (the instance module requiring a newer OPM-namespace build than
 // the platform carries) marks a resolved-versions row Newer by default
 // ([SkewWarn]) or refuses before evaluation ([SkewRefuse]).
 //
 // The render module's own gate field agrees with the kernel: it errors exactly
-// when the kernel refuses, so a staged module is self-refusing under a plain
-// cue eval. Each typed cause carries its diagnostics rows unchanged and wraps
+// when the kernel refuses on a decoded verdict, so a staged module is
+// self-refusing under a plain cue eval. The kernel decides from the decoded
+// rows and the decoded routable verdict only, never by reading the gate. Each typed cause carries its diagnostics rows unchanged and wraps
 // nothing. Inputs are never mutated, and the staging directory is removed on
 // return, success or failure; refusals before evaluation (a missing Source, a
 // platform whose core predates #contracts.providedBy, an uncovered
@@ -156,7 +165,7 @@
 // A dry run is Render with the output discarded: the build evaluates every
 // matched pair regardless, and RenderDiagnostics carries the pairing diagnosis
 // (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits,
-// OverSubscribed, ResolvedVersions). There is no separate match verb.
+// OverSubscribed, Collisions, Routable, ResolvedVersions). There is no separate match verb.
 //
 // A demand is unprovided when its contract declares fulfilment "provider" and
 // no enabled registry entry carries a transformer requiring the key: the key
@@ -171,8 +180,8 @@
 // omits the whole component (no pair of it renders, it is not reported
 // unmatched, and every skipped row of it carries ComponentOmitted). Every
 // other refusal stands under the switch: a catalog-fulfilled unresolved
-// demand, a provider that exists but did not match, an over-subscribed
-// contract and an unmatched component. The switch is the caller's, per
+// demand, a provider that exists but did not match, a contract collision,
+// an over-subscribed contract and an unmatched component. The switch is the caller's, per
 // render; the kernel never sets it, and a frontend names its own flag.
 //
 // An input's own cue.mod/local-module.cue (a developer redirecting a

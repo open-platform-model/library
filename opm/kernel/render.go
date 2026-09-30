@@ -192,6 +192,22 @@ type RenderDiagnostics struct {
 	// through the gate.
 	OverSubscribed []oerrors.OverSubscribedContract
 
+	// Collisions is every contract key two or more enabled registry
+	// entries' catalogs list (core's #contracts.collisions), key-sorted,
+	// each row naming the registry keys core's #contracts.collidingEntries
+	// holds for it: exactly the platform inventory's CollidingEntries. Any
+	// row refuses the render through the gate, first among the causes,
+	// whatever the instance and whatever [RenderInput.SkipUnprovided] says.
+	// Empty on a platform pinning a core without the report, which cannot
+	// evaluate a colliding platform at all.
+	Collisions []oerrors.ContractCollision
+
+	// Routable is core's #contracts.routable as decoded: false when the
+	// platform carries an over-subscribed or colliding contract. A false
+	// verdict with neither row refuses the render with
+	// [*oerrors.NotRoutableError].
+	Routable bool
+
 	// ResolvedVersions holds the per-path version rows, in path order.
 	ResolvedVersions []ResolvedVersion
 
@@ -241,13 +257,16 @@ type Replacement struct {
 	By     string
 }
 
-// RenderError is a refusal after the build: the fail-closed gate (an
-// unresolved demand, an unmatched component or an over-subscribed
-// provider-fulfilled contract), a failed pair, or a non-concrete pair output.
-// Diagnostics carries everything the build reported; Err carries the typed
-// causes ([*oerrors.UnresolvedDemandsError], [*oerrors.UnmatchedComponentsError],
-// [*oerrors.OverSubscribedContractsError], [*oerrors.TransformError]),
-// reachable through errors.As.
+// RenderError is a refusal after the build: the fail-closed gate (a contract
+// collision, an unresolved demand, an over-subscribed provider-fulfilled
+// contract, an unmatched component, or a not-routable platform no row
+// explains), a failed pair, or a non-concrete pair output. Diagnostics
+// carries everything the build reported; Err carries the typed causes
+// ([*oerrors.ContractCollisionsError], [*oerrors.UnresolvedDemandsError],
+// [*oerrors.OverSubscribedContractsError],
+// [*oerrors.UnmatchedComponentsError], [*oerrors.NotRoutableError],
+// [*oerrors.TransformError]), reachable through errors.As; the gate causes
+// are joined in that order.
 type RenderError struct {
 	Diagnostics RenderDiagnostics
 	Err         error
