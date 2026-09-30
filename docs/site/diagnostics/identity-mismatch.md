@@ -2,8 +2,7 @@
 title: "Identity mismatch"
 description: "A fetched module declares a different path or version than the one it was fetched as."
 type: how-to
-sidebar:
-  order: 23
+weight: 23
 ---
 
 <!-- Diagnostics entry for the kernel's errors.IdentityError, returned when a module fetched from a registry declares a different identity than the coordinate it was fetched by. Modules only: catalogs acquired from a registry get no such check, and a platform's catalog builds are verified by CUE when the platform builds, with a different message. Check against: library/opm/errors/identity.go, library/opm/internal/loader/registry.go -->

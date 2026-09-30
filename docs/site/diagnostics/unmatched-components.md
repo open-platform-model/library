@@ -2,8 +2,7 @@
 title: "No matching transformer"
 description: "A component matches no transformer, so nothing can render it."
 type: how-to
-sidebar:
-  order: 21
+weight: 21
 ---
 
 <!-- Diagnostics entry for the kernel's *UnmatchedComponentsError, the render gate's refusal for a component that no transformer matched. When the render also carries unresolved demands, both messages print together; the Unresolved demands entry covers that half. Check against: library/opm/errors/unmatched.go, library/opm/kernel/render_decode.go -->

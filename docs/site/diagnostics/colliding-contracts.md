@@ -2,8 +2,7 @@
 title: "Colliding contracts"
 description: "Two or more enabled catalogs on the platform define the same contract key."
 type: how-to
-sidebar:
-  order: 19
+weight: 19
 ---
 
 <!-- Diagnostics entry for the kernel's *ContractCollisionsError, the first cause the render gate joins. It is raised when the catalogs of two or more enabled registry entries list the same contract key in their contract maps, most often two majors of one catalog enabled side by side. Core (from 2.0.0-alpha.13) reports such keys on #Platform.#contracts as collisions and collidingEntries, folds only keys with exactly one enabled definer into definedBy, and reads routable false; the render glue reads that report and never computes it, and Platform.Contracts() decodes the same fields (ContractInventory.Collisions, CollidingEntries), so the render refusal and the inventory agree on every platform. A platform module pinning core older than 2.0.0-alpha.13 cannot evaluate such a platform at all: acquisition fails on a definedBy (or defined) conflict, "conflicting values", and this error is never reached. Check against: library/opm/errors/collision.go, library/opm/kernel/render_decode.go, library/opm/platform/contracts.go, core/src/platform.cue -->

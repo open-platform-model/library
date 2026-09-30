@@ -2,8 +2,7 @@
 title: "Transform failed"
 description: "A transformer ran on a component and its output failed to evaluate."
 type: how-to
-sidebar:
-  order: 25
+weight: 25
 ---
 
 <!-- Diagnostics entry for the kernel's *TransformError, raised after matching succeeded, when a matched (component, transformer) pair's output is an error, is not concrete or has the wrong shape. Verify: the type's message carries no name of its own; the nearest printed words are "executing transforms" (kernel) and "transformer <fqn> failed" (CLI details), so the author may prefer one of those as the title. Check against: library/opm/errors/domain.go, library/opm/kernel/render_decode.go -->

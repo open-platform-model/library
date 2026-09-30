@@ -2,8 +2,7 @@
 title: "Unresolved demands"
 description: "A module needs a contract that no catalog on the platform provides."
 type: how-to
-sidebar:
-  order: 20
+weight: 20
 ---
 
 <!-- Diagnostics entry for the kernel's *UnresolvedDemandsError, the fail-closed render gate's refusal for a demanded resource or trait contract that nothing on the platform resolves. The title is the aggregate's printed name ("unresolved demand(s)"). Often appears together with the No matching transformer entry: when a component's only demands are unresolved, the same render also reports the component unmatched, and the two causes are joined in one message. Check against: library/opm/errors/match.go, library/opm/kernel/render_decode.go, library/opm/kernel/render.go -->
