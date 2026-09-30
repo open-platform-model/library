@@ -59,6 +59,16 @@ context: |
   - MAJOR: any breaking change to `opm/` types, signatures, or behavior.
   - MINOR: additive changes that preserve existing behavior.
   - PATCH: bug fixes, performance improvements, internal refactors.
+  - Pre-GA clause (beta line): from its first beta, a prerelease line (`opmodel.dev/core@v2`,
+    `opmodel.dev/catalogs/k8s@v1`, library, cli, opm-operator) is on the path to GA. Until the
+    library's first GA release, a breaking change to `opm/` types, signatures, or behavior is
+    still allowed, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration
+    note the CHANGELOG shows. It advances the `-beta.N` prerelease counter and never moves the
+    module path to a new major. Stable lines (`opmodel.dev/catalogs/opm@v4` and the module
+    fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would
+    force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false`
+    plus a visible carrier commit per package, in dependency order. The MAJOR line above
+    applies from GA.
   - Commits SHOULD follow Conventional Commits v1: `type(scope): description`.
   - Types: feat, fix, refactor, docs, test, chore.
   - Scope SHOULD name the affected package or subsystem; see AGENTS.md for the current scope set.

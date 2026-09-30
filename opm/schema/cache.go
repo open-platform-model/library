@@ -60,7 +60,7 @@ func (c *Cache) Get() (cue.Value, error) {
 
 // ResolvedVersion returns the schema module version that the underlying
 // Loader resolved during the first successful [Cache.Get] (e.g.
-// "v2.0.0-alpha.4" when the default identifier resolved to that instance).
+// "v2.0.0-beta.1" when the default identifier resolved to that instance).
 //
 // Returns the empty string before the first successful Get, after a
 // failed Get, or when the Loader does not surface a resolved version.

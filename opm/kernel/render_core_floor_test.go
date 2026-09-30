@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/platform"
 )
@@ -61,9 +62,10 @@ func acquireOlderCorePlatform(t *testing.T, k *kernel.Kernel) *platform.Platform
 	modFile := filepath.Join(dir, "cue.mod", "module.cue")
 	data, err := os.ReadFile(modFile)
 	require.NoError(t, err)
-	require.Contains(t, string(data), `v: "v2.0.0-alpha.13"`)
+	pin := `v: "` + registrytest.DefaultCoreVersion + `"`
+	require.Contains(t, string(data), pin)
 	require.NoError(t, os.WriteFile(modFile,
-		[]byte(strings.Replace(string(data), `v: "v2.0.0-alpha.13"`, `v: "v2.0.0-alpha.10"`, 1)), 0o644))
+		[]byte(strings.Replace(string(data), pin, `v: "v2.0.0-alpha.10"`, 1)), 0o644))
 
 	plat, err := k.AcquirePlatformFromDir(context.Background(), dir)
 	require.NoError(t, err, "acquisition does not read the inventory")

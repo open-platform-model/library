@@ -42,18 +42,18 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCach
 
 ### Pin a specific schema version
 
-`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves `schema.DefaultSchemaModule` (the pinned core release the kernel was built against). To pin a different reproducible version:
+`WithSchemaLoader` configures the underlying `schema.Loader`. The default is `schema.OCILoader{}`, which resolves `schema.DefaultSchemaModule` (the pinned core release the kernel was built against). To pin a reproducible version explicitly:
 
 ```go
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-alpha.12",
+    Module: "opmodel.dev/core@v2.0.0-beta.1",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
-// → "v2.0.0-alpha.12"
+// → "v2.0.0-beta.1"
 ```
 
 ## Acquire a module

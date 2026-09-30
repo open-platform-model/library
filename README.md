@@ -91,10 +91,16 @@ See [`docs/getting-started.md`](docs/getting-started.md) for an end-to-end walkt
 
 The library follows SemVer 2.0.0. The public surface is everything under `opm/`. Two distinct compatibility tracks coexist and must not be confused:
 
-- **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. A breaking change here is a major bump of the library.
+- **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. Before GA, a breaking Go API change is a `feat!` commit that advances the prerelease counter; from GA, a breaking change here is a major bump of the library.
 - **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleInstance`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
 The two tracks are independent: within an OPM schema major, additive shape changes are absorbed by floating-major resolution and require no Go-side bump; a shape break in the schema is itself a coordinated library-breaking event.
+
+### Beta promise
+
+From its first beta, the library is on the path to GA, together with the other prerelease lines (`opmodel.dev/core@v2`, `opmodel.dev/catalogs/k8s@v1`, cli, opm-operator). A breaking change is still allowed during beta, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the [CHANGELOG](CHANGELOG.md) shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)). It advances the `-beta.N` counter and never moves the Go module path to a new major (no `v2` of the library during beta). Stable lines (`opmodel.dev/catalogs/opm@v4` and the module fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false` plus a visible carrier commit per package, in dependency order.
+
+Pin an explicit `v1.0.0-beta.N` (`go get github.com/open-platform-model/library@v1.0.0-beta.N`): `go get ...@latest` resolves the retired `v0.7.0`.
 
 ## OPM schema resolution
 
