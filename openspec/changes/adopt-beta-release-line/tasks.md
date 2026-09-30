@@ -105,7 +105,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
 
 ## 3. Beta promise and beta migration notes (README, ADR, migrations, AGENTS, docs)
 
-- [ ] 3.1 `README.md` "API stability": add the beta promise per design D7 (canon wording
+- [x] 3.1 `README.md` "API stability": add the beta promise per design D7 (canon wording
       adapted to the library); keep the two-track structure but rewrite the Go-module bullet's
       "A breaking change here is a major bump of the library": before GA, a breaking Go API
       change is a `feat!` that advances the prerelease counter; from GA, it is a major bump.
@@ -116,24 +116,24 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       would force a catalogs/opm major, the GA carrier rule and the explicit-pin line; it does
       not say the library moves or holds core's major; `grep -n 'major bump' README.md` shows
       only the GA-qualified sentence.
-- [ ] 3.2 New `adr/010-beta-migration-notes-in-changelog.md` from `adr/TEMPLATE.md`, status
+- [x] 3.2 New `adr/010-beta-migration-notes-in-changelog.md` from `adr/TEMPLATE.md`, status
       Accepted: during beta the migration note is the `BREAKING CHANGE:` footer rendered into
       `CHANGELOG.md`; `migrations/` stays dormant until GA; GA arms ADR-004; ADR-004 is not
       amended. Consequences in bold-labeled paragraphs, no bullet lists. Verify: the file
       follows the template headings and cites ADR-004.
-- [ ] 3.3 `migrations/README.md` "Status": dormant through alpha and beta; name the footer rule
+- [x] 3.3 `migrations/README.md` "Status": dormant through alpha and beta; name the footer rule
       and link ADR-010. `AGENTS.md` working-style bullet (pre-GA, no migration fragment): on the
       beta line a break is `feat!` with the `BREAKING CHANGE:` footer as the migration note;
       entrypoint bullet for `migrations/README.md` mentions beta. Verify: both files link
       ADR-010 and neither instructs writing a fragment before GA.
-- [ ] 3.4 `docs/getting-started.md` pin example (the `OCILoader{Module: ...}` snippet and its
+- [x] 3.4 `docs/getting-started.md` pin example (the `OCILoader{Module: ...}` snippet and its
       resolved-version comment) moves to `opmodel.dev/core@v2.0.0-beta.1`. In
       `docs/site/embedding/embed-the-kernel.md`, the "Before you begin" brief's library version
       becomes "the newest v1.0.0-beta.N tag (Verify at writing)" and the section-1 brief's `go
       get` target becomes `github.com/open-platform-model/library@v1.0.0-beta.1` (Verify at
       writing). Verify: `grep -n 'alpha' docs/getting-started.md
       docs/site/embedding/embed-the-kernel.md` prints nothing.
-- [ ] 3.5 Principle VI pre-GA clause per design D7, in `CONSTITUTION.md` (§ VI) and the
+- [x] 3.5 Principle VI pre-GA clause per design D7, in `CONSTITUTION.md` (§ VI) and the
       `openspec/config.yaml` `context` copy alike, carrying the full canon promise: until GA, a
       breaking change to `opm/` is a `feat!` whose `BREAKING CHANGE:` footer is the migration
       note and which advances the prerelease counter, never a new major; stable lines
@@ -144,7 +144,7 @@ tracked in the supervisor log after archive, never ticked in the archived file.
       same meaning, including the stable-line and GA sentences; neither says the library
       moves or holds core's major; `openspec validate --all --strict` still passes, and
       neither names any `!` type other than `feat!`.
-- [ ] 3.6 `task check` green, then commit `docs: state the beta promise and where beta migration
+- [x] 3.6 `task check` green, then commit `docs: state the beta promise and where beta migration
       notes live`.
 
 ## 4. Verify and archive

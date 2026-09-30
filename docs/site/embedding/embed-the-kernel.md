@@ -11,11 +11,11 @@ Check against: library/opm/kernel/doc.go, library/docs/getting-started.md (Remov
 
 ## Before you begin
 
-<!-- Exact tools and versions, as links, with nothing explained: Go 1.25 or later (library/go.mod declares go 1.25.0); the library module github.com/open-platform-model/library at v1.0.0-alpha.33, the latest tag (Verify at writing); network access to ghcr.io and registry.cue.works, the two hosts in schema.PublicRegistry. No cue binary and no cluster are needed. Verify: web_app v1.0.4 and the catalog opm@v4 at 4.4.1 are published to GHCR and can be pulled anonymously. Check against: library/go.mod, library/.release-please-manifest.json, library/opm/schema/loader.go (PublicRegistry), modules/web_app/identity/identity.cue -->
+<!-- Exact tools and versions, as links, with nothing explained: Go 1.25 or later (library/go.mod declares go 1.25.0); the library module github.com/open-platform-model/library at the newest v1.0.0-beta.N tag (Verify at writing); network access to ghcr.io and registry.cue.works, the two hosts in schema.PublicRegistry. No cue binary and no cluster are needed. Verify: web_app v1.0.4 and the catalog opm@v4 at 4.4.1 are published to GHCR and can be pulled anonymously. Check against: library/go.mod, library/.release-please-manifest.json, library/opm/schema/loader.go (PublicRegistry), modules/web_app/identity/identity.cue -->
 
 ## 1. Create a Go module
 
-<!-- Commands: mkdir render-demo && cd render-demo, go mod init example.com/render-demo, go get github.com/open-platform-model/library@v1.0.0-alpha.33. Show the go get output: the "go: added" lines for the library and for cuelang.org/go v0.17.1. Check against: library/go.mod -->
+<!-- Commands: mkdir render-demo && cd render-demo, go mod init example.com/render-demo, go get github.com/open-platform-model/library@v1.0.0-beta.1 (Verify at writing). Show the go get output: the "go: added" lines for the library and for cuelang.org/go v0.17.1. Check against: library/go.mod -->
 
 ## 2. Fetch the module
 

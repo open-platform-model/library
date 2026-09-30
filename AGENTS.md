@@ -113,7 +113,7 @@ Read these on entry:
 - `CONSTITUTION.md` — design principles (full text).
 - `openspec/config.yaml` — normative constitution + OpenSpec artifact rules.
 - `README.md` — same big picture as below, slightly fuller prose.
-- `migrations/README.md` — migration-docs policy (per-change fragments, dormant until GA).
+- `migrations/README.md` — migration-docs policy (per-change fragments, dormant through alpha and beta until GA; on the beta line the migration note is the `feat!` commit's `BREAKING CHANGE:` footer, ADR-010).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/` — CUE evaluator notes: the v0.17.x closedness regression and its canary, plus historical bug records whose code no longer exists.
 
@@ -145,7 +145,7 @@ modules/                      Test-only CUE modules (opm, opm_platform) — fixt
 testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to core 2.0.0-beta.1 and served in-process, so not discovered by the CUE tasks)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
-migrations/                   Per-change migration fragments + policy (README.md; dormant until GA, CI-enforced after — ADR-004)
+migrations/                   Per-change migration fragments + policy (README.md; dormant through beta until GA, CI-enforced after — ADR-004; beta notes live in the CHANGELOG footer, ADR-010)
 .cue-cache/                   Gitignored shared CUE module cache: the opmodel.dev tier (core + GHCR catalogs) every test and test process reads; served fixtures live in per-test private caches, and nothing in the test tree deletes from it
 ```
 
@@ -369,6 +369,6 @@ Default is none: a comment says what the code does and why, in its own words.
   - **Architecture decision purely about library internals** — `adr/<NNN>-<slug>.md` (use `adr/TEMPLATE.md`).
   - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
 - Run `task check:fast` for iterative work, `task check` before merge.
-- When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers. Pre-GA no migration fragment is written (consumers migrate in the same PR wave); from GA a breaking change requires `migrations/unreleased/<slug>.md` per `migrations/README.md`.
+- When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers. Pre-GA no migration fragment is written (consumers migrate in the same PR wave); on the beta line a break lands only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the CHANGELOG shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)); from GA a breaking change requires `migrations/unreleased/<slug>.md` per `migrations/README.md`.
 - Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleInstance`, etc.).
 - "Load a published module by `path@version`" lives in the library (`Kernel.AcquireModuleFromRegistry`, over `opm/internal/loader.FetchModule`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, dependency walks, or a directory walk to stage a module's tree: `AcquireModuleFromDir` returns it as a byte overlay and `module.Source.WriteTo` writes one back out. The shape gate is single-sourced in `opm/internal/loader` and its sentinels in `opm/errors` — extend them there.

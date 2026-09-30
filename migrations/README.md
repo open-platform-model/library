@@ -6,16 +6,22 @@ Per-change migration recipes for the library's public Go API and the OPM contrac
 
 ## Status: dormant until GA
 
-The library is pre-GA. Until the first GA release:
+The library is pre-GA, through its alpha and beta lines alike. Until the first GA release:
 
 - **No migration fragments are required or written.** Breaking changes are recorded by
   release-please in `CHANGELOG.md` and, with full design context, in
   `openspec/changes/archive/`.
+- **On the beta line, the migration note is the commit footer.** A breaking change lands
+  only as a `feat!` commit whose `BREAKING CHANGE:` footer states how consumers migrate;
+  release-please renders that footer into the `CHANGELOG.md` entry of the `-beta.N` release
+  it lands in. The rule is recorded in
+  [ADR-010](../adr/010-beta-migration-notes-in-changelog.md).
 - Both consumers (`cli`, `opm-operator`) live in this workspace and migrate in the same
   coordinated PR wave, so a standing recipe document has no audience yet.
 
 From the first GA release onward this directory becomes mandatory and CI-enforced. The
-enforcement design is recorded in [ADR-004](../adr/004-migration-docs-structure.md).
+enforcement design is recorded in [ADR-004](../adr/004-migration-docs-structure.md); GA, not
+beta, arms it.
 
 ## Layout (armed at GA)
 
