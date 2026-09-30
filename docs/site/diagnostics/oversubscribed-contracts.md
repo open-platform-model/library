@@ -2,8 +2,7 @@
 title: "Over-subscribed provider contracts"
 description: "More than one catalog on the platform claims to be the single provider of a contract."
 type: how-to
-sidebar:
-  order: 22
+weight: 22
 ---
 
 <!-- Diagnostics entry for the kernel's *OverSubscribedContractsError, the render gate's single-provider guard. The same condition is refused earlier, when the platform itself is generated or checked, under the Platform reason OverSubscribedContracts; this entry covers both surfaces because the fix is the same. Both surfaces now read one count, core's #Platform.#contracts.providedBy: the render glue reads it and the platform check reads it through Contracts(), so the render refusal and the platform refusal fire on exactly the same platforms. A platform module pinning core older than 2.0.0-alpha.12 carries no such count and is refused before any render with PlatformCoreTooOldError instead (fix: re-pin opmodel.dev/core in the platform module). Check against: library/opm/errors/oversubscribed.go, library/opm/errors/coretooold.go, opm-operator/internal/controller/platform_inventory.go -->

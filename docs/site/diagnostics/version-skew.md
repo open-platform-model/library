@@ -2,8 +2,7 @@
 title: "Version skew"
 description: "A module needs a newer catalog build than the platform carries."
 type: how-to
-sidebar:
-  order: 24
+weight: 24
 ---
 
 <!-- Diagnostics entry for the kernel's *SkewError. It is an error only under the refuse skew policy; under the default warn policy the same fact is a warning and the render proceeds. The page covers both, because a reader may arrive holding either line. Check against: library/opm/errors/skew.go, library/opm/kernel/render.go -->

@@ -2,8 +2,7 @@
 title: "Embed the kernel"
 description: "Load a module, validate values and render it from a Go program."
 type: tutorial
-sidebar:
-  order: 10
+weight: 10
 ---
 
 <!-- Open with the end result, never "you will learn": a Go program, main.go, that fetches the published web_app module (opmodel.dev/modules/web_app@v1 at v1.0.4), checks a values file against the module's configuration, builds an instance named demo in namespace default, generates a platform that subscribes to the OPM catalog, renders the instance, and prints a Deployment and a Service as YAML. Nothing is applied to a cluster. One sentence on who this is for: Go developers building their own frontend, in the way the opm CLI and the operator embed the same kernel.
