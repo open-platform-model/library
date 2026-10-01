@@ -5,7 +5,7 @@ The facts that shape the approach:
 
 - Release PRs come from release-please on a branch starting `release-please--` (today
   `release-please--branches--main--components--library`, PR #155). The release
-  job acts as the release App (`.github/workflows/release.yml:56-64`), so the release PR's
+  job acts as the release App (`.github/workflows/release.yml:17-25`), so the release PR's
   `pull_request` CI starts on its own, with `github.head_ref` set. core and catalog_opm instead
   dispatch release-PR CI with `workflow_dispatch`, where `head_ref` is empty; the shared G1
   shape in workspace RELEASING.md, section "Gates", keys on `head_ref || ref_name` to cover both.
@@ -92,8 +92,10 @@ bad=$(go mod edit -json \
 [ -z "$bad" ] || { echo "OPM Go modules at a pseudo-version:"; echo "$bad"; fail=1; }
 
 # 3. CUE dev pins in tracked cue.mods, and dev literals in shipped (non-test) Go under opm/.
-git ls-files -z '*cue.mod/module.cue' | xargs -0 -r grep -nE 'v: *"[^"]*-0\.dev\.' && fail=1
-git ls-files -z 'opm/*.go' ':!:*_test.go' | xargs -0 -r grep -nE '"[^"]*-0\.dev\.[^"]*"' && fail=1
+hits=$(git ls-files -z -- '*cue.mod/module.cue' | xargs -0 -r grep -HnE 'v: *"[^"]*-0\.dev\.' || true)
+[ -z "$hits" ] || { echo "dev CUE pins in cue.mod/module.cue:"; echo "$hits"; fail=1; }
+hits=$(git ls-files -z -- 'opm/*.go' | grep -zv '_test\.go$' | xargs -0 -r grep -HnE '"[^"]*-0\.dev\.[^"]*"' || true)
+[ -z "$hits" ] || { echo "dev version literals in shipped Go:"; echo "$hits"; fail=1; }
 
 # 4. Tracked CUE local replacements.
 lm=$(git ls-files '*cue.mod/local-module.cue')
@@ -106,8 +108,14 @@ exit "$fail"
 `[-.][0-9]{14}-[0-9a-f]{12}$` matches all three Go pseudo-version shapes (`vX.0.0-ts-hash`,
 `vX.Y.Z-pre.0.ts-hash`, `vX.Y.Z-0.ts-hash`); it was checked against the two third-party
 pseudo-versions in `go.mod` today, which it matches and which the path filter then excludes.
-The `grep && fail=1` form relies on grep's exit 1 for "no match"; exit 2 (read error) also
-leaves `fail` untouched, which is acceptable because `git ls-files` only names files that exist.
+Rule 3 captures the matches and fails on a non-empty capture rather than on grep's exit
+status: `xargs -r` exits 0 on an empty list, xargs exits 123 when only some of several grep
+batches match, and `grep -n` drops the filename when it gets one file. Capturing with `-H`
+avoids all three. Non-test files are selected by name (`grep -zv '_test\.go$'`), not by a
+`:!:*_test.go` exclude pathspec: that pathspec also drops non-test files whose names end in
+`test.go` (`opm/internal/registrytest/registrytest.go`, which holds `DefaultCoreVersion`, and
+`opm/internal/schematest/schematest.go`), and its matching is not something to rely on across
+git versions.
 The final task reports pass or fail with the repo's usual coloured `==>` lines; the snippet
 omits them.
 
@@ -138,7 +146,7 @@ The library is a single root package (`release-please-config.json:7-8`, `"."`), 
 unprefixed `tag_name` output is the release tag. This is the exact shape of
 `opm-operator/.github/workflows/release.yml:33-35`. No job reads the outputs yet.
 
-### D-e. Hide `docs`, keep `refactor` (decision D15)
+### D-e. Hide `docs`, keep `refactor` (RELEASING.md "Pin classes")
 
 `release-please-config.json:21` flips `docs` to `"hidden": true`; `refactor` (`:22`) stays
 `false`. `pr-title.yml:33-44` keeps `docs` as an allowed title type: hiding changes what
@@ -160,7 +168,7 @@ and checking before tidy judges the committed `go.mod`.
 
 ### release-please behaviour on hidden types
 
-**Context**: D15 assumes hiding `docs` stops docs-only releases.
+**Context**: RELEASING.md "Pin classes" assumes hiding `docs` stops docs-only releases.
 **Explored**: release-please `src/strategies/base.ts` (`changelogEmpty`, line 331 on `main`).
 **Decision**: rely on it; no `Release-As` or extra config.
 **Rationale**: the library already depends on this for `test`, `ci`, `build` and `chore`.
@@ -172,20 +180,42 @@ and checking before tidy judges the committed `go.mod`.
 - [A future fixture legitimately needs a tracked `local-module.cue`] → write it at test time as
   today's tests do; if that becomes impossible, narrow rule 4 in its own change rather than
   exempting by path here.
-- [The Go literal grep could hit a comment or error string quoting `-0.dev.`] → it only scans
-  double-quoted strings in non-test Go under `opm/`; comments in this repo quote versions in
-  backticks. A false positive fails loudly on a release PR and is fixed by rewording, never by
+- [The Go literal grep could hit a comment or error string quoting `-0.dev.`] → it scans
+  double-quoted strings anywhere in non-test Go under `opm/`, comments included, and comments
+  here may double-quote versions (`opm/catalog/requires.go:18`). None quotes a dev version
+  today; one that does fails the gate on a release PR and is reworded, never exempted by
   weakening the gate.
+- [A test needs a dev-pinned fixture] → rule 3 scans every tracked `cue.mod/module.cue`
+  (D-c), so such a test writes its fixture at run time, as tests needing a `local-module.cue`
+  already do.
 - [Release PR branch name changes] → release-please's branch prefix has been
   `release-please--` across every major; the same condition is used in all four repos, so a
   change would surface everywhere at once.
-- [Fewer releases] → docs-only fixes no longer reach the Go proxy until the next releasing
-  commit. Intended (D15); library docs are read from GitHub and opmodel.dev, not from the
-  module zip.
+- [Fewer releases, and library docs lag on opmodel.dev] → a docs-only fix no longer cuts a
+  release. opmodel.dev builds library (and opm-operator) docs at exactly the version the newest
+  cli tag pins (`opmodel.dev/site/versions.conf`, line mode); only core and catalog_opm docs
+  come from a branch head. So once `docs` is hidden, a docs-only library fix reaches the site
+  only after a later releasing library commit and then a cli release that pins it. The rule
+  is intended (RELEASING.md "Pin classes"); the lag is a visible cost the owner decides on
+  (open question (b)). The same lag applies to the opm-operator and cli edits.
 
 ## Migration Plan
 
 Merge as one PR (three `ci` sections, squash title `ci(release): ...`, hidden, no release).
+The archive commit (`chore(openspec): archive prepare-release-cascade`, syncing
+`release-pipeline` into `openspec/specs/`) rides this PR; nothing is pushed to `main`
+afterwards (RELEASING.md "Owner settings").
 Rollback is a revert of the squash commit. Release PR #155 (`chore(main): release 1.0.0-beta.2`, branch
 `release-please--branches--main--components--library`) is open today; its next CI run after
 this merges evaluates the merge ref, so it picks up G1. It is green on arrival (see Context).
+
+## Open Questions
+
+- (a) **Dev-pin scope.** D-c scans every tracked `cue.mod/module.cue`, wider than RELEASING.md
+  "Gates" ("a shipped `cue.mod`") and than the peers. If the owner narrows it to shipped pins,
+  rule 3 keeps only the Go-literal grep and spec scenario "Dev CUE pin in a cue.mod" is cut
+  down to the Go constant.
+- (b) **Library docs lag on opmodel.dev.** Accept that a docs-only library fix waits for a
+  releasing library commit and a cli release (Risks), or open an opmodel.dev follow-up that
+  builds library, opm-operator and cli docs from `main` or the release-branch head, as core and
+  catalog_opm already are.

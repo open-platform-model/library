@@ -96,7 +96,7 @@ releasing types, and SHALL hide `docs`, `test`, `ci`, `build` and `chore`, so a 
 that holds only hidden types opens no release PR. `refactor` SHALL stay visible so library
 rewrites reach downstream repos early.
 
-Source: owner decision D15, recorded in workspace RELEASING.md, section "Bump rule".
+Source: workspace RELEASING.md, section "Pin classes".
 
 #### Scenario: Docs-only commits
 

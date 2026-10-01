@@ -6,7 +6,7 @@ and "Gates"): an upstream release notifies its downstreams, each downstream keep
 "Release order" beside catalog_opm and feeds opm-operator and cli, so it needs three things
 before it can join: a gate that keeps a dev or replaced pin out of a release, release-please
 outputs a later notify job can read, and a changelog that stops releasing (and so cascading)
-on documentation-only commits. None exists today: `.github/workflows/release.yml:70-75` has no
+on documentation-only commits. None exists today: `.github/workflows/release.yml:31-36` has no
 step id and no job outputs, no workflow inspects pins on a release PR, and
 `release-please-config.json:21` lists `docs` as visible, so a docs-only merge cuts a library
 release that would then ripple through opm-operator and cli.
@@ -26,10 +26,15 @@ release that would then ripple through opm-operator and cli.
   `id: release`, and the `release-please` job exposes `releases_created` and `tag_name` as job
   outputs, the same shape opm-operator already uses (`opm-operator/.github/workflows/release.yml:33-35`).
   Nothing consumes them yet; the notify job arrives with `join-release-cascade`.
-- **Docs-only commits stop releasing (owner decision D15).** `release-please-config.json` sets
+- **Docs-only commits stop releasing (workspace RELEASING.md, section "Pin classes").** `release-please-config.json` sets
   the `docs` changelog section to `"hidden": true`. `refactor` stays visible and keeps
   releasing, so library rewrites still integrate downstream early. `AGENTS.md:347`, which lists
-  `docs` among the releasing types, is corrected in the same section.
+  `docs` among the releasing types, is corrected in the same section, and AGENTS.md § Build And
+  Dev Commands documents `task deps:release-check` with the gate.
+  Cost: library docs on opmodel.dev are built at the library version the newest cli tag pins
+  (`opmodel.dev/site/versions.conf`, line mode), so a docs-only library fix reaches the site only
+  after a releasing library commit and a cli release that pins it (design, "Risks / Trade-offs";
+  open question (b)).
 
 Out of scope: deriving fixture versions from their cue.mods (`derive-fixture-versions`, its own
 change), the notify job and the cascade receiver (`join-release-cascade`), the cascade bump
@@ -51,10 +56,14 @@ hidden `ci` commit, so the change itself cuts no release.
 - **Gates `add-deps-cascade-task` (library):** the cascade PR's dev pins must never reach a
   release, which section 1 enforces on the release PR.
 - **Enforcement depends on an owner setting:** until the library ruleset requires the
-  `Go tests` check (RELEASING.md "Owner settings", decision D14), G1 is advisory: it fails red
+  `Go tests` check (RELEASING.md "Owner settings"), G1 is advisory: it fails red
   but does not block the merge.
-- **Peers:** the same D15 edit lands in opm-operator and cli `prepare-release-cascade`; the G1
-  shape matches catalog_opm, opm-operator and cli `prepare-release-cascade`.
+- **Peers:** the same `docs`-hiding edit lands in opm-operator and cli `prepare-release-cascade`.
+  The G1 step and its `head_ref || ref_name` condition match catalog_opm, opm-operator and cli
+  `prepare-release-cascade`, but the CUE dev-pin scope is deliberately wider here: every tracked
+  `cue.mod/module.cue`, where the peers check only shipped or published ones (catalog_opm its
+  `MODULES`, opm-operator published fixtures, cli templates). See design D-c; pending the owner
+  (open question (a)).
 
 ## Capabilities
 
@@ -72,7 +81,8 @@ None.
 
 - Files: `Taskfile.yml` (new `deps:release-check` task), `.github/workflows/test.yml` (one
   step), `.github/workflows/release.yml` (step id, job outputs),
-  `release-please-config.json` (one flag), `AGENTS.md` (one sentence).
+  `release-please-config.json` (one flag), `AGENTS.md` (the commit-style sentence and one
+  command line).
 - `opm/` packages: none. Downstream consumers (cli, opm-operator): no code impact; they see
   fewer library releases (no docs-only ones).
 - CI: release PRs run one extra step in the `Go tests` job, offline, under a second.
