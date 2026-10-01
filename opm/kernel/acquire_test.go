@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -559,6 +560,141 @@ func positionsName(err error, filename string) bool {
 			if pos.Filename() == filename {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// copyRenderInstance copies a render fixture instance (its cue.mod included)
+// into a temp dir, so a test can add its own values files to the package.
+func copyRenderInstance(t *testing.T, name string) string {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.CopyFS(dir, os.DirFS(renderFixtureDir(t, name))))
+	return dir
+}
+
+func writeValuesFile(t *testing.T, dir, body string) string {
+	t.Helper()
+	path := filepath.Join(dir, "values.cue")
+	require.NoError(t, os.WriteFile(path, []byte("package instance\n\nvalues: {"+body+"}\n"), 0o600))
+	return path
+}
+
+// The package's own values are checked against #config on every acquire, the
+// same as -f sources: a key the schema does not have is refused at the file
+// that holds it, with and without trailing sources.
+func TestKernel_AcquireInstanceFromDir_OwnValues_UnknownKeyRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	ctx := context.Background()
+
+	cases := []struct {
+		name    string
+		sources []kernel.Source
+	}{
+		{name: "no sources"},
+		{name: "with a clean source", sources: []kernel.Source{mustSource(t, k, "/values/ok.cue", `replicas: 4`)}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := copyRenderInstance(t, "instance_partial")
+			valuesFile := writeValuesFile(t, dir, "replcas: 5")
+
+			inst, err := k.AcquireInstanceFromDir(ctx, dir, tc.sources...)
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.Contains(t, err.Error(), "field not allowed")
+			assert.True(t, hasErrorPath(err, "values.replcas"), "no error names values.replcas: %v", err)
+			assert.True(t, positionsName(err, valuesFile), "no position names values.cue: %v", err)
+		})
+	}
+
+	t.Run("in instance.cue", func(t *testing.T) {
+		dir := copyRenderInstance(t, "instance_partial")
+		path := filepath.Join(dir, "instance.cue")
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, append(body, []byte("\nvalues: replcas: 5\n")...), 0o600))
+
+		inst, err := k.AcquireInstanceFromDir(ctx, dir)
+		require.Error(t, err)
+		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "field not allowed")
+		assert.True(t, hasErrorPath(err, "values.replcas"), "no error names values.replcas: %v", err)
+		assert.True(t, positionsName(err, filepath.Join(dir, "instance.cue")), "no position names instance.cue: %v", err)
+	})
+
+	t.Run("a -f source keeps its own attribution", func(t *testing.T) {
+		dir := copyRenderInstance(t, "instance_partial")
+		inst, err := k.AcquireInstanceFromDir(ctx, dir,
+			mustSource(t, k, "/values/typo.cue", `replcas: 5`))
+		require.Error(t, err)
+		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "field not allowed")
+		assert.True(t, hasErrorPath(err, "values.replcas"), "no error names values.replcas: %v", err)
+		assert.True(t, positionsName(err, "/values/typo.cue"), "no position names the source: %v", err)
+	})
+}
+
+// A value of the wrong type in the package's own values is refused, whether
+// or not a component reads the setting.
+func TestKernel_AcquireInstanceFromDir_OwnValues_TypeMismatchRefused(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := copyRenderInstance(t, "instance_partial")
+	writeValuesFile(t, dir, `replicas: "two"`)
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir)
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.True(t, positionsName(err, filepath.Join(dir, "values.cue")), "no position names values.cue: %v", err)
+	assert.Contains(t, err.Error(), "replicas")
+}
+
+// Valid values pass the values check even when they are not concrete: only a
+// key the schema lacks or a violated type or constraint is refused by it. A
+// default-carrying value is concrete once defaults resolve and acquires; a
+// bare constraint is valid for #config, so the refusal is the instance's
+// concreteness gate, never a values error.
+func TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires(t *testing.T) {
+	k := newRenderKernel(t)
+	ctx := context.Background()
+
+	t.Run("a default acquires, with and without sources", func(t *testing.T) {
+		dir := copyRenderInstance(t, "instance_partial")
+		writeValuesFile(t, dir, "replicas: int | *3")
+
+		inst, err := k.AcquireInstanceFromDir(ctx, dir)
+		require.NoError(t, err)
+		require.NotNil(t, inst)
+
+		inst, err = k.AcquireInstanceFromDir(ctx, dir, mustSource(t, k, "/values/a.cue", `image: "nginx:1.27"`))
+		require.NoError(t, err)
+		require.NotNil(t, inst)
+	})
+
+	t.Run("a bare constraint is not a values error", func(t *testing.T) {
+		dir := copyRenderInstance(t, "instance_partial")
+		writeValuesFile(t, dir, "replicas: >=1")
+
+		for _, sources := range [][]kernel.Source{nil, {mustSource(t, k, "/values/a.cue", `image: "nginx:1.27"`)}} {
+			inst, err := k.AcquireInstanceFromDir(ctx, dir, sources...)
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.Contains(t, err.Error(), "not fully concrete")
+			assert.NotContains(t, err.Error(), "field not allowed")
+		}
+	})
+}
+
+// hasErrorPath reports whether any error in err's CUE tree is at path.
+func hasErrorPath(err error, path string) bool {
+	var cerr cueerrors.Error
+	if !errors.As(err, &cerr) {
+		return false
+	}
+	for _, e := range cueerrors.Errors(cerr) {
+		if strings.Join(e.Path(), ".") == path {
+			return true
 		}
 	}
 	return false

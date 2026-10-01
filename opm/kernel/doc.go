@@ -211,8 +211,9 @@
 //
 // Render consumes the instance as processed: values are validated where they
 // are applied. [Kernel.AcquireInstanceFromDir] unifies its trailing [Source]
-// values inside the package build and checks them against the module's
-// `#config` at their own positions; [Kernel.SynthesizeInstance] does the same
+// values inside the package build and checks them, together with the
+// package's own `values`, against the module's `#config` at their own
+// positions, on every acquire; [Kernel.SynthesizeInstance] does the same
 // for [InstanceInput.Values], rendering them into the synthesized package;
 // both then assert concreteness on the whole built spec. Render performs no
 // validation pass of its own.
