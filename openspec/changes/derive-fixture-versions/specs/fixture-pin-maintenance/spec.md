@@ -27,20 +27,28 @@ several releases stale SHALL therefore update in a single run.
 ### Requirement: Core is held at the kernel default
 
 The update task SHALL request `opmodel.dev/core@v2` at the release `schema.DefaultSchemaModule`
-names, read from the Go source, never at the newest published core. When resolution leaves any
-test module pinning a core other than that release, the task SHALL exit non-zero. The failure
-SHALL name the module, the core it resolved, the default, and the dependency that forced the
-lift. Core in the test modules moves only together with the default, never on its own.
+names, read from the Go source unless an explicit override names another release, never at the
+newest published core. When the held resolution fails because a dependency requires a newer
+core, the task SHALL exit non-zero. The failure SHALL print the module directory and CUE's own
+error, and SHALL name each dependency whose own `opmodel.dev/core@v2` requirement is newer than
+the default, with that requirement and the default. When the default cannot be read from the Go
+source, the task SHALL exit non-zero with a message saying so. Core in the test modules moves
+only together with the default, never on its own.
 
 #### Scenario: A catalog built on a newer core
 
 - **WHEN** the newest catalog build requires a core newer than the kernel default
-- **THEN** the task exits non-zero, naming the module, the resolved core, the default, and the catalog as the cause
+- **THEN** the task exits non-zero, printing the module directory and CUE's error, and names the catalog build, the core it requires, and the default
 
 #### Scenario: Default advanced first
 
 - **WHEN** `DefaultSchemaModule` has been advanced to a newer core and the task runs
-- **THEN** every test module's core pin moves to that release and the task exits zero
+- **THEN** the core pin of every module in the task's discovered set (`CUE_MODULE_GLOBS`) moves to that release and the task exits zero; the text-pinned trees outside that set are not the task's to move
+
+#### Scenario: Unreadable default
+
+- **WHEN** the task cannot read the default release from the Go source and no override is set
+- **THEN** it exits non-zero with a message naming the file it read, instead of exiting silently
 
 ### Requirement: Update failures are loud
 
@@ -55,13 +63,16 @@ as though the failed one were unchanged, and SHALL NOT discard the command's err
 
 ### Requirement: Intentionally old version literals are declared
 
-The repository root SHALL carry a `.cascade-frozen` file listing every test file that keeps an
-`opmodel.dev/core` or `opmodel.dev/catalogs/opm` version literal on purpose. Each entry SHALL name
+The repository root SHALL carry a `.cascade-frozen` file listing every test file that keeps a
+version literal of an OPM-owned module path (`opmodel.dev/core`, `opmodel.dev/catalogs/opm`,
+`opmodel.dev/catalogs/k8s`) on purpose. Each entry SHALL name
 a repo-relative `path`, the `pins` (module paths) frozen at that location, and a one-sentence
 `reason`. A file qualifies when its literal names an older release a floor, skew or
-pre-collision test needs, or when the literal is synthetic: parsed or compiled in memory, never
-resolved against a registry, and independent of the current pins. An expectation of the current
-core or of the pinned catalog build SHALL NOT be a literal: it reads the derived version, so no
+pre-collision test needs, or when the literal is synthetic: a default move does not break it,
+because it is parsed or compiled in memory, or coupled to another synthetic literal, and
+independent of the current pins. An expectation of the current
+core or of the pinned catalog build, and a module file a test authors beside the served fixtures,
+SHALL NOT be a literal: it reads the derived version, so no
 entry exists to cover it. A listed file can still read the derived version in other places, for
 example to find the pin it replaces with an old one. Release-cascade tooling SHALL NOT rewrite a
 version literal at a listed location.
