@@ -1,0 +1,12 @@
+# Declares which enhancement decisions this change implements. Consumed by
+# `task enhancements:delivery:log` at archive time.
+#
+# 0021 D10 (release tags are immutable): this change carries the library's
+# repo-local share, the release-branch support and the AGENTS.md pointer. The
+# rulesets and immutable releases are owner platform settings, not repo code.
+# D10 is being revised in parallel (release branches replace docs branches);
+# re-check the decision id and requirement numbers before archive.
+implements:
+  - enhancement: "0021"
+    decisions: [D10]
+    resolves: []
