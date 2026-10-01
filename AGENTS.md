@@ -96,6 +96,7 @@ This repo is the **OPM kernel** — the reference Go runtime for Open Platform M
 ## Repository Rules
 
 - `CONSTITUTION.md` is the human-readable principle source; `openspec/config.yaml` is normative. Read both before non-trivial changes.
+- **Release tags are immutable** (workspace root `AGENTS.md`, section "Release Tags Are Immutable"): never move, delete or re-create a tag; a broken release is fixed by releasing the next version. A `retract` in `go.mod` only takes effect from the go.mod of the version the go command resolves as the module's latest, which is the highest release version and only falls back to the highest prerelease when no release exists. `v0.7.0` is a release, so during beta a retract shipped in a `-beta.N` is ignored: the fix for a bad beta is the next `-beta.N`, and its retract first takes effect with `v1.0.0`. After GA the retract lands on `main` and ships in the module's next highest release.
 - **Principle VIII (Mergeable Sections) has a hard execution gate** that blocks a request that cannot be cut into at most about five `tasks.md` sections, each ending green and closing with its own commit so that `main` stays releasable. Respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split into changes.
 - **Kernel neutrality (Principle I).** The library is consumed by CLI, controller, and future runtimes. Do not introduce:
   - Global mutable state or package-level singletons hiding behavior.
