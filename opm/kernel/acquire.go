@@ -282,6 +282,13 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 // Passing no sources is the "no values supplied" path: the package is built
 // from disk as authored and the Source stays on-disk mode.
 //
+// The package's own `values` (values.cue, or a `values` field in
+// instance.cue) are checked against the module's #config on every acquire,
+// with or without sources, the same way a source is: a key the schema lacks,
+// a type mismatch or a violated constraint is refused at the position of the
+// file that holds it. The check does not require concreteness; the instance
+// processing step that follows does.
+//
 // The build runs in a [cue.Context] created for the call; Instance.Package
 // keeps it alive for as long as the caller holds the instance. This is the
 // same bar [Kernel.SynthesizeInstance] output meets. Loader failures
@@ -310,6 +317,10 @@ func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, value
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if err := k.checkInstanceValues(spec, values); err != nil {
+		return nil, err
 	}
 
 	inst, err := processInstance(spec)
@@ -394,17 +405,37 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sour
 		return cue.Value{}, nil, err
 	}
 
-	// The build merged the sources into `values`; check the sources against
-	// the module's #config the way layered validation does, so a type or
-	// constraint violation is reported at the source's own positions rather
-	// than left for a later evaluation to trip over. Concreteness of the
-	// whole instance is enforced by processInstance afterwards.
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := validateSources(configSchema, sources, k.loadEnv(), false); vErr != nil {
-		name := bestEffortInstanceName(spec)
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
-	}
 	return spec, src, nil
+}
+
+// checkInstanceValues validates, on every acquire, the values the built spec
+// carries against the module's #config, so a key the schema does not have, a
+// type mismatch or a constraint violation is refused wherever the value was
+// written: the package's own `values` (values.cue, or a `values` field in
+// instance.cue) or a trailing source. #ModuleInstance only unifies `values`
+// into a let binding the output never reads, so CUE alone reports nothing
+// for a key no component consumes; this is the check that does.
+//
+// The sources are checked first, on their own, so their errors name each
+// source's Origin rather than the rendered overlay file the build merged
+// them through. The built `values` is checked second: with the sources
+// already clean, any disallowed key left in it comes from the package's own
+// files, whose positions the built value keeps. Concreteness is not asserted
+// (requireConcrete false): valid but incomplete values pass here and are
+// held to concreteness by the instance processing step afterwards.
+func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
+	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	if _, err := validateSources(configSchema, sources, k.loadEnv(), false); err != nil {
+		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(spec), err)
+	}
+	built := spec.LookupPath(schema.Values)
+	if !configSchema.Exists() || !built.Exists() {
+		return nil
+	}
+	if _, err := validateValues(configSchema, []cue.Value{built}, false); err != nil {
+		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(spec), err)
+	}
+	return nil
 }
 
 // attributeValuesError explains a failed layered build in terms of the
