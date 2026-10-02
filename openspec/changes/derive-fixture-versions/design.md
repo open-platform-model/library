@@ -244,14 +244,17 @@ if ! out=$(cd "$dir" && cue mod get "${args[@]}" 2>&1 && cue mod tidy 2>&1); the
   printf '%s: cue mod get/tidy failed:\n%s\n' "$dir" "$out" >&2
   # Name the culprit: resolve again without core in a throwaway copy, then read
   # each moved dependency's own module file from the cache.
-  tmp=$(mktemp -d); cp -a "$dir/." "$tmp/"
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT; cp -a "$dir/." "$tmp/"
   if (cd "$tmp" && cue mod get "${others[@]}" >/dev/null 2>&1); then
     for dep in "${others[@]}"; do
-      new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty')
+      new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty') \
+        || { printf '  %s: cannot read the resolved version\n' "$dep" >&2; continue; }
       [ -n "$new" ] || continue   # unmoved deps too: a DEFAULT_CORE below the current pin
-      mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
+      mf="$cache_dir/mod/download/${dep%@*}/@v/${new}.mod"   # what get and tidy fetch
+      [ -f "$mf" ] || mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
       [ -f "$mf" ] || { printf '  %s@%s: module file not in cache (%s)\n' "${dep%@*}" "$new" "$mf" >&2; continue; }
-      req=$(cue export "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty')
+      req=$(cue export cue: "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty') \
+        || { printf '  %s@%s: cannot read %s\n' "${dep%@*}" "$new" "$mf" >&2; continue; }
       if [ -n "$req" ] && newer "$req" "$default_core"; then
         printf '  %s@%s requires opmodel.dev/core %s; the default is %s: advance schema.DefaultSchemaModule first\n' \
           "${dep%@*}" "$new" "$req" "$default_core" >&2
@@ -260,7 +263,7 @@ if ! out=$(cd "$dir" && cue mod get "${args[@]}" 2>&1 && cue mod tidy 2>&1); the
   else
     echo "  (the get without core also failed; no culprit named)" >&2
   fi
-  rm -rf "$tmp"; exit 1
+  exit 1
 fi
 ```
 
@@ -272,9 +275,15 @@ Facts behind it, checked on CUE v0.17.1:
   left unchanged. So there is no "resolved to another core" state after tidy to inspect; the
   failure path is where the culprit has to be named.
 - `cue env` does not exist in v0.17.1. The cache root follows `cue help environment`:
-  `$CUE_CACHE_DIR`, else `$XDG_CACHE_HOME/cue`, else `~/.cache/cue`. Extracted modules live under
-  `mod/extract/<path>@<version>/`, keyed by the path without its major suffix
-  (`mod/extract/opmodel.dev/catalogs/opm@v4.4.4/`).
+  `$CUE_CACHE_DIR`, else `$XDG_CACHE_HOME/cue`, else `~/.cache/cue`. `cue mod get` and
+  `cue mod tidy` download only each dependency's module file, to
+  `mod/download/<path>/@v/<version>.mod`, keyed by the path without its major suffix
+  (`mod/download/opmodel.dev/catalogs/opm/@v/v4.4.4.mod`). The extracted tree
+  `mod/extract/<path>@<version>/` fills only when something loads the module, so a cascade
+  runner starts with it empty; it is only the fallback. `cue export cue: <file>.mod` reads the
+  `.mod` file as CUE.
+- A failure while reading one dependency's module file is reported and the loop moves on, so
+  every dependency is checked; the throwaway copy is removed by an `EXIT` trap.
 - CUE v0.17.1 has no `cue mod graph` (`cue mod --help` lists edit, fix, get, init, mirror,
   publish, registry, rename, resolve and tidy), hence the cache read.
 - The positive path works: a held get at the current default plus tidy exits 0 on
@@ -388,7 +397,9 @@ default move instead of lifting the test pins on its own.
   labels) carries it, and the "default" row of `TestOCILoader_PinnedVersion` already checks the
   shape.
 - [The culprit search relies on the cache layout] → The layout is CUE's, not a public contract.
-  When the extracted module file is missing, the task says so and prints the path it looked at,
+  It reads `mod/download/<path>/@v/<version>.mod` first (present on a cold cache after the
+  get), then the extracted `cue.mod/module.cue`. When neither exists, the task says so and prints
+  the path it looked at,
   and the `cue mod get` error is always printed first, so the failure stays loud.
 - [Full-suite flake in `TestGenerate_BuildsThroughTheKernel`] → The eviction race was fixed
   (test-fixture-registry spec, "The shared workspace cache is never deleted from"). If it

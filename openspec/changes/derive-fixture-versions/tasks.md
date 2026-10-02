@@ -131,8 +131,10 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       when the read comes back empty. Run one `cue mod get` per module over every direct
       dependency (core at the default, others at `<path>@vN`), then `cue mod tidy`. On failure,
       print the module directory and CUE's output, then rerun the get without core in a
-      throwaway copy and name each moved dependency whose own extracted `cue.mod/module.cue`
-      (under `${CUE_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/cue}/mod/extract/`) requires a
+      throwaway copy and name each moved dependency whose own module file
+      (`mod/download/<path>/@v/<version>.mod` under
+      `${CUE_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/cue}`, falling back to the extracted
+      `mod/extract/<path>@<version>/cue.mod/module.cue`) requires a
       core newer than the default; exit 1. Do not use `|| true`, `cue env`, or `/dev/null` for
       the main get and tidy. Keep the old-to-new report. Update `desc` and `summary` (mention
       `DEFAULT_CORE`). Verify: `grep -n '|| true'` in the task body prints nothing.
@@ -148,7 +150,8 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       and CUE's error, then revert; (c) `DEFAULT_CORE=v2.0.0-alpha.13 task cue:deps:update` exits
       non-zero, prints CUE's "other requirements prevent changing module opmodel.dev/core@v2"
       error with the module directory, and names `opmodel.dev/catalogs/opm@v4.4.4` as requiring
-      core `v2.0.0-beta.1`. Verify: the three outcomes as stated, and `git status --short` is
+      core `v2.0.0-beta.1`, also with `CUE_CACHE_DIR` pointing at an empty directory (a cold
+      cache holds only `mod/download/`). Verify: the three outcomes as stated, and `git status --short` is
       clean afterwards apart from `Taskfile.yml`, `cue.yml` and `cue-versions.yml`.
 - [x] 4.4 `task check` green, then commit
       `build: update test cue deps in one pass and fail loudly`.

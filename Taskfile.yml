@@ -360,17 +360,27 @@ tasks:
               # the cache (CUE v0.17.1 has no `cue mod graph`).
               if [ "${#others[@]}" -gt 0 ]; then
                 tmp=$(mktemp -d)
+                trap 'rm -rf "$tmp"' EXIT
                 cp -a "$dir/." "$tmp/"
                 if (cd "$tmp" && cue mod get "${others[@]}" >/dev/null 2>&1); then
                   for dep in "${others[@]}"; do
-                    new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty')
+                    if ! new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty'); then
+                      printf "    %s: cannot read the resolved version\n" "$dep" >&2
+                      continue
+                    fi
                     [ -n "$new" ] || continue
-                    mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
+                    # get and tidy fetch only the .mod file; extract/ fills
+                    # only when something loads the module (a warm cache).
+                    mf="$cache_dir/mod/download/${dep%@*}/@v/${new}.mod"
+                    [ -f "$mf" ] || mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
                     if [ ! -f "$mf" ]; then
                       printf "    %s@%s: module file not in cache (%s)\n" "${dep%@*}" "$new" "$mf" >&2
                       continue
                     fi
-                    req=$(cue export "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty')
+                    if ! req=$(cue export cue: "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty'); then
+                      printf "    %s@%s: cannot read %s\n" "${dep%@*}" "$new" "$mf" >&2
+                      continue
+                    fi
                     if [ -n "$req" ] && newer "$req" "$default_core"; then
                       printf "    %s@%s requires opmodel.dev/core %s; the default is %s: advance schema.DefaultSchemaModule first\n" \
                         "${dep%@*}" "$new" "$req" "$default_core" >&2
@@ -379,7 +389,6 @@ tasks:
                 else
                   printf "    (the get without core also failed; no culprit named)\n" >&2
                 fi
-                rm -rf "$tmp"
               fi
               exit 1
             fi
