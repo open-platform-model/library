@@ -262,6 +262,8 @@ task test:coverage                   # writes coverage.out + coverage.html
 
 task build      # go build ./... (no binary produced)
 task tidy       # go mod tidy
+
+task deps:release-check   # G1 release-pin gate; CI runs it on release-please-- branches
 ```
 
 ### CUE-module tasks

@@ -6,12 +6,12 @@
 
 ## 1. G1 release-pin gate
 
-- [ ] 1.1 Add `deps:release-check` to `Taskfile.yml` (new "Release" group after the CUE tasks,
+- [x] 1.1 Add `deps:release-check` to `Taskfile.yml` (new "Release" group after the CUE tasks,
       `desc` + `summary`, preconditions on `jq` and `git`) with the four rules of design D-b;
       verify `task deps:release-check` exits 0 on the clean tree and prints a pass line.
-- [ ] 1.2 Add `task deps:release-check   # G1 release-pin gate; CI runs it on release-please-- branches`
+- [x] 1.2 Add `task deps:release-check   # G1 release-pin gate; CI runs it on release-please-- branches`
       under Core commands in `AGENTS.md` § Build And Dev Commands.
-- [ ] 1.3 Prove each rule fails, on throwaway edits reverted with `git checkout -- <file>`
+- [x] 1.3 Prove each rule fails, on throwaway edits reverted with `git checkout -- <file>`
       before moving on: `go mod edit -replace example.com/x=../x`; `go mod edit -require
       github.com/open-platform-model/core@v0.0.0-20261001120000-abcdef123456`; a
       `-0.dev.1` version in `testdata/modules/web_app/cue.mod/module.cue`; a `-0.dev.1` suffix on
@@ -22,12 +22,12 @@
       `git reset -q <file> && rm <file>`). Verify each run exits
       non-zero and names the offending file, line or module, and that `git status` is clean
       afterwards.
-- [ ] 1.4 Add the "Release-pin gate (G1)" step to `.github/workflows/test.yml` job `test`, after
+- [x] 1.4 Add the "Release-pin gate (G1)" step to `.github/workflows/test.yml` job `test`, after
       "Install Task" and before "Running Tests", guarded by
       `if: startsWith(github.head_ref || github.ref_name, 'release-please--')` with a comment
       citing workspace RELEASING.md, section "Gates"; verify actionlint reports nothing for
       `test.yml`.
-- [ ] 1.5 `task check` green, then commit `ci(release): gate release PRs on dev and replaced pins`
+- [x] 1.5 `task check` green, then commit `ci(release): gate release PRs on dev and replaced pins`
 
 ## 2. Release outputs
 
