@@ -32,17 +32,15 @@ func TestMajor(t *testing.T) {
 }
 
 // TestDefaultCoreVersion_IsTheDefaultSchemaRelease pins the schema-dispatch
-// scenario "Served fixtures pin the default release" in both directions: the
-// version every registrytest fixture declares is the release
-// schema.DefaultSchemaModule pins, and every render fixture under
-// testdata/render declares it in its cue.mod. A fixture pinning another core
-// would be served against a default kernel that was never verified on it;
-// the platformmodule build canary catches only the default running ahead of
-// the fixtures, so the reverse drift is asserted here.
+// scenario "Served fixtures pin the default release": every render fixture
+// under testdata/render declares the release schema.DefaultSchemaModule pins
+// (registrytest.DefaultCoreVersion is derived from it) in its cue.mod. Those
+// trees are pinned as text, so a default move re-pins them by hand or by the
+// cascade, and this walk is the guard on that re-pin. A fixture pinning
+// another core would be served against a default kernel that was never
+// verified on it; the platformmodule build canary catches only the default
+// running ahead of the fixtures, so the reverse drift is asserted here.
 func TestDefaultCoreVersion_IsTheDefaultSchemaRelease(t *testing.T) {
-	assert.Equal(t, schema.DefaultSchemaVersion(), registrytest.DefaultCoreVersion,
-		"registrytest.DefaultCoreVersion must move with schema.DefaultSchemaModule")
-
 	root := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
 	coreDep := regexp.MustCompile(`(?s)"opmodel\.dev/core@v2":\s*\{\s*v:\s*"([^"]+)"`)
 	var seen int
@@ -59,7 +57,7 @@ func TestDefaultCoreVersion_IsTheDefaultSchemaRelease(t *testing.T) {
 		m := coreDep.FindSubmatch(src)
 		require.NotNil(t, m, "%s declares no opmodel.dev/core@v2 dependency", path)
 		rel, _ := filepath.Rel(root, path)
-		assert.Equal(t, registrytest.DefaultCoreVersion, string(m[1]),
+		assert.Equal(t, schema.DefaultSchemaVersion(), string(m[1]),
 			"testdata/render/%s pins a core release the default kernel was not verified against", rel)
 		return nil
 	})

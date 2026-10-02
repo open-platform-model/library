@@ -61,18 +61,18 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
 
 ## 3. Current-core literals derive from the default; frozen literals declared (registrytest, kernel, renderstage, schema; design DF2, DF3, DF4)
 
-- [ ] 3.1 `opm/internal/registrytest/registrytest.go`: `var DefaultCoreVersion =
+- [x] 3.1 `opm/internal/registrytest/registrytest.go`: `var DefaultCoreVersion =
       schema.DefaultSchemaVersion()`. The doc comment says it is derived. Remove the first
       (now tautological) assertion of `TestDefaultCoreVersion_IsTheDefaultSchemaRelease` and
       keep its `testdata/render` walk. Verify: `go test ./opm/internal/registrytest -count=1`
       green.
-- [ ] 3.2 `opm/kernel/render_test.go`: the six `ResolvedVersions` core rows (157, 206, 491, 526,
+- [x] 3.2 `opm/kernel/render_test.go`: the six `ResolvedVersions` core rows (157, 206, 491, 526,
       992, 1059) and the line 906 module file read `registrytest.DefaultCoreVersion`. The line 32
       comment names the constant, not the release. `opm/internal/renderstage/stage_test.go`:
       lines 345 and 569 likewise; lines 475 and 533 stay (frozen, coupled to `platformModFile`).
       Verify: `grep -n 'beta\.1' opm/kernel/render_test.go` prints nothing, and
       `grep -n 'beta\.1' opm/internal/renderstage/stage_test.go` prints only line 475.
-- [ ] 3.3 `opm/schema/loader_test.go`: `TestDefaultSchemaModule_PinsVerifiedRelease` asserts
+- [x] 3.3 `opm/schema/loader_test.go`: `TestDefaultSchemaModule_PinsVerifiedRelease` asserts
       shape: prefix `opmodel.dev/core@v2.`, not the bare major, and
       `schema.OCILoader{}.PinnedVersion()` returns `(DefaultSchemaVersion(), true)` (no new
       `go.mod` requirement; `PinnedVersion` already uses `module.ParseVersion`).
@@ -81,24 +81,24 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       Update both doc comments to the schema-dispatch delta (review of the bump change carries
       the deliberateness). The `PinnedVersion` parse table (lines 194-195) stays. Verify:
       `go test ./opm/schema -count=1` green, and lines 160-180 hold no `beta.1`.
-- [ ] 3.4 Doc comments (design DF4): `opm/schema/loader.go:21-23` says the constant names the
+- [x] 3.4 Doc comments (design DF4): `opm/schema/loader.go:21-23` says the constant names the
       verified release instead of naming `2.0.0-beta.1` (the `2.0.0-alpha.13` collisions sentence
       stays); `loader.go:48` describes the `DefaultSchemaVersion` form without a release;
       `opm/schema/cache.go:63` ties its example to `[DefaultSchemaModule]`, not to a release.
       Verify: `grep -n 'beta\.1' opm/schema/loader.go opm/schema/cache.go` prints only the
       constant (line 44) and the `PinnedVersion` format example (line 109); `go vet ./opm/schema`
       clean.
-- [ ] 3.5 Header comments: in the 11 `testdata/render/platform*/platform.cue` files and in
+- [x] 3.5 Header comments: in the 11 `testdata/render/platform*/platform.cue` files and in
       `modules/opm_platform/platform.cue`, "core 2.0.0-beta.1" becomes "the core its cue.mod
       pins" (wrapped to the existing width). Update the `AGENTS.md` `testdata/` layout line per
       design DF4. Verify: `grep -rn 'beta\.1' --include=platform.cue testdata modules` prints
       nothing; `git add -- '*.cue' && task cue:fmt && git diff --exit-code -- '*.cue'` (stage the
       comment edits first, so the diff shows only what `cue:fmt` changed) exits 0;
       `task cue:vet` is green.
-- [ ] 3.6 `TestGenerate_ExplicitCorePin` (`opm/helper/platformmodule/generate_test.go`) stays as
+- [x] 3.6 `TestGenerate_ExplicitCorePin` (`opm/helper/platformmodule/generate_test.go`) stays as
       it is (design DF3: frozen; it becomes a non-default pin on the next core bump with no edit).
       Verify: `git diff origin/main -- opm/helper/platformmodule` is empty.
-- [ ] 3.7 New root `.cascade-frozen` in the workspace format (`frozen:` list of `path`, `pins`,
+- [x] 3.7 New root `.cascade-frozen` in the workspace format (`frozen:` list of `path`, `pins`,
       `reason`). One entry per file the DF3 table marks *freeze*:
       `opm/kernel/render_collision_test.go`, `opm/kernel/render_core_floor_test.go`,
       `opm/platform/contracts_test.go`, `opm/errors/coretooold_test.go` (core);
@@ -115,13 +115,13 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       with a comment that names its reader (release-cascade tooling, workspace RELEASING.md,
       section "Cascade files"). Verify: `yq '.frozen[].path' .cascade-frozen | xargs ls` lists
       every path, and every entry has a non-empty `pins` and `reason`.
-- [ ] 3.8 Core-bump reverse proof (not committed): the DF6 dry run on this tree, moving only
+- [x] 3.8 Core-bump reverse proof (not committed): the DF6 dry run on this tree, moving only
       `DefaultSchemaModule` to `opmodel.dev/core@v2.0.0-alpha.13` and text-replacing the core
       `v:` in every `cue.mod/module.cue` under `testdata/` and `modules/`. Run
       `go test ./opm/... -count=1 -short`, then `git checkout -- .`. Verify: green with no
       `*_test.go` edited (spec scenario "A default move edits no test file"); any failure names a
       literal that 3.1 to 3.4 missed.
-- [ ] 3.9 `task check` green, then commit
+- [x] 3.9 `task check` green, then commit
       `test(fixtures): derive current-core test literals from the schema default`.
 
 ## 4. `task cue:deps:update` in one pass, core held, loud (Taskfile.yml; design DF5)

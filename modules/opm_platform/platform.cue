@@ -1,5 +1,5 @@
-// Default Kubernetes Platform fixture in the #CatalogEntry form (core
-// 2.0.0-beta.1, 0019:D5): the registry entry carries the
+// Default Kubernetes Platform fixture in the #CatalogEntry form (the core
+// its cue.mod pins, 0019:D5): the registry entry carries the
 // consolidated opmodel.dev/catalogs/opm v4 line by IMPORT, and which build
 // executes is stated once, in this module's cue.mod/module.cue. Core binds
 // the entry key to the embedded catalog's metadata.modulePath, derives the

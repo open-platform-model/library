@@ -1,4 +1,4 @@
-// Two-catalog render fixture platform (core 2.0.0-beta.1, 0019:D5 shape): cat
+// Two-catalog render fixture platform (the core its cue.mod pins, 0019:D5 shape): cat
 // 0.1.0 beside cat2 0.2.0, two registry entries each supplying a transformer
 // requiring the provider-fulfilled gateway contract: core's
 // #contracts.providedBy counts both, the inventory reports the key

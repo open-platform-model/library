@@ -19,9 +19,9 @@ import (
 //
 // It names an exact core release, never the floating "opmodel.dev/core@v2"
 // major: the release the kernel's render glue, fixtures and parity oracle
-// were verified against. 2.0.0-beta.1 is that release; it is core's first
-// beta and carries the 2.0.0-alpha.13 schema unchanged. 2.0.0-alpha.13 is
-// the first release reporting contract collisions on the derived
+// were verified against. The constant's value below names that release,
+// and doc comments cite it by the constant's name. [CollisionsSince]
+// (2.0.0-alpha.13) is the first release reporting contract collisions on the derived
 // #Platform.#contracts inventory (`collisions` and `collidingEntries`, with
 // `routable` false while any exist, and `defined` and `definedBy` folding
 // only keys with exactly one enabled definer), on top of the
@@ -45,7 +45,7 @@ const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"
 
 // DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
 // pins, in the canonical "v"-prefixed form a cue.mod dependency carries
-// ("v2.0.0-beta.1"). It is the version a generated platform module pins
+// (the version suffix of the identifier, "v" included). It is the version a generated platform module pins
 // core at by default (opm/helper/platformmodule): the release the render
 // glue was verified against is the release a generated platform must embed.
 func DefaultSchemaVersion() string {

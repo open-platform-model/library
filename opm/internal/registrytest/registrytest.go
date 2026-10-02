@@ -107,10 +107,11 @@ type ModuleFixture struct {
 // DefaultCoreVersion is the opmodel.dev/core version every registrytest
 // fixture declares, and the version a test writes into any module file it
 // authors beside them (a platform module importing a served catalog, an
-// instance module importing a served module). It is the release
-// [schema.DefaultSchemaModule] pins: the v2 kernel renders v2 modules only,
-// so no fixture pins another line.
-const DefaultCoreVersion = "v2.0.0-beta.1"
+// instance module importing a served module). It is derived from
+// [schema.DefaultSchemaModule], never kept as a second literal, so a default
+// move edits only the constant: the v2 kernel renders v2 modules only, so no
+// fixture pins another line. It is set once and never written.
+var DefaultCoreVersion = schema.DefaultSchemaVersion()
 
 // ContractAPIVersion is the contract level every generated v2 fixture
 // primitive declares. Core v2 keys contracts by the primitive's own

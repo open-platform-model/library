@@ -1,4 +1,4 @@
-// Colliding-majors render fixture platform (core 2.0.0-beta.1, 0019:D5
+// Colliding-majors render fixture platform (the core its cue.mod pins, 0019:D5
 // shape): platform_collide plus bprov 0.1.0, whose transformer requires the
 // colliding provider-fulfilled backup trait: providedBy names bprov@v0 for the
 // key, while definedBy, requiredBy and unfulfilled leave it out (the stated
