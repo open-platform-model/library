@@ -55,8 +55,8 @@
 
 ## 4. Archive
 
-- [ ] 4.1 Archive the change on this branch (`openspec archive prepare-release-cascade`), so the
+- [x] 4.1 Archive the change on this branch (`openspec archive prepare-release-cascade`), so the
       archive rides the implementing PR; never push to main (owner decision 2026-10-01
       (RELEASING.md, "Owner settings")).
-- [ ] 4.2 `task check` green and `openspec validate release-pipeline --type spec --strict`
+- [x] 4.2 `task check` green and `openspec validate release-pipeline --type spec --strict`
       passes, then commit `chore(openspec): archive prepare-release-cascade`
