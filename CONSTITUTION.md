@@ -66,10 +66,10 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
 - `opm/catalog/` — the acquired catalog artifact ([ADR-009](adr/009-catalog-is-an-acquired-kind.md)): reads and derives, never judges
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
-- `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `synth`); a frontend MAY skip the entire tree
+- `opm/helper/` — opt-in frontend convenience (`platformmodule`, `objectset`); a frontend MAY skip the entire tree
 - `opm/k8s/` (planned) — the Kubernetes tier beside the kernel ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)): the Kubernetes decisions OPM makes (object conversion, labels, inventory, ownership guards, deletion protocol, kind-class order, readiness). It is mandatory for a frontend that targets Kubernetes, which deletes its own copy of a package when it adopts it, and it is fenced from the kernel: no other `opm/` package imports it
 
-The library therefore has three tiers. The kernel binds every frontend. `opm/helper/` binds none. `opm/k8s/` binds every frontend that targets Kubernetes. Lint rules in `.golangci.yml` keep the kernel from importing either of the other two.
+The library therefore has three tiers. The kernel binds every frontend. `opm/helper/` binds none. `opm/k8s/` binds every frontend that targets Kubernetes. Lint rules in `.golangci.yml` keep the kernel from importing either of the other two, and from importing any Kubernetes package.
 
 The one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`) rather than in a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
 
