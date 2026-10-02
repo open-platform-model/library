@@ -61,10 +61,20 @@ linters:
         # cli through the library. opm/internal is reachable by Go's internal
         # rule, and opm/helper is the opt-in tier a mandatory tier must not
         # lean on, so lint closes both.
+        # Lax mode: everything not denied is allowed, and an allow entry
+        # carves an exception out of a broader deny by longest prefix. So
+        # k8s.io/apimachinery passes while k8s.io/api and k8s.io/client-go
+        # fail. sigs.k8s.io is denied by its own rule below, because a
+        # lax-mode deny on it did not fire in a probe (golangci-lint 2.11.3).
         k8s-tier-imports-no-runtime:
+          list-mode: lax
           files:
             - "**/opm/k8s/**"
+          allow:
+            - k8s.io/apimachinery
           deny:
+            - pkg: k8s.io
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery (ADR-011)
             - pkg: k8s.io/client-go
               desc: opm/k8s performs no cluster I/O; the frontend performs each action with its own client (ADR-011)
             - pkg: sigs.k8s.io/controller-runtime
@@ -94,6 +104,22 @@ linters:
               desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
             - pkg: sigs.k8s.io
               desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
+        k8s-tier-imports-no-sigs:
+          files:
+            - "**/opm/k8s/**"
+          deny:
+            - pkg: sigs.k8s.io
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery (ADR-011)
+        # The helper tier is opt-in and Kubernetes code lives in opm/k8s, so
+        # no helper package imports a Kubernetes module either (ADR-011).
+        helper-imports-no-kubernetes:
+          files:
+            - "**/opm/helper/**"
+          deny:
+            - pkg: k8s.io
+              desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
         # No library package performs cluster I/O or carries a controller
         # framework (Principle IV, 0012:D2). The tier rule above already denies
         # these under opm/k8s; this one covers the kernel and the helper tier.

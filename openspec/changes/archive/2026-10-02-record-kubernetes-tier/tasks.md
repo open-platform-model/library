@@ -29,7 +29,7 @@ No Go code, no `go.mod` change. Every section's gate is `task fmt`, `task vet`, 
 - [x] 4.3 Add depguard rules `kernel-imports-no-kubernetes` (kernel files, tests included; deny `k8s.io`, `sigs.k8s.io`) and `opm-imports-no-cluster-runtime` (every file under `opm/`; deny `k8s.io/client-go`, `sigs.k8s.io/controller-runtime`, `github.com/fluxcd`). Probe both in a scratch copy: a kernel file importing apimachinery, a kernel test importing `sigs.k8s.io/yaml`, and a helper file importing client-go, controller-runtime and Flux each fail by rule name; an `opm/k8s` file importing `opm/kernel` and apimachinery passes.
 - [x] 4.4 Gates green, then commit `docs(adr): scope ADR-011's executor ban and state the apply order`, `docs(constitution): refresh the helper list and the tier's import bound`, `chore(lint): keep Kubernetes out of the kernel and runtimes out of opm/` and `docs(openspec): fold the review answers into record-kubernetes-tier`.
 
-## 5. Retire the helper executor-backend allowance (adr, constitution, specs)
+## 5. Retire the helper executor-backend allowance (adr, constitution, specs), superseded by section 6
 
 - [x] 5.1 ADR-008: amend rule 3 in place so the library ships no executor backend, `opm/helper/` included, and extend the dated Status amendment. ADR-011: rewrite item 4 as "nothing in the library performs a cluster action", update the Status line, the Consequences and the Relation to ADR-008 paragraph, name 0012 by its title, and say 0012:D1 and 0012:D2 were written using "kernel" for the library as a whole before their 2026-10-02 revision. `CONSTITUTION.md` and `openspec/config.yaml` Principle IV, and `AGENTS.md`, state that nothing in `opm/` performs a cluster action. The `.golangci.yml` client-go ban is unchanged.
 - [x] 5.2 Rename the `kubernetes-tier` requirement to "Nothing in the library performs a cluster action", widen its executor scenario to every package under `opm/`, and add a scenario for ADR-008 rule 3, in the main spec and this archived copy.
@@ -39,3 +39,9 @@ No Go code, no `go.mod` change. Every section's gate is `task fmt`, `task vet`, 
 
 - [x] 6.1 ADR-008 rule 3 and its Status amendment, ADR-011 (Status, item 4, Consequences, Relation to ADR-008), `CONSTITUTION.md` and `openspec/config.yaml` Principle IV, `AGENTS.md`, the `kubernetes-tier` main spec and this archived copy: one definition, a backend that performs a planned action against a cluster. Opt-in backends that act on no cluster (0009:D4) may ship under `opm/helper/`. The `.golangci.yml` ban is unchanged.
 - [x] 6.2 Gates green, then commit `docs(adr): ban only cluster-acting executor backends and keep 0009:D4`.
+
+## 7. One backend definition, the 0009:D4 amendment and a tighter fence (adr, constitution, specs, lint)
+
+- [x] 7.1 Every text uses one definition: the banned thing is an executor backend that performs a planned action against a cluster, and the allowed thing is executor backends that perform no planned action against a cluster. The texts say the narrowing keeps 0009's non-cluster hosts and that 0012:D3 amends 0009:D4 for its cluster-acting Ops (0012:OQ10).
+- [x] 7.2 `.golangci.yml`: `k8s-tier-imports-no-runtime` runs in lax mode, denies `k8s.io` and allows `k8s.io/apimachinery`; `k8s-tier-imports-no-sigs` denies `sigs.k8s.io` in the tier; `helper-imports-no-kubernetes` denies `k8s.io` and `sigs.k8s.io` under `opm/helper/`. Probed in a scratch copy: `k8s.io/api` and `sigs.k8s.io/yaml` fail in the tier, apimachinery fails in the helper tier, apimachinery plus `opm/kernel` passes in the tier. The "denylist" sentences now say lint enforces the named denials and review holds the rest.
+- [x] 7.3 Gates green, then commit `docs(adr): one backend definition and a fence lint enforces`.
