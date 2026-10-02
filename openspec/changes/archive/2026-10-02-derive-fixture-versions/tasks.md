@@ -180,7 +180,7 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       and `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green.
 - [x] 6.2 `openspec validate derive-fixture-versions --strict` passes. Verify: the command
       prints that the change is valid.
-- [ ] 6.3 Archive the change on this branch (openspec archive), so the archive rides the
+- [x] 6.3 Archive the change on this branch (openspec archive), so the archive rides the
       implementing PR; never push to main (owner decision 2026-10-01, workspace RELEASING.md,
       section "Owner settings"). Run `openspec archive derive-fixture-versions --yes`. Verify:
       `render-parity` gains the new requirement; `schema-dispatch` carries the MODIFIED text with
@@ -188,4 +188,4 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       `openspec/specs/fixture-pin-maintenance/spec.md` exists with its Purpose;
       `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no delivery
       log runs.
-- [ ] 6.4 Commit `chore(openspec): archive derive-fixture-versions`.
+- [x] 6.4 Commit `chore(openspec): archive derive-fixture-versions`.
