@@ -12,6 +12,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
+	"cuelang.org/go/mod/modfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +28,10 @@ import (
 // is the reference.
 //
 // Shipped group: the web_app instance against the published catalogs/opm
-// build the opm_platform fixture imports. Probe group
+// build the opm_platform fixture imports. The case table names transformers
+// without a version: the harness builds each id from the catalogs/opm pin in
+// testdata/parity/cue.mod/module.cue (the module the oracle builds in), so a
+// catalog bump edits only cue.mod files. Probe group
 // (parity_probe_test.go): transformers that read #component.#names and
 // #moduleInstance. Every case compares the whole rendered value,
 // order-sensitively, and carries no expected divergence: with #context
@@ -76,6 +80,9 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	// name one build, or the comparison is between two catalogs.
 	oracleCatalog, err := oracle.LookupPath(cue.ParsePath("catalogVersion")).String()
 	require.NoError(t, err, "the oracle reports the catalog build it resolved")
+	pinned := shippedCatalogVersion(t, parityDir)
+	require.Equal(t, pinned, oracleCatalog,
+		"the oracle's catalog reports %s, the parity module pins %s", oracleCatalog, pinned)
 	require.NoError(t, renderErr, "Render must render the parity instance")
 	assert.Contains(t, res.Diagnostics.ResolvedVersions, kernel.ResolvedVersion{
 		Path:            "opmodel.dev/catalogs/opm@v4",
@@ -88,8 +95,9 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	assertPairSetsAgree(t, res.Diagnostics.Pairs, pairs)
 
 	// ── cases ────────────────────────────────────────────────────────
-	assertRowsCoverPairs(t, shippedCases, pairs)
-	for _, c := range shippedCases {
+	cases := resolveShippedCases(shippedCases, pinned)
+	assertRowsCoverPairs(t, cases, pairs)
+	for _, c := range cases {
 		p := kernel.RenderPair{Component: c.Component, Transformer: c.Transformer}
 		t.Run(c.Name, func(t *testing.T) {
 			assertParity(t, c, kernelRender(res, renderErr, p), oracleRender(oracle, p))
@@ -137,8 +145,39 @@ func TestParity_ShippedCatalogDiscriminated(t *testing.T) {
 
 const shippedCatalogPrefix = "opmodel.dev/catalogs/opm/transformers/"
 
+// shippedCatalogVersion is the catalogs/opm build the parity module pins: the
+// module the oracle builds in. Bumping the pin is the whole catalog bump.
+func shippedCatalogVersion(t *testing.T, parityDir string) string {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join(parityDir, "cue.mod", "module.cue"))
+	require.NoError(t, err, "reading the parity module's cue.mod")
+	mf, err := modfile.Parse(src, "cue.mod/module.cue")
+	require.NoError(t, err, "parsing the parity module's cue.mod")
+	dep, ok := mf.Deps["opmodel.dev/catalogs/opm@v4"]
+	require.True(t, ok, "the parity module pins no opmodel.dev/catalogs/opm@v4")
+	return strings.TrimPrefix(dep.Version, "v")
+}
+
+// shippedTransformer is the full id of the shipped catalog transformer name
+// at the given catalog build.
+func shippedTransformer(version, name string) string {
+	return shippedCatalogPrefix + name + "@" + version
+}
+
+// resolveShippedCases returns a copy of rows whose bare transformer names
+// are resolved to full ids at the given catalog build.
+func resolveShippedCases(rows []parityCase, version string) []parityCase {
+	out := make([]parityCase, len(rows))
+	for i, r := range rows {
+		r.Transformer = shippedTransformer(version, r.Transformer)
+		out[i] = r
+	}
+	return out
+}
+
 // shippedCases is the table for the shipped group, one row per pair the
-// oracle matches for the web_app fixture. The oracle's pair list is
+// oracle matches for the web_app fixture. Transformer holds the bare name;
+// resolveShippedCases builds the id at the pinned catalog build. The oracle's pair list is
 // asserted to equal this set, so a new pair cannot go untested. Every row
 // is structural with no expected divergence (0019:D4: the table is empty of
 // divergences once the enhancement is implemented).
@@ -147,28 +186,28 @@ var shippedCases = []parityCase{
 		Name:        "config :: configmap-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "config",
-		Transformer: shippedCatalogPrefix + "configmap-transformer@4.4.2",
+		Transformer: "configmap-transformer",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: deployment-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "deployment-transformer@4.4.2",
+		Transformer: "deployment-transformer",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "hpa-transformer@4.4.2",
+		Transformer: "hpa-transformer",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: http-route-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "http-route-transformer@4.4.2",
+		Transformer: "http-route-transformer",
 		Equality:    equalityStructural,
 	},
 	{
@@ -179,21 +218,21 @@ var shippedCases = []parityCase{
 		Name:        "worker :: deployment-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "worker",
-		Transformer: shippedCatalogPrefix + "deployment-transformer@4.4.2",
+		Transformer: "deployment-transformer",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "worker :: hpa-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "worker",
-		Transformer: shippedCatalogPrefix + "hpa-transformer@4.4.2",
+		Transformer: "hpa-transformer",
 		Equality:    equalityStructural,
 	},
 	{
 		Name:        "web :: service-transformer",
 		Instance:    "testdata/parity/instance",
 		Component:   "web",
-		Transformer: shippedCatalogPrefix + "service-transformer@4.4.2",
+		Transformer: "service-transformer",
 		Equality:    equalityStructural,
 	},
 }

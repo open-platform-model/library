@@ -17,33 +17,33 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
 
 ## 1. Spike: confirm the derive set with a default-move dry run (design DF3, DF6)
 
-- [ ] 1.1 Baseline: `go test ./opm/... -count=1 -short` is green on the untouched tree. If
+- [x] 1.1 Baseline: `go test ./opm/... -count=1 -short` is green on the untouched tree. If
       `TestGenerate_BuildsThroughTheKernel` fails only in the full run, rerun
       `go test ./opm/helper/platformmodule -count=1` alone and record it as the known flake, not a
       finding. Verify: green, or green on the rerun.
-- [ ] 1.2 Dry run on the untouched tree: set `DefaultSchemaModule` (`opm/schema/loader.go`) and
+- [x] 1.2 Dry run on the untouched tree: set `DefaultSchemaModule` (`opm/schema/loader.go`) and
       `registrytest.DefaultCoreVersion` (`opm/internal/registrytest/registrytest.go`) to
       `v2.0.0-alpha.13`, text-replace `v: "v2.0.0-beta.1"` with `v: "v2.0.0-alpha.13"` in every
       `cue.mod/module.cue` under `testdata/` and `modules/`, and run
       `go test ./opm/... -count=1 -short`. Record every failing test and `_test.go` line. Verify:
       the failures match the design DF6 spike table (the six `render_test.go` `ResolvedVersions`
       rows and `loader_test.go:167,176`), or the table and DF3 are updated to what the run shows.
-- [ ] 1.3 `git checkout -- .` (every edit reverted; `git status --short` shows only
+- [x] 1.3 `git checkout -- .` (every edit reverted; `git status --short` shows only
       `openspec/`). If 1.2 changed the derive set, update design.md DF3 and DF6 and the
       `.cascade-frozen` list in task 3.7. Verify: the design table and the run agree.
-- [ ] 1.4 `task check` green. If 1.2 or 1.3 changed design.md, commit
+- [x] 1.4 `task check` green. If 1.2 or 1.3 changed design.md, commit
       `chore(openspec): confirm which test version literals a bump must move`; otherwise there is
       nothing to commit and the section is checked off with the next commit.
 
 ## 2. Parity harness derives the catalog build (opm/kernel; design DF1)
 
-- [ ] 2.1 `opm/kernel/parity_harness_test.go`: add `shippedCatalogVersion` (reads the
+- [x] 2.1 `opm/kernel/parity_harness_test.go`: add `shippedCatalogVersion` (reads the
       `opmodel.dev/catalogs/opm@v4` pin from `testdata/parity/cue.mod/module.cue` with
       `cuelang.org/go/mod/modfile`) and `shippedTransformer(version, name)`. The seven
       `shippedCases` rows carry the bare transformer name. `TestParity_ShippedCatalog` resolves
       the rows once before `assertRowsCoverPairs`. Verify:
       `grep -nE '@4\.[0-9]+\.[0-9]+' opm/kernel/parity_harness_test.go` prints nothing.
-- [ ] 2.2 Add the consistency check: after reading `catalogVersion` off the oracle,
+- [x] 2.2 Add the consistency check: after reading `catalogVersion` off the oracle,
       `require.Equal(t, pinned, oracleCatalog, ...)` with the message "the oracle's catalog
       reports %s, the parity module pins %s". It runs before the `ResolvedVersions` check and
       before any case. Update the file's header comment to say where the version comes from.
@@ -53,10 +53,10 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       `testdata/parity/opm_platform/cue.mod` (no Go edit, no tidy) and run
       `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity_ShippedCatalog$' -count=1`; it
       is green, which proves the case rows follow the pin.
-- [ ] 2.3 `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity' -count=1` green against
+- [x] 2.3 `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity' -count=1` green against
       GHCR on the committed pins. Verify: `TestParity_ShippedCatalog` and its seven subtests
       pass, `TestParity_ShippedCatalogDiscriminated` passes, and the probe group passes.
-- [ ] 2.4 `task check` green, then commit
+- [x] 2.4 `task check` green, then commit
       `test(kernel): derive parity transformer ids from the pinned catalog`.
 
 ## 3. Current-core literals derive from the default; frozen literals declared (registrytest, kernel, renderstage, schema; design DF2, DF3, DF4)
