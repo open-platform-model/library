@@ -14,7 +14,7 @@ import (
 
 const (
 	opmPath    = "opmodel.dev/catalogs/opm@v4"
-	k8sPath    = "opmodel.dev/catalogs/k8s@v1"
+	extraPath  = "example.com/catalogs/extra@v1"
 	modulePath = "opmodel.dev/platforms/cluster@v0"
 
 	// coreVersion is the core pin the golden expectations below carry; the
@@ -33,12 +33,12 @@ func twoCatalogInput() Input {
 		ModulePath: modulePath,
 		Entries: []Entry{
 			{Path: opmPath, Version: "4.0.1", Enable: true},
-			{Path: k8sPath, Version: "1.0.0-alpha.2", Enable: false},
+			{Path: extraPath, Version: "1.0.0-alpha.2", Enable: false},
 		},
 		Deps: []Dep{
 			{Path: CorePath, Version: coreVersion},
 			{Path: opmPath, Version: "v4.0.1"},
-			{Path: k8sPath, Version: "v1.0.0-alpha.2"},
+			{Path: extraPath, Version: "v1.0.0-alpha.2"},
 			{Path: "cue.dev/x/k8s.io@v0", Version: "v0.10.0"},
 		},
 	}
@@ -58,7 +58,7 @@ func TestGenerate_TwoCatalogs(t *testing.T) {
 	want := map[string]string{
 		CorePath:              coreVersion,
 		opmPath:               "v4.0.1",
-		k8sPath:               "v1.0.0-alpha.2",
+		extraPath:             "v1.0.0-alpha.2",
 		"cue.dev/x/k8s.io@v0": "v0.10.0",
 	}
 	require.Len(t, mf.Deps, len(want), "deps %v", mf.Deps)
@@ -73,12 +73,12 @@ func TestGenerate_TwoCatalogs(t *testing.T) {
 	for _, want := range []string{
 		"package platform\n",
 		"\tcore \"opmodel.dev/core@v2\"\n",
-		"\tcat0 \"opmodel.dev/catalogs/k8s@v1\"\n",
+		"\tcat0 \"example.com/catalogs/extra@v1\"\n",
 		"\tcat1 \"opmodel.dev/catalogs/opm@v4\"\n",
 		"core.#Platform\n",
 		"metadata: name: \"cluster\"\n",
 		"type: \"kubernetes\"\n",
-		"\t\"opmodel.dev/catalogs/k8s@v1\": {\n\t\tenable:   false\n\t\tversion:  \"1.0.0-alpha.2\"\n\t\t#catalog: cat0\n\t}\n",
+		"\t\"example.com/catalogs/extra@v1\": {\n\t\tenable:   false\n\t\tversion:  \"1.0.0-alpha.2\"\n\t\t#catalog: cat0\n\t}\n",
 		"\t\"opmodel.dev/catalogs/opm@v4\": {\n\t\tenable:   true\n\t\tversion:  \"4.0.1\"\n\t\t#catalog: cat1\n\t}\n",
 	} {
 		assert.Contains(t, plat, want, "platform.cue lacks %q:\n%s", want, plat)
@@ -112,11 +112,11 @@ func TestGenerate_DisabledEntryIsKept(t *testing.T) {
 	files, err := Generate(twoCatalogInput())
 	require.NoError(t, err)
 	plat := string(files[PlatformFileName])
-	assert.Contains(t, plat, "\tcat0 \"opmodel.dev/catalogs/k8s@v1\"\n", "disabled catalog is not imported")
+	assert.Contains(t, plat, "\tcat0 \"example.com/catalogs/extra@v1\"\n", "disabled catalog is not imported")
 	assert.Contains(t, plat, "\t\tenable:   false\n", "disabled entry is not emitted with enable: false")
 	mf, err := modfile.Parse(files[ModuleFileName], ModuleFileName)
 	require.NoError(t, err)
-	_, ok := mf.Deps[k8sPath]
+	_, ok := mf.Deps[extraPath]
 	assert.True(t, ok, "disabled catalog is not pinned in module.cue")
 }
 
@@ -175,7 +175,7 @@ func TestGenerate_Refusals(t *testing.T) {
 		"missing type":          {func(in *Input) { in.Type = "" }, "type is required"},
 		"missing module path":   {func(in *Input) { in.ModulePath = "" }, "module path is required"},
 		"duplicate entry":       {func(in *Input) { in.Entries = append(in.Entries, in.Entries[0]) }, `duplicate registry entry "opmodel.dev/catalogs/opm@v4"`},
-		"entry not pinned":      {func(in *Input) { in.Deps = in.Deps[:1] }, "does not pin registry entry opmodel.dev/catalogs/k8s@v1"},
+		"entry not pinned":      {func(in *Input) { in.Deps = in.Deps[:1] }, "does not pin registry entry example.com/catalogs/extra@v1"},
 		"core not pinned":       {func(in *Input) { in.Deps = in.Deps[1:] }, "does not pin opmodel.dev/core@v2"},
 		"dep pinned twice":      {func(in *Input) { in.Deps = append(in.Deps, Dep{Path: opmPath, Version: "v4.0.2"}) }, `"opmodel.dev/catalogs/opm@v4" pinned twice (v4.0.1 and v4.0.2)`},
 		"empty entry version":   {func(in *Input) { in.Entries[0].Version = "" }, "empty path or version"},
@@ -206,10 +206,10 @@ func TestGenerate_Refusals(t *testing.T) {
 func TestRoots_DefaultCorePin(t *testing.T) {
 	roots := Roots([]Entry{
 		{Path: opmPath, Version: "4.0.1", Enable: true},
-		{Path: k8sPath, Version: "1.0.0-alpha.2", Enable: false},
+		{Path: extraPath, Version: "1.0.0-alpha.2", Enable: false},
 	})
 	assert.Equal(t, []Dep{
-		{Path: k8sPath, Version: "v1.0.0-alpha.2"},
+		{Path: extraPath, Version: "v1.0.0-alpha.2"},
 		{Path: opmPath, Version: "v4.0.1"},
 		{Path: CorePath, Version: schema.DefaultSchemaVersion()},
 	}, roots)

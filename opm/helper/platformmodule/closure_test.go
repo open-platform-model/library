@@ -48,7 +48,7 @@ func fixtureGraph() *fakeSource {
 			{Path: "cue.dev/x/k8s.io@v0", Version: "v0.10.0"},
 			{Path: CorePath, Version: "v2.0.0-alpha.6"},
 		},
-		"opmodel.dev/catalogs/k8s@v1.0.0-alpha.2": {
+		"example.com/catalogs/extra@v1.0.0-alpha.2": {
 			{Path: CorePath, Version: "v2.0.0-alpha.6"},
 		},
 		"cue.dev/x/k8s.io@v0.10.0": nil,
@@ -72,14 +72,14 @@ func TestClosure_TransitiveDependencyIsPinned(t *testing.T) {
 	src := fixtureGraph()
 	got, err := Closure(context.Background(), src, fixtureRoots(
 		Entry{Path: opmPath, Version: "4.0.1", Enable: true},
-		Entry{Path: k8sPath, Version: "1.0.0-alpha.2", Enable: false},
+		Entry{Path: extraPath, Version: "1.0.0-alpha.2", Enable: false},
 	))
 	require.NoError(t, err)
 	// Sorted by path; core resolves to the root's alpha.7 (the maximum over
 	// the catalogs' alpha.6 requirement); k8s.io joins from the opm catalog.
 	assert.Equal(t, []Dep{
 		{Path: "cue.dev/x/k8s.io@v0", Version: "v0.10.0"},
-		{Path: k8sPath, Version: "v1.0.0-alpha.2"},
+		{Path: extraPath, Version: "v1.0.0-alpha.2"},
 		{Path: opmPath, Version: "v4.0.1"},
 		{Path: CorePath, Version: "v2.0.0-alpha.7"},
 	}, got)
@@ -90,10 +90,10 @@ func TestClosure_TransitiveDependencyIsPinned(t *testing.T) {
 // exactly as `cue mod tidy` would).
 func TestClosure_RootsParticipateInTheMaximum(t *testing.T) {
 	t.Run("root newer than requirement", func(t *testing.T) {
-		got, err := Closure(context.Background(), fixtureGraph(), fixtureRoots(Entry{Path: k8sPath, Version: "1.0.0-alpha.2", Enable: true}))
+		got, err := Closure(context.Background(), fixtureGraph(), fixtureRoots(Entry{Path: extraPath, Version: "1.0.0-alpha.2", Enable: true}))
 		require.NoError(t, err)
 		assert.Equal(t, []Dep{
-			{Path: k8sPath, Version: "v1.0.0-alpha.2"},
+			{Path: extraPath, Version: "v1.0.0-alpha.2"},
 			{Path: CorePath, Version: "v2.0.0-alpha.7"},
 		}, got)
 	})
@@ -136,7 +136,7 @@ func TestClosure_EachVersionFetchedOnce(t *testing.T) {
 	src := fixtureGraph()
 	_, err := Closure(context.Background(), src, fixtureRoots(
 		Entry{Path: opmPath, Version: "4.0.1", Enable: true},
-		Entry{Path: k8sPath, Version: "1.0.0-alpha.2", Enable: true},
+		Entry{Path: extraPath, Version: "1.0.0-alpha.2", Enable: true},
 	))
 	require.NoError(t, err)
 	seen := map[string]int{}
