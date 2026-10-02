@@ -162,7 +162,7 @@ func renderModuleFile(modulePath string, pinned map[string]string) ([]byte, erro
 // two catalogs sharing a last path element cannot collide), and one
 // #registry entry per subscription carrying enable, the stamped expected
 // version and the imported catalog. CUE names an unqualified import after
-// the path's last element, the convention both first-party catalogs follow;
+// the path's last element, the convention the first-party catalog follows;
 // a catalog whose root package deviates fails the build naming the import.
 func renderPlatformFile(name, typ string, entries []Entry) []byte {
 	var b bytes.Buffer

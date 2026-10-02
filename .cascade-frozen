@@ -17,10 +17,10 @@ frozen:
     pins: ["opmodel.dev/core@v2"]
     reason: "Asserts error text that names the old cores v2.0.0-alpha.10 and v2.0.0-alpha.12."
   - path: opm/helper/platformmodule/closure_test.go
-    pins: ["opmodel.dev/core@v2", "opmodel.dev/catalogs/opm@v4", "opmodel.dev/catalogs/k8s@v1"]
+    pins: ["opmodel.dev/core@v2", "opmodel.dev/catalogs/opm@v4"]
     reason: "The literals are nodes of an in-memory fake module graph that is never resolved, not pins."
   - path: opm/helper/platformmodule/generate_test.go
-    pins: ["opmodel.dev/core@v2", "opmodel.dev/catalogs/opm@v4", "opmodel.dev/catalogs/k8s@v1"]
+    pins: ["opmodel.dev/core@v2", "opmodel.dev/catalogs/opm@v4"]
     reason: "Synthetic inputs to golden module-file generation and an explicit core pin, independent of the current pins."
   - path: opm/internal/renderstage/modfile_test.go
     pins: ["opmodel.dev/core@v2", "opmodel.dev/catalogs/opm@v4"]

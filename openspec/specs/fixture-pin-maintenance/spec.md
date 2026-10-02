@@ -72,8 +72,7 @@ as though the failed one were unchanged, and SHALL NOT discard the command's err
 ### Requirement: Intentionally old version literals are declared
 
 The repository root SHALL carry a `.cascade-frozen` file listing every test file that keeps a
-version literal of an OPM-owned module path (`opmodel.dev/core`, `opmodel.dev/catalogs/opm`,
-`opmodel.dev/catalogs/k8s`) on purpose. Each entry SHALL name
+version literal of an OPM-owned module path (`opmodel.dev/core`, `opmodel.dev/catalogs/opm`) on purpose. Each entry SHALL name
 a repo-relative `path`, the `pins` (module paths) frozen at that location, and a one-sentence
 `reason`. A file qualifies when its literal names an older release a floor, skew or
 pre-collision test needs, or when the literal is synthetic: a default move does not break it,
