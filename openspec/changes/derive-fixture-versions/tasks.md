@@ -169,17 +169,14 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       to 4 stand alone.
 - [x] 5.3 `task check` green, then commit `test(fixtures): bump catalog pins to opm 4.4.4`.
 
-## 6. Verify
+## 6. Verify and archive
 
-- [ ] 6.1 Whole-tree gates on the final tree: `task check`, `task cue:check`,
+- [x] 6.1 Whole-tree gates on the final tree: `task check`, `task cue:check`,
       `task cue:catalog:drift`, `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`, the parity run of 5.2,
       and `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green.
-- [ ] 6.2 `openspec validate derive-fixture-versions --strict` passes. Verify: the command
+- [x] 6.2 `openspec validate derive-fixture-versions --strict` passes. Verify: the command
       prints that the change is valid.
-
-## 7. Archive
-
-- [ ] 7.1 Archive the change on this branch (openspec archive), so the archive rides the
+- [ ] 6.3 Archive the change on this branch (openspec archive), so the archive rides the
       implementing PR; never push to main (owner decision 2026-10-01, workspace RELEASING.md,
       section "Owner settings"). Run `openspec archive derive-fixture-versions --yes`. Verify:
       `render-parity` gains the new requirement; `schema-dispatch` carries the MODIFIED text with
@@ -187,4 +184,4 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       `openspec/specs/fixture-pin-maintenance/spec.md` exists with its Purpose;
       `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no delivery
       log runs.
-- [ ] 7.2 Commit `chore(openspec): archive derive-fixture-versions`.
+- [ ] 6.4 Commit `chore(openspec): archive derive-fixture-versions`.
