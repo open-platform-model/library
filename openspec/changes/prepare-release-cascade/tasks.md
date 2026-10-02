@@ -41,8 +41,8 @@
 ## 3. Docs-only commits stop releasing
 
 > Depends on: opmodel.dev change `build-docs-from-branch-head` merged before this section's
-> commit merges. Until then a docs-only fix in this repo reaches opmodel.dev only with the next
-> release.
+> commit merges; as the change ships as one PR, that gate holds the whole PR. Until then a
+> docs-only fix in this repo reaches opmodel.dev only with the next release.
 
 - [x] 3.1 Set `"hidden": true` on the `docs` changelog section in `release-please-config.json`,
       leaving `refactor` at `"hidden": false`; verify with
@@ -56,7 +56,7 @@
 ## 4. Archive
 
 - [ ] 4.1 Archive the change on this branch (`openspec archive prepare-release-cascade`), so the
-      archive rides the implementing PR; never push to main (owner decision 2026-10-01,
-      RELEASING.md "Owner settings").
-- [ ] 4.2 `openspec validate --specs --strict` passes for `release-pipeline`, then commit
-      `chore(openspec): archive prepare-release-cascade`
+      archive rides the implementing PR; never push to main (owner decision 2026-10-01
+      (RELEASING.md, "Owner settings")).
+- [ ] 4.2 `task check` green and `openspec validate release-pipeline --type spec --strict`
+      passes, then commit `chore(openspec): archive prepare-release-cascade`

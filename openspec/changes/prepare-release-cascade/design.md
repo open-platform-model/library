@@ -59,7 +59,8 @@ tasks). `test.yml` gains one step before "Running Tests":
 ```yaml
       - name: Release-pin gate (G1)
         # Release PRs only: a release never ships a dev, pseudo-version or
-        # replaced pin. head_ref is empty under workflow_dispatch, hence ref_name.
+        # replaced pin. head_ref || ref_name is the shared G1 shape; here
+        # release-PR CI runs on pull_request, so head_ref decides.
         if: startsWith(github.head_ref || github.ref_name, 'release-please--')
         run: task deps:release-check
 ```
@@ -74,34 +75,48 @@ human must be able to run the same check before cutting a release).
 
 ### D-b. The task body
 
+The body as shipped in `Taskfile.yml` (preconditions on `go`, `jq` and `git`):
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; BOLD='\033[1m'; RESET='\033[0m'
 fail=0
+report() { echo -e "==> ${RED}$1${RESET}"; echo "$2" | sed 's/^/    /'; fail=1; }
+
+modjson=$(go mod edit -json)
 
 # 1. Go replace directives (any module).
-if ! go mod edit -json | jq -e '.Replace == null' >/dev/null; then
-  echo "go.mod carries replace directives:"; go mod edit -json | jq -r '.Replace[] | "  \(.Old.Path) => \(.New.Path) \(.New.Version // "")"'
-  fail=1
-fi
+hits=$(echo "$modjson" | jq -r '.Replace[]? | "\(.Old.Path)\(if .Old.Version then "@"+.Old.Version else "" end) => \(.New.Path)\(if .New.Version then "@"+.New.Version else "" end)"')
+[ -z "$hits" ] || report "go.mod carries replace directives:" "$hits"
 
-# 2. OPM Go requirements at a pseudo-version (third-party pseudo-versions are fine).
-bad=$(go mod edit -json \
+# 2. OPM Go requirements at a pseudo-version (vX.0.0-ts-hash,
+# vX.Y.Z-pre.0.ts-hash, vX.Y.Z-0.ts-hash).
+hits=$(echo "$modjson" \
   | jq -r '.Require[]? | select(.Path | startswith("github.com/open-platform-model/")) | "\(.Path) \(.Version)"' \
   | grep -E '[-.][0-9]{14}-[0-9a-f]{12}$' || true)
-[ -z "$bad" ] || { echo "OPM Go modules at a pseudo-version:"; echo "$bad"; fail=1; }
+[ -z "$hits" ] || report "OPM Go modules at a pseudo-version:" "$hits"
 
-# 3. CUE dev pins in tracked cue.mods, and dev literals in shipped (non-test) Go under opm/.
+# 3. CUE dev pins in every tracked cue.mod, and dev literals in shipped
+# (non-test) Go under opm/. Capture and test the output, never grep's
+# or xargs' exit status; -H keeps the filename for a single file.
+# Non-test files are selected by name: a ':!:*_test.go' pathspec also
+# drops registrytest.go and schematest.go.
 hits=$(git ls-files -z -- '*cue.mod/module.cue' | xargs -0 -r grep -HnE 'v: *"[^"]*-0\.dev\.' || true)
-[ -z "$hits" ] || { echo "dev CUE pins in cue.mod/module.cue:"; echo "$hits"; fail=1; }
+[ -z "$hits" ] || report "dev CUE pins in cue.mod/module.cue:" "$hits"
 hits=$(git ls-files -z -- 'opm/*.go' | grep -zv '_test\.go$' | xargs -0 -r grep -HnE '"[^"]*-0\.dev\.[^"]*"' || true)
-[ -z "$hits" ] || { echo "dev version literals in shipped Go:"; echo "$hits"; fail=1; }
+[ -z "$hits" ] || report "dev version literals in shipped Go:" "$hits"
 
 # 4. Tracked CUE local replacements.
-lm=$(git ls-files '*cue.mod/local-module.cue')
-[ -z "$lm" ] || { echo "tracked cue.mod/local-module.cue:"; echo "$lm"; fail=1; }
+hits=$(git ls-files -- '*cue.mod/local-module.cue')
+[ -z "$hits" ] || report "tracked cue.mod/local-module.cue:" "$hits"
 
-exit "$fail"
+if [ "$fail" -ne 0 ]; then
+  echo -e "${RED}${BOLD}Release-pin gate failed.${RESET} A release never ships a dev, pseudo-version or replaced pin." >&2
+  exit 1
+fi
+echo -e "==> ${GREEN}Release-pin gate passed:${RESET} no replace, OPM pseudo-version, dev pin or tracked local-module.cue."
 ```
 
 `go mod edit -json` parses `go.mod` alone, so the task is offline. The pseudo-version regex
@@ -115,9 +130,8 @@ avoids all three. Non-test files are selected by name (`grep -zv '_test\.go$'`),
 `:!:*_test.go` exclude pathspec: that pathspec also drops non-test files whose names end in
 `test.go` (`opm/internal/registrytest/registrytest.go`, which holds `DefaultCoreVersion`, and
 `opm/internal/schematest/schematest.go`), and its matching is not something to rely on across
-git versions.
-The final task reports pass or fail with the repo's usual coloured `==>` lines; the snippet
-omits them.
+git versions. Rule 1 lists replace directives as `old[@version] => new[@version]` and fails
+on a non-empty listing, the same capture-and-test shape as rules 2 to 4.
 
 ### D-c. "Shipped cue.mods" means every tracked cue.mod in the library
 
@@ -200,11 +214,16 @@ and checking before tidy judges the committed `go.mod`.
   the opmodel.dev change `build-docs-from-branch-head` builds library, opm-operator and cli docs
   from the branch head too, and it must merge before section 3's commit merges. Until then a
   docs-only fix in this repo reaches opmodel.dev only with the next library release (and the cli
-  release that pins it). The same gate applies to the opm-operator and cli edits.
+  release that pins it). The same gate applies to the opm-operator and cli edits. Because the
+  change merges as one PR, this gate holds the whole PR, and with it G1 and the release outputs
+  that `add-deps-cascade-task` and `join-release-cascade` need.
 
 ## Migration Plan
 
 Merge as one PR (three `ci` sections, squash title `ci(release): ...`, hidden, no release).
+The PR merges only after the opmodel.dev change `build-docs-from-branch-head` has merged. If that
+change lags while G1 or the release outputs are needed, section 3's commit can be dropped from
+this branch and landed as its own follow-up PR; it never merges before the opmodel.dev change.
 The archive commit (`chore(openspec): archive prepare-release-cascade`, syncing
 `release-pipeline` into `openspec/specs/`) rides this PR; nothing is pushed to `main`
 afterwards (RELEASING.md "Owner settings").

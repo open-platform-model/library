@@ -26,8 +26,8 @@ release that would then ripple through opm-operator and cli.
   `id: release`, and the `release-please` job exposes `releases_created` and `tag_name` as job
   outputs, the same shape opm-operator already uses (`opm-operator/.github/workflows/release.yml:33-35`).
   Nothing consumes them yet; the notify job arrives with `join-release-cascade`.
-- **Docs-only commits stop releasing (workspace RELEASING.md, section "Pin classes").** `release-please-config.json` sets
-  the `docs` changelog section to `"hidden": true`. `refactor` stays visible and keeps
+- **Docs-only commits stop releasing**, per owner decision 2026-10-01 (RELEASING.md, "Pin
+  classes"). `release-please-config.json` sets the `docs` changelog section to `"hidden": true`. `refactor` stays visible and keeps
   releasing, so library rewrites still integrate downstream early. `AGENTS.md:347`, which lists
   `docs` among the releasing types, is corrected in the same section, and AGENTS.md § Build And
   Dev Commands documents `task deps:release-check` with the gate.
@@ -58,9 +58,11 @@ hidden `ci` commit, so the change itself cuts no release.
 - **Enforcement depends on an owner setting:** until the library ruleset requires the
   `Go tests` check (RELEASING.md "Owner settings"), G1 is advisory: it fails red
   but does not block the merge.
-- **Depends on: opmodel.dev change `build-docs-from-branch-head` merged before the commit of
-  section 3 (docs hiding) merges.** That change builds library, opm-operator and cli docs from
-  the branch head, as core and catalog_opm already are. Until it merges, a docs-only fix in this
+- **Depends on: opmodel.dev change `build-docs-from-branch-head` merged before this PR merges.**
+  Section 3 (docs hiding) needs it, and the change merges as one PR, so the gate holds G1 and
+  the release outputs too. If that change lags while they are needed, drop section 3's commit
+  from this branch and land it as its own follow-up PR; never merge it before the opmodel.dev
+  change. That change builds library, opm-operator and cli docs from the branch head, as core and catalog_opm already are. Until it merges, a docs-only fix in this
   repo reaches opmodel.dev only with the next library release (and the cli release that pins
   it), because a hidden `docs` commit cuts no release.
 - **Peers:** the same `docs`-hiding edit lands in opm-operator and cli `prepare-release-cascade`.
