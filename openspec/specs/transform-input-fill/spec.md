@@ -6,7 +6,7 @@ What the runtime owes each declared `#transform` input when it fills it: the val
 
 ### Requirement: `#component` is filled with every field class preserved
 
-When the render build executes a matched (component, transformer) pair, `#transform.#component` SHALL be the instance's component value as evaluated inside the same build, preserving regular fields, definition fields (including `#names`, `#resources`, `#traits`, `#blueprints` and `#instance`), hidden fields and constraints. The kernel MUST NOT export, finalize, fill across a build boundary, or otherwise re-materialise the component; the binding is plain unification in the generated glue.
+When the render build executes a matched (component, transformer) pair, `#transform.#component` SHALL be the instance's component value as evaluated inside the same build, preserving regular fields, definition fields (including `#names`, `#resources`, `#traits`, `#blueprints` and `#instance`), hidden fields and constraints. The kernel MUST NOT export, finalize, fill across a build boundary, or otherwise reconstruct the component; the binding is plain unification in the generated glue.
 
 #### Scenario: A transformer reads a computed name
 
