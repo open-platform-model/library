@@ -129,7 +129,8 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
 - [x] 4.1 Rewrite the `cue:deps:update` script per design DF5. Read the default core from
       `opm/schema/loader.go` unless the `DEFAULT_CORE` task var is set, and fail with a message
       when the read comes back empty. Run one `cue mod get` per module over every direct
-      dependency (core at the default, others at `<path>@vN`), then `cue mod tidy`. On failure,
+      `opmodel.dev/*` dependency (core at the default, others at `<path>@vN`; third-party
+      dependencies are not named), then `cue mod tidy`. On failure,
       print the module directory and CUE's output, then rerun the get without core in a
       throwaway copy and name each moved dependency whose own module file
       (`mod/download/<path>/@v/<version>.mod` under
@@ -162,8 +163,8 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       `git diff --name-only | grep -v '/cue.mod/module.cue$'` prints nothing; the four modules
       (`modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity`,
       `testdata/parity/opm_platform`) read `opmodel.dev/catalogs/opm@v4` `v4.4.4`; core still
-      reads `v2.0.0-beta.1`. If `cue.dev/x/k8s.io` moved too, record it and keep it, unless a gate
-      below fails because of it (design Risks).
+      reads `v2.0.0-beta.1`. `cue.dev/x/k8s.io` moves only if the new catalog requires a newer
+      build; record it if so (design Risks).
 - [x] 5.2 Cross-cutting checks against GHCR: `task cue:check`, `task cue:catalog:drift`,
       `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`,
       `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity|TestFlow' -count=1`. Verify:

@@ -10,14 +10,21 @@ and a declared list of test files whose version literals stay old on purpose.
 
 The library's dependency-update task SHALL update every test CUE module it discovers (the
 `CUE_MODULE_GLOBS` set) with one `cue mod get` per module. That one call SHALL name every direct
-dependency of the module, followed by one `cue mod tidy`. Each non-core dependency SHALL be
-requested at the newest published version within its major. A module whose dependencies are
-several releases stale SHALL therefore update in a single run.
+`opmodel.dev/*` dependency of the module, followed by one `cue mod tidy`. Each non-core OPM
+dependency SHALL be requested at the newest published version within its major. A third-party
+dependency (such as `cue.dev/x/k8s.io`) SHALL NOT be named in the get; it moves only when tidy
+raises it to what an OPM dependency requires. A module whose OPM dependencies are several
+releases stale SHALL therefore update in a single run.
 
-#### Scenario: Several stale dependencies move together
+#### Scenario: A newer catalog raises a third-party pin only as far as it requires
 
-- **WHEN** a test module pins an older catalog build and an older `cue.dev/x/k8s.io` build, and both have newer releases on their majors
-- **THEN** one run of the task moves both pins and prints an old-to-new line for each
+- **WHEN** a test module pins an older catalog build, and the newest catalog build requires a newer `cue.dev/x/k8s.io` build than the module pins
+- **THEN** one run of the task moves the catalog to its newest build, tidy raises `cue.dev/x/k8s.io` only to the version that catalog build requires, and the task prints an old-to-new line for each
+
+#### Scenario: A third-party pin is not chased
+
+- **WHEN** a test module's `cue.dev/x/k8s.io` pin already satisfies every OPM dependency, and a newer `cue.dev/x/k8s.io` release exists
+- **THEN** the task leaves that pin unchanged
 
 #### Scenario: Nothing to update
 

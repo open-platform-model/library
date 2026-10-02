@@ -218,7 +218,9 @@ illustrate a caller choosing a release.
 
 ### DF5. `cue:deps:update`: one pass, core held, loud, culprit named
 
-Per module:
+Per module. Only `opmodel.dev/*` dependencies are named in the get. Third-party pins (such as
+`cue.dev/x/k8s.io`) are out of the cascade's scope (workspace RELEASING.md, "Pin classes": the
+cascade never moves them); `cue mod tidy` raises one only as far as an OPM dependency requires.
 
 ```bash
 cache_dir=${CUE_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/cue}
@@ -237,7 +239,8 @@ args=(); others=()
 for dep in $deps; do
   case "$dep" in
     opmodel.dev/core@v2) args+=("opmodel.dev/core@${default_core}") ;;
-    *)                   args+=("$dep"); others+=("$dep") ;;   # "<path>@vN" = newest on that major
+    opmodel.dev/*)       args+=("$dep"); others+=("$dep") ;;   # "<path>@vN" = newest on that major
+    *)                   ;;                                    # third-party: tidy raises it if needed
   esac
 done
 if ! out=$(cd "$dir" && cue mod get "${args[@]}" 2>&1 && cue mod tidy 2>&1); then
@@ -385,10 +388,12 @@ default move instead of lifting the test pins on its own.
   schema unchanged. A rendered-output change is unlikely but possible. If it happens, section 5
   stops, the divergence is written into Risks here, and the bump becomes its own change.
   Sections 1 to 4 stand on their own.
-- [`cue mod get` in section 5 moves `cue.dev/x/k8s.io` too] → Allowed. It is a test pin and lands
-  in the same `test(fixtures)` commit. The verification checks the suite, not a one-line diff. If
-  it breaks, the task's own fix applies: hold that dependency with an explicit version in the
-  get and record why.
+- [A newer catalog requires a newer `cue.dev/x/k8s.io` than a test module pins] → tidy raises
+  the third-party pin only to what the catalog requires, and it lands in the same
+  `test(fixtures)` commit. The task never names a third-party dependency in its get, so a
+  third-party release alone never moves a pin (workspace RELEASING.md, "Pin classes"). Checked:
+  with `testdata/parity` at `cue.dev/x/k8s.io` `v0.11.0`, one run moves it to `v0.12.0`, the
+  version catalog `v4.4.4` requires.
 - [`DefaultCoreVersion` becomes a `var`] → Any future constant-expression use fails at compile
   time, which is loud. No exported surface outside `internal/`.
 - [The structural loader assertion lets a default bump through with no test edit] → Intended. A

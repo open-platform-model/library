@@ -269,9 +269,10 @@ tasks:
     desc: Update test CUE deps in one pass per module, core held at the kernel default
     summary: |
       For each module discovered via CUE_MODULE_GLOBS, snapshots current dep
-      versions, then runs ONE `cue mod get` naming every direct dep (each
-      non-core dep as "<path>@vN", the newest published build on its major)
-      and one `cue mod tidy`. Getting deps one at a time silently no-ops when
+      versions, then runs ONE `cue mod get` naming every direct opmodel.dev/*
+      dep (each non-core one as "<path>@vN", the newest published build on
+      its major) and one `cue mod tidy`. Third-party deps are never named:
+      tidy raises one only as far as an OPM dependency requires. Getting deps one at a time silently no-ops when
       a stale sibling blocks the resolution; one call resolves them together.
 
       opmodel.dev/core@v2 is held at the release schema.DefaultSchemaModule
@@ -349,7 +350,10 @@ tasks:
               OLD["$dep"]=$(echo "$mod_json" | jq -r --arg d "$dep" '.deps[$d].v // ""')
               case "$dep" in
                 opmodel.dev/core@v2) args+=("opmodel.dev/core@${default_core}") ;;
-                *) args+=("$dep"); others+=("$dep") ;;
+                opmodel.dev/*) args+=("$dep"); others+=("$dep") ;;
+                # Third-party pins are never named: tidy raises one only as
+                # far as an OPM dependency requires.
+                *) ;;
               esac
             done <<< "$deps"
 
