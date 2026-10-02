@@ -31,10 +31,10 @@ release that would then ripple through opm-operator and cli.
   releasing, so library rewrites still integrate downstream early. `AGENTS.md:347`, which lists
   `docs` among the releasing types, is corrected in the same section, and AGENTS.md § Build And
   Dev Commands documents `task deps:release-check` with the gate.
-  Cost: library docs on opmodel.dev are built at the library version the newest cli tag pins
-  (`opmodel.dev/site/versions.conf`, line mode), so a docs-only library fix reaches the site only
-  after a releasing library commit and a cli release that pins it (design, "Risks / Trade-offs";
-  open question (b)).
+  Today opmodel.dev builds library docs at the library version the newest cli tag pins
+  (`opmodel.dev/site/versions.conf`, line mode). Per owner decision 2026-10-02 (RELEASING.md,
+  "Rollout and changes") opmodel.dev moves library docs to the branch head first, so this
+  section's commit waits for that change (see "Depends on / gates"; design, "Risks / Trade-offs").
 
 Out of scope: deriving fixture versions from their cue.mods (`derive-fixture-versions`, its own
 change), the notify job and the cascade receiver (`join-release-cascade`), the cascade bump
@@ -58,12 +58,17 @@ hidden `ci` commit, so the change itself cuts no release.
 - **Enforcement depends on an owner setting:** until the library ruleset requires the
   `Go tests` check (RELEASING.md "Owner settings"), G1 is advisory: it fails red
   but does not block the merge.
+- **Depends on: opmodel.dev change `build-docs-from-branch-head` merged before the commit of
+  section 3 (docs hiding) merges.** That change builds library, opm-operator and cli docs from
+  the branch head, as core and catalog_opm already are. Until it merges, a docs-only fix in this
+  repo reaches opmodel.dev only with the next library release (and the cli release that pins
+  it), because a hidden `docs` commit cuts no release.
 - **Peers:** the same `docs`-hiding edit lands in opm-operator and cli `prepare-release-cascade`.
   The G1 step and its `head_ref || ref_name` condition match catalog_opm, opm-operator and cli
   `prepare-release-cascade`, but the CUE dev-pin scope is deliberately wider here: every tracked
   `cue.mod/module.cue`, where the peers check only shipped or published ones (catalog_opm its
-  `MODULES`, opm-operator published fixtures, cli templates). See design D-c; pending the owner
-  (open question (a)).
+  `MODULES`, opm-operator published fixtures, cli templates). See design D-c; the wide scan was
+  settled on 2026-10-02.
 
 ## Capabilities
 

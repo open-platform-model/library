@@ -127,6 +127,8 @@ second grep covers. The library's fixtures, though, are the evidence behind the 
 "verified against core X and catalog Y"; a `-0.dev.` fixture pin means that evidence ran against
 an unreleased upstream. So rule 3 scans every tracked `cue.mod/module.cue`. It costs nothing
 today (zero hits) and frozen old-core fixtures are unaffected, because old is not dev.
+This scope is wider than RELEASING.md "Gates" ("a shipped `cue.mod`") and than the peers; it
+was settled on 2026-10-02 to keep the wide scan.
 
 *Alternative:* scan only `modules/*` (the `CUE_MODULE_GLOBS` non-test glob). Rejected: that glob
 holds a test-only platform fixture too, so it is no closer to "shipped", and it would miss
@@ -192,12 +194,13 @@ and checking before tidy judges the committed `go.mod`.
   `release-please--` across every major; the same condition is used in all four repos, so a
   change would surface everywhere at once.
 - [Fewer releases, and library docs lag on opmodel.dev] → a docs-only fix no longer cuts a
-  release. opmodel.dev builds library (and opm-operator) docs at exactly the version the newest
-  cli tag pins (`opmodel.dev/site/versions.conf`, line mode); only core and catalog_opm docs
-  come from a branch head. So once `docs` is hidden, a docs-only library fix reaches the site
-  only after a later releasing library commit and then a cli release that pins it. The rule
-  is intended (RELEASING.md "Pin classes"); the lag is a visible cost the owner decides on
-  (open question (b)). The same lag applies to the opm-operator and cli edits.
+  release. Today opmodel.dev builds library (and opm-operator) docs at exactly the version the
+  newest cli tag pins (`opmodel.dev/site/versions.conf`, line mode); only core and catalog_opm
+  docs come from a branch head. Owner decision 2026-10-02 (RELEASING.md, "Rollout and changes"):
+  the opmodel.dev change `build-docs-from-branch-head` builds library, opm-operator and cli docs
+  from the branch head too, and it must merge before section 3's commit merges. Until then a
+  docs-only fix in this repo reaches opmodel.dev only with the next library release (and the cli
+  release that pins it). The same gate applies to the opm-operator and cli edits.
 
 ## Migration Plan
 
@@ -208,14 +211,3 @@ afterwards (RELEASING.md "Owner settings").
 Rollback is a revert of the squash commit. Release PR #155 (`chore(main): release 1.0.0-beta.2`, branch
 `release-please--branches--main--components--library`) is open today; its next CI run after
 this merges evaluates the merge ref, so it picks up G1. It is green on arrival (see Context).
-
-## Open Questions
-
-- (a) **Dev-pin scope.** D-c scans every tracked `cue.mod/module.cue`, wider than RELEASING.md
-  "Gates" ("a shipped `cue.mod`") and than the peers. If the owner narrows it to shipped pins,
-  rule 3 keeps only the Go-literal grep and spec scenario "Dev CUE pin in a cue.mod" is cut
-  down to the Go constant.
-- (b) **Library docs lag on opmodel.dev.** Accept that a docs-only library fix waits for a
-  releasing library commit and a cli release (Risks), or open an opmodel.dev follow-up that
-  builds library, opm-operator and cli docs from `main` or the release-branch head, as core and
-  catalog_opm already are.

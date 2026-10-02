@@ -1,7 +1,7 @@
 # Tasks: prepare-release-cascade
 
 > CI and release configuration only; no `opm/` code. Three sections, each a hidden `ci`
-> commit, shipped together in one PR. Workflow files are linted with
+> commit, plus the archive commit, shipped together in one PR. Workflow files are linted with
 > `go run github.com/rhysd/actionlint/cmd/actionlint@latest` (or a local `actionlint`).
 
 ## 1. G1 release-pin gate
@@ -40,6 +40,10 @@
 
 ## 3. Docs-only commits stop releasing
 
+> Depends on: opmodel.dev change `build-docs-from-branch-head` merged before this section's
+> commit merges. Until then a docs-only fix in this repo reaches opmodel.dev only with the next
+> release.
+
 - [ ] 3.1 Set `"hidden": true` on the `docs` changelog section in `release-please-config.json`,
       leaving `refactor` at `"hidden": false`; verify with
       `jq '.packages["."]["changelog-sections"][] | select(.type=="docs" or .type=="refactor")' release-please-config.json`.
@@ -48,3 +52,11 @@
       `revert`, `deps` and `refactor` release. Verify `grep -n "never release" AGENTS.md` shows the new list.
 - [ ] 3.3 `task check` green and `openspec validate prepare-release-cascade --strict` passes, then
       commit `ci(release): stop docs-only commits from cutting a release`
+
+## 4. Archive
+
+- [ ] 4.1 Archive the change on this branch (`openspec archive prepare-release-cascade`), so the
+      archive rides the implementing PR; never push to main (owner decision 2026-10-01,
+      RELEASING.md "Owner settings").
+- [ ] 4.2 `openspec validate --specs --strict` passes for `release-pipeline`, then commit
+      `chore(openspec): archive prepare-release-cascade`
