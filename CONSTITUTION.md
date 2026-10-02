@@ -87,7 +87,7 @@ The library is a kernel. Its public API is the contract that every downstream im
 
 - Accept interfaces, return concrete structs (Go convention)
 - Public surface lives in `opm/`; non-public helpers live in `internal/`
-- `opm/` packages MUST NOT import command, controller, or runtime-framework concerns: no `opm/` package imports `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux (`github.com/fluxcd/*`), and nothing in `opm/` performs a cluster action: the library ships no executor loop or backend, and each frontend performs planned actions with its own client (ADR-008, ADR-011)
+- `opm/` packages MUST NOT import command, controller, or runtime-framework concerns: no `opm/` package imports `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux (`github.com/fluxcd/*`), and nothing in `opm/` performs a cluster action: the library ships no executor loop and no backend that acts on a cluster, and each frontend performs those actions with its own client (ADR-008, ADR-011)
 - The one runtime-specific dependency admitted is `k8s.io/apimachinery`, and only under `opm/k8s/` ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)); the kernel imports no Kubernetes package
 - Output formatting and presentation MUST stay outside the library
 - Functions accept `context.Context` for any I/O, longer workflows, or cancellation
