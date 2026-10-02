@@ -29,6 +29,15 @@ jobs:
         with:
           version: 3.x
 
+      # Release PRs only (workspace RELEASING.md, section "Gates"): a release
+      # never ships a dev, pseudo-version or replaced pin. A step, not a job,
+      # so it cannot read as skipped-and-passed. head_ref || ref_name is the
+      # shared G1 shape; here release-PR CI runs on pull_request, so head_ref
+      # decides. Runs before go mod tidy so it judges the committed go.mod.
+      - name: Release-pin gate (G1)
+        if: startsWith(github.head_ref || github.ref_name, 'release-please--')
+        run: task deps:release-check
+
       - name: Running Tests
         env:
           # Turn the registry-skip into a hard failure: ghcr.io is reachable in
