@@ -61,14 +61,19 @@ The tier's outward bound SHALL be a denylist. Beyond the standard library and th
 - **WHEN** a change adds an import of a package under `opm/helper/` or `opm/internal/` to a file under `opm/k8s/`
 - **THEN** `task lint` fails naming the forbidden import
 
-### Requirement: The Kubernetes tier names actions and never performs them
+### Requirement: Nothing in the library performs a cluster action
 
-The Kubernetes tier SHALL perform no cluster I/O. No executor (a loop that drives a plan to completion) SHALL ship under `opm/k8s/` or in the kernel. ADR-008 rule 3's allowance for an opt-in executor under `opm/helper/` stays. A deletion plan SHALL advance one action per call from a serialisable state the caller owns, and the frontend SHALL perform each action with its own client. The tier SHALL own the whole deletion sequence (plan, transition, hold verdict). For apply, it SHALL own the per-object verdict (CanApply) and the order, never an apply engine. Each frontend SHALL submit objects in the library's order. An engine's own staging MAY refine that order, for example by sorting within a stage, and SHALL NOT contradict it. ADR-008 rules 1 to 3 apply to the tier. Source: 0012:D3, 0012:D4, 0012:D5.
+Nothing in the library SHALL perform a cluster action, and the Kubernetes tier SHALL perform no cluster I/O. No executor (a loop that drives a plan to completion) and no executor backend (code that performs a planned action against a cluster) SHALL ship anywhere under `opm/`: not in the kernel, not under `opm/k8s/` and not under `opm/helper/`. ADR-008 rule 3's former allowance for opt-in executor backends under `opm/helper/` is retired. A deletion plan SHALL advance one action per call from a serialisable state the caller owns, and the frontend SHALL perform each action with its own client, in a loop it writes itself. The tier SHALL own the whole deletion sequence (plan, transition, hold verdict). For apply, it SHALL own the per-object verdict (CanApply) and the order, never an apply engine. Each frontend SHALL submit objects in the library's order. An engine's own staging MAY refine that order, for example by sorting within a stage, and SHALL NOT contradict it. ADR-008 rules 1 to 3 apply to the tier. Source: 0012:D3, 0012:D4, 0012:D5.
 
-#### Scenario: No executor ships in the tier or the kernel
+#### Scenario: No executor or backend ships anywhere in the library
 
-- **WHEN** a developer searches `opm/k8s/` and the kernel packages for a function that takes a cluster client, a REST config or a controller-runtime client, or that drives a plan to completion
+- **WHEN** a developer searches every package under `opm/` (the kernel, `opm/k8s/` and `opm/helper/`) for a function that takes a cluster client, a REST config or a controller-runtime client, that performs a planned action, or that drives a plan to completion
 - **THEN** none exists
+
+#### Scenario: ADR-008 carries no executor-backend allowance
+
+- **WHEN** a developer reads rule 3 of ADR-008
+- **THEN** it states that the library ships no executor backend, `opm/helper/` included, and that each frontend performs the named action with its own client
 
 #### Scenario: Apply engines stay with the frontends
 
