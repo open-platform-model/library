@@ -31,9 +31,9 @@ jobs:
 
       # Release PRs only (workspace RELEASING.md, section "Gates"): a release
       # never ships a dev, pseudo-version or replaced pin. A step, not a job,
-      # so it cannot read as skipped-and-passed. head_ref is empty under
-      # workflow_dispatch, hence the ref_name fallback. Runs before go mod
-      # tidy so it judges the committed go.mod.
+      # so it cannot read as skipped-and-passed. head_ref || ref_name is the
+      # shared G1 shape; here release-PR CI runs on pull_request, so head_ref
+      # decides. Runs before go mod tidy so it judges the committed go.mod.
       - name: Release-pin gate (G1)
         if: startsWith(github.head_ref || github.ref_name, 'release-please--')
         run: task deps:release-check

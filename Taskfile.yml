@@ -785,7 +785,7 @@ tasks:
         modjson=$(go mod edit -json)
 
         # 1. Go replace directives (any module).
-        hits=$(echo "$modjson" | jq -r '.Replace[]? | "\(.Old.Path) \(.Old.Version // "") => \(.New.Path) \(.New.Version // "")"')
+        hits=$(echo "$modjson" | jq -r '.Replace[]? | "\(.Old.Path)\(if .Old.Version then "@"+.Old.Version else "" end) => \(.New.Path)\(if .New.Version then "@"+.New.Version else "" end)"')
         [ -z "$hits" ] || report "go.mod carries replace directives:" "$hits"
 
         # 2. OPM Go requirements at a pseudo-version (vX.0.0-ts-hash,
