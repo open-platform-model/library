@@ -266,19 +266,37 @@ tasks:
         done <<< '{{.CUE_MODULE_GLOBS}}'
 
   cue:deps:update:
-    desc: Update CUE deps to latest across all discovered modules
+    desc: Update test CUE deps in one pass per module, core held at the kernel default
     summary: |
-      For each module discovered via CUE_MODULE_GLOBS, snapshots current
-      dep versions, runs `cue mod get <dep>` for every direct dep (which
-      resolves to the latest version in the registry), then `cue mod tidy`
-      to reconcile. Prints a colored old → new diff per dep.
+      For each module discovered via CUE_MODULE_GLOBS, snapshots current dep
+      versions, then runs ONE `cue mod get` naming every direct dep (each
+      non-core dep as "<path>@vN", the newest published build on its major)
+      and one `cue mod tidy`. Getting deps one at a time silently no-ops when
+      a stale sibling blocks the resolution; one call resolves them together.
+
+      opmodel.dev/core@v2 is held at the release schema.DefaultSchemaModule
+      pins (read from opm/schema/loader.go), never at the newest published
+      core: the kernel renders only against that release. Set DEFAULT_CORE
+      (e.g. DEFAULT_CORE=v2.0.0-beta.2) to hold another release, such as a
+      default about to be committed.
+
+      Fails loudly: a failing get or tidy prints the module directory and
+      CUE's own output and exits non-zero at that module. When a dependency
+      requires a core newer than the held one, it reruns the get without core
+      in a throwaway copy and names each dependency whose own core
+      requirement is newer than the default: advance DefaultSchemaModule
+      first. Prints a colored old -> new line per dep on success.
 
       Usage:
         task cue:deps:update
+        DEFAULT_CORE=v2.0.0-beta.2 task cue:deps:update
+    vars:
+      DEFAULT_CORE: '{{.DEFAULT_CORE | default ""}}'
     env:
-      # Resolve against GHCR so the catalog (and core schema) bump to their
-      # latest *published* versions — the fixtures must stay CI-resolvable.
+      # Resolve against GHCR so the catalog bumps to its latest *published*
+      # build: the fixtures must stay CI-resolvable.
       CUE_REGISTRY: "{{.CUE_GHCR_REGISTRY}}"
+      DEFAULT_CORE: "{{.DEFAULT_CORE}}"
     preconditions:
       - sh: command -v jq >/dev/null 2>&1
         msg: "jq is required"
@@ -289,7 +307,25 @@ tasks:
         #!/usr/bin/env bash
         set -euo pipefail
 
-        BOLD='\033[1m'; DIM='\033[2m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; CYAN='\033[1;36m'; RESET='\033[0m'
+        BOLD='\033[1m'; DIM='\033[2m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; CYAN='\033[1;36m'; RED='\033[0;31m'; RESET='\033[0m'
+
+        default_core=${DEFAULT_CORE:-}
+        if [ -z "$default_core" ]; then
+          # grep exits 1 on no match; without this branch set -e would exit silently.
+          if ! default_core=$(grep -oP 'DefaultSchemaModule = "opmodel\.dev/core@\K[^"]+' opm/schema/loader.go); then
+            printf "${RED}cannot read DefaultSchemaModule from opm/schema/loader.go; set DEFAULT_CORE${RESET}\n" >&2
+            exit 1
+          fi
+        fi
+        printf "${DIM}holding opmodel.dev/core@v2 at %s${RESET}\n" "$default_core"
+        cache_dir=${CUE_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/cue}
+
+        # newer A B: true when A sorts after B as SemVer. A prerelease '-'
+        # becomes '~' so GNU sort -V orders v2.0.0-beta.1 before v2.0.0.
+        newer() {
+          local a=${1/-/\~} b=${2/-/\~}
+          [ "$a" != "$b" ] && [ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -1)" = "$a" ]
+        }
 
         while IFS= read -r glob; do
           [ -z "$glob" ] && continue
@@ -307,19 +343,46 @@ tasks:
             fi
 
             declare -A OLD
+            args=(); others=()
             while IFS= read -r dep; do
               [ -z "$dep" ] && continue
               OLD["$dep"]=$(echo "$mod_json" | jq -r --arg d "$dep" '.deps[$d].v // ""')
+              case "$dep" in
+                opmodel.dev/core@v2) args+=("opmodel.dev/core@${default_core}") ;;
+                *) args+=("$dep"); others+=("$dep") ;;
+              esac
             done <<< "$deps"
 
-            (
-              cd "$dir"
-              while IFS= read -r dep; do
-                [ -z "$dep" ] && continue
-                cue mod get "$dep" >/dev/null 2>&1 || true
-              done <<< "$deps"
-              cue mod tidy >/dev/null 2>&1 || true
-            )
+            if ! out=$(cd "$dir" && cue mod get "${args[@]}" 2>&1 && cue mod tidy 2>&1); then
+              printf "${RED}%s: cue mod get/tidy failed:${RESET}\n%s\n" "$dir" "$out" >&2
+              # Name the culprit: resolve again without core in a throwaway
+              # copy, then read each moved dependency's own module file from
+              # the cache (CUE v0.17.1 has no `cue mod graph`).
+              if [ "${#others[@]}" -gt 0 ]; then
+                tmp=$(mktemp -d)
+                cp -a "$dir/." "$tmp/"
+                if (cd "$tmp" && cue mod get "${others[@]}" >/dev/null 2>&1); then
+                  for dep in "${others[@]}"; do
+                    new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty')
+                    [ -n "$new" ] || continue
+                    mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
+                    if [ ! -f "$mf" ]; then
+                      printf "    %s@%s: module file not in cache (%s)\n" "${dep%@*}" "$new" "$mf" >&2
+                      continue
+                    fi
+                    req=$(cue export "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty')
+                    if [ -n "$req" ] && newer "$req" "$default_core"; then
+                      printf "    %s@%s requires opmodel.dev/core %s; the default is %s: advance schema.DefaultSchemaModule first\n" \
+                        "${dep%@*}" "$new" "$req" "$default_core" >&2
+                    fi
+                  done
+                else
+                  printf "    (the get without core also failed; no culprit named)\n" >&2
+                fi
+                rm -rf "$tmp"
+              fi
+              exit 1
+            fi
 
             new_json=$(cue export "${dir}/cue.mod/module.cue" --out json)
             while IFS= read -r dep; do

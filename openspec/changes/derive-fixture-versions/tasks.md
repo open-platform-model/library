@@ -126,7 +126,7 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
 
 ## 4. `task cue:deps:update` in one pass, core held, loud (Taskfile.yml; design DF5)
 
-- [ ] 4.1 Rewrite the `cue:deps:update` script per design DF5. Read the default core from
+- [x] 4.1 Rewrite the `cue:deps:update` script per design DF5. Read the default core from
       `opm/schema/loader.go` unless the `DEFAULT_CORE` task var is set, and fail with a message
       when the read comes back empty. Run one `cue mod get` per module over every direct
       dependency (core at the default, others at `<path>@vN`), then `cue mod tidy`. On failure,
@@ -136,12 +136,12 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       core newer than the default; exit 1. Do not use `|| true`, `cue env`, or `/dev/null` for
       the main get and tidy. Keep the old-to-new report. Update `desc` and `summary` (mention
       `DEFAULT_CORE`). Verify: `grep -n '|| true'` in the task body prints nothing.
-- [ ] 4.2 Fix the stale "tracks the latest" claims: the comment on the `cue:catalog:drift` step
+- [x] 4.2 Fix the stale "tracks the latest" claims: the comment on the `cue:catalog:drift` step
       in `.github/workflows/cue.yml` and the drift sentence in the `cue-versions.yml` header
       (existence of the pinned build, not currency). Verify: both match the `cue:catalog:drift`
       summary, and `task cue:check` still passes (the header is a comment; the checksums are
       unchanged).
-- [ ] 4.3 Exercise without committing pins: (a) on the current tree, `task cue:deps:update`
+- [x] 4.3 Exercise without committing pins: (a) on the current tree, `task cue:deps:update`
       exits 0 and moves only what is newer on GHCR (expected: the catalog `v4.4.2` to `v4.4.4`,
       core stays `v2.0.0-beta.1`), then `git checkout -- '*.cue'`; (b) with one module's catalog
       pin text-edited to an unpublished `v4.99.0`, the task exits non-zero and prints that module
@@ -150,7 +150,7 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       error with the module directory, and names `opmodel.dev/catalogs/opm@v4.4.4` as requiring
       core `v2.0.0-beta.1`. Verify: the three outcomes as stated, and `git status --short` is
       clean afterwards apart from `Taskfile.yml`, `cue.yml` and `cue-versions.yml`.
-- [ ] 4.4 `task check` green, then commit
+- [x] 4.4 `task check` green, then commit
       `build: update test cue deps in one pass and fail loudly`.
 
 ## 5. Proof: bump the catalog pins to opm 4.4.4 (fixtures)

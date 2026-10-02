@@ -248,7 +248,7 @@ if ! out=$(cd "$dir" && cue mod get "${args[@]}" 2>&1 && cue mod tidy 2>&1); the
   if (cd "$tmp" && cue mod get "${others[@]}" >/dev/null 2>&1); then
     for dep in "${others[@]}"; do
       new=$(cue export "$tmp/cue.mod/module.cue" --out json | jq -r --arg d "$dep" '.deps[$d].v // empty')
-      [ -n "$new" ] && [ "$new" != "${OLD[$dep]}" ] || continue
+      [ -n "$new" ] || continue   # unmoved deps too: a DEFAULT_CORE below the current pin
       mf="$cache_dir/mod/extract/${dep%@*}@${new}/cue.mod/module.cue"
       [ -f "$mf" ] || { printf '  %s@%s: module file not in cache (%s)\n' "${dep%@*}" "$new" "$mf" >&2; continue; }
       req=$(cue export "$mf" --out json | jq -r '.deps["opmodel.dev/core@v2"].v // empty')
