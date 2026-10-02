@@ -33,8 +33,8 @@ linters:
           deny:
             - pkg: github.com/open-platform-model/library/opm/helper
               desc: the helper tier is opt-in; the kernel and its internals must not depend on it (move the code into opm/internal/ instead)
-        # The Kubernetes tier sits beside the kernel, not inside it (ADR-011,
-        # kubernetes-tier spec). The kernel stays "CUE in, verdicts out" and
+        # The Kubernetes tier sits beside the kernel (ADR-011, kubernetes-tier
+        # spec). The kernel stays "CUE in, verdicts out" and
         # imports no Kubernetes package, so nothing else under opm/ may import
         # opm/k8s: not the kernel, not its internals, not the helper tier.
         # Test files are covered too; nothing needs the exemption the helper
@@ -70,11 +70,43 @@ linters:
             - pkg: sigs.k8s.io/controller-runtime
               desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
             - pkg: github.com/fluxcd
-              desc: Flux is the operator's apply engine; the library owns the per-object verdict, not the engine (ADR-011)
+              desc: Flux is the operator's apply engine; the library owns the per-object verdict and the order (ADR-011)
             - pkg: github.com/open-platform-model/library/opm/internal
               desc: opm/k8s reads only the kernel's exported output types (ADR-011)
             - pkg: github.com/open-platform-model/library/opm/helper
               desc: opm/k8s is mandatory for Kubernetes frontends and must not depend on the opt-in helper tier (ADR-011)
+        # The kernel imports no Kubernetes package (ADR-011, 0012:D3). Only
+        # opm/k8s may reach k8s.io/apimachinery. Once the first tier package
+        # adds apimachinery to go.mod, nothing but this rule stops a kernel
+        # file from importing it. Test files are covered too: no kernel test
+        # needs Kubernetes.
+        kernel-imports-no-kubernetes:
+          files:
+            - "**/opm/kernel/**"
+            - "**/opm/module/**"
+            - "**/opm/platform/**"
+            - "**/opm/catalog/**"
+            - "**/opm/schema/**"
+            - "**/opm/errors/**"
+            - "**/opm/internal/**"
+          deny:
+            - pkg: k8s.io
+              desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
+        # No library package performs cluster I/O or carries a controller
+        # framework (Principle IV, 0012:D2). The tier rule above already denies
+        # these under opm/k8s; this one covers the kernel and the helper tier.
+        opm-imports-no-cluster-runtime:
+          files:
+            - "**/opm/**"
+          deny:
+            - pkg: k8s.io/client-go
+              desc: no opm/ package performs cluster I/O; a frontend brings its own client (ADR-011)
+            - pkg: sigs.k8s.io/controller-runtime
+              desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
+            - pkg: github.com/fluxcd
+              desc: Flux is the operator's apply engine and must not become a library or cli dependency (ADR-011)
 
 formatters:
   enable:
