@@ -166,6 +166,15 @@ release"). Everything else is *freeze*.
 | `opm/platform/contracts_test.go:372-442,568` | `alpha.9` to `alpha.12` | floor and pre-collision semantics | freeze | value is the point |
 | `opm/errors/coretooold_test.go` | `alpha.10`, `alpha.12` | error text | freeze | value is the point |
 
+The synthetic rows are listed in `.cascade-frozen` rather than left out of it, including
+`closure_test.go`, whose `4.0.1`, `4.9.9` and `alpha.*` literals are nodes of an in-memory fake
+module graph and never a pin anything resolves. They are listed because the reader that
+`add-deps-cascade-task` adds is a literal scan: it fails on any OPM-owned version literal in a
+`*_test.go` that `.cascade-frozen` does not name. Leaving the synthetic files out would need a
+second, file-specific exclusion mechanism in that scan. One list with a reason per file is
+simpler, and its `reason` says the literal is synthetic, not an old pin. Workspace RELEASING.md,
+section "Pin classes" (library frozen row), already names the `closure_test.go` literals.
+
 `TestGenerate_ExplicitCorePin` spells `v2.0.0-beta.1`, which equals the default today, so it does
 not yet prove an explicit pin wins over the default. It is frozen as it is: the next core bump
 makes it a non-default pin with no edit, which is the property it wants. Editing it here would

@@ -109,7 +109,9 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       `opm/helper/objectset/objectset_test.go` (`opmodel.dev/catalogs/opm@v4`);
       `opm/internal/registrytest/registrytest_test.go` and `opm/schema/loader_test.go` (core).
       Each reason is one sentence; for `stage_test.go` and `loader_test.go` the reason says which
-      literals are frozen, because the same file also reads the derived version. Start the file
+      literals are frozen, because the same file also reads the derived version; for
+      `closure_test.go` it says the literals are nodes of an in-memory fake module graph, not
+      pins (design DF3). Start the file
       with a comment that names its reader (release-cascade tooling, workspace RELEASING.md,
       section "Cascade files"). Verify: `yq '.frozen[].path' .cascade-frozen | xargs ls` lists
       every path, and every entry has a non-empty `pins` and `reason`.
@@ -167,16 +169,22 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
       to 4 stand alone.
 - [ ] 5.3 `task check` green, then commit `test(fixtures): bump catalog pins to opm 4.4.4`.
 
-## 6. Verify and archive
+## 6. Verify
 
 - [ ] 6.1 Whole-tree gates on the final tree: `task check`, `task cue:check`,
       `task cue:catalog:drift`, `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`, the parity run of 5.2,
       and `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green.
 - [ ] 6.2 `openspec validate derive-fixture-versions --strict` passes. Verify: the command
       prints that the change is valid.
-- [ ] 6.3 `openspec archive derive-fixture-versions --yes`. Verify: `render-parity` gains the new
-      requirement; `schema-dispatch` carries the MODIFIED text with all five original scenarios
-      plus the two new ones; `openspec/specs/fixture-pin-maintenance/spec.md` exists with its
-      Purpose; `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no
-      delivery log runs.
-- [ ] 6.4 Commit `chore(openspec): archive derive-fixture-versions`.
+
+## 7. Archive
+
+- [ ] 7.1 Archive the change on this branch (openspec archive), so the archive rides the
+      implementing PR; never push to main (owner decision 2026-10-01, workspace RELEASING.md,
+      section "Owner settings"). Run `openspec archive derive-fixture-versions --yes`. Verify:
+      `render-parity` gains the new requirement; `schema-dispatch` carries the MODIFIED text with
+      all five original scenarios plus the two new ones;
+      `openspec/specs/fixture-pin-maintenance/spec.md` exists with its Purpose;
+      `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no delivery
+      log runs.
+- [ ] 7.2 Commit `chore(openspec): archive derive-fixture-versions`.
