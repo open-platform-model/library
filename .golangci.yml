@@ -1,6 +1,6 @@
 # golangci-lint v2 configuration.
 # Kept intentionally small: the standard linter set plus formatting checks and
-# the one architectural rule the repo enforces mechanically.
+# the architectural fences the repo enforces mechanically.
 # This is a library, not the operator — no custom logcheck plugin.
 version: "2"
 
@@ -26,12 +26,55 @@ linters:
             - "**/opm/kernel/**"
             - "**/opm/module/**"
             - "**/opm/platform/**"
+            - "**/opm/catalog/**"
             - "**/opm/schema/**"
             - "**/opm/errors/**"
             - "**/opm/internal/**"
           deny:
             - pkg: github.com/open-platform-model/library/opm/helper
               desc: the helper tier is opt-in; the kernel and its internals must not depend on it (move the code into opm/internal/ instead)
+        # The Kubernetes tier sits beside the kernel, not inside it (ADR-011,
+        # kubernetes-tier spec). The kernel stays "CUE in, verdicts out" and
+        # imports no Kubernetes package, so nothing else under opm/ may import
+        # opm/k8s: not the kernel, not its internals, not the helper tier.
+        # Test files are covered too; nothing needs the exemption the helper
+        # rule grants, and adding one later is cheaper than removing it. The
+        # rule is in force before any opm/k8s package exists, so the first
+        # package lands inside the fence rather than writing it.
+        nothing-imports-k8s-tier:
+          files:
+            - "**/opm/kernel/**"
+            - "**/opm/module/**"
+            - "**/opm/platform/**"
+            - "**/opm/catalog/**"
+            - "**/opm/schema/**"
+            - "**/opm/errors/**"
+            - "**/opm/internal/**"
+            - "**/opm/helper/**"
+          deny:
+            - pkg: github.com/open-platform-model/library/opm/k8s
+              desc: the Kubernetes tier is fenced from the rest of the library (ADR-011); the kernel, its internals and the helper tier never depend on it
+        # The Kubernetes tier names actions and never performs them (ADR-008,
+        # ADR-011): it may import k8s.io/apimachinery and the kernel's public
+        # packages, never a cluster client or a controller framework. Flux and
+        # controller-runtime are the operator's engine and must not reach the
+        # cli through the library. opm/internal is reachable by Go's internal
+        # rule, and opm/helper is the opt-in tier a mandatory tier must not
+        # lean on, so lint closes both.
+        k8s-tier-imports-no-runtime:
+          files:
+            - "**/opm/k8s/**"
+          deny:
+            - pkg: k8s.io/client-go
+              desc: opm/k8s performs no cluster I/O; the frontend performs each action with its own client (ADR-011)
+            - pkg: sigs.k8s.io/controller-runtime
+              desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
+            - pkg: github.com/fluxcd
+              desc: Flux is the operator's apply engine; the library owns the per-object verdict, not the engine (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/internal
+              desc: opm/k8s reads only the kernel's exported output types (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/helper
+              desc: opm/k8s is mandatory for Kubernetes frontends and must not depend on the opt-in helper tier (ADR-011)
 
 formatters:
   enable:
