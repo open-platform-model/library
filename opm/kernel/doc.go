@@ -77,10 +77,10 @@
 // acquired platform across them: each render builds the platform from its
 // Source in its own context, and reads the shared Package only for the core
 // floor (a read-only lookup of #contracts.providedBy, no unification, no
-// fill), so concurrent renders never write to it. No platform value is held
-// between renders and there is no serialised render path; the earlier
-// shared-platform contract (ADR-002, renders filling one shared platform
-// value) is superseded, not supported.
+// fill), so concurrent renders never write to it. No render reuses a platform
+// value another render built, and there is no serialised render path; the
+// earlier shared-platform contract (ADR-002, renders filling one shared
+// platform value) is superseded, not supported.
 //
 // A render is single-threaded and its working set grows with the module, so a
 // render pool is sized by memory rather than by core count: about 61 MB plus
