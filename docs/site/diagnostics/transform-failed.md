@@ -23,7 +23,7 @@ executing transforms: component "<component>", transformer "<transformer-fqn>": 
 
 ### The component's values conflict with what the transformer produces
 
-<!-- Recognise it by a `<cause>` that is a CUE conflict with file positions, or "transformer output is an error". The transformer unifies the component's spec, the instance and the runtime context into its output, and a value the module's configuration accepted conflicts with a constraint the transformer's output carries. Fix: read the CUE error's positions, find the component field it traces back to, and change the value in the module or the instance's values; rerun `opm module build` or `opm instance build` to confirm. Verify: pick a real catalog_opm example that passes #config and still conflicts in a transformer, for the worked example. Check against: library/opm/kernel/render_decode.go, library/opm/internal/renderstage/render.cue.tmpl, catalog_opm/opm/transformers -->
+<!-- Recognise it by a `<cause>` that is a CUE conflict with file positions, or "transformer output is an error". The transformer unifies the component's spec, the instance and the runtime context into its output, and a value the module's configuration accepted conflicts with a constraint the transformer's output carries. Fix: read the CUE error's positions, find the component field it traces back to, and change the value in the module or the instance's values; rerun `opm module build` or `opm instance build` to confirm. Verify: pick a real catalog_opm example that passes #config and still conflicts in a transformer, for the worked example. Check against: library/opm/kernel/render_decode.go, library/opm/internal/renderstage/render.cue.tmpl, catalog_opm/src/transformers -->
 
 ### A field in the output has no concrete value
 
