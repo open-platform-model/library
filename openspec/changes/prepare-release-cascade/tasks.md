@@ -31,12 +31,12 @@
 
 ## 2. Release outputs
 
-- [ ] 2.1 In `.github/workflows/release.yml`, give the "Run release-please" step `id: release`
+- [x] 2.1 In `.github/workflows/release.yml`, give the "Run release-please" step `id: release`
       and add job `outputs` `releases_created` and `tag_name` read from
       `steps.release.outputs`, matching `opm-operator/.github/workflows/release.yml:33-35`;
       verify actionlint reports nothing for `release.yml` and `grep -n "steps.release.outputs"`
       shows both outputs.
-- [ ] 2.2 `task check` green, then commit `ci(release): expose release-please outputs for later jobs`
+- [x] 2.2 `task check` green, then commit `ci(release): expose release-please outputs for later jobs`
 
 ## 3. Docs-only commits stop releasing
 
