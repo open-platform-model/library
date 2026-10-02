@@ -12,7 +12,7 @@ The library is the **kernel** of OPM. It provides the generic, reusable building
 | ---- | --------- | ------- |
 | **I** | [Kernel Neutrality & Determinism](#i-kernel-neutrality--determinism) | The library makes no runtime assumptions and behaves deterministically given its inputs |
 | **II** | [Type Safety First](#ii-type-safety-first) | Inputs are validated at load time; strong Go and CUE types over open-ended data |
-| **III** | [Separation of Concerns](#iii-separation-of-concerns) | Loader, module, provider, render, validate, errors, and core stay clearly split |
+| **III** | [Separation of Concerns](#iii-separation-of-concerns) | Focused packages in three tiers: the kernel, the opt-in helper tier, and the Kubernetes tier beside the kernel |
 | **IV** | [Composability via Stable Contracts](#iv-composability-via-stable-contracts) | `opm/` exposes a stable public API consumed by every OPM implementation |
 | **V** | [CUE-Native Module Resolution](#v-cue-native-module-resolution) | The library owns CUE module and OCI plumbing on behalf of all downstream implementations |
 | **VI** | [Semantic Versioning & Public API Discipline](#vi-semantic-versioning--public-api-discipline) | SemVer is contractual; downstream consumers depend on it |
@@ -34,6 +34,8 @@ The library is consumed by many downstream implementations (CLI, controller, fut
 If logging is needed, the library MUST accept a logger from the caller (via parameter or `context.Context`). The library MUST NOT decide on its own when to write to stdout, stderr, or a file.
 
 This neutrality is what allows the same kernel to power a CLI, a Kubernetes controller, and any future implementation without surprising any of them.
+
+Kubernetes as a target platform is not a runtime assumption in this sense. The `opm/k8s/` tier speaks Kubernetes vocabulary, but it performs no cluster I/O, runs no loop and assumes no process model, and the kernel itself imports no Kubernetes package ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)).
 
 ---
 
@@ -62,8 +64,12 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, load, process, validate, synthesize, render)
 - `opm/module/` — module and release model, value-validation accessors
 - `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
+- `opm/catalog/` — the acquired catalog artifact ([ADR-009](adr/009-catalog-is-an-acquired-kind.md)): reads and derives, never judges
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
 - `opm/helper/` — opt-in frontend convenience (`loader/file`, `loader/registry`, `synth`); a frontend MAY skip the entire tree
+- `opm/k8s/` (planned) — the Kubernetes tier beside the kernel ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)): the Kubernetes decisions OPM makes (object conversion, labels, inventory, ownership guards, deletion protocol, kind-class order, readiness). It is mandatory for a frontend that targets Kubernetes, which deletes its own copy of a package when it adopts it, and it is fenced from the kernel: no other `opm/` package imports it
+
+The library therefore has three tiers. The kernel binds every frontend. `opm/helper/` binds none. `opm/k8s/` binds every frontend that targets Kubernetes. Lint rules in `.golangci.yml` keep the kernel from importing either of the other two.
 
 The one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`) rather than in a standalone `opm/validate/` package, and schema knowledge is centralized in `opm/schema` rather than per-version `api` bindings.
 
@@ -81,7 +87,8 @@ The library is a kernel. Its public API is the contract that every downstream im
 
 - Accept interfaces, return concrete structs (Go convention)
 - Public surface lives in `opm/`; non-public helpers live in `internal/`
-- `opm/` packages MUST NOT import command, controller, or runtime-specific concerns
+- `opm/` packages MUST NOT import command, controller, or runtime-framework concerns: no `opm/` package imports `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux (`github.com/fluxcd/*`)
+- The one runtime-specific dependency admitted is `k8s.io/apimachinery`, and only under `opm/k8s/` ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)); the kernel imports no Kubernetes package
 - Output formatting and presentation MUST stay outside the library
 - Functions accept `context.Context` for any I/O, longer workflows, or cancellation
 

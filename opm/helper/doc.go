@@ -2,16 +2,20 @@
 //
 // Anything under opm/helper/ is opinionated frontend convenience: it makes
 // embedding the kernel easier, but a frontend MAY skip it and call the
-// kernel directly. Anything outside opm/helper/ is part of the kernel
-// contract that every frontend (CLI, controller, Crossplane fn, future
-// runtimes) MUST honour.
+// kernel directly. The other two tiers are not optional. The kernel
+// (opm/kernel, opm/module, opm/platform, opm/catalog, opm/schema,
+// opm/errors and opm/internal/) is the contract every frontend (CLI,
+// controller, Crossplane fn, future runtimes) MUST honour. The Kubernetes
+// tier, opm/k8s/ (planned, ADR-011), is the contract every frontend that
+// targets Kubernetes MUST honour.
 //
-// The boundary is real in the import graph, not just described: no package
-// outside opm/helper/ — opm/kernel, opm/module, opm/platform, opm/schema,
-// opm/errors and every package under opm/internal/ — imports anything under
+// The boundary is real in the import graph, not just described: no kernel
+// package (opm/kernel, opm/module, opm/platform, opm/catalog, opm/schema,
+// opm/errors and every package under opm/internal/) imports anything under
 // it, no exported kernel signature names a type declared here, and no kernel
 // operation returns an error whose sentinel is declared here. A depguard
-// rule in .golangci.yml enforces it on every PR.
+// rule in .golangci.yml enforces it on every PR, and another keeps opm/k8s/
+// off this tier too.
 //
 // Two subpackages:
 //
@@ -29,7 +33,8 @@
 //     transformer, and DuplicateIdentitiesError words the refusal a runtime
 //     raises from those rows between render and apply. The kernel never calls
 //     it, and a frontend applying to something other than Kubernetes MAY skip
-//     it.
+//     it. Apply identity is Kubernetes-specific, so it moves into
+//     opm/k8s/object with the first Kubernetes-tier package (ADR-011).
 //
 // Earlier subpackages were folded into the kernel once it depended on them,
 // which had made the opt-in tier mandatory:

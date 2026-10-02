@@ -21,6 +21,9 @@ context: |
   - Loading, parsing, and rendering MUST be deterministic given identical inputs.
   - I/O (filesystem, registry, network) MUST live at edges and accept caller-supplied configuration.
   - Logging, when needed, MUST come from the caller (parameter or `context.Context`).
+  Kubernetes as a target platform is not a runtime assumption: the `opm/k8s/` tier speaks
+  Kubernetes vocabulary but performs no cluster I/O, runs no loop and assumes no process model,
+  and the kernel itself imports no Kubernetes package (ADR-011).
 
   ### II. Type Safety First
   All inputs MUST be validated at load time. Invalid modules, releases, providers, or
@@ -34,6 +37,7 @@ context: |
   The library MUST preserve clear package boundaries:
   - Domain logic lives in focused, single-responsibility packages, never aggregated into one monolithic API.
   - The public kernel surface lives under `opm/`; opt-in frontend convenience lives behind a clearly marked boundary a consumer MAY skip.
+  - The Kubernetes decisions OPM makes live in a third tier, `opm/k8s/`, beside the kernel (ADR-011): mandatory for a frontend that targets Kubernetes, which deletes its own copy of a package when it adopts it, and fenced so that no other `opm/` package imports it. The kernel binds every frontend, the helper tier binds none, and `opm/k8s/` binds every Kubernetes frontend.
   - Errors, shared domain primitives, artifact loading, the artifact model, and the compile/render pipeline each own a distinct package.
   - Configuration validation lives on the `Kernel`, not in a standalone validation package.
   The authoritative package map is `AGENTS.md` § Repository Layout — consult it for current package names. This constitution governs the boundaries, not the inventory.
@@ -42,7 +46,8 @@ context: |
   The library is a kernel; its public API is contractual.
   - Accept interfaces, return concrete structs.
   - Public surface lives in `opm/`; non-public helpers live in `internal/`.
-  - `opm/` packages MUST NOT import command, controller, or runtime-specific concerns.
+  - `opm/` packages MUST NOT import command, controller, or runtime-framework concerns: no `opm/` package imports `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux (`github.com/fluxcd/*`).
+  - The one runtime-specific dependency admitted is `k8s.io/apimachinery`, and only under `opm/k8s/` (ADR-011); the kernel imports no Kubernetes package.
   - Output formatting and presentation MUST stay outside the library.
   - Functions accept `context.Context` for any I/O, longer workflows, or cancellation.
 
