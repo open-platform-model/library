@@ -36,9 +36,10 @@ jobs:
         with:
           version: 3.x
 
-      - name: Check fixtures track the latest catalog
-        # Fails if any fixture pins an opmodel.dev/catalogs/opm version older
-        # than the latest published on GHCR. Remediate with `task cue:deps:update`.
+      - name: Check fixture catalog pins are published
+        # Fails if any fixture pins an opmodel.dev/catalogs/opm version that
+        # GHCR does not serve (existence, not currency). Moving pins to the
+        # newest build is `task cue:deps:update`.
         run: task cue:catalog:drift
 
       - name: Check CUE formatting

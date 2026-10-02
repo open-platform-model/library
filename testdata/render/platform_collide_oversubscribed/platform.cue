@@ -1,4 +1,4 @@
-// Colliding-majors render fixture platform (core 2.0.0-beta.1, 0019:D5
+// Colliding-majors render fixture platform (the core its cue.mod pins, 0019:D5
 // shape): platform_collide plus bprov 0.1.0 and bprov 1.0.0, both requiring
 // the colliding backup trait: the inventory reports the three collisions and
 // the backup key over-subscribed together, and the render refuses with the

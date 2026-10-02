@@ -342,7 +342,7 @@ func instanceImportingLib(t *testing.T, fixture, libDir string) string {
 		"cue.mod/module.cue": `module: "testing.opmodel.dev/library-render/instance@v0"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-beta.1"
+	"opmodel.dev/core@v2": v: "` + registrytest.DefaultCoreVersion + `"
 	"` + libModulePath + `": {}
 	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
 	"testing.opmodel.dev/library-render/web_app@v0": v: "v0.1.0"
@@ -566,7 +566,7 @@ func TestStageBuild_LocalReplacementsResolveInOneBuild(t *testing.T) {
 		"cue.mod/module.cue": `module: "` + RenderModulePath + `"
 language: version: "v0.17.0"
 deps: {
-	"opmodel.dev/core@v2": v: "v2.0.0-beta.1"
+	"opmodel.dev/core@v2": v: "` + registrytest.DefaultCoreVersion + `"
 	"` + libModulePath + `": v: "v0.0.0"
 	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
 	"testing.opmodel.dev/library-render/instance@v0": {v: "v0.0.0", default: true}

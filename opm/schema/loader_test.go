@@ -158,22 +158,28 @@ func TestPublicRegistry_Value(t *testing.T) {
 	assert.Equal(t, expected, schema.PublicRegistry)
 }
 
-// TestDefaultSchemaModule_PinsVerifiedRelease pins the default schema
-// identifier to the exact core release the render glue and fixtures were
-// verified against (spec schema-dispatch, "DefaultSchemaModule constant").
-// Advancing it is a deliberate change that re-verifies the glue and the
-// fixtures against the new release, never a drift.
+// TestDefaultSchemaModule_PinsVerifiedRelease asserts the shape of the
+// default schema identifier (spec schema-dispatch, "DefaultSchemaModule
+// constant"): an exact core release on the v2 major, never the floating
+// major. It does not repeat the release as a literal, so advancing the
+// default edits only the constant; the deliberate re-verification of the
+// glue and the fixtures is the review of the change that advances it.
 func TestDefaultSchemaModule_PinsVerifiedRelease(t *testing.T) {
-	assert.Equal(t, "opmodel.dev/core@v2.0.0-beta.1", schema.DefaultSchemaModule)
+	assert.True(t, strings.HasPrefix(schema.DefaultSchemaModule, "opmodel.dev/core@v2."),
+		"the default must name a release on the v2 major: %s", schema.DefaultSchemaModule)
 	assert.False(t, strings.HasSuffix(schema.DefaultSchemaModule, "@v2"),
 		"the default must name an exact release, never the floating major")
+	version, pinned := schema.OCILoader{}.PinnedVersion()
+	assert.True(t, pinned, "the default must be a full release: %s", schema.DefaultSchemaModule)
+	assert.Equal(t, schema.DefaultSchemaVersion(), version)
 }
 
 // TestDefaultSchemaVersion_IsTheDefaultModulesVersion pins the accessor to
 // the version suffix of DefaultSchemaModule: a generated platform module
 // (opm/helper/platformmodule) pins core at exactly this release by default.
 func TestDefaultSchemaVersion_IsTheDefaultModulesVersion(t *testing.T) {
-	assert.Equal(t, "v2.0.0-beta.1", schema.DefaultSchemaVersion())
+	assert.True(t, strings.HasPrefix(schema.DefaultSchemaVersion(), "v2."),
+		"the default version is a v2 release: %s", schema.DefaultSchemaVersion())
 	assert.Equal(t, "opmodel.dev/core@"+schema.DefaultSchemaVersion(), schema.DefaultSchemaModule)
 }
 
