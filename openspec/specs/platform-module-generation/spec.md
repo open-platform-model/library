@@ -17,7 +17,7 @@ The helper SHALL render a platform module's two files (`cue.mod/module.cue`, `pl
 
 #### Scenario: Two catalogs
 
-- **WHEN** two enabled entries for `opmodel.dev/catalogs/opm@v4` and `opmodel.dev/catalogs/k8s@v1` are generated with a closure pinning both
+- **WHEN** two enabled entries for `opmodel.dev/catalogs/opm@v4` and `example.com/catalogs/extra@v1` are generated with a closure pinning both
 - **THEN** `platform.cue` imports both under distinct aliases and its `#registry` carries both keys with `enable: true`, the stamped versions and `#catalog` bound to the matching alias
 
 #### Scenario: Disabled entry still imports its catalog
