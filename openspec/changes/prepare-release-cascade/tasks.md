@@ -44,13 +44,13 @@
 > commit merges. Until then a docs-only fix in this repo reaches opmodel.dev only with the next
 > release.
 
-- [ ] 3.1 Set `"hidden": true` on the `docs` changelog section in `release-please-config.json`,
+- [x] 3.1 Set `"hidden": true` on the `docs` changelog section in `release-please-config.json`,
       leaving `refactor` at `"hidden": false`; verify with
       `jq '.packages["."]["changelog-sections"][] | select(.type=="docs" or .type=="refactor")' release-please-config.json`.
-- [ ] 3.2 Correct `AGENTS.md` § Commit style (the release-please sentence at line 347): `docs`
+- [x] 3.2 Correct `AGENTS.md` § Commit style (the release-please sentence at line 347): `docs`
       joins `chore`, `test`, `ci` and `build` as never releasing; `feat`, `fix`, `perf`,
       `revert`, `deps` and `refactor` release. Verify `grep -n "never release" AGENTS.md` shows the new list.
-- [ ] 3.3 `task check` green and `openspec validate prepare-release-cascade --strict` passes, then
+- [x] 3.3 `task check` green and `openspec validate prepare-release-cascade --strict` passes, then
       commit `ci(release): stop docs-only commits from cutting a release`
 
 ## 4. Archive
