@@ -21,12 +21,11 @@ import (
 // major: the release the kernel's render glue, fixtures and parity oracle
 // were verified against. The constant's value below names that release,
 // and doc comments cite it by the constant's name. [CollisionsSince]
-// (2.0.0-alpha.13) is the first release reporting contract collisions on the derived
-// #Platform.#contracts inventory (`collisions` and `collidingEntries`, with
-// `routable` false while any exist, and `defined` and `definedBy` folding
-// only keys with exactly one enabled definer), on top of the
-// per-registry-entry provider count
-// (`providedBy`, with `overSubscribed`, `unfulfilled` and `routable`
+// (2.0.0-alpha.13) is the first release reporting contract collisions on
+// the derived #Platform.#contracts inventory (`collisions` and
+// `collidingEntries`, with `routable` false while any exist, and `defined`
+// and `definedBy` folding only keys with exactly one enabled definer), on
+// top of the per-registry-entry provider count (`providedBy`, with `overSubscribed`, `unfulfilled` and `routable`
 // recounted from it), the comparable-predicate report (`comparable` and
 // `discriminated`; 0015:D5, 0015:OQ9), the 0015:D1/D2/D18 inventory, the
 // 0019:D5 registry shape (a #Platform.#registry entry embeds its catalog by
@@ -45,9 +44,10 @@ const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"
 
 // DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
 // pins, in the canonical "v"-prefixed form a cue.mod dependency carries
-// (the version suffix of the identifier, "v" included). It is the version a generated platform module pins
-// core at by default (opm/helper/platformmodule): the release the render
-// glue was verified against is the release a generated platform must embed.
+// (the version suffix of the identifier, "v" included). It is the version
+// a generated platform module pins core at by default
+// (opm/helper/platformmodule): the release the render glue was verified
+// against is the release a generated platform must embed.
 func DefaultSchemaVersion() string {
 	_, version, _ := ast.SplitPackageVersion(DefaultSchemaModule)
 	return version

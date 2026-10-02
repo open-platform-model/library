@@ -79,11 +79,9 @@ release-please hides. The PR title is `test(fixtures): derive test versions from
   `task cue:deps:update` (passing `DEFAULT_CORE` where it needs to), reads `.cascade-frozen`, and
   relies on a catalog or core bump not touching Go test files. `join-release-cascade` (phase C)
   for library must not start until this change is merged.
-- Workspace RELEASING.md follow-up (for the `docs/release-cascade` branch author): in section
-  "Pin classes", the library shipped row should say `DefaultCoreVersion` is derived from
-  `DefaultSchemaModule` (not mirrored), and the library frozen row should point at library
-  `.cascade-frozen` instead of listing files; in section "The cascade", "What each repo's task
-  moves" should list only `DefaultSchemaModule` for the library.
+- Workspace RELEASING.md (the `docs/release-cascade` branch) already records this change: the
+  library rows of "Pin classes" (`DefaultCoreVersion` derived, library `.cascade-frozen`) and
+  "What each repo's task moves" (`DefaultSchemaModule` only).
 - Not in this change: a guard that fails when a new version literal appears in a `*_test.go`
   outside `.cascade-frozen` (belongs in `add-deps-cascade-task`, which first gives the file a
   reader). Also out: the `.cascade-hold` file, any cascade workflow, a text sync of the core line

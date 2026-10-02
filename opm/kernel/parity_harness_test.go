@@ -177,10 +177,10 @@ func resolveShippedCases(rows []parityCase, version string) []parityCase {
 
 // shippedCases is the table for the shipped group, one row per pair the
 // oracle matches for the web_app fixture. Transformer holds the bare name;
-// resolveShippedCases builds the id at the pinned catalog build. The oracle's pair list is
-// asserted to equal this set, so a new pair cannot go untested. Every row
-// is structural with no expected divergence (0019:D4: the table is empty of
-// divergences once the enhancement is implemented).
+// resolveShippedCases builds the id at the pinned catalog build. The
+// oracle's pair list is asserted to equal this set, so a new pair cannot go
+// untested. Every row is structural with no expected divergence (0019:D4:
+// the table is empty of divergences once the enhancement is implemented).
 var shippedCases = []parityCase{
 	{
 		Name:        "config :: configmap-transformer",
