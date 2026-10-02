@@ -155,19 +155,19 @@ Every section lands as a release-hidden type (`chore`, `test` or `build`). The P
 
 ## 5. Proof: bump the catalog pins to opm 4.4.4 (fixtures)
 
-- [ ] 5.1 `task cue:deps:update`. Verify:
+- [x] 5.1 `task cue:deps:update`. Verify:
       `git diff --name-only | grep -v '/cue.mod/module.cue$'` prints nothing; the four modules
       (`modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity`,
       `testdata/parity/opm_platform`) read `opmodel.dev/catalogs/opm@v4` `v4.4.4`; core still
       reads `v2.0.0-beta.1`. If `cue.dev/x/k8s.io` moved too, record it and keep it, unless a gate
       below fails because of it (design Risks).
-- [ ] 5.2 Cross-cutting checks against GHCR: `task cue:check`, `task cue:catalog:drift`,
+- [x] 5.2 Cross-cutting checks against GHCR: `task cue:check`, `task cue:catalog:drift`,
       `OPM_FLOW_TEST_FORCE=1 task cue:test:flow`,
       `OPM_FLOW_TEST_FORCE=1 go test ./opm/kernel -run 'TestParity|TestFlow' -count=1`. Verify:
       all green with no Go file edited. If a parity case diverges on `4.4.4`, stop: revert 5.1,
       record the divergence in design.md Risks, leave section 5 unchecked, and report. Sections 1
       to 4 stand alone.
-- [ ] 5.3 `task check` green, then commit `test(fixtures): bump catalog pins to opm 4.4.4`.
+- [x] 5.3 `task check` green, then commit `test(fixtures): bump catalog pins to opm 4.4.4`.
 
 ## 6. Verify
 
