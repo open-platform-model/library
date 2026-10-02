@@ -4,9 +4,9 @@ No Go code, no `go.mod` change. Every section's gate is `task fmt`, `task vet`, 
 
 ## 1. Record the decision (adr)
 
-- [ ] 1.1 Write `adr/011-kubernetes-tier-beside-the-kernel.md` in the `adr/TEMPLATE.md` shape, Status Accepted (2026-10-02). Context is value-neutral (0012:D1/D2, the two existing tiers, 0006:D31's outcome, the apply-engine asymmetry, CUE label stamping). Decision states the nine rules mapped to 0012:D3/D4/D5/D6. Rejected alternatives: inside `opm/kernel`, under `opm/helper`, a nested Go module, per-frontend copies. Consequences are bold-labelled paragraphs. Verify: no bare decision number (`grep -nE '(^|[^:0-9A-Za-z])D[0-9]+' adr/011-*.md` returns nothing).
-- [ ] 1.2 Amend `adr/008-kernel-plans-caller-runs.md` in place, following the ADR-007 precedent: one dated "Amended 2026-10-02 by `record-kubernetes-tier`" sentence on the Status line, and a one-line clarification at the end of rule 4 ("derives no ordering of its own" excludes module-specific ordering only; kind-class order lives in `opm/k8s/object`). Verify: the rule text is otherwise byte-identical (`git diff` shows only those two lines).
-- [ ] 1.3 Gates green, then commit `docs(adr): add ADR-011, the Kubernetes tier beside the kernel`.
+- [x] 1.1 Write `adr/011-kubernetes-tier-beside-the-kernel.md` in the `adr/TEMPLATE.md` shape, Status Accepted (2026-10-02). Context is value-neutral (0012:D1/D2, the two existing tiers, 0006:D31's outcome, the apply-engine asymmetry, CUE label stamping). Decision states the nine rules mapped to 0012:D3/D4/D5/D6. Rejected alternatives: inside `opm/kernel`, under `opm/helper`, a nested Go module, per-frontend copies. Consequences are bold-labelled paragraphs. Verify: no bare decision number (`grep -nE '(^|[^:0-9A-Za-z])D[0-9]+' adr/011-*.md` returns nothing).
+- [x] 1.2 Amend `adr/008-kernel-plans-caller-runs.md` in place, following the ADR-007 precedent: one dated "Amended 2026-10-02 by `record-kubernetes-tier`" sentence on the Status line, and a one-line clarification at the end of rule 4 ("derives no ordering of its own" excludes module-specific ordering only; kind-class order lives in `opm/k8s/object`). Verify: the rule text is otherwise byte-identical (`git diff` shows only those two lines).
+- [x] 1.3 Gates green, then commit `docs(adr): add ADR-011, the Kubernetes tier beside the kernel`.
 
 ## 2. Amend the constitution and the boundary prose (constitution, helper)
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-14). Amends the Purpose statement in `CONSTITUTION.md` and `openspec/config.yaml`, which said the library will host the full `#Workflow` and `#Lifecycle` system. Constrains enhancement 0009 (workspace root, `enhancements/0009`), whose D1, D3 and D4 were recorded before ADR-005 and ADR-007 and describe a kernel shape that no longer exists. No implementing change yet: core carries no lifecycle vocabulary, so there is nothing to plan from until the schema grows one.
+Accepted (2026-09-14). Amends the Purpose statement in `CONSTITUTION.md` and `openspec/config.yaml`, which said the library will host the full `#Workflow` and `#Lifecycle` system. Constrains enhancement 0009 (workspace root, `enhancements/0009`), whose D1, D3 and D4 were recorded before ADR-005 and ADR-007 and describe a kernel shape that no longer exists. No implementing change yet: core carries no lifecycle vocabulary, so there is nothing to plan from until the schema grows one. Amended 2026-10-02 by `record-kubernetes-tier` (ADR-011, 0012:D5): rule 4's "The kernel derives no ordering of its own" means no module-specific ordering. A fixed kind-class order (a CustomResourceDefinition before its custom resources, a Namespace before the objects in it) is a fact about Kubernetes, not a derivation from any module, and it lives in the Kubernetes tier `opm/k8s/object`, outside the kernel. Module-declared order (hooks, `dependsOn`, phases) is still data off the build. The rules below are otherwise unchanged.
 
 ## Context
 
@@ -29,7 +29,7 @@ Four rules.
 1. **The kernel plans; the caller runs.** Planning is a pure function from artifacts to a plan value, the shape `Render` already has. The library ships no loop that drives a plan to completion.
 1. **A plan advances one step per call, and the state belongs to the caller.** Advancing is a pure function of a plan and a state value that returns the next state and the action the caller is to perform. The kernel keeps nothing between calls. The state MUST be serialisable, so a controller can carry it in a custom resource across reconciles and a one-shot frontend can hold it in memory.
 1. **The kernel names an action; it never performs one.** No I/O, no waiting, no clock, no process spawning, in line with Principle I. If the library ever ships executor backends they live under `opm/helper/`, where the opt-in fence and its depguard rule already are.
-1. **Lifecycle facts are data off a build.** Ordering edges, hook declarations and wait conditions are emitted by the CUE build and decoded in Go, the way render verdicts already are. The kernel derives no ordering of its own.
+1. **Lifecycle facts are data off a build.** Ordering edges, hook declarations and wait conditions are emitted by the CUE build and decoded in Go, the way render verdicts already are. The kernel derives no ordering of its own. (Clarified by ADR-011: this excludes module-specific ordering only; the Kubernetes tier's kind-class order is not a kernel derivation.)
 
 Rejected alternatives:
 
