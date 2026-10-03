@@ -36,9 +36,9 @@ library release.
   reuses this package for the library's other version helpers.
 - **The registry verbs accept both spellings.** `loader.FetchArtifact` canonicalises the version
   before `module.NewVersion`, and `loader.FetchModule` canonicalises the version it hands the
-  identity check, so every coordinate after the parse step that reaches an error message or the identity check is
-  in canonical form. A malformed version (`"not-a-version"`) is still refused with the wrapped
-  parse error, which names the version as the caller wrote it.
+  identity check, so every coordinate after the parse step that reaches an error message or the
+  identity check is in canonical form. A malformed version (`"not-a-version"`) is still refused
+  with the wrapped parse error, which names the version as the caller wrote it.
 - **The synthetic root is the same for both spellings.** `sourcetree.SyntheticRoot`
   canonicalises the version it is given. `Source.Root` of an artifact fetched as `1.0.0` equals
   the one fetched as `v1.0.0`.
@@ -76,15 +76,17 @@ None.
 
 - `registry-module-loading`: a new requirement that the registry acquisition verbs accept a
   version with or without the `v` prefix, resolve both to the same artifact, and stage it under
-  the same synthetic root, and that a platform generated from a subscription in either spelling
-  builds against the catalog.
+  the same synthetic root.
+- `platform-module-generation`: a new requirement that a registry entry stamps its version bare,
+  so a platform generated from a subscription in either spelling builds against the catalog.
 
 ## Impact
 
 - Packages: `opm/internal/modversion` (new, internal), `opm/internal/loader` (`registry.go`),
-  `opm/internal/sourcetree` (`SyntheticRoot`), `opm/helper/platformmodule` (`generate.go`: `Roots`
-  and the stamped entry version; the closure, golden and build tests), and godoc in `opm/kernel/acquire.go`. The helper tier may import
-  `opm/internal/*`; the depguard rule forbids only the reverse.
+  `opm/internal/sourcetree` (`SyntheticRoot`), `opm/helper/platformmodule` (`generate.go`:
+  `Roots` and the stamped entry version; the closure, golden and build tests), and godoc in
+  `opm/kernel/acquire.go`. The helper tier may import `opm/internal/*`; the depguard rule forbids
+  only the reverse.
 - Public surface under `opm/`: no signature change. Behaviour widens: two verbs accept input they
   refused before, and `platformmodule.Generate` renders a `v`-prefixed entry as it renders the bare
   one (before, that platform failed to build).

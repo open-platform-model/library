@@ -69,7 +69,8 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       `FetchArtifact` and rerun 2.4 and 2.5; all three bare-version tests
       (`TestFetchModule_BareVersion`, `TestFetchArtifact_CatalogBareVersion` and the 2.5 kernel
       test) fail with "not well formed", because `FetchModule` does not canonicalise before
-      calling `FetchArtifact` (design BS2). Restore it. Verify: `git diff --stat` shows the restored file unchanged from 2.2.
+      calling `FetchArtifact` (design BS2). Restore it. Verify: `git diff --stat` shows the
+      restored file unchanged from 2.2.
 - [x] 2.7 `task check` green, then commit
       `fix(loader): accept bare semver in the registry verbs`.
 
@@ -88,6 +89,8 @@ Added by the supervisor triage of 2026-10-03, after implementation and review.
 - [x] 2b.4 Review nits: kernel-level bare `AcquireModuleFromRegistry` test (bare first, same
       root); bare-fetch identity-mismatch test asserting the canonical `Coordinate`; godoc
       reflow in `registry.go` and `acquire.go`.
+- [x] 2b.5 `task check` green, then commit
+      `fix(helper): stamp the registry entry version bare in platform generation`.
 
 ## 3. Verify and archive
 
@@ -97,6 +100,7 @@ Added by the supervisor triage of 2026-10-03, after implementation and review.
 - [x] 3.3 Archive on this branch so the archive rides the implementing PR:
       `openspec archive accept-bare-semver-in-registry-verbs --yes`. Verify:
       `openspec/specs/registry-module-loading/spec.md` carries the new requirement with its four
-      scenarios, and `openspec validate --all --strict` passes. There is no `enhancement.yaml`,
-      so no delivery log runs.
+      scenarios, `openspec/specs/platform-module-generation/spec.md` carries the bare-stamp
+      requirement with its two scenarios, and `openspec validate --all --strict` passes. There is
+      no `enhancement.yaml`, so no delivery log runs.
 - [x] 3.4 Commit `chore(openspec): archive accept-bare-semver-in-registry-verbs`.
