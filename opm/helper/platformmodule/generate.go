@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"cuelang.org/go/cue/literal"
 	"cuelang.org/go/mod/modfile"
 
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -71,9 +71,9 @@ type Files map[string][]byte
 // bare SemVer.
 func Roots(entries []Entry) []Dep {
 	roots := make([]Dep, 0, len(entries)+1)
-	roots = append(roots, Dep{Path: CorePath, Version: canonicalVersion(schema.DefaultSchemaVersion())})
+	roots = append(roots, Dep{Path: CorePath, Version: modversion.Canonical(schema.DefaultSchemaVersion())})
 	for _, e := range entries {
-		roots = append(roots, Dep{Path: e.Path, Version: canonicalVersion(e.Version)})
+		roots = append(roots, Dep{Path: e.Path, Version: modversion.Canonical(e.Version)})
 	}
 	sortDeps(roots)
 	return roots
@@ -192,15 +192,6 @@ func renderPlatformFile(name, typ string, entries []Entry) []byte {
 	}
 	b.WriteString("}\n")
 	return b.Bytes()
-}
-
-// canonicalVersion adds the "v" prefix cue.mod requires to a bare SemVer
-// string; an already-prefixed or empty version is returned unchanged.
-func canonicalVersion(v string) string {
-	if v == "" || strings.HasPrefix(v, "v") {
-		return v
-	}
-	return "v" + v
 }
 
 func sortDeps(deps []Dep) {

@@ -17,18 +17,18 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 1. Lift canonicalVersion into a shared internal helper (modversion, platformmodule; design BS1)
 
-- [ ] 1.1 New package `opm/internal/modversion` with `Canonical(v string) string` (design BS1)
+- [x] 1.1 New package `opm/internal/modversion` with `Canonical(v string) string` (design BS1)
       and a package doc comment saying it holds the library's CUE module version helpers.
       Verify: `go build ./opm/...` clean.
-- [ ] 1.2 `opm/internal/modversion/modversion_test.go`: a table test over `"1.0.0"` →
+- [x] 1.2 `opm/internal/modversion/modversion_test.go`: a table test over `"1.0.0"` →
       `"v1.0.0"`, `"v1.0.0"` unchanged, `"1.0.0-alpha.2"` → `"v1.0.0-alpha.2"`, `""` unchanged.
       Verify: `go test ./opm/internal/modversion -count=1` green.
-- [ ] 1.3 `opm/helper/platformmodule/generate.go`: delete `canonicalVersion`; `Roots` calls
+- [x] 1.3 `opm/helper/platformmodule/generate.go`: delete `canonicalVersion`; `Roots` calls
       `modversion.Canonical`. `closure_test.go` (`fixtureRoots`) calls it too. Drop the
       `strings` import if nothing else uses it. Verify:
       `grep -rn canonicalVersion opm` prints nothing; `go test ./opm/helper/platformmodule
       -count=1` green.
-- [ ] 1.4 `task check` green, then commit
+- [x] 1.4 `task check` green, then commit
       `refactor(helper): share version canonicalisation from an internal package`.
 
 ## 2. Registry verbs accept both spellings (loader, sourcetree, kernel; design BS2, BS3, BS4)

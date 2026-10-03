@@ -10,6 +10,8 @@ import (
 	"cuelang.org/go/mod/module"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/open-platform-model/library/opm/internal/modversion"
 )
 
 // fakeSource is a fixture module graph: module version string -> the paths
@@ -59,9 +61,9 @@ func fixtureGraph() *fakeSource {
 // graph's core version instead of the kernel default, so the tests hold
 // whatever release the kernel default advances to.
 func fixtureRoots(entries ...Entry) []Dep {
-	roots := []Dep{{Path: CorePath, Version: canonicalVersion(coreVersion)}}
+	roots := []Dep{{Path: CorePath, Version: modversion.Canonical(coreVersion)}}
 	for _, e := range entries {
-		roots = append(roots, Dep{Path: e.Path, Version: canonicalVersion(e.Version)})
+		roots = append(roots, Dep{Path: e.Path, Version: modversion.Canonical(e.Version)})
 	}
 	sortDeps(roots)
 	return roots
