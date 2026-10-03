@@ -157,9 +157,10 @@ The library SHALL expose exactly one validation method on `*Kernel` in `opm/kern
 #### Scenario: Errors carry source positions when filename was set at compile time
 
 - **WHEN** validation of a `Source` produces an error
-- **THEN** every error positioned at a field a Source sets (a type, constraint or disallowed-field violation) exposes `Position().Filename()` equal to that Source's `Origin`, because the kernel compiled that source under its `Origin`
+- **THEN** for every error at a field a Source sets (a type, constraint or disallowed-field violation), `cueerrors.Positions(ce)` includes a position whose `Filename()` equals that Source's `Origin`, because the kernel compiled that source under its `Origin`
+- **AND** for a disallowed-field violation that position is the primary `Position()`
 - **AND** a concreteness error for a field no source sets may carry no source position
-- **AND** for an error positioned at a field a Source sets, `cueerrors.Positions(ce)` returns primary plus contributing positions, each with a populated filename
+- **AND** positions contributed by the schema carry the schema's own filenames
 
 ### Requirement: Callers compose ConfigSchema with the one validation primitive
 
