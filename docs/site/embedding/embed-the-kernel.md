@@ -47,4 +47,4 @@ Check against: library/opm/kernel/doc.go, library/docs/getting-started.md (Remov
 
 ## Next steps
 
-<!-- Three links at most. Concept: "How matching works". Diagnostics how-to: "Unresolved demands". Reference: the Go API documentation for github.com/open-platform-model/library/opm/kernel (Verify: where it is published, for example pkg.go.dev, before linking). -->
+<!-- Three links at most. Concept: "How matching works". Diagnostics how-to: "Unresolved demands". Reference: [Go API: opm/kernel](/docs/reference/go-api/kernel/), published in this bundle; make it a visible link once the site reads the library from bundles (gate G2-switch). -->
