@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-03). Supersedes ADR-002. Records 0019:D8 (workspace root, `enhancements/0019/03-decisions.md`) together with the `cue.Context` lifetime rule that resolves its OQ12. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). Amended by ADR-007 (2026-09-08): the shares-nothing rule now holds for every kernel verb, not only `Render`; the Kernel holds no context of its own, and the "one Kernel per goroutine" sentence below is superseded by one Kernel per process, safe for concurrent use.
+Accepted (2026-09-03). Supersedes ADR-002. Records 0019:D8 (workspace root, `enhancements/0019/03-decisions.md`) together with the `cue.Context` lifetime rule that resolves its OQ12. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). Amended by ADR-007 (2026-09-08): the shares-nothing rule now holds for every kernel verb, not only `Render`; the Kernel holds no context of its own, and the "one Kernel per goroutine" sentence below is superseded by one Kernel per process, safe for concurrent use. Amended 2026-10-03 by `record-walkthrough-decisions`: rule 2 is reworded to ADR-007's holder-bounded rule, because a returned `*kernel.Compiled` carries a live `cue.Value` that keeps its render's build alive while the caller holds it. Render output keeps `Compiled.Value` for now and moves to bytes before GA at the latest, in the last breaking beta (0021:D8:R11), earlier if render output is to be cached.
 
 ## Context
 
@@ -25,7 +25,7 @@ Against the serialised shared-platform path, the fresh-context worker delivers 2
 Two rules, both mechanical in `Kernel.Render`:
 
 1. **Each render is its own CUE build in its own `cue.Context`.** `Render` stages one generated render module and evaluates it in a context created for that call. The Kernel's own context, which acquisition, synthesis and validation use, does not participate. Nothing built by one render is visible to another.
-1. **The context does not outlive the render.** `Render` returns decoded Go values (`[]*core.Compiled`, `RenderDiagnostics`) and drops the context, the built value and the staging directory before returning. The Kernel holds no built value between calls, and a caller cannot obtain one to hold.
+1. **The kernel does not hold the context past the render.** `Render` returns decoded Go values (`[]*kernel.Compiled`, `RenderDiagnostics`) and drops its own references to the context, the built value and the staging directory before returning. The Kernel holds no built value between calls. Each returned `*Compiled` carries a `cue.Value` into the render's build, so a caller that holds one keeps that build alive until it releases it, and retention is bounded by what the caller holds (ADR-007 rule 1).
 
 Concurrency is therefore across renders, never within one. A consumer that renders from several goroutines gives each goroutine its own Kernel and calls `Render`, with no shared platform value and no mutex. A single Kernel remains single-threaded across its own method calls, because the context-owning methods share its context.
 

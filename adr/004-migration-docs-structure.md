@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted
+Accepted. Amended 2026-10-03 by `record-walkthrough-decisions`: the arming condition now points
+at the GA exit criteria in 0021:D8 (the arming condition is 0021:D8:R4).
 
 ## Context
 
@@ -73,5 +74,6 @@ library is explicitly pre-GA.
 
 **Trade-off:** deferring enforcement means the discipline must be re-established at GA
 rather than maintained continuously. The arming condition is recorded here and in
-`migrations/README.md` so the GA release checklist picks it up; the GA-time change
-implements the gates, the graduation job, and the skill against this ADR.
+`migrations/README.md`, and the GA exit criteria carry it: 0021:D8 (workspace root,
+`enhancements/0021/03-decisions.md`), where the arming condition is 0021:D8:R4. The GA-time
+change implements the gates, the graduation job, and the skill against this ADR.

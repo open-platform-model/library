@@ -21,7 +21,8 @@ The library is pre-GA, through its alpha and beta lines alike. Until the first G
 
 From the first GA release onward this directory becomes mandatory and CI-enforced. The
 enforcement design is recorded in [ADR-004](../adr/004-migration-docs-structure.md); GA, not
-beta, arms it.
+beta, arms it. GA is cut only when the GA exit criteria in 0021:D8 (workspace root,
+`enhancements/0021/03-decisions.md`) hold; the arming condition is 0021:D8:R4.
 
 ## Layout (armed at GA)
 

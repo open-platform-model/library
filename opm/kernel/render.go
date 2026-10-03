@@ -288,7 +288,8 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // and execution glue), verifies the
 // promoted list covers every OPM-namespace path either input requires,
 // applies the skew policy (0019:D7/D18), builds the module once in a fresh
-// cue.Context that is dropped when Render returns (0019:D8), and decodes
+// cue.Context whose references the kernel drops when Render returns
+// (0019:D8), and decodes
 // `diagnostics` and `rendered` off the built value.
 //
 // The Kernel holds no context of its own, and no built value survives the
