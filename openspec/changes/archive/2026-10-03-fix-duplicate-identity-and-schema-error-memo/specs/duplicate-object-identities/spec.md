@@ -1,9 +1,4 @@
-# duplicate-object-identities Specification
-
-## Purpose
-The opt-in check between render and apply that finds rendered objects sharing one Kubernetes apply identity, so a runtime refuses the render before the last write silently wins (enhancement 0015 D15 and D12).
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Duplicate rendered identities are detected with their producers
 
@@ -39,15 +34,6 @@ The library SHALL provide, under `opm/helper/`, a function that scans a render's
 - **WHEN** a render produces a kind `Widget` named `web` under `a.example.com/v1` and under `b.example.com/v1`
 - **THEN** no rows are returned
 
-### Requirement: Objects without an apply identity are skipped
-
-A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treated as a Kubernetes object: it SHALL be skipped by the scan and SHALL NOT produce a row or an error. The helper SHALL NOT validate the objects in any other way.
-
-#### Scenario: A value without a name is ignored
-
-- **WHEN** a transformer renders a value with a kind and no `metadata.name` beside two objects sharing an identity
-- **THEN** the shared identity is returned and the nameless value contributes nothing
-
 ### Requirement: The refusal is worded once
 
 The helper SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording. When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each producer's `apiVersion` beside it, worded as `<no apiVersion>` for a producer whose object carries none; when they do, the line SHALL carry no per-producer version. The kernel SHALL NOT return this error: it is raised by the runtime that calls the helper, before apply.
@@ -71,12 +57,3 @@ The helper SHALL provide an error type aggregating duplicate rows, whose message
 
 - **WHEN** the error is built from a row whose producers carry `v1` and no `apiVersion`
 - **THEN** its message names the second producer `as <no apiVersion>`
-
-### Requirement: The kernel stays neutral
-
-`opm/kernel` SHALL NOT import the helper, `Render` SHALL NOT refuse a duplicate identity, and `Compiled` SHALL gain no identity fields; the helper reads the identity off `Compiled.Value`. A frontend that applies to something other than Kubernetes MAY skip the helper entirely.
-
-#### Scenario: A render with duplicates still succeeds in the kernel
-
-- **WHEN** a render produces two objects with one identity
-- **THEN** `Render` returns both in `Compiled` with no error, and only a caller of the helper learns of the collision

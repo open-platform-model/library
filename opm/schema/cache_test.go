@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -162,6 +163,43 @@ func TestCache_ResolvedVersionStaysEmptyOnFailedLoad(t *testing.T) {
 	_, err := cache.Get()
 	require.Error(t, err)
 	assert.Empty(t, cache.ResolvedVersion())
+}
+
+// TestCache_UnbuildableSchemaIsMemoisedAsAnError asserts that a Cache over
+// an OCILoader whose core module does not build returns the zero value and
+// the same error on every Get, and never resolves a version.
+func TestCache_UnbuildableSchemaIsMemoisedAsAnError(t *testing.T) {
+	registrytest.NewRegistryWithCore(t, unbuildableCore)
+	cache := &schema.Cache{Loader: schema.OCILoader{}}
+
+	first, firstErr := cache.Get()
+	second, secondErr := cache.Get()
+
+	require.Error(t, firstErr)
+	assert.Same(t, firstErr, secondErr, "the failure is memoised, not retried")
+	assert.False(t, first.Exists())
+	assert.False(t, second.Exists())
+	assert.Empty(t, cache.ResolvedVersion())
+}
+
+// TestCache_ErroredValueFromAnyLoaderIsAnError asserts that a Loader other
+// than OCILoader returning an errored value with a nil error still reaches
+// the caller as the zero value and an error, memoised without a retry.
+func TestCache_ErroredValueFromAnyLoaderIsAnError(t *testing.T) {
+	loader := &countingLoader{val: cuecontext.New().CompileString("x: 1 & 2")}
+	require.Error(t, loader.val.Err(), "the stub must hand back an errored value")
+	cache := &schema.Cache{Loader: loader}
+
+	first, firstErr := cache.Get()
+	second, secondErr := cache.Get()
+
+	require.Error(t, firstErr)
+	assert.Contains(t, firstErr.Error(), "conflicting values")
+	assert.Same(t, firstErr, secondErr, "the failure is memoised, not retried")
+	assert.False(t, first.Exists())
+	assert.False(t, second.Exists())
+	assert.Empty(t, cache.ResolvedVersion())
+	assert.Equal(t, int64(1), loader.calls.Load())
 }
 
 // TestCache_WorkspaceCacheReuse asserts that a second OCILoader-backed
