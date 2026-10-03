@@ -32,4 +32,4 @@ No Go code, no `go.mod` change. The only Go file touched is one comment sentence
 
 ## 5. Merge gate (run before merge, not at implementation)
 
-- [ ] 5.1 Before merge, from the enhancements checkout (`cd /var/home/emil/dev/open-platform-model/enhancements` as its own call, no `-C`): `git fetch origin`, then `git show origin/main:0021/03-decisions.md` shows `0021:D8:R11` to `0021:D8:R14` under 0021:D8 with the meanings quoted in 4.2, and `git show origin/main:0012/03-decisions.md` shows 0012:D5 carrying the Bundle and no-module-internal-ordering text. Otherwise hold the merge and fix the citations.
+- [x] 5.1 Before merge, from the enhancements checkout (`cd /var/home/emil/dev/open-platform-model/enhancements` as its own call, no `-C`): `git fetch origin`, then `git show origin/main:0021/03-decisions.md` shows `0021:D8:R11` to `0021:D8:R14` under 0021:D8 with the meanings quoted in 4.2, and `git show origin/main:0012/03-decisions.md` shows 0012:D5 carrying the Bundle and no-module-internal-ordering text. Otherwise hold the merge and fix the citations.
