@@ -531,12 +531,22 @@ func TestRender_Skew_OlderModuleIsData(t *testing.T) {
 	}
 }
 
-// stagingDirs lists the opm-render-* staging directories currently present
-// under the process temp dir (what Render leaves behind if it fails to clean
-// up).
-func stagingDirs(t *testing.T) []string {
+// privateStagingRoot points the process temp dir at a directory owned by this
+// test and returns it, so Render stages there and no other process sharing
+// TMPDIR can add to or remove from what stagingDirs lists.
+func privateStagingRoot(t *testing.T) string {
 	t.Helper()
-	dirs, err := filepath.Glob(filepath.Join(os.TempDir(), "opm-render-*"))
+	root := t.TempDir()
+	t.Setenv("TMPDIR", root)
+	return root
+}
+
+// stagingDirs lists the opm-render-* staging directories present under root,
+// a directory from privateStagingRoot (what Render leaves behind if it fails
+// to clean up).
+func stagingDirs(t *testing.T, root string) []string {
+	t.Helper()
+	dirs, err := filepath.Glob(filepath.Join(root, "opm-render-*"))
 	require.NoError(t, err)
 	sort.Strings(dirs)
 	return dirs
@@ -548,16 +558,12 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	inst := synthRenderInstance(t, k, "0.1.0")
 	ctx := context.Background()
 
-	// A private temp dir, so staging directories of other test processes
-	// rendering at the same time do not show up in the comparison.
-	t.Setenv("TMPDIR", t.TempDir())
-
-	before := stagingDirs(t)
+	root := privateStagingRoot(t)
 	first, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
 	second, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
-	assert.Equal(t, before, stagingDirs(t), "each render removes its staging directory on return")
+	assert.Empty(t, stagingDirs(t, root), "each render removes its staging directory on return")
 
 	assert.Equal(t, first.Diagnostics, second.Diagnostics)
 	require.Len(t, second.Compiled, len(first.Compiled))
@@ -964,7 +970,7 @@ func TestRender_LocalReplacementRefusedUnlessEnabled(t *testing.T) {
 	require.NoError(t, err, "as the main module, the platform loads with its own replacement")
 	inst := acquireRenderInstance(t, k, "instance")
 
-	before := stagingDirs(t)
+	root := privateStagingRoot(t)
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
 	assert.Nil(t, res)
@@ -973,7 +979,7 @@ func TestRender_LocalReplacementRefusedUnlessEnabled(t *testing.T) {
 	assert.Contains(t, err.Error(), "did not enable local replacements")
 	var rerr *kernel.RenderError
 	assert.False(t, errors.As(err, &rerr), "refused before any build")
-	assert.Equal(t, before, stagingDirs(t), "no staging directory is left behind")
+	assert.Empty(t, stagingDirs(t, root), "no staging directory is left behind")
 }
 
 func TestRender_PlatformLocalReplacementRendersTheDirectory(t *testing.T) {
@@ -1077,7 +1083,7 @@ func TestRender_VersionlessDependencyWithoutReplacementRefused(t *testing.T) {
 	// on disk is what Render reads.
 	require.NoError(t, os.Remove(filepath.Join(inst.Source.Root, "cue.mod", "local-module.cue")))
 
-	before := stagingDirs(t)
+	root := privateStagingRoot(t)
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt", LocalReplacements: true})
 	require.Error(t, err)
 	assert.Nil(t, res)
@@ -1086,7 +1092,7 @@ func TestRender_VersionlessDependencyWithoutReplacementRefused(t *testing.T) {
 	assert.NotContains(t, err.Error(), "formatting", "the refusal is promotion's, not a modfile formatting error")
 	var rerr *kernel.RenderError
 	assert.False(t, errors.As(err, &rerr), "refused before any build")
-	assert.Equal(t, before, stagingDirs(t))
+	assert.Empty(t, stagingDirs(t, root))
 }
 
 func TestRender_ReplacementRowsAreDataInPathOrder(t *testing.T) {

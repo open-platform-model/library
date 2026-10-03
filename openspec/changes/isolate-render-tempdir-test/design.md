@@ -164,4 +164,24 @@ directory through the API, or assert only on the directories of the test's own r
 
 ## Verification
 
-To be filled in by tasks 1.1 and 1.4: the command, the counts and the failures before and after.
+Run on 2026-10-04 with the tasks.md section 1 script: three processes of one compiled
+`opm/kernel` test binary, one shared absolute `TMPDIR`, each running the three tests `-test.count`
+times. "Noise" is a fourth process looping
+`d=$(mktemp -d "$T/opm-render-XXXXXX"); rmdir "$d"` in that `TMPDIR` for the whole run.
+
+| Binary | Count | Noise | p1 | p2 | p3 |
+| --- | --- | --- | --- | --- | --- |
+| `B0` (base `42f094b`, unchanged tests) | 40 | no | 1 | 2 | 3 |
+| `B0` | 40 | yes | 56 | 58 | 58 |
+| `B1` (this change) | 80 | yes | 0 | 0 | 0 |
+| `B0` (control, same session as `B1`) | 80 | yes | 103 | 113 | 112 |
+
+- Before (1.1): 6 failures without noise, all in `LocalReplacementRefusedUnlessEnabled`
+  (`render_test.go:976`) and `VersionlessDependencyWithoutReplacementRefused`
+  (`render_test.go:1089`), each a foreign `opm-render-*` entry or a listing that lost one.
+  `RepeatedRendersShareNothing` passed every run, as in planning.
+- After (1.4): 0 failures in 240 runs per test while the noise process ran. The control run of
+  `B0` under the same noise right after failed 328 times, so the noise does reach a test that
+  lists the shared root.
+- Leak detection kept: with the `os.RemoveAll` defer at `render.go:359` disabled for one local
+  run, all three tests failed; the line was restored before committing.
