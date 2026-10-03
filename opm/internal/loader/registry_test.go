@@ -219,6 +219,29 @@ func TestFetchModule_IdentityVersionMismatch(t *testing.T) {
 	assert.Equal(t, "0.0.1", ie.Fetched)
 }
 
+// A bare-version fetch that hits an identity mismatch reports the canonical
+// coordinate, the tag that was fetched, and the bare fetched version.
+func TestFetchModule_IdentityVersionMismatchBareFetch(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.1",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"9.9.9\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+
+	_, _, err := loader.FetchModule(
+		context.Background(), cuecontext.New(), modPath+"@v0", "0.0.1",
+		cueenv.Override(reg, ""))
+	require.Error(t, err)
+
+	var ie oerrors.IdentityError
+	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
+	assert.Equal(t, "version", ie.Field)
+	assert.Equal(t, "0.0.1", ie.Fetched)
+	assert.Equal(t, modPath+"@v0 v0.0.1", ie.Coordinate)
+}
+
 // 5.4 — an unresolvable path@version surfaces a wrapped fetch/load error
 // without mutating inputs or process environment.
 func TestFetchModule_Unresolvable(t *testing.T) {

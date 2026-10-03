@@ -14,3 +14,10 @@ func Canonical(v string) string {
 	}
 	return "v" + v
 }
+
+// Bare returns v without the "v" prefix: the spelling a catalog's
+// metadata.version carries and a platform registry entry stamps. It is the
+// inverse of [Canonical] and validates nothing either.
+func Bare(v string) string {
+	return strings.TrimPrefix(v, "v")
+}

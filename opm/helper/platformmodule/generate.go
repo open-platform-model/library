@@ -30,8 +30,10 @@ const (
 )
 
 // Entry is one catalog subscription in the shape Generate consumes: the
-// major-qualified catalog path (the registry key), the bare SemVer build the
-// subscription names and whether the subscription is enabled.
+// major-qualified catalog path (the registry key), the SemVer build the
+// subscription names (bare or "v"-prefixed: the registry entry stamps it bare,
+// the form #Catalog.metadata.version carries, and the cue.mod pin canonical)
+// and whether the subscription is enabled.
 type Entry struct {
 	Path    string
 	Version string
@@ -186,7 +188,7 @@ func renderPlatformFile(name, typ string, entries []Entry) []byte {
 	for i, e := range entries {
 		fmt.Fprintf(&b, "\t%s: {\n", literal.String.Quote(e.Path))
 		fmt.Fprintf(&b, "\t\tenable:   %t\n", e.Enable)
-		fmt.Fprintf(&b, "\t\tversion:  %s\n", literal.String.Quote(e.Version))
+		fmt.Fprintf(&b, "\t\tversion:  %s\n", literal.String.Quote(modversion.Bare(e.Version)))
 		fmt.Fprintf(&b, "\t\t#catalog: cat%d\n", i)
 		b.WriteString("\t}\n")
 	}

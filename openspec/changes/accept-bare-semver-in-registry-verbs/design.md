@@ -17,10 +17,10 @@ with any other numbering. Locations are at `origin/main` `cf79a5c`:
 
 ## Goals / Non-Goals
 
-**Goals:** both spellings acquire the same artifact through both registry verbs, with one helper
-holding the rule.
+**Goals:** both spellings acquire the same artifact through both registry verbs, and a platform
+generated from either spelling builds, with one helper package holding the rules.
 
-**Non-Goals:** any change to what `platformmodule.Generate` stamps, any wider version parsing
+**Non-Goals:** any wider version parsing
 (ranges, `latest`), the operator side, and the b3 consolidation of the other version helpers.
 
 ## Research & Decisions
@@ -97,6 +97,21 @@ roots do not change.
 tag minus its `v`. Fed the canonical version, it behaves identically for both spellings; no spec
 text about it changes.
 
+### BS5. Generate stamps the registry entry's version bare
+
+**Context**: `renderPlatformFile` stamped `version: e.Version` raw, and that value unifies with the
+catalog's bare `metadata.version`, so a `v`-prefixed subscription passed acquisition and then
+conflicted at platform build. Supervisor triage (2026-10-03) put this in scope so both spellings
+work end to end, which is the i1 intent.
+**Decision**: `modversion.Bare(v)` (`strings.TrimPrefix(v, "v")`) beside `Canonical`;
+`renderPlatformFile` stamps `modversion.Bare(e.Version)`. `verifyModuleIdentity`'s own strip
+uses `Bare` too.
+**Rationale**: the stamp's job is to agree with `#Catalog.metadata.version`, which is bare by
+schema; the cue.mod pin keeps the canonical form through `Roots`. `Bare` validates nothing, like
+`Canonical`; CUE refuses a malformed stamp at build. A golden test asserts a `v4.0.1` entry renders
+the same `platform.cue` as `4.0.1`, and `TestGenerate_BuildsThroughTheKernel` builds both
+spellings through the kernel's platform loader.
+
 ## Risks / Trade-offs
 
 - A caller that relied on a bare version being refused loses that refusal. No such caller is
@@ -106,8 +121,7 @@ text about it changes.
 - `Canonical("none")` returns `"vnone"`. `module.NewVersion` accepted the literal `"none"` before
   (`module.go:218`) and now refuses it as not well formed. No known caller passes `"none"`; the
   helper keeps `canonicalVersion`'s exact behaviour rather than special-casing it.
-- Acceptance is widened for the registry verbs only. `platformmodule.Generate` stamps the
-  subscription's version as given (`generate.go:189`), so a `v`-prefixed claim passes
-  `AcquireCatalogFromRegistry` and still conflicts with the catalog's bare `metadata.version` at
-  platform build. Until that is decided separately, the operator keeps the bare form its CRD
-  documents.
+- Both spellings now work end to end in the library: acquisition and the platform build (BS5).
+  The operator still needs the pin bump and its own e2e test, in a later change.
+- `Bare` strips one leading `v` and validates nothing, so a malformed subscription still reaches
+  the platform build as given and CUE refuses it there.

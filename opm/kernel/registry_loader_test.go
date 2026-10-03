@@ -44,8 +44,16 @@ func TestKernel_AcquireModuleFromRegistry(t *testing.T) {
 
 	k := kernel.New(kernel.WithRegistry(reg))
 
+	// registry-module-loading spec, "A module is acquired by a bare version":
+	// the bare spelling acquires first, from a cold cache, and stages under the
+	// same root as the v-prefixed spelling below.
+	bare, err := k.AcquireModuleFromRegistry(context.Background(), modPath+"@v0", "0.0.2")
+	require.NoError(t, err)
+	require.True(t, bare.HasSource(), "bare-version acquisition must carry staged source")
+
 	m, err := k.AcquireModuleFromRegistry(context.Background(), modPath+"@v0", "v0.0.2")
 	require.NoError(t, err)
+	assert.Equal(t, bare.Source.Root, m.Source.Root, "both spellings stage under the same root")
 	require.NotNil(t, m.Metadata)
 	assert.Equal(t, "hello", m.Metadata.Name)
 	assert.Equal(t, modPath+"@v0", m.Metadata.ModulePath)

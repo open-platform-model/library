@@ -48,40 +48,46 @@ func TestGenerate_BuildsThroughTheKernel(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	entries := []platformmodule.Entry{{Path: fixtureCat2, Version: "0.1.0", Enable: true}}
-	deps, err := platformmodule.Closure(ctx, src, platformmodule.Roots(entries))
-	require.NoError(t, err)
-	pinned := map[string]string{}
-	for _, d := range deps {
-		pinned[d.Path] = d.Version
+	// Both spellings of the subscription version acquire and build: the
+	// cue.mod pin is canonical and the registry entry stamps the bare form.
+	for _, version := range []string{"0.1.0", "v0.1.0"} {
+		t.Run(version, func(t *testing.T) {
+			entries := []platformmodule.Entry{{Path: fixtureCat2, Version: version, Enable: true}}
+			deps, err := platformmodule.Closure(ctx, src, platformmodule.Roots(entries))
+			require.NoError(t, err)
+			pinned := map[string]string{}
+			for _, d := range deps {
+				pinned[d.Path] = d.Version
+			}
+			assert.Equal(t, "v0.1.0", pinned[fixtureCat2])
+			assert.Equal(t, "v0.1.0", pinned[fixtureCat], "closure does not pin the catalog's transitive dependency: %v", deps)
+			assert.Equal(t, registrytest.DefaultCoreVersion, pinned[platformmodule.CorePath])
+
+			files, err := platformmodule.Generate(platformmodule.Input{
+				Name:       "cluster",
+				Type:       "kubernetes",
+				ModulePath: "opmodel.dev/platforms/cluster@v0",
+				Entries:    entries,
+				Deps:       deps,
+			})
+			require.NoError(t, err)
+			dir := t.TempDir()
+			require.NoError(t, files.WriteTo(dir))
+
+			k := kernel.New(kernel.WithRegistry(mapping))
+			plat, err := k.AcquirePlatformFromDir(ctx, dir)
+			require.NoError(t, err, "generated module does not build:\n%s\n%s", files[platformmodule.ModuleFileName], files[platformmodule.PlatformFileName])
+			require.NotNil(t, plat.Source)
+			assert.Equal(t, dir, plat.Source.Root)
+
+			got, err := plat.Package.LookupPath(cue.ParsePath(`#registry."` + fixtureCat2 + `".version`)).String()
+			require.NoError(t, err, "reading the entry's derived version")
+			assert.Equal(t, "0.1.0", got)
+
+			mf, err := modfile.Parse(files[platformmodule.ModuleFileName], platformmodule.ModuleFileName)
+			require.NoError(t, err)
+			require.Contains(t, mf.Deps, fixtureCat, "module file does not pin the transitive dependency")
+			assert.Equal(t, "v0.1.0", mf.Deps[fixtureCat].Version)
+		})
 	}
-	assert.Equal(t, "v0.1.0", pinned[fixtureCat2])
-	assert.Equal(t, "v0.1.0", pinned[fixtureCat], "closure does not pin the catalog's transitive dependency: %v", deps)
-	assert.Equal(t, registrytest.DefaultCoreVersion, pinned[platformmodule.CorePath])
-
-	files, err := platformmodule.Generate(platformmodule.Input{
-		Name:       "cluster",
-		Type:       "kubernetes",
-		ModulePath: "opmodel.dev/platforms/cluster@v0",
-		Entries:    entries,
-		Deps:       deps,
-	})
-	require.NoError(t, err)
-	dir := t.TempDir()
-	require.NoError(t, files.WriteTo(dir))
-
-	k := kernel.New(kernel.WithRegistry(mapping))
-	plat, err := k.AcquirePlatformFromDir(ctx, dir)
-	require.NoError(t, err, "generated module does not build:\n%s\n%s", files[platformmodule.ModuleFileName], files[platformmodule.PlatformFileName])
-	require.NotNil(t, plat.Source)
-	assert.Equal(t, dir, plat.Source.Root)
-
-	got, err := plat.Package.LookupPath(cue.ParsePath(`#registry."` + fixtureCat2 + `".version`)).String()
-	require.NoError(t, err, "reading the entry's derived version")
-	assert.Equal(t, "0.1.0", got)
-
-	mf, err := modfile.Parse(files[platformmodule.ModuleFileName], platformmodule.ModuleFileName)
-	require.NoError(t, err)
-	require.Contains(t, mf.Deps, fixtureCat, "module file does not pin the transitive dependency")
-	assert.Equal(t, "v0.1.0", mf.Deps[fixtureCat].Version)
 }

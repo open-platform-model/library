@@ -3,7 +3,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/mod/modconfig"
@@ -44,10 +43,9 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // by its major-qualified module path (e.g. "example.com/modules/hello@v0") and
 // version (e.g. "0.0.2" or "v0.0.2": a bare SemVer is canonicalised to the
 // v-prefixed form CUE module versions require, so both spellings fetch the
-// same tag and stage under the same synthetic root), gated to the shape spec names, and returns the
-// value built in cueCtx together with the staged source tree the build used,
-// as the artifact
-// [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
+// same tag and stage under the same synthetic root), gated to the shape spec
+// names, and returns the value built in cueCtx together with the staged source
+// tree the build used, as the artifact [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
 // overlay key sits under, plus the Overlay carrying the module's .cue files
 // (its own cue.mod/module.cue included, nothing else: the set cue/load
 // reads). A consumer reuses it to build a follow-on package INSIDE the
@@ -174,7 +172,7 @@ func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 	if err != nil {
 		return fmt.Errorf("reading metadata.version of %s: %w", coordinate, err)
 	}
-	if fetched := strings.TrimPrefix(version, "v"); declaredVersion != fetched {
+	if fetched := modversion.Bare(version); declaredVersion != fetched {
 		return oerrors.IdentityError{
 			Field:      "version",
 			Declared:   declaredVersion,

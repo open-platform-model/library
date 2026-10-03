@@ -73,6 +73,22 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - [x] 2.7 `task check` green, then commit
       `fix(loader): accept bare semver in the registry verbs`.
 
+## 2b. Platform generation stamps the bare form (modversion, platformmodule; design BS5)
+
+Added by the supervisor triage of 2026-10-03, after implementation and review.
+
+- [x] 2b.1 `modversion.Bare` (TrimPrefix "v") with a table test, including that it inverts
+      `Canonical`. `verifyModuleIdentity` uses it for its strip.
+- [x] 2b.2 `renderPlatformFile` stamps `modversion.Bare(e.Version)`; the `Entry` doc says either
+      spelling is accepted. `TestGenerate_StampsBareVersionForVPrefixedEntry` asserts a
+      `v4.0.1` entry renders the same `platform.cue` as `4.0.1`.
+- [x] 2b.3 `TestGenerate_BuildsThroughTheKernel` runs per spelling (`0.1.0`, `v0.1.0`).
+      Negative check, not committed: reverting the stamp to `e.Version` fails the golden test
+      and the `v0.1.0` build subtest.
+- [x] 2b.4 Review nits: kernel-level bare `AcquireModuleFromRegistry` test (bare first, same
+      root); bare-fetch identity-mismatch test asserting the canonical `Coordinate`; godoc
+      reflow in `registry.go` and `acquire.go`.
+
 ## 3. Verify and archive
 
 - [x] 3.1 Whole-tree gates on the final tree: `task check` and

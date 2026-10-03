@@ -22,8 +22,10 @@ says `"1.0.0"`.
 
 Owner decision (walkthrough item i1, 2026-10-02): normalise in the kernel, so both `1.0.0` and
 `v1.0.0` are accepted, through one shared `canonicalVersion` helper. This change is the library
-half. The operator e2e test that drives a real claim through acceptance and the platform build
-comes in a later change, after the library release.
+half. Supervisor triage (2026-10-03) widened it to the platform build too: `platformmodule.Generate`
+stamps the registry entry's version bare, so both spellings pass acceptance and the platform build.
+The operator e2e test that drives a real claim through both comes in a later change, after the
+library release.
 
 ## What Changes
 
@@ -40,24 +42,29 @@ comes in a later change, after the library release.
 - **The synthetic root is the same for both spellings.** `sourcetree.SyntheticRoot`
   canonicalises the version it is given. `Source.Root` of an artifact fetched as `1.0.0` equals
   the one fetched as `v1.0.0`.
+- **Platform generation stamps the bare form.** `modversion.Bare` (a `TrimPrefix` of the `v`)
+  joins `Canonical`. `platformmodule.Generate` stamps `version: modversion.Bare(e.Version)` in each
+  registry entry, so a `v1.0.0` subscription renders the same `platform.cue` as `1.0.0` and unifies
+  with the catalog's bare `metadata.version`. `verifyModuleIdentity` uses `Bare` for its existing
+  strip.
 - **Doc comments state the contract.** The godoc of `Kernel.AcquireModuleFromRegistry`,
   `Kernel.AcquireCatalogFromRegistry` and `loader.FetchArtifact` say the version may be written
   either way.
 - **Tests** cover both spellings through the `registrytest` fixture: at the loader for a module
-  and a catalog, and at the kernel for `AcquireCatalogFromRegistry`.
+  and a catalog, at the kernel for both registry verbs, and through Generate plus the kernel's
+  platform build (`TestGenerate_BuildsThroughTheKernel` runs once per spelling).
 
 Not **BREAKING**. No exported symbol changes. A caller that passed a `v`-prefixed version sees no
 difference; a bare version that was refused now loads.
 
 SemVer class: PATCH. The release-bearing commit is `fix(loader)`; the helper lift is a
-`refactor`. The PR title is `fix(loader): accept bare semver in the registry verbs`.
+`refactor`. The PR title is `fix(loader): accept bare and v-prefixed semver in the registry verbs
+and platform generation`.
 
 Not in this change: the operator pin bump and the operator e2e test (later wave), consolidating
-the library's other version helpers and the Masterminds dependency (b3), and any change to how
-`platformmodule.Generate` stamps the entry version. Generate stamps the subscription's version as
-given, so a `v`-prefixed claim still conflicts at platform build; the operator keeps the bare form
-its CRD documents (or the owner decides on Generate normalisation separately). Both spellings are
-accepted by the registry verbs only, not by the claim pipeline end to end (design Risks).
+the library's other version helpers and the Masterminds dependency (b3). Both spellings work end
+to end in the library: acquisition through the registry verbs and the platform build from
+Generate's output.
 
 ## Capabilities
 
@@ -69,16 +76,18 @@ None.
 
 - `registry-module-loading`: a new requirement that the registry acquisition verbs accept a
   version with or without the `v` prefix, resolve both to the same artifact, and stage it under
-  the same synthetic root.
+  the same synthetic root, and that a platform generated from a subscription in either spelling
+  builds against the catalog.
 
 ## Impact
 
 - Packages: `opm/internal/modversion` (new, internal), `opm/internal/loader` (`registry.go`),
-  `opm/internal/sourcetree` (`SyntheticRoot`), `opm/helper/platformmodule` (`generate.go`, the
-  closure test), and godoc in `opm/kernel/acquire.go`. The helper tier may import
+  `opm/internal/sourcetree` (`SyntheticRoot`), `opm/helper/platformmodule` (`generate.go`: `Roots`
+  and the stamped entry version; the closure, golden and build tests), and godoc in `opm/kernel/acquire.go`. The helper tier may import
   `opm/internal/*`; the depguard rule forbids only the reverse.
 - Public surface under `opm/`: no signature change. Behaviour widens: two verbs accept input they
-  refused before.
+  refused before, and `platformmodule.Generate` renders a `v`-prefixed entry as it renders the bare
+  one (before, that platform failed to build).
 - Downstream: opm-operator's `TransformerRegistration` claims start resolving once it bumps to
   the release carrying this fix. The cli passes `v`-prefixed versions and is unaffected.
 - No `enhancement.yaml`: the owner decision comes from the beta-1 kernel-plan walkthrough, not
