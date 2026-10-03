@@ -251,10 +251,17 @@ s2_older_pins() {
   sandbox s2
   net_env
   table
+  # The moved catalog declares a language.version above the pinned CUE, so
+  # the run must warn (and never edit a language.version).
+  sed -i -E "s|^(language-of\t$CATALOG_KEY\t[^\t]+\t).*|\1v0.99.0|" "$SB/table.tsv"
   set_older both
   setup_commit
   run_cascade
   if [ "$RC" != 0 ]; then fail S2 "exit $RC, not 0: $(tail -n5 "$SB/out")"; return; fi
+  # shellcheck disable=SC2016 # the backticks are message text
+  if ! warnings | grep -q 'declares `language.version` `v0.99.0`'; then fail S2 "no language.version warning for the moved catalog"; return; fi
+  # shellcheck disable=SC2016 # the backticks are message text
+  if ! warnings | grep -q "^-"$'\t''`docs/getting-started.md` still names'; then fail S2 "no warning that docs/getting-started.md names another core"; return; fi
   # The library has no version-advance paths: the golden list is empty, so
   # the result must equal the original tree exactly.
   if ! same_as_base; then fail S2 "the result differs from the original tree: $(git diff --name-only "$BASE0" | head -n5 | tr '\n' ' ')"; return; fi
