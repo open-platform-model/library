@@ -43,8 +43,8 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 4. Network tests, workflow and docs
 
-- [ ] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), and S5 with its catalog-only variant, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`. S2, S4 and S5 copy the main checkout's `.cue-cache/mod` beside the sandbox and export `CUE_CACHE_DIR` to it.
-- [ ] 4.2 Add `.github/workflows/cascade-task.yml` per design.md D6:
+- [x] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), and S5 with its catalog-only variant, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`. S2, S4 and S5 copy the main checkout's `.cue-cache/mod` beside the sandbox and export `CUE_CACHE_DIR` to it.
+- [x] 4.2 Add `.github/workflows/cascade-task.yml` per design.md D6:
   - job `Cascade task (network)`, `timeout-minutes: 20`, `permissions: contents: read`;
   - triggers: PR paths (`.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold`, the workflow file), `workflow_dispatch` and a weekly schedule;
   - SHA-pinned actions, setup-cue `v0.17.1`, no setup-go;
@@ -52,11 +52,11 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
   - the `org-github` checkout of `open-platform-model/.github` at `main` with `persist-credentials: false`, then `CASCADE_RESOLVER_REAL` exported only when the resolver file exists.
 
   Run `actionlint`.
-- [ ] 4.3 Add a short "Release cascade task" paragraph to `AGENTS.md` (Build/test section). It names the four tasks, `task -x`, the exit codes, `need-human-review` on a core move, and that `cue:deps:update` stays the hand-run task.
-- [ ] 4.4 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
+- [x] 4.3 Add a short "Release cascade task" paragraph to `AGENTS.md` (Build/test section). It names the four tasks, `task -x`, the exit codes, `need-human-review` on a core move, and that `cue:deps:update` stays the hand-run task.
+- [x] 4.4 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
 - [ ] 4.5 Once `add-cascade-resolver` is merged in `.github`, run the full set again with `CASCADE_RESOLVER_REAL` pointing at the workspace checkout's real resolver, and check that S5 passes. Run `task -x deps:cascade` with the real resolver on a clean scratch copy of `main`, and record its exit code and diff in design.md D8 (the Phase 2 gate evidence).
-- [ ] 4.6 Run `openspec validate add-deps-cascade-task --strict`.
-- [ ] 4.7 Gate green, then commit `ci(cascade): test the cascade task over the network`.
+- [x] 4.6 Run `openspec validate add-deps-cascade-task --strict`.
+- [x] 4.7 Gate green, then commit `ci(cascade): test the cascade task over the network`.
 
 ## 5. Verify and archive
 

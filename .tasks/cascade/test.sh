@@ -11,7 +11,12 @@
 #
 #   CASCADE_TEST_SET=offline  checks, S1 no-op, S3 resolver error, S6 dirty
 #                             tree, S7 lagging tree, S8 catalog needs core
-#   CASCADE_TEST_SET=all      (default) also the network scenarios
+#   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
+#                             and S5 title and body (network: cue mod get
+#                             resolves the real older versions)
+#
+# S5 runs only when CASCADE_RESOLVER_REAL names an executable real resolver;
+# otherwise it prints SKIP S5.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=SCRIPTDIR/lib.sh
@@ -27,6 +32,9 @@ SET="${CASCADE_TEST_SET:-all}"
 case "$SET" in offline|all) ;; *) printf 'test.sh: CASCADE_TEST_SET must be offline or all, not %s\n' "$SET" >&2; exit 1 ;; esac
 
 REPO=$(git -C "$here" rev-parse --show-toplevel)
+# The main checkout (also from inside a .claude/worktrees/* worktree), whose
+# .cue-cache/mod warms the network scenarios.
+MAIN=$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)")
 
 # The sandboxes are their own repos: no user or system git config, a fixed
 # identity, and none of the caller's cascade env.
@@ -139,6 +147,36 @@ check_older() {
   [ "$ok" = 0 ] || pass older
 }
 
+# net_env: give the scenario its own CUE cache beside the sandbox repo (never
+# inside it), seeded with a copy of the main checkout's .cue-cache/mod when it
+# exists. Never a symlink: the extract tree is read-only and shared.
+net_env() {
+  mkdir -p "$SB/cue-cache"
+  if [ -d "$MAIN/.cue-cache/mod" ]; then cp -a "$MAIN/.cue-cache/mod" "$SB/cue-cache/"; fi
+  export CUE_CACHE_DIR="$SB/cue-cache"
+}
+
+# set_older WHAT: write older.tsv's versions into every location the task
+# moves. WHAT is core, catalog or both. Core: the loader and the core pin of
+# every tracked cue.mod/module.cue; catalog: the catalog pin of every tracked
+# cue.mod/module.cue that has one.
+set_older() {
+  local oc ok f mods
+  oc=$(older "$CORE_KEY"); ok=$(older "$CATALOG_KEY")
+  if [ "$1" != catalog ]; then
+    sed -i -E "s|^(const DefaultSchemaModule = \"opmodel\\.dev/core@)[^\"]+|\\1$oc|" "$LOADER"
+    [ "$(loader_core <"$LOADER")" = "$oc" ] || { printf 'test.sh: cannot set the loader to %s\n' "$oc" >&2; exit 1; }
+  fi
+  mods=$(git ls-files '*cue.mod/module.cue')
+  while IFS= read -r f; do
+    if [ "$1" != catalog ] && [ -n "$(dep_v "$CORE_KEY" <"$f")" ]; then set_dep_v "$f" "$CORE_KEY" "$oc"; fi
+    if [ "$1" != core ] && [ -n "$(dep_v "$CATALOG_KEY" <"$f")" ]; then set_dep_v "$f" "$CATALOG_KEY" "$ok"; fi
+  done <<<"$mods"
+}
+
+# same_as_base: the tree equals the original copy, untracked files included.
+same_as_base() { git diff --quiet "$BASE0" && [ -z "$(git ls-files --others --exclude-standard)" ]; }
+
 # --- Offline scenarios ----------------------------------------------------------
 
 s1_noop() {
@@ -205,6 +243,92 @@ s8_catalog_needs_core() {
   else pass S8; fi
 }
 
+# --- Network scenarios -----------------------------------------------------------
+
+S2_DIR=""; S2_BASE=""
+
+s2_older_pins() {
+  sandbox s2
+  net_env
+  table
+  set_older both
+  setup_commit
+  run_cascade
+  if [ "$RC" != 0 ]; then fail S2 "exit $RC, not 0: $(tail -n5 "$SB/out")"; return; fi
+  # The library has no version-advance paths: the golden list is empty, so
+  # the result must equal the original tree exactly.
+  if ! same_as_base; then fail S2 "the result differs from the original tree: $(git diff --name-only "$BASE0" | head -n5 | tr '\n' ' ')"; return; fi
+  git add -A
+  git commit -q -m run1
+  run_cascade
+  if [ "$RC" != 3 ]; then fail S2 "the second run exited $RC, not 3: $(tail -n5 "$SB/out")"
+  elif [ -n "$(status)" ]; then fail S2 "the second run changed the tree: $(status | head -n3)"
+  else pass S2; S2_DIR="$SB"; S2_BASE="$CASCADE_BASE"; fi
+}
+
+S4_FILE=testdata/modules/web_app/cue.mod/module.cue
+
+s4_frozen() {
+  sandbox s4
+  net_env
+  table
+  set_older both
+  [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
+  printf '  - path: %s\n    pins: ["%s", "%s"]\n    reason: "cascade test S4"\n' \
+    "$S4_FILE" "$CORE_KEY" "$CATALOG_KEY" >>.cascade-frozen
+  setup_commit
+  cp "$S4_FILE" "$SB/frozen.before"
+  run_cascade
+  local other
+  other=$(git diff --name-only "$BASE0" | grep -v -x -e "$S4_FILE" -e .cascade-frozen || [ $? -eq 1 ])
+  if [ "$RC" != 0 ]; then fail S4 "exit $RC, not 0: $(tail -n5 "$SB/out")"
+  elif ! cmp -s "$S4_FILE" "$SB/frozen.before"; then fail S4 "the frozen $S4_FILE changed"
+  elif [ -n "$other" ]; then fail S4 "other files differ from the original tree: $(printf '%s' "$other" | head -n5 | tr '\n' ' ')"
+  else pass S4; fi
+}
+
+# real VERB: `task -x deps:cascade:VERB` against the real resolver; sets OUT, RC.
+real() {
+  RC=0
+  OUT=$(CASCADE_RESOLVER="$CASCADE_RESOLVER_REAL" task -x "deps:cascade:$1" 2>"$SB/real.err") || RC=$?
+}
+
+s5_title_body() {
+  if [ -z "${CASCADE_RESOLVER_REAL:-}" ] || [ ! -x "$CASCADE_RESOLVER_REAL" ]; then
+    printf 'SKIP S5: CASCADE_RESOLVER_REAL does not name an executable resolver\n'
+    return
+  fi
+  if [ -z "$S2_DIR" ]; then fail S5 "S2 did not pass, so there is no diff to title"; return; fi
+  SB="$S2_DIR"; cd "$SB/r"
+  export CASCADE_BASE="$S2_BASE"
+  local core cat want
+  core=$(tree_pin "$CORE_KEY"); cat=$(tree_pin "$CATALOG_KEY")
+  want="fix(deps): bump core to $core and opm catalog to $cat"
+  real title
+  if [ "$RC" != 0 ] || [ "$OUT" != "$want" ]; then fail S5 "title exited $RC and printed '$OUT', not '$want'"; return; fi
+  real body
+  if [ "$RC" != 0 ]; then fail S5 "body exited $RC: $(tail -n3 "$SB/real.err")"; return; fi
+  if ! grep -qxF "<!-- cascade-title: $want -->" <<<"$OUT"; then fail S5 "body lacks the cascade-title marker"; return; fi
+  if ! grep -qx '<!-- cascade-labels: need-human-review -->' <<<"$OUT"; then fail S5 "body's cascade-labels marker is not need-human-review"; return; fi
+  if [ "$(grep -c -e '^| core (' -e '^| opm catalog (' <<<"$OUT")" != 2 ]; then fail S5 "body does not have one row per moved pin"; return; fi
+  if [ "$(grep '^## ' <<<"$OUT" | tail -n1)" != "## Notes" ]; then fail S5 "## Notes is not the last section"; return; fi
+
+  # Catalog-only variant: only the catalog moves, so the diff is test-class.
+  sandbox s5-catalog
+  net_env
+  table
+  set_older catalog
+  setup_commit
+  run_cascade
+  if [ "$RC" != 0 ]; then fail S5 "catalog-only run exited $RC, not 0: $(tail -n5 "$SB/out")"; return; fi
+  want="test(fixtures): bump opm catalog to $cat"
+  real title
+  if [ "$RC" != 0 ] || [ "$OUT" != "$want" ]; then fail S5 "catalog-only title exited $RC and printed '$OUT', not '$want'"; return; fi
+  real body
+  if [ "$RC" != 0 ] || ! grep -qE '^<!-- cascade-labels: *-->$' <<<"$OUT"; then fail S5 "catalog-only body exited $RC or carries a label"; return; fi
+  pass S5
+}
+
 check_stub
 check_pins
 check_older
@@ -213,5 +337,10 @@ s3_error
 s6_dirty
 s7_lagging_tree
 s8_catalog_needs_core
+if [ "$SET" = all ]; then
+  s2_older_pins
+  s4_frozen
+  s5_title_body
+fi
 
 exit "$failed"
