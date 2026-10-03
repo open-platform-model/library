@@ -12,7 +12,7 @@ core#62 proposes moving `#Match` into core as a definition beside `#Platform`, w
 
 One derived rule has already moved. `read-provider-count-from-core` made the glue read the provider count from the platform's `#contracts.providedBy`, a field core derives, instead of computing it. `opm/kernel/render_inventory_parity_test.go` is the tripwire: it checks that the render's verdict rows name exactly the registry keys the platform inventory's `providedBy` holds, so a drift between core's derivation and the glue's use of it fails a test rather than a render.
 
-Core's v2 line accepts only additive changes within the major. Any rule core owns can be changed only by a core release, and a fix to it reaches a render only when the platform re-pins.
+Core v2 is a beta line. A change to a rule core owns is a core release, a break needs a `feat!` with a migration note and owner sign-off when it reaches `catalogs/opm`, and after GA a break needs a new major. A fix to such a rule reaches a render only when the platform re-pins.
 
 ## Decision
 
@@ -22,7 +22,7 @@ A single derived rule may move into core, one at a time, when core can compute i
 
 Rejected alternatives:
 
-- **Move `#Match` whole into core (core#62).** Not now. Every matching fix would become a core release on a line that accepts only additive changes within a major, the decoder's field names would become core contract, and it reverses half of 0019:D17, which needs an enhancement decision rather than an ADR. The readability argument is real; moving rules one at a time answers part of it without taking on the rest of the cost at once.
+- **Move `#Match` whole into core (core#62).** Not now. Every matching fix would become a core release, and every matching break a `feat!` on core (a new major after GA), the decoder's field names would become core contract, and it reverses half of 0019:D17, which needs an enhancement decision rather than an ADR. The readability argument is real; moving rules one at a time answers part of it without taking on the rest of the cost at once.
 - **A core reverse index, reversing 0019:D17.** It brings back the shape 0019:D17 removed, a core field the glue does not consume, and has the same release cost for every change to it.
 
 ## Consequences

@@ -197,7 +197,7 @@ Each `#registry` entry stamps the subscription's version as its expected `versio
 
 ## Render
 
-`Kernel.Render` renders the instance against the platform as one CUE build: it stages a generated render module that imports both, builds it once in a fresh `cue.Context`, decodes the matching verdicts and the rendered output, and drops the context. Matching and transformer execution run inside the build as CUE; the instance is rendered as processed, and `Render` performs no validation pass of its own.
+`Kernel.Render` renders the instance against the platform as one CUE build: it stages a generated render module that imports both, builds it once in a fresh `cue.Context`, decodes the matching verdicts and the rendered output, and drops its own references to the context. Matching and transformer execution run inside the build as CUE; the instance is rendered as processed, and `Render` performs no validation pass of its own.
 
 ```go
 import (
