@@ -15,22 +15,22 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 2. The deps:cascade task
 
-- [ ] 2.1 Add `.tasks/cascade/cascade.sh` (mode 0755), phases 0, A, B and C per design.md D3. Use the exit-handling shape shown there, with no `|| true` and no `set +e` around resolver or `cue` calls.
-- [ ] 2.2 Implement the loader edit. It is an anchored rewrite of the `DefaultSchemaModule` literal, with a check that exactly one line changed and a `need-human-review` warning under key `opmodel.dev/core@v2`.
-- [ ] 2.3 Implement the text re-pin of `testdata/cue.mod/module.cue` and of every `find testdata/render -path '*/cue.mod/module.cue'` result, with an `is-frozen` check per file.
-- [ ] 2.4 Implement the module loop over `CASCADE_MODULE_GLOBS` (design.md D4). It covers scope, explicit-version `get` and `tidy`, frozen keys left out and verified after tidy, and third-party raises warned.
-- [ ] 2.5 Implement the warnings:
+- [x] 2.1 Add `.tasks/cascade/cascade.sh` (mode 0755), phases 0, A, B and C per design.md D3. Use the exit-handling shape shown there, with no `|| true` and no `set +e` around resolver or `cue` calls.
+- [x] 2.2 Implement the loader edit. It is an anchored rewrite of the `DefaultSchemaModule` literal, with a check that exactly one line changed and a `need-human-review` warning under key `opmodel.dev/core@v2`.
+- [x] 2.3 Implement the text re-pin of `testdata/cue.mod/module.cue` and of every `find testdata/render -path '*/cue.mod/module.cue'` result, with an `is-frozen` check per file.
+- [x] 2.4 Implement the module loop over `CASCADE_MODULE_GLOBS` (design.md D4). It covers scope, explicit-version `get` and `tidy`, frozen keys left out and verified after tidy, and third-party raises warned.
+- [x] 2.5 Implement the warnings:
   - catalog needs a newer core;
   - `language.version` against `cue.yml`'s setup-cue version;
   - `docs/getting-started.md`;
   - tidy raises.
-- [ ] 2.6 Add the tasks to `Taskfile.yml` beside `deps:release-check`:
+- [x] 2.6 Add the tasks to `Taskfile.yml` beside `deps:release-check`:
   - `deps:cascade`, `deps:cascade:title` and `deps:cascade:body`, sharing one YAML-anchored `CASCADE_RESOLVER_PATH` task var;
   - the contract §3 precondition and message;
   - env `CASCADE_MODULE_GLOBS: '{{.CUE_MODULE_GLOBS}}'`;
   - preconditions for `git`, `yq` (mikefarah v4) and `jq`.
-- [ ] 2.7 Check by hand in a scratch copy, with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` and a table of the tree's own versions, that `task -x deps:cascade` exits 3 and leaves `git status --porcelain` empty.
-- [ ] 2.8 Gate green, then commit `ci(cascade): add the deps:cascade task`.
+- [x] 2.7 Check by hand in a scratch copy, with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` and a table of the tree's own versions, that `task -x deps:cascade` exits 3 and leaves `git status --porcelain` empty.
+- [x] 2.8 Gate green, then commit `ci(cascade): add the deps:cascade task`.
 
 ## 3. Offline tests in the required job
 
