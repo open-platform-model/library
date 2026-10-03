@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -117,6 +118,28 @@ func TestOCILoader_LoadFailureWrapped(t *testing.T) {
 		strings.Contains(err.Error(), "does-not-exist.example/missing"),
 		"error message must name the failing module: %v", err,
 	)
+}
+
+// unbuildableCore is a stand-in core module that loads cleanly but does
+// not build: #Broken references a field nothing defines.
+const unbuildableCore = `package core
+
+#ModuleInstance: {}
+#Broken: undefinedReference
+`
+
+// TestOCILoader_UnbuildableModuleIsALoadFailure asserts that a core module
+// whose files load but whose built value carries an error comes back as
+// the zero value and an error naming the module, never as the errored
+// value with a nil error.
+func TestOCILoader_UnbuildableModuleIsALoadFailure(t *testing.T) {
+	registrytest.NewRegistryWithCore(t, unbuildableCore)
+
+	val, err := schema.OCILoader{}.Load(cuecontext.New())
+	require.Error(t, err, "a module that does not build must be a load failure")
+	assert.False(t, val.Exists(), "the errored value must not be returned")
+	assert.Contains(t, err.Error(), schema.DefaultSchemaModule)
+	assert.Contains(t, err.Error(), "undefinedReference")
 }
 
 // TestOCILoader_NilContextRejected asserts the loader rejects a nil

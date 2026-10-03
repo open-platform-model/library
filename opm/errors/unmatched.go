@@ -47,6 +47,9 @@ type UnmatchedComponentsError struct {
 	Components []UnmatchedComponent
 }
 
+// Error returns a count line naming the unmatched components, then, per
+// component, each transformer that did not match and the labels it was
+// missing.
 func (e *UnmatchedComponentsError) Error() string {
 	names := make([]string, 0, len(e.Components))
 	for _, c := range e.Components {

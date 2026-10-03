@@ -135,7 +135,7 @@ func overlaySourceForDir(absDir string) (*module.Source, error) {
 // the process environment when unset). It is the registry peer of
 // [Kernel.AcquireCatalogFromDir] and the exact counterpart of
 // [Kernel.AcquireModuleFromRegistry]: one fetch routine serves both, and the
-// only thing that differs is the shape it gates to (ADR-009).
+// only thing that differs is the shape it gates to.
 //
 // It returns a decoded [*catalog.Catalog] whose staged source
 // ([catalog.Source]) is populated in overlay mode, so
@@ -158,6 +158,7 @@ func overlaySourceForDir(absDir string) (*module.Source, error) {
 // [catalog.Catalog.Requires] on demand, and what either means is the
 // caller's.
 func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, version string) (*catalog.Catalog, error) {
+	// The catalog kind and the fetch routine it shares with modules are ADR-009.
 	val, src, err := loader.FetchArtifact(ctx, cuecontext.New(), modPath, version, k.loadEnv(), loader.CatalogSpec)
 	if err != nil {
 		return nil, err
