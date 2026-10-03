@@ -52,9 +52,9 @@
 // specific embedding pattern. Out of scope: anything the kernel must own
 // (artifact types, artifact loading, synthesis, render pipeline, validation
 // rules, version dispatch). A new subpackage is a deliberate design step,
-// never a one-off addition; the umbrella design is legacy:001
-// (kernel-redesign-around-platform).
+// never a one-off addition.
 package helper
 
 // The planned Kubernetes tier, opm/k8s/, and objectset's move into it are
-// ADR-011.
+// ADR-011. The umbrella design of this tier is legacy:001
+// (kernel-redesign-around-platform).

@@ -73,7 +73,7 @@
 // there is nothing to gain from constructing more than one. Concurrency is
 // across operations, never within one.
 //
-// [Kernel.Render] shares nothing between renders (ADR-005, 0019:D8). Each
+// [Kernel.Render] shares nothing between renders (0019:D8). Each
 // render is its own CUE build in a fresh cue.Context created for that call;
 // the kernel drops its own references to it when Render returns and retains
 // no built value between calls. A [Compiled] the caller holds keeps its
