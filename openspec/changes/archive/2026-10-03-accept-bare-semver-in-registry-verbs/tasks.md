@@ -94,9 +94,9 @@ Added by the supervisor triage of 2026-10-03, after implementation and review.
 - [x] 3.1 Whole-tree gates on the final tree: `task check` and
       `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green.
 - [x] 3.2 `openspec validate accept-bare-semver-in-registry-verbs --strict` passes.
-- [ ] 3.3 Archive on this branch so the archive rides the implementing PR:
+- [x] 3.3 Archive on this branch so the archive rides the implementing PR:
       `openspec archive accept-bare-semver-in-registry-verbs --yes`. Verify:
       `openspec/specs/registry-module-loading/spec.md` carries the new requirement with its four
       scenarios, and `openspec validate --all --strict` passes. There is no `enhancement.yaml`,
       so no delivery log runs.
-- [ ] 3.4 Commit `chore(openspec): archive accept-bare-semver-in-registry-verbs`.
+- [x] 3.4 Commit `chore(openspec): archive accept-bare-semver-in-registry-verbs`.
