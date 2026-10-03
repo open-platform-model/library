@@ -175,8 +175,22 @@ func TestKernel_AcquireCatalogFromRegistry(t *testing.T) {
 	})
 
 	k := kernel.New(kernel.WithRegistry(mapping))
+
+	// registry-module-loading spec, "A catalog is acquired by a bare
+	// version": the bare spelling runs before the v-prefixed one, so it
+	// drives the registry fetch, and both return the same catalog under the
+	// same synthetic root.
+	bare, err := k.AcquireCatalogFromRegistry(ctx, path+"@v1", version)
+	require.NoError(t, err, "a bare version is accepted")
+
 	cat, err := k.AcquireCatalogFromRegistry(ctx, path+"@v1", "v"+version)
 	require.NoError(t, err)
+
+	require.NotNil(t, bare.Metadata)
+	assert.Equal(t, cat.Metadata, bare.Metadata, "both spellings return the same catalog")
+	require.NotNil(t, bare.Source)
+	require.NotNil(t, cat.Source)
+	assert.Equal(t, cat.Source.Root, bare.Source.Root, "both spellings stage under the same synthetic root")
 
 	require.NotNil(t, cat.Metadata)
 	assert.Equal(t, path+"@v1", cat.Metadata.ModulePath)

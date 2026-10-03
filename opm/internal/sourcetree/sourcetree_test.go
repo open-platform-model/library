@@ -191,6 +191,8 @@ func TestSyntheticRoot(t *testing.T) {
 	assert.True(t, filepath.IsAbs(got))
 	assert.Equal(t, got, SyntheticRoot("x.example/modules/hello@v0", "v0.0.2"), "deterministic")
 	assert.NotEqual(t, got, SyntheticRoot("x.example/modules/hello@v0", "v0.0.3"))
+	assert.Equal(t, got, SyntheticRoot("x.example/modules/hello@v0", "0.0.2"),
+		"a bare and a v-prefixed spelling of one version give the same root")
 }
 
 func TestReadFile_OverlayAndDisk(t *testing.T) {

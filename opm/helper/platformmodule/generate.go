@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"cuelang.org/go/cue/literal"
 	"cuelang.org/go/mod/modfile"
 
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -31,8 +31,10 @@ const (
 )
 
 // Entry is one catalog subscription in the shape Generate consumes: the
-// major-qualified catalog path (the registry key), the bare SemVer build the
-// subscription names and whether the subscription is enabled.
+// major-qualified catalog path (the registry key), the SemVer build the
+// subscription names (bare or "v"-prefixed: the registry entry stamps it bare,
+// the form #Catalog.metadata.version carries, and the cue.mod pin canonical)
+// and whether the subscription is enabled.
 type Entry struct {
 	Path    string
 	Version string
@@ -68,13 +70,13 @@ type Files map[string][]byte
 // still imports its catalog). Core is pinned at [schema.DefaultSchemaVersion],
 // the release the kernel was verified against; a caller that needs a
 // different core build assembles its []Dep roots directly. Versions are
-// canonicalised with the "v" prefix cue.mod requires; subscriptions carry
-// bare SemVer.
+// canonicalised with the "v" prefix cue.mod requires; subscriptions may be
+// bare or "v"-prefixed.
 func Roots(entries []Entry) []Dep {
 	roots := make([]Dep, 0, len(entries)+1)
-	roots = append(roots, Dep{Path: CorePath, Version: canonicalVersion(schema.DefaultSchemaVersion())})
+	roots = append(roots, Dep{Path: CorePath, Version: modversion.Canonical(schema.DefaultSchemaVersion())})
 	for _, e := range entries {
-		roots = append(roots, Dep{Path: e.Path, Version: canonicalVersion(e.Version)})
+		roots = append(roots, Dep{Path: e.Path, Version: modversion.Canonical(e.Version)})
 	}
 	sortDeps(roots)
 	return roots
@@ -84,9 +86,9 @@ func Roots(entries []Entry) []Dep {
 // deterministic: entries and dependencies are emitted in sorted path order
 // whatever order they arrive in, so the same input always produces
 // byte-identical content. Each registry entry stamps the subscription's
-// version as the entry's expected `version`, which unifies with the schema's
-// readout of the imported catalog so wrong bytes are a build conflict naming
-// the entry (0019:D13 tripwire).
+// version, without its "v" prefix, as the entry's expected `version`, which
+// unifies with the schema's readout of the imported catalog so wrong bytes
+// are a build conflict naming the entry (0019:D13 tripwire).
 func Generate(in Input) (Files, error) {
 	if in.Name == "" {
 		return nil, errors.New("platform name is required")
@@ -187,21 +189,12 @@ func renderPlatformFile(name, typ string, entries []Entry) []byte {
 	for i, e := range entries {
 		fmt.Fprintf(&b, "\t%s: {\n", literal.String.Quote(e.Path))
 		fmt.Fprintf(&b, "\t\tenable:   %t\n", e.Enable)
-		fmt.Fprintf(&b, "\t\tversion:  %s\n", literal.String.Quote(e.Version))
+		fmt.Fprintf(&b, "\t\tversion:  %s\n", literal.String.Quote(modversion.Bare(e.Version)))
 		fmt.Fprintf(&b, "\t\t#catalog: cat%d\n", i)
 		b.WriteString("\t}\n")
 	}
 	b.WriteString("}\n")
 	return b.Bytes()
-}
-
-// canonicalVersion adds the "v" prefix cue.mod requires to a bare SemVer
-// string; an already-prefixed or empty version is returned unchanged.
-func canonicalVersion(v string) string {
-	if v == "" || strings.HasPrefix(v, "v") {
-		return v
-	}
-	return "v" + v
 }
 
 func sortDeps(deps []Dep) {

@@ -133,6 +133,25 @@ func TestGenerate_StampsExpectedVersion(t *testing.T) {
 	assert.NotContains(t, plat, "\"v4.0.1\"", "entry stamps the cue.mod form of the version")
 }
 
+// A "v"-prefixed subscription stamps the same bare version as the bare one, so
+// both spellings unify with the catalog's bare metadata.version at build.
+func TestGenerate_StampsBareVersionForVPrefixedEntry(t *testing.T) {
+	in := twoCatalogInput()
+	in.Entries = in.Entries[:1]
+	in.Entries[0].Version = "v4.0.1"
+	files, err := Generate(in)
+	require.NoError(t, err)
+
+	bare := twoCatalogInput()
+	bare.Entries = bare.Entries[:1]
+	want, err := Generate(bare)
+	require.NoError(t, err)
+
+	assert.Equal(t, string(want[PlatformFileName]), string(files[PlatformFileName]),
+		"a v-prefixed entry renders platform.cue differently from the bare one")
+	assert.Contains(t, string(files[PlatformFileName]), "\t\tversion:  \"4.0.1\"\n")
+}
+
 func TestGenerate_EmptyRegistry(t *testing.T) {
 	files, err := Generate(Input{
 		Name:       "cluster",

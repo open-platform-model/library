@@ -30,6 +30,7 @@ import (
 
 	"cuelang.org/go/cue/parser"
 
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/module"
 )
 
@@ -171,10 +172,12 @@ func OverlayFromFS(fsys fs.FS, dir, keyRoot string) (map[string][]byte, error) {
 // SyntheticRoot returns a deterministic absolute path used as the in-memory
 // module root for the overlay. It is derived purely from path@version (no
 // randomness, no clock) so the load is reproducible, and is sanitized into a
-// single path segment so it never collides with real source on disk.
+// single path segment so it never collides with real source on disk. The
+// version is canonicalised first, so a bare ("0.0.2") and a v-prefixed
+// ("v0.0.2") spelling of the same version give the same root.
 func SyntheticRoot(modPath, version string) string {
 	repl := strings.NewReplacer("/", "_", ":", "_", "@", "_", "+", "_")
-	safe := repl.Replace(modPath + "@" + version)
+	safe := repl.Replace(modPath + "@" + modversion.Canonical(version))
 	return string(filepath.Separator) + filepath.Join("opm-registry-module", safe)
 }
 

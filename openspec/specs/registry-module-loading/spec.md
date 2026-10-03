@@ -2,6 +2,7 @@
 
 ## Purpose
 The library is the single place where CUE module-acquisition plumbing lives (Principle V — CUE-Native Module Resolution). This capability gives the library a first-class primitive for loading a `#Module` that is published in an OCI registry, identified by `path@version`, so that consumers (operator render path, a future CLI, the planned Crossplane composition function) never hand-roll OCI fetch logic, wrapper-package shims, or dependency walks. The module is fetched via CUE's native module machinery and loaded **as the main module** — its own `cue.mod/module.cue` drives transitive resolution and its `kind`/`metadata` evaluate at the package root — which preserves core@v0's self-referential metadata that the wrapper approach broke.
+
 ## Requirements
 
 ### Requirement: In-Memory Load Without a Temporary Directory
@@ -114,3 +115,32 @@ The acquired module's staged source SHALL be consumable by `SynthesizeInstance` 
 - **WHEN** a module acquired via `AcquireModuleFromRegistry` is passed to `SynthesizeInstance`
 - **THEN** the instance is staged inside the module's source tree and the module's own `cue.mod/module.cue` resolves the transitive (catalog) closure
 - **AND** synthesis succeeds without the caller declaring the module's transitive dependencies
+
+### Requirement: Registry acquisition accepts bare and v-prefixed versions
+
+The registry acquisition verbs, `Kernel.AcquireModuleFromRegistry` and
+`Kernel.AcquireCatalogFromRegistry`, SHALL accept the version either as bare SemVer (`1.0.0`) or
+with the `v` prefix CUE module versions carry (`v1.0.0`). Both spellings SHALL resolve to the same
+published artifact, return the same value, and stage it under the same synthetic root. A version
+that is malformed in both spellings SHALL still be refused with a wrapped parse error naming the
+version as the caller wrote it.
+
+#### Scenario: A module is acquired by a bare version
+
+- **WHEN** a module published at `v0.0.2` is acquired with version `0.0.2`
+- **THEN** the acquisition succeeds, the module's identity check passes, and its `metadata.version` reads `0.0.2`
+
+#### Scenario: A catalog is acquired by a bare version
+
+- **WHEN** a catalog published at `v1.0.0` is acquired through `Kernel.AcquireCatalogFromRegistry` with version `1.0.0`
+- **THEN** the acquisition succeeds and returns the same catalog as an acquisition with `v1.0.0`
+
+#### Scenario: Both spellings stage under the same root
+
+- **WHEN** the same artifact is acquired once with `1.0.0` and once with `v1.0.0`
+- **THEN** both returned sources carry the same synthetic root
+
+#### Scenario: A malformed version is still refused
+
+- **WHEN** an artifact is acquired with version `not-a-version`
+- **THEN** the acquisition fails with the version parse error (`parsing artifact version <path>@not-a-version: ...`), naming the version as the caller wrote it, not with a fetch error
