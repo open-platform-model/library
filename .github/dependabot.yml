@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # docs-kit's publish.yml is pinned by release tag and moves together
+      # with .opm-docs-version, after opmodel.dev runs that release (docs-kit
+      # C5, C12); a Dependabot bump would move one pin alone.
+      - dependency-name: "open-platform-model/docs-kit*"
     commit-message:
       prefix: "ci"
   - package-ecosystem: "gomod"
