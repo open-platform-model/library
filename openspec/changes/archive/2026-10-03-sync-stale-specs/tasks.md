@@ -22,7 +22,7 @@ Every section's gate is `openspec validate sync-stale-specs --strict`, `openspec
 
 ## 3. Archive the change (rides the PR)
 
-- [ ] 3.1 Run `openspec archive sync-stale-specs --yes` in the worktree. Verify: the six main specs carry the deltas, and the change sits under `openspec/changes/archive/`.
-- [ ] 3.2 Run `openspec validate --specs --strict`. Verify: every spec passes.
-- [ ] 3.3 Run `grep -n "apiversion\|APIVersion\|LoadInstancePackage\|LoadPlatformPackage\|binding\|Value: v"` over the six touched main specs. Verify: every remaining hit is a negative statement or sits in a requirement this change does not touch and the proposal lists as a follow-up.
-- [ ] 3.4 Gates green, then commit `chore(openspec): archive sync-stale-specs`.
+- [x] 3.1 Run `openspec archive sync-stale-specs --yes` in the worktree. Verify: the six main specs carry the deltas, and the change sits under `openspec/changes/archive/`.
+- [x] 3.2 Run `openspec validate --specs --strict`. Verify: every spec passes.
+- [x] 3.3 Run `grep -n "apiversion\|APIVersion\|LoadInstancePackage\|LoadPlatformPackage\|binding\|Value: v"` over the six touched main specs. Verify: every remaining hit is a negative statement or sits in a requirement this change does not touch and the proposal lists as a follow-up.
+- [x] 3.4 Gates green, then commit `chore(openspec): archive sync-stale-specs`.

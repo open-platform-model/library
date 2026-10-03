@@ -3,6 +3,7 @@
 ## Purpose
 
 The OPM kernel's CUE-native validation surface. The library exposes one validation primitive on `*Kernel`, `ValidateConfigDetailed`, which a caller composes with the `ConfigSchema()` accessors on `*module.Module` and `*module.Instance`, and two source loaders on `*Kernel` (`LoadSourceFromFile`, `LoadSourceFromBytes`) that produce a `Source{Origin, Data}`. Its errors implement `cuelang.org/go/cue/errors.Error`; no single-value, partial-mode or per-artifact validation wrapper is exported. The library does not project CUE errors into custom Go types and does not expose presentation-layer formatters; frontends own their own display by walking `cueerrors.Errors(err)` directly. This capability supersedes the prior `values-validation` capability (the `opm/helper/values/` package and its `Layer`/`Stack`/`MultiSourceError` types), collapsing per-layer-partial-then-unify into unify-then-validate while preserving per-source attribution through `cue.Filename` set at compile time.
+
 ## Requirements
 
 ### Requirement: Source Type and Layered Input
@@ -120,7 +121,7 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 #### Scenario: opm/errors carries no validation projections
 
 - **WHEN** a developer reads `opm/errors/`
-- **THEN** the package contains `TransformError` and unrelated sentinels only
+- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, and the render verdict rows and refusal causes (skew, routing, contract, demand, unmatched-component and core-floor), none of which projects a CUE validation error
 - **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
 
 #### Scenario: Frontends rely on cuelang.org/go/cue/errors
@@ -129,53 +130,14 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 - **THEN** it imports `cuelang.org/go/cue/errors` and uses `errors.Errors(err)` plus `errors.Positions(ce)` to walk the tree
 - **AND** the library does not provide a parallel walking API
 
-### Requirement: Module and Instance Typed Convenience Methods
-
-`*Module` and `*Instance` SHALL each expose a `ConfigSchema()` accessor returning the `#config` schema reachable on the artifact's `Package` (for an instance, through its embedded `#module`), or the zero `cue.Value` when absent. The Kernel SHALL NOT expose per-artifact wrappers over the validation primitive: a caller composes `ConfigSchema()` with `ValidateConfigDetailed` directly.
-
-#### Scenario: Module.ConfigSchema accessor
-
-- **WHEN** a caller invokes `m.ConfigSchema()`
-- **THEN** the result is the `cue.Value` at `schema.Config` inside `m.Package`
-- **AND** the accessor returns a zero value if the module has no `#config` field
-
-#### Scenario: Instance.ConfigSchema accessor
-
-- **WHEN** a caller invokes `r.ConfigSchema()`
-- **THEN** the result is the `cue.Value` at `schema.Config` inside the instance's embedded module at `schema.Module`
-- **AND** the accessor returns a zero value if the instance has no embedded module or the module has no `#config`
-
-#### Scenario: Kernel.ValidateModuleValues delegates without name wrapping
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValues` nor `ValidateInstanceValues` exists, and neither does `ValidateConfig`
-- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), []Source{{Value: v, Origin: o}})` is the spelling for a concrete check against a module, with no name wrapping
-
-#### Scenario: Kernel.ValidateModuleValuesPartial delegates
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValuesPartial` nor `ValidateInstanceValuesPartial` exists, and neither does `ValidateConfigPartial`
-- **AND** no public spelling for a partial check exists; partial mode is a kernel-internal attribution pass
-
-#### Scenario: Kernel.ValidateModuleValuesDetailed delegates
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValuesDetailed` nor `ValidateInstanceValuesDetailed` exists
-- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), sources)` is the spelling for layered validation against a module
-
-#### Scenario: Instance equivalents
-
-- **WHEN** a caller holds a `*module.Instance` rather than a `*module.Module`
-- **THEN** it composes `r.ConfigSchema()` with the same primitive; no instance-typed wrapper exists on the Kernel
-
 ### Requirement: Single Kernel Validation Primitive
 
-The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error)`. It SHALL unify the sources in stack order, run the closed-schema disallowed-field walk, and assert concreteness on the merged value. It SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors. The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-element `[]Source`, and partial validation is an internal mode the kernel uses for per-source attribution under `AcquireInstanceFromDir` with extra values, not a public entry.
+The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error)`. It SHALL compile each source in the schema's own context so that every position names the source's `Origin` (a bytes source with `cue.Filename(Origin)`, a file-backed source through `cue/load` at its file, "File-Backed Sources Resolve Imports Through the Kernel Mapping"), unify the compiled sources in stack order, run the closed-schema disallowed-field walk, and assert concreteness on the merged value. It SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors. The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-element `[]Source`, and partial validation is an internal mode the kernel uses for per-source attribution under `AcquireInstanceFromDir` with extra values and under `SynthesizeInstance`, not a public entry.
 
 #### Scenario: ValidateConfigDetailed signature and behavior
 
 - **WHEN** a caller invokes `k.ValidateConfigDetailed(schema, sources)`
-- **THEN** the method unifies the sources in stack order (`sources[0].Value.Unify(sources[1].Value)…`), then validates the merged value against `schema` with concreteness enforced
+- **THEN** the method compiles each source in the schema's context with its `Origin` as the position filename, unifies the compiled values in stack order (`sources[0]`, then `sources[1]`, …), then validates the merged value against `schema` with concreteness enforced
 - **AND** disallowed fields under closed schemas are reported with source positions via the internal `walkDisallowed` mechanism
 - **AND** returns `(cue.Value, error)` with the merged value on success and the zero value on failure
 - **AND** the error (if any) implements `cuelang.org/go/cue/errors.Error` and is walkable via `cueerrors.Errors(err)`
@@ -194,7 +156,40 @@ The library SHALL expose exactly one validation method on `*Kernel` in `opm/kern
 
 #### Scenario: Errors carry source positions when filename was set at compile time
 
-- **WHEN** a Source's `Value` was compiled with `cue.Filename(Origin)` (directly or via a library loader)
-- **AND** validation produces an error
-- **THEN** every `cueerrors.Error` returned exposes a non-empty `Position().Filename()` matching the originating Source's `Origin`
-- **AND** `cueerrors.Positions(ce)` returns primary plus contributing positions, each with a populated filename
+- **WHEN** validation of a `Source` produces an error
+- **THEN** every error positioned at a field a Source sets (a type, constraint or disallowed-field violation) exposes `Position().Filename()` equal to that Source's `Origin`, because the kernel compiled that source under its `Origin`
+- **AND** a concreteness error for a field no source sets may carry no source position
+- **AND** for an error positioned at a field a Source sets, `cueerrors.Positions(ce)` returns primary plus contributing positions, each with a populated filename
+
+### Requirement: Callers compose ConfigSchema with the one validation primitive
+
+`*Module` and `*Instance` SHALL each expose a `ConfigSchema()` accessor returning the `#config` schema reachable on the artifact's `Package` (for an instance, through its embedded `#module`), or the zero `cue.Value` when absent. The Kernel SHALL NOT expose per-artifact wrappers over the validation primitive: a caller composes `ConfigSchema()` with `ValidateConfigDetailed` directly.
+
+#### Scenario: Module.ConfigSchema accessor
+
+- **WHEN** a caller invokes `m.ConfigSchema()`
+- **THEN** the result is the `cue.Value` at `schema.Config` inside `m.Package`
+- **AND** the accessor returns a zero value if the module has no `#config` field
+
+#### Scenario: Instance.ConfigSchema accessor
+
+- **WHEN** a caller invokes `r.ConfigSchema()`
+- **THEN** the result is the `cue.Value` at `schema.Config` inside the instance's embedded module at `schema.Module`
+- **AND** the accessor returns a zero value if the instance has no embedded module or the module has no `#config`
+
+#### Scenario: No per-artifact validation wrapper exists
+
+- **WHEN** a consumer inspects the exported methods of `Kernel`
+- **THEN** none of `ValidateModuleValues`, `ValidateInstanceValues`, `ValidateModuleValuesDetailed`, `ValidateInstanceValuesDetailed` or `ValidateConfig` exists
+- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), sources)` is the spelling for a concrete, layered check against a module, with no name wrapping
+
+#### Scenario: No partial validation wrapper exists
+
+- **WHEN** a consumer inspects the exported methods of `Kernel`
+- **THEN** none of `ValidateModuleValuesPartial`, `ValidateInstanceValuesPartial` or `ValidateConfigPartial` exists
+- **AND** no public spelling for a partial check exists; partial mode is a kernel-internal attribution pass
+
+#### Scenario: An instance composes the same primitive
+
+- **WHEN** a caller holds a `*module.Instance` rather than a `*module.Module`
+- **THEN** it composes `r.ConfigSchema()` with `ValidateConfigDetailed`; no instance-typed wrapper exists on the Kernel
