@@ -1,7 +1,7 @@
 # artifact-types Specification
 
 ## Purpose
-The typed Go form of the artifacts the kernel accepts: each is a struct of an API version, a decoded metadata projection and the CUE package value, which stays the source of truth whenever the two disagree. Covers that uniform shape and the closed set of kernel artifact types, construction of modules and platforms from a bare value with the API version stamped from the package, the instance accessors for components and config schema, the rule that kernel code reads artifact sub-values only through the schema path variables, and the staged source an artifact carries in overlay or on-disk mode. Also covers acquisition of modules and instances from a directory, the shape gate every directory and registry acquisition runs before a typed artifact exists, and writing an overlay source to disk.
+The typed Go form of the artifacts the kernel accepts: each is a struct of a decoded metadata projection, the CUE package value, which stays the source of truth whenever the two disagree, and the staged source tree the artifact was acquired or synthesized from. No artifact carries an API version. Covers that uniform shape and the closed set of kernel artifact types, construction of modules and platforms from a bare value with no version detection, the instance accessors for components and config schema, the rule that kernel code reads artifact sub-values only through the schema path variables, and the staged source an artifact carries in overlay or on-disk mode. Also covers acquisition of modules and instances from a directory, the shape gate every directory and registry acquisition runs before a typed artifact exists, and writing an overlay source to disk.
 ## Requirements
 
 ### Requirement: Uniform Artifact Shape
