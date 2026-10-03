@@ -75,9 +75,9 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 3. Verify and archive
 
-- [ ] 3.1 Whole-tree gates on the final tree: `task check` and
+- [x] 3.1 Whole-tree gates on the final tree: `task check` and
       `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`. Verify: all green.
-- [ ] 3.2 `openspec validate accept-bare-semver-in-registry-verbs --strict` passes.
+- [x] 3.2 `openspec validate accept-bare-semver-in-registry-verbs --strict` passes.
 - [ ] 3.3 Archive on this branch so the archive rides the implementing PR:
       `openspec archive accept-bare-semver-in-registry-verbs --yes`. Verify:
       `openspec/specs/registry-module-loading/spec.md` carries the new requirement with its four
