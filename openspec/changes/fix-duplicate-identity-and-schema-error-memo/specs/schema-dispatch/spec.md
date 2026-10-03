@@ -37,7 +37,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 
 ### Requirement: Schema Cache memoizes a single Load per instance
 
-The library SHALL expose `opm/schema.Cache` as a struct with at minimum a `Loader Loader` field. `(*Cache).Get() (cue.Value, error)` SHALL invoke `Loader.Load(ctx)` exactly once per `Cache` instance via `sync.Once`-equivalent synchronization, passing a `cue.Context` the Cache creates on first use, owns for its lifetime and never exposes. Subsequent calls — including the call that loses the race — SHALL return the cached `cue.Value` (or the cached error) without re-invoking the Loader. The Cache SHALL NOT retry a failed Load: an error, including one for a schema module whose build failed, stays memoised for the Cache's lifetime, and a caller that must re-fetch constructs a fresh Cache. A caller that must compile a value against the schema obtains the schema's context from the returned value (`Value.Context()`).
+The library SHALL expose `opm/schema.Cache` as a struct with at minimum a `Loader Loader` field. `(*Cache).Get() (cue.Value, error)` SHALL invoke `Loader.Load(ctx)` exactly once per `Cache` instance via `sync.Once`-equivalent synchronization, passing a `cue.Context` the Cache creates on first use, owns for its lifetime and never exposes. Subsequent calls — including the call that loses the race — SHALL return the cached `cue.Value` (or the cached error) without re-invoking the Loader. Whatever `Loader` it wraps, the Cache SHALL treat a loaded value that carries an error (`Value.Err()` non-nil) and arrives with a nil error as a load failure: `Get` returns the zero `cue.Value` and a non-nil error wrapping the build error. The Cache SHALL NOT retry a failed Load: an error, including one for a schema whose build failed, stays memoised for the Cache's lifetime, and a caller that must re-fetch constructs a fresh Cache. A caller that must compile a value against the schema obtains the schema's context from the returned value (`Value.Context()`).
 
 The library MUST NOT cache the `Loader`'s result at package scope. There SHALL be no package-level singleton schema value. Each `Cache` owns its memoization and its context.
 
@@ -58,8 +58,8 @@ The library MUST NOT cache the `Loader`'s result at package scope. There SHALL b
 
 #### Scenario: An errored schema build is memoised as an error
 
-- **WHEN** a `Cache` whose `OCILoader` loads a core module that does not build is called with `Get` twice
-- **THEN** both calls return the zero `cue.Value` and the same non-nil error, never an errored value with a nil error, and `ResolvedVersion()` stays `""`
+- **WHEN** a `Cache` over any `Loader` (an `OCILoader` loading a core module that does not build, or another Loader returning an errored value with a nil error) is called with `Get` twice
+- **THEN** both calls return the zero `cue.Value` and the same non-nil error, never an errored value with a nil error, the Loader runs once, and `ResolvedVersion()` stays `""`
 
 #### Scenario: Two Cache instances do not share state
 

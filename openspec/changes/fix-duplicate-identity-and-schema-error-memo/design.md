@@ -32,7 +32,8 @@ func groupOf(apiVersion string) string {
 
 An object with no `apiVersion` maps to the core group, so it now collides with a core-group
 object (`v1`) of the same kind, namespace and name; before, `""` and `"v1"` were distinct keys.
-That is intended: apply would default the missing version into the same object. Kind,
+That is intended: an object with no `apiVersion` cannot be applied anyway (apply rejects it), and
+grouping it with the core group only means a collision is reported instead of passing silently. Kind,
 namespace and name compare exactly, as today. The exported `Identity` keeps its four fields and
 its `String()`: a row's `Identity` is the first-rendered object's, `APIVersion` verbatim, so a
 same-version row is byte-identical to today's. Changing `Identity` to carry `Group` was the
@@ -73,9 +74,12 @@ failure, as its spec already requires for a failed load. `OCILoader.Load` goes t
 
 ### DM4: The Cache stays never-retry
 
-Owner decision: the `sync.Once` memo, error included, stays. The fix is upstream of it: `Get`
-already memoises whatever `Load` returns, and after DM3 an errored build arrives as an error. The
-`Cache` doc comment gains one sentence saying so; its code does not change.
+Owner decision: the `sync.Once` memo, error included, stays, and `val.Err()` is checked before
+caching. DM3 covers `OCILoader`, but `Loader` is a public interface and `kernel.WithSchemaLoader`
+takes any implementation (opm-operator's tests already wrap their own), so `Get` also checks: when
+a Loader returns a nil error and an errored value, `Get` memoises the zero value, `""` and a
+wrapped error instead. `OCILoader` keeps its own check so its error names the module. The memo
+still never retries; the `Cache` doc comment says both.
 
 ### DM5: The cold concurrent render compares against a separate acquisition
 

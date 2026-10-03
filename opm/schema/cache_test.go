@@ -182,6 +182,26 @@ func TestCache_UnbuildableSchemaIsMemoisedAsAnError(t *testing.T) {
 	assert.Empty(t, cache.ResolvedVersion())
 }
 
+// TestCache_ErroredValueFromAnyLoaderIsAnError asserts that a Loader other
+// than OCILoader returning an errored value with a nil error still reaches
+// the caller as the zero value and an error, memoised without a retry.
+func TestCache_ErroredValueFromAnyLoaderIsAnError(t *testing.T) {
+	loader := &countingLoader{val: cuecontext.New().CompileString("x: 1 & 2")}
+	require.Error(t, loader.val.Err(), "the stub must hand back an errored value")
+	cache := &schema.Cache{Loader: loader}
+
+	first, firstErr := cache.Get()
+	second, secondErr := cache.Get()
+
+	require.Error(t, firstErr)
+	assert.Contains(t, firstErr.Error(), "conflicting values")
+	assert.Same(t, firstErr, secondErr, "the failure is memoised, not retried")
+	assert.False(t, first.Exists())
+	assert.False(t, second.Exists())
+	assert.Empty(t, cache.ResolvedVersion())
+	assert.Equal(t, int64(1), loader.calls.Load())
+}
+
 // TestCache_WorkspaceCacheReuse asserts that a second OCILoader-backed
 // Cache reuses the workspace cache populated by the first Cache —
 // i.e. the on-disk cache layer survives across Cache instances within

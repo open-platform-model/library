@@ -30,7 +30,8 @@ Three small gaps found by the alpha.35 kernel review, each owner-decided on 2026
   caused it. A row whose producers share one version reads exactly as today.
 - **`opm/schema`: an errored build is a load failure.** `OCILoader` returns the zero value, no
   resolved version and a wrapped error naming the module when the built value carries an error.
-  `Cache` is unchanged and stays never-retry: it now memoises that error, not an errored value.
+  `Cache.Get` also refuses an errored value any other `Loader` returns with a nil error, and
+  stays never-retry: it memoises that error, never an errored value.
 - **`opm/kernel` (tests only): a cold concurrent-render test.** A sibling of
   `TestRender_SharedPlatformConcurrentRenders` that skips the warm-up render, so the goroutines
   race the platform's first floor lookup, compared against a baseline rendered from a separately
@@ -42,9 +43,10 @@ declined; changing the exported `Identity` struct.
 
 ## Classification
 
-**PATCH** (Principle VI), released as the next `-beta.N`: two `fix` commits and one `test` commit.
-Nothing exported is removed or retyped. `Producer.APIVersion` is an additive field, and both
-downstream test literals of `Producer` are keyed, so they keep compiling. Behaviour tightens in
+**PATCH** (Principle VI), released as the next `-beta.N`: `fix` and `test` commits.
+Nothing exported is removed or retyped. `Producer.APIVersion` is an additive field, MINOR in kind
+under Principle VI, carried by the `fix(helper)` commit because it exists only to word the fixed
+refusal; both downstream test literals of `Producer` are keyed, so they keep compiling. Behaviour tightens in
 two places a caller can observe: `Duplicates` now returns a row for objects that differ only in
 version within one group, and `OCILoader.Load` / `Cache.Get` return an error for a schema whose
 build fails. Both are the defects being fixed. No complexity is added beyond one string split and

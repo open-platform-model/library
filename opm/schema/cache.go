@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"sync"
 
 	"cuelang.org/go/cue"
@@ -16,9 +17,11 @@ import (
 // Loader.Load into it through sync.Once; every subsequent Get (including
 // the one that loses the race) returns the same cached value or the same
 // cached error. Errors are cached too — the load is never retried. A schema
-// module that loads but does not build reaches the Cache from [OCILoader] as
-// an error, never as an errored value, and is memoised like any other
-// failure. To force a re-fetch, construct a fresh Cache with a fresh Loader.
+// that loads but does not build is memoised as an error, never as an errored
+// value, whichever Loader produced it: [OCILoader] reports it as an error
+// itself, and Get refuses an errored value any other Loader returns with a
+// nil error. To force a re-fetch, construct a fresh Cache with a fresh
+// Loader.
 //
 // Each Cache instance owns its own memoization and its own context. The
 // context is the one long-lived evaluation state a Kernel holds, and no
@@ -45,17 +48,23 @@ type Cache struct {
 // result. The context lives as long as the cached value does and is
 // reachable only through that value.
 //
-// Returns the zero cue.Value and a non-nil error if Loader.Load fails;
-// the error is cached and subsequent calls return it without re-invoking
-// the Loader.
+// Returns the zero cue.Value and a non-nil error if Loader.Load fails or
+// returns a value that carries a build error; the error is cached and
+// subsequent calls return it without re-invoking the Loader.
 func (c *Cache) Get() (cue.Value, error) {
 	c.once.Do(func() {
 		ctx := cuecontext.New()
 		if vl, ok := c.Loader.(versionedLoader); ok {
 			c.val, c.ver, c.err = vl.loadVersioned(ctx)
-			return
+		} else {
+			c.val, c.err = c.Loader.Load(ctx)
 		}
-		c.val, c.err = c.Loader.Load(ctx)
+		if c.err == nil {
+			if err := c.val.Err(); err != nil {
+				c.val, c.ver = cue.Value{}, ""
+				c.err = fmt.Errorf("schema Cache: loaded schema carries a build error: %w", err)
+			}
+		}
 	})
 	return c.val, c.err
 }
