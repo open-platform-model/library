@@ -14,30 +14,47 @@ import (
 
 // The package doc is the render contract AGENTS.md points readers to, and
 // nothing else notices when its layout is flattened: gofmt, go vet and lint
-// all accept a doc comment rewrapped as prose. This guard parses the package doc into the go/doc/comment model
-// that go doc renders from and checks the block types of the parts that
-// must stay a list and code. It pins no wording.
+// all accept a doc comment rewrapped as prose. This guard parses the package
+// doc into the go/doc/comment model that go doc renders from and checks the
+// block types of the parts that must stay a list and code. It pins no
+// wording.
 
 // surfaceMinItems is the number of verb groups the Surface list names today.
 const surfaceMinItems = 7
 
-// codeAnchors are text the code examples contain, one per loop and per
-// example boundary, so a partly flattened example is caught as well as a
-// wholly flattened one; each must be found inside a code block.
-var codeAnchors = []string{
-	"func renderAll(",
-	"for _, dir := range instanceDirs",
-	"close(errs)",
-	"for err := range errs",
-	"result.Diagnostics.UnhandledTraits",
-	"result.Diagnostics.ResolvedVersions",
-	"result.Diagnostics.Skipped",
-	"result.Diagnostics.Replacements",
+// codeExamples lists, per code example, text its first line and its last
+// line contain, with any anchors between. Every anchor of an example must sit
+// in one and the same *comment.Code block: a single de-indented line splits
+// the example into code, paragraph, code, which puts the first and last
+// anchors in different blocks.
+var codeExamples = []codeExample{
+	{"renderAll", []string{
+		"func renderAll(",
+		"for _, dir := range instanceDirs",
+		"close(errs)",
+		"for err := range errs",
+		"return nil\n}",
+	}},
+	{"diagnostics", []string{
+		"range result.Diagnostics.UnhandledTraits",
+		"range result.Diagnostics.ResolvedVersions",
+		"range result.Diagnostics.Skipped",
+		"!s.ComponentOmitted)\n}",
+	}},
+	{"replacements", []string{
+		"range result.Diagnostics.Replacements",
+		"r.By)\n}",
+	}},
+}
+
+type codeExample struct {
+	name    string
+	anchors []string
 }
 
 // codeMarkers are fragments only Go code carries. Prose in the package doc
 // never contains them, so a non-code block that does holds a flattened
-// example, including one added after codeAnchors was last updated.
+// example, including one added after codeExamples was last updated.
 var codeMarkers = []string{
 	" := ",
 	"result.Diagnostics.",
@@ -53,6 +70,48 @@ func TestPackageDoc_KeepsListAndCodeBlocks(t *testing.T) {
 	for _, problem := range docLayoutProblems(parseKernelDoc(t, src)) {
 		t.Error(problem)
 	}
+}
+
+// TestPackageDoc_RefusesOneDeIndentedLine proves the guard catches a partly
+// flattened example: de-indenting one statement leaves every anchor in some
+// code block but splits the example into code, paragraph, code.
+func TestPackageDoc_RefusesOneDeIndentedLine(t *testing.T) {
+	src, err := os.ReadFile("doc.go")
+	if err != nil {
+		t.Fatalf("read doc.go: %v", err)
+	}
+	for _, line := range []string{
+		"wg.Add(1)",
+		"defer wg.Done()",
+		"wg.Wait()",
+		"return nil",
+		"s.Component, s.Kind, s.FQN, !s.ComponentOmitted)",
+	} {
+		t.Run(line, func(t *testing.T) {
+			mutated := deIndent(t, src, line)
+			if len(docLayoutProblems(parseKernelDoc(t, mutated))) == 0 {
+				t.Errorf("guard passed with %q de-indented out of its example", line)
+			}
+		})
+	}
+}
+
+// deIndent turns the one doc.go comment line whose code is exactly stmt into
+// a plain comment line, which go/doc/comment reads as a paragraph.
+func deIndent(t *testing.T, src []byte, stmt string) []byte {
+	t.Helper()
+	lines := strings.Split(string(src), "\n")
+	hits := 0
+	for i, l := range lines {
+		if strings.HasPrefix(l, "//\t") && strings.TrimSpace(strings.TrimPrefix(l, "//")) == stmt {
+			lines[i] = "// " + stmt
+			hits++
+		}
+	}
+	if hits != 1 {
+		t.Fatalf("doc.go has %d comment code lines %q, want exactly 1", hits, stmt)
+	}
+	return []byte(strings.Join(lines, "\n"))
 }
 
 // parseKernelDoc parses every non-test Go file of this package, as go doc
@@ -97,8 +156,8 @@ func docLayoutProblems(d *comment.Doc) []string {
 	if p := surfaceListProblem(d.Content); p != "" {
 		problems = append(problems, p)
 	}
-	for _, anchor := range codeAnchors {
-		if p := codeBlockProblem(d.Content, anchor); p != "" {
+	for _, ex := range codeExamples {
+		if p := codeBlockProblem(d.Content, ex); p != "" {
 			problems = append(problems, p)
 		}
 	}
@@ -173,18 +232,31 @@ func startsWithKernelLink(item *comment.ListItem) bool {
 	return ok && link.Recv == "Kernel"
 }
 
-func codeBlockProblem(blocks []comment.Block, anchor string) string {
+// codeBlockProblem reports an example whose anchors are not all inside the
+// one *comment.Code block that holds its first anchor.
+func codeBlockProblem(blocks []comment.Block, ex codeExample) string {
+	first := ex.anchors[0]
+	var code *comment.Code
 	for _, b := range blocks {
-		if c, ok := b.(*comment.Code); ok && strings.Contains(c.Text, anchor) {
-			return ""
+		if c, ok := b.(*comment.Code); ok && strings.Contains(c.Text, first) {
+			code = c
+			break
 		}
 	}
-	for _, b := range blocks {
-		if strings.Contains(blockText(b), anchor) {
-			return fmt.Sprintf("package doc: expected the example containing %q in a *comment.Code block, found it in %s (the example was flattened into prose?)", anchor, describe(b))
+	if code == nil {
+		for _, b := range blocks {
+			if strings.Contains(blockText(b), first) {
+				return fmt.Sprintf("package doc: expected the %s example, starting %q, in a *comment.Code block, found it in %s (the example was flattened into prose?)", ex.name, first, describe(b))
+			}
+		}
+		return fmt.Sprintf("package doc: expected the %s example, starting %q, in a *comment.Code block, found it nowhere", ex.name, first)
+	}
+	for _, a := range ex.anchors[1:] {
+		if !strings.Contains(code.Text, a) {
+			return fmt.Sprintf("package doc: the %s example is not one *comment.Code block: the block starting %q lacks %q (a line was de-indented out of the example?)", ex.name, first, a)
 		}
 	}
-	return fmt.Sprintf("package doc: expected the example containing %q in a *comment.Code block, found it nowhere", anchor)
+	return ""
 }
 
 // describe names a block's Go type and the start of its text.
