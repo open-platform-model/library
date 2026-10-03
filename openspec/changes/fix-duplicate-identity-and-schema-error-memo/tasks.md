@@ -51,9 +51,9 @@ cross-process cache race, not this change.
 ## 3. Cold concurrent renders on a shared platform (opm/kernel, tests only)
 
 - [x] 3.1 In `opm/kernel/render_core_floor_test.go`, add
-  `TestRender_SharedPlatformConcurrentRendersCold` per design.md DM5: baseline from a separately
-  acquired platform and instance on the same kernel, then eight goroutines rendering a second,
-  never-rendered pair; every render succeeds with the baseline's objects. Its comment cites the
+  `TestRender_SharedPlatformConcurrentRendersCold` per design.md DM5: eight goroutines render a
+  never-rendered platform and instance as the test's first renders; after `wg.Wait()` a separately
+  acquired pair on the same kernel is rendered as the baseline, and every render matches it. Its comment cites the
   single-build-render scenario "A platform shared by concurrent renders stays race-free" like the
   warm test's does. Verify: `go test -race -run 'TestRender_SharedPlatformConcurrentRenders' ./opm/kernel/`.
 - [x] 3.2 `task check` green, then commit `test(kernel): race the first render on a shared platform`.

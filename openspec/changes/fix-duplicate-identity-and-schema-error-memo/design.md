@@ -83,15 +83,17 @@ still never retries; the `Cache` doc comment says both.
 
 ### DM5: The cold concurrent render compares against a separate acquisition
 
-The new `TestRender_SharedPlatformConcurrentRendersCold` takes its expected objects from a render
-of a separately acquired platform and instance, then acquires a second platform and instance on
-the same kernel and starts the eight goroutines on that pair with no render before them. Each
-`AcquirePlatformFromDir` builds into its own `cuecontext.New()` (`opm/kernel/acquire.go:243`), so
-the baseline render touches nothing the shared pair holds, and the shared `Package`'s first
-`LookupPath(schema.ContractsProvidedBy)` (`opm/kernel/render.go:341`) is raced. One kernel is
-used because `newRenderKernel` sets the test's registry environment, and a second call would
-replace it under the first kernel. It runs under `-race` through `task test` like its
-warm sibling, which stays as it is.
+The new `TestRender_SharedPlatformConcurrentRendersCold` acquires a platform and instance and
+starts the eight goroutines on that pair with no render before them, so theirs are the first
+renders of the test. Only after `wg.Wait()` does it acquire a second, separate pair on the same
+kernel and render it as the baseline the eight results are compared against. Rendering the
+baseline first would warm the per-test module cache before the race; `Render` reads no lazy
+kernel state, so the order does not change the result. Each `AcquirePlatformFromDir` builds into
+its own `cuecontext.New()` (`opm/kernel/acquire.go:243`), so the baseline touches nothing the
+shared pair holds, and the shared `Package`'s first `LookupPath(schema.ContractsProvidedBy)`
+(`opm/kernel/render.go:341`) is raced. One kernel is used because `newRenderKernel` sets the
+test's registry environment, and a second call would replace it under the first kernel. It runs
+under `-race` through `task test` like its warm sibling, which stays as it is.
 
 ## Research & Decisions
 
