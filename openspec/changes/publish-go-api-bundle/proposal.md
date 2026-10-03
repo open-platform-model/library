@@ -6,13 +6,13 @@ The pages print the doc comments as they are, so they must read well first: `opm
 
 Sequence and contracts: docs-kit `docs/orchestration.md` (phase 2, "library: `publish-go-api-bundle`") and `https://github.com/open-platform-model/docs-kit/blob/main/docs/contracts.md` (C5, C6, C9, C12, C15, C20). Until a docs-kit change lands, its `openspec/changes/<change>/design.md` on docs-kit `main` shows the contract.
 
-Delivery: one PR per section (cli needs the docs/library release bundle after section 3)
+Delivery: one PR per section (cli needs the docs/library 1.0.0-beta.1 bundle after section 3)
 
 ## What Changes
 
 - **Section 1, doc comments that read as pages (no gate).** Indent the kernel's "Surface" list; document the eleven `Error`/`Unwrap` methods and the two constant groups; move `ADR-NNN` and "enhancement NNNN" pointers out of exported doc comments into ordinary comments.
-- **Section 2, adopt (gate G2-library).** `docs-kit.cue` declares the project `library`: docs placement owning `reference/go-api/`, a `go-api` source over `./opm/...` and a `markdown` source over `docs/site` (no `exclude`). `.opm-docs-version`, `.tasks/opm-docs.sh`, the tasks `tools:opm-docs`, `docs:bundle`, `docs:pins:check` and `docs:bundle:check` (in `task check`), `.github/workflows/docs.yml`, and `publish-docs` in `release.yml` after `release-please`. Any doc-comment problem docs-kit's trial build or the first bundle shows is fixed here. "Embed the kernel"'s Next-steps brief names `/docs/reference/go-api/kernel/`. `AGENTS.md` gains a "Docs bundles" paragraph.
-- **Section 3, release bundles (owner).** A dispatched backfill of `v1.0.0-beta.1`, and the next library release (pinning core's first bundled release) publishes `docs/library`; record the runs.
+- **Section 2, adopt (gate G2-library).** `docs-kit.cue` declares the project `library`: docs placement owning `reference/go-api/`, a `go-api` source over `./opm/...` and a `markdown` source over `docs/site` (no `exclude`). `.opm-docs-version`, `.tasks/opm-docs.sh`, the tasks `tools:opm-docs`, `docs:bundle`, `docs:pins:check` and `docs:bundle:check` (in `task check`), `.github/workflows/docs.yml`, and `publish-docs` in `release.yml` after `release-please`. Any doc-comment problem docs-kit's trial build or the first bundle shows is fixed here. "Embed the kernel"'s Next-steps brief names `/docs/reference/go-api/kernel/`. A local dry run builds `v1.0.0-beta.1` with this config. `AGENTS.md` gains a "Docs bundles" paragraph.
+- **Section 3, the bundle the cli pins (owner, part of gate G2-pins).** A dispatched backfill of `v1.0.0-beta.1`, the version the cli's `main` pins (owner decision 2026-10-03), optionally followed by a docs revision that applies section 1's comment fixes to it; record the runs. A later library release publishes through `publish-docs` on its own.
 - **Section 4, the visible link (gate G2-switch).** "Embed the kernel" links the Go API reference as a real link once the site reads the library from bundles; archive.
 
 ## Capabilities
@@ -35,8 +35,8 @@ None.
 
 | Consumer | What it has to do |
 | --- | --- |
-| cli | Its release pins a library release; gate G2-pins needs that release to have a bundle, so the cli bumps to the release of section 3 before its own bundled release. |
+| cli | Nothing: its `main` already pins `v1.0.0-beta.1`, which section 3 backfills (gate G2-pins); no `go.mod` bump. |
 | opmodel.dev | Nothing until `pull-reference-bundles`; then v1.0 gains `/docs/reference/go-api/` from the pinned library's bundle. |
 | opm-operator | Nothing. |
 
-**Owner items:** merging docs-kit's release PRs (gate), the backfill dispatch and the library release of section 3, checking `ghcr.io/open-platform-model/docs/library` is public on first push.
+**Owner items:** merging docs-kit's release PRs (gate G2-library), the `v1.0.0-beta.1` backfill dispatch and the optional revision, checking `ghcr.io/open-platform-model/docs/library` is public on first push.

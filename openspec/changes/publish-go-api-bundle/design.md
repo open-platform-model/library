@@ -78,11 +78,13 @@ A library release is the tag itself, so `publish-docs` follows `release-please` 
 
 ### D4. The link from "Embed the kernel"
 
-The page's Next-steps section is an authoring brief that says "Reference: the Go API documentation ... (Verify: where it is published, for example pkg.go.dev, before linking)". Section 2 replaces that clause with "Reference: [Go API: opm/kernel](/docs/reference/go-api/kernel/)", inside the brief, so nothing visible changes while the site still reads the library from git. A visible link waits for section 4: until G2-switch the site builds this page from `main`, where `/docs/reference/go-api/` does not exist, and a broken internal link fails the site build. After G2-switch the page reaches the site only inside a library bundle, whose bundle-mode lint checks the link against the bundle's own `reference/go-api/` (C15), so it cannot ship broken.
+The page's Next-steps section is an authoring brief that says "Reference: the Go API documentation ... (Verify: where it is published, for example pkg.go.dev, before linking)". Section 2 replaces that clause with "Reference: [Go API: opm/kernel](/docs/reference/go-api/kernel/)", inside the brief, so nothing visible changes while the site still reads the library from git. A visible link waits for gate G2-switch: until then the site builds this page from `main`, where `/docs/reference/go-api/` does not exist, and a broken internal link fails the site build. After G2-switch the page reaches the site only inside a library bundle, whose bundle-mode lint checks the link against the bundle's own `reference/go-api/` (C15), so it cannot ship broken.
 
 ### D5. Which library bundles the cli can pin
 
-The cli's pins name a library version, and that library's `DefaultSchemaModule` names the core version (`opm/schema/loader.go:43`, `opmodel.dev/core@v2.0.0-beta.1` on `main` and at `v1.0.0-beta.1`). Gate G2-pins needs a bundle for all three. Section 3 therefore publishes two bundles: a dispatched backfill of `v1.0.0-beta.1` (its tree has `opm/` and `docs/site/`; `main`'s config builds it, C5), which serves only if core `v2.0.0-beta.1` also gets a bundle; and the next library release, which the release cascade cuts pinning core's first bundled release (core `publish-definitions-bundle` section 2). The backfill carries beta.1's garbled kernel doc; the fresh release carries section 1's fixes.
+The cli's pins name a library version, and that library's `DefaultSchemaModule` names the core version (`opm/schema/loader.go:43`, `opmodel.dev/core@v2.0.0-beta.1` on `main` and at `v1.0.0-beta.1`). Gate G2-pins needs a bundle for all three. The owner decided (2026-10-03) that G2-pins is met by release-mode backfills of the versions the cli's `main` already pins (core `v2.0.0-beta.1`, library `v1.0.0-beta.1`, opm-operator `v1.0.0-beta.4`), then cli `v1.0.0-beta.6` with its dump program; no pin moves. So section 3 is the dispatched backfill of `v1.0.0-beta.1` (its tree has `opm/` and `docs/site/`; `main`'s config builds it, C5), dry-run locally in section 2. The next library release (release PR library#155) is optional for this change and publishes through `publish-docs`; if it merges and the release cascade moves the cli's library pin before cli `v1.0.0-beta.6`, that version must have its bundle first.
+
+The backfill shows beta.1's doc comments, including the garbled kernel "Surface" list and the undocumented methods. Section 1's fixes are comments only, so its squash commit can be applied to the published `1.0.0-beta.1` bundle as a docs revision (`docs.yml` `mode: revision`, C3 "Docs revisions"). Revisions are dispatched by hand for now (library#164, tracked in docs-kit#16).
 
 ## Research & Decisions
 
@@ -100,12 +102,12 @@ The cli's pins name a library version, and that library's `DefaultSchemaModule` 
 
 ### A fourth section for one link
 
-**Context**: orchestration gives the library no section 3, because it has no generator to delete.
-**Decision**: a short section 4 after G2-switch for the visible link (D4) and the archive.
+**Context**: orchestration gives the library no retirement step, because it has no generator to delete.
+**Decision**: a short last section at gate G2-switch for the visible link (D4) and the archive.
 **Rationale**: the owner asked for the link; the site build forbids it earlier.
 
 ## Risks / Trade-offs
 
 - docs-kit's trial build may find Markdown problems a `go doc` reader never sees (headings, code blocks). Section 2 fixes them before the first bundle; anything only docs-kit can fix stops the section.
-- After G2-switch, an authored fix on `main` reaches the site only through a library release or a docs revision (`docs.yml` `mode: revision`). The diagnostics pages, still being written, are affected most; `AGENTS.md`'s new paragraph says so.
+- After G2-switch, an authored fix on `main` reaches the site only through a library release or a docs revision (`docs.yml` `mode: revision`, manual: library#164). The diagnostics pages, still being written, are affected most; `AGENTS.md`'s new paragraph says so.
 - The undocumented-symbol list is a snapshot; a symbol added before section 2 without a doc comment shows an empty entry. golangci-lint does not enforce exported doc comments here today.
