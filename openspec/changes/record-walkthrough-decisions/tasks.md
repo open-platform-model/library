@@ -1,0 +1,31 @@
+# Tasks: record-walkthrough-decisions
+
+No Go code, no `go.mod` change. The only Go file touched is one comment sentence in `opm/kernel/doc.go`. Every section's gate is `task fmt`, `task vet`, `task lint`, `task build` and `openspec validate record-walkthrough-decisions --strict`. Every section also runs the reference check on the files it touched: `grep -nE '(^|[^:/0-9A-Za-z])D[0-9]+' <files>` returns no bare decision number. This change merges after the enhancements change `record-walkthrough-decisions`, which writes the 0012:D5 amendment and `0021:D8:R11` to `0021:D8:R14`.
+
+## 1. Ordering and deletion plans (adr)
+
+- [ ] 1.1 `adr/008-kernel-plans-caller-runs.md`: append to the Status line one dated sentence, "Amended 2026-10-03 by `record-walkthrough-decisions` (0012:D5)", stating that no module-internal ordering is planned (if one is ever needed it comes off the build), that cross-module ordering belongs to a future Bundle definition, which uses the order its modules are defined in, and that kind-class staging stays in `opm/k8s/object` as a Kubernetes API fact. Extend rule 4's parenthetical with the same clarification in one sentence. The rule's first two sentences stay byte-identical.
+- [ ] 1.2 `adr/008-kernel-plans-caller-runs.md`: append a second dated Status sentence for the deletion answer, and add a bold-labelled Consequences paragraph **Deletion plans:** before **What this does not decide**: deletion plans are built from the persisted inventory plus the live objects, with no render and no stored plan. Add to **What this does not decide** that planning from a render and detecting the install, upgrade, reconfigure, no-op or uninstall transition are deferred to the parked 0009 hook work. Verify: `git diff adr/008-*.md` touches only the Status line, rule 4, and those two paragraphs.
+- [ ] 1.3 `adr/011-kubernetes-tier-beside-the-kernel.md`: append one dated Status sentence and rewrite item 6's "Module-declared order (hooks, `dependsOn`, phases) is data that comes off the CUE build, under ADR-008 rule 4" so it says that no module-internal ordering is planned, that any that is ever added comes off the build under ADR-008 rule 4, and that cross-module ordering belongs to a future Bundle definition (definition order). The rest of item 6 stays.
+- [ ] 1.4 Verify: `grep -rn "dependsOn" adr/ openspec/specs/` shows no text that presents module-declared ordering as planned, apart from ADR-008's historical Context and the main spec this change's delta replaces.
+- [ ] 1.5 Gates green, then commit `docs(adr): no module-internal ordering, deletion plans from inventory`.
+
+## 2. Where matching lives (adr)
+
+- [ ] 2.1 Write `adr/012-matching-stays-in-the-library-glue.md` in the `adr/TEMPLATE.md` shape, Status Accepted (2026-10-03). Context is value-neutral: 0019:D10 (matching moved into the glue), 0019:D17 (`#Platform.#matchers` removed because the glue owns the reverse index), the glue's size today (`render.cue.tmpl`, about 570 lines), core#62's three arguments (a second runtime cannot read matching from core, core already owns analogous derivations, the matcher is pinned by the kernel binary rather than by the platform's core), and the `#contracts.providedBy` move with its tripwire `opm/kernel/render_inventory_parity_test.go`.
+- [ ] 2.2 Decision: the matching algorithm stays in the library glue, and 0019:D10/D17 stand. A single derived rule moves into core one at a time, as an additive core release, when core can compute it from core shapes alone, and each move ships with a parity test proving the core field and the verdict or derivation it replaces agree over the served fixtures. The per-catalog provider set behind `Catalog.Provides()` is the next candidate. Rejected alternatives: moving `#Match` whole into core (core#62, not now), and a core reverse index reversing 0019:D17. Consequences are bold-labelled paragraphs and say that core#62 is closed as not now with a pointer to this ADR.
+- [ ] 2.3 Gates green, then commit `docs(adr): add ADR-012, matching stays in the library glue`.
+
+## 3. Holder-bounded render output (adr, kernel)
+
+- [ ] 3.1 `adr/005-shares-nothing-renders.md`: replace rule 2's last sentence ("The Kernel holds no built value between calls, and a caller cannot obtain one to hold.") with ADR-007's holder-bounded rule: the Kernel holds no built value between calls, each returned `*Compiled` carries a `cue.Value` into the render's build, so a caller that holds one keeps that build alive until it releases it, and retention is bounded by what the caller holds. Append one dated Status sentence: rule 2 reworded to ADR-007's holder-bounded rule, and Render output keeps `Compiled.Value` for now and moves to bytes before GA at the latest (earlier if render output is to be cached).
+- [ ] 3.2 `opm/kernel/doc.go` (comment only, Goroutine safety section): replace "no built value is retained between calls, and a caller cannot obtain one to hold" with the same holder-bounded sentence. Touch no other sentence of the file. Verify: `git diff opm/kernel/doc.go` shows comment lines of that one paragraph only, and `go doc ./opm/kernel` renders.
+- [ ] 3.3 Verify: `grep -rn "cannot obtain one to hold" adr/ opm/ README.md AGENTS.md openspec/specs/` returns nothing.
+- [ ] 3.4 Gates green, then commit `docs(kernel): a held Compiled keeps its render build alive`.
+
+## 4. Link the GA exit criteria (adr, docs)
+
+- [ ] 4.1 `adr/004-migration-docs-structure.md`: replace "so the GA release checklist picks it up" with a pointer to the GA exit criteria in 0021:D8 (workspace root `enhancements/0021/03-decisions.md`), and append one dated Status sentence naming the change.
+- [ ] 4.2 `README.md` § SemVer: after "GA drops the suffix ...", one sentence: GA is cut only when 0021:D8's exit criteria hold, among them the library's own `0021:D8:R11` to `0021:D8:R14` (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status links 0021:D8 the same way.
+- [ ] 4.3 Verify: `grep -rn -i "release checklist" adr/ README.md AGENTS.md migrations/ openspec/specs/` returns nothing.
+- [ ] 4.4 Gates green, then commit `docs(adr): point the GA arming condition at 0021:D8`.
