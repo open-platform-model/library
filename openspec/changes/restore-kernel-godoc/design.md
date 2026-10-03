@@ -19,42 +19,45 @@
 
 ### HEAD supplies the words, 7729b92^ supplies the layout
 
-The restored file MUST contain the same sequence of words as HEAD's `doc.go`, after removing the comment markers (`//`) and whitespace. This includes the `-` list markers, which HEAD still carries as the literal `; -` joiners. Layout follows `7729b92^`:
+The restored file MUST contain the same sequence of words as the base's `doc.go` (the branch's merge base with `origin/main`, not `HEAD`), after removing the comment markers (`//`) and whitespace. This includes the `-` list markers, which HEAD still carries as the literal `; -` joiners. Layout follows `7729b92^`:
 
 - `# Surface`: one `  - ` item per verb group, continuation lines indented four spaces, as in `7729b92^` lines 17-34. HEAD has the same seven items, with the catalog item's wording as written by 291f78f.
-- `# One-Kernel-per-process example`: the `renderAll` function as a tab-indented code block in gofmt layout, as in `7729b92^` lines 88-117.
-- The diagnostics example: a tab-indented code block with three loops (`UnhandledTraits`, `ResolvedVersions`, `Skipped`). The `Skipped` loop was added by fc1aafd after the sweep, so it is reformatted into the block in the same style as the first two.
-- The replacements example: a tab-indented code block, as in `7729b92^` lines 194-196.
+- All three code blocks are tab-indented (`//` plus one tab) and use gofmt layout, with tabs for nesting. `7729b92^` supplies only each block's boundaries and statement order; it does not supply the indentation, because its `renderAll` body nests with four spaces after the tab (lines 89-116) while its other two examples nest with tabs.
+- `# One-Kernel-per-process example`: the `renderAll` function, as in `7729b92^` lines 88-117.
+- The diagnostics example: three loops (`UnhandledTraits`, `ResolvedVersions`, `Skipped`). The `Skipped` loop was added by fc1aafd after the sweep, so it is reformatted into the block in the same style as the first two.
+- The replacements example, as in `7729b92^` lines 194-196.
 - Prose paragraphs are rewrapped to the file's width (about 76 columns, as in `7729b92^`). This includes the lines that later commits left unwrapped.
 
 The word-sequence check is the proof that the restoration changed only the layout. It is run as a shell one-liner during the task and is not committed:
 
 ```sh
 words() { sed 's#^//##' "$1" | tr -s ' \t\n' '\n' ; }
-diff <(git show HEAD:opm/kernel/doc.go | words /dev/stdin) <(words opm/kernel/doc.go)
+diff <(git show "$(git merge-base HEAD origin/main)":opm/kernel/doc.go | words /dev/stdin) <(words opm/kernel/doc.go)
 ```
 
-The diff MUST be empty.
+The diff MUST be empty. The baseline is pinned to the merge base: once section 1 is committed, `HEAD` holds the restored file, and a diff against it would be empty and prove nothing.
 
 ### The guard parses the package doc the way go doc does
 
 `opm/kernel/doc_test.go` (package `kernel_test`, standard library only) MUST:
 
-1. Parse `doc.go` with `go/parser.ParseFile(fset, "doc.go", nil, parser.ParseComments|parser.PackageClauseOnly)`. The test's working directory is the package directory.
-2. Build the package doc with `doc.NewFromFiles` and parse it with `pkg.Parser().Parse(pkg.Doc)`. This is the same `go/doc/comment` model that `go doc` and pkg.go.dev render from.
-3. Find the `*comment.Heading` whose text is `Surface`. Assert that a `*comment.List` follows it after at most one intervening `*comment.Paragraph` (the "One tier" lead-in), with at least seven items, each starting with a `[Kernel.` doc link. Today the items name `AcquireModuleFromRegistry`, `AcquireCatalogFromRegistry`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir`, `SynthesizeInstance`, `ValidateConfigDetailed` and `Render`.
-4. Assert that the doc has exactly three `*comment.Code` blocks. Their texts contain `func renderAll(`, `result.Diagnostics.UnhandledTraits` and `result.Diagnostics.Replacements` respectively.
+1. Parse every non-test `.go` file in the package directory with `go/parser.ParseFile(..., parser.ParseComments)`, as `go doc` does. A doc.go-only parse is not enough: without the package's declarations, `pkg.Parser()` cannot resolve `[Kernel.X]` links, and the list items start with plain text instead of doc links. The test's working directory is the package directory.
+2. Build the package doc with `doc.NewFromFiles` and parse it with `pkg.Parser().Parse(pkg.Doc)`. With the whole package parsed, this is the same `go/doc/comment` model that `go doc` renders from.
+3. Find the `*comment.Heading` whose text is `Surface`. Assert that a `*comment.List` follows it after at most one intervening `*comment.Paragraph` (the "One tier" lead-in), with at least seven items, each starting with a `*comment.DocLink` whose receiver is `Kernel`. Today the items name `AcquireModuleFromRegistry`, `AcquireCatalogFromRegistry`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir`, `SynthesizeInstance`, `ValidateConfigDetailed` and `Render`.
+4. Assert that each of the three anchors `func renderAll(`, `result.Diagnostics.UnhandledTraits` and `result.Diagnostics.Replacements` is found inside a `*comment.Code` block. The number of code blocks is not pinned, so a new example does not break the test.
+
+The parse and the assertions sit in helpers: one parses the package with the `doc.go` bytes supplied by the caller in place of the file on disk, and one returns the layout problems of a parsed doc. The committed test feeds them the file on disk. The proof in task 2.2 feeds them other `doc.go` bytes from a throwaway test file, with no copy of the package.
 
 Every failure names the block it expected and what it found (the block's Go type and the start of its text). A reader of the failure can then see it was a flattening and not a content change.
 
-**Rationale**: The owner's 2026-10-03 decision asks for a go/doc guard on the Surface list and the code examples. Asserting on the parsed block types catches the exact failure 7729b92 caused. It does not pin the prose, so ordinary wording edits stay free. Exactly three code blocks is deliberate: adding a fourth example then means updating the test once, which costs less than a guard that misses a lost block.
+**Rationale**: The owner's 2026-10-03 decision asks for a go/doc guard on the Surface list and the code examples. Asserting on the parsed block types catches the exact failure 7729b92 caused. It does not pin the prose or the number of examples, so ordinary wording edits and new examples stay free. The three anchored assertions catch any lost block.
 
 ## Research & Decisions
 
 ### Where the flattening came from
 
 **Context**: The fix should not be undone by the same tool.
-**Explored**: `git show --stat 7729b92` touches dozens of files. `opm/kernel/doc.go` is the only one rewrapped wholesale (315 changed lines); the others carry reference rewrites such as `0019 D5` to `0019:D5`. The commit adds no formatter to `Taskfile.yml` or `.golangci.yml`, and `task fmt` is `go fmt` plus `goimports`. Neither rewraps comments. A grep over library, cli and opm-operator finds no other flattened list or code comment.
+**Explored**: `git show --stat 7729b92` touches dozens of files. `opm/kernel/doc.go` is the only one rewrapped wholesale (315 changed lines); the others carry reference rewrites to the `NNNN:Dn` form (for example `0019:D5`). The commit adds no formatter to `Taskfile.yml` or `.golangci.yml`, and `task fmt` is `go fmt` plus `goimports`. Neither rewraps comments. A grep over library, cli and opm-operator finds no other flattened list or code comment.
 **Decision**: Treat the rewrap as a one-off manual edit. The guard test is the only prevention added.
 **Rationale**: There is no tool to disable. The test catches a repeat by any means.
 
@@ -62,10 +65,10 @@ Every failure names the block it expected and what it found (the block's Go type
 
 **Context**: The owner decision says to restore the lists and code blocks from `7729b92^` and re-apply the later edits, including 19a8553.
 **Explored**: Replaying five content diffs onto the pre-sweep file, compared with reformatting HEAD using the pre-sweep layout. Both produce the same file.
-**Decision**: Reformat HEAD's text into `7729b92^`'s layout, and prove word equality with HEAD using the check above.
+**Decision**: Reformat HEAD's text into `7729b92^`'s layout, and prove word equality with the merge base's file using the check above.
 **Rationale**: The word check is a mechanical proof that every later edit is present. A manual replay of five diffs has no such check.
 
 ## Risks / Trade-offs
 
-- A future example added to the doc makes the exact-count assertion fail → the failure message says to add the new block's anchor to the test, which is a one-line edit.
+- [The sibling change `record-walkthrough-decisions` (its task 3.2) rewrites the "no built value is retained between calls, and a caller cannot obtain one to hold" sentence in the Goroutine safety paragraph that this change rewraps] → merge this change first; the sibling then rebases one sentence onto the restored layout, the smaller conflict. If the sibling lands first, this branch rebases onto it and the word-sequence check runs against the new merge base, so the sibling's sentence is kept verbatim and is never reverted to make the diff empty.
 - `go/doc/comment` could reclassify a block in a future Go release → the test would fail in CI, which is the right signal for a doc that `go doc` would also render differently.
