@@ -70,9 +70,10 @@
 // across operations, never within one.
 //
 // [Kernel.Render] shares nothing between renders (ADR-005, 0019:D8). Each
-// render is its own CUE build in a fresh cue.Context created for that call and
-// dropped when Render returns; no built value is retained between calls, and a
-// caller cannot obtain one to hold. A consumer rendering from several
+// render is its own CUE build in a fresh cue.Context created for that call;
+// the kernel drops its own references to it when Render returns and retains
+// no built value between calls. A [Compiled] the caller holds keeps its
+// render's build alive until released. A consumer rendering from several
 // goroutines calls Render on one Kernel with no mutex, and may share one
 // acquired platform across them: each render builds the platform from its
 // Source in its own context, and reads the shared Package only for the core
