@@ -1,0 +1,31 @@
+## ADDED Requirements
+
+### Requirement: Registry acquisition accepts bare and v-prefixed versions
+
+The registry acquisition verbs, `Kernel.AcquireModuleFromRegistry` and
+`Kernel.AcquireCatalogFromRegistry`, SHALL accept the version either as bare SemVer (`1.0.0`) or
+with the `v` prefix CUE module versions carry (`v1.0.0`). Both spellings SHALL resolve to the same
+published artifact, return the same value, and stage it under the same synthetic root. The rule
+SHALL be held in one place inside the library, shared with the platform module generator's
+dependency roots, so the two cannot disagree. A version that is malformed in both spellings SHALL
+still be refused with a wrapped parse error naming the version as the caller wrote it.
+
+#### Scenario: A module is acquired by a bare version
+
+- **WHEN** a module published at `v0.0.2` is acquired with version `0.0.2`
+- **THEN** the acquisition succeeds, the module's identity check passes, and its `metadata.version` reads `0.0.2`
+
+#### Scenario: A catalog is acquired by a bare version
+
+- **WHEN** a catalog published at `v1.0.0` is acquired through `Kernel.AcquireCatalogFromRegistry` with version `1.0.0`
+- **THEN** the acquisition succeeds and returns the same catalog as an acquisition with `v1.0.0`
+
+#### Scenario: Both spellings stage under the same root
+
+- **WHEN** the same artifact is acquired once with `1.0.0` and once with `v1.0.0`
+- **THEN** both returned sources carry the same synthetic root
+
+#### Scenario: A malformed version is still refused
+
+- **WHEN** an artifact is acquired with version `not-a-version`
+- **THEN** the acquisition fails with a wrapped parse error naming `not-a-version`, and nothing is fetched
