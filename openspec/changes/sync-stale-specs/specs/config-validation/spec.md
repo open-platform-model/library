@@ -1,22 +1,6 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: No Custom Validation Error Types
-
-The library SHALL NOT define custom Go-typed wrappers around CUE validation errors. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
-
-#### Scenario: opm/errors carries no validation projections
-
-- **WHEN** a developer reads `opm/errors/`
-- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, and the render verdict rows and refusal causes (skew, routing, contract and demand), none of which projects a CUE validation error
-- **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
-
-#### Scenario: Frontends rely on cuelang.org/go/cue/errors
-
-- **WHEN** a frontend wants per-position iteration over validation errors
-- **THEN** it imports `cuelang.org/go/cue/errors` and uses `errors.Errors(err)` plus `errors.Positions(ce)` to walk the tree
-- **AND** the library does not provide a parallel walking API
-
-### Requirement: Module and Instance Typed Convenience Methods
+### Requirement: Callers compose ConfigSchema with the one validation primitive
 
 `*Module` and `*Instance` SHALL each expose a `ConfigSchema()` accessor returning the `#config` schema reachable on the artifact's `Package` (for an instance, through its embedded `#module`), or the zero `cue.Value` when absent. The Kernel SHALL NOT expose per-artifact wrappers over the validation primitive: a caller composes `ConfigSchema()` with `ValidateConfigDetailed` directly.
 
@@ -32,28 +16,40 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 - **THEN** the result is the `cue.Value` at `schema.Config` inside the instance's embedded module at `schema.Module`
 - **AND** the accessor returns a zero value if the instance has no embedded module or the module has no `#config`
 
-#### Scenario: Kernel.ValidateModuleValues delegates without name wrapping
+#### Scenario: No per-artifact validation wrapper exists
 
 - **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValues` nor `ValidateInstanceValues` exists, and neither does `ValidateConfig`
-- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), []Source{{Origin: o, Data: b}})` is the spelling for a concrete check against a module, with no name wrapping
+- **THEN** none of `ValidateModuleValues`, `ValidateInstanceValues`, `ValidateModuleValuesDetailed`, `ValidateInstanceValuesDetailed` or `ValidateConfig` exists
+- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), sources)` is the spelling for a concrete, layered check against a module, with no name wrapping
 
-#### Scenario: Kernel.ValidateModuleValuesPartial delegates
+#### Scenario: No partial validation wrapper exists
 
 - **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValuesPartial` nor `ValidateInstanceValuesPartial` exists, and neither does `ValidateConfigPartial`
+- **THEN** none of `ValidateModuleValuesPartial`, `ValidateInstanceValuesPartial` or `ValidateConfigPartial` exists
 - **AND** no public spelling for a partial check exists; partial mode is a kernel-internal attribution pass
 
-#### Scenario: Kernel.ValidateModuleValuesDetailed delegates
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `ValidateModuleValuesDetailed` nor `ValidateInstanceValuesDetailed` exists
-- **AND** `k.ValidateConfigDetailed(m.ConfigSchema(), sources)` is the spelling for layered validation against a module
-
-#### Scenario: Instance equivalents
+#### Scenario: An instance composes the same primitive
 
 - **WHEN** a caller holds a `*module.Instance` rather than a `*module.Module`
-- **THEN** it composes `r.ConfigSchema()` with the same primitive; no instance-typed wrapper exists on the Kernel
+- **THEN** it composes `r.ConfigSchema()` with `ValidateConfigDetailed`; no instance-typed wrapper exists on the Kernel
+
+## MODIFIED Requirements
+
+### Requirement: No Custom Validation Error Types
+
+The library SHALL NOT define custom Go-typed wrappers around CUE validation errors. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
+
+#### Scenario: opm/errors carries no validation projections
+
+- **WHEN** a developer reads `opm/errors/`
+- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, and the render verdict rows and refusal causes (skew, routing, contract, demand, unmatched-component and core-floor), none of which projects a CUE validation error
+- **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
+
+#### Scenario: Frontends rely on cuelang.org/go/cue/errors
+
+- **WHEN** a frontend wants per-position iteration over validation errors
+- **THEN** it imports `cuelang.org/go/cue/errors` and uses `errors.Errors(err)` plus `errors.Positions(ce)` to walk the tree
+- **AND** the library does not provide a parallel walking API
 
 ### Requirement: Single Kernel Validation Primitive
 
@@ -82,5 +78,13 @@ The library SHALL expose exactly one validation method on `*Kernel` in `opm/kern
 #### Scenario: Errors carry source positions when filename was set at compile time
 
 - **WHEN** validation of a `Source` produces an error
-- **THEN** every `cueerrors.Error` returned exposes a non-empty `Position().Filename()` matching the originating Source's `Origin`, because the kernel compiled that source under its `Origin`
-- **AND** `cueerrors.Positions(ce)` returns primary plus contributing positions, each with a populated filename
+- **THEN** every error positioned at a field a Source sets (a type, constraint or disallowed-field violation) exposes `Position().Filename()` equal to that Source's `Origin`, because the kernel compiled that source under its `Origin`
+- **AND** a concreteness error for a field no source sets may carry no source position
+- **AND** for an error positioned at a field a Source sets, `cueerrors.Positions(ce)` returns primary plus contributing positions, each with a populated filename
+
+## REMOVED Requirements
+
+### Requirement: Module and Instance Typed Convenience Methods
+
+**Reason**: Three of its scenarios ("Kernel.ValidateModuleValues delegates without name wrapping", "Kernel.ValidateModuleValuesPartial delegates", "Kernel.ValidateModuleValuesDetailed delegates") are titled for methods whose absence their bodies assert. The requirement is restated as "Callers compose ConfigSchema with the one validation primitive", with scenario names that match what they assert.
+**Migration**: None. No typed wrapper exists; callers compose `m.ConfigSchema()` or `r.ConfigSchema()` with `Kernel.ValidateConfigDetailed`.

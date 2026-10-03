@@ -8,9 +8,9 @@ Agents and reviewers load the main specs as the source of truth, and six of them
 
 - **artifact-types:** the uniform shape becomes `{Metadata, Package, Source}` with no `APIVersion`, matching `schema-dispatch`. The "APIVersion Field Stamped at Construction" requirement is removed. The binding-based "Instance Config Schema Accessor" is removed; the existing "Instance exposes its components and config schema", which already reads `#config` through `schema.Module` and `schema.Config`, takes over its zero-value cases (nil receiver, missing `#module`, missing `#config`). A catalog is produced by its two acquire verbs or `catalog.NewCatalogFromValue`. The debug-values scenarios read `schema.DebugValues` instead of a version binding. The Purpose line is rewritten in place.
 - **platform-artifact:** "Platform Constructor from cue.Value" is removed and replaced by a requirement for the one-argument constructor as it exists: metadata decoded with `type` hoisted, `Package` unchanged, no `Source`, no version detection, and an error with no partial platform when `metadata` is missing.
-- **config-validation:** the Purpose line is rewritten in place to name the one validation primitive, the two `ConfigSchema()` accessors and the two source loaders. Scenarios that build or unify `Source.Value` are rewritten to `Origin` and `Data`, with the kernel compiling each source. The `opm/errors` scenario stops claiming that package holds only `TransformError` and sentinels.
+- **config-validation:** the Purpose line is rewritten in place to name the one validation primitive, the two `ConfigSchema()` accessors and the two source loaders. Scenarios that build or unify `Source.Value` are rewritten to `Origin` and `Data`, with the kernel compiling each source. The `opm/errors` scenario stops claiming that package holds only `TransformError` and sentinels. "Module and Instance Typed Convenience Methods" is removed and re-added as "Callers compose ConfigSchema with the one validation primitive", because three of its scenario names are titled for methods whose absence they assert.
 - **instance-synthesis:** the single-build requirement names the shared build step (`loader.LoadDir` with the instance shape gate, the step `AcquireInstanceFromDir` runs), the internal signature `Instance(cueCtx *cue.Context, coreVersion string, in Input)`, and the values file rendered from the input's unified `Values`. The synthesis-input requirement says that no public package exports a second entry point, because `opm/internal/synth` exists and exports `Instance` and `Input`.
-- **kernel-runtime:** the godoc requirement is removed and re-added under a new name so that the misnamed scenario can be renamed. Its sentence on the imported core release is corrected: the synthesized package imports `core` at the major of the kernel's schema release, and the release that import resolves to comes from the module's own `cue.mod/module.cue`. The other scenarios are unchanged.
+- **kernel-runtime:** the godoc requirement is removed and re-added under a new name so that the misnamed scenario can be renamed. Its sentence on the imported core release is corrected: the synthesized package imports `core` at the major of the kernel's schema release, and the release that import resolves to comes from the module's own `cue.mod/module.cue`. The other scenarios are unchanged. "Kernel.SynthesizeInstance method" is modified to state the same core-release reading, with every scenario kept verbatim.
 - **single-build-render:** the subscription-shaped refusal scenario drops "(and `LoadPlatformPackage`)".
 - **schema-dispatch:** unchanged. It already matches the code, and the conflict is resolved by correcting `artifact-types`.
 
@@ -22,8 +22,7 @@ Agents and reviewers load the main specs as the source of truth, and six of them
 Known follow-ups, for the PR body:
 
 - `README.md:19` still says the kernel accepts only `Module`, `ModuleInstance` and `Platform`, so "The enumerated set is stated once and agrees everywhere" fails until the front-door doc fix lands.
-- `opm/kernel/doc.go` says the core release the synthesized package imports is the kernel's pinned schema release; the corrected "SynthesizeInstance is documented as the typed-input entry point" needs it to name the major only and the module's own `cue.mod/module.cue` (the `Kernel.SynthesizeInstance` godoc already does).
-- `kernel-runtime` "Kernel.SynthesizeInstance method" (untouched here) carries the same core-release claim.
+- `opm/kernel/doc.go` says the core release the synthesized package imports is the kernel's pinned schema release; the corrected "SynthesizeInstance is documented as the typed-input entry point" needs it to name the major only and the module's own `cue.mod/module.cue` (the `Kernel.SynthesizeInstance` godoc already does). The sibling restore-kernel-godoc change rewrites that sentence.
 - `artifact-types` "Constructor Helpers from cue.Value" keeps a scenario titled "NewInstanceFromValue success path" whose body repeats "No instance constructor". Renaming it takes a REMOVED + ADDED under a new requirement name, which would orphan the citation in `opm/module/module_test.go`; it waits for a change that may edit Go comments.
 - `schema-dispatch` Purpose line, flagged during planning.
 - No test covers `Instance.ConfigSchema()` on an instance with no `#module` (`opm/module/instance_test.go` covers the reachable, missing-`#config` and nil cases).
@@ -46,9 +45,9 @@ None.
 
 - `artifact-types`: uniform shape without `APIVersion`; the instance accessor requirement carries the config schema's zero-value cases; debug values read `schema.DebugValues`; catalogs also come from `catalog.NewCatalogFromValue`.
 - `platform-artifact`: the bare-value constructor takes one argument and detects no version.
-- `config-validation`: `Source` is `{Origin, Data}` in every scenario; the `opm/errors` scenario describes the package as it is.
+- `config-validation`: `Source` is `{Origin, Data}` in every scenario; the `opm/errors` scenario describes the package as it is; the convenience-method requirement is restated with scenario names that match what they assert; source positions are claimed only for errors at fields a source sets.
 - `instance-synthesis`: the real internal signature and build step; no second public entry point.
-- `kernel-runtime`: the godoc scenario is renamed to what it asserts, and the imported core release is stated as the code has it.
+- `kernel-runtime`: the godoc scenario is renamed to what it asserts, and the imported core release is stated as the code has it in both the godoc and the `SynthesizeInstance` requirements.
 - `single-build-render`: the subscription-shaped refusal names only `AcquirePlatformFromDir`.
 
 ## Impact

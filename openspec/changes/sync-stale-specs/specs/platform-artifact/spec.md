@@ -9,7 +9,7 @@
 
 ### Requirement: Platform constructor takes a bare value
 
-The library SHALL expose `func NewPlatformFromValue(v cue.Value) (*Platform, error)` in `opm/platform`. The constructor SHALL take only the platform value. It SHALL decode `Metadata` from the value's `metadata` field, hoist the root-level `type` into `Metadata.Type`, set `Package` to the supplied value unchanged, and leave `Source` nil. It SHALL perform no API version detection and no binding lookup. When `metadata` is absent or does not decode, it SHALL return an error and a nil `*Platform`, never a partial one.
+The library SHALL expose `func NewPlatformFromValue(v cue.Value) (*Platform, error)` in `opm/platform`. The constructor SHALL take only the platform value. It SHALL decode `Metadata` from the value's `metadata` field, hoist the root-level `type` into `Metadata.Type`, set `Package` to the supplied value unchanged, and leave `Source` nil. It SHALL perform no API version detection and no binding lookup. When `metadata` is absent or does not decode, or the root `type` is present but not a string, it SHALL return an error and a nil `*Platform`, never a partial one.
 
 #### Scenario: Successful construction
 

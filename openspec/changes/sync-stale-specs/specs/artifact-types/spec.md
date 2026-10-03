@@ -93,7 +93,7 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 ### Requirement: APIVersion Field Stamped at Construction
 
 **Reason**: No artifact struct has an `APIVersion` field and the `opm/apiversion` package no longer exists. The library consumes one OPM schema and detects no version. `schema-dispatch` ("Module, Instance, Platform structs do not carry APIVersion") states the current rule, and this requirement contradicted it.
-**Migration**: None. There is no field to read. A caller that needs the schema release reads `Kernel.SchemaCache().ResolvedVersion()` or the module's own `cue.mod/module.cue`.
+**Migration**: None. There is no field to read. A caller that needs the schema release reads `schema.OCILoader.PinnedVersion()` (no I/O), `Kernel.SchemaCache().ResolvedVersion()` only after `Kernel.SchemaCache().Get()` has run, or the module's own `cue.mod/module.cue`.
 
 ### Requirement: Instance Config Schema Accessor
 
