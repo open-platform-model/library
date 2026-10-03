@@ -26,10 +26,12 @@
 //     with optional values as trailing [Source] values.
 //   - [Kernel.SynthesizeInstance] builds one from typed inputs
 //     ([InstanceInput]); the module it takes comes from the two module
-//     acquire verbs, and the core release the synthesized package imports is
-//     the kernel's pinned schema release, read from the configured
+//     acquire verbs, and the synthesized package imports core at the major
+//     of the kernel's schema release, read from the configured
 //     [schema.OCILoader] with no schema load when it pins an exact release
-//     (the default) and resolved through the schema cache otherwise.
+//     (the default) and resolved through the schema cache otherwise; the
+//     release that import resolves to is the one the module's own
+//     cue.mod/module.cue pins.
 //   - [Kernel.ValidateConfigDetailed] validates layered values.
 //   - [Kernel.Render] renders an instance against a platform.
 //
@@ -56,11 +58,11 @@
 // and Source from their inputs, with one exception: Render reads whether the
 // platform's Package carries #contracts.providedBy (the core floor), a
 // read-only path lookup and presence test with no unification and no fill.
-// Nothing is built into an input's context, so a module acquired by one
-// Kernel synthesizes on another and an instance from either renders on a
-// third, and one acquired platform may be shared by concurrent renders. No method returns or accepts a [*cue.Context]; a caller that must
-// compile a value against the schema takes the context of the value
-// [schema.Cache.Get] returns.
+// Nothing is built into an input's context, so a module acquired by one Kernel
+// synthesizes on another and an instance from either renders on a third, and
+// one acquired platform may be shared by concurrent renders. No method returns
+// or accepts a [*cue.Context]; a caller that must compile a value against the
+// schema takes the context of the value [schema.Cache.Get] returns.
 //
 // # Goroutine safety
 //
@@ -137,20 +139,19 @@
 // [*Compiled] carrying instance, component and transformer provenance).
 // Matching and transformer execution are CUE inside the build, not Go; the
 // build reports its verdicts as data and the kernel's fail-closed gate turns
-// them into a [*RenderError] that carries the full diagnostics, with the
-// typed causes reachable through errors.As and joined in this order: a
-// contract collision (a key more than one enabled registry entry defines,
-// read from core's #contracts.collisions and collidingEntries; the
-// opm/errors ContractCollisionsError, first because the other rows are read
-// against the inventory a collision distorts, platform-wide and standing
-// under the skip switch), an unresolved demand, an over-subscribed
-// provider-fulfilled contract (read from core's #contracts.overSubscribed
-// and providedBy), an unmatched component, and last the NotRoutableError
-// catch-all, raised only when core's decoded #contracts.routable reads
-// false and no collision or over-subscription row explains it. The rows are
-// the ones the platform's Contracts() reads, so the render refuses on a
-// collision or an over-subscription exactly when the inventory reads not
-// routable. Catalog
+// them into a [*RenderError] that carries the full diagnostics, with the typed
+// causes reachable through errors.As and joined in this order: a contract
+// collision (a key more than one enabled registry entry defines, read from
+// core's #contracts.collisions and collidingEntries; the opm/errors
+// ContractCollisionsError, first because the other rows are read against the
+// inventory a collision distorts, platform-wide and standing under the skip
+// switch), an unresolved demand, an over-subscribed provider-fulfilled
+// contract (read from core's #contracts.overSubscribed and providedBy), an
+// unmatched component, and last the NotRoutableError catch-all, raised only
+// when core's decoded #contracts.routable reads false and no collision or
+// over-subscription row explains it. The rows are the ones the platform's
+// Contracts() reads, so the render refuses on a collision or an
+// over-subscription exactly when the inventory reads not routable. Catalog
 // version skew (the instance module requiring a newer OPM-namespace build than
 // the platform carries) marks a resolved-versions row Newer by default
 // ([SkewWarn]) or refuses before evaluation ([SkewRefuse]).
@@ -158,15 +159,16 @@
 // The render module's own gate field agrees with the kernel: it errors exactly
 // when the kernel refuses on a decoded verdict, so a staged module is
 // self-refusing under a plain cue eval. The kernel decides from the decoded
-// rows and the decoded routable verdict only, never by reading the gate. Each typed cause carries its diagnostics rows unchanged and wraps
-// nothing. Inputs are never mutated, and the staging directory is removed on
-// return, success or failure; refusals before evaluation (a missing Source, a
-// platform whose core predates #contracts.providedBy, an uncovered
-// OPM-namespace path, skew under [SkewRefuse], a local replacement without
-// the opt-in) are plain errors. The core floor runs before anything is
-// staged: a platform module pinning core older than [schema.ProvidedBySince]
-// is refused with an error wrapping the opm/errors PlatformCoreTooOldError, and
-// the render never falls back to a provider count of its own.
+// rows and the decoded routable verdict only, never by reading the gate. Each
+// typed cause carries its diagnostics rows unchanged and wraps nothing. Inputs
+// are never mutated, and the staging directory is removed on return, success
+// or failure; refusals before evaluation (a missing Source, a platform whose
+// core predates #contracts.providedBy, an uncovered OPM-namespace path, skew
+// under [SkewRefuse], a local replacement without the opt-in) are plain
+// errors. The core floor runs before anything is staged: a platform module
+// pinning core older than [schema.ProvidedBySince] is refused with an error
+// wrapping the opm/errors PlatformCoreTooOldError, and the render never falls
+// back to a provider count of its own.
 //
 // A render result carries no presentation strings. The three advisory facts a
 // render can report are rows on the diagnostics: an unhandled optional trait
@@ -193,24 +195,25 @@
 // A dry run is Render with the output discarded: the build evaluates every
 // matched pair regardless, and RenderDiagnostics carries the pairing diagnosis
 // (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits,
-// OverSubscribed, Collisions, Routable, ResolvedVersions). There is no separate match verb.
+// OverSubscribed, Collisions, Routable, ResolvedVersions). There is no
+// separate match verb.
 //
 // A demand is unprovided when its contract declares fulfilment "provider" and
 // no enabled registry entry carries a transformer requiring the key: the key
 // is absent from core's #contracts.providedBy, the count the single-provider
-// guard reads. The build marks every unresolved
-// row with this fact on every render (UnresolvedDemand.Unprovided in opm/errors,
-// and a "provider-fulfilled, no provider on this platform" suffix on its
-// message), so a frontend can offer its skip switch without re-deriving
-// fulfilment. Under [RenderInput.SkipUnprovided] the build moves exactly
-// those demands out of the refusal: a skipped trait demand leaves its
-// component rendering every pair it matched, and a skipped resource demand
-// omits the whole component (no pair of it renders, it is not reported
-// unmatched, and every skipped row of it carries ComponentOmitted). Every
-// other refusal stands under the switch: a catalog-fulfilled unresolved
-// demand, a provider that exists but did not match, a contract collision,
-// an over-subscribed contract and an unmatched component. The switch is the caller's, per
-// render; the kernel never sets it, and a frontend names its own flag.
+// guard reads. The build marks every unresolved row with this fact on every
+// render (UnresolvedDemand.Unprovided in opm/errors, and a
+// "provider-fulfilled, no provider on this platform" suffix on its message),
+// so a frontend can offer its skip switch without re-deriving fulfilment.
+// Under [RenderInput.SkipUnprovided] the build moves exactly those demands out
+// of the refusal: a skipped trait demand leaves its component rendering every
+// pair it matched, and a skipped resource demand omits the whole component (no
+// pair of it renders, it is not reported unmatched, and every skipped row of
+// it carries ComponentOmitted). Every other refusal stands under the switch: a
+// catalog-fulfilled unresolved demand, a provider that exists but did not
+// match, a contract collision, an over-subscribed contract and an unmatched
+// component. The switch is the caller's, per render; the kernel never sets it,
+// and a frontend names its own flag.
 //
 // An input's own cue.mod/local-module.cue (a developer redirecting a
 // dependency to a directory or another module) reaches the render only under
@@ -240,11 +243,11 @@
 //
 // Render consumes the instance as processed: values are validated where they
 // are applied. [Kernel.AcquireInstanceFromDir] unifies its trailing [Source]
-// values inside the package build and checks them, together with the
-// package's own `values`, against the module's `#config` at their own
-// positions, on every acquire; [Kernel.SynthesizeInstance] does the same
-// for [InstanceInput.Values], rendering them into the synthesized package;
-// both then assert concreteness on the whole built spec. Render performs no
+// values inside the package build and checks them, together with the package's
+// own `values`, against the module's `#config` at their own positions, on
+// every acquire; [Kernel.SynthesizeInstance] does the same for
+// [InstanceInput.Values], rendering them into the synthesized package; both
+// then assert concreteness on the whole built spec. Render performs no
 // validation pass of its own.
 //
 // # Configuration validation
