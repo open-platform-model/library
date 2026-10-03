@@ -548,6 +548,10 @@ func TestRender_RepeatedRendersShareNothing(t *testing.T) {
 	inst := synthRenderInstance(t, k, "0.1.0")
 	ctx := context.Background()
 
+	// A private temp dir, so staging directories of other test processes
+	// rendering at the same time do not show up in the comparison.
+	t.Setenv("TMPDIR", t.TempDir())
+
 	before := stagingDirs(t)
 	first, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.NoError(t, err)
