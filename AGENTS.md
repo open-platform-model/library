@@ -148,6 +148,10 @@ modules/                      Test-only CUE modules (opm, opm_platform) — fixt
 testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, D5-shaped platforms, an instance and per-outcome scenario packages, all pinned to the default core release (`schema.DefaultSchemaModule`) and served in-process, so not discovered by the CUE tasks)
 docs/getting-started.md       End-to-end embedding walkthrough
 docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
+docs/site/                    Authored site pages (diagnostics how-tos, Embed the kernel); ship in the library docs bundle (Docs bundles below), while opmodel.dev still reads them from git on main until it reads the library from bundles (docs-kit gate G2-switch)
+docs-kit.cue                  The docs bundle config (docs-kit): the go-api source over ./opm/... and the markdown source over docs/site
+.opm-docs-version             The pinned docs-kit release (opm-docs and publish.yml), one line
+.tasks/opm-docs.sh            Installs the pinned opm-docs into .bin/ (checksum-verified) and checks the two pins agree; catalog_opm's, byte for byte
 migrations/                   Per-change migration fragments + policy (README.md; dormant through beta until GA, CI-enforced after — ADR-004; beta notes live in the CHANGELOG footer, ADR-010)
 .cue-cache/                   Gitignored shared CUE module cache: the opmodel.dev tier (core + GHCR catalogs) every test and test process reads; served fixtures live in per-test private caches, and nothing in the test tree deletes from it
 ```
@@ -255,7 +259,7 @@ task fmt        # gofmt + goimports
 task vet        # go vet ./...
 task lint       # golangci-lint
 task test       # go test ./...
-task check      # all four (use before merge)
+task check      # all four, then docs:bundle:check (use before merge)
 task check:fast # skips lint
 
 task test:run TEST=TestName          # single Go test
@@ -266,7 +270,16 @@ task build      # go build ./... (no binary produced)
 task tidy       # go mod tidy
 
 task deps:release-check   # G1 release-pin gate; CI runs it on release-please-- branches
+
+task tools:opm-docs       # install or reuse .bin/opm-docs, the checksum-verified docs-kit release in .opm-docs-version
+task docs:bundle          # build the library docs bundle of the work tree into out/library/ (gitignored), a local preview of edge
+task docs:pins:check      # refuse a docs-kit publish.yml@ ref naming another release than .opm-docs-version (offline; the Tests workflow runs it)
+task docs:bundle:check    # docs:pins:check, then opm-docs check (build and lint into a temporary directory)
 ```
+
+### Docs bundles
+
+`docs-kit.cue` declares one docs bundle, `library`: the Go API reference that docs-kit's `opm-docs` generates from the doc comments of every exported package under `opm/` (`opm/internal/` excluded) at `reference/go-api/`, plus the authored pages under `docs/site/`; opmodel.dev pulls it from `ghcr.io/open-platform-model/docs/library` (docs-kit `docs/contracts.md` C5, C15, C20). Nothing here commits generated pages. `docs.yml` checks the bundle on every pull request (`Docs / check`) and publishes `edge` from every push to `main`; `release.yml`'s `publish-docs` job publishes each release from its tag, after release-please. Preview with `task docs:bundle`, or browse it with `.bin/opm-docs serve` (docs-kit 0.5.0 on; it builds edge from the work tree, rebuilds on change and needs the host's `hugo`). A release with no bundle (a backfill, or a `publish-docs` run that failed) is published with `gh workflow run docs.yml --ref main -f mode=release -f tag=vX.Y.Z`; `main`'s `docs-kit.cue` builds a tag that has none. The backfill floor is `v1.0.0-beta.1`: older tags are never backfilled. A released page is fixed with a docs revision, `gh workflow run docs.yml --ref main -f mode=revision -f tag=vX.Y.Z -f fix=<40-hex sha>`, applying one comment-only or Markdown-only commit on `main` that cherry-picks cleanly onto the tag to that release; revisions are dispatched by hand (library#164). Once the site reads the library from bundles, an authored fix on `main` reaches readers only through a release or a revision. Every new exported symbol needs a doc comment, because it gets a reference entry; keep `ADR-NNN` and other maintainer pointers out of doc comments. `.opm-docs-version` and every `publish.yml@` ref name one docs-kit release and move together in one PR, after opmodel.dev runs that release (C12); Dependabot ignores them.
 
 ### CUE-module tasks
 

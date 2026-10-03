@@ -29,6 +29,11 @@ jobs:
         with:
           version: 3.x
 
+      # Offline: .opm-docs-version and every docs-kit publish.yml ref name the
+      # same release. The bundle build itself is Docs / check (docs.yml).
+      - name: Verify the docs-kit pins agree
+        run: task docs:pins:check
+
       # Release PRs only (workspace RELEASING.md, section "Gates"): a release
       # never ships a dev, pseudo-version or replaced pin. A step, not a job,
       # so it cannot read as skipped-and-passed. head_ref || ref_name is the

@@ -44,3 +44,7 @@ out.cue
 # Transient catalog publish build tree (cue:publish:catalog stamps the
 # version_override here; never committed).
 .build/
+
+# docs bundle preview (task docs:bundle) and the pinned opm-docs binary
+/out/
+/.bin/

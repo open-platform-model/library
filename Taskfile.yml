@@ -162,22 +162,57 @@ tasks:
       - "{{.COVERAGE_FILE}}"
       - "{{.COVERAGE_HTML}}"
 
+  ## Docs bundle
+  #
+  # docs-kit.cue declares one docs bundle, library: the Go API reference
+  # opm-docs generates from the exported packages under opm/, plus the
+  # authored pages under docs/site/. CI builds, signs and publishes it through
+  # docs-kit's publish.yml (docs.yml, release.yml); nothing here commits
+  # reference pages. These tasks run the same opm-docs release locally. The
+  # release is pinned in .opm-docs-version and in every publish.yml ref, and
+  # docs:bundle:check refuses the two disagreeing.
+
+  tools:opm-docs:
+    desc: Install or reuse .bin/opm-docs, the checksum-verified docs-kit release named by .opm-docs-version
+    cmds:
+      - bash .tasks/opm-docs.sh install
+
+  docs:bundle:
+    desc: Build the library docs bundle of the work tree into out/library/ (a local preview of edge)
+    deps: [tools:opm-docs]
+    cmds:
+      - .bin/opm-docs build --project library --out out
+
+  docs:pins:check:
+    desc: Refuse a docs-kit publish.yml ref under .github/workflows/ that names another release than .opm-docs-version (offline)
+    cmds:
+      - bash .tasks/opm-docs.sh pin-check
+
+  docs:bundle:check:
+    desc: Check the docs-kit pins agree, then build and lint the library docs bundle into a temporary directory
+    deps: [tools:opm-docs]
+    cmds:
+      - task: docs:pins:check
+      - .bin/opm-docs check --project library
+
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, and tests
+    desc: Run fmt, vet, lint, tests, and the docs bundle check
     cmds:
       - task: fmt
       - task: vet
       - task: lint
       - task: test
+      - task: docs:bundle:check
 
   check:fast:
-    desc: Run fmt, vet, and tests (skip lint)
+    desc: Run fmt, vet, tests, and the docs bundle check (skip lint)
     cmds:
       - task: fmt
       - task: vet
       - task: test
+      - task: docs:bundle:check
 
   ## Cleanup
 
