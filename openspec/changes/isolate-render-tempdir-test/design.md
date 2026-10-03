@@ -40,6 +40,12 @@ keep the path, and glob that path rather than `os.TempDir()`.
 
 - No change to `render.go` or to any exported symbol.
 - No fix for the `opm/helper/platformmodule` module-cache race (see proposal, Out of scope).
+- No rewording of the `single-build-render` scenarios that say a refusal writes no staging
+  directory; the code creates one and removes it (proposal, Modified Capabilities follow-up).
+
+The requirement lands in `single-build-render`, which already owns the staging-removal claim the
+three tests check, not in `test-fixture-registry`, whose purpose is the in-process fixture
+registry harness.
 
 ## Decisions
 
@@ -149,9 +155,12 @@ directory through the API, or assert only on the directories of the test's own r
   parallel render test fails loudly rather than flaking.
 - [Dropping the `before` snapshot loses a check] → Nothing is lost. The snapshot only guarded
   against pre-existing foreign directories, which a fresh private root cannot contain.
-- [The reproduction is probabilistic] → The before run must show at least one failure, and the
-  after run uses the same or a higher count. tasks.md 1.1 and 1.4 record both runs in
-  `design.md` under "Verification".
+- [The reproduction is probabilistic] → The before run must show at least one failure.
+- [After the fix, the three tests no longer write `opm-render-*` into the shared `TMPDIR`, so a
+  re-run of the same three processes has nothing to collide on and cannot fail] → The after run
+  adds a noise process that keeps creating and removing `opm-render-*` directories in the shared
+  root while the new binary runs with the same or a higher count. tasks.md 1.1 and 1.4 record
+  both runs in `design.md` under "Verification", including that the noise was running.
 
 ## Verification
 

@@ -5,8 +5,8 @@ compare two listings of `opm-render-*` taken through the helper `stagingDirs`
 (`opm/kernel/render_test.go:534-543`). That helper globs `os.TempDir()`, which is the shared
 `TMPDIR` of every test process on the machine. `Render` creates its staging directory with
 `os.MkdirTemp("", "opm-render-")` (`opm/kernel/render.go:355`), so any other process rendering at
-the same time (a second `go test`, another package's binary, a cascade run) can add or remove a
-directory between the two listings and fail the assertion.
+the same time (a second `go test` of the same package, for example from a parallel worktree) can
+add or remove a directory between the two listings and fail the assertion.
 
 `TestRender_RepeatedRendersShareNothing` (`render_test.go:545`) was already patched in #168 with
 `t.Setenv("TMPDIR", t.TempDir())` (`render_test.go:551-553`), so its own listing is private. The
@@ -21,10 +21,12 @@ Two of the three processes failed: four failures in all, every one in the two un
 for example `render_test.go:1089: expected: []string(nil) actual: []string{".../opm-render-..."}`.
 The test that already sets a private `TMPDIR` passed all 120 runs.
 
-The library's `Go tests` job will be a required check (RELEASING.md "Owner settings", "Rulesets on
-main", line 478). A cascade PR whose CI is red needs a human to add `deps-cascade:hold` (RELEASING.md
-"Runbook", "Handling a cascade PR", line 406), so a cross-process flake in that job costs a human
-step on a bot PR that should need none.
+The flake is local. `render.go:355` is the only place that creates `opm-render-*`, and only
+`opm/kernel` tests call `Render`. The library's `task test` runs `opm/kernel` once, in its `-race`
+pass (`Taskfile.yml:133`), and no `opm/kernel` test calls `t.Parallel`, so a single CI run cannot
+collide with itself. The collisions come from several suites sharing one machine's `TMPDIR`: the
+swarm's parallel library worktrees, or a developer running the suite twice at once. A future CI
+layout that ran two `opm/kernel` processes on one runner would hit it too, but none does today.
 
 ## What Changes
 
@@ -54,9 +56,16 @@ None.
 
 ### Modified Capabilities
 
-- `test-fixture-registry`: adds a requirement that a test asserting on render staging
+- `single-build-render`: adds a requirement that a test asserting on render staging
   directories lists only a temp root private to that test, so concurrent test processes
-  sharing `TMPDIR` cannot change its result.
+  sharing `TMPDIR` cannot change its result. `single-build-render` already owns the claim
+  those tests check ("The staging directory SHALL be removed when the render completes").
+
+Follow-up, not in this change: two `single-build-render` scenarios say a refusal happens "before
+staging" and that "no staging directory is written" (main spec, the version-less dependency
+scenario and "Replacement without opt-in refused"). The code creates the staging directory
+(`render.go:355`) before `renderstage.Stage` refuses, then removes it. The wording needs its own
+change.
 
 ## Impact
 
@@ -67,4 +76,5 @@ None.
 - Depends on: nothing. This is not a `deps:cascade` task change, so it does not wait on the
   `.github` `add-cascade-resolver` change.
 - Gates: `task check` (fmt, vet, lint, test, docs:bundle:check), plus the concurrent repro in
-  tasks.md section 1, run before and after the fix.
+  tasks.md section 1, run before the fix and after it with a noise process creating and removing
+  `opm-render-*` directories in the shared `TMPDIR`.
