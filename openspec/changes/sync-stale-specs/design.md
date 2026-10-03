@@ -4,6 +4,9 @@ Every delta in this change describes code that already exists at `origin/main` (
 
 | Spec claim | Code at HEAD |
 | --- | --- |
+| `*catalog.Catalog` comes only from the two catalog acquire verbs | `opm/catalog/catalog.go` also exports `NewCatalogFromValue(v cue.Value)`, which the acquire verbs call |
+| The synthesized package imports the kernel's pinned core release | `opm/internal/synth/render.go` writes `core@major(coreVersion)`; the release resolves from the module's own `cue.mod/module.cue` (`Kernel.SynthesizeInstance` godoc) |
+| Partial validation runs only under `AcquireInstanceFromDir` | `opm/kernel/synth.go` also calls `validateSources(…, false)` from `SynthesizeInstance` |
 | Artifacts carry `APIVersion apiversion.Version` | `module.Module`, `module.Instance`, `platform.Platform` and `catalog.Catalog` export exactly `Metadata`, `Package`, `Source`; no `opm/apiversion` package exists (`TestPlatform_FieldSet` pins the platform field set) |
 | `Instance.ConfigSchema()` looks up a binding for `r.APIVersion` | `opm/module/instance.go`: `Package.LookupPath(schema.Module)`, then `LookupPath(schema.Config)`; zero value on nil receiver, missing `#module` or missing `#config` |
 | Debug values read through `binding.Paths().DebugValues` | `opm/schema/paths.go` exports `DebugValues`; `opm/module/module.go` package doc says it is read off `Module.Package` via `schema.DebugValues` |
@@ -17,16 +20,16 @@ Every delta in this change describes code that already exists at `origin/main` (
 
 **Goals:** every requirement this change touches matches HEAD, and `artifact-types` no longer contradicts `schema-dispatch`.
 
-**Non-Goals:** a full audit of all eighteen specs; any edit to Go code or godoc; renaming a requirement whose name still fits.
+**Non-Goals:** a full audit of every library spec; any edit to Go code or godoc; renaming a requirement whose name still fits.
 
 ## Research & Decisions
 
 ### MODIFIED where every scenario name still fits, REMOVED + ADDED where one does not
 
-**Context**: The owner decision for c1 says "REMOVED+ADDED deltas". OpenSpec 1.12 refuses a MODIFIED requirement that leaves out any scenario name the main spec has, and RENAMED does not get around that. A scenario whose name states something false (for example "Zero value on unregistered binding" or "SynthesizeInstance godoc points to LoadInstancePackage") cannot be kept.
+**Context**: The owner's decision for this change says "REMOVED+ADDED deltas". OpenSpec 1.12 refuses a MODIFIED requirement that leaves out any scenario name the main spec has, and RENAMED does not get around that. A scenario whose name states something false (for example "Zero value on unregistered binding" or "SynthesizeInstance godoc points to LoadInstancePackage") cannot be kept.
 **Explored**: REMOVED + ADDED for every touched requirement, or for only the ones where the 1.12 rule requires it.
-**Decision**: Use REMOVED + ADDED under a new requirement name wherever a scenario name is stale or a requirement goes away: "APIVersion Field Stamped at Construction" (removed, with no replacement, because `schema-dispatch` already states the opposite), "Instance Config Schema Accessor", "Platform Constructor from cue.Value", and "SynthesizeInstance is documented as the recommended in-memory entry point". Use MODIFIED, keeping every scenario name and rewriting only the stale sentences, where all the names still fit: "Uniform Artifact Shape", "Kernel Artifact Type Set", "Module and Instance Typed Convenience Methods", "Single Kernel Validation Primitive", "No Custom Validation Error Types", "synth.Instance constructs the instance by single-build CUE evaluation", "Instance synthesis input" and "Render is the kernel's sole render path".
-**Rationale**: The owner's instruction comes from the 1.12 rule, and REMOVED + ADDED is how this change satisfies it wherever the rule applies. Keeping the names elsewhere preserves the references other specs and test comments make by name. For example, `opm/kernel/kernel_test.go` cites config-validation's "Single Kernel Validation Primitive", and `opm/platform/platform_test.go` cites "Platform struct fields".
+**Decision**: Use REMOVED + ADDED under a new requirement name wherever a scenario name is stale or a requirement goes away: "APIVersion Field Stamped at Construction" (removed, with no replacement, because `schema-dispatch` already states the opposite), "Instance Config Schema Accessor" (removed; its zero-value cases move into the existing "Instance exposes its components and config schema", so the accessor is specified once in `artifact-types`), "Platform Constructor from cue.Value", and "SynthesizeInstance is documented as the recommended in-memory entry point". Use MODIFIED, keeping every scenario name and rewriting only the stale sentences, where all the names still fit: "Uniform Artifact Shape", "Kernel Artifact Type Set", "Instance exposes its components and config schema", "Module and Instance Typed Convenience Methods", "Single Kernel Validation Primitive", "No Custom Validation Error Types", "synth.Instance constructs the instance by single-build CUE evaluation", "Instance synthesis input" and "Render is the kernel's sole render path".
+**Rationale**: The owner's instruction comes from the 1.12 rule, and REMOVED + ADDED is how this change satisfies it wherever the rule applies. Keeping the names elsewhere preserves the references other specs and test comments make by name. For example, `opm/kernel/kernel_test.go` cites config-validation's "Single Kernel Validation Primitive", and `opm/platform/platform_test.go` cites "Platform struct fields". For the same reason "Constructor Helpers from cue.Value" is left as it is, although one scenario name ("NewInstanceFromValue success path") is wrong: `opm/module/module_test.go` cites the requirement by name, OpenSpec refuses REMOVED and ADDED under one name, and this change edits no Go comment. The proposal lists it as a follow-up.
 
 ### Purpose lines are edited in place
 
@@ -36,7 +39,7 @@ Every delta in this change describes code that already exists at `origin/main` (
 
 ### schema-dispatch stays as it is
 
-**Context**: c1 names a "schema-dispatch conflict". `schema-dispatch` ("Module, Instance, Platform structs do not carry APIVersion") and `artifact-types` ("Uniform Artifact Shape") state opposite things.
+**Context**: The owner's decision names a "schema-dispatch conflict". `schema-dispatch` ("Module, Instance, Platform structs do not carry APIVersion") and `artifact-types` ("Uniform Artifact Shape") state opposite things.
 **Decision**: Correct `artifact-types`. `schema-dispatch` matches the code and is not touched.
 
 ## Risks / Trade-offs

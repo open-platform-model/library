@@ -42,7 +42,7 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 #### Scenario: The fourth type is a read, never a render
 
 - **WHEN** a developer searches the kernel public API for a way to render or execute a `Catalog`
-- **THEN** none exists: `*catalog.Catalog` is produced only by the two catalog acquire verbs, and `Kernel.Render` takes an instance and a platform
+- **THEN** none exists: `*catalog.Catalog` is produced by the two catalog acquire verbs or `catalog.NewCatalogFromValue`, and no kernel method renders or executes one; `Kernel.Render` takes an instance and a platform
 - **AND** what the catalog provides and what it requires are reported by methods on the artifact, which return data and refuse nothing
 
 #### Scenario: The enumerated set is stated once and agrees everywhere
@@ -50,6 +50,43 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 - **WHEN** a developer reads the kernel's accepted-kinds list in `README.md`, `AGENTS.md` and this spec
 - **THEN** all three enumerate the same four types
 - **AND** each names ADR-009 as the record of why the fourth was admitted and of the test a fifth must pass
+
+### Requirement: Instance exposes its components and config schema
+
+`*module.Instance` SHALL expose `Components()` (the instance's evaluated components value, definition fields included, read through `schema.Components`) and `ConfigSchema()` (the embedded module's `#config`, read as `Package.LookupPath(schema.Module)` followed by `LookupPath(schema.Config)`). `ConfigSchema()` SHALL return the zero `cue.Value` (not an error) when the receiver is `nil`, when the instance carries no `#module`, or when the embedded module declares no `#config`, and SHALL consult no version or binding. The instance SHALL expose no accessor that mirrors a decoded metadata field (`Metadata` is the projection) and no accessor over the module-metadata projection: the transformer context that read those is projected by core (0019:D12).
+
+#### Scenario: Components accessor
+
+- **WHEN** a caller invokes `inst.Components()` on an acquired instance
+- **THEN** the returned value is `inst.Package.LookupPath(schema.Components)` with `#names`, `#resources`, `#traits` and `#blueprints` intact
+
+#### Scenario: No metadata-mirroring accessors
+
+- **WHEN** a developer inspects the exported methods of `*module.Instance`
+- **THEN** none of `InstanceName`, `Namespace`, `InstanceUUID`, `InstanceFQN`, `ModuleVersion`, `Labels`, `Annotations`, `MatchComponents` exists
+
+#### Scenario: Config schema reachable on a well-formed instance
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` carries an embedded `#module` with a `#config` definition
+- **THEN** the returned `cue.Value` exists (`v.Exists() == true`)
+- **AND** it is the value `inst.Package.LookupPath(schema.Module).LookupPath(schema.Config)`
+
+#### Scenario: Config schema is the zero value on a missing #module
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` has no `#module` field
+- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
+- **AND** no error is returned
+
+#### Scenario: Config schema is the zero value on a missing #config
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose embedded `#module` does not declare a `#config` definition
+- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
+
+#### Scenario: Config schema on a nil instance is the zero value
+
+- **WHEN** a caller invokes `(*Instance)(nil).ConfigSchema()`
+- **THEN** the returned `cue.Value` is the zero value
+- **AND** no panic occurs
 
 ## REMOVED Requirements
 
@@ -60,34 +97,5 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 
 ### Requirement: Instance Config Schema Accessor
 
-**Reason**: It looked the schema up through a version binding keyed by `r.APIVersion`, and neither exists. Its scenarios "Schema reachable on a well-formed instance" and "Zero value on unregistered binding" name that binding. The accessor itself is unchanged and is restated under "Instance config schema reads through schema paths".
+**Reason**: It looked the schema up through a version binding keyed by `r.APIVersion`, and neither exists. Its scenarios "Schema reachable on a well-formed instance" and "Zero value on unregistered binding" name that binding. The accessor itself is unchanged; "Instance exposes its components and config schema" already specified it through `schema.Module` and `schema.Config`, and now carries its zero-value cases too.
 **Migration**: None for callers. `(*module.Instance).ConfigSchema()` keeps its signature and its zero-value contract.
-
-## ADDED Requirements
-
-### Requirement: Instance config schema reads through schema paths
-
-`*module.Instance` SHALL expose a `ConfigSchema() cue.Value` accessor that returns the embedded source module's `#config` schema, read as `Package.LookupPath(schema.Module)` followed by `LookupPath(schema.Config)`. The accessor SHALL return the zero `cue.Value` (not an error) when the receiver is `nil`, when the instance carries no `#module`, or when the embedded module declares no `#config`. It SHALL consult no version or binding.
-
-#### Scenario: Schema reachable on a well-formed instance
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` carries an embedded `#module` with a `#config` definition
-- **THEN** the returned `cue.Value` exists (`v.Exists() == true`)
-- **AND** it is the value `inst.Package.LookupPath(schema.Module).LookupPath(schema.Config)`
-
-#### Scenario: Zero value on missing #module
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` has no `#module` field
-- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
-- **AND** no error is returned
-
-#### Scenario: Zero value on missing #config
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose embedded `#module` does not declare a `#config` definition
-- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
-
-#### Scenario: Nil instance yields the zero value
-
-- **WHEN** a caller invokes `(*Instance)(nil).ConfigSchema()`
-- **THEN** the returned `cue.Value` is the zero value
-- **AND** no panic occurs
