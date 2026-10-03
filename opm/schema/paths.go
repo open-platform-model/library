@@ -63,7 +63,7 @@ var (
 	// read RELATIVE to a transformer and to one of its demand entries, not
 	// from an artifact root: the provider-fulfilled set a catalog implements
 	// is the fold of every contract those two demand maps require whose
-	// value carries fulfilment "provider" (ADR-009). Their one reader is
+	// value carries fulfilment "provider". Their one reader is
 	// (*catalog.Catalog).Provides, on demand.
 	Transformers      = cue.MakePath(cue.Def("transformers"))
 	RequiredResources = cue.ParsePath("requiredResources")

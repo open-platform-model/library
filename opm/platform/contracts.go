@@ -65,8 +65,8 @@ type ContractInventory struct {
 
 	// RequiredBy maps each defined contract FQN to the implementation FQNs
 	// of every enabled transformer whose requiredResources or
-	// requiredTraits name it, in the build's order. Required demands only
-	// (0010:D32: optional consumption is tolerance, not fulfilment); a
+	// requiredTraits name it, in the build's order. Required demands only:
+	// optional consumption is tolerance, not fulfilment (0010:D32). A
 	// defined contract nothing requires maps to an empty list. A colliding
 	// key is not defined, so it is absent however many transformers
 	// require it.

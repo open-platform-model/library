@@ -11,8 +11,8 @@ import (
 // coordinate and decoded metadata: module acquire
 // (the kernel's registry acquisition) returns it bare, so frontends route on it via
 // [errors.As]. A platform's catalog builds are verified structurally by core
-// instead (0019:D5: the registry key binds to the embedded catalog's
-// modulePath), so no catalog read site produces it.
+// instead: the registry key binds to the embedded catalog's modulePath
+// (0019:D5), so no catalog read site produces it.
 type IdentityError struct {
 	// Field names the mismatched identity field: "path" | "version".
 	Field string
@@ -28,9 +28,9 @@ type IdentityError struct {
 	Coordinate string
 }
 
-// Error names both values (0010:D11: "a typed error naming both"). Value receiver:
-// the condition is a comparison, not a wrapped failure, so there is no Cause
-// and no Unwrap.
+// Error names both values, the declared identity and the fetched coordinate
+// (0010:D11). Value receiver: the condition is a comparison, not a wrapped
+// failure, so there is no Cause and no Unwrap.
 func (e IdentityError) Error() string {
 	return fmt.Sprintf("identity mismatch at %s: metadata declares %q but the artifact was fetched as %q (%s)",
 		e.Field, e.Declared, e.Fetched, e.Coordinate)
