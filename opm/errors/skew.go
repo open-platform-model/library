@@ -18,6 +18,8 @@ type SkewError struct {
 	PlatformVersion string
 }
 
+// Error names the skewed path, the build the module requires and the build
+// the platform carries.
 func (e *SkewError) Error() string {
 	return fmt.Sprintf("version skew on %q: module requires %s, platform carries %s (refused by policy)", e.Path, e.ModuleVersion, e.PlatformVersion)
 }

@@ -17,12 +17,13 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// SkewPolicy is the caller's response to catalog version skew (enhancement
-// 0019:D7/D18): the instance module's cue.mod requiring a NEWER build of an
+// SkewPolicy is the caller's response to catalog version skew
+// (0019:D7/D18): the instance module's cue.mod requiring a NEWER build of an
 // OPM-namespace path than the platform module carries. Exactly two responses
 // exist; the zero value is the default.
 type SkewPolicy int
 
+// The skew policies a caller can choose.
 const (
 	// SkewWarn renders against the platform's build and marks that path's
 	// row on [RenderDiagnostics.ResolvedVersions] as Newer. The default;
@@ -272,12 +273,15 @@ type RenderError struct {
 	Err         error
 }
 
+// Error returns "render refused: " followed by the message of Err.
 func (e *RenderError) Error() string { return "render refused: " + e.Err.Error() }
 
+// Unwrap returns Err, so errors.As and errors.Is reach the typed causes it
+// carries.
 func (e *RenderError) Unwrap() error { return e.Err }
 
-// Render renders an instance against a platform as ONE CUE build (enhancement
-// 0019:D9): it stages a generated render module in a per-render temporary
+// Render renders an instance against a platform as ONE CUE build
+// (0019:D9): it stages a generated render module in a per-render temporary
 // directory (the promoted cue.mod, 0019:D13; directory replacements bringing both
 // inputs in, an on-disk input in place and an overlay-mode input from memory,
 // so the directory holds only the generated module; the embedded matching

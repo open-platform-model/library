@@ -48,6 +48,8 @@ type ContractCollisionsError struct {
 	Contracts []ContractCollision
 }
 
+// Error returns a count line, then one indented line per colliding contract
+// key naming the entries that define it.
 func (e *ContractCollisionsError) Error() string {
 	msg := fmt.Sprintf("%d colliding contract(s):", len(e.Contracts))
 	for _, c := range e.Contracts {
@@ -65,6 +67,8 @@ func (e *ContractCollisionsError) Error() string {
 // reports. It carries no rows and wraps nothing.
 type NotRoutableError struct{}
 
+// Error returns a fixed message: the platform is not routable and no
+// over-subscribed or colliding contract explains why.
 func (e *NotRoutableError) Error() string {
 	return "platform is not routable: its contract inventory reads routable false and reports no over-subscribed or colliding contract to explain it"
 }

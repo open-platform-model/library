@@ -122,7 +122,7 @@ The boundary is enforced by `task lint`, not just documented: a `depguard` rule 
 Today this layer holds exactly two subpackages:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
-- `opm/helper/objectset` — Duplicate rendered object identities: `Duplicates` scans a render's `[]*kernel.Compiled` for every Kubernetes apply identity (apiVersion, kind, namespace, name) two or more objects share, naming each producing component and transformer, and `DuplicateIdentitiesError` words the refusal a runtime raises from those rows before apply. Kubernetes vocabulary lives here rather than in the kernel; a frontend applying to something else skips it.
+- `opm/helper/objectset` — Duplicate rendered object identities: `Duplicates` scans a render's `[]*kernel.Compiled` for every Kubernetes apply identity (API group, kind, namespace, name) two or more objects share, naming each producing component and transformer, and `DuplicateIdentitiesError` words the refusal a runtime raises from those rows before apply. Kubernetes vocabulary lives here rather than in the kernel; a frontend applying to something else skips it.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 

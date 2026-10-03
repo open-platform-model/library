@@ -163,7 +163,14 @@ func (l OCILoader) loadVersioned(ctx *cue.Context) (cue.Value, string, error) {
 		return cue.Value{}, "", fmt.Errorf("schema OCILoader: loading %q: %w", moduleID, instances[0].Err)
 	}
 
+	// A module can load cleanly and still fail to build (an unresolved
+	// reference, a conflict); the failure then rides on the value, not on
+	// an error. Report it as a load failure so no caller, and no Cache,
+	// ever holds an errored schema as a success.
 	val := ctx.BuildInstance(instances[0])
+	if err := val.Err(); err != nil {
+		return cue.Value{}, "", fmt.Errorf("schema OCILoader: building %q: %w", moduleID, err)
+	}
 	version := resolvedVersionFromInstanceDir(instances[0].Dir)
 	return val, version, nil
 }

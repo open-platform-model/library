@@ -3,9 +3,9 @@
 // #traits, #blueprints) beside the transformers that implement them
 // (#transformers).
 //
-// A catalog is the kernel's fourth acquired kind, admitted by ADR-009 on the
-// terms recorded there: the kernel reads and derives, and every verdict about
-// what it reads stays with the caller. Nothing here refuses a value for being
+// A catalog is the kernel's fourth acquired kind, on one condition: the
+// kernel reads and derives, and every verdict about what it reads stays with
+// the caller. Nothing here refuses a value for being
 // unwelcome — [Catalog.Provides] reports the empty set for a catalog that
 // implements no provider-fulfilled contract, because implementing none is a
 // fact about the catalog and not a malformed value.
@@ -16,6 +16,8 @@
 // convention — opm/kernel imports this package to return what its catalog
 // verbs acquire, so the reverse edge is an import cycle the compiler refuses.
 package catalog
+
+// The catalog kind and the terms it was admitted on are ADR-009.
 
 import (
 	"fmt"
