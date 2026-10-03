@@ -11,25 +11,25 @@ cross-process cache race, not this change.
 
 ## 1. Duplicate identities keyed on group (opm/helper/objectset)
 
-- [ ] 1.1 In `opm/helper/objectset/objectset.go`, key `Duplicates` on an unexported
+- [x] 1.1 In `opm/helper/objectset/objectset.go`, key `Duplicates` on an unexported
   `{group, kind, namespace, name}` with `groupOf` per design.md DM1; a row's `Identity` stays the
   first-rendered object's (exported `Identity` and its `String()` unchanged). Verify:
   `go build ./opm/helper/...`.
-- [ ] 1.2 Add `APIVersion string` to `Producer`, set from each object's `apiVersion`; in
+- [x] 1.2 Add `APIVersion string` to `Producer`, set from each object's `apiVersion`; in
   `DuplicateIdentitiesError.Error()` append ` as <apiVersion>` to each producer only when a row's
   producers do not all share one `APIVersion` (DM2). `Producer.String()` unchanged.
-- [ ] 1.3 `objectset_test.go`: update existing expectations for the new `Producer.APIVersion`;
+- [x] 1.3 `objectset_test.go`: update existing expectations for the new `Producer.APIVersion`;
   add `apps/v1` + `apps/v1beta2` Deployment `web` (one row, identity `apps/v1`, producers carry
   their own versions), the same kind and name in two groups (no rows), a core-group `v1` pair
   (one row), a `v1` ConfigMap `x` beside a ConfigMap `x` with no `apiVersion` (one row, the
   message wording the second producer `as <no apiVersion>`), and the message naming both versions for the mixed row while a same-version row's
   message is byte-identical to today's. Verify: `go test ./opm/helper/objectset/...`.
-- [ ] 1.4 Say "group, kind, namespace and name" where the identity is spelled as four fields:
+- [x] 1.4 Say "group, kind, namespace and name" where the identity is spelled as four fields:
   the `Identity` doc comment in `opm/helper/objectset/objectset.go`, `opm/helper/objectset/doc.go`
   (the opening "same apiVersion, kind, namespace and name" sentence) and `README.md` (the
   `objectset` line).
   Verify: `go doc github.com/open-platform-model/library/opm/helper/objectset` reads correctly.
-- [ ] 1.5 `task check` green, then commit `fix(helper): key duplicate identities on api group`.
+- [x] 1.5 `task check` green, then commit `fix(helper): key duplicate identities on api group`.
 
 ## 2. Errored schema builds are load failures (opm/schema)
 

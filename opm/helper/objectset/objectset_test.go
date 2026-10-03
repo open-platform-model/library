@@ -39,8 +39,13 @@ func registration(t *testing.T, component string) *kernel.Compiled {
 
 func deployment(t *testing.T, component, transformer, name string) *kernel.Compiled {
 	t.Helper()
+	return deploymentAt(t, component, transformer, "apps/v1", name)
+}
+
+func deploymentAt(t *testing.T, component, transformer, apiVersion, name string) *kernel.Compiled {
+	t.Helper()
 	return compiled(t, component, transformer, `
-		apiVersion: "apps/v1"
+		apiVersion: "`+apiVersion+`"
 		kind:       "Deployment"
 		metadata: {
 			name:      "`+name+`"
@@ -63,8 +68,8 @@ func TestDuplicates_TwoComponentsRenderOneClusterScopedObject(t *testing.T) {
 	}, rows[0].Identity)
 	assert.Empty(t, rows[0].Identity.Namespace)
 	assert.Equal(t, []objectset.Producer{
-		{Component: "registration", Transformer: registrationTransformer},
-		{Component: "registration-copy", Transformer: registrationTransformer},
+		{Component: "registration", Transformer: registrationTransformer, APIVersion: "opmodel.dev/v1alpha1"},
+		{Component: "registration-copy", Transformer: registrationTransformer, APIVersion: "opmodel.dev/v1alpha1"},
 	}, rows[0].Producers)
 }
 
@@ -157,4 +162,104 @@ func TestDuplicates_RowsFollowEachRendersOwnFirstSeenOrder(t *testing.T) {
 	assert.Equal(t, "TransformerRegistration", first[1].Identity.Kind)
 	assert.Equal(t, "TransformerRegistration", second[0].Identity.Kind)
 	assert.Equal(t, "Deployment", second[1].Identity.Kind)
+}
+
+func configMap(t *testing.T, component, apiVersionField string) *kernel.Compiled {
+	t.Helper()
+	return compiled(t, component, "…/configmap@1.0.0", apiVersionField+`
+		kind: "ConfigMap"
+		metadata: {
+			name:      "x"
+			namespace: "web-system"
+		}
+	`)
+}
+
+func TestDuplicates_OneObjectUnderTwoVersionsOfItsGroup(t *testing.T) {
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		deploymentAt(t, "a", "…/deployment@1.0.0", "apps/v1", "web"),
+		deploymentAt(t, "b", "…/legacy@1.0.0", "apps/v1beta2", "web"),
+	})
+
+	require.Len(t, rows, 1)
+	assert.Equal(t, objectset.Identity{
+		APIVersion: "apps/v1",
+		Kind:       "Deployment",
+		Namespace:  "web-system",
+		Name:       "web",
+	}, rows[0].Identity)
+	assert.Equal(t, []objectset.Producer{
+		{Component: "a", Transformer: "…/deployment@1.0.0", APIVersion: "apps/v1"},
+		{Component: "b", Transformer: "…/legacy@1.0.0", APIVersion: "apps/v1beta2"},
+	}, rows[0].Producers)
+}
+
+func TestDuplicates_OneKindAndNameInTwoGroupsStaysDistinct(t *testing.T) {
+	widget := func(component, apiVersion string) *kernel.Compiled {
+		return compiled(t, component, "…/widget@1.0.0", `
+			apiVersion: "`+apiVersion+`"
+			kind:       "Widget"
+			metadata: name: "web"
+		`)
+	}
+
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		widget("a", "a.example.com/v1"),
+		widget("b", "b.example.com/v1"),
+	})
+
+	assert.Empty(t, rows)
+}
+
+func TestDuplicates_CoreGroupPairIsOneRow(t *testing.T) {
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		configMap(t, "a", `apiVersion: "v1"`),
+		configMap(t, "b", `apiVersion: "v1"`),
+	})
+
+	require.Len(t, rows, 1)
+	assert.Equal(t, "v1 ConfigMap web-system/x", rows[0].Identity.String())
+	assert.Len(t, rows[0].Producers, 2)
+}
+
+func TestDuplicates_MissingAPIVersionFallsInTheCoreGroup(t *testing.T) {
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		configMap(t, "a", `apiVersion: "v1"`),
+		configMap(t, "b", ""),
+	})
+
+	require.Len(t, rows, 1)
+	assert.Equal(t, "v1", rows[0].Identity.APIVersion)
+	assert.Equal(t, "v1", rows[0].Producers[0].APIVersion)
+	assert.Empty(t, rows[0].Producers[1].APIVersion)
+
+	msg := (&objectset.DuplicateIdentitiesError{Duplicates: rows}).Error()
+	assert.Contains(t, msg, `component "a" (…/configmap@1.0.0) as v1 and component "b" (…/configmap@1.0.0) as <no apiVersion>`)
+}
+
+func TestDuplicateIdentitiesError_NamesAVersionMismatch(t *testing.T) {
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		deploymentAt(t, "a", "…/deployment@1.0.0", "apps/v1", "web"),
+		deploymentAt(t, "b", "…/legacy@1.0.0", "apps/v1beta2", "web"),
+	})
+
+	msg := (&objectset.DuplicateIdentitiesError{Duplicates: rows}).Error()
+	assert.Equal(t, "2 rendered objects share one identity, so the last apply would silently overwrite the first:\n"+
+		`  apps/v1 Deployment web-system/web rendered by component "a" (…/deployment@1.0.0) as apps/v1 and component "b" (…/legacy@1.0.0) as apps/v1beta2`,
+		msg)
+}
+
+func TestDuplicateIdentitiesError_SameVersionRowCarriesNoVersions(t *testing.T) {
+	rows := objectset.Duplicates([]*kernel.Compiled{
+		registration(t, "registration"),
+		registration(t, "registration-copy"),
+	})
+
+	msg := (&objectset.DuplicateIdentitiesError{Duplicates: rows}).Error()
+	assert.Equal(t, "2 rendered objects share one identity, so the last apply would silently overwrite the first:\n"+
+		`  opmodel.dev/v1alpha1 TransformerRegistration backup-system.k8up rendered by `+
+		`component "registration" (`+registrationTransformer+`) and `+
+		`component "registration-copy" (`+registrationTransformer+`)`,
+		msg)
+	assert.NotContains(t, msg, " as ")
 }

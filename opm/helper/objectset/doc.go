@@ -2,10 +2,10 @@
 // identity, so a runtime can refuse the render instead of letting the last
 // write silently overwrite the first.
 //
-// Two objects with the same apiVersion, kind, namespace and name reach apply
-// as two writes to one object. Nothing in the kernel notices: kernel.Compiled
-// deliberately carries no platform vocabulary, and Render never reads kind or
-// metadata. This package supplies the missing check in the one place that has
+// Two objects with the same API group, kind, namespace and name reach apply
+// as two writes to one object, whatever version of the group each names.
+// Nothing in the kernel notices: kernel.Compiled deliberately carries no
+// platform vocabulary, and Render never reads kind or metadata. This package supplies the missing check in the one place that has
 // both the objects and their provenance, without moving Kubernetes vocabulary
 // into the kernel.
 //
