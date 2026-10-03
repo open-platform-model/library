@@ -54,13 +54,14 @@ func NewRegistry(cfg RegistryConfig) (ModFileSource, error) {
 // Closure derives the generated module's full dependency list from roots: a
 // breadth-first walk over each reachable module version's published module
 // file, selecting the maximum version per major-qualified path, the roots
-// participating in the maximum. This is minimum version selection computed
-// the way `cue mod tidy` computes it, once, at platform-module generation
-// (0019:D13), minus the prune of modules no import reaches,
-// which pins a path nothing evaluates and is harmless. Derived entries carry
-// no default-major marker; `cue mod tidy` writes none for a platform either,
-// because the platform imports nothing unqualified. Local replacements
-// (cue.mod/local-module.cue, the "local" path) are skipped.
+// participating in the maximum. This is minimum version selection as
+// `cue mod tidy` computes it, run once, when the platform module is
+// generated (0019:D13). Unlike tidy it does not prune modules no import
+// reaches; such a pin names a path nothing evaluates and is harmless.
+// Derived entries carry no default-major marker; `cue mod tidy` writes none
+// for a platform either, because the platform imports nothing unqualified.
+// Local replacements (cue.mod/local-module.cue, the "local" path) are
+// skipped.
 //
 // A root or transitive requirement naming an unpublished build fails with
 // an error naming the module path and version, the same wording the CUE
