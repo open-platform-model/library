@@ -60,9 +60,10 @@ type Duplicate struct {
 // part of apiVersion before the first "/", empty for the core group and for
 // an object with no apiVersion), kind, namespace and name match; the version
 // does not distinguish them, because the API server serves one object under
-// every version of its group. A value carrying no kind or no metadata.name is not a Kubernetes
-// object and is skipped; nothing else about the objects is validated. A
-// render whose objects all have distinct identities returns no rows.
+// every version of its group. A value carrying no kind or no metadata.name
+// is not a Kubernetes object and is skipped; nothing else about the objects
+// is validated. A render whose objects all have distinct identities returns
+// no rows.
 func Duplicates(compiled []*kernel.Compiled) []Duplicate {
 	order := make([]key, 0, len(compiled))
 	first := make(map[key]Identity, len(compiled))
