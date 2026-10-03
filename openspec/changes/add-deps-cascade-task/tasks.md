@@ -6,7 +6,6 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 - [ ] 1.1 Spike: in a scratch copy of the tree (never this worktree), confirm the design's open assumptions and write any correction into design.md:
   - the S2 round trip from `older.tsv` back to the current pins gives the committed bytes. Use a hand-run `cue mod get opmodel.dev/core@<D> opmodel.dev/catalogs/opm@<K>` plus `cue mod tidy` in the four catalog modules, from core `v2.0.0-beta.1` and catalog `v4.5.0`;
-  - go-task 3.52 accepts a YAML anchor shared by task-level `vars:` and returns 3 under `task -x` for a script `exit 3`;
   - the `awk` core-block rewrite leaves every other byte of a render tree alone.
 - [ ] 1.2 Add `.tasks/cascade/classes` with the three lines from design.md D1, verbatim from contract §5.3.
 - [ ] 1.3 Add `.tasks/cascade/pins.sh` (mode 0755) per design.md D2. Check by hand that `pins.sh WORKTREE` and `pins.sh HEAD` print the same two rows, and that `pins.sh 3c3b8c1~1` prints core `v2.0.0-beta.1`.
@@ -30,30 +29,38 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
   - the contract §3 precondition and message;
   - env `CASCADE_MODULE_GLOBS: '{{.CUE_MODULE_GLOBS}}'`;
   - preconditions for `git`, `yq` (mikefarah v4) and `jq`.
-- [ ] 2.7 Check by hand in a scratch copy, with the stub and a table of the tree's own versions, that `task -x deps:cascade` exits 3 and leaves `git status --porcelain` empty.
+- [ ] 2.7 Check by hand in a scratch copy, with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` and a table of the tree's own versions, that `task -x deps:cascade` exits 3 and leaves `git status --porcelain` empty.
 - [ ] 2.8 Gate green, then commit `ci(cascade): add the deps:cascade task`.
 
 ## 3. Offline tests in the required job
 
-- [ ] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1, S3 and S6 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
+- [ ] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7 and S8 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
 - [ ] 3.2 Add `.tasks/cascade/testdata/s1-calls.txt` with the three normalized lines from design.md D7.
 - [ ] 3.3 Add the `deps:cascade:test` task, with the shared resolver var and precondition, `CASCADE_TEST_SET` passed through, and a precondition on `yq`.
 - [ ] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.
-- [ ] 3.5 Run `CASCADE_TEST_SET=offline task -x deps:cascade:test` locally: every scenario PASS, and the worktree unchanged afterwards.
+- [ ] 3.5 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh CASCADE_TEST_SET=offline task -x deps:cascade:test` locally: every scenario PASS, and the worktree unchanged afterwards.
 - [ ] 3.6 Gate green, then commit `ci(cascade): run the offline cascade task tests in Go tests`.
 
 ## 4. Network tests, workflow and docs
 
-- [ ] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), and S5, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`.
+- [ ] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), and S5 with its catalog-only variant, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`. S2, S4 and S5 copy the main checkout's `.cue-cache/mod` beside the sandbox and export `CUE_CACHE_DIR` to it.
 - [ ] 4.2 Add `.github/workflows/cascade-task.yml` per design.md D6:
   - job `Cascade task (network)`, `timeout-minutes: 20`, `permissions: contents: read`;
-  - triggers: PR paths, `workflow_dispatch` and a weekly schedule;
-  - SHA-pinned actions, and setup-cue `v0.17.1`;
-  - the `org-github` checkout of `open-platform-model/.github` at `main` with `persist-credentials: false`, then `CASCADE_RESOLVER_REAL` set when the resolver file exists.
+  - triggers: PR paths (`.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold`, the workflow file), `workflow_dispatch` and a weekly schedule;
+  - SHA-pinned actions, setup-cue `v0.17.1`, no setup-go;
+  - the library checked out at `path: repo`, the task run with `working-directory: repo` and `CASCADE_RESOLVER` set to the stub under `repo/`;
+  - the `org-github` checkout of `open-platform-model/.github` at `main` with `persist-credentials: false`, then `CASCADE_RESOLVER_REAL` exported only when the resolver file exists.
 
   Run `actionlint`.
 - [ ] 4.3 Add a short "Release cascade task" paragraph to `AGENTS.md` (Build/test section). It names the four tasks, `task -x`, the exit codes, `need-human-review` on a core move, and that `cue:deps:update` stays the hand-run task.
-- [ ] 4.4 Run `task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
+- [ ] 4.4 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
 - [ ] 4.5 Once `add-cascade-resolver` is merged in `.github`, run the full set again with `CASCADE_RESOLVER_REAL` pointing at the workspace checkout's real resolver, and check that S5 passes. Run `task -x deps:cascade` with the real resolver on a clean scratch copy of `main`, and record its exit code and diff in design.md D8 (the Phase 2 gate evidence).
 - [ ] 4.6 Run `openspec validate add-deps-cascade-task --strict`.
 - [ ] 4.7 Gate green, then commit `ci(cascade): test the cascade task over the network`.
+
+## 5. Verify and archive
+
+- [ ] 5.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
+- [ ] 5.2 Run `openspec archive add-deps-cascade-task`, then write the `## Purpose` line of the new main spec `openspec/specs/deps-cascade/spec.md` by hand.
+- [ ] 5.3 Run `openspec validate --all --strict`.
+- [ ] 5.4 Commit `chore(openspec): archive add-deps-cascade-task`. The archive rides the implementing PR (owner decision 4; contract §10).

@@ -28,15 +28,15 @@ The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go`
 - **WHEN** `DefaultSchemaModule` names `v2.0.0-beta.1` and the resolver returns `v2.0.0-beta.2`
 - **THEN** the loader names `opmodel.dev/core@v2.0.0-beta.2`, no other Go file changed, and the body's `cascade-labels` marker lists `need-human-review`
 
-#### Scenario: Core is held
+#### Scenario: The resolver keeps core where it is
 
-- **WHEN** `.cascade-hold` holds `opmodel.dev/core@v2` at the current value until a future date and a newer core is published
+- **WHEN** the resolver answers exit 3 for `opmodel.dev/core@v2`, as it does when an in-date `.cascade-hold` caps core at the current value
 - **THEN** the loader is unchanged
 
-#### Scenario: A new core major exists
+#### Scenario: The resolver warns of a new core major
 
-- **WHEN** an `opmodel.dev/core@v3` release is published
-- **THEN** the loader stays on `opmodel.dev/core@v2` and the warnings name the new major
+- **WHEN** the resolver answers exit 3 for `opmodel.dev/core@v2` and emits a warning naming a new major
+- **THEN** the loader stays on `opmodel.dev/core@v2` and the warning reaches the cascade warnings file under the key `opmodel.dev/core@v2`
 
 ### Requirement: Text-pinned test trees follow the loader
 
@@ -54,7 +54,7 @@ The task SHALL set the core `v:` of `testdata/cue.mod/module.cue` and of every `
 
 ### Requirement: The opm catalog moves only as far as the loader's core allows
 
-The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cue.mod/module.cue`, to the newest published v4 release the resolver returns. Prereleases SHALL NOT count while the current pin is a release. When the core that catalog release pins is newer than `DefaultSchemaModule`, the catalog SHALL stay and the task SHALL warn that core must advance first. Each module of the `CUE_MODULE_GLOBS` set SHALL be in scope when its core differs from the loader value, or when it pins the catalog below the target. For each module in scope, the task SHALL run one `cue mod get` that names core at the loader value and the catalog at the exact target, followed by one `cue mod tidy`. A module where nothing moved SHALL be left untouched. A catalog pin above the target SHALL never be lowered. Third-party dependencies SHALL NOT be named. When tidy raises one, that SHALL be a warning, not a revert. A key that `.cascade-frozen` lists for a module's `cue.mod/module.cue` SHALL be left out of the get, and the task SHALL exit 1 if tidy changed it anyway.
+The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cue.mod/module.cue`, to the newest published v4 release the resolver returns. Prereleases SHALL NOT count while the current pin is a release. When the core that catalog release pins is newer than `DefaultSchemaModule`, the catalog SHALL stay and the task SHALL warn that core must advance first. Each module of the `CUE_MODULE_GLOBS` set SHALL be in scope when its core differs from the loader value, or when it pins the catalog below the target. For each module in scope, the task SHALL run one `cue mod get` that names core at the loader value and the catalog at the exact target, followed by one `cue mod tidy`. A module where nothing moved SHALL be left untouched. A catalog pin above the target SHALL never be lowered. The catalog SHALL be named in a module's get only when that module's catalog is below the target. Third-party dependencies SHALL NOT be named. When tidy raises one, that SHALL be a warning, not a revert. A key that `.cascade-frozen` lists for a module's `cue.mod/module.cue` SHALL be left out of the get, and the task SHALL exit 1 if tidy changed it anyway.
 
 #### Scenario: Catalog-only move
 
@@ -82,7 +82,7 @@ The task SHALL NOT modify these:
 - `cue-versions.yml`;
 - any `language.version`.
 
-It SHALL NOT publish to any registry. It SHALL warn, without editing, when an upstream it moved declares a `language.version` newer than the CUE version that `.github/workflows/cue.yml` installs, and when `docs/getting-started.md` names a core release other than the loader's.
+It SHALL NOT publish to any registry. It SHALL warn, without editing, when an upstream it moved declares a `language.version` newer than the CUE version that `.github/workflows/cue.yml` installs, and when `docs/getting-started.md` or `AGENTS.md` names a core release other than the loader's.
 
 #### Scenario: Stale getting-started prose
 
@@ -105,11 +105,11 @@ It SHALL NOT publish to any registry. It SHALL warn, without editing, when an up
 
 ### Requirement: The cascade task is tested offline and over the network
 
-`task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canonical resolver stub. It SHALL assert the stub's checksum. It SHALL exit 0 only when every selected scenario passes. With `CASCADE_TEST_SET=offline`, it SHALL run the no-op, resolver-error and dirty-tree scenarios, which need no network, and the required `Go tests` CI job SHALL run that set. With the full set, it SHALL also run these scenarios:
+`task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canonical resolver stub. It SHALL assert the stub's checksum. It SHALL exit 0 only when every selected scenario passes. With `CASCADE_TEST_SET=offline`, it SHALL run the no-op, resolver-error, dirty-tree, lagging-tree and catalog-needs-core scenarios, which need no network, and the required `Go tests` CI job SHALL run that set. With the full set, it SHALL also run these scenarios:
 
 - **older pins:** every location set to an older published version, the run's result equal to the current tree, and a second run that exits 3;
 - **frozen module:** a module listed in `.cascade-frozen` stays byte-unchanged;
-- **title and body**, when a real resolver is given.
+- **title and body**, when a real resolver is given, for a core-and-catalog move and for a catalog-only move.
 
 A non-required workflow SHALL run the full set.
 

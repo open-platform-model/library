@@ -96,7 +96,7 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
 1. Clean-tree check (or the `CASCADE_ALLOW_DIRTY=1` snapshot).
 2. Create `STATE=$(git rev-parse --git-dir)/cascade` and truncate `$STATE/warnings`. Export `CASCADE_WARNINGS`.
 3. Run `"$CASCADE_RESOLVER" check-files --repo-root .`.
-4. Set `CUE_REGISTRY=OPM_REGISTRY=opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`. This is the library's `CUE_GHCR_REGISTRY`, `Taskfile.yml:44`. The library resolves no `testing.opmodel.dev` fixture from a registry.
+4. Set the registries as two separate exports, `export CUE_REGISTRY=opmodel.dev=ghcr.io/open-platform-model,registry.cue.works` and `export OPM_REGISTRY=` the same value. This is the library's `CUE_GHCR_REGISTRY`, `Taskfile.yml:50`. The library resolves no `testing.opmodel.dev` fixture from a registry.
 
 **Phase A, resolve.** No file is written until every target is known.
 
@@ -114,9 +114,9 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
 3. **Language check.** For each CUE upstream that moved, call `language-of <module> <target>`. Compare the result with the pinned CUE version: the `version:` of the `cue-lang/setup-cue` step in `.github/workflows/cue.yml`, today `v0.17.1` (contract §5.2 rule 10).
    - Read it with `yq '.jobs.cue.steps[] | select(.uses | test("setup-cue")) | .with.version'`.
    - If the upstream's version is newer, warn. If the pinned version cannot be read, warn with key `-`.
-   - For the library, the CUE that actually evaluates core at render time is the SDK, `cuelang.org/go` in `go.mod` (`AGENTS.md`, "CUE toolchain pin"), not the `cue` CLI. Both are `v0.17.1` today. The task follows the contract and reads `cue.yml`. Whether it should also compare against the `go.mod` SDK is an open point for the supervisor.
+   - For the library, the CUE that actually evaluates core at render time is the SDK, `cuelang.org/go` in `go.mod` (`AGENTS.md`, "CUE toolchain pin"), not the `cue` CLI. Both are `v0.17.1` today. The task follows the contract (rule 10, "one file") and reads `cue.yml` only. The plan review recommends warning against the lower of `cue.yml` and the `cuelang.org/go` version in `go.mod`; that needs a contract amendment or the supervisor's approval, so it is left to the supervisor and not implemented here.
 
-**Phase B, tools.** There is nothing to build. If any pin will move, check that `cue` is on `PATH`. Exit 1 if it is missing.
+**Phase B, tools.** There is nothing to build. Phase B computes the module loop's scope (step C3) from `D`, `K` and the files as they are, which is read-only. If any loop module is in scope, check that `cue` is on `PATH`, and exit 1 if it is missing. A lagging loop module runs `get` and `tidy` even when no pin moves, so the check keys on scope, not on a moved pin.
 
 **Phase C, edit.** Only where something moved, in this order:
 
@@ -131,18 +131,23 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
    - This step runs on every run, not only when `D` moved. A tree that lags the loader therefore catches up, and a run on a consistent tree touches nothing.
 3. **Module loop** (test). For each directory from `CUE_MODULE_GLOBS` that has a `cue.mod/module.cue` (the list is in D4):
    - **Scope.** A module is in scope when its core differs from `D`, or when it has the catalog and the catalog is below `K`.
-   - **Get arguments.** For each in-scope module, build the list `opmodel.dev/core@D`, plus `opmodel.dev/catalogs/opm@K` when the module has the catalog. Drop any key for which `is-frozen <dir>/cue.mod/module.cue <key>` answers 0.
+   - **Get arguments.** For each in-scope module, build the list `opmodel.dev/core@D`, plus `opmodel.dev/catalogs/opm@K` only when the module has the catalog and `semver-cmp <module catalog> K` prints `-1`. A module whose catalog is at or above `K` gets core only, because `cue mod get` can downgrade a version it is given (`cue help mod get`), and a catalog above the target is never lowered. Drop any key for which `is-frozen <dir>/cue.mod/module.cue <key>` answers 0.
    - **Run.** If the list is non-empty, run `cue mod get <list>` then `cue mod tidy` in the module, with the output captured and printed on failure.
    - **Frozen check.** After tidy, check that every frozen key's `v:` is byte-unchanged. If not, exit 1 naming the file and key (contract §5.2 rule 8).
    - **Third-party check.** Compare every non-`opmodel.dev` dep's `v:` before and after. A raised one becomes the warning "tidy raised `<dep>` from `<a>` to `<b>`" under key `-`. It is never reverted.
-4. **Docs warning.** If `docs/getting-started.md` names a core version other than `D`, warn under key `-`: "`docs/getting-started.md` still names `<v>`".
+4. **Docs warning.** For `docs/getting-started.md` and `AGENTS.md`, each `opmodel.dev/core@v<full semver>` literal other than `opmodel.dev/core@D` gives a warning under key `-`: "`<file>` still names `<v>`". Both files carry the same reproducible-pin example (`docs/getting-started.md:51`, `AGENTS.md:346`), so both are checked; contract §6.2 step 5 names only the first, and checking the second is a strict addition (a warning, never an edit).
 
 **Result.** Exit 0 if `git status --porcelain --untracked-files=all` is non-empty (or the snapshot differs under `CASCADE_ALLOW_DIRTY=1`). Otherwise exit 3.
 
 Pseudo-shape of phase A's exit handling (contract §5.2 rule 5; no `|| true`, no `set +e` around it):
 
 ```bash
-resolve() { # resolve KIND COORD CURRENT -> prints target; returns 0 moved, 3 stay
+# resolve KIND COORD CURRENT: print the target (the newer version on resolver
+# exit 0, CURRENT on exit 3) and return 0; on any other resolver exit, print a
+# diagnostic and exit with that code. Callers use T=$(resolve ...) under
+# set -e: the exit only leaves the command substitution's subshell, and set -e
+# then stops the script on the assignment's non-zero status.
+resolve() {
   local out rc=0
   out=$("$CASCADE_RESOLVER" newest "$1" "$2" --current "$3" --repo-root . $(expect_for "$2")) || rc=$?
   case "$rc" in
@@ -177,14 +182,18 @@ Contract §5.2 rule 14, as it applies to the library:
 
 ### D6. CI placement
 
+Every invocation of a cascade task needs `CASCADE_RESOLVER` set when no `.github` checkout sits beside the repo, because the contract §3 precondition `test -x '{{.CASCADE_RESOLVER_PATH}}'` otherwise falls back to the workspace path, which never exists on a runner. `test.sh` itself sets `CASCADE_RESOLVER` to the stub inside each sandbox; the outer value only satisfies the precondition.
+
 - **Required, offline.** One step in `test.yml` job `Go tests`, after "Install Task":
   - `run: task -x deps:cascade:test`, with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`.
   - The env satisfies the contract §3 precondition without a checkout of `.github`. `test.sh` uses the stub for every scenario anyway.
   - `ubuntu-latest` ships mikefarah `yq` v4. The step checks `yq --version` first and fails clearly if it is not there.
 - **Non-required, network.** A new `.github/workflows/cascade-task.yml`:
   - job `Cascade task (network)`, with `timeout-minutes: 20` and `permissions: contents: read`;
-  - triggers: `pull_request` with paths `.tasks/cascade/**`, `Taskfile.yml` and the workflow file; `workflow_dispatch`; and a weekly `schedule`;
-  - steps: checkout, setup-go, setup-cue `v0.17.1`, setup-task, a checkout of `open-platform-model/.github` at `main` into `org-github` with `persist-credentials: false`, then `task -x deps:cascade:test` with `CASCADE_RESOLVER_REAL` set to the real resolver.
+  - triggers: `pull_request` with paths `.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold` and the workflow file; `workflow_dispatch`; and a weekly `schedule`;
+  - steps: checkout of the library with `path: repo`; setup-cue `v0.17.1`; setup-task; a checkout of `open-platform-model/.github` at `main` with `path: org-github` and `persist-credentials: false`, so it sits beside the repo and never inside its working tree (where `test.sh`'s `git ls-files --others` would copy it into every sandbox); then `task -x deps:cascade:test` with `working-directory: repo` and `CASCADE_RESOLVER: ${{ github.workspace }}/repo/.tasks/cascade/testdata/stub-resolve.sh`.
+  - `CASCADE_RESOLVER_REAL=$GITHUB_WORKSPACE/org-github/.github/scripts/cascade/cascade-resolve.sh` is exported by the run step only when that file exists.
+  - No setup-go: nothing in the task or its tests runs Go.
   - Every action is SHA-pinned as `test.yml` pins it.
   - The `.github` checkout step is present from the start. Until `add-cascade-resolver` merges, the real resolver path is absent and S5 skips with a printed line (D7).
 
@@ -192,7 +201,7 @@ Contract §5.2 rule 14, as it applies to the library:
 
 The shape follows contract §8 exactly. Library specifics:
 
-- **Sandbox.** Each sandbox also gets `cp -a` of the main checkout's `.cue-cache/mod` when it exists, never a symlink, and `chmod -R u+w` before cleanup. The main checkout is the parent of `git rev-parse --git-common-dir`.
+- **Sandbox.** For the network scenarios (S2, S4, S5), each sandbox gets `cp -a` of the main checkout's `.cue-cache/mod` into `<tmp>/cue-cache/mod` when it exists, never a symlink, and `test.sh` exports `CUE_CACHE_DIR=<tmp>/cue-cache` for that run, so the `cue` CLI uses the copy instead of its default `~/.cache/cue`. The cache sits beside the sandbox repo, never inside it. `chmod -R u+w` runs before cleanup. The offline set skips the copy, since it runs no `cue`. The main checkout is the parent of `git rev-parse --git-common-dir`.
 - **Kind and coordinate map** used to build the stub table from `pins.sh WORKTREE`:
   - `opmodel.dev/core@v2` maps to `cue opmodel.dev/core@v2`;
   - `opmodel.dev/catalogs/opm@v4` maps to `cue opmodel.dev/catalogs/opm@v4`.
@@ -206,7 +215,7 @@ The shape follows contract §8 exactly. Library specifics:
   ```
 
   `v4.5.0` is picked over `v4.4.x` because it is after the k8s-catalog retirement, so it has the same dependency shape as `v4.5.1`.
-- **`s1-calls.txt`** (normalized: each version replaced by `V`, lines sorted):
+- **`s1-calls.txt`** (normalized: each full-semver match of `v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?` replaced by `V`, so `@v2` and `@v4` stay as written; lines sorted with `LC_ALL=C sort`):
 
   ```
   check-files --repo-root .
@@ -214,7 +223,10 @@ The shape follows contract §8 exactly. Library specifics:
   newest cue opmodel.dev/core@v2 --current V --repo-root .
   ```
 
+- **S1 new-major warning.** S1's table also carries a `warn cue opmodel.dev/core@v2` row, the stub's stand-in for the resolver's "new major available" warning. S1 asserts that the line reaches `.git/cascade/warnings` under key `opmodel.dev/core@v2` while the loader stays unchanged. Holds and the new-major probe themselves are resolver behaviour, tested in `.github` (contract §2.10); the library tests only that it obeys exit 3 and passes warnings through.
 - **S3.** Sets the core `newest` row to `ERROR`. Core is the first pin resolved.
+- **S7 lagging tree (offline).** One render tree's core `v:` is set to `older.tsv`'s core; the loader and the other files are unchanged; current rows only. Expected: exit 0, and the only path that differs from the setup commit is that file, now equal to the original bytes. No `cue` runs, since no loop module is in scope.
+- **S8 catalog needs a newer core (offline).** Current rows, except that the catalog's `newest` row names a version above the tree (`v4.999.0`) and a `pin-of opmodel.dev/catalogs/opm@v4 v4.999.0 opmodel.dev/core@v2 v2.999.0` row names a core above the loader. Expected: exit 3, a clean tree, and "advance core first" in `.git/cascade/warnings`.
 - **S2 setup.** Writes `older.tsv`'s core into the loader, into `testdata/cue.mod` and every render tree, and into the five module files. Writes `older.tsv`'s catalog into the four catalog files.
   - **Expected.** Exit 0, and the copy is byte-identical to the original tree. The library has no version-advance paths, so the golden list is empty.
   - **Rerun.** A second run, with `CASCADE_BASE` still at the setup SHA, exits 3.
@@ -224,7 +236,9 @@ The shape follows contract §8 exactly. Library specifics:
 - **S5.** Runs only when `CASCADE_RESOLVER_REAL` is set and executable; otherwise it prints `SKIP S5`. After S2 it checks:
   - `title` prints `fix(deps): bump core to <tree core> and opm catalog to <tree catalog>`;
   - `body` holds both markers, two table rows, `need-human-review` in `cascade-labels`, and `## Notes` last.
+  - **Catalog-only variant.** A second sandbox sets only the four catalog files to `older.tsv`'s catalog and runs `task -x deps:cascade` (exit 0). Then `title` prints `test(fixtures): bump opm catalog to <tree catalog>`, and the body's `cascade-labels` marker is empty.
 - **Exit-code discipline.** Every invocation is `task -x ...` (contract §3).
+- **Local runs.** Until `add-cascade-resolver` merges, no resolver sits at the workspace default path, so every local run of a cascade task is prefixed `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` (or points at the resolver worktree).
 
 ### D8. Phase 2 gate for the library
 
@@ -259,7 +273,7 @@ The shape follows contract §8 exactly. Library specifics:
 
 **Context**: contract §8's S1 description mentions a `pin-of` for core, written for the consistent-set repos. Library core follows the loader, not the catalog (`RELEASING.md`, "The receiver", "Consistent set": "library differs").
 **Decision**: the library calls `pin-of` only to judge a catalog move. `s1-calls.txt` has no `pin-of` line.
-**Rationale**: no catalog move means no question to ask. This is reported to the supervisor as an open point, not a conflict.
+**Rationale**: no catalog move means no question to ask. The plan review agreed: contract §6.2 step 3 calls `pin-of` only on a catalog target.
 
 ## Risks / Trade-offs
 
@@ -268,3 +282,24 @@ The shape follows contract §8 exactly. Library specifics:
 - **`tidy` reorders or reformats a `module.cue`** in a way the original did not have. S2's byte-identity check would show it. The spike (task 1.1) confirms a round trip from the older pins gives the committed bytes.
 - **The stub's `semver-cmp`** is correct only for `(alpha|beta|rc)(.N)*` prereleases. Every version the library compares has that form.
 - **Proxy and GHCR lag** is the resolver's concern (`--expect`). The task only forwards `CASCADE_EXPECT`.
+
+## Plan review
+
+The plan review of commit `0e97f9e` raised 14 findings. All were applied; none was rejected.
+
+- 1 (network workflow red on every run): D6, library checked out at `path: repo`, stub as `CASCADE_RESOLVER`, `CASCADE_RESOLVER_REAL` only when the file exists.
+- 2 (no archive section): `tasks.md` section 5. In this implementation run the archive task stays open; the archive rides the PR.
+- 3 (module loop could lower a catalog): D3 step C3, catalog named only when below `K`.
+- 4 (library branches untested): S7, S8 and the S5 catalog-only variant (D7).
+- 5 (two scenarios untestable here): the spec scenarios are reworded as "the resolver answers ...", and S1 checks warning pass-through.
+- 6 (local runs fail the precondition): D7 "Local runs", tasks 2.7, 3.5 and 4.4.
+- 7 (cache copy did nothing): D7 "Sandbox", `CUE_CACHE_DIR`.
+- 8 (trigger paths): D6.
+- 9 (Phase 0 step 4 errors): D3.
+- 10 (`resolve()` comment): D3.
+- 11 (Phase B `cue` check too narrow): D3 Phase B keys on scope.
+- 12 (S1 normalisation): D7.
+- 13 (`setup-go` not needed): D6.
+- 14 (`AGENTS.md:346` stale too): D3 step C4 checks both files.
+
+Open questions answered by the review: Q1 and Q4 confirmed as written; Q5 removed the go-task item from the spike (task 1.1). Q2 (which CUE version the language check compares against) and Q3 (the contract §8 tier-2 order waits on a library release that a `test(fixtures)` catch-up never cuts) are for the supervisor.
