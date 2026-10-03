@@ -14,20 +14,35 @@ import (
 
 // The package doc is the render contract AGENTS.md points readers to, and
 // nothing else notices when its layout is flattened: gofmt, go vet and lint
-// all accept a doc comment rewrapped as prose (commit 7729b92 did exactly
-// that). This guard parses the package doc into the go/doc/comment model
+// all accept a doc comment rewrapped as prose. This guard parses the package doc into the go/doc/comment model
 // that go doc renders from and checks the block types of the parts that
 // must stay a list and code. It pins no wording.
 
 // surfaceMinItems is the number of verb groups the Surface list names today.
 const surfaceMinItems = 7
 
-// codeAnchors are text each code example contains; each must be found inside
-// a code block.
+// codeAnchors are text the code examples contain, one per loop and per
+// example boundary, so a partly flattened example is caught as well as a
+// wholly flattened one; each must be found inside a code block.
 var codeAnchors = []string{
 	"func renderAll(",
+	"for _, dir := range instanceDirs",
+	"close(errs)",
+	"for err := range errs",
 	"result.Diagnostics.UnhandledTraits",
+	"result.Diagnostics.ResolvedVersions",
+	"result.Diagnostics.Skipped",
 	"result.Diagnostics.Replacements",
+}
+
+// codeMarkers are fragments only Go code carries. Prose in the package doc
+// never contains them, so a non-code block that does holds a flattened
+// example, including one added after codeAnchors was last updated.
+var codeMarkers = []string{
+	" := ",
+	"result.Diagnostics.",
+	"log.Printf(",
+	"if err != nil",
 }
 
 func TestPackageDoc_KeepsListAndCodeBlocks(t *testing.T) {
@@ -85,6 +100,26 @@ func docLayoutProblems(d *comment.Doc) []string {
 	for _, anchor := range codeAnchors {
 		if p := codeBlockProblem(d.Content, anchor); p != "" {
 			problems = append(problems, p)
+		}
+	}
+	problems = append(problems, codeInProseProblems(d.Content)...)
+	return problems
+}
+
+// codeInProseProblems reports every block other than a code block whose text
+// carries a codeMarker.
+func codeInProseProblems(blocks []comment.Block) []string {
+	var problems []string
+	for _, b := range blocks {
+		if _, ok := b.(*comment.Code); ok {
+			continue
+		}
+		text := blockText(b)
+		for _, m := range codeMarkers {
+			if strings.Contains(text, m) {
+				problems = append(problems, fmt.Sprintf("package doc: %s contains the code fragment %q outside a *comment.Code block (an example was flattened into prose?)", describe(b), m))
+				break
+			}
 		}
 	}
 	return problems

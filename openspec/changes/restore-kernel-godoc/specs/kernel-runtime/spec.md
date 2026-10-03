@@ -23,3 +23,8 @@ The `opm/kernel` package documentation SHALL present the `Surface` section's ver
 
 - **WHEN** a change rewraps any of the three code examples in `opm/kernel/doc.go` into prose
 - **THEN** `go test ./opm/kernel` fails, naming the missing code block
+
+#### Scenario: Flattening one loop of an example fails the guard test
+
+- **WHEN** a change rewraps a single loop of a code example in `opm/kernel/doc.go` into prose and leaves the rest of the example as code
+- **THEN** `go test ./opm/kernel` fails, naming the code fragment it found outside a code block

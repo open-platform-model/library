@@ -11,7 +11,8 @@ Nothing stops it from happening again: `go vet`, `gofmt` and lint all accept a f
 
 ## What Changes
 
-- **Restore the layout of `opm/kernel/doc.go`** from `7729b92^`: the `# Surface` list as a Go doc list (`  - ` items with indented continuation lines), and the three examples as tab-indented code blocks. The text is HEAD's. Every edit since 7729b92, including 19a8553, is kept word for word. Paragraphs are rewrapped to the file's usual width, with no overlong lines.
+- **Restore the layout of `opm/kernel/doc.go`** from `7729b92^`: the `# Surface` list as a Go doc list (`  - ` items with indented continuation lines), and the three examples as tab-indented code blocks. The text is HEAD's. Every edit since 7729b92, including 19a8553, is kept word for word. Paragraphs are rewrapped to the file's usual width, with no overlong prose lines; code lines keep `7729b92^`'s length.
+- **Correct one Surface sentence.** The `Kernel.SynthesizeInstance` item said the synthesized package imports "the kernel's pinned schema release". It now says the import names the major of the kernel's schema release, and that the release it resolves to is the one the module's own `cue.mod/module.cue` pins, matching the method's godoc. This is the one wording change, made at the supervisor's request so the sibling `sync-stale-specs` spec holds.
 - **Add a go/doc guard test** in `opm/kernel` that parses the package doc with `go/doc` and `go/doc/comment` and fails if the block after the `Surface` heading is not a list holding the kernel's verbs, or if the three code examples are not code blocks.
 
 ## Not in this change

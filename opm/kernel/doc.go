@@ -26,10 +26,12 @@
 //     [*module.Instance], with optional values as trailing [Source] values;
 //   - [Kernel.SynthesizeInstance] builds one from typed inputs
 //     ([InstanceInput]); the module it takes comes from the two module
-//     acquire verbs, and the core release the synthesized package imports is
-//     the kernel's pinned schema release, read from the configured
+//     acquire verbs, and the synthesized package imports core at the major
+//     of the kernel's schema release, read from the configured
 //     [schema.OCILoader] with no schema load when it pins an exact release
-//     (the default) and resolved through the schema cache otherwise;
+//     (the default) and resolved through the schema cache otherwise; the
+//     release that import resolves to is the one the module's own
+//     cue.mod/module.cue pins;
 //   - [Kernel.ValidateConfigDetailed] validates layered values;
 //   - [Kernel.Render] renders an instance against a platform.
 //

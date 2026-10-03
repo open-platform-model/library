@@ -44,13 +44,14 @@ The diff MUST be empty. The baseline is pinned to the merge base: once section 1
 1. Parse every non-test `.go` file in the package directory with `go/parser.ParseFile(..., parser.ParseComments)`, as `go doc` does. A doc.go-only parse is not enough: without the package's declarations, `pkg.Parser()` cannot resolve `[Kernel.X]` links, and the list items start with plain text instead of doc links. The test's working directory is the package directory.
 2. Build the package doc with `doc.NewFromFiles` and parse it with `pkg.Parser().Parse(pkg.Doc)`. With the whole package parsed, this is the same `go/doc/comment` model that `go doc` renders from.
 3. Find the `*comment.Heading` whose text is `Surface`. Assert that a `*comment.List` follows it after at most one intervening `*comment.Paragraph` (the "One tier" lead-in), with at least seven items, each starting with a `*comment.DocLink` whose receiver is `Kernel`. Today the items name `AcquireModuleFromRegistry`, `AcquireCatalogFromRegistry`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir`, `SynthesizeInstance`, `ValidateConfigDetailed` and `Render`.
-4. Assert that each of the three anchors `func renderAll(`, `result.Diagnostics.UnhandledTraits` and `result.Diagnostics.Replacements` is found inside a `*comment.Code` block. The number of code blocks is not pinned, so a new example does not break the test.
+4. Assert that each code anchor is found inside a `*comment.Code` block. There is one anchor per loop and per example boundary (`func renderAll(`, `for _, dir := range instanceDirs`, `close(errs)`, `for err := range errs`, and `result.Diagnostics.` followed by `UnhandledTraits`, `ResolvedVersions`, `Skipped` and `Replacements`), so a partly flattened example fails as well as a wholly flattened one. The number of code blocks is not pinned, so a new example does not break the test.
+5. Assert that no block other than a `*comment.Code` contains a Go code fragment (` := `, `result.Diagnostics.`, `log.Printf(`, `if err != nil`). The prose never carries these, so this catches a flattened loop that no anchor names yet.
 
 The parse and the assertions sit in helpers: one parses the package with the `doc.go` bytes supplied by the caller in place of the file on disk, and one returns the layout problems of a parsed doc. The committed test feeds them the file on disk. The proof in task 2.2 feeds them other `doc.go` bytes from a throwaway test file, with no copy of the package.
 
 Every failure names the block it expected and what it found (the block's Go type and the start of its text). A reader of the failure can then see it was a flattening and not a content change.
 
-**Rationale**: The owner's 2026-10-03 decision asks for a go/doc guard on the Surface list and the code examples. Asserting on the parsed block types catches the exact failure 7729b92 caused. It does not pin the prose or the number of examples, so ordinary wording edits and new examples stay free. The three anchored assertions catch any lost block.
+**Rationale**: The owner's 2026-10-03 decision asks for a go/doc guard on the Surface list and the code examples. Asserting on the parsed block types catches the exact failure 7729b92 caused. It does not pin the prose or the number of examples, so ordinary wording edits and new examples stay free. The per-loop anchors and the code-in-prose check together catch a lost block or a partly lost one.
 
 ## Research & Decisions
 
@@ -70,5 +71,6 @@ Every failure names the block it expected and what it found (the block's Go type
 
 ## Risks / Trade-offs
 
-- [The sibling change `record-walkthrough-decisions` (its task 3.2) rewrites the "no built value is retained between calls, and a caller cannot obtain one to hold" sentence in the Goroutine safety paragraph that this change rewraps] → merge this change first; the sibling then rebases one sentence onto the restored layout, the smaller conflict. If the sibling lands first, this branch rebases onto it and the word-sequence check runs against the new merge base, so the sibling's sentence is kept verbatim and is never reverted to make the diff empty.
+- [The sibling change `record-walkthrough-decisions` (its task 3.2) rewrites a sentence in the Goroutine safety paragraph of the same file] → the two changes touch disjoint hunks and merge cleanly in either order (checked with `git merge-tree`). If a rebase is ever needed, the word-sequence check runs against the new merge base, so the sibling's sentence is kept verbatim and is never reverted to make the diff empty.
+- [The word-sequence check is no longer empty: the `Kernel.SynthesizeInstance` Surface item was corrected after review] → the diff is exactly that one sentence; every other word is HEAD's.
 - `go/doc/comment` could reclassify a block in a future Go release → the test would fail in CI, which is the right signal for a doc that `go doc` would also render differently.
