@@ -1,0 +1,3 @@
+check-files --repo-root .
+newest cue opmodel.dev/catalogs/opm@v4 --current V --repo-root .
+newest cue opmodel.dev/core@v2 --current V --repo-root .

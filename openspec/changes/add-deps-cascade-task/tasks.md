@@ -34,12 +34,12 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 3. Offline tests in the required job
 
-- [ ] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7 and S8 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
-- [ ] 3.2 Add `.tasks/cascade/testdata/s1-calls.txt` with the three normalized lines from design.md D7.
-- [ ] 3.3 Add the `deps:cascade:test` task, with the shared resolver var and precondition, `CASCADE_TEST_SET` passed through, and a precondition on `yq`.
-- [ ] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.
-- [ ] 3.5 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh CASCADE_TEST_SET=offline task -x deps:cascade:test` locally: every scenario PASS, and the worktree unchanged afterwards.
-- [ ] 3.6 Gate green, then commit `ci(cascade): run the offline cascade task tests in Go tests`.
+- [x] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7 and S8 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
+- [x] 3.2 Add `.tasks/cascade/testdata/s1-calls.txt` with the three normalized lines from design.md D7.
+- [x] 3.3 Add the `deps:cascade:test` task, with the shared resolver var and precondition, `CASCADE_TEST_SET` passed through, and a precondition on `yq`.
+- [x] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.
+- [x] 3.5 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh CASCADE_TEST_SET=offline task -x deps:cascade:test` locally: every scenario PASS, and the worktree unchanged afterwards.
+- [x] 3.6 Gate green, then commit `ci(cascade): run the offline cascade task tests in Go tests`.
 
 ## 4. Network tests, workflow and docs
 

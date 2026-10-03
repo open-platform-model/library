@@ -927,6 +927,27 @@ tasks:
     cmds:
       - '"$CASCADE_RESOLVER" body --classes .tasks/cascade/classes --pins .tasks/cascade/pins.sh'
 
+  deps:cascade:test:
+    desc: Test deps:cascade in throwaway copies of the tree against the resolver stub
+    summary: |
+      Runs .tasks/cascade/test.sh: the stub checksum and pin-report checks,
+      then the scenarios, each in its own throwaway copy of the tree (this
+      checkout is never touched). CASCADE_TEST_SET=offline runs the set the
+      required `Go tests` job runs (no network, no cue); the default, all,
+      adds the network scenarios. Run it with `task -x`.
+
+      Usage:
+        CASCADE_TEST_SET=offline task -x deps:cascade:test
+        task -x deps:cascade:test
+    vars: *cascade_vars
+    env:
+      CASCADE_RESOLVER: '{{.CASCADE_RESOLVER_PATH}}'
+    preconditions:
+      - *cascade_resolver_check
+      - *cascade_yq_check
+    cmds:
+      - .tasks/cascade/test.sh
+
   deps:release-check:
     desc: Fail if the tree carries a dev, pseudo-version or replaced pin (G1 release-pin gate)
     summary: |
