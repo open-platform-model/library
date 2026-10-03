@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-beta.3](https://github.com/open-platform-model/library/compare/v1.0.0-beta.2...v1.0.0-beta.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **deps:** pin core v2.0.0-beta.2 ([#173](https://github.com/open-platform-model/library/issues/173)) ([3c3b8c1](https://github.com/open-platform-model/library/commit/3c3b8c102cd7b57d280c64d7e11a668e635e441c))
+
 ## [1.0.0-beta.2](https://github.com/open-platform-model/library/compare/v1.0.0-beta.1...v1.0.0-beta.2) (2026-10-03)
 
 
