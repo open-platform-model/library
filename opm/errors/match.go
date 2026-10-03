@@ -127,6 +127,8 @@ type UnresolvedDemandsError struct {
 	Demands []UnresolvedDemand
 }
 
+// Error returns a count line, then one indented line per unresolved demand
+// naming its component, kind and FQN and why nothing resolves it.
 func (e *UnresolvedDemandsError) Error() string {
 	msg := fmt.Sprintf("%d unresolved demand(s):", len(e.Demands))
 	for _, d := range e.Demands {

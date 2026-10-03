@@ -2,6 +2,7 @@
 
 ## Purpose
 The `Kernel` struct is the public anchor type for the OPM kernel runtime. It owns the `*cue.Context` and the schema cache used by every kernel operation, so downstream consumers (CLI, operator, Crossplane function) attach to a single mental anchor instead of importing the loader / module / render / validate packages individually. All future kernel-facing slices modify this capability.
+
 ## Requirements
 
 ### Requirement: Kernel Type and Construction
@@ -209,7 +210,7 @@ The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI 
 
 ### Requirement: Kernel.SynthesizeInstance method
 
-The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in InstanceInput) (*module.Instance, error)`, where `InstanceInput` is declared in `opm/kernel` and carries `Module *module.Module` (required, source-carrying), `Name string` (required), `Namespace string` (required), `Values []Source` (optional; empty means "no values supplied"), `Labels map[string]string` and `Annotations map[string]string` (optional). It SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. The core release the synthesized package imports is the kernel's: read from the configured loader's pin with no schema load when it names an exact release, and resolved through the kernel's schema cache when it names a bare major. The build SHALL run in a context the method creates and releases; the method SHALL NOT consult any additional values source.
+The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in InstanceInput) (*module.Instance, error)`, where `InstanceInput` is declared in `opm/kernel` and carries `Module *module.Module` (required, source-carrying), `Name string` (required), `Namespace string` (required), `Values []Source` (optional; empty means "no values supplied"), `Labels map[string]string` and `Annotations map[string]string` (optional). It SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. The synthesized package imports `core` at the major of the kernel's schema release (read from the loader's pin with no schema load when it names an exact release, resolved through the schema cache otherwise); the release that import resolves to comes from the module's own `cue.mod/module.cue`. The build SHALL run in a context the method creates and releases; the method SHALL NOT consult any additional values source.
 
 A missing required input SHALL fail with an error wrapping the corresponding `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`); a module without staged source SHALL fail wrapping `ErrMissingSource`; a module whose `Source.Pkg` is non-empty SHALL fail with an error stating that a synthesizable module is its module's root package.
 
@@ -251,27 +252,6 @@ A missing required input SHALL fail with an error wrapping the corresponding `op
 - **WHEN** a frontend holds raw values bytes and their origin
 - **THEN** it builds the input with `k.LoadSourceFromBytes(origin, raw)` and passes the result in `InstanceInput.Values`
 - **AND** it needs no `cue.Context` of its own, since the kernel exposes none
-
-### Requirement: SynthesizeInstance is documented as the recommended in-memory entry point
-
-The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that `SynthesizeInstance` is the entry point for building an instance from typed inputs, mirroring `Kernel.AcquireInstanceFromDir` for a directory-based CUE package, and that the module it takes comes from `AcquireModuleFromRegistry` or `AcquireModuleFromDir`. The documentation SHALL state that the core release the synthesized package imports is the kernel's pinned schema release, read from the configured loader without a schema load when that loader pins an exact release, and resolved through the kernel's schema cache otherwise. The documentation SHALL NOT present a helper-level composition that reaches synthesis or instance processing directly, since neither is exported.
-
-#### Scenario: Documentation directs callers to the kernel method
-
-- **WHEN** a developer reads the godoc on `opm/kernel`
-- **THEN** the documentation states that `Kernel.SynthesizeInstance` is the entry point for typed-input synthesis, names the two acquire verbs that produce its module, and states where the imported core release comes from
-- **AND** no reference to `synth.Instance`, `opm/helper/synth` or `Kernel.LoadInstancePackage` remains
-
-#### Scenario: SynthesizeInstance godoc points to LoadInstancePackage
-
-- **WHEN** a developer reads the `Kernel.SynthesizeInstance` godoc
-- **THEN** the directory-driven mirror it names is `Kernel.AcquireInstanceFromDir`, and the module sources it names are `AcquireModuleFromRegistry` and `AcquireModuleFromDir`
-- **AND** no reference to `Kernel.LoadInstancePackage`, `Kernel.ProcessModuleInstance` or `synth.Instance` remains
-
-#### Scenario: Pinned kernel synthesizes without touching the schema cache
-
-- **WHEN** a frontend constructs a kernel with the default loader and synthesizes an instance
-- **THEN** no schema load runs for the synthesis; the module's own dependency list resolves `core` inside the build
 
 ### Requirement: Tier-2 validation runs where values are applied
 
@@ -331,3 +311,53 @@ User values SHALL reach the kernel through exactly three public inputs, each car
 - **WHEN** a caller passes an empty `[]Source` to `k.ValidateConfigDetailed`, no trailing sources to `k.AcquireInstanceFromDir`, or an empty `in.Values` to `k.SynthesizeInstance`
 - **THEN** the call succeeds with no values applied (the package or synthesized spec must already be concrete on every required field)
 - **AND** the behavior is documented as "no values supplied"
+
+### Requirement: The kernel package doc renders its verb list and examples
+
+The `opm/kernel` package documentation SHALL present the `Surface` section's verbs as a Go doc list, with one item per verb group, and SHALL present each code example (the one-Kernel-per-process `renderAll` example, the diagnostics wording example and the replacements wording example) as a Go doc code block. When parsed with `go/doc` and `go/doc/comment`, the package doc SHALL yield a `*comment.List` after the `Surface` heading and one `*comment.Code` block per example. A test in `opm/kernel` SHALL parse the package doc this way and SHALL fail when the list or any of the code blocks stops being one.
+
+#### Scenario: go doc renders the Surface list as a list
+
+- **WHEN** a developer runs `go doc ./opm/kernel`
+- **THEN** each verb group under `Surface` (the module, catalog, platform and instance acquire verbs, `SynthesizeInstance`, `ValidateConfigDetailed` and `Render`) is printed as its own list item
+
+#### Scenario: go doc renders each example as code
+
+- **WHEN** a developer runs `go doc ./opm/kernel`
+- **THEN** the `renderAll` example, the diagnostics wording example and the replacements wording example are printed as indented code with one statement per line, not as wrapped prose
+
+#### Scenario: Flattening the Surface list fails the guard test
+
+- **WHEN** a change rewraps the `Surface` list in `opm/kernel/doc.go` into a single paragraph
+- **THEN** `go test ./opm/kernel` fails, naming the `Surface` list and the block type it found instead
+
+#### Scenario: Flattening a code example fails the guard test
+
+- **WHEN** a change rewraps any of the three code examples in `opm/kernel/doc.go` into prose
+- **THEN** `go test ./opm/kernel` fails, naming the missing code block
+
+#### Scenario: Flattening one loop of an example fails the guard test
+
+- **WHEN** a change rewraps a single loop of a code example in `opm/kernel/doc.go` into prose and leaves the rest of the example as code
+- **THEN** `go test ./opm/kernel` fails, naming the code fragment it found outside a code block
+
+### Requirement: SynthesizeInstance is documented as the typed-input entry point
+
+The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that `SynthesizeInstance` is the entry point for building an instance from typed inputs, mirroring `Kernel.AcquireInstanceFromDir` for a directory-based CUE package, and that the module it takes comes from `AcquireModuleFromRegistry` or `AcquireModuleFromDir`. The documentation SHALL state that the synthesized package imports `core` at the major of the kernel's schema release (read from the configured loader without a schema load when that loader pins an exact release, and resolved through the kernel's schema cache otherwise), and that the release that import resolves to comes from the module's own `cue.mod/module.cue`. The documentation SHALL NOT present a helper-level composition that reaches synthesis or instance processing directly, since neither is exported.
+
+#### Scenario: Documentation directs callers to the kernel method
+
+- **WHEN** a developer reads the godoc on `opm/kernel`
+- **THEN** the documentation states that `Kernel.SynthesizeInstance` is the entry point for typed-input synthesis, names the two acquire verbs that produce its module, and states that the synthesized package imports `core` at the major of the kernel's schema release while the release that import resolves to comes from the module's own `cue.mod/module.cue`
+- **AND** no reference to `synth.Instance`, `opm/helper/synth` or `Kernel.LoadInstancePackage` remains
+
+#### Scenario: SynthesizeInstance godoc names its directory mirror and module sources
+
+- **WHEN** a developer reads the `Kernel.SynthesizeInstance` godoc
+- **THEN** the directory-driven mirror it names is `Kernel.AcquireInstanceFromDir`, and the module sources it names are `AcquireModuleFromRegistry` and `AcquireModuleFromDir`
+- **AND** no reference to `Kernel.LoadInstancePackage`, `Kernel.ProcessModuleInstance` or `synth.Instance` remains
+
+#### Scenario: Pinned kernel synthesizes without touching the schema cache
+
+- **WHEN** a frontend constructs a kernel with the default loader and synthesizes an instance
+- **THEN** no schema load runs for the synthesis; the module's own dependency list resolves `core` inside the build

@@ -4,12 +4,12 @@ Delivery: one PR per section (proposal.md). Each section has its own gate, named
 
 Gate: none.
 
-- [ ] 1.1 `opm/kernel/doc.go`: rewrite the "Surface" list in Go doc-comment list syntax (design.md D1); move the `ADR-005`, `ADR-002`, `ADR-007` and `ADR-009` pointers out of the package doc into ordinary comments. Verify: `go doc ./opm/kernel` shows one list item per operation and no `ADR-`.
-- [ ] 1.2 `opm/kernel/acquire.go`, `opm/kernel/render.go`: the `ADR-009` pointer at `acquire.go:136`; doc comments for `RenderError.Error`, `RenderError.Unwrap` and the `SkewWarn`/`SkewRefuse` group.
-- [ ] 1.3 `opm/errors/`: doc comments for the eight `Error` methods and `TransformError.Unwrap` (design.md D1 table); reword the "enhancement 0010:D32 as corrected by" sentence in `oversubscribed.go:12`.
-- [ ] 1.4 `opm/catalog/catalog.go`, `opm/platform/platform.go`, `opm/platform/doc.go`, `opm/helper/doc.go`, `opm/helper/platformmodule/generate.go`: the remaining ADR and "enhancement NNNN" pointers; the platformmodule constant group's doc.
-- [ ] 1.5 Verify: rerun the `go/doc` walk of design.md D1 over `opm/` (no exported symbol outside `internal/` with an empty doc) and `grep -rnE "ADR-0?[0-9]+|enhancement [0-9]{4}" opm --include=*.go` finds only non-doc comments.
-- [ ] 1.6 `task check` green, then commit `docs: make the exported doc comments read as reference pages`.
+- [x] 1.1 `opm/kernel/doc.go`: rewrite the "Surface" list in Go doc-comment list syntax (design.md D1); move the `ADR-005`, `ADR-002`, `ADR-007` and `ADR-009` pointers out of the package doc into ordinary comments. Verify: `go doc ./opm/kernel` shows one list item per operation and no `ADR-`.
+- [x] 1.2 `opm/kernel/acquire.go`, `opm/kernel/render.go`: the `ADR-009` pointer at `acquire.go:136`; doc comments for `RenderError.Error`, `RenderError.Unwrap` and the `SkewWarn`/`SkewRefuse` group.
+- [x] 1.3 `opm/errors/`: doc comments for the eight `Error` methods and `TransformError.Unwrap` (design.md D1 table); reword the "enhancement 0010:D32 as corrected by" sentence in `oversubscribed.go:12`.
+- [x] 1.4 `opm/catalog/catalog.go`, `opm/platform/platform.go`, `opm/platform/doc.go`, `opm/helper/doc.go`, `opm/helper/platformmodule/generate.go`: the remaining ADR and "enhancement NNNN" pointers; the platformmodule constant group's doc.
+- [x] 1.5 Verify: rerun the `go/doc` walk of design.md D1 over `opm/` (no exported symbol outside `internal/` with an empty doc) and `grep -rnE "ADR-0?[0-9]+|enhancement [0-9]{4}" opm --include=*.go` finds only non-doc comments.
+- [x] 1.6 `task check` green, then commit `docs: make the exported doc comments read as reference pages`.
 
 ## 2. Adopt docs-kit
 
