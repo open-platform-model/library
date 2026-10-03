@@ -4,6 +4,6 @@ language: {
 }
 deps: {
 	"opmodel.dev/core@v2": {
-		v: "v2.0.0-beta.1"
+		v: "v2.0.0-beta.2"
 	}
 }
