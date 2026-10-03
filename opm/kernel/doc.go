@@ -15,15 +15,15 @@
 // from the package constructor it already has a value for.
 //
 //   - [Kernel.AcquireModuleFromRegistry] and [Kernel.AcquireModuleFromDir]
-//     return a source-carrying [*module.Module];
+//     return a source-carrying [*module.Module].
 //   - [Kernel.AcquireCatalogFromRegistry] and [Kernel.AcquireCatalogFromDir]
-//     return a source-carrying [*catalog.Catalog], the kind admitted by
-//     ADR-009: the kernel reads it and derives from it
+//     return a source-carrying [*catalog.Catalog], an acquired kind of its
+//     own: the kernel reads it and derives from it
 //     ([catalog.Catalog.Provides], [catalog.Catalog.Requires]) and judges
-//     nothing beyond its shape;
-//   - [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform];
-//   - [Kernel.AcquireInstanceFromDir] returns a validated
-//     [*module.Instance], with optional values as trailing [Source] values;
+//     nothing beyond its shape.
+//   - [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform].
+//   - [Kernel.AcquireInstanceFromDir] returns a validated [*module.Instance],
+//     with optional values as trailing [Source] values.
 //   - [Kernel.SynthesizeInstance] builds one from typed inputs
 //     ([InstanceInput]); the module it takes comes from the two module
 //     acquire verbs, and the synthesized package imports core at the major
@@ -31,8 +31,8 @@
 //     [schema.OCILoader] with no schema load when it pins an exact release
 //     (the default) and resolved through the schema cache otherwise; the
 //     release that import resolves to is the one the module's own
-//     cue.mod/module.cue pins;
-//   - [Kernel.ValidateConfigDetailed] validates layered values;
+//     cue.mod/module.cue pins.
+//   - [Kernel.ValidateConfigDetailed] validates layered values.
 //   - [Kernel.Render] renders an instance against a platform.
 //
 // There is no second, value-only tier: a caller that wants the raw value of an
@@ -48,7 +48,7 @@
 //
 // # Every operation shares nothing
 //
-// The Kernel holds no [cue.Context] (ADR-007). Each acquire verb, synthesis,
+// The Kernel holds no [cue.Context]. Each acquire verb, synthesis,
 // validation and render creates a context for the call, builds in it, and
 // returns; the values an operation returns (an artifact's Package, a validated
 // value) keep that operation's runtime alive for exactly as long as the caller
@@ -73,7 +73,7 @@
 // there is nothing to gain from constructing more than one. Concurrency is
 // across operations, never within one.
 //
-// [Kernel.Render] shares nothing between renders (ADR-005, 0019:D8). Each
+// [Kernel.Render] shares nothing between renders (0019:D8). Each
 // render is its own CUE build in a fresh cue.Context created for that call and
 // dropped when Render returns; no built value is retained between calls, and a
 // caller cannot obtain one to hold. A consumer rendering from several
@@ -83,8 +83,8 @@
 // floor (a read-only lookup of #contracts.providedBy, no unification, no
 // fill), so concurrent renders never write to it. No render reuses a platform
 // value another render built, and there is no serialised render path; the
-// earlier shared-platform contract (ADR-002, renders filling one shared
-// platform value) is superseded, not supported.
+// earlier shared-platform contract (renders filling one shared platform
+// value) is superseded, not supported.
 //
 // A render is single-threaded and its working set grows with the module, so a
 // render pool is sized by memory rather than by core count: about 61 MB plus
@@ -282,3 +282,8 @@
 // ConfigSchema() accessor with the primitive, e.g.
 // k.ValidateConfigDetailed(m.ConfigSchema(), []kernel.Source{src}).
 package kernel
+
+// Design records behind the package doc above, for maintainers: the catalog
+// as an acquired kind is ADR-009; the Kernel holding no cue.Context is
+// ADR-007; renders sharing nothing is ADR-005, which supersedes ADR-002's
+// shared-platform contract.

@@ -13,6 +13,7 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
+// The fixed coordinates and file names of a generated platform module.
 const (
 	// CorePath is the major-qualified module path of the core schema the
 	// generated module embeds.
