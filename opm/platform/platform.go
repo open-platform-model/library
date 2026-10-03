@@ -17,7 +17,7 @@ import (
 // (#composedTransformers, #contracts) are NOT decoded into Go fields at
 // construction: the render build imports the platform package and the glue
 // reads #composedTransformers in CUE, and the contract inventory is read
-// off Package on demand through [Platform.Contracts] (enhancement 0015).
+// off Package on demand through [Platform.Contracts].
 //
 // Metadata is an ergonomic decoded projection of the platform-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —

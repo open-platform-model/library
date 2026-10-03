@@ -32,6 +32,9 @@ type PlatformCoreTooOldError struct {
 	Require string
 }
 
+// Error names the platform, the missing field and the core release that
+// derives it, and asks for a re-pin of opmodel.dev/core to Require (Since
+// when Require is empty) or later.
 func (e *PlatformCoreTooOldError) Error() string {
 	name := "<unnamed>"
 	if e.Platform != "" {
