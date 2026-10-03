@@ -48,20 +48,28 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       `AcquireCatalogFromRegistry` say the version may be written either way, e.g. `"4.3.0"` or
       `"v4.3.0"`. Verify: `go doc ./opm/kernel Kernel.AcquireCatalogFromRegistry` shows both forms.
 - [ ] 2.4 Loader tests through the `registrytest` fixture (`opm/internal/loader/registry_test.go`):
-      `TestFetchModule_BareVersion` fetches a served module with `"0.0.2"` and with `"v0.0.2"`,
+      `TestFetchModule_BareVersion` fetches a served module with `"0.0.2"` first (so the bare
+      spelling drives the registry fetch, not a warmed cache) and then with `"v0.0.2"`,
       asserting both succeed, `metadata.version` reads `0.0.2`, and both sources carry the same
-      `Root`; `TestFetchArtifact_CatalogBareVersion` does the same for a served catalog with
-      `loader.CatalogSpec`. `TestFetchModule_BadVersionWrapped` also asserts the error names
-      `not-a-version`. Verify: `go test ./opm/internal/loader -count=1` green.
+      `Root`; `TestFetchArtifact_CatalogBareVersion` does the same, bare first, for a served
+      catalog with `loader.CatalogSpec`. `TestFetchModule_BadVersionWrapped` also asserts the
+      exact outer prefix `parsing artifact version test.example/x@v0@not-a-version:`, which
+      proves the message keeps the caller's spelling (the wrapped cue error alone already
+      contains `not-a-version`). The module scenario is covered at the loader because
+      `Kernel.AcquireModuleFromRegistry` delegates to `loader.FetchModule` in one line.
+      Verify: `go test ./opm/internal/loader -count=1` green.
 - [ ] 2.5 Kernel test (`opm/kernel/acquire_catalog_test.go`): in
-      `TestKernel_AcquireCatalogFromRegistry`, after the mapped `v`-prefixed acquisition,
-      acquire the same catalog with the bare `version` and assert the same `Metadata` and the
-      same `Source.Root` (spec scenario "A catalog is acquired by a bare version"). Keep the
+      `TestKernel_AcquireCatalogFromRegistry`, acquire the catalog with the bare `version`
+      before the mapped `v`-prefixed acquisition and assert the same `Metadata` and the same
+      `Source.Root` (spec scenario "A catalog is acquired by a bare version"). Keep the
       unmapped negative subtest first, before any positive load warms the cache. Verify:
       `go test ./opm/kernel -run 'TestKernel_AcquireCatalogFromRegistry' -count=1` green.
 - [ ] 2.6 Negative check, not committed: revert only the canonicalisation line in
-      `FetchArtifact` and rerun 2.4 and 2.5; the bare-version tests fail with "not well formed".
-      Restore it. Verify: `git diff --stat` shows the restored file unchanged from 2.2.
+      `FetchArtifact` and rerun 2.4 and 2.5; the two catalog bare-version tests
+      (`TestFetchArtifact_CatalogBareVersion` and the 2.5 kernel test) fail with "not well
+      formed", while `TestFetchModule_BareVersion` stays green because `FetchModule`
+      canonicalises first. Then revert the `FetchModule` line as well; now all three bare-version
+      tests fail. Restore both. Verify: `git diff --stat` shows the restored file unchanged from 2.2.
 - [ ] 2.7 `task check` green, then commit
       `fix(loader): accept bare semver in the registry verbs`.
 

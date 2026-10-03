@@ -54,8 +54,10 @@ SemVer class: PATCH. The release-bearing commit is `fix(loader)`; the helper lif
 
 Not in this change: the operator pin bump and the operator e2e test (later wave), consolidating
 the library's other version helpers and the Masterminds dependency (b3), and any change to how
-`platformmodule.Generate` stamps the entry version (it stays bare, which is what the catalog's
-`metadata.version` carries).
+`platformmodule.Generate` stamps the entry version. Generate stamps the subscription's version as
+given, so a `v`-prefixed claim still conflicts at platform build; the operator keeps the bare form
+its CRD documents (or the owner decides on Generate normalisation separately). Both spellings are
+accepted by the registry verbs only, not by the claim pipeline end to end (design Risks).
 
 ## Capabilities
 
