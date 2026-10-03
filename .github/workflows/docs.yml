@@ -12,10 +12,12 @@ name: Docs
 #                      job did not run for a library release, and the backfill
 #                      of a release cut before this repository gained
 #                      docs-kit.cue: main's config builds the tag's opm/ and
-#                      docs/site/ (C5).
+#                      docs/site/ (C5). The floor is v1.0.0-beta.1: older
+#                      tags are never backfilled.
 #                      revision: a docs revision of a published release. It
 #                      applies fix, a single-parent commit on main that changes
-#                      only Markdown or only comments, to the release tree and
+#                      only Markdown or only comments and cherry-picks cleanly
+#                      onto the tag, to the release tree and
 #                      publishes <version>.<next> (docs-kit README, "Fixing a
 #                      release's docs"; docs/contracts.md, "Docs revisions").
 #                      Dispatch either on main; publish.yml refuses any other ref:
@@ -42,7 +44,7 @@ on:
         default: release
         required: true
       tag:
-        description: The library release tag (vX.Y.Z)
+        description: The library release tag (vX.Y.Z), v1.0.0-beta.1 or later
         type: string
         required: true
       # Required by publish.yml in revision mode, which refuses anything but
