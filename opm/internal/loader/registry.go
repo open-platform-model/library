@@ -44,16 +44,16 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // version (e.g. "0.0.2" or "v0.0.2": a bare SemVer is canonicalised to the
 // v-prefixed form CUE module versions require, so both spellings fetch the
 // same tag and stage under the same synthetic root), gated to the shape spec
-// names, and returns the value built in cueCtx together with the staged source
-// tree the build used, as the artifact [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
-// overlay key sits under, plus the Overlay carrying the module's .cue files
-// (its own cue.mod/module.cue included, nothing else: the set cue/load
-// reads). A consumer reuses it to build a follow-on package INSIDE the
-// module's own main module — letting the module's already-tidied
-// cue.mod/module.cue drive transitive resolution — without a second registry
-// fetch (Principle V, CUE-native resolution). The returned Overlay is the
-// build's own map; callers that mutate it (e.g. to overlay additional files)
-// MUST clone it first.
+// names, and returns the value built in cueCtx together with the staged
+// source tree the build used, as the artifact [opmmodule.Source] in overlay
+// mode: the deterministic synthetic Root every overlay key sits under, plus
+// the Overlay carrying the module's .cue files (its own cue.mod/module.cue
+// included, nothing else: the set cue/load reads). A consumer reuses it to
+// build a follow-on package INSIDE the module's own main module — letting the
+// module's already-tidied cue.mod/module.cue drive transitive resolution —
+// without a second registry fetch (Principle V, CUE-native resolution). The
+// returned Overlay is the build's own map; callers that mutate it (e.g. to
+// overlay additional files) MUST clone it first.
 //
 // It fetches the module's source via CUE's native module machinery
 // (mod/modconfig) and builds it IN MEMORY AS THE MAIN MODULE through

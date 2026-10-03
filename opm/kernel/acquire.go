@@ -40,9 +40,9 @@ func (k *Kernel) loadEnv() []string {
 // written bare or v-prefixed (e.g. "0.0.2" or "v0.0.2"; both fetch the same
 // tag), in a [cue.Context] created for the call, through the kernel's
 // configured registry (set via [WithRegistry], inheriting CUE_REGISTRY from
-// the process environment when unset). It returns a decoded
-// [*module.Module] whose staged source ([module.Source]) is populated, so the
-// module can be reused as the main module of a follow-on build — notably by
+// the process environment when unset). It returns a decoded [*module.Module]
+// whose staged source ([module.Source]) is populated, so the module can be
+// reused as the main module of a follow-on build — notably by
 // [Kernel.SynthesizeInstance], which stages the instance inside the module's
 // own root so the module's already-tidied cue.mod/module.cue drives
 // transitive dependency resolution. A caller that wants only the raw module
@@ -132,8 +132,8 @@ func overlaySourceForDir(absDir string) (*module.Source, error) {
 // written bare or v-prefixed (e.g. "4.3.0" or "v4.3.0"; both fetch the same
 // tag), in a [cue.Context] created for the call, through the kernel's
 // configured registry (set via [WithRegistry], inheriting CUE_REGISTRY from
-// the process environment when unset). It is the registry
-// peer of [Kernel.AcquireCatalogFromDir] and the exact counterpart of
+// the process environment when unset). It is the registry peer of
+// [Kernel.AcquireCatalogFromDir] and the exact counterpart of
 // [Kernel.AcquireModuleFromRegistry]: one fetch routine serves both, and the
 // only thing that differs is the shape it gates to (ADR-009).
 //

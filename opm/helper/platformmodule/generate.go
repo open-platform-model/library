@@ -69,8 +69,8 @@ type Files map[string][]byte
 // still imports its catalog). Core is pinned at [schema.DefaultSchemaVersion],
 // the release the kernel was verified against; a caller that needs a
 // different core build assembles its []Dep roots directly. Versions are
-// canonicalised with the "v" prefix cue.mod requires; subscriptions carry
-// bare SemVer.
+// canonicalised with the "v" prefix cue.mod requires; subscriptions may be
+// bare or "v"-prefixed.
 func Roots(entries []Entry) []Dep {
 	roots := make([]Dep, 0, len(entries)+1)
 	roots = append(roots, Dep{Path: CorePath, Version: modversion.Canonical(schema.DefaultSchemaVersion())})
@@ -85,9 +85,9 @@ func Roots(entries []Entry) []Dep {
 // deterministic: entries and dependencies are emitted in sorted path order
 // whatever order they arrive in, so the same input always produces
 // byte-identical content. Each registry entry stamps the subscription's
-// version as the entry's expected `version`, which unifies with the schema's
-// readout of the imported catalog so wrong bytes are a build conflict naming
-// the entry (0019:D13 tripwire).
+// version, without its "v" prefix, as the entry's expected `version`, which
+// unifies with the schema's readout of the imported catalog so wrong bytes
+// are a build conflict naming the entry (0019:D13 tripwire).
 func Generate(in Input) (Files, error) {
 	if in.Name == "" {
 		return nil, errors.New("platform name is required")
