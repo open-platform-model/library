@@ -9,9 +9,8 @@ import (
 // key declared `fulfilment: "provider"` on a required demand of transformers
 // from two or more of the platform's enabled registry entries (path plus
 // major: two majors of one catalog are two entries), whether or not an
-// enabled catalog defines the key (enhancement 0010:D32 as corrected by
-// 0010:D37; enforced inside the render build since library-render-cutover).
-// The count is core's #Platform.#contracts.providedBy, which the render glue
+// enabled catalog defines the key (0010:D32/D37). The render build enforces
+// the guard. The count is core's #Platform.#contracts.providedBy, which the render glue
 // reads and never recomputes, so the rows are exactly the keys the platform's
 // contract inventory reports over-subscribed. A platform must carry exactly
 // one provider for such a key; two is a misconfigured platform, not an
@@ -49,6 +48,8 @@ type OverSubscribedContractsError struct {
 	Contracts []OverSubscribedContract
 }
 
+// Error returns a count line, then one indented line per over-subscribed
+// contract naming its key and the catalogs whose transformers supply it.
 func (e *OverSubscribedContractsError) Error() string {
 	msg := fmt.Sprintf("%d over-subscribed provider contract(s):", len(e.Contracts))
 	for _, c := range e.Contracts {

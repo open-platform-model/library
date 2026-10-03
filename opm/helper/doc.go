@@ -6,8 +6,8 @@
 // (opm/kernel, opm/module, opm/platform, opm/catalog, opm/schema,
 // opm/errors and opm/internal/) is the contract every frontend (CLI,
 // controller, Crossplane fn, future runtimes) MUST honour. The Kubernetes
-// tier, opm/k8s/ (planned, ADR-011), is the contract every frontend that
-// targets Kubernetes MUST honour.
+// tier, opm/k8s/ (planned), is the contract every frontend that targets
+// Kubernetes MUST honour.
 //
 // The boundary is real in the import graph, not just described: no kernel
 // package (opm/kernel, opm/module, opm/platform, opm/catalog, opm/schema,
@@ -34,7 +34,7 @@
 //     raises from those rows between render and apply. The kernel never calls
 //     it, and a frontend applying to something other than Kubernetes MAY skip
 //     it. Apply identity is Kubernetes-specific, so it moves into
-//     opm/k8s/object with the first Kubernetes-tier package (ADR-011).
+//     opm/k8s/object with the first Kubernetes-tier package.
 //
 // Earlier subpackages were folded into the kernel once it depended on them,
 // which had made the opt-in tier mandatory:
@@ -55,3 +55,6 @@
 // never a one-off addition; the umbrella design is legacy:001
 // (kernel-redesign-around-platform).
 package helper
+
+// The planned Kubernetes tier, opm/k8s/, and objectset's move into it are
+// ADR-011.

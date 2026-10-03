@@ -14,22 +14,24 @@
 // One tier: every artifact a frontend can hold comes from an acquire verb, or
 // from the package constructor it already has a value for.
 //
-// - [Kernel.AcquireModuleFromRegistry] and [Kernel.AcquireModuleFromDir]
-// return a source-carrying [*module.Module]; -
-// [Kernel.AcquireCatalogFromRegistry] and [Kernel.AcquireCatalogFromDir]
-// return a source-carrying [*catalog.Catalog], the kind admitted by ADR-009:
-// the kernel reads it and derives from it ([catalog.Catalog.Provides],
-// [catalog.Catalog.Requires]) and judges nothing beyond its shape; -
-// [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform]; -
-// [Kernel.AcquireInstanceFromDir] returns a validated [*module.Instance], with
-// optional values as trailing [Source] values; - [Kernel.SynthesizeInstance]
-// builds one from typed inputs ([InstanceInput]); the module it takes comes
-// from the two module acquire verbs, and the core release the synthesized
-// package imports is the kernel's pinned schema release, read from the
-// configured [schema.OCILoader] with no schema load when it pins an exact
-// release (the default) and resolved through the schema cache otherwise; -
-// [Kernel.ValidateConfigDetailed] validates layered values; - [Kernel.Render]
-// renders an instance against a platform.
+//   - [Kernel.AcquireModuleFromRegistry] and [Kernel.AcquireModuleFromDir]
+//     return a source-carrying [*module.Module].
+//   - [Kernel.AcquireCatalogFromRegistry] and [Kernel.AcquireCatalogFromDir]
+//     return a source-carrying [*catalog.Catalog], an acquired kind of its
+//     own: the kernel reads it and derives from it
+//     ([catalog.Catalog.Provides], [catalog.Catalog.Requires]) and judges
+//     nothing beyond its shape.
+//   - [Kernel.AcquirePlatformFromDir] returns a [*platform.Platform].
+//   - [Kernel.AcquireInstanceFromDir] returns a validated [*module.Instance],
+//     with optional values as trailing [Source] values.
+//   - [Kernel.SynthesizeInstance] builds one from typed inputs
+//     ([InstanceInput]); the module it takes comes from the two module
+//     acquire verbs, and the core release the synthesized package imports is
+//     the kernel's pinned schema release, read from the configured
+//     [schema.OCILoader] with no schema load when it pins an exact release
+//     (the default) and resolved through the schema cache otherwise.
+//   - [Kernel.ValidateConfigDetailed] validates layered values.
+//   - [Kernel.Render] renders an instance against a platform.
 //
 // There is no second, value-only tier: a caller that wants the raw value of an
 // acquired artifact reads its Package field, and a caller holding a value it
@@ -44,7 +46,7 @@
 //
 // # Every operation shares nothing
 //
-// The Kernel holds no [cue.Context] (ADR-007). Each acquire verb, synthesis,
+// The Kernel holds no [cue.Context]. Each acquire verb, synthesis,
 // validation and render creates a context for the call, builds in it, and
 // returns; the values an operation returns (an artifact's Package, a validated
 // value) keep that operation's runtime alive for exactly as long as the caller
@@ -69,7 +71,7 @@
 // there is nothing to gain from constructing more than one. Concurrency is
 // across operations, never within one.
 //
-// [Kernel.Render] shares nothing between renders (ADR-005, 0019:D8). Each
+// [Kernel.Render] shares nothing between renders (0019:D8). Each
 // render is its own CUE build in a fresh cue.Context created for that call and
 // dropped when Render returns; no built value is retained between calls, and a
 // caller cannot obtain one to hold. A consumer rendering from several
@@ -79,8 +81,8 @@
 // floor (a read-only lookup of #contracts.providedBy, no unification, no
 // fill), so concurrent renders never write to it. No render reuses a platform
 // value another render built, and there is no serialised render path; the
-// earlier shared-platform contract (ADR-002, renders filling one shared
-// platform value) is superseded, not supported.
+// earlier shared-platform contract (renders filling one shared platform
+// value) is superseded, not supported.
 //
 // A render is single-threaded and its working set grows with the module, so a
 // render pool is sized by memory rather than by core count: about 61 MB plus
@@ -90,16 +92,36 @@
 //
 // # One-Kernel-per-process example
 //
-// func renderAll(ctx context.Context, k *kernel.Kernel, platformDir string,
-// instanceDirs []string) error { plat, err := k.AcquirePlatformFromDir(ctx,
-// platformDir) // once; the platform is shared as data if err != nil { return
-// err } var wg sync.WaitGroup errs := make(chan error, len(instanceDirs)) for
-// _, dir := range instanceDirs { wg.Add(1) go func(dir string) { defer
-// wg.Done() inst, err := k.AcquireInstanceFromDir(ctx, dir) // the one Kernel,
-// concurrently if err != nil { errs <- err return } if _, err := k.Render(ctx,
-// kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-cli"});
-// err != nil { errs <- err } }(dir) } wg.Wait() close(errs) for err := range
-// errs { if err != nil { return err } } return nil }
+//	func renderAll(ctx context.Context, k *kernel.Kernel, platformDir string, instanceDirs []string) error {
+//		plat, err := k.AcquirePlatformFromDir(ctx, platformDir) // once; the platform is shared as data
+//		if err != nil {
+//			return err
+//		}
+//		var wg sync.WaitGroup
+//		errs := make(chan error, len(instanceDirs))
+//		for _, dir := range instanceDirs {
+//			wg.Add(1)
+//			go func(dir string) {
+//				defer wg.Done()
+//				inst, err := k.AcquireInstanceFromDir(ctx, dir) // the one Kernel, concurrently
+//				if err != nil {
+//					errs <- err
+//					return
+//				}
+//				if _, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-cli"}); err != nil {
+//					errs <- err
+//				}
+//			}(dir)
+//		}
+//		wg.Wait()
+//		close(errs)
+//		for err := range errs {
+//			if err != nil {
+//				return err
+//			}
+//		}
+//		return nil
+//	}
 //
 // # Rendering
 //
@@ -153,14 +175,20 @@
 // set, and a demand skipped under [RenderInput.SkipUnprovided] on a
 // RenderDiagnostics.Skipped row. A frontend words all three:
 //
-// for comp, traits := range result.Diagnostics.UnhandledTraits { for _, fqn :=
-// range traits { log.Printf("component %q: trait %q is unhandled", comp, fqn)
-// } } for _, r := range result.Diagnostics.ResolvedVersions { if r.Newer {
-// log.Printf("%s: module requires %s, platform carries %s", r.Path,
-// r.ModuleVersion, r.PlatformVersion) } } for _, s := range
-// result.Diagnostics.Skipped { log.Printf("component %q: skipped %s %q, no
-// provider on this platform (component rendered: %t)", s.Component, s.Kind,
-// s.FQN, !s.ComponentOmitted) }
+//	for comp, traits := range result.Diagnostics.UnhandledTraits {
+//		for _, fqn := range traits {
+//			log.Printf("component %q: trait %q is unhandled", comp, fqn)
+//		}
+//	}
+//	for _, r := range result.Diagnostics.ResolvedVersions {
+//		if r.Newer {
+//			log.Printf("%s: module requires %s, platform carries %s", r.Path, r.ModuleVersion, r.PlatformVersion)
+//		}
+//	}
+//	for _, s := range result.Diagnostics.Skipped {
+//		log.Printf("component %q: skipped %s %q, no provider on this platform (component rendered: %t)",
+//			s.Component, s.Kind, s.FQN, !s.ComponentOmitted)
+//	}
 //
 // A dry run is Render with the output discarded: the build evaluates every
 // matched pair regardless, and RenderDiagnostics carries the pairing diagnosis
@@ -206,8 +234,9 @@
 // made inert is not a row, so the frontend computes the inert set from the
 // file it read):
 //
-// for _, r := range result.Diagnostics.Replacements { log.Printf("%s: served
-// from %s (%s local-module.cue)", r.Path, r.Target, r.By) }
+//	for _, r := range result.Diagnostics.Replacements {
+//		log.Printf("%s: served from %s (%s local-module.cue)", r.Path, r.Target, r.By)
+//	}
 //
 // Render consumes the instance as processed: values are validated where they
 // are applied. [Kernel.AcquireInstanceFromDir] unifies its trailing [Source]
@@ -250,3 +279,8 @@
 // ConfigSchema() accessor with the primitive, e.g.
 // k.ValidateConfigDetailed(m.ConfigSchema(), []kernel.Source{src}).
 package kernel
+
+// Design records behind the package doc above, for maintainers: the catalog
+// as an acquired kind is ADR-009; the Kernel holding no cue.Context is
+// ADR-007; renders sharing nothing is ADR-005, which supersedes ADR-002's
+// shared-platform contract.
