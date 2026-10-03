@@ -7,7 +7,7 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 #### Scenario: opm/errors carries no validation projections
 
 - **WHEN** a developer reads `opm/errors/`
-- **THEN** its exported types are the acquisition and synthesis sentinels, `TransformError`, and the render verdict rows and refusal causes, none of which projects a CUE validation error
+- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, and the render verdict rows and refusal causes (skew, routing, contract and demand), none of which projects a CUE validation error
 - **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
 
 #### Scenario: Frontends rely on cuelang.org/go/cue/errors
