@@ -80,20 +80,6 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 - **WHEN** a platform module pinning core `2.0.0-alpha.12` (whose `#contracts` carries no `collisions` or `collidingEntries`) is acquired
 - **THEN** `Contracts()` returns a nil error, empty `Collisions` and `CollidingEntries`, and every other field exactly as it decoded before this change
 
-### Requirement: Platform Constructor from cue.Value
-
-The library SHALL expose `func NewPlatformFromValue(k *kernel.Kernel, v cue.Value) (*Platform, error)`. The constructor SHALL detect `apiVersion`, look up the binding, decode `Metadata`, stamp the `APIVersion` field, and set `Package` to the supplied value unchanged.
-
-#### Scenario: Successful construction
-
-- **WHEN** a caller invokes `NewPlatformFromValue(k, v)` with a valid v1alpha2 Platform value
-- **THEN** the returned `*Platform` has `APIVersion == apiversion.V1alpha2`, populated `Metadata`, and `Package == v`
-
-#### Scenario: Unknown apiVersion
-
-- **WHEN** the input `cue.Value` has an unrecognized `apiVersion`
-- **THEN** the function returns a non-nil error wrapping `apiversion.ErrUnknownAPIVersion`
-
 ### Requirement: Platform acquisition from a directory returns a source-carrying artifact
 
 The kernel SHALL expose `AcquirePlatformFromDir(ctx, dir)`, which loads a `#Platform` CUE package from a directory through the acquisition shape gate, constructs the typed platform via `platform.NewPlatformFromValue`, and stamps `Source` in on-disk mode: `Overlay` nil, `Root` = the absolute path of the enclosing module root (the nearest ancestor holding `cue.mod/module.cue`, the directory itself when it is the root), and `Pkg` = the package directory relative to `Root` (empty for the root package). A directory with no enclosing module is its own root with an empty `Pkg`. The registry mapping used for the platform's catalog imports SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`; the verb takes no per-call override.
@@ -138,3 +124,23 @@ The kernel SHALL expose `AcquirePlatformFromDir(ctx, dir)`, which loads a `#Plat
 
 - **WHEN** a platform built via `NewPlatformFromValue` is passed to `Render`
 - **THEN** `Render` refuses it with an error naming the missing source, before any build is staged
+
+### Requirement: Platform constructor takes a bare value
+
+The library SHALL expose `func NewPlatformFromValue(v cue.Value) (*Platform, error)` in `opm/platform`. The constructor SHALL take only the platform value. It SHALL decode `Metadata` from the value's `metadata` field, hoist the root-level `type` into `Metadata.Type`, set `Package` to the supplied value unchanged, and leave `Source` nil. It SHALL perform no API version detection and no binding lookup. When `metadata` is absent or does not decode, or the root `type` is present but not a string, it SHALL return an error and a nil `*Platform`, never a partial one.
+
+#### Scenario: Successful construction
+
+- **WHEN** a caller invokes `platform.NewPlatformFromValue(v)` with a `#Platform` value carrying `metadata.name`, `metadata.description`, labels, annotations and a root `type: "kubernetes"`
+- **THEN** the returned `*Platform` has those fields in `Metadata`, `Metadata.Type == "kubernetes"`, `Package` equal to `v`, and `Source == nil`
+
+#### Scenario: Missing metadata is refused
+
+- **WHEN** a caller invokes `platform.NewPlatformFromValue(v)` with a value that has no `metadata` field
+- **THEN** it returns an error stating that the platform metadata field is required, and a nil `*Platform`
+
+#### Scenario: The constructor takes one argument
+
+- **WHEN** a consumer inspects the signature of `platform.NewPlatformFromValue`
+- **THEN** it takes a single `cue.Value` and no kernel, context or option argument
+- **AND** no `opm/apiversion` package exists to detect a version with
