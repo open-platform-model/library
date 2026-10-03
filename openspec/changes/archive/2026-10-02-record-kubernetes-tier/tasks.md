@@ -1,0 +1,47 @@
+# Tasks: record-kubernetes-tier
+
+No Go code, no `go.mod` change. Every section's gate is `task fmt`, `task vet`, `task lint`, `task build` and `openspec validate record-kubernetes-tier --strict`. `task test` is optional for a change that touches no Go source except one package doc comment.
+
+## 1. Record the decision (adr)
+
+- [x] 1.1 Write `adr/011-kubernetes-tier-beside-the-kernel.md` in the `adr/TEMPLATE.md` shape, Status Accepted (2026-10-02). Context is value-neutral (0012:D1 and 0012:D2, the two existing tiers, 0006:D31's outcome, the apply-engine asymmetry, CUE label stamping). Decision states the nine rules mapped to 0012:D3/D4/D5/D6. Rejected alternatives: inside `opm/kernel`, under `opm/helper`, a nested Go module, per-frontend copies. Consequences are bold-labelled paragraphs. Verify: no bare decision number (`grep -nE '(^|[^:0-9A-Za-z])D[0-9]+' adr/011-*.md` returns nothing).
+- [x] 1.2 Amend `adr/008-kernel-plans-caller-runs.md` in place, following the ADR-007 precedent: one dated "Amended 2026-10-02 by `record-kubernetes-tier`" sentence on the Status line, and a one-line clarification at the end of rule 4 ("derives no ordering of its own" excludes module-specific ordering only; kind-class order lives in `opm/k8s/object`). Verify: the rule text is otherwise byte-identical (`git diff` shows only those two lines).
+- [x] 1.3 Gates green, then commit `docs(adr): add ADR-011, the Kubernetes tier beside the kernel`.
+
+## 2. Amend the constitution and the boundary prose (constitution, helper)
+
+- [x] 2.1 `CONSTITUTION.md`: Principle III lists `opm/catalog/` and the planned `opm/k8s/` tier (mandatory for a Kubernetes frontend, fenced from the kernel, ADR-011), and its summary row names the three tiers. Principle IV's runtime-concerns bullet is narrowed: `opm/k8s/` alone may import `k8s.io/apimachinery`, and no `opm/` package imports `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux. Principle I gains one sentence saying that Kubernetes vocabulary in `opm/k8s/` is not a runtime assumption. The constitution has no version or amendment log, so none is added.
+- [x] 2.2 Mirror 2.1 in the `context` block of `openspec/config.yaml` (Principles I, III and IV). Verify: `openspec validate record-kubernetes-tier --strict` still loads the config.
+- [x] 2.3 `opm/helper/doc.go` (doc comment only): replace "Anything outside opm/helper/ is part of the kernel contract that every frontend ... MUST honour" with the two-tier statement (the kernel binds every frontend; `opm/k8s/` binds every frontend that targets Kubernetes), and add `opm/catalog` to the package list in the import-graph paragraph. Verify: `go doc ./opm/helper` renders, and `git diff opm/helper/doc.go` touches comment lines only.
+- [x] 2.4 `README.md` § Helper boundary and `AGENTS.md` § Repository Rules: the same correction. `AGENTS.md` § Repository Layout gains a `k8s/` line marked PLANNED (ADR-011, no package yet). Verify: `grep -rn "outside .*helper.* kernel contract\|outside \`helper/\` is kernel" AGENTS.md README.md opm` returns nothing.
+- [x] 2.5 Gates green, then commit `docs(constitution): admit the opm/k8s tier beside the kernel`.
+
+## 3. Fence the tier in lint (.golangci.yml)
+
+- [x] 3.1 Add depguard rules `nothing-imports-k8s-tier` (files: `opm/kernel`, `opm/module`, `opm/platform`, `opm/catalog`, `opm/schema`, `opm/errors`, `opm/internal`, `opm/helper`, test files included; deny `.../opm/k8s`) and `k8s-tier-imports-no-runtime` (files: `opm/k8s`; deny `k8s.io/client-go`, `sigs.k8s.io/controller-runtime`, `github.com/fluxcd`, `.../opm/internal`, `.../opm/helper`), commented in the style of `kernel-never-imports-helper`. Add `opm/catalog` to `kernel-never-imports-helper`'s file list, which the MODIFIED `helper-packages` requirement now states it covers.
+- [x] 3.2 Prove both rules bite in a throwaway copy of the tree under the scratchpad, never committed: (a) a probe package `opm/k8s/probe` and an import of it from a file in `opm/kernel` make `golangci-lint run` fail on `nothing-imports-k8s-tier`; (b) a file in `opm/k8s/probe` importing a package under `opm/internal/`, then one under `opm/helper/`, makes it fail on `k8s-tier-imports-no-runtime`; (c) the same for a `k8s.io/client-go` import, with the dependency added to the scratch copy's `go.mod` only. Verify: each probe fails with the rule name, and the worktree has no `opm/k8s` directory afterwards.
+- [x] 3.3 Gates green, then commit `chore(lint): fence the opm/k8s tier with depguard`.
+
+## 4. Close the review findings (adr, constitution, lint, specs)
+
+- [x] 4.1 ADR-011: scope item 4's executor ban to `opm/k8s` and the kernel (ADR-008 rule 3 unchanged), state the apply order (each frontend submits in the library's order; an engine's staging may refine it and never contradict it), state the outward bound as a denylist, say in the Context that 0012:D3 narrows 0012's "kernel" wording, and make the Consequences sentence about ADR-008 match the rule 4 clarification. ADR-008's Status line cites 0009:D1, 0009:D3 and 0009:D4 in qualified form.
+- [x] 4.2 `CONSTITUTION.md` Principle III lists the current helper subpackages (`platformmodule`, `objectset`). `AGENTS.md` drops the em-dash aside, states the denylist and lists `opm/internal/valuesfile`.
+- [x] 4.3 Add depguard rules `kernel-imports-no-kubernetes` (kernel files, tests included; deny `k8s.io`, `sigs.k8s.io`) and `opm-imports-no-cluster-runtime` (every file under `opm/`; deny `k8s.io/client-go`, `sigs.k8s.io/controller-runtime`, `github.com/fluxcd`). Probe both in a scratch copy: a kernel file importing apimachinery, a kernel test importing `sigs.k8s.io/yaml`, and a helper file importing client-go, controller-runtime and Flux each fail by rule name; an `opm/k8s` file importing `opm/kernel` and apimachinery passes.
+- [x] 4.4 Gates green, then commit `docs(adr): scope ADR-011's executor ban and state the apply order`, `docs(constitution): refresh the helper list and the tier's import bound`, `chore(lint): keep Kubernetes out of the kernel and runtimes out of opm/` and `docs(openspec): fold the review answers into record-kubernetes-tier`.
+
+## 5. Retire the helper executor-backend allowance (adr, constitution, specs), superseded by section 6
+
+- [x] 5.1 ADR-008: amend rule 3 in place so the library ships no executor backend, `opm/helper/` included, and extend the dated Status amendment. ADR-011: rewrite item 4 as "nothing in the library performs a cluster action", update the Status line, the Consequences and the Relation to ADR-008 paragraph, name 0012 by its title, and say 0012:D1 and 0012:D2 were written using "kernel" for the library as a whole before their 2026-10-02 revision. `CONSTITUTION.md` and `openspec/config.yaml` Principle IV, and `AGENTS.md`, state that nothing in `opm/` performs a cluster action. The `.golangci.yml` client-go ban is unchanged.
+- [x] 5.2 Rename the `kubernetes-tier` requirement to "Nothing in the library performs a cluster action", widen its executor scenario to every package under `opm/`, and add a scenario for ADR-008 rule 3, in the main spec and this archived copy.
+- [x] 5.3 Gates green, then commit `docs(adr): retire ADR-008's helper executor-backend allowance`.
+
+## 6. Narrow the backend ban to cluster actions (adr, constitution, specs)
+
+- [x] 6.1 ADR-008 rule 3 and its Status amendment, ADR-011 (Status, item 4, Consequences, Relation to ADR-008), `CONSTITUTION.md` and `openspec/config.yaml` Principle IV, `AGENTS.md`, the `kubernetes-tier` main spec and this archived copy: one definition, a backend that performs a planned action against a cluster. Opt-in backends that act on no cluster (0009:D4) may ship under `opm/helper/`. The `.golangci.yml` ban is unchanged.
+- [x] 6.2 Gates green, then commit `docs(adr): ban only cluster-acting executor backends and keep 0009:D4`.
+
+## 7. One backend definition, the 0009:D4 amendment and a tighter fence (adr, constitution, specs, lint)
+
+- [x] 7.1 Every text uses one definition: the banned thing is an executor backend that performs a planned action against a cluster, and the allowed thing is executor backends that perform no planned action against a cluster. The texts say the narrowing keeps 0009's non-cluster hosts and that 0012:D3 amends 0009:D4 for its cluster-acting Ops (0012:OQ10).
+- [x] 7.2 `.golangci.yml`: `k8s-tier-imports-only-apimachinery` (lax mode) denies the bare `k8s.io` and `sigs.k8s.io` prefixes in the tier and allows `k8s.io/apimachinery`; its deny list holds only those two prefixes, because depguard checks the nearest sorted entry and a longer entry such as `k8s.io/client-go` hid `k8s.io` for imports sorting after it. `k8s-tier-imports-no-runtime` keeps Flux, `opm/internal` and `opm/helper`. `helper-imports-no-kubernetes` denies `k8s.io` and `sigs.k8s.io` under `opm/helper/`. Probed in a scratch copy: `k8s.io/api`, `k8s.io/utils`, `k8s.io/klog`, client-go, `sigs.k8s.io/yaml`, controller-runtime and Flux fail in the tier; apimachinery fails in the helper tier; apimachinery plus `opm/kernel` passes in the tier. Spec scenarios cover both new refusals.
+- [x] 7.3 Gates green, then commit `docs(adr): one backend definition and a fence lint enforces`.

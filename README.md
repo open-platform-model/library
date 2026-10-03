@@ -115,9 +115,9 @@ Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to
 
 ## Helper boundary (`opm/helper/`)
 
-Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Anything outside `opm/helper/` is part of the kernel contract.
+Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a frontend MAY skip it and call the kernel directly. Outside it, the library has two tiers that are not optional: the kernel, which binds every frontend, and the planned Kubernetes tier `opm/k8s/` ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)), which binds every frontend that targets Kubernetes.
 
-The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/schema`, `opm/errors` and every package under `opm/internal/` from importing anything under `opm/helper/`.
+The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/catalog`, `opm/schema`, `opm/errors` and every package under `opm/internal/` from importing anything under `opm/helper/`. Three more fence `opm/k8s/`: no other `opm/` package imports it, it imports no Flux, helper or internal package, and of the Kubernetes modules it imports only `k8s.io/apimachinery`. Two keep every kernel package and every helper package off `k8s.io` and `sigs.k8s.io`, and a seventh keeps client-go, controller-runtime and Flux out of every file under `opm/`.
 
 Today this layer holds exactly two subpackages:
 

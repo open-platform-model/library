@@ -1,6 +1,6 @@
 # golangci-lint v2 configuration.
 # Kept intentionally small: the standard linter set plus formatting checks and
-# the one architectural rule the repo enforces mechanically.
+# the architectural fences the repo enforces mechanically.
 # This is a library, not the operator — no custom logcheck plugin.
 version: "2"
 
@@ -26,12 +26,111 @@ linters:
             - "**/opm/kernel/**"
             - "**/opm/module/**"
             - "**/opm/platform/**"
+            - "**/opm/catalog/**"
             - "**/opm/schema/**"
             - "**/opm/errors/**"
             - "**/opm/internal/**"
           deny:
             - pkg: github.com/open-platform-model/library/opm/helper
               desc: the helper tier is opt-in; the kernel and its internals must not depend on it (move the code into opm/internal/ instead)
+        # The Kubernetes tier sits beside the kernel (ADR-011, kubernetes-tier
+        # spec). The kernel stays "CUE in, verdicts out" and
+        # imports no Kubernetes package, so nothing else under opm/ may import
+        # opm/k8s: not the kernel, not its internals, not the helper tier.
+        # Test files are covered too; nothing needs the exemption the helper
+        # rule grants, and adding one later is cheaper than removing it. The
+        # rule is in force before any opm/k8s package exists, so the first
+        # package lands inside the fence rather than writing it.
+        nothing-imports-k8s-tier:
+          files:
+            - "**/opm/kernel/**"
+            - "**/opm/module/**"
+            - "**/opm/platform/**"
+            - "**/opm/catalog/**"
+            - "**/opm/schema/**"
+            - "**/opm/errors/**"
+            - "**/opm/internal/**"
+            - "**/opm/helper/**"
+          deny:
+            - pkg: github.com/open-platform-model/library/opm/k8s
+              desc: the Kubernetes tier is fenced from the rest of the library (ADR-011); the kernel, its internals and the helper tier never depend on it
+        # The Kubernetes tier names actions and never performs them (ADR-008,
+        # ADR-011): it may import k8s.io/apimachinery and the kernel's public
+        # packages, never a cluster client or a controller framework. Flux and
+        # controller-runtime are the operator's engine and must not reach the
+        # cli through the library. opm/internal is reachable by Go's internal
+        # rule, and opm/helper is the opt-in tier a mandatory tier must not
+        # lean on, so lint closes both.
+        k8s-tier-imports-no-runtime:
+          files:
+            - "**/opm/k8s/**"
+          deny:
+            - pkg: github.com/fluxcd
+              desc: Flux is the operator's apply engine; the library owns the per-object verdict and the order (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/internal
+              desc: opm/k8s reads only the kernel's exported output types (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/helper
+              desc: opm/k8s is mandatory for Kubernetes frontends and must not depend on the opt-in helper tier (ADR-011)
+        # Of the Kubernetes modules the tier imports only k8s.io/apimachinery
+        # (ADR-011 item 2). Lax mode lets an allow entry carve an exception
+        # out of a broader deny. Keep this rule's deny list to the two bare
+        # prefixes: depguard checks only the nearest sorted entry, so a
+        # longer entry such as k8s.io/client-go would hide k8s.io for every
+        # import that sorts after it (k8s.io/utils, k8s.io/klog, ...). The
+        # bare prefixes already refuse client-go and controller-runtime.
+        k8s-tier-imports-only-apimachinery:
+          list-mode: lax
+          files:
+            - "**/opm/k8s/**"
+          allow:
+            - k8s.io/apimachinery
+          deny:
+            - pkg: k8s.io
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; client-go stays with the frontends (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the operator (ADR-011)
+        # The kernel imports no Kubernetes package (ADR-011, 0012:D3). Only
+        # opm/k8s may reach k8s.io/apimachinery. Once the first tier package
+        # adds apimachinery to go.mod, nothing but this rule stops a kernel
+        # file from importing it. Test files are covered too: no kernel test
+        # needs Kubernetes.
+        kernel-imports-no-kubernetes:
+          files:
+            - "**/opm/kernel/**"
+            - "**/opm/module/**"
+            - "**/opm/platform/**"
+            - "**/opm/catalog/**"
+            - "**/opm/schema/**"
+            - "**/opm/errors/**"
+            - "**/opm/internal/**"
+          deny:
+            - pkg: k8s.io
+              desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
+        # The helper tier is opt-in and Kubernetes code lives in opm/k8s, so
+        # no helper package imports a Kubernetes module either (ADR-011).
+        helper-imports-no-kubernetes:
+          files:
+            - "**/opm/helper/**"
+          deny:
+            - pkg: k8s.io
+              desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
+        # No library package performs cluster I/O or carries a controller
+        # framework (Principle IV, 0012:D2). The tier rule above already denies
+        # these under opm/k8s; this one covers the kernel and the helper tier.
+        opm-imports-no-cluster-runtime:
+          files:
+            - "**/opm/**"
+          deny:
+            - pkg: k8s.io/client-go
+              desc: no opm/ package performs cluster I/O; a frontend brings its own client (ADR-011)
+            - pkg: sigs.k8s.io/controller-runtime
+              desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
+            - pkg: github.com/fluxcd
+              desc: Flux is the operator's apply engine and must not become a library or cli dependency (ADR-011)
 
 formatters:
   enable:
