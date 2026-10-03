@@ -10,6 +10,7 @@ import (
 	"cuelang.org/go/mod/module"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	opmmodule "github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -26,11 +27,14 @@ import (
 // requirement describes is worse than an unchecked coordinate. Generalizing
 // the check is its own change.
 func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string) (cue.Value, *opmmodule.Source, error) {
+	// FetchArtifact canonicalises the version itself and keeps the caller's
+	// spelling in its parse error; the identity check names the canonical
+	// coordinate, the tag that was fetched.
 	val, src, err := FetchArtifact(ctx, cueCtx, modPath, version, env, ModuleSpec)
 	if err != nil {
 		return cue.Value{}, nil, err
 	}
-	if err := verifyModuleIdentity(val, modPath, version); err != nil {
+	if err := verifyModuleIdentity(val, modPath, modversion.Canonical(version)); err != nil {
 		return cue.Value{}, nil, err
 	}
 	return val, src, nil
@@ -38,7 +42,9 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 
 // FetchArtifact loads an OPM artifact published in an OCI registry, identified
 // by its major-qualified module path (e.g. "example.com/modules/hello@v0") and
-// version (e.g. "v0.0.2"), gated to the shape spec names, and returns the
+// version (e.g. "0.0.2" or "v0.0.2": a bare SemVer is canonicalised to the
+// v-prefixed form CUE module versions require, so both spellings fetch the
+// same tag and stage under the same synthetic root), gated to the shape spec names, and returns the
 // value built in cueCtx together with the staged source tree the build used,
 // as the artifact
 // [opmmodule.Source] in overlay mode: the deterministic synthetic Root every
@@ -79,7 +85,10 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // process environment unchanged. The process environment is never mutated.
 // Parse failures on caller input are wrapped rather than panicked.
 func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string, spec ArtifactSpec) (cue.Value, *opmmodule.Source, error) {
-	mv, err := module.NewVersion(modPath, version)
+	// The parse error names the version as the caller wrote it; everything
+	// after it uses the canonical form, which is the tag fetched.
+	canonical := modversion.Canonical(version)
+	mv, err := module.NewVersion(modPath, canonical)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("parsing artifact version %s@%s: %w", modPath, version, err)
 	}
@@ -98,7 +107,7 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 
 	// Stage the fetched artifact's .cue files in memory under a deterministic
 	// synthetic root. A fetch carrying no .cue file is not an artifact.
-	synthRoot := sourcetree.SyntheticRoot(modPath, version)
+	synthRoot := sourcetree.SyntheticRoot(modPath, canonical)
 	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("staging %s %s in overlay: %w", spec.Label, mv, err)

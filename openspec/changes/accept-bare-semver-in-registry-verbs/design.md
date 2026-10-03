@@ -60,13 +60,16 @@ caller already uses as a parameter name, nor `semver`, which would collide with
 
 **Context**: the kernel verbs delegate in one line to the loader; the version must be canonical
 before `module.NewVersion`, `SyntheticRoot` and the identity check.
-**Decision**: canonicalise in `FetchArtifact` and `FetchModule`.
+**Decision**: canonicalise in `FetchArtifact`; `FetchModule` passes the caller's version to it
+unchanged and canonicalises only what it hands `verifyModuleIdentity`.
 **Rationale**:
 
-`FetchArtifact` canonicalises before `NewVersion`, and `FetchModule` canonicalises before it
-calls `FetchArtifact` and `verifyModuleIdentity`. The two kernel verbs stay one-line delegations.
-Every caller of the registry path goes through these two functions, so the rule cannot be
-skipped. `FetchArtifact` canonicalising again is idempotent and covers a direct internal caller.
+`FetchArtifact` canonicalises before `NewVersion`, and `FetchModule` canonicalises the version
+it passes to `verifyModuleIdentity`. `FetchModule` does not canonicalise before calling
+`FetchArtifact`: doing so would lose the caller's spelling that the parse error must name (the
+`TestFetchModule_BadVersionWrapped` prefix assertion caught this during implementation). The two
+kernel verbs stay one-line delegations. Every caller of the registry path goes through
+`FetchArtifact`, so the rule cannot be skipped.
 
 The parse-failure error keeps the caller's spelling (`parsing artifact version
 <path>@<as given>`), so the message names what the caller wrote. Errors after that point

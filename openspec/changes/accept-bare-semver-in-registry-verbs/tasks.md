@@ -33,21 +33,22 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 2. Registry verbs accept both spellings (loader, sourcetree, kernel; design BS2, BS3, BS4)
 
-- [ ] 2.1 `opm/internal/sourcetree/sourcetree.go`: `SyntheticRoot` canonicalises its version
+- [x] 2.1 `opm/internal/sourcetree/sourcetree.go`: `SyntheticRoot` canonicalises its version
       argument (design BS3); its doc comment says both spellings give the same root.
       `sourcetree_test.go` `TestSyntheticRoot` asserts
       `SyntheticRoot(p, "0.0.2") == SyntheticRoot(p, "v0.0.2")`. Verify:
       `go test ./opm/internal/sourcetree -count=1` green.
-- [ ] 2.2 `opm/internal/loader/registry.go`: `FetchArtifact` canonicalises the version before
+- [x] 2.2 `opm/internal/loader/registry.go`: `FetchArtifact` canonicalises the version before
       `module.NewVersion` and uses the canonical form for `SyntheticRoot` and later error text;
       the parse-failure error keeps the caller's spelling (design BS2). `FetchModule`
-      canonicalises before calling `FetchArtifact` and `verifyModuleIdentity`. The
+      passes the caller's version to `FetchArtifact` and canonicalises the one it hands
+      `verifyModuleIdentity` (design BS2). The
       `FetchArtifact` doc comment says the version may be bare or `v`-prefixed. Verify:
       `go build ./opm/...` clean.
-- [ ] 2.3 `opm/kernel/acquire.go`: the godoc of `AcquireModuleFromRegistry` and
+- [x] 2.3 `opm/kernel/acquire.go`: the godoc of `AcquireModuleFromRegistry` and
       `AcquireCatalogFromRegistry` say the version may be written either way, e.g. `"4.3.0"` or
       `"v4.3.0"`. Verify: `go doc ./opm/kernel Kernel.AcquireCatalogFromRegistry` shows both forms.
-- [ ] 2.4 Loader tests through the `registrytest` fixture (`opm/internal/loader/registry_test.go`):
+- [x] 2.4 Loader tests through the `registrytest` fixture (`opm/internal/loader/registry_test.go`):
       `TestFetchModule_BareVersion` fetches a served module with `"0.0.2"` first (so the bare
       spelling drives the registry fetch, not a warmed cache) and then with `"v0.0.2"`,
       asserting both succeed, `metadata.version` reads `0.0.2`, and both sources carry the same
@@ -58,19 +59,18 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       contains `not-a-version`). The module scenario is covered at the loader because
       `Kernel.AcquireModuleFromRegistry` delegates to `loader.FetchModule` in one line.
       Verify: `go test ./opm/internal/loader -count=1` green.
-- [ ] 2.5 Kernel test (`opm/kernel/acquire_catalog_test.go`): in
+- [x] 2.5 Kernel test (`opm/kernel/acquire_catalog_test.go`): in
       `TestKernel_AcquireCatalogFromRegistry`, acquire the catalog with the bare `version`
       before the mapped `v`-prefixed acquisition and assert the same `Metadata` and the same
       `Source.Root` (spec scenario "A catalog is acquired by a bare version"). Keep the
       unmapped negative subtest first, before any positive load warms the cache. Verify:
       `go test ./opm/kernel -run 'TestKernel_AcquireCatalogFromRegistry' -count=1` green.
-- [ ] 2.6 Negative check, not committed: revert only the canonicalisation line in
-      `FetchArtifact` and rerun 2.4 and 2.5; the two catalog bare-version tests
-      (`TestFetchArtifact_CatalogBareVersion` and the 2.5 kernel test) fail with "not well
-      formed", while `TestFetchModule_BareVersion` stays green because `FetchModule`
-      canonicalises first. Then revert the `FetchModule` line as well; now all three bare-version
-      tests fail. Restore both. Verify: `git diff --stat` shows the restored file unchanged from 2.2.
-- [ ] 2.7 `task check` green, then commit
+- [x] 2.6 Negative check, not committed: revert only the canonicalisation line in
+      `FetchArtifact` and rerun 2.4 and 2.5; all three bare-version tests
+      (`TestFetchModule_BareVersion`, `TestFetchArtifact_CatalogBareVersion` and the 2.5 kernel
+      test) fail with "not well formed", because `FetchModule` does not canonicalise before
+      calling `FetchArtifact` (design BS2). Restore it. Verify: `git diff --stat` shows the restored file unchanged from 2.2.
+- [x] 2.7 `task check` green, then commit
       `fix(loader): accept bare semver in the registry verbs`.
 
 ## 3. Verify and archive

@@ -234,10 +234,65 @@ func TestFetchModule_Unresolvable(t *testing.T) {
 }
 
 // Invalid caller input (a malformed version) is wrapped, not panicked
-// (NewVersion, not MustNewVersion).
+// (NewVersion, not MustNewVersion). registry-module-loading spec, "A malformed
+// version is still refused": the error is the version parse error, naming the
+// version as the caller wrote it (not the canonical "vnot-a-version", which
+// the wrapped cue error carries), and not a fetch error.
 func TestFetchModule_BadVersionWrapped(t *testing.T) {
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), "test.example/x@v0", "not-a-version",
 		nil)
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing artifact version test.example/x@v0@not-a-version:")
+}
+
+// registry-module-loading spec, "A module is acquired by a bare version" and
+// "Both spellings stage under the same root": a module published at v0.0.2
+// loads by "0.0.2" and by "v0.0.2", passes the identity check both times, and
+// both sources share one synthetic root. The bare spelling runs first, so it
+// drives the registry fetch rather than a warmed module cache.
+func TestFetchModule_BareVersion(t *testing.T) {
+	base := registrytest.UniquePath(t, "app")
+	modPath := base + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.2",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"0.0.2\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+	env := cueenv.Override(reg, "")
+
+	bareVal, bareSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "0.0.2", env)
+	require.NoError(t, err, "a bare version is accepted")
+	prefVal, prefSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2", env)
+	require.NoError(t, err, "a v-prefixed version is accepted")
+
+	assert.Equal(t, "0.0.2", lookupString(t, bareVal, "metadata.version"))
+	assert.Equal(t, "0.0.2", lookupString(t, prefVal, "metadata.version"))
+	require.NotNil(t, bareSrc)
+	require.NotNil(t, prefSrc)
+	assert.Equal(t, prefSrc.Root, bareSrc.Root, "both spellings stage under the same synthetic root")
+}
+
+// registry-module-loading spec, "A catalog is acquired by a bare version", at
+// the loader: the catalog spec goes through the same canonicalisation as a
+// module, bare spelling first.
+func TestFetchArtifact_CatalogBareVersion(t *testing.T) {
+	catPath := registrytest.UniquePath(t, "cat")
+	cat := registrytest.CatalogFixture{
+		Path: catPath, Version: "1.0.0",
+		Body: registrytest.BuildCatalog(catPath, "1.0.0"),
+	}
+	reg := registrytest.NewCatalogRegistry(t, cat)
+	env := cueenv.Override(reg, "")
+
+	bareVal, bareSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "1.0.0", env, loader.CatalogSpec)
+	require.NoError(t, err, "a bare version is accepted")
+	prefVal, prefSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "v1.0.0", env, loader.CatalogSpec)
+	require.NoError(t, err, "a v-prefixed version is accepted")
+
+	assert.Equal(t, "1.0.0", lookupString(t, bareVal, "metadata.version"))
+	assert.Equal(t, lookupString(t, prefVal, "metadata.modulePath"), lookupString(t, bareVal, "metadata.modulePath"))
+	require.NotNil(t, bareSrc)
+	require.NotNil(t, prefSrc)
+	assert.Equal(t, prefSrc.Root, bareSrc.Root, "both spellings stage under the same synthetic root")
 }

@@ -33,8 +33,8 @@ comes in a later change, after the library release.
   unchanged. `platformmodule.Roots` and its tests call it. A later change (walkthrough item b3)
   reuses this package for the library's other version helpers.
 - **The registry verbs accept both spellings.** `loader.FetchArtifact` canonicalises the version
-  before `module.NewVersion`, and `loader.FetchModule` canonicalises before calling it and before
-  the identity check, so every coordinate that reaches an error message or the identity check is
+  before `module.NewVersion`, and `loader.FetchModule` canonicalises the version it hands the
+  identity check, so every coordinate after the parse step that reaches an error message or the identity check is
   in canonical form. A malformed version (`"not-a-version"`) is still refused with the wrapped
   parse error, which names the version as the caller wrote it.
 - **The synthetic root is the same for both spellings.** `sourcetree.SyntheticRoot`
