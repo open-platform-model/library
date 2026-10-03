@@ -4,10 +4,10 @@ No exported symbol and no behaviour changes. Each section's gate is `task check`
 
 ## 1. Restore the package doc layout (kernel)
 
-- [ ] 1.1 Rewrite the comment layout of `opm/kernel/doc.go` following `git show 7729b92^:opm/kernel/doc.go`. The `# Surface` verbs become a Go doc list (`//   - ` items with four-space continuation lines). The `renderAll` example, the diagnostics example (with fc1aafd's `Skipped` loop, formatted like the other two loops) and the replacements example become tab-indented code blocks in gofmt layout (tab nesting in all three; `7729b92^` supplies only block boundaries and statement order). Prose paragraphs are rewrapped to about 76 columns, which also fixes the overlong lines later commits left in `# Every operation shares nothing` and `# Rendering`. The words stay HEAD's.
-- [ ] 1.2 Verify the words did not change. The word-sequence diff in design.md (the merge base's `doc.go`, `git show $(git merge-base HEAD origin/main):opm/kernel/doc.go`, compared with the worktree's, after removing comment markers and whitespace) is empty, and `git diff opm/kernel/doc.go` touches comment lines only.
-- [ ] 1.3 Verify the rendering. `go doc ./opm/kernel` prints the seven Surface items as a list and the three examples as indented code. `gofmt -l opm/kernel` is empty. No line in `doc.go` is longer than 100 columns, apart from code-block lines kept as long as `7729b92^` had them.
-- [ ] 1.4 `task check` green, then commit `docs(kernel): restore the package doc's verb list and code examples`.
+- [x] 1.1 Rewrite the comment layout of `opm/kernel/doc.go` following `git show 7729b92^:opm/kernel/doc.go`. The `# Surface` verbs become a Go doc list (`//   - ` items with four-space continuation lines). The `renderAll` example, the diagnostics example (with fc1aafd's `Skipped` loop, formatted like the other two loops) and the replacements example become tab-indented code blocks in gofmt layout (tab nesting in all three; `7729b92^` supplies only block boundaries and statement order). Prose paragraphs are rewrapped to about 76 columns, which also fixes the overlong lines later commits left in `# Every operation shares nothing` and `# Rendering`. The words stay HEAD's.
+- [x] 1.2 Verify the words did not change. The word-sequence diff in design.md (the merge base's `doc.go`, `git show $(git merge-base HEAD origin/main):opm/kernel/doc.go`, compared with the worktree's, after removing comment markers and whitespace) is empty, and `git diff opm/kernel/doc.go` touches comment lines only.
+- [x] 1.3 Verify the rendering. `go doc ./opm/kernel` prints the seven Surface items as a list and the three examples as indented code. `gofmt -l opm/kernel` is empty. No line in `doc.go` is longer than 100 columns, apart from code-block lines kept as long as `7729b92^` had them.
+- [x] 1.4 `task check` green, then commit `docs(kernel): restore the package doc's verb list and code examples`.
 
 ## 2. Guard the layout with a go/doc test (kernel)
 
