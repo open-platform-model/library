@@ -33,16 +33,16 @@ cross-process cache race, not this change.
 
 ## 2. Errored schema builds are load failures (opm/schema)
 
-- [ ] 2.1 In `opm/schema/loader.go` `loadVersioned`, return the zero value, `""` and an error
+- [x] 2.1 In `opm/schema/loader.go` `loadVersioned`, return the zero value, `""` and an error
   naming the module when `val.Err()` is non-nil (DM3). Add one sentence to the `Cache` doc comment
   in `cache.go` that an errored build arrives as an error and is memoised like any other (DM4);
   the `Cache` code does not change.
-- [ ] 2.2 `loader_test.go`: serve a stand-in core with an unresolved reference through
+- [x] 2.2 `loader_test.go`: serve a stand-in core with an unresolved reference through
   `registrytest.NewRegistryWithCore` and assert `OCILoader{}.Load` returns the zero value and an
   error naming the module. `cache_test.go`: a `Cache` over that loader returns the same error on
   two `Get` calls and `ResolvedVersion()` is `""`. Verify: `go test ./opm/schema/...`, and
   `TestOCILoader_ZeroValueResolvesDefault` still passes against the real core.
-- [ ] 2.3 `task check` green, then commit `fix(schema): refuse a core module whose build fails`.
+- [x] 2.3 `task check` green, then commit `fix(schema): refuse a core module whose build fails`.
 
 ## 3. Cold concurrent renders on a shared platform (opm/kernel, tests only)
 

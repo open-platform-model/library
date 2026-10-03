@@ -15,8 +15,10 @@ import (
 // The first [Cache.Get] invocation creates a private [cue.Context] and runs
 // Loader.Load into it through sync.Once; every subsequent Get (including
 // the one that loses the race) returns the same cached value or the same
-// cached error. Errors are cached too — the load is never retried. To
-// force a re-fetch, construct a fresh Cache with a fresh Loader.
+// cached error. Errors are cached too — the load is never retried. A schema
+// module that loads but does not build reaches the Cache from [OCILoader] as
+// an error, never as an errored value, and is memoised like any other
+// failure. To force a re-fetch, construct a fresh Cache with a fresh Loader.
 //
 // Each Cache instance owns its own memoization and its own context. The
 // context is the one long-lived evaluation state a Kernel holds, and no
