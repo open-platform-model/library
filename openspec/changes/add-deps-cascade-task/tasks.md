@@ -4,14 +4,14 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 1. Spike and inputs: class map, pin report, stub
 
-- [ ] 1.1 Spike: in a scratch copy of the tree (never this worktree), confirm the design's open assumptions and write any correction into design.md:
+- [x] 1.1 Spike: in a scratch copy of the tree (never this worktree), confirm the design's open assumptions and write any correction into design.md:
   - the S2 round trip from `older.tsv` back to the current pins gives the committed bytes. Use a hand-run `cue mod get opmodel.dev/core@<D> opmodel.dev/catalogs/opm@<K>` plus `cue mod tidy` in the four catalog modules, from core `v2.0.0-beta.1` and catalog `v4.5.0`;
   - the `awk` core-block rewrite leaves every other byte of a render tree alone.
-- [ ] 1.2 Add `.tasks/cascade/classes` with the three lines from design.md D1, verbatim from contract §5.3.
-- [ ] 1.3 Add `.tasks/cascade/pins.sh` (mode 0755) per design.md D2. Check by hand that `pins.sh WORKTREE` and `pins.sh HEAD` print the same two rows, and that `pins.sh 3c3b8c1~1` prints core `v2.0.0-beta.1`.
-- [ ] 1.4 Copy the contract §7 stub to `.tasks/cascade/testdata/stub-resolve.sh` (mode 0755). Check that `sha256sum` prints `970130f7d55c07f5b86d4f5b6f392330427ff923eb34f93553656bcd4b893d9c`.
-- [ ] 1.5 Add `.tasks/cascade/testdata/older.tsv` (design.md D7). Re-check its three rows against GHCR: the manifest exists, and the `pin-of` row matches the modulefile layer.
-- [ ] 1.6 Gate green, then commit `ci(cascade): add the cascade pin report and class map`.
+- [x] 1.2 Add `.tasks/cascade/classes` with the three lines from design.md D1, verbatim from contract §5.3.
+- [x] 1.3 Add `.tasks/cascade/pins.sh` (mode 0755) per design.md D2. Check by hand that `pins.sh WORKTREE` and `pins.sh HEAD` print the same two rows, and that `pins.sh 3c3b8c1~1` prints core `v2.0.0-beta.1`.
+- [x] 1.4 Copy the contract §7 stub to `.tasks/cascade/testdata/stub-resolve.sh` (mode 0755). Check that `sha256sum` prints `970130f7d55c07f5b86d4f5b6f392330427ff923eb34f93553656bcd4b893d9c`.
+- [x] 1.5 Add `.tasks/cascade/testdata/older.tsv` (design.md D7). Re-check its three rows against GHCR: the manifest exists, and the `pin-of` row matches the modulefile layer.
+- [x] 1.6 Gate green, then commit `ci(cascade): add the cascade pin report and class map`.
 
 ## 2. The deps:cascade task
 

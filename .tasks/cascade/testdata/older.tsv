@@ -1,0 +1,3 @@
+opmodel.dev/core@v2	v2.0.0-beta.1
+opmodel.dev/catalogs/opm@v4	v4.5.0
+pin-of	opmodel.dev/catalogs/opm@v4	v4.5.0	opmodel.dev/core@v2	v2.0.0-beta.1

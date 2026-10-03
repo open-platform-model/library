@@ -49,6 +49,7 @@ Everything lives under `.tasks/cascade/` (contract §5.1):
 | --- | --- |
 | `cascade.sh` | moves the pins (D3) |
 | `pins.sh <ref>` | prints the TSV pin report (D2) |
+| `lib.sh` | sourced helpers shared by the three scripts: the dependency-block reader `dep_v`, the block-scoped rewrite `set_dep_v`, the loader reader and the pin keys. Not in the contract §5.1 list; it is a sourced library, not a task entry point, and keeps one copy of the `awk` that reads and edits `cue.mod` blocks |
 | `classes` | the path-class map, verbatim from contract §5.3 |
 | `test.sh` | the scenarios (D7) |
 | `testdata/stub-resolve.sh` | the contract §7 stub, byte for byte, mode 0755, sha256 `970130f7d55c07f5b86d4f5b6f392330427ff923eb34f93553656bcd4b893d9c` |
@@ -247,6 +248,13 @@ The shape follows contract §8 exactly. Library specifics:
 - **After catalog_opm's catch-up.** That catch-up releases a catalog on core beta.2, and the library's catalog pin then moves through the supervisor's catch-up PR (contract §8, tier 1).
 
 ## Research & Decisions
+
+### Spike results (task 1.1, 2026-10-04)
+
+- **S2 round trip.** In a scratch copy, the four catalog modules were set to core `v2.0.0-beta.1` and catalog `v4.5.0` by text, then `cue mod get opmodel.dev/core@v2.0.0-beta.2 opmodel.dev/catalogs/opm@v4.5.1` and `cue mod tidy` ran in each (CUE v0.17.1, `CUE_CACHE_DIR` at a copy of `.cue-cache`). `git status --porcelain` was empty afterwards: the round trip gives the committed bytes.
+- **`awk` block rewrite.** On `testdata/cue.mod/module.cue` and all 30 render trees, `set_dep_v` to `v2.0.0-beta.1` and back reproduced every file byte for byte, and the first rewrite differed only in the core `v:`. A missing block returns 1.
+- **go-task.** Settled by the plan review (anchor shared by task-level `vars:`, `task -x` returns 3); not re-run.
+- **`older.tsv`.** Read with the real resolver from the `add-cascade-resolver` branch: `published` answers 0 for core `v2.0.0-beta.1` and catalog `v4.5.0`; `pin-of` of catalog `v4.5.0` (and `v4.5.1`) names core `v2.0.0-beta.1`; `newest` answers 3 for both current pins.
 
 ### Loader edit as text, not through Go tooling
 
