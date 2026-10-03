@@ -139,3 +139,46 @@ func TestRender_SharedPlatformConcurrentRenders(t *testing.T) {
 		assert.ElementsMatch(t, want, compiledSummary(t, got[i].Compiled), "render %d produces the same objects", i)
 	}
 }
+
+// single-build-render spec, "A platform shared by concurrent renders stays
+// race-free", from the first render: the cold sibling of
+// TestRender_SharedPlatformConcurrentRenders. The goroutines render a
+// platform and instance that were never rendered before, so they race the
+// platform Package's first core-floor lookup. The expected objects come from
+// a render of a separately acquired pair; every acquisition builds into its
+// own context, so that baseline touches nothing the shared pair holds. One
+// kernel serves both pairs because the render kernel's registry environment
+// is per test. Run under -race (task test).
+func TestRender_SharedPlatformConcurrentRendersCold(t *testing.T) {
+	k := newRenderKernel(t)
+	ctx := context.Background()
+
+	baseline, err := k.Render(ctx, kernel.RenderInput{
+		Instance:    acquireRenderInstance(t, k, "instance"),
+		Platform:    acquireRenderPlatform(t, k, "platform"),
+		RuntimeName: "rt",
+	})
+	require.NoError(t, err)
+	want := compiledSummary(t, baseline.Compiled)
+	require.NotEmpty(t, want)
+
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	const n = 8
+	got := make([]*kernel.RenderResult, n)
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			got[i], errs[i] = k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+		}(i)
+	}
+	wg.Wait()
+	for i := range n {
+		require.NoError(t, errs[i], "render %d", i)
+		assert.ElementsMatch(t, want, compiledSummary(t, got[i].Compiled), "render %d produces the same objects", i)
+	}
+}
