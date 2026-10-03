@@ -4,8 +4,8 @@ Worktree `library/.claude/worktrees/fix-duplicate-identity-and-schema-error-memo
 `fix/duplicate-identity-and-schema-error-memo` (from `origin/main`). `.cue-cache` was seeded by
 copying the main checkout's, never symlinking. Three independent sections, each green on its own;
 design.md carries no unverified assumption (its probe is recorded under Research & Decisions), so
-section 1 is not a spike. The PR title is `fix: key duplicate identities on group and refuse
-errored schema builds`. Commit bodies never start a line with `word(` and carry no bare at-sign.
+section 1 is not a spike. Code comments describe each rule in their own words and never cite
+design.md's DM numbers.
 If `TestGenerate_BuildsThroughTheKernel` fails in a full run, re-run it alone: it is the known
 cross-process cache race, not this change.
 
@@ -21,10 +21,13 @@ cross-process cache race, not this change.
 - [ ] 1.3 `objectset_test.go`: update existing expectations for the new `Producer.APIVersion`;
   add `apps/v1` + `apps/v1beta2` Deployment `web` (one row, identity `apps/v1`, producers carry
   their own versions), the same kind and name in two groups (no rows), a core-group `v1` pair
-  (one row), and the message naming both versions for the mixed row while a same-version row's
+  (one row), a `v1` ConfigMap `x` beside a ConfigMap `x` with no `apiVersion` (one row, the
+  message wording the second producer `as <no apiVersion>`), and the message naming both versions for the mixed row while a same-version row's
   message is byte-identical to today's. Verify: `go test ./opm/helper/objectset/...`.
 - [ ] 1.4 Say "group, kind, namespace and name" where the identity is spelled as four fields:
-  `opm/helper/objectset/doc.go`, `opm/helper/doc.go` and `README.md` (the `objectset` line).
+  the `Identity` doc comment in `opm/helper/objectset/objectset.go`, `opm/helper/objectset/doc.go`
+  (the opening "same apiVersion, kind, namespace and name" sentence) and `README.md` (the
+  `objectset` line).
   Verify: `go doc github.com/open-platform-model/library/opm/helper/objectset` reads correctly.
 - [ ] 1.5 `task check` green, then commit `fix(helper): key duplicate identities on api group`.
 

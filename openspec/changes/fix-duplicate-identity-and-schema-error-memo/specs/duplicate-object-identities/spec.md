@@ -21,8 +21,13 @@ The library SHALL provide, under `opm/helper/`, a function that scans a render's
 
 #### Scenario: One object under two versions of its group
 
-- **WHEN** one transformer renders an `apps/v1` Deployment `web` and another renders an `apps/v1beta2` Deployment `web` in the same namespace
+- **WHEN** one transformer first renders an `apps/v1` Deployment `web`, then another renders an `apps/v1beta2` Deployment `web` in the same namespace
 - **THEN** one row is returned whose identity carries `apps/v1`, and its two producers carry `apps/v1` and `apps/v1beta2` respectively
+
+#### Scenario: An object with no apiVersion falls in the core group
+
+- **WHEN** a render produces a ConfigMap `x` with `apiVersion` `v1` and then a ConfigMap `x` with no `apiVersion` in the same namespace
+- **THEN** one row is returned whose identity carries `v1`, and its two producers carry `v1` and the empty version
 
 #### Scenario: One kind and name in two groups stays distinct
 
@@ -31,7 +36,7 @@ The library SHALL provide, under `opm/helper/`, a function that scans a render's
 
 ### Requirement: The refusal is worded once
 
-The helper SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording. When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each producer's `apiVersion` beside it; when they do, the line SHALL carry no per-producer version. The kernel SHALL NOT return this error: it is raised by the runtime that calls the helper, before apply.
+The helper SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording. When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each producer's `apiVersion` beside it, worded as `<no apiVersion>` for a producer whose object carries none; when they do, the line SHALL carry no per-producer version. The kernel SHALL NOT return this error: it is raised by the runtime that calls the helper, before apply.
 
 #### Scenario: The message names both carrying components
 
@@ -42,3 +47,13 @@ The helper SHALL provide an error type aggregating duplicate rows, whose message
 
 - **WHEN** the error is built from a row whose two producers carry `apps/v1` and `apps/v1beta2`
 - **THEN** its message names each producer with its own `apiVersion`, so a reader sees that the duplicate is one object under two versions
+
+#### Scenario: A same-version row carries no versions
+
+- **WHEN** the error is built from a row whose producers all carry one `apiVersion`
+- **THEN** its message line names the identity and the producers with no per-producer version
+
+#### Scenario: A missing apiVersion is worded
+
+- **WHEN** the error is built from a row whose producers carry `v1` and no `apiVersion`
+- **THEN** its message names the second producer `as <no apiVersion>`

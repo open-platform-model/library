@@ -6,7 +6,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 
 `OCILoader.Load(ctx)` SHALL:
 
-- Resolve `Module` to `"opmodel.dev/core@v2"` (`DefaultSchemaModule`) when the field is empty.
+- Resolve `Module` to `DefaultSchemaModule` when the field is empty.
 - Resolve `Registry` to the value derived from `os.Environ`'s `CUE_REGISTRY` when the field is empty.
 - Resolve `CacheDir` to the value derived from `os.Environ`'s `CUE_CACHE_DIR` (or CUE's default when that is also empty) when the field is empty.
 - Invoke `cuelang.org/go/cue/load.Instances([]string{module}, &load.Config{Env: derivedEnv})` with the resolved values plumbed into `Env`.
@@ -18,7 +18,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 #### Scenario: Zero-value OCILoader resolves defaults
 
 - **WHEN** `(schema.OCILoader{}).Load(ctx)` is called in an environment with `CUE_REGISTRY` and `CUE_CACHE_DIR` set
-- **THEN** the loader resolves `Module` to `"opmodel.dev/core@v2"`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
+- **THEN** the loader resolves `Module` to `schema.DefaultSchemaModule`, threads the env into `load.Config.Env`, and returns a non-zero `cue.Value` containing `#ModuleInstance`
 
 #### Scenario: Explicit overrides take precedence over env
 

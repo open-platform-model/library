@@ -30,7 +30,9 @@ func groupOf(apiVersion string) string {
 }
 ```
 
-An object with no `apiVersion` maps to the core group, as the empty string did before. Kind,
+An object with no `apiVersion` maps to the core group, so it now collides with a core-group
+object (`v1`) of the same kind, namespace and name; before, `""` and `"v1"` were distinct keys.
+That is intended: apply would default the missing version into the same object. Kind,
 namespace and name compare exactly, as today. The exported `Identity` keeps its four fields and
 its `String()`: a row's `Identity` is the first-rendered object's, `APIVersion` verbatim, so a
 same-version row is byte-identical to today's. Changing `Identity` to carry `Group` was the
@@ -46,6 +48,9 @@ row whose producers do not all carry the same `APIVersion`:
 2 rendered objects share one identity, so the last apply would silently overwrite the first:
   apps/v1 Deployment web rendered by component "a" (…/deployment@1.0.0) as apps/v1 and component "b" (…/legacy@1.0.0) as apps/v1beta2
 ```
+
+A producer whose object carries no `apiVersion` is worded ` as <no apiVersion>`, never ` as `
+with an empty value.
 
 Comparing producers to each other, not to `Identity.APIVersion`, keeps today's wording for a
 same-version row and for hand-built rows whose producers leave `APIVersion` empty (the cli and

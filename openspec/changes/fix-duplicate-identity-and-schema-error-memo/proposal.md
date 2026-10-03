@@ -15,7 +15,7 @@ Three small gaps found by the alpha.35 kernel review, each owner-decided on 2026
   `verifyCoreSchema` then passes an errored schema, and the CLI's `mod vet` and publish report a
   misleading "does not define #IdentityPackage" instead of the build error.
 - **The shared-platform race test only runs warm.** `TestRender_SharedPlatformConcurrentRenders`
-  (`opm/kernel/render_core_floor_test.go:112-141`) renders once before starting its goroutines, so
+  (`opm/kernel/render_core_floor_test.go:109-141`) renders once before starting its goroutines, so
   the first core-floor lookup on the shared platform `Package` is never raced. Cold concurrent
   renders passed under `-race` by hand during the review; nothing pins that.
 
@@ -50,6 +50,8 @@ version within one group, and `OCILoader.Load` / `Cache.Get` return an error for
 build fails. Both are the defects being fixed. No complexity is added beyond one string split and
 one error check (Principle VII).
 
+PR title: `fix: key duplicate identities on group and refuse errored schema builds`.
+
 ## Downstream consumers
 
 - **`cli`**: a library pin bump only. Its duplicate refusal (`internal/workflow/render`) gains the
@@ -73,7 +75,7 @@ first render.
 
 ## Impact
 
-- `opm/helper/objectset/objectset.go`, `objectset_test.go`, `doc.go`; `opm/helper/doc.go` and
-  `README.md` where they spell the identity as four fields.
+- `opm/helper/objectset/objectset.go`, `objectset_test.go`, `doc.go`; `README.md` where it
+  spells the identity as four fields.
 - `opm/schema/loader.go`, `loader_test.go`, `cache.go` (doc comment), `cache_test.go`.
 - `opm/kernel/render_core_floor_test.go`.
