@@ -25,10 +25,10 @@ No Go code, no `go.mod` change. The only Go file touched is one comment sentence
 
 ## 4. Link the GA exit criteria (adr, docs)
 
-- [ ] 4.1 `adr/004-migration-docs-structure.md`: replace "so the GA release checklist picks it up" with a pointer to the GA exit criteria, 0021:D8 (the arming condition is 0021:D8:R4; workspace root `enhancements/0021/03-decisions.md`), and append one dated Status sentence naming the change.
-- [ ] 4.2 `README.md` § API stability → Beta promise: after "GA drops the suffix ...", one sentence: GA is cut only when 0021:D8's exit criteria hold, among them the library's own `0021:D8:R11` to `0021:D8:R14` (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status links 0021:D8 the same way, naming 0021:D8:R4 as the arming condition.
-- [ ] 4.3 Verify: `grep -rn -i "release checklist" adr/ README.md AGENTS.md migrations/ openspec/specs/` returns nothing outside the main spec this change's delta replaces.
-- [ ] 4.4 Gates green, then commit `docs(adr): point the GA arming condition at 0021:D8`.
+- [x] 4.1 `adr/004-migration-docs-structure.md`: replace "so the GA release checklist picks it up" with a pointer to the GA exit criteria, 0021:D8 (the arming condition is 0021:D8:R4; workspace root `enhancements/0021/03-decisions.md`), and append one dated Status sentence naming the change.
+- [x] 4.2 `README.md` § API stability → Beta promise: after "GA drops the suffix ...", one sentence: GA is cut only when 0021:D8's exit criteria hold, among them the library's own `0021:D8:R11` to `0021:D8:R14` (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status links 0021:D8 the same way, naming 0021:D8:R4 as the arming condition.
+- [x] 4.3 Verify: `grep -rn -i "release checklist" adr/ README.md AGENTS.md migrations/ openspec/specs/` returns nothing outside the main spec this change's delta replaces.
+- [x] 4.4 Gates green, then commit `docs(adr): point the GA arming condition at 0021:D8`.
 
 ## 5. Merge gate (run before merge, not at implementation)
 
