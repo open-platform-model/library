@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0-beta.2](https://github.com/open-platform-model/library/compare/v1.0.0-beta.1...v1.0.0-beta.2) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kernel:** AcquireInstanceFromDir now fails when an instance package's own values contain a key the module's #config does not declare, a value of the wrong type, or a violated constraint; these were ignored before. Fix the instance's values.cue (or its values field), or add the setting to the module's #config.
+
+### Features
+
+* **kernel:** validate the instance package's own values on acquire ([#154](https://github.com/open-platform-model/library/issues/154)) ([f1d9908](https://github.com/open-platform-model/library/commit/f1d9908cfa0c65dd393e780870ee8d88f3290d76))
+
+
+### Bug Fixes
+
+* key duplicate identities on group and refuse errored schema builds ([#168](https://github.com/open-platform-model/library/issues/168)) ([9bc0cd2](https://github.com/open-platform-model/library/commit/9bc0cd2c74773c985d6c04ce7d0778c5fc055ff1))
+* **loader:** accept bare and v-prefixed semver in the registry verbs and platform generation ([#170](https://github.com/open-platform-model/library/issues/170)) ([64799d5](https://github.com/open-platform-model/library/commit/64799d573e5250b789bd8bf9e562e09fbd8ccb71))
+
+
+### Code Refactoring
+
+* drop the retired k8s catalog ([#161](https://github.com/open-platform-model/library/issues/161)) ([508ef61](https://github.com/open-platform-model/library/commit/508ef619c741619bcdcbad5284c109c929b79e50))
+
 ## [1.0.0-beta.1](https://github.com/open-platform-model/library/compare/v1.0.0-alpha.36...v1.0.0-beta.1) (2026-09-30)
 
 
