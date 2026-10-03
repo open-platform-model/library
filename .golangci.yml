@@ -61,12 +61,24 @@ linters:
         # cli through the library. opm/internal is reachable by Go's internal
         # rule, and opm/helper is the opt-in tier a mandatory tier must not
         # lean on, so lint closes both.
-        # Lax mode: everything not denied is allowed, and an allow entry
-        # carves an exception out of a broader deny by longest prefix. So
-        # k8s.io/apimachinery passes while k8s.io/api and k8s.io/client-go
-        # fail. sigs.k8s.io is denied by its own rule below, because a
-        # lax-mode deny on it did not fire in a probe (golangci-lint 2.11.3).
         k8s-tier-imports-no-runtime:
+          files:
+            - "**/opm/k8s/**"
+          deny:
+            - pkg: github.com/fluxcd
+              desc: Flux is the operator's apply engine; the library owns the per-object verdict and the order (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/internal
+              desc: opm/k8s reads only the kernel's exported output types (ADR-011)
+            - pkg: github.com/open-platform-model/library/opm/helper
+              desc: opm/k8s is mandatory for Kubernetes frontends and must not depend on the opt-in helper tier (ADR-011)
+        # Of the Kubernetes modules the tier imports only k8s.io/apimachinery
+        # (ADR-011 item 2). Lax mode lets an allow entry carve an exception
+        # out of a broader deny. Keep this rule's deny list to the two bare
+        # prefixes: depguard checks only the nearest sorted entry, so a
+        # longer entry such as k8s.io/client-go would hide k8s.io for every
+        # import that sorts after it (k8s.io/utils, k8s.io/klog, ...). The
+        # bare prefixes already refuse client-go and controller-runtime.
+        k8s-tier-imports-only-apimachinery:
           list-mode: lax
           files:
             - "**/opm/k8s/**"
@@ -74,17 +86,9 @@ linters:
             - k8s.io/apimachinery
           deny:
             - pkg: k8s.io
-              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery (ADR-011)
-            - pkg: k8s.io/client-go
-              desc: opm/k8s performs no cluster I/O; the frontend performs each action with its own client (ADR-011)
-            - pkg: sigs.k8s.io/controller-runtime
-              desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
-            - pkg: github.com/fluxcd
-              desc: Flux is the operator's apply engine; the library owns the per-object verdict and the order (ADR-011)
-            - pkg: github.com/open-platform-model/library/opm/internal
-              desc: opm/k8s reads only the kernel's exported output types (ADR-011)
-            - pkg: github.com/open-platform-model/library/opm/helper
-              desc: opm/k8s is mandatory for Kubernetes frontends and must not depend on the opt-in helper tier (ADR-011)
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; client-go stays with the frontends (ADR-011)
+            - pkg: sigs.k8s.io
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the operator (ADR-011)
         # The kernel imports no Kubernetes package (ADR-011, 0012:D3). Only
         # opm/k8s may reach k8s.io/apimachinery. Once the first tier package
         # adds apimachinery to go.mod, nothing but this rule stops a kernel
@@ -104,12 +108,6 @@ linters:
               desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
             - pkg: sigs.k8s.io
               desc: the kernel imports no Kubernetes package; Kubernetes code lives in opm/k8s (ADR-011)
-        k8s-tier-imports-no-sigs:
-          files:
-            - "**/opm/k8s/**"
-          deny:
-            - pkg: sigs.k8s.io
-              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery (ADR-011)
         # The helper tier is opt-in and Kubernetes code lives in opm/k8s, so
         # no helper package imports a Kubernetes module either (ADR-011).
         helper-imports-no-kubernetes:

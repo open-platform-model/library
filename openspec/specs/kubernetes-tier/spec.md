@@ -56,6 +56,17 @@ Beyond the standard library and the CUE SDK that the kernel's output types carry
 - **WHEN** a change adds an import of `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or a `github.com/fluxcd/` package to a file under `opm/k8s/`
 - **THEN** `task lint` fails naming the forbidden import
 
+#### Scenario: Lint refuses a Kubernetes module other than apimachinery in the tier
+
+- **WHEN** a change adds an import of `k8s.io/api`, `k8s.io/utils`, `k8s.io/klog` or `sigs.k8s.io/yaml` to a file under `opm/k8s/`
+- **THEN** `task lint` fails naming the forbidden import
+- **AND** an import of `k8s.io/apimachinery` together with `opm/kernel` in the same file passes
+
+#### Scenario: Lint refuses a Kubernetes module in the helper tier
+
+- **WHEN** a change adds an import of `k8s.io/apimachinery` or any other `k8s.io` or `sigs.k8s.io` package to a file under `opm/helper/`
+- **THEN** `task lint` fails naming the forbidden import
+
 #### Scenario: Lint refuses a helper or internal import in the tier
 
 - **WHEN** a change adds an import of a package under `opm/helper/` or `opm/internal/` to a file under `opm/k8s/`
