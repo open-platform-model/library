@@ -129,22 +129,22 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 5. An unusable loaded schema says so (schema; design CS8)
 
-- [ ] 5.1 `opm/schema/cache.go`: the `Err()` failure reads
+- [x] 5.1 `opm/schema/cache.go`: the `Err()` failure reads
       `schema Cache: loaded schema is unusable: %w`; the `Get` doc comment names both cases
       (a build error, and the zero value a Loader returns with a nil error). Verify:
       `go build ./opm/...` clean.
-- [ ] 5.2 `opm/schema/cache_test.go`: `TestCache_ZeroValueFromLoaderIsUnusable` with a Loader
+- [x] 5.2 `opm/schema/cache_test.go`: `TestCache_ZeroValueFromLoaderIsUnusable` with a Loader
       returning `cue.Value{}, nil`: two `Get` calls return the zero value and the same error,
       which contains `is unusable` and not `build error`, the Loader runs once, and
       `ResolvedVersion()` is `""` (schema-dispatch scenario "A zero value from the Loader is an
       unusable schema"). Verify: `go test ./opm/schema -count=1` green.
-- [ ] 5.3 Whole-tree checks on the final tree: `task check`;
+- [x] 5.3 Whole-tree checks on the final tree: `task check`;
       `go test -race ./opm/kernel ./opm/internal/renderstage -count=1`;
       `openspec validate consolidate-semver-paths-and-decoders --strict`. Consumer compile
       check, not committed: build the cli and opm-operator against this tree with a scratch
       `-modfile` carrying a `replace` to the worktree (`go build -C <repo> -modfile <scratch>
       ./...`); both build. Verify: all green.
-- [ ] 5.4 `task check` green, then commit
+- [x] 5.4 `task check` green, then commit
       `fix(schema): call an unusable loaded schema unusable`.
 
 ## 6. Archive (at PR time, on the supervisor's word)
