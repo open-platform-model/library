@@ -123,6 +123,16 @@ for i in $(seq -w 1 11); do echo "./opm/z.F$i: removed"; done >"$tmp/many/new"
 conclude_run many v1.0.0-beta.4 "$tmp/many" 1
 check "more than 10 annotations add a pointer to the summary" \
   count "$tmp/many.out" '11 incompatible changes; the job summary lists them all' 1
+grep -F '::warning' "$tmp/many.out" >"$tmp/many.ann" || true
+check "the pointer is the first annotation" \
+  grep -qF '11 incompatible changes; the job summary lists them all' <(head -n 1 "$tmp/many.ann")
+check "at most 10 annotations of the level are written" count "$tmp/many.ann" '::warning' 10
+check "the first 9 entries follow the pointer" count "$tmp/many.ann" './opm/z.F0' 9
+
+for i in $(seq -w 1 10); do echo "./opm/z.F$i: removed"; done >"$tmp/many/new"
+conclude_run ten v1.0.0-beta.4 "$tmp/many" 1
+check "exactly 10 entries are all annotated, with no pointer" count "$tmp/ten.out" '::warning' 10
+check "exactly 10 entries add no pointer" count "$tmp/ten.out" 'the job summary lists them all' 0
 
 # --- main: a failure of the check itself exits 2 (before any build) ----------
 script="$here/api-diff.sh"

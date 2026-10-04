@@ -119,20 +119,25 @@ report() {
 # summary under GITHUB_ACTIONS, and returns 1 in block mode with new
 # entries, 0 otherwise.
 conclude() {
-  local tag=$1 dir=$2 mode level n_new e
+  local tag=$1 dir=$2 mode level n_new n_shown e
   mode=$(mode_of "$tag")
   n_new=$(wc -l <"$dir/new" | tr -d ' ')
   report "$tag" "$mode" "$dir"
   if in_ci; then
     if [ "$mode" = warn ]; then level=warning; else level=error; fi
-    while IFS= read -r e; do
-      e=${e//%/%25}
-      echo "::$level title=Incompatible API change::$e"
-    done <"$dir/new"
-    # GitHub shows at most 10 annotations of a level per step.
+    # The runner keeps only the first 10 annotations of a level per step
+    # (actions/runner ExecutionContext, _maxCountPerIssueType) and drops the
+    # rest. Past 10 entries the pointer to the summary goes first and only 9
+    # entries follow it, so the pointer is never the one dropped.
+    n_shown=$n_new
     if [ "$n_new" -gt 10 ]; then
       echo "::$level title=Incompatible API change::$n_new incompatible changes; the job summary lists them all"
+      n_shown=9
     fi
+    head -n "$n_shown" "$dir/new" | while IFS= read -r e; do
+      e=${e//%/%25}
+      echo "::$level title=Incompatible API change::$e"
+    done
     [ -z "${GITHUB_STEP_SUMMARY:-}" ] || report "$tag" "$mode" "$dir" >>"$GITHUB_STEP_SUMMARY"
   fi
   if [ "$mode" = block ] && [ "$n_new" -gt 0 ]; then
