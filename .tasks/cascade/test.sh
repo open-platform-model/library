@@ -49,7 +49,7 @@ unset CASCADE_ALLOW_DIRTY CASCADE_EXPECT CASCADE_BASE CASCADE_WARNINGS CASCADE_N
   CASCADE_SOURCE CASCADE_TAGS CASCADE_STUB_TABLE CASCADE_STUB_LOG
 
 TMP=$(mktemp -d)
-# shellcheck disable=SC2329 # invoked by the trap
+# shellcheck disable=SC2317,SC2329 # invoked by the trap (SC2317 before 0.10)
 cleanup() { chmod -R u+w "$TMP"; rm -rf "$TMP"; }
 trap cleanup EXIT
 
@@ -276,7 +276,7 @@ no_cue_path() {
   mkdir -p "$SB/bin"
   ln -sf "$(command -v task)" "$SB/bin/task"
   while IFS= read -r d; do
-    [ -n "$d" ] && [ ! -x "$d/cue" ] || continue
+    if [ -z "$d" ] || [ -x "$d/cue" ]; then continue; fi
     keep="$keep:$d"
   done <<<"$(tr ':' '\n' <<<"$PATH")"
   printf '%s%s\n' "$SB/bin" "$keep"

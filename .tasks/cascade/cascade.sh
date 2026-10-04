@@ -240,7 +240,7 @@ trees=$(find testdata/render -path '*/cue.mod/module.cue' | LC_ALL=C sort)
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   v=$(dep_v "$CORE_KEY" <"$f")
-  [ -n "$v" ] && [ "$v" != "$D" ] || continue
+  if [ -z "$v" ] || [ "$v" = "$D" ]; then continue; fi
   if frozen "$f" "$CORE_KEY"; then continue; fi
   set_dep_v "$f" "$CORE_KEY" "$D" || die "cannot rewrite the $CORE_KEY block in $f"
 done <<<"$(printf '%s\n%s\n' testdata/cue.mod/module.cue "$trees")"
@@ -290,7 +290,7 @@ for doc in docs/getting-started.md AGENTS.md; do
   [ -f "$doc" ] || continue
   named=$({ grep -oP 'opmodel\.dev/core@\Kv[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*' "$doc" || [ $? -eq 1 ]; } | LC_ALL=C sort -u)
   while IFS= read -r v; do
-    [ -n "$v" ] && [ "$v" != "$D" ] || continue
+    if [ -z "$v" ] || [ "$v" = "$D" ]; then continue; fi
     warn - "\`$doc\` still names \`opmodel.dev/core@$v\`"
   done <<<"$named"
 done
