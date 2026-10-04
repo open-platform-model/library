@@ -67,8 +67,11 @@ export OPM_REGISTRY=opmodel.dev=ghcr.io/open-platform-model,registry.cue.works
 # then stops the script on the assignment's non-zero status.
 resolve() {
   local out rc=0 e
-  local -a expect=()
-  for e in ${CASCADE_EXPECT:-}; do
+  local -a expect=() pairs=()
+  # Split on whitespace only: the payload is untrusted (contract §2.9), so no
+  # word may glob against the repo root.
+  read -ra pairs <<<"${CASCADE_EXPECT:-}"
+  for e in "${pairs[@]}"; do
     [ "${e%%=*}" != "$2" ] || expect=(--expect "${e#*=}")
   done
   out=$("$R" newest "$1" "$2" --current "$3" --repo-root . "${expect[@]}") || rc=$?
@@ -171,9 +174,15 @@ below_k() {
   [ "$CMP" = -1 ]
 }
 
-# A module is in scope when its core differs from D, or when it pins the
-# catalog below K. A catalog above K is never named, so never lowered.
-scope=()
+# Each module's get arguments are built here, frozen keys left out, and a
+# module is in scope when that list is non-empty. A candidate is a module whose
+# core differs from D or whose catalog is below K. Its list names core at D
+# (unless frozen) and the catalog at K only when it is below K and not frozen,
+# so a catalog above K is never named, never lowered. A module whose only
+# move is a frozen key is out of scope, so a no-op run needs no cue.
+# frozen_keys lists every OPM key frozen for the file; phase C checks them
+# after tidy. Versions and keys hold no spaces, so each list is one string.
+scope=(); scope_args=(); scope_frozen=()
 while IFS= read -r glob; do
   [ -n "$glob" ] || continue
   # shellcheck disable=SC2086 # the glob is meant to expand
@@ -182,9 +191,26 @@ while IFS= read -r glob; do
     [ -f "$f" ] || continue
     mcore=$(dep_v "$CORE_KEY" <"$f")
     mcat=$(dep_v "$CATALOG_KEY" <"$f")
-    if { [ -n "$mcore" ] && [ "$mcore" != "$D" ]; } || below_k "$mcat"; then
-      scope+=("$dir")
+    cat_below=0
+    if below_k "$mcat"; then cat_below=1; fi
+    if { [ -z "$mcore" ] || [ "$mcore" = "$D" ]; } && [ "$cat_below" = 0 ]; then continue; fi
+    args=(); frozen_keys=()
+    if [ -n "$mcore" ]; then
+      if frozen "$f" "$CORE_KEY"; then frozen_keys+=("$CORE_KEY"); else args+=("opmodel.dev/core@$D"); fi
     fi
+    if [ -n "$mcat" ]; then
+      if frozen "$f" "$CATALOG_KEY"; then
+        frozen_keys+=("$CATALOG_KEY")
+      elif [ "$cat_below" = 1 ]; then
+        args+=("opmodel.dev/catalogs/opm@$K")
+      fi
+    fi
+    # Core at D alone moves nothing when only a frozen catalog lagged.
+    if [ "${#args[@]}" -eq 0 ] ||
+       { [ "${#args[@]}" -eq 1 ] && [ "$mcore" = "$D" ] && [ "${args[0]}" = "opmodel.dev/core@$D" ]; }; then
+      continue
+    fi
+    scope+=("$dir"); scope_args+=("${args[*]}"); scope_frozen+=("${frozen_keys[*]}")
   done
 done <<<"$CASCADE_MODULE_GLOBS"
 
@@ -226,22 +252,11 @@ dep_keys() {
 
 # C3. The module loop: one explicit-version get and one tidy per module in
 # scope. Third-party pins are never named.
-for dir in "${scope[@]}"; do
+for i in "${!scope[@]}"; do
+  dir="${scope[$i]}"
   f="$dir/cue.mod/module.cue"
-  mcore=$(dep_v "$CORE_KEY" <"$f")
-  mcat=$(dep_v "$CATALOG_KEY" <"$f")
-  args=(); frozen_keys=()
-  if [ -n "$mcore" ]; then
-    if frozen "$f" "$CORE_KEY"; then frozen_keys+=("$CORE_KEY"); else args+=("opmodel.dev/core@$D"); fi
-  fi
-  if [ -n "$mcat" ]; then
-    if frozen "$f" "$CATALOG_KEY"; then
-      frozen_keys+=("$CATALOG_KEY")
-    elif below_k "$mcat"; then
-      args+=("opmodel.dev/catalogs/opm@$K")
-    fi
-  fi
-  [ "${#args[@]}" -gt 0 ] || continue
+  read -ra args <<<"${scope_args[$i]}"
+  read -ra frozen_keys <<<"${scope_frozen[$i]}"
 
   declare -A was=()
   keys=$(dep_keys "$f")

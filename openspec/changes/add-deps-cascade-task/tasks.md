@@ -34,7 +34,7 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 3. Offline tests in the required job
 
-- [x] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7, S8 and S9 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
+- [x] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7, S8, S9 and S10 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
 - [x] 3.2 Add `.tasks/cascade/testdata/s1-calls.txt` with the four normalized lines from design.md D7.
 - [x] 3.3 Add the `deps:cascade:test` task, with `CASCADE_TEST_SET` passed through and a precondition on `yq`. It needs no resolver var or precondition (contract v1.1 clarification C7).
 - [x] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.

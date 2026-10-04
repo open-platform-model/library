@@ -11,7 +11,7 @@
 #
 #   CASCADE_TEST_SET=offline  checks, S1 no-op, S3 resolver error, S6 dirty
 #                             tree, S7 lagging tree, S8 catalog needs core,
-#                             S9 frozen loader
+#                             S9 frozen loader, S10 frozen lag needs no cue
 #   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
 #                             and S5 title and body (network: cue mod get
 #                             resolves the real older versions)
@@ -28,6 +28,8 @@ STUB_SUM=970130f7d55c07f5b86d4f5b6f392330427ff923eb34f93553656bcd4b893d9c
 OLDER="$here/testdata/older.tsv"
 S1_CALLS="$here/testdata/s1-calls.txt"
 TODAY=2026-10-03
+# The loop module S4, S4b and S10 freeze: both OPM keys, no third-party dep.
+S4_FILE=testdata/modules/web_app/cue.mod/module.cue
 
 SET="${CASCADE_TEST_SET:-all}"
 case "$SET" in offline|all) ;; *) printf 'test.sh: CASCADE_TEST_SET must be offline or all, not %s\n' "$SET" >&2; exit 1 ;; esac
@@ -266,6 +268,37 @@ s9_frozen_loader() {
   else pass S9; fi
 }
 
+# no_cue_path: point PATH at the directories that hold no cue, plus a
+# directory with task alone, so the run proves it never needs cue.
+no_cue_path() {
+  local d keep=""
+  mkdir -p "$SB/bin"
+  ln -sf "$(command -v task)" "$SB/bin/task"
+  while IFS= read -r d; do
+    [ -n "$d" ] && [ ! -x "$d/cue" ] || continue
+    keep="$keep:$d"
+  done <<<"$(tr ':' '\n' <<<"$PATH")"
+  printf '%s%s\n' "$SB/bin" "$keep"
+}
+
+# S10: a loop module whose core is frozen below the loader has nothing to move,
+# so a run is a no-op that needs no cue on PATH.
+s10_frozen_lag_needs_no_cue() {
+  sandbox s10
+  set_dep_v "$S4_FILE" "$CORE_KEY" "$(older "$CORE_KEY")"
+  [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
+  printf '  - path: %s\n    pins: ["%s"]\n    reason: "cascade test S10"\n' \
+    "$S4_FILE" "$CORE_KEY" >>.cascade-frozen
+  setup_commit
+  table
+  local p
+  p=$(no_cue_path)
+  PATH="$p" run_cascade
+  if [ "$RC" != 3 ]; then fail S10 "exit $RC, not 3: $(tail -n3 "$SB/out")"
+  elif [ -n "$(status)" ]; then fail S10 "the tree changed: $(status | head -n3)"
+  else pass S10; fi
+}
+
 # --- Network scenarios -----------------------------------------------------------
 
 S2_DIR=""; S2_BASE=""
@@ -295,8 +328,6 @@ s2_older_pins() {
   elif [ -n "$(status)" ]; then fail S2 "the second run changed the tree: $(status | head -n3)"
   else pass S2; S2_DIR="$SB"; S2_BASE="$CASCADE_BASE"; fi
 }
-
-S4_FILE=testdata/modules/web_app/cue.mod/module.cue
 
 s4_frozen() {
   sandbox s4
@@ -368,6 +399,7 @@ s6_dirty
 s7_lagging_tree
 s8_catalog_needs_core
 s9_frozen_loader
+s10_frozen_lag_needs_no_cue
 if [ "$SET" = all ]; then
   s2_older_pins
   s4_frozen
