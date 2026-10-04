@@ -2,15 +2,9 @@ package catalog
 
 import (
 	"fmt"
-	"path/filepath"
 
-	"cuelang.org/go/mod/modfile"
-
-	"github.com/open-platform-model/library/opm/internal/sourcetree"
+	"github.com/open-platform-model/library/opm/internal/renderstage"
 )
-
-// modFileName is the module file's path relative to a module root.
-const modFileName = "cue.mod/module.cue"
 
 // Requires returns the dependency requirements the catalog COMMITTED in its
 // own cue.mod/module.cue, keyed by major-qualified module path
@@ -30,35 +24,34 @@ const modFileName = "cue.mod/module.cue"
 // Reports, never refusals. Whether a requirement is acceptable, newer, older
 // or incompatible is the caller's judgement; this returns what is written.
 //
+// The file is read and parsed by the same reader the render stage uses for
+// its input modules, so a module file the render stage refuses is refused
+// here too: one that does not parse, one with an empty module path, and one
+// listing a dependency that carries replaceWith (which cue/load refuses in
+// module.cue).
+//
 // Errors: a catalog carrying no Source (one built straight from a value by
 // [NewCatalogFromValue] rather than acquired) has no committed file to read
-// and says so; a module file that is absent or unparseable is reported with
-// its path. A dependency a local replacement serves may carry no version in
-// the file; its entry maps to the empty string rather than being dropped, so
-// the path is still visible to a caller reconciling the two sides.
+// and says so; a module file that is absent, unparseable or refused is
+// reported with its path. A dependency a local replacement serves may carry
+// no version in the file; its entry maps to the empty string rather than
+// being dropped, so the path is still visible to a caller reconciling the two
+// sides.
 func (c *Catalog) Requires() (map[string]string, error) {
 	if c == nil {
 		return nil, fmt.Errorf("catalog is nil")
 	}
 	if c.Source == nil || c.Source.Root == "" {
-		return nil, fmt.Errorf("catalog carries no source tree, so it has no committed %s to read", modFileName)
+		return nil, fmt.Errorf("catalog carries no source tree, so it has no committed %s to read", renderstage.ModFileName)
 	}
 
-	path := filepath.Join(c.Source.Root, filepath.FromSlash(modFileName))
-	data, err := sourcetree.ReadFile(c.Source, path)
+	mf, err := renderstage.ReadModFile(c.Source)
 	if err != nil {
-		return nil, fmt.Errorf("reading catalog %s: %w", modFileName, err)
-	}
-	f, err := modfile.Parse(data, path)
-	if err != nil {
-		return nil, fmt.Errorf("parsing catalog %s: %w", modFileName, err)
+		return nil, fmt.Errorf("reading catalog %s: %w", renderstage.ModFileName, err)
 	}
 
-	reqs := make(map[string]string, len(f.Deps))
-	for depPath, dep := range f.Deps {
-		if dep == nil {
-			continue
-		}
+	reqs := make(map[string]string, len(mf.Deps))
+	for depPath, dep := range mf.Deps {
 		reqs[depPath] = dep.Version
 	}
 	return reqs, nil

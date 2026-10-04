@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 )
 
 // Source is the staged source tree an artifact was loaded or synthesized
@@ -87,7 +86,7 @@ func (s *Source) WriteTo(dir string) ([]string, error) {
 	rels := make([]string, 0, len(s.Overlay))
 	for key := range s.Overlay {
 		rel, err := filepath.Rel(root, key)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if err != nil || !filepath.IsLocal(rel) {
 			return nil, fmt.Errorf("overlay entry %s is outside the source root %s", key, root)
 		}
 		keyOf[rel] = key

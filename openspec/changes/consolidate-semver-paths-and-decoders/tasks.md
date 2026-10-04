@@ -107,22 +107,22 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 4. One local-path check and one module-file reader (module, renderstage, platformmodule, catalog; design CS6, CS7)
 
-- [ ] 4.1 `filepath.IsLocal` in `opm/module/source.go` (`Source.WriteTo`),
+- [x] 4.1 `filepath.IsLocal` in `opm/module/source.go` (`Source.WriteTo`),
       `opm/internal/renderstage/stage.go` (`serveDir`) and
       `opm/helper/platformmodule/write.go` (`Files.WriteTo`, keeping `rel == "."`); refusal
       messages unchanged; drop `strings` imports left unused. Verify: the existing outside-root
       and `.` refusal tests in `opm/module`, `opm/internal/renderstage` and
       `opm/helper/platformmodule` stay green.
-- [ ] 4.2 `opm/catalog/requires.go`: `Requires` reads through `renderstage.ReadModFile`
+- [x] 4.2 `opm/catalog/requires.go`: `Requires` reads through `renderstage.ReadModFile`
       (design CS7); `modFileName` and the direct `modfile.Parse` go; the doc comment says the
       file is parsed by the render stage's reader and what that refuses. Verify:
       `go build ./opm/...` and `task lint` clean (depguard).
-- [ ] 4.3 `opm/catalog/requires_test.go`: a subtest in `TestCatalog_Requires_Errors` for a
+- [x] 4.3 `opm/catalog/requires_test.go`: a subtest in `TestCatalog_Requires_Errors` for a
       module file with a `replaceWith` dependency, asserting the error names
       `cue.mod/module.cue` (catalog-acquisition scenario "A module file the render stage would
       refuse is refused"); the existing cases stay green. Verify:
       `go test ./opm/catalog -count=1` green.
-- [ ] 4.4 `task check` green, then commit
+- [x] 4.4 `task check` green, then commit
       `fix(catalog): read Requires through the shared module-file reader`, with a body line naming
       the IsLocal sites (`opm/module`, `renderstage`, `helper/platformmodule`) and the newly refused
       `replaceWith` dependency.
