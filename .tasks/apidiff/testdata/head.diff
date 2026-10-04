@@ -1,0 +1,4 @@
+./opm/helper/objectset: removed
+./opm/schema.DefaultSchemaModule: value changed from "opmodel.dev/core@v2.0.0-beta.2" to "opmodel.dev/core@v2.0.0-beta.4"
+./opm/x.C: value changed from 1 to 3
+./opm/y.F: removed

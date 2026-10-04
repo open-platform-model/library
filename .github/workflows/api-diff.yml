@@ -12,6 +12,7 @@ on:
       - go.sum
       - Taskfile.yml
       - .tasks/api-diff.sh
+      - .tasks/api-diff-test.sh
       - .tasks/apidiff/**
       - .github/workflows/api-diff.yml
 

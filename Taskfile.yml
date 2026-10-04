@@ -125,6 +125,11 @@ tasks:
     cmds:
       - bash .tasks/api-diff.sh
 
+  api:diff:test:
+    desc: Test .tasks/api-diff.sh offline against fixture diffs (no network, no Go build)
+    cmds:
+      - bash .tasks/api-diff-test.sh
+
   ## Tests
 
   test:
@@ -210,7 +215,7 @@ tasks:
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, and the docs bundle check
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check and the api:diff tests
     cmds:
       - task: fmt
       - task: vet
@@ -218,6 +223,7 @@ tasks:
       - task: test
       - task: docs:bundle:check
       - task: cascade:wiring:check
+      - task: api:diff:test
 
   check:fast:
     desc: Run fmt, vet, tests, and the docs bundle check (skip lint)
@@ -226,6 +232,7 @@ tasks:
       - task: vet
       - task: test
       - task: docs:bundle:check
+      - task: api:diff:test
 
   ## Cleanup
 
