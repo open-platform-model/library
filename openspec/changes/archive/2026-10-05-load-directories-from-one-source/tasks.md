@@ -142,7 +142,7 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
 
 - [x] 5.1 Whole-tree gates on the final tree: `task check`. Verify: green.
 - [x] 5.2 `openspec validate load-directories-from-one-source --strict` passes.
-- [ ] 5.3 Archive only when the supervisor says the PR is being opened, on this branch so the
+- [x] 5.3 Archive only when the supervisor says the PR is being opened, on this branch so the
       archive rides the implementing PR: `openspec archive load-directories-from-one-source
       --yes`, then `openspec validate --all --strict`, then commit
       `chore(openspec): archive load-directories-from-one-source`. There is no
