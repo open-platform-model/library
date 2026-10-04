@@ -8,5 +8,5 @@
 
 ## 2. Documentation
 
-- [ ] 2.1 `AGENTS.md`: a paragraph directly after the "Workflow security" paragraph naming the non-required `Consumer build` jobs, what triggers them, the throwaway `go.work`, that the job goes red without blocking a merge, how to read a red run (per SD1 the PR changes API a consumer's `main` still uses: deprecate instead, or hold the removal until both consumers have migrated), and how to run `.tasks/consumer-build.sh` locally; add `consumer-build.yml` to the "Workflow security" paragraph's `contents: read` list
-- [ ] 2.2 `task check` and `openspec validate add-consumer-build-job --strict` green, then commit docs: describe the consumer build job in AGENTS.md
+- [x] 2.1 `AGENTS.md`: a paragraph directly after the "Workflow security" paragraph naming the non-required `Consumer build` jobs, what triggers them, the throwaway `go.work`, that the job goes red without blocking a merge, how to read a red run (per SD1 the PR changes API a consumer's `main` still uses: deprecate instead, or hold the removal until both consumers have migrated), and how to run `.tasks/consumer-build.sh` locally; add `consumer-build.yml` to the "Workflow security" paragraph's `contents: read` list
+- [x] 2.2 `task check` and `openspec validate add-consumer-build-job --strict` green, then commit docs: describe the consumer build job in AGENTS.md
