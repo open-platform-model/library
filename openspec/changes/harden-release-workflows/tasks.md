@@ -5,10 +5,10 @@
 
 ## 2. Read-only tokens for the CI workflows
 
-- [ ] 2.1 `cue.yml`, `lint.yml`, `test.yml`: workflow `permissions: contents: read`
-- [ ] 2.2 `persist-credentials: false` on every checkout in `cue.yml`, `lint.yml`, `test.yml` and `cascade-task.yml`
-- [ ] 2.3 Re-check every workflow: no `pull_request` job holds a write grant, no publishing workflow uses an Actions cache, `dependabot.yml` covers `github-actions` and ignores `open-platform-model/.github*`
-- [ ] 2.4 actionlint green, then commit ci: give the ci workflows read-only tokens
+- [x] 2.1 `cue.yml`, `lint.yml`, `test.yml`: workflow `permissions: contents: read`
+- [x] 2.2 `persist-credentials: false` on every checkout in `cue.yml`, `lint.yml`, `test.yml` and `cascade-task.yml`
+- [x] 2.3 Re-check every workflow: no `pull_request` job holds a write grant, no publishing workflow uses an Actions cache, `dependabot.yml` covers `github-actions` and ignores `open-platform-model/.github*`
+- [x] 2.4 actionlint green, then commit ci: give the ci workflows read-only tokens
 
 ## 3. Checksum-verified golangci-lint
 
