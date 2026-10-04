@@ -144,7 +144,16 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 
 ### Wiring check tests
 
-Filled in by task 5.4.
+**Context**: the check is the only guard on the key-holding jobs after merge, and actionlint does not check a composite action's inputs (D5).
+**Explored**: on 2026-10-04, with mikefarah `yq` v4.53.3, a harness (supervisor scratchpad `pj-library-mut.sh`, log `pj-library-mut.log`) copied the branch's `.github/` and the script into a fresh scratch tree per case, applied one mutation with `yq -i` or `sed`, and ran the script.
+**Decision**: the script as committed.
+**Rationale**: 42 of 42 cases behave as expected.
+
+- Pass (exit 0): the branch as it is (`cascade wiring: ok, .github 2376ffae4bfc665f327d51581350dea694c01504 (.github main)`); an extra header comment in `deps-cascade.yml`; a comment above a `with:` value.
+- Refused, the 13 wiring 3.1 mutations: a changed `publish` `if:`, an extra `publish` step, notify `contents: write`, `secrets: inherit` on the receive call, the key read by another job, a second SHA, `@main`, `ref: main` on the resolver, a branch comment, `environment` dropped from `publish`, `environment: cascade` on another job, a literal `dry-run: false`, a changed concurrency group.
+- Refused, the 11 wiring 3.1.1 mutations: `env: {BASH_ENV: repo/x.sh}` on `publish`, a workflow-level `env:` and a `defaults:` in `deps-cascade.yml`, `container:` on `notify-downstream`, `services:` on `publish`, a step-level `env:` on the notify step, an `if:` on the publish step, an extra `with:` key on the publish step, and `BASH_ENV`, `ENV` or `NODE_OPTIONS` in `release.yml`'s workflow `env`.
+- Refused, the addendum: `SHELLOPTS`, `PS4` and `CUE_VERSION` in `release.yml`'s workflow `env` (the library allows no key), `release.yml`'s `env` as an expression string (refused by the type check), `runs-on: self-hosted` on `notify-downstream`, `runs-on: ubuntu-24.04` on `publish`, and `runs-on` as the list `[ubuntu-latest]`.
+- Refused, eight more: the notify job removed, `environment: {name: cascade}` on another job, `publish` permissions widened to `contents: write`, `secrets:` on the gates call, `private-key` from another secret, the notify step naming `cascade-publish`, the resolver `ref:` deleted, and a 7-character SHA in every reference.
 
 ### Re-grep
 
