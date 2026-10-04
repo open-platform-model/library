@@ -24,14 +24,14 @@ that `git status` then shows only the throwaway dump test as untracked before co
 
 ## 2. render: drop failedPairs from the glue and name failed pairs in Go
 
-- [ ] 2.1 `opm/internal/renderstage/render.cue.tmpl`: delete `diagnostics.failedPairs` and its comment (`:550-561`).
-- [ ] 2.2 `opm/kernel/render_decode.go`: remove `FailedPairs` from `glueDiagnostics` and the `pairsOf(g.FailedPairs)` line. `decodeRenderDiagnostics` sets `FailedPairs` to a non-nil empty slice. Pull out the per-pair output lookup (`pairOutput`) and add the `failedPairs` helper (design D1: `Exists()` checked before `Err()`, pair order kept).
-- [ ] 2.3 `decodeRendered` drops the `failed` map and the `"transformer output is an error"` fallback. It returns the pairs whose output `Err()` is non-nil next to its compiled output and error, so the pair-failure path needs no second walk.
-- [ ] 2.4 `opm/kernel/render.go`: on the gate-refusal branch, fill `diag.FailedPairs` from the helper before building the `RenderError`. On the decode-error branch, fill it from what `decodeRendered` returned. Reword the `RenderDiagnostics.FailedPairs` doc comment: it names the matched pairs whose output is an error, it is filled on every `RenderError` raised after the build (a gate refusal included), and it is empty on success.
-- [ ] 2.5 `docs/site/diagnostics/transform-failed.md`: drop `"transformer output is an error"` from the maintainer comment's list of causes (`:12`) and from the "Recognise it by" comment (`:26`). The reader-visible text stays.
-- [ ] 2.6 All `FailedPairs` assertions (`render_test.go:135`, `:444`, `:469`, `:623`) and the section 1 tests pass unchanged. Re-run the 1.2 dump: it is byte-identical to the base dump. Record its sha256 in design.md "Verification".
-- [ ] 2.7 Add `opm/kernel/render_glue_shape_test.go`: through `RenderForTest`, the built value's `diagnostics` has no `failedPairs` field (design D4).
-- [ ] 2.8 `task fmt`, `task vet`, `task lint` and `task test` green, then commit `perf(render): name failed pairs in Go instead of re-applying every pair`.
+- [x] 2.1 `opm/internal/renderstage/render.cue.tmpl`: delete `diagnostics.failedPairs` and its comment (`:550-561`).
+- [x] 2.2 `opm/kernel/render_decode.go`: remove `FailedPairs` from `glueDiagnostics` and the `pairsOf(g.FailedPairs)` line. `decodeRenderDiagnostics` sets `FailedPairs` to a non-nil empty slice. Pull out the per-pair output lookup (`pairOutput`) and add the `failedPairs` helper (design D1: `Exists()` checked before `Err()`, pair order kept).
+- [x] 2.3 `decodeRendered` drops the `failed` map and the `"transformer output is an error"` fallback. It returns the pairs whose output `Err()` is non-nil next to its compiled output and error, so the pair-failure path needs no second walk.
+- [x] 2.4 `opm/kernel/render.go`: on the gate-refusal branch, fill `diag.FailedPairs` from the helper before building the `RenderError`. On the decode-error branch, fill it from what `decodeRendered` returned. Reword the `RenderDiagnostics.FailedPairs` doc comment: it names the matched pairs whose output is an error, it is filled on every `RenderError` raised after the build (a gate refusal included), and it is empty on success.
+- [x] 2.5 `docs/site/diagnostics/transform-failed.md`: drop `"transformer output is an error"` from the maintainer comment's list of causes (`:12`) and from the "Recognise it by" comment (`:26`). The reader-visible text stays.
+- [x] 2.6 All `FailedPairs` assertions (`render_test.go:135`, `:444`, `:469`, `:623`) and the section 1 tests pass unchanged. Re-run the 1.2 dump: it is byte-identical to the base dump. Record its sha256 in design.md "Verification".
+- [x] 2.7 Add `opm/kernel/render_glue_shape_test.go`: through `RenderForTest`, the built value's `diagnostics` has no `failedPairs` field (design D4).
+- [x] 2.8 `task fmt`, `task vet`, `task lint` and `task test` green, then commit `perf(render): name failed pairs in Go instead of re-applying every pair`.
 
 ## 3. render: evaluate the matching rungs for candidates only
 

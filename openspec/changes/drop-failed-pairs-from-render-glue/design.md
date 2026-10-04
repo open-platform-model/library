@@ -55,13 +55,20 @@ The glue's `failedPairs` field and its comment are deleted. The kernel gets one 
 pairs whose output `Err()` is non-nil:
 
 ```go
-// failedPairs names the matched pairs whose rendered output is an error, in
-// pair order. A missing or incomplete output is not listed: decodeRendered
-// refuses those with their own causes.
-func failedPairs(rendered cue.Value, pairs []RenderPair) []RenderPair {
+// outputFailed: Exists() before Err(), since a non-existent value also
+// carries an error.
+func outputFailed(out cue.Value) bool {
+	return out.Exists() && out.Err() != nil
+}
+
+func failedPairs(built cue.Value, pairs []RenderPair) []RenderPair {
 	failed := []RenderPair{}
+	rendered := built.LookupPath(pathRendered)
+	if !rendered.Exists() {
+		return failed
+	}
 	for _, p := range pairs {
-		if pairOutput(rendered, p).Err() != nil {
+		if outputFailed(pairOutput(rendered, p)) {
 			failed = append(failed, p)
 		}
 	}
@@ -69,10 +76,11 @@ func failedPairs(rendered cue.Value, pairs []RenderPair) []RenderPair {
 }
 ```
 
-`pairOutput` is the lookup `decodeRendered` already does at `render_decode.go:163-164`, pulled out
-so the two share it. A missing output is not an error value: `LookupPath` returns a non-existent
-value whose `Err()` names the missing path, so the helper MUST check `Exists()` before `Err()`. A
-missing output is not listed, because today's glue lists only pairs whose output is `_|_`.
+`pairOutput` is the lookup `decodeRendered` already did at `render_decode.go:163-164`, pulled out
+so the two share it, and `outputFailed` is the one test both use. A missing output is not an error
+value: `LookupPath` returns a non-existent value whose `Err()` names the missing path, so the test
+MUST check `Exists()` before `Err()`. A missing output is not listed, because the glue listed only
+pairs whose output was `_|_`.
 `decodeRendered` keeps its own "rendered output missing" cause for it.
 
 `decodeRendered` collects the same list as it walks the pairs, so it needs no second pass. The
@@ -322,7 +330,8 @@ The checksum is the sha256 of the files concatenated in byte order of their name
 
 | Tree | sha256 |
 | --- | --- |
-| base (`67b6622` code, section 1 tests added), run twice | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f` |
+| base (library code of `58f8151`, section 1 scenario added), run twice | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f` |
+| after section 2 (`failedPairs` out of the glue, filled in Go) | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f`, byte-identical (`diff -r` clean) |
 
 ## Risks / Trade-offs
 

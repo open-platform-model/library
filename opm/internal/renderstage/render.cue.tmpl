@@ -547,18 +547,6 @@ diagnostics: {
 			}
 		}
 	}
-	// Error-class pair failures as data: an output that is bottom. An
-	// INCOMPLETE output is not bottom and is caught by the kernel's per-pair
-	// concreteness check instead (measured boundary, 0019 D10).
-	failedPairs: [
-		for p in match.pairs
-		let applied = (_transformers[p.transformer].#transform & {
-			#moduleInstance: instance
-			#component:      _components[p.component]
-			#context: #runtimeName: _runtimeName
-		}).output
-		if applied == _|_ {p},
-	]
 }
 
 // The fail-closed gate (0010 D28, D37) as one unification: an unresolved
