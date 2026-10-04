@@ -16,6 +16,7 @@ thing that differs between them:
 | `unstated` | an unhandled trait whose posture the catalog never stated: refused as a build error naming `optional` |
 | `incomplete` | a pair whose output never becomes concrete: refused at a path naming the pair |
 | `failing` | a healthy pair beside a pair whose output conflicts: the failing pair is reported as data |
+| `failing_beside_refused` | the `failing` pair beside a component whose resource demand no transformer serves: the gate refuses, and the failing pair is still reported on the diagnostics |
 | `unlisted` | a resource demand for a contract no catalog lists or implements (authored inline): refused, the row carries no defining catalog |
 | `unprovided` | on `platform_providers`: component `app` attaches the provider-fulfilled snapshot trait nothing provides, component `ledger` also declares the provider-fulfilled ledger resource nothing provides, beside a healthy sibling: refused with both rows marked unprovided, or, under `RenderInput.SkipUnprovided`, `app` renders, `ledger` is omitted and every skipped demand is a row |
 | `provided_unmatched` | on `platform_providers`: the provider-fulfilled archive trait whose one provider requires a label the component lacks: refused, the row not marked unprovided, with or without the switch |

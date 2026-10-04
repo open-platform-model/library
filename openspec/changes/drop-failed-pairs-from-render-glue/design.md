@@ -301,6 +301,29 @@ targets. This run's `user_s` is not quoted: the host's load average was above 50
 ran, and its `r1-nil` `user_s` read 18.2 s against 9.8 s in the planning run of the same code. The
 heap and RSS columns agree with the planning run within 2%.
 
+## Verification
+
+### Verdict dump (design D4)
+
+The throwaway test `zz_g4dump_test.go` (kept in the scratchpad memprobe copy's `dump/`, never
+committed) renders every platform under `testdata/render` against every instance there, with the
+skip switch off and on, and writes one JSON file per pairing: the decoded `RenderDiagnostics`, the
+error text (staging paths masked) and every `Compiled`'s provenance and value. 485 files:
+
+- platforms: `platform`, `platform_collide`, `platform_collide_oversubscribed`,
+  `platform_collide_provider`, `platform_definer_disabled`, `platform_disabled`, `platform_next`,
+  `platform_oversubscribed`, `platform_providers`, `platform_two`, `platform_two_majors`;
+- instances: `instance`, `instance_bk0`, `instance_maj0`, `instance_partial`, every package under
+  `scenarios/` (`failing_beside_refused` included), and the synthesized registry instances at
+  0.1.0 and 0.2.0;
+- skip switch: off and on.
+
+The checksum is the sha256 of the files concatenated in byte order of their names.
+
+| Tree | sha256 |
+| --- | --- |
+| base (`67b6622` code, section 1 tests added), run twice | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f` |
+
 ## Risks / Trade-offs
 
 - [A future core drops the output disjunction, so a nested bottom stops making the output bottom]

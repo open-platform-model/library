@@ -476,7 +476,36 @@ func TestRender_FailingPairIsDataBesideHealthy(t *testing.T) {
 	require.ErrorAs(t, err, &terr)
 	assert.Equal(t, "crash", terr.Component)
 	assert.Equal(t, brokenTx, terr.Transformer)
+	// The conflict sits inside the output (metadata.namespace), and the cause
+	// is the pair's own CUE error at the output's path: an error nested in
+	// the output surfaces through the output value's Err().
+	assert.Contains(t, terr.Cause.Error(), `rendered."crash :: `+brokenTx+`".output`)
+	assert.NotEqual(t, "transformer output is an error", terr.Cause.Error())
 	assert.NotContains(t, err.Error(), `component "web"`)
+}
+
+// A gate refusal still names the failed pairs: the failing pair of a
+// component that matched is reported on the diagnostics beside the refusal
+// of another component's unresolved demand, and the refusal is the gate's
+// alone.
+func TestRender_FailedPairsReportedOnGateRefusal(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "failing_beside_refused")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+	var unresolved *oerrors.UnresolvedDemandsError
+	require.ErrorAs(t, err, &unresolved, "the cause is the gate's")
+	require.Len(t, unresolved.Demands, 1)
+	assert.Equal(t, "orphan", unresolved.Demands[0].Component)
+	var terr *oerrors.TransformError
+	assert.False(t, errors.As(err, &terr), "the gate refuses before the pair outputs are decoded")
+	assert.Equal(t, []kernel.RenderPair{{Component: "crash", Transformer: renderTxPath + "/broken-transformer@0.1.0"}},
+		rerr.Diagnostics.FailedPairs, "the failing pair is named on the refusal")
 }
 
 func TestRender_Skew_NewerModuleWarnsByDefault(t *testing.T) {
