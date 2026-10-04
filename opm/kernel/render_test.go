@@ -303,6 +303,30 @@ func TestRender_AlternativesArriveInLadderOrder(t *testing.T) {
 	assert.Empty(t, d.Disqualified, "an empty bucket has no disqualified candidates")
 }
 
+// The always-unify rows of one component follow the platform's transformer
+// order, not the order the candidate walk reached them in (design D3 of
+// drop-failed-pairs-from-render-glue): narrow-transformer is reached first,
+// through the component's first resource, but deployment-transformer and
+// service-transformer come before it in the catalog.
+func TestRender_UnifyRowsFollowTransformerOrder(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "unify_order")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+
+	containerFQN := renderCatPath + "/resources/container@v1"
+	assert.Equal(t, []oerrors.UnifyRefusal{
+		{Component: "twice", Transformer: renderTxPath + "/deployment-transformer@0.1.0", Conflicts: []string{containerFQN}},
+		{Component: "twice", Transformer: renderTxPath + "/service-transformer@0.1.0", Conflicts: []string{containerFQN}},
+		{Component: "twice", Transformer: renderTxPath + "/narrow-transformer@0.1.0", Conflicts: []string{renderCatPath + "/resources/narrow@v1"}},
+	}, rerr.Diagnostics.Unify, "rows follow #transformers order, not candidate order")
+}
+
 func TestRender_DisqualifiedCandidateIsData(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
