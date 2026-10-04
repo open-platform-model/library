@@ -67,3 +67,21 @@ jobs:
       project: library
       mode: release
       tag: ${{ needs.release-please.outputs.tag_name }}
+
+  # Tells opm-operator and cli that a library release is out (workspace
+  # RELEASING.md, "Notify after publish"; Phase 3 wiring contract 4.5). The
+  # release is the tag, so this follows release-please directly; publish-docs
+  # is a sibling, never a need, so a failed docs bundle cannot stop the
+  # cascade. The shared workflow first waits for the Go proxy to serve the
+  # tag, best effort for up to 10 minutes, then mints the cascade App token
+  # inside its own `cascade` Environment job; no secret is passed from here.
+  # CASCADE_NOTIFY=off stops the dispatch.
+  notify-downstream:
+    name: Notify downstream
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'
+    permissions:
+      contents: read
+    uses: open-platform-model/.github/.github/workflows/cascade-notify.yml@main
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}

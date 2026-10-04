@@ -15,9 +15,9 @@ Merge gates (not tasks): `.github` `add-release-cascade-workflows` is merged fir
 
 ## 2. Notify downstream after a release
 
-- [ ] 2.1 Add the job `notify-downstream` to `.github/workflows/release.yml` after `publish-docs`, exactly as design.md D1 shows: `needs: release-please`; `if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'`; `permissions: contents: read`; `uses: open-platform-model/.github/.github/workflows/cascade-notify.yml@main`; `with: tag: ${{ needs.release-please.outputs.tag_name }}`; no `secrets:`. Add a short comment above it naming `RELEASING.md` "Notify after publish", why `publish-docs` is not a need, and that the reusable workflow waits for the Go proxy.
-- [ ] 2.2 Check by reading that no existing job, output or permission in `release.yml` changed (`git diff` shows only the added lines).
-- [ ] 2.3 Gate green (actionlint on `release.yml`), then commit `ci(release): notify downstream repos after a release`.
+- [x] 2.1 Add the job `notify-downstream` to `.github/workflows/release.yml` after `publish-docs`, exactly as design.md D1 shows: `needs: release-please`; `if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'`; `permissions: contents: read`; `uses: open-platform-model/.github/.github/workflows/cascade-notify.yml@main`; `with: tag: ${{ needs.release-please.outputs.tag_name }}`; no `secrets:`. Add a short comment above it naming `RELEASING.md` "Notify after publish", why `publish-docs` is not a need, and that the reusable workflow waits for the Go proxy.
+- [x] 2.2 Check by reading that no existing job, output or permission in `release.yml` changed (`git diff` shows only the added lines).
+- [x] 2.3 Gate green (actionlint on `release.yml`), then commit `ci(release): notify downstream repos after a release`.
 
 ## 3. The receiver and the gate caller
 
