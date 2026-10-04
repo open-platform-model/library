@@ -1,0 +1,38 @@
+Gate for every section: `task check` green on the whole tree; `actionlint` (the supervisor scratchpad binary, wiring §10) clean on every workflow file the section touches; `openspec validate join-release-cascade --strict`. This change edits no Go or CUE file, so `task check` guards against accidental edits.
+
+Merge gates (not tasks): `.github` `add-release-cascade-workflows` is merged first, and the supervisor has set the repo variable `CASCADE_DRY_RUN=true` in the library (design.md D5; wiring §1). Commit messages carry no bare `@word` (so never write a workflow ref with its `@` in a subject or body) and no body line starting with `word(`.
+
+## 1. Spike: the receiver's call sequence on the library
+
+- [ ] 1.1 In a scratch directory under the supervisor scratchpad (`p3-library-join-*`, never this worktree), lay out a fresh clone of the library at `origin/main` as `repo/` and the `.github` checkout at `main` as `org-github/`, as `cascade-receive.yml` `compute` does (wiring §6.2 step 2). Use a `PATH` that has `git`, `task`, `cue` v0.17.1, mikefarah `yq`, `jq` and `curl` but no `go`, and an empty `CUE_CACHE_DIR`.
+- [ ] 1.2 In `repo/`, with `CASCADE_RESOLVER=<abs>/org-github/.github/scripts/cascade/cascade-resolve.sh` and `CASCADE_BASE=origin/main`, run `task -x deps:cascade` and record the exit code (expected 3) and that `git status --porcelain` stays empty. Repeat with `CASCADE_EXPECT='opmodel.dev/core@v2=<current core>'`, `CASCADE_SOURCE=core` and `CASCADE_TAGS=<current core>`, as a dispatch would set them (wiring §6.2 step 4); expected 3 again.
+- [ ] 1.3 Run the G2 sequence (wiring §8.2): `git -C repo worktree add --detach <tmp> origin/main` with `<tmp>` outside `repo/`, then in `<tmp>` `env -u CASCADE_EXPECT -u CASCADE_SOURCE -u CASCADE_TAGS -u CASCADE_NOTES_FILE CASCADE_BASE=<sha> task -x deps:cascade`. Record the exit code (expected 3), that the warnings file lands under `repo/.git/worktrees/<name>/cascade/` and not in `<tmp>`, and that `repo/` is unchanged. Remove the worktree.
+- [ ] 1.4 Write the three results, with the commands, into design.md under "Research & Decisions" ("Whether the receiver needs Go" and a new "Receiver spike" entry). A result other than the expected one stops the change and goes to the supervisor.
+- [ ] 1.5 Gate green, then commit `ci(cascade): record the receiver spike for the cascade join`.
+
+## 2. Notify downstream after a release
+
+- [ ] 2.1 Add the job `notify-downstream` to `.github/workflows/release.yml` after `publish-docs`, exactly as design.md D1 shows: `needs: release-please`; `if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'`; `permissions: contents: read`; `uses: open-platform-model/.github/.github/workflows/cascade-notify.yml@main`; `with: tag: ${{ needs.release-please.outputs.tag_name }}`; no `secrets:`. Add a short comment above it naming `RELEASING.md` "Notify after publish", why `publish-docs` is not a need, and that the reusable workflow waits for the Go proxy.
+- [ ] 2.2 Check by reading that no existing job, output or permission in `release.yml` changed (`git diff` shows only the added lines).
+- [ ] 2.3 Gate green (actionlint on `release.yml`), then commit `ci(release): notify downstream repos after a release`.
+
+## 3. The receiver and the gate caller
+
+- [ ] 3.1 Add `.github/workflows/deps-cascade.yml` as wiring §5 gives it, with the library values of design.md D2: `name: Deps cascade`; triggers `repository_dispatch` (`types: [upstream-released]`), `schedule` (`cron: '17 5 * * *'`) and `workflow_dispatch` (inputs `dry_run` and `gates_only`, boolean, default false, with the wiring §5 descriptions); top-level `permissions: {}`; the wiring §5 `concurrency` expression verbatim with `cancel-in-progress: false`; one job `cascade` with `permissions` `contents: read`, `pull-requests: read`, `statuses: write`, calling `cascade-receive.yml` at `main` with `dry-run`, `gates-only`, `g2-mode`, `g3-mode` as wiring §5, `setup-go: false` and `labels-managed: false`. No `secrets:`. A header comment names `RELEASING.md` "The receiver", the dry-run rule (live only at exactly `false`) and the stop switches.
+- [ ] 3.2 Add `.github/workflows/cascade-gates.yml` as wiring §8.3 gives it, verbatim: `name: Cascade gates`; `pull_request_target` types `opened`, `reopened`, `synchronize`; top-level `permissions: {}`; concurrency per PR number with `cancel-in-progress: true`; one job `gates` with `statuses: write` and `actions: write`, calling `cascade-gates.yml` at `main` with the two mode inputs. A header comment says it checks out no PR code and that neither context is required yet (owner selections 11 and 12).
+- [ ] 3.3 Check that the `deps-cascade.yml` concurrency expression gives `deps-cascade` for a real run on `main`, `deps-cascade-gates` for `gates_only` on `main`, and `deps-cascade-refs/heads/<b>` for a branch run, by reading it against wiring §5 (the shared offline tests in `.github` cover the expression itself, wiring §12).
+- [ ] 3.4 Check that `dry-run` is true for every `CASCADE_DRY_RUN` value but the exact string `false`, and for `dry_run: true` (spec `cascade-wiring`).
+- [ ] 3.5 Gate green (actionlint on both new files), then commit `ci(cascade): add the cascade receiver and gate caller`.
+
+## 4. Docs
+
+- [ ] 4.1 Extend the "Release cascade task" paragraph in `AGENTS.md` (`AGENTS.md:299-301`) with two sentences: `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and opens one rolling `deps/cascade` PR (a core move labelled `need-human-review`); it stays a dry run until `CASCADE_DRY_RUN` is exactly `false`, `CASCADE_NOTIFY=off` stops the release job's dispatch to opm-operator and cli, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set the `cascade/freshness` and `cascade/settled` statuses.
+- [ ] 4.2 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
+- [ ] 4.3 Gate green, then commit `docs(agents): describe the cascade receiver and notify job`.
+
+## 5. Verify and archive
+
+- [ ] 5.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
+- [ ] 5.2 Run `openspec archive join-release-cascade`, then write the `## Purpose` line of the new main spec `openspec/specs/cascade-wiring/spec.md` by hand. Run `openspec validate --all --strict`.
+- [ ] 5.3 Commit `chore(openspec): archive join-release-cascade`. The archive rides the implementing PR (owner decision 4).
+- After merge (PR-body items, not checkboxes): 5.4 the supervisor runs `gh workflow run deps-cascade.yml -R open-platform-model/library -f dry_run=true` and checks that the summary shows mode `fresh` and action `noop` (the Phase 3 gate, wiring §1); 5.5 the next library PR shows `cascade/freshness` and `cascade/settled` as `n/a`; 5.6 before Phase 4 sets `CASCADE_DRY_RUN=false`, a non-noop dry-run summary of a core move lists `need-human-review` (design.md D3; wiring §15 item 5).
