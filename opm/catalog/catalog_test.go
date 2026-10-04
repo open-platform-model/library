@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue/cuecontext"
@@ -42,4 +43,17 @@ func TestNewCatalogFromValue_MissingMetadata(t *testing.T) {
 	c, err := catalog.NewCatalogFromValue(v)
 	require.Error(t, err)
 	assert.Nil(t, c)
+}
+
+// TestNewCatalogFromValue_DecodeFailureNamedOnce pins the schema-dispatch
+// scenario "A decode failure names its artifact once". CatalogMetadata has
+// no Name, so the failing field is version.
+func TestNewCatalogFromValue_DecodeFailureNamedOnce(t *testing.T) {
+	v := cuecontext.New().CompileString(`kind: "Catalog", metadata: version: 1`)
+	require.NoError(t, v.Err())
+
+	c, err := catalog.NewCatalogFromValue(v)
+	require.Error(t, err)
+	assert.Nil(t, c)
+	assert.Equal(t, 1, strings.Count(err.Error(), "decoding catalog metadata:"), err.Error())
 }

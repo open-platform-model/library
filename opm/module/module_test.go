@@ -1,6 +1,7 @@
 package module_test
 
 import (
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue/cuecontext"
@@ -68,4 +69,17 @@ metadata: {
 	assert.Equal(t, "demo-mod", mod.Metadata.Name)
 	assert.Nil(t, mod.Source, "a value-constructed module carries no staged source")
 	assert.False(t, mod.HasSource())
+}
+
+// TestNewModuleFromValue_DecodeFailureNamedOnce pins the schema-dispatch
+// scenario "A decode failure names its artifact once": the constructor
+// returns the decoder's error without a second prefix.
+func TestNewModuleFromValue_DecodeFailureNamedOnce(t *testing.T) {
+	v := cuecontext.New().CompileString(`kind: "Module", metadata: name: 1`)
+	require.NoError(t, v.Err())
+
+	mod, err := module.NewModuleFromValue(v)
+	require.Error(t, err)
+	assert.Nil(t, mod)
+	assert.Equal(t, 1, strings.Count(err.Error(), "decoding module metadata:"), err.Error())
 }

@@ -90,10 +90,10 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 3. A metadata decode failure is named once (module, platform, catalog; design CS4)
 
-- [ ] 3.1 `opm/module/module.go`, `opm/platform/platform.go`, `opm/catalog/catalog.go`: the
+- [x] 3.1 `opm/module/module.go`, `opm/platform/platform.go`, `opm/catalog/catalog.go`: the
       constructor returns the decoder's error unwrapped; decoders unchanged. Verify:
       `go build ./opm/...` clean.
-- [ ] 3.2 Tests in `module_test.go`, `platform_test.go` and the catalog's constructor test: a
+- [x] 3.2 Tests in `module_test.go`, `platform_test.go` and the catalog's constructor test: a
       `metadata` that does not decode (module and platform `metadata: name: 1`; catalog
       `metadata: version: 1`, since `CatalogMetadata` has no `Name` and Decode ignores unknown
       fields) yields a nil artifact and a non-nil error (asserted first) containing
@@ -101,7 +101,7 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       schema-dispatch scenario "A decode failure names its artifact once". Existing
       "metadata field is required" asserts stay green. Verify:
       `go test ./opm/module ./opm/platform ./opm/catalog -count=1` green.
-- [ ] 3.3 `task check` green, then commit
+- [x] 3.3 `task check` green, then commit
       `fix(opm): name a metadata decode failure once` (the change spans module, platform and
       catalog).
 

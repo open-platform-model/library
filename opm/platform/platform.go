@@ -63,7 +63,9 @@ type PlatformMetadata = schema.PlatformMetadata
 func NewPlatformFromValue(v cue.Value) (*Platform, error) {
 	meta, err := decodePlatformMetadata(v)
 	if err != nil {
-		return nil, fmt.Errorf("decoding platform metadata: %w", err)
+		// The decoder's error already names the artifact; a second prefix
+		// would read "decoding platform metadata: decoding platform metadata: ...".
+		return nil, err
 	}
 	return &Platform{
 		Metadata: meta,
