@@ -1,7 +1,7 @@
 package kernel
 
 import (
-	"strings"
+	"slices"
 
 	"cuelang.org/go/cue"
 	cueerrors "cuelang.org/go/cue/errors"
@@ -105,7 +105,10 @@ func validateValues(schema cue.Value, values []cue.Value, requireConcrete bool) 
 	return unified, nil
 }
 
-func walkDisallowed(schema, val cue.Value, pathPrefix []string, acc cueerrors.Error) cueerrors.Error {
+// walkDisallowed reports every field of val that schema does not allow, at
+// the field's own position. It records the path as selectors, so a label
+// that contains dots ("app.kubernetes.io/name") stays one step.
+func walkDisallowed(schema, val cue.Value, pathPrefix []cue.Selector, acc cueerrors.Error) cueerrors.Error {
 	iter, err := val.Fields(cue.Optional(true))
 	if err != nil {
 		return acc
@@ -113,7 +116,7 @@ func walkDisallowed(schema, val cue.Value, pathPrefix []string, acc cueerrors.Er
 	for iter.Next() {
 		sel := iter.Selector()
 		child := iter.Value()
-		fieldPath := append(append([]string{}, pathPrefix...), sel.String())
+		fieldPath := append(slices.Clone(pathPrefix), sel)
 
 		if !schema.Allows(sel) {
 			acc = cueerrors.Append(acc, &fieldNotAllowedError{pos: child.Pos(), path: fieldPath})
@@ -133,31 +136,37 @@ func walkDisallowed(schema, val cue.Value, pathPrefix []string, acc cueerrors.Er
 
 type fieldNotAllowedError struct {
 	pos  token.Pos
-	path []string
+	path []cue.Selector
 }
 
 func (e *fieldNotAllowedError) Position() token.Pos         { return e.pos }
 func (e *fieldNotAllowedError) InputPositions() []token.Pos { return nil }
 func (e *fieldNotAllowedError) Error() string               { return fieldNotAllowed }
+
+// Path returns "values" followed by one segment per selector, each in CUE's
+// selector form (a definition as #name, a plain label bare, a label that
+// needs quoting quoted), with the schema's leading #module #config steps
+// omitted. A dotted label is one segment, so joining with "." gives the
+// field's dotted path.
 func (e *fieldNotAllowedError) Path() []string {
-	return append([]string{"values"}, normalizeFieldPath(e.path)...)
+	out := []string{"values"}
+	for _, sel := range trimSchemaPrefix(e.path) {
+		out = append(out, sel.String())
+	}
+	return out
 }
 func (e *fieldNotAllowedError) Msg() (msg string, args []any) {
 	return fieldNotAllowed, nil
 }
 
-func normalizeFieldPath(path []string) []string {
-	if len(path) == 0 {
-		return nil
+// trimSchemaPrefix drops a leading #module #config pair, or a leading
+// #config, comparing whole selectors.
+func trimSchemaPrefix(path []cue.Selector) []cue.Selector {
+	if len(path) >= 2 && path[0].String() == "#module" && path[1].String() == "#config" {
+		return path[2:]
 	}
-	joined := strings.Join(path, ".")
-	joined = strings.TrimPrefix(joined, "#module.#config.")
-	joined = strings.TrimPrefix(joined, "#module.#config")
-	joined = strings.TrimPrefix(joined, "#config.")
-	joined = strings.TrimPrefix(joined, "#config")
-	joined = strings.TrimPrefix(joined, ".")
-	if joined == "" {
-		return nil
+	if len(path) >= 1 && path[0].String() == "#config" {
+		return path[1:]
 	}
-	return strings.Split(joined, ".")
+	return path
 }

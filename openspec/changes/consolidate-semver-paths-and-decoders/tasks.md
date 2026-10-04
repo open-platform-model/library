@@ -70,12 +70,12 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 2. A dotted key is one Path() segment (kernel; design CS5)
 
-- [ ] 2.1 `opm/kernel/validate.go`: `walkDisallowed` carries `[]cue.Selector`;
+- [x] 2.1 `opm/kernel/validate.go`: `walkDisallowed` carries `[]cue.Selector`;
       `fieldNotAllowedError.path` is `[]cue.Selector`; `Path()` maps each selector to
       `sel.String()` after a selector-wise trim of a leading `#module` `#config` pair or
       `#config`; `normalizeFieldPath` and the `strings` import go if unused. Verify:
       `go build ./opm/...` clean.
-- [ ] 2.2 `opm/kernel/validate_internal_test.go`: a test that validates
+- [x] 2.2 `opm/kernel/validate_internal_test.go`: a test that validates
       `labels: "app.kubernetes.io/name": "web"` against a schema whose closed `labels` declares
       another field, and asserts the disallowed-field error's `Path()` equals
       `["values", "labels", "\"app.kubernetes.io/name\""]` (config-validation scenario "A label
@@ -85,7 +85,7 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       `go test ./opm/kernel -run 'TestValidate|TestWalk|TestFieldNotAllowed' -count=1` green
       and `go test ./opm/kernel -run TestKernel_AcquireInstanceFromDir -count=1` green
       (`hasErrorPath` joins with `.`).
-- [ ] 2.3 `task check` green, then commit
+- [x] 2.3 `task check` green, then commit
       `fix(kernel): keep a dotted values key one Path segment`.
 
 ## 3. A metadata decode failure is named once (module, platform, catalog; design CS4)

@@ -3,6 +3,7 @@ package kernel
 import (
 	"testing"
 
+	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"github.com/stretchr/testify/assert"
@@ -103,4 +104,55 @@ func TestValidateSources_PartialLayeredSources(t *testing.T) {
 
 	_, fullErr := validateSources(schema, []Source{a, b}, nil, true)
 	require.Error(t, fullErr)
+}
+
+// TestFieldNotAllowed_DottedLabelIsOneSegment pins the config-validation
+// scenario "A label containing dots is one path segment": the walk records
+// selectors, so a dotted label is never split on its dots.
+func TestFieldNotAllowed_DottedLabelIsOneSegment(t *testing.T) {
+	k := New()
+	schema := cuecontext.New().CompileString(`close({ labels: close({ other?: string }) })`)
+	require.NoError(t, schema.Err())
+	src := internalSource(t, k, "values.cue", `labels: "app.kubernetes.io/name": "web"`)
+
+	_, err := validateSources(schema, []Source{src}, nil, false)
+	require.Error(t, err)
+
+	var paths [][]string
+	for _, ce := range cueerrors.Errors(err) {
+		if fe, ok := ce.(*fieldNotAllowedError); ok {
+			paths = append(paths, fe.Path())
+		}
+	}
+	require.Equal(t, [][]string{{"values", "labels", `"app.kubernetes.io/name"`}}, paths)
+}
+
+// TestTrimSchemaPrefix drops the schema's leading #module #config pair or a
+// leading #config by whole selector, and keeps a label that only starts
+// with the same characters.
+func TestTrimSchemaPrefix(t *testing.T) {
+	strs := func(sels []cue.Selector) []string {
+		out := []string{}
+		for _, s := range sels {
+			out = append(out, s.String())
+		}
+		return out
+	}
+	tests := []struct {
+		name string
+		in   []cue.Selector
+		want []string
+	}{
+		{"module config pair", []cue.Selector{cue.Def("#module"), cue.Def("#config"), cue.Str("x")}, []string{"x"}},
+		{"config alone", []cue.Selector{cue.Def("#config"), cue.Str("x")}, []string{"x"}},
+		{"pair only", []cue.Selector{cue.Def("#module"), cue.Def("#config")}, []string{}},
+		{"configMap label kept", []cue.Selector{cue.Str("#configMap"), cue.Str("x")}, []string{`"#configMap"`, "x"}},
+		{"no prefix", []cue.Selector{cue.Str("a"), cue.Str("b")}, []string{"a", "b"}},
+		{"empty", nil, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, strs(trimSchemaPrefix(tt.in)))
+		})
+	}
 }
