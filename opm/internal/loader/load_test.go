@@ -150,12 +150,14 @@ func TestLoadDir_NotADirectory(t *testing.T) {
 	_, err := loadDir(filepath.Join(dir, "platform.cue"), loader.PlatformSpec)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is not a directory")
+	assert.True(t, strings.HasPrefix(err.Error(), `platform path "`), "got %v", err)
 }
 
 func TestLoadDir_MissingPath(t *testing.T) {
 	_, err := loadDir(filepath.Join(t.TempDir(), "no", "such", "path"), loader.PlatformSpec)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, os.ErrNotExist), "got %v", err)
+	assert.True(t, strings.HasPrefix(err.Error(), `accessing platform directory "`), "got %v", err)
 }
 
 // TestShapeGate_RejectsMalformedPackages drives every artifact spec through a

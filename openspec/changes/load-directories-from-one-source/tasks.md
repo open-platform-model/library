@@ -21,7 +21,7 @@ section number (openspec/config.yaml and AGENTS.md bar design-local ids in comme
 
 Tests only; every one passes on `origin/main` before any code moves.
 
-- [ ] 1.1 `opm/kernel/acquire_test.go`: one table test,
+- [x] 1.1 `opm/kernel/acquire_test.go`: one table test,
       `TestKernel_AcquireFromDir_PathErrors`, over the four directory verbs (module, catalog,
       platform, instance with no values) plus instance with one values source. For a missing
       path assert the exact text `accessing <label> directory "<abs path>": ` as a prefix and
@@ -29,23 +29,23 @@ Tests only; every one passes on `origin/main` before any code moves.
       `reading module tree`; for a regular file assert `<label> path "<abs path>" is not a
       directory`. A nil artifact in every case. Verify:
       `go test ./opm/kernel -run TestKernel_AcquireFromDir_PathErrors -count=1` green.
-- [ ] 1.2 `opm/kernel/acquire_test.go`: `TestKernel_AcquireModuleFromDir_EmbedsNonCUEFile`
+- [x] 1.2 `opm/kernel/acquire_test.go`: `TestKernel_AcquireModuleFromDir_EmbedsNonCUEFile`
       writes a module root (`cue.mod/module.cue` at language `v0.17.0`, a `module.cue`
       declaring the embed extern and a `data` field embedding `data.json`, and `data.json`)
       and a `sub` package (its own package name) embedding `sub/d.json`. Acquire the root and
       `sub`; assert each `Package` carries its embedded value and each `Source.Overlay` holds
       only `.cue` keys (design LS5). Verify: the test is green.
-- [ ] 1.3 `opm/internal/sourcetree/sourcetree_test.go`: extend
+- [x] 1.3 `opm/internal/sourcetree/sourcetree_test.go`: extend
       `TestOverlayFromDir_CueFilesOnly` to assert the absent-root error starts with
       `reading module tree `; add `TestOverlayFromDir_Symlinks` (skip on Windows): a symlinked
       `.cue` file is read through the link under its own key, and a symlinked directory is
       not descended into (design LS6). Verify: `go test ./opm/internal/sourcetree -count=1`
       green.
-- [ ] 1.4 `opm/internal/loader/load_test.go`: `TestLoadDir_MissingPath` and
+- [x] 1.4 `opm/internal/loader/load_test.go`: `TestLoadDir_MissingPath` and
       `TestLoadDir_NotADirectory` also assert the full message prefix (`accessing platform
       directory "` and `platform path "`). Verify: `go test ./opm/internal/loader -count=1`
       green.
-- [ ] 1.5 `task check` green, then commit
+- [x] 1.5 `task check` green, then commit
       `test: pin directory acquisition errors and embedded files` (scope-neutral: the commit
       spans the kernel, loader and sourcetree packages).
 
