@@ -26,7 +26,7 @@ The library SHALL have a workflow `.github/workflows/deps-cascade.yml` whose job
 
 ### Requirement: The receiver publishes only from its own caller-owned publish job
 
-`deps-cascade.yml` SHALL have a job `publish` that needs `cascade`, runs on `ubuntu-latest`, declares `environment: cascade`, has a 15-minute timeout, is granted only `contents: read` and `pull-requests: read`, and has exactly one step, which runs the `cascade-publish` action pinned to the library's `.github` SHA with the inputs `dry-run`, `labels-managed: false`, `client-id` and `private-key`, and nothing else. The key SHALL be read only in the caller-owned `notify-downstream` or `publish` job, which declares `environment: cascade` and passes `secrets.CASCADE_APP_PRIVATE_KEY` only as the `private-key` input of the SHA-pinned cascade action; that job SHALL have no checkout or `run:` of its own, and no `env:`, `container:` or `services:` (the action checks out the repo but never runs it); no reusable call SHALL pass `secrets:` or `secrets: inherit`. No other job in any library workflow SHALL declare the `cascade` Environment. Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `RELEASING.md`, section "Two-job split".
+`deps-cascade.yml` SHALL have a job `publish` that needs `cascade`, runs on `ubuntu-latest`, declares `environment: cascade`, has a 15-minute timeout, is granted only `contents: read` and `pull-requests: read`, and has exactly one step, which runs the `cascade-publish` action pinned to the library's `.github` SHA with the inputs `dry-run`, `gates-only: ${{ inputs.gates_only == true }}`, `labels-managed: false`, `client-id` and `private-key`, and nothing else. The job's `if:` SHALL require `inputs.gates_only != true`, read from the caller's own input and never from an output of the reusable job, which ran repo code. The key SHALL be read only in the caller-owned `notify-downstream` or `publish` job, which declares `environment: cascade` and passes `secrets.CASCADE_APP_PRIVATE_KEY` only as the `private-key` input of the SHA-pinned cascade action; that job SHALL have no checkout or `run:` of its own, and no `env:`, `container:` or `services:` (the action checks out the repo but never runs it); no reusable call SHALL pass `secrets:` or `secrets: inherit`. No other job in any library workflow SHALL declare the `cascade` Environment. Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `RELEASING.md`, section "Two-job split"; `.github` README at `7b9ad1b`, "Receiver caller".
 
 #### Scenario: A live run with a change to push
 
@@ -47,6 +47,11 @@ The library SHALL have a workflow `.github/workflows/deps-cascade.yml` whose job
 
 - **WHEN** a PR gives a job other than `notify-downstream` and `publish` an `environment` that names `cascade` in any letter case or is an expression, or reads the key as `secrets.cascade_app_private_key`, `secrets['CASCADE_APP_PRIVATE_KEY']` or `toJSON(secrets)`
 - **THEN** the `Go tests` job fails at the step "Verify the cascade wiring"
+
+#### Scenario: A gates-only run never reaches publish
+
+- **WHEN** `Cascade gates` dispatches `deps-cascade.yml` with `gates_only: true` while `CASCADE_DRY_RUN` is `false`
+- **THEN** the `publish` job is skipped, and were it started, the `cascade-publish` action would fail before minting because its `gates-only` input is not `false`
 
 ### Requirement: The receiver pushes nothing until CASCADE_DRY_RUN is false
 
@@ -107,7 +112,7 @@ The library SHALL have a workflow `.github/workflows/cascade-gates.yml` that run
 
 ### Requirement: The cascade references carry one .github SHA, checked on every PR
 
-Every cascade reference in the library's workflows SHALL name the same full 40-character SHA of a commit on `open-platform-model/.github` `main`, followed by the comment `# .github main`: the `cascade-notify` step in `release.yml`, the `cascade-receive.yml` call and the `cascade-publish` step in `deps-cascade.yml`, the `cascade-gates.yml` call in `cascade-gates.yml`, and the `ref:` of the `open-platform-model/.github` checkout in `cascade-task.yml`. No reference SHALL name a branch or a tag. `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit. `.github/dependabot.yml` SHALL ignore `open-platform-model/.github*` under `github-actions`. The script `.tasks/cascade/wiring-check.sh`, run by `task cascade:wiring:check`, SHALL check these references and the shapes of this capability, SHALL refuse any `release.yml` workflow-level `env` key (the library's allow-list is empty) and any `runs-on` other than `ubuntu-latest` on `notify-downstream` and `publish`, and SHALL run as a step of the required `Go tests` job on every PR and in the aggregate `task check`. Source: owner decision 24 and the supervisor's extension; Phase 3 wiring contract (version 3.1) §2.4 and §10.1 items 2, 3, 6 and 7, with the supervisor's addendum.
+Every cascade reference in the library's workflows SHALL name the same full 40-character SHA of a commit on `open-platform-model/.github` `main`, followed by the comment `# .github main`: the `cascade-notify` step in `release.yml`, the `cascade-receive.yml` call and the `cascade-publish` step in `deps-cascade.yml`, the `cascade-gates.yml` call in `cascade-gates.yml`, and the `ref:` of the `open-platform-model/.github` checkout in `cascade-task.yml`. No reference SHALL name a branch or a tag. `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit. `.github/dependabot.yml` SHALL ignore `open-platform-model/.github*` under `github-actions`. `.github/dependabot.yml` SHALL give the `github-actions` entry a cooldown of 7 days. The script `.tasks/cascade/wiring-check.sh` SHALL be a byte-identical copy of `.github/scripts/cascade/wiring-check.sh` at the pinned SHA, with the library's values in `.tasks/cascade/wiring-check.yaml` (receiver, an empty `env-allow`, `publish-workflows` `release.yml` and `docs.yml`, CI workflow `test.yml` job `test`, the notify `needs`, `if:` and `tag` of `release.yml`, `labels-managed: false`). It SHALL check these references and the shapes of this capability, SHALL refuse any `release.yml` workflow-level `env` key and any `runs-on` other than `ubuntu-latest` on `notify-downstream` and `publish`, and SHALL run offline through `task cascade:wiring:check` (also in the aggregate `task check`) and, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH_TOKEN: ${{ github.token }}` and `run: bash .tasks/cascade/wiring-check.sh --pin-on-main`, which also confirms the SHA is on `.github`'s `main`. The copy moves only with the pin. Source: owner decision 24 and the supervisor's extension; `.github` README at `7b9ad1b`, "Pinning and bumps" and "The wiring check"; Phase 3 wiring contract (version 3.1) §2.4 and §10.1 items 2, 3, 6 and 7, with the supervisor's addendum.
 
 #### Scenario: The wiring is as the contract gives it
 
@@ -128,3 +133,13 @@ Every cascade reference in the library's workflows SHALL name the same full 40-c
 
 - **WHEN** a new commit merges to `.github` `main`
 - **THEN** the library's cascade keeps running its pinned commit until a `ci(deps): pin the cascade to .github <sha7>` PR moves all five references together
+
+#### Scenario: A pin that is not on .github main
+
+- **WHEN** a PR moves every cascade reference to a SHA that GitHub resolves under `open-platform-model/.github` but that is not on its `main` (a fork commit)
+- **THEN** the step "Verify the cascade wiring" fails on the compare check, after every shape matched
+
+#### Scenario: The copy drifts from .github
+
+- **WHEN** a reviewer pipes `.github/scripts/cascade/wiring-check.sh` at the pinned SHA to `cmp - .tasks/cascade/wiring-check.sh`
+- **THEN** `cmp` reports no difference
