@@ -14,11 +14,13 @@
 #   stray      a go wrapper drops a file into the consumer during vet; exit 1
 #              and the tree check names the file (this case kills a script
 #              that skips the consumer tree check)
+#   stray-lib  the same wrapper drops the file into the library instead (this
+#              case kills a script that skips the library tree check)
 #   not-git    the consumer directory is not a git checkout; exit 1
 #
 # The mutant section then runs the renamed and stray cases against copies of
-# the script with pipefail dropped and the consumer tree check removed, and
-# fails unless each mutant is caught.
+# the script with pipefail dropped and each tree check removed, and fails
+# unless each mutant is caught.
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -81,13 +83,13 @@ setup() {
   make_consumer "$TMP/$1/consumer"
 }
 
-# A go wrapper that drops stray.txt into the current consumer during vet.
+# A go wrapper that drops stray.txt into STRAY_DIR during vet.
 mkdir -p "$TMP/bin"
 real_go=$(command -v go)
 cat >"$TMP/bin/go" <<EOF
 #!/usr/bin/env bash
-if [ "\${1:-}" = -C ] && [ "\${3:-}" = vet ]; then
-  : >"\$2/stray.txt"
+if [ -n "\${STRAY_DIR:-}" ] && [ "\${1:-}" = -C ] && [ "\${3:-}" = vet ]; then
+  : >"\$STRAY_DIR/stray.txt"
 fi
 exec "$real_go" "\$@"
 EOF
@@ -118,11 +120,13 @@ case_renamed() {
   return 1
 }
 
+# case_stray <script> <label> <consumer|library>: the wrapper drops the file
+# into that checkout, and the tree check must name both the checkout and file.
 case_stray() {
-  local script=$1 label=$2
+  local script=$1 label=$2 target=$3
   setup "$label" Hello
-  run_case "$label" "$script" PATH="$TMP/bin:$PATH"
-  if [ "$rc" -eq 1 ] && grep -q 'stray.txt' <<<"$out"; then
+  run_case "$label" "$script" PATH="$TMP/bin:$PATH" STRAY_DIR="$TMP/$label/$target"
+  if [ "$rc" -eq 1 ] && grep -q "the $target checkout changed" <<<"$out" && grep -q 'stray.txt' <<<"$out"; then
     return 0
   fi
   printf 'exit %s\n%s\n' "$rc" "$out" >"$TMP/$label.why"
@@ -133,9 +137,10 @@ case_pass "$SCRIPT" pass
 
 # A mutant counts as killed only when the unmutated script passes the same
 # case; otherwise its failure says nothing about the mutation.
-renamed_ok="" stray_ok=""
+renamed_ok="" stray_ok="" stray_lib_ok=""
 if case_renamed "$SCRIPT" renamed; then pass renamed; renamed_ok=yes; else fail renamed "$(cat "$TMP/renamed.why")"; fi
-if case_stray "$SCRIPT" stray; then pass stray; stray_ok=yes; else fail stray "$(cat "$TMP/stray.why")"; fi
+if case_stray "$SCRIPT" stray consumer; then pass stray; stray_ok=yes; else fail stray "$(cat "$TMP/stray.why")"; fi
+if case_stray "$SCRIPT" stray-lib library; then pass stray-lib; stray_lib_ok=yes; else fail stray-lib "$(cat "$TMP/stray-lib.why")"; fi
 
 mkdir -p "$TMP/not-git/consumer"
 make_library "$TMP/not-git/library" Hello
@@ -172,10 +177,20 @@ fi
 if [ -z "$stray_ok" ]; then
   fail "mutant no-tree-check" "not run: the stray case fails on the unmutated script"
 elif m=$(mutate no-tree-check '/^check_tree consumer /d'); then
-  if case_stray "$m" mutant-no-tree-check; then
+  if case_stray "$m" mutant-no-tree-check consumer; then
     fail "mutant no-tree-check" "survived: the stray case still passes"
   else
     pass "mutant no-tree-check killed"
+  fi
+fi
+
+if [ -z "$stray_lib_ok" ]; then
+  fail "mutant no-library-tree-check" "not run: the stray-lib case fails on the unmutated script"
+elif m=$(mutate no-library-tree-check '/^check_tree library /d'); then
+  if case_stray "$m" mutant-no-library-tree-check library; then
+    fail "mutant no-library-tree-check" "survived: the stray-lib case still passes"
+  else
+    pass "mutant no-library-tree-check killed"
   fi
 fi
 

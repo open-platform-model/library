@@ -14,5 +14,5 @@
 ## 3. Script regression test (supervisor triage SD18)
 
 - [x] 3.1 `.tasks/consumer-build.sh`: export `GOWORK` before `go work init`; build with `go build -o /dev/null ./...`; `consumer-build.yml` sets `cache: false` on setup-go
-- [x] 3.2 `.tasks/consumer-build-test.sh`: offline cases against synthetic git repos under `GOPROXY=off GOTOOLCHAIN=local` (pass, renamed symbol, stray file during vet, non-git consumer) and the pipefail and tree-check mutants, each of which must fail its case; `task consumer-build:test`, wired into `task check` and `test.yml`'s `Go tests` job
+- [x] 3.2 `.tasks/consumer-build-test.sh`: offline cases against synthetic git repos under `GOPROXY=off GOTOOLCHAIN=local` (pass, renamed symbol, stray file in the consumer and in the library during vet, non-git consumer) and the pipefail mutant and a mutant per tree check, each of which must fail its case; `task consumer-build:test`, wired into `task check` and `test.yml`'s `Go tests` job
 - [x] 3.3 shellcheck, actionlint, `task check` (private `TMPDIR`) and `task cascade:wiring:check` green after merging `origin/main`, then commit test: cover the consumer build script offline

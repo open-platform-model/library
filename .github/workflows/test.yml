@@ -62,7 +62,7 @@ jobs:
           task -x deps:cascade:test
 
       # Offline: .tasks/consumer-build.sh (run by consumer-build.yml) against
-      # synthetic git repos, including the pipefail and tree-check mutants.
+      # synthetic git repos, including the pipefail and the two tree-check mutants.
       - name: Consumer build script tests (offline)
         run: task consumer-build:test
 
