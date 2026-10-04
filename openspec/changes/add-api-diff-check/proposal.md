@@ -1,0 +1,30 @@
+## Why
+
+The library's public Go surface (`opm/`, `opm/internal/` excluded) is a contract with two frontends and with every embedder outside the workspace (Principle VI). Nothing checks it today: a breaking change is caught only if its author remembers the `feat!` commit and the `BREAKING CHANGE:` footer that carry the migration note on the beta line (ADR-010). The owner decided task j4 of the beta.1 walkthrough (2026-10-03): "Library API-diff check warns until GA and blocks after." The supervisor added (wave 2 notes) that it is a non-required job, that it follows the workflow-hardening rules library#181 merged, and that the AGENTS.md hunk is coordinated with `add-consumer-build-job`.
+
+## What Changes
+
+- A pinned API-diff tool: `golang.org/x/exp/cmd/apidiff` at one exact pseudo-version, built from a small tools module under `.tasks/apidiff/` whose committed `go.sum` is the checksum the Go toolchain verifies before it builds anything. The library's own `go.mod` does not change.
+- `.tasks/api-diff.sh` and a `task api:diff` entry: resolve the base as the nearest release tag reachable from the base commit (`git describe --tags --abbrev=0 --match 'v*'`; `BASE=<tag>` overrides it for a local run), export the module's API at that tag (from a `git archive` copy) and at the work tree, and list the incompatible changes `apidiff -m -incompatible` reports for the exported `opm/` packages. A committed allow list drops the entries every release-cascade core move produces (the value of the `schema.DefaultSchemaModule` string constant).
+- The mode is derived from the base tag, never from a variable: a prerelease tag (one with a `-` suffix, today `v1.0.0-beta.4`) warns: a warning annotation, a job summary naming the changes and the fix ("breaking change: needs a `feat!` commit with a `BREAKING CHANGE:` footer", ADR-010), and exit 0. A release tag (no suffix, from the first GA on) fails the job.
+- `.github/workflows/api-diff.yml`: a `pull_request` workflow (Go and module paths only) with `permissions: contents: read`, `persist-credentials: false`, a full-history checkout so the tags are present, and actions pinned by full SHA like the other workflows. It is not a required status check.
+- `AGENTS.md`: the `task api:diff` command line and one paragraph in the workflow-security text. `add-consumer-build-job` edits the same section; whichever of the two merges second rebases.
+
+Not in this change: making the check a required status after GA (a ruleset setting, the owner's), the consumer build job (`add-consumer-build-job`), the Dependabot and `RELEASING.md` parts of j4 (cli, opm-operator and workspace changes), and any Dependabot entry for the tools module (it is bumped by hand like golangci-lint).
+
+## Capabilities
+
+### New Capabilities
+
+- `api-diff-check`: the pull-request check that compares the exported `opm/` API against the last release tag, warns on a prerelease base and fails on a release base.
+
+### Modified Capabilities
+
+None. The new workflow meets `workflow-hardening` as written: read-only grants, no persisted credential, and a tool whose trust root (the tools module `go.sum`) is committed here.
+
+## Impact
+
+- No `opm/` package changes and no public surface or SemVer effect. Commits are `ci` and `docs`, which release-please hides, so the change cuts no release.
+- New files sit under `.github/`, `.tasks/` and `Taskfile.yml`, all already under code-owner review.
+- cli and opm-operator are unaffected. Until GA the check only annotates; after GA a red result on a deliberate break is expected and the PR is a new major's business, decided then.
+- Prototype (2026-10-04, `apidiff` at `v0.0.0-20260908205506-85c1c2202aba`): a `-beta.N` base tag works because the base is read from git, not resolved through the module proxy; `v1.0.0-beta.3` against `main` reports nothing; `v1.0.0-alpha.33` against `main` reports one incompatible entry, the `DefaultSchemaModule` value change; `apidiff` exits 0 either way, so the script decides from its output.
