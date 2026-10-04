@@ -116,7 +116,7 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
 3. **Language check.** For each CUE upstream that moved, call `language-of <module> <target>`. Compare the result with the pinned CUE version: the `version:` of the `cue-lang/setup-cue` step in `.github/workflows/cue.yml`, today `v0.17.1` (contract §5.2 rule 10).
    - Read it with `yq '.jobs.cue.steps[] | select(.uses | test("setup-cue")) | .with.version'`.
    - If the upstream's version is newer, warn. If the pinned version cannot be read, warn with key `-`.
-   - For the library, the CUE that actually evaluates core at render time is the SDK, `cuelang.org/go` in `go.mod` (`AGENTS.md`, "CUE toolchain pin"), not the `cue` CLI. Both are `v0.17.1` today. The task follows the contract (rule 10, "one file") and reads `cue.yml` only. The plan review recommends warning against the lower of `cue.yml` and the `cuelang.org/go` version in `go.mod`; that needs a contract amendment or the supervisor's approval, so it is left to the supervisor and not implemented here.
+   - For the library, the CUE that actually evaluates core at render time is the SDK, `cuelang.org/go` in `go.mod` (`AGENTS.md`, "CUE toolchain pin"), not the `cue` CLI. Both are `v0.17.1` today. The task follows the contract (rule 10, "one file") and reads `cue.yml` only. The plan review recommends warning against the lower of `cue.yml` and the `cuelang.org/go` version in `go.mod`; contract v1.1 clarification C9 keeps the single pinned file for now and makes the lower-of comparison a follow-up.
 
 **Phase B, tools.** There is nothing to build. Phase B builds each loop module's `get` arguments (step C3), frozen keys already left out, from `D`, `K` and the files as they are, which is read-only apart from `is-frozen` calls. A module is in scope when its list moves something. If any loop module is in scope, check that `cue` is on `PATH`, and exit 1 if it is missing. A lagging loop module runs `get` and `tidy` even when no upstream pin moves, so the check keys on scope, not on a moved pin; a module whose only lag is a frozen key is out of scope, so a no-op run never needs `cue` (implementation review finding 4).
 
@@ -315,4 +315,15 @@ The plan review of commit `0e97f9e` raised 14 findings. All were applied; none w
 - 13 (`setup-go` not needed): D6.
 - 14 (`AGENTS.md:346` stale too): D3 step C4 checks both files.
 
-Open questions answered by the review: Q1 and Q4 confirmed as written; Q5 removed the go-task item from the spike (task 1.1). Q2 (which CUE version the language check compares against) and Q3 (the contract §8 tier-2 order waits on a library release that a `test(fixtures)` catch-up never cuts) are for the supervisor.
+Open questions answered by the review: Q1 and Q4 confirmed as written; Q5 removed the go-task item from the spike (task 1.1). Q2 (which CUE version the language check compares against) was settled by contract v1.1 clarification C9: one pinned file now, the lower-of comparison a follow-up. Q3 (the contract §8 tier-2 order waits on a library release that a `test(fixtures)` catch-up never cuts) is still open with the supervisor.
+
+## Implementation review
+
+The implementation review of `origin/main..9baf7e5` raised no blocker or major; all four findings were applied, none rejected.
+
+- 1 (minor, frozen loader judged late): D3 phase A step 1 asks `is-frozen` before `newest`; offline S9.
+- 2 (minor, no test for a frozen key that tidy raises): network S4b and a spec scenario.
+- 3 (nit, `CASCADE_EXPECT` globbing): split with `read -ra` (D3 phase A step 1).
+- 4 (nit, a frozen lag kept a module in scope): phase B builds the `get` lists and scope keys on them; offline S10 runs with no `cue` on `PATH`.
+
+Contract v1.1 clarifications that bind this change: C4 (the network job's `repo` / `org-github` layout, D6), C5 (every stub call carries `CASCADE_STUB_TABLE`; the `older` check passes `/dev/null`, since `semver-cmp` reads no row), C6 (the offline step in the required `Go tests` job, D6) and C7 (`deps:cascade:test` needs no resolver, D1 and D6). The reproducible-pin examples in `docs/getting-started.md` and `AGENTS.md` that raise the two prose warnings are a separate docs PR, not this change.
