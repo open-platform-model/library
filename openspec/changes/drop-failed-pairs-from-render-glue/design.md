@@ -265,9 +265,33 @@ Two cert-manager renders at once peak at about 3.7 GiB RSS, close to the operato
 `r2-nil` ran 24-32 s, in sequence on a shared host. Read the `r2` CPU as approximate. The heap and
 RSS columns varied by less than 5%.
 
-### After
+### After (head `5d3da06`)
 
-Filled in by tasks.md 4.1, at the change's head, with the same harness, cases and knobs.
+Run 2026-10-04 23:43-23:46, same harness, cases and knobs, k8up and web_app from the scratchpad
+fixture copies. Logs and summaries are in the scratchpad copy's `results/after-*`. The header line
+reads `+dirty` because the throwaway dump test (design D4) sat untracked in `opm/kernel`; it is a
+test file and is not built into memprobe. The host's load average was 27-45 on 16 CPUs during the
+run. The ratio columns are before over after.
+
+| Module (objects) | Case | `render_peak_heap` | `render_peak_live` | `vmhwm` | `user_s` | heap ratio | `user_s` ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| cert_manager (42) | r1-nil | 304 | 246 | 350 | 2.72 | 6.0x | 3.6x |
+| cert_manager (42) | r2-hold | 445 | 351 | 559 | 6.19 | 7.7x | 7.5x |
+| cert_manager (42) | r2-nil | 445 | 345 | 559 | 4.55 | 7.8x | 5.3x |
+| k8up (20) | r1-nil | 340 | 248 | 460 | 3.70 | 3.1x | 1.3x |
+| k8up (20) | r2-hold | 585 | 367 | 735 | 8.09 | 3.4x | 2.4x |
+| k8up (20) | r2-nil | 585 | 384 | 739 | 6.11 | 3.4x | 2.2x |
+| web_app (2) | r1-nil | 180 | 144 | 217 | 2.50 | 1.0x | 0.7x |
+| web_app (2) | r2-hold | 225 | 128 | 267 | 3.54 | 1.1x | 1.0x |
+| web_app (2) | r2-nil | 226 | 129 | 266 | 2.82 | 1.1x | 0.9x |
+
+cert_manager's `r1-nil` peak heap fell from 1839 to 304 MiB, well under the half that tasks.md 4.1
+requires. Two cert-manager renders at once now peak at about 560 MiB RSS, against about 3.7 GiB
+before and the operator's 4 Gi limit. k8up's peak heap fell about 3x. web_app's did not move: its
+render is dominated by the platform and core, not by its two outputs. The `user_s` ratios are read
+with the load caveat above. The web_app ratios below 1 are the CPU floor (startup and platform
+acquisition, about 2 s) moving with host load, not a regression. The same column for cert_manager
+read 18.2 s at base in the full-case run (load above 50), against 9.8 s in the planning run.
 
 ### Operator memory package
 
@@ -281,33 +305,36 @@ render slot against two) itself, so those two are read across rows rather than a
 - **Before g4**: this change's base, j2 merged (core's pins moved out of the schema module, which is
   what `core_retained` measures). Run 2026-10-04 at `eb1e1fa` (the planning commit, no code edit),
   `results/before-full-cert_manager-20261004T231756`.
-- **After g4**: this change's head (tasks.md 4.1).
+- **After g4**: this change's head `5d3da06`, `results/after-full-cert_manager-20261004T234303`.
 
 | Metric | Case | Wave-1 baseline (`507379a`) | Before g4 | After g4 |
 | --- | --- | --- | --- | --- |
-| `core_retained` | core | 71.8 | 2.5 | |
-| `idle_retained` | r1-nil | 165.2 | 95.9 | |
-| `apply_retained_over_idle` | r1-hold | 1570.6 | 1570.6 | |
-| `apply_retained_over_idle` | r1-nil | 1.6 | 1.6 | |
-| `apply_retained_over_idle` | r2-hold | 3141.1 | 3141.1 | |
-| `render_peak_heap` | r1-hold | 1896.1 | 1834.9 | |
-| `render_peak_heap` | r1-nil | 1898.8 | 1820.4 | |
-| `render_peak_heap` | r2-hold | 3708.4 | 3471.1 | |
-| `render_peak_heap` | r2-nil | 3711.3 | 3418.1 | |
-| `vmhwm` | core | 105.0 | 25.0 | |
-| `vmhwm` | r1-hold | 2054.8 | 1992.0 | |
-| `vmhwm` | r1-nil | 2055.4 | 1974.3 | |
-| `vmhwm` | r2-hold | 3999.3 | 3790.3 | |
-| `vmhwm` | r2-nil | 3995.8 | 3767.8 | |
-| `stagger_vmhwm` | stag-hold | 3750.2 | 3657.6 | |
-| `stagger_vmhwm` | stag-nil | 2021.8 | 1951.2 | |
+| `core_retained` | core | 71.8 | 2.5 | 2.5 |
+| `idle_retained` | r1-nil | 165.2 | 95.9 | 95.9 |
+| `apply_retained_over_idle` | r1-hold | 1570.6 | 1570.6 | 129.8 |
+| `apply_retained_over_idle` | r1-nil | 1.6 | 1.6 | 1.6 |
+| `apply_retained_over_idle` | r2-hold | 3141.1 | 3141.1 | 259.5 |
+| `render_peak_heap` | r1-hold | 1896.1 | 1834.9 | 297.6 |
+| `render_peak_heap` | r1-nil | 1898.8 | 1820.4 | 304.2 |
+| `render_peak_heap` | r2-hold | 3708.4 | 3471.1 | 445.0 |
+| `render_peak_heap` | r2-nil | 3711.3 | 3418.1 | 445.4 |
+| `vmhwm` | core | 105.0 | 25.0 | 25.1 |
+| `vmhwm` | r1-hold | 2054.8 | 1992.0 | 350.1 |
+| `vmhwm` | r1-nil | 2055.4 | 1974.3 | 349.9 |
+| `vmhwm` | r2-hold | 3999.3 | 3790.3 | 558.8 |
+| `vmhwm` | r2-nil | 3995.8 | 3767.8 | 559.2 |
+| `stagger_vmhwm` | stag-hold | 3750.2 | 3657.6 | 479.4 |
+| `stagger_vmhwm` | stag-nil | 2021.8 | 1951.2 | 352.5 |
 
 j2 cut the idle footprint (`core_retained` 71.8 to 2.5, `idle_retained` 165.2 to 95.9) and left the
 render peak almost where it was. The nil-out already drops what a held result retains through apply
 (`apply_retained_over_idle` 1570.6 held against 1.6 dropped). The render peak itself is what g4
-targets. This run's `user_s` is not quoted: the host's load average was above 50 on 16 CPUs while it
-ran, and its `r1-nil` `user_s` read 18.2 s against 9.8 s in the planning run of the same code. The
-heap and RSS columns agree with the planning run within 2%.
+targets, and after g4 it falls about 6x. A held result now retains about 130 MiB through apply
+rather than 1.5 GiB, because it pins a much smaller build: the nil-out matters less for this module
+than it did. The staggered case, a second render while the first is still held in apply, peaks at
+about 480 MiB RSS against 3.7 GiB. The before run's `user_s` is not quoted: the host's load average
+was above 50 on 16 CPUs while it ran, and its `r1-nil` `user_s` read 18.2 s against 9.8 s in the
+planning run of the same code. Its heap and RSS columns agree with the planning run within 2%.
 
 ## Verification
 
@@ -336,6 +363,16 @@ The checksum is the sha256 of the files concatenated in byte order of their name
 
 The dump's own run time, 485 renders in one `go test` process on the same shared host, fell from
 72-85 s at base to 28.5 s after section 3. That is a side reading, not a measurement.
+
+### Test suites (head `5d3da06`, 2026-10-04)
+
+- `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/kernel/... ./opm/internal/renderstage/...`: pass.
+  `TestParity_ShippedCatalog`, `TestParity_ShippedCatalogDiscriminated`, `TestParity_Probes`,
+  `TestRender_InventoryParity` and the three `TestFlow_*` tests ran and passed; the only skip was
+  the dump test, which skips without its environment variable.
+- `OPM_FLOW_TEST_FORCE=1 go test ./...`: every package passes, same single skip.
+- `task check` (fmt, vet, lint, test, docs bundle check, cascade wiring check): pass.
+- `openspec validate drop-failed-pairs-from-render-glue --strict`: valid.
 
 ## Risks / Trade-offs
 

@@ -43,10 +43,10 @@ that `git status` then shows only the throwaway dump test as untracked before co
 
 ## 4. Measure after and run the full suite
 
-- [ ] 4.1 Re-run memprobe at the change's head with the same knobs (k8up and web_app from the scratchpad fixture copies), including the full-case cert_manager set. Fill design.md "Measurements / After" in the same table shape and the "after g4" column of "Operator memory package", add a before/after ratio per module for `render_peak_heap` and `user_s`, and update the proposal's numbers if they moved. If cert_manager's `r1-nil` `render_peak_heap` has not dropped to at most half of its base value, stop and report it to the supervisor.
-- [ ] 4.2 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/kernel/... ./opm/internal/renderstage/...` and then `OPM_FLOW_TEST_FORCE=1 go test ./...`. `TestParity_*`, `TestRender_InventoryParity` and the flow tests must run, not skip. Record the result in design.md under "Verification".
-- [ ] 4.3 Run `task check`. Then delete the throwaway dump test from 1.2 and confirm that `git status` shows no edit outside this change.
-- [ ] 4.4 Commit `chore(openspec): record drop-failed-pairs-from-render-glue measurements`.
+- [x] 4.1 Re-run memprobe at the change's head with the same knobs (k8up and web_app from the scratchpad fixture copies), including the full-case cert_manager set. Fill design.md "Measurements / After" in the same table shape and the "after g4" column of "Operator memory package", add a before/after ratio per module for `render_peak_heap` and `user_s`, and update the proposal's numbers if they moved. If cert_manager's `r1-nil` `render_peak_heap` has not dropped to at most half of its base value, stop and report it to the supervisor.
+- [x] 4.2 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/kernel/... ./opm/internal/renderstage/...` and then `OPM_FLOW_TEST_FORCE=1 go test ./...`. `TestParity_*`, `TestRender_InventoryParity` and the flow tests must run, not skip. Record the result in design.md under "Verification".
+- [x] 4.3 Run `task check`. Then delete the throwaway dump test from 1.2 and confirm that `git status` shows no edit outside this change.
+- [x] 4.4 Commit `chore(openspec): record drop-failed-pairs-from-render-glue measurements`.
 
 ## 5. Verify and archive
 

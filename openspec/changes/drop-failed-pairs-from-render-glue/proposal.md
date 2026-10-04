@@ -15,10 +15,10 @@ fallback there (`:155-158`).
 The cost is large. With the memprobe harness, a library-side simulation of the operator's render
 path, at this change's base: one cert-manager render (5 components, 42 objects, CRD-heavy) peaks at
 1839 MiB of heap and about 2.0 GiB RSS, and two at once at about 3.7 GiB RSS against the operator's
-4 Gi pod limit. `modules/k8up` (20 objects) peaks at 1039 MiB. The planning spike removed
-`failedPairs` alone and cut the cert-manager peak heap about 6x and its CPU about 5x, and k8up's peak
-heap about 3x. `modules/web_app` (2 objects) did not change. The cost follows output size, not
-component count. design.md records the before numbers and, after implementation, the after numbers.
+4 Gi pod limit. `modules/k8up` (20 objects) peaks at 1039 MiB. This change cuts the cert-manager
+peak heap about 6x (1839 to 304 MiB) and its user CPU about 3.6x, two cert-manager renders at once
+to about 560 MiB RSS, and k8up's peak heap about 3x. `modules/web_app` (2 objects) does not change.
+The cost follows output size, not component count. design.md records the before and after numbers.
 
 The same glue also evaluates the always-unify rung (`_unify`, `:176-192`) and the predicate rung
 (`_pred`, `:197-220`) for every transformer on the platform, per component. Only candidates (the
