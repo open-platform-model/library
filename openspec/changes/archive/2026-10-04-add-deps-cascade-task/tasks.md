@@ -54,13 +54,13 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
   Run `actionlint`.
 - [x] 4.3 Add a short "Release cascade task" paragraph to `AGENTS.md` (Build/test section). It names the four tasks, `task -x`, the exit codes, `need-human-review` on a core move, and that `cue:deps:update` stays the hand-run task.
 - [x] 4.4 Run `task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
-- [ ] 4.5 Once `add-cascade-resolver` is merged in `.github`, run the full set again with `CASCADE_RESOLVER_REAL` pointing at the workspace checkout's real resolver, and check that S5 passes. Run `task -x deps:cascade` with the real resolver on a clean scratch copy of `main`, and record its exit code and diff in design.md D8 (the Phase 2 gate evidence).
+- After merge (a PR-body item, not a checkbox): 4.5 once `add-cascade-resolver` is merged in `.github`, run the full set again with `CASCADE_RESOLVER_REAL` pointing at the workspace checkout's real resolver, and check that S5 passes. Run `task -x deps:cascade` with the real resolver on a clean scratch copy of `main`, and record its exit code and diff in design.md D8 (the Phase 2 gate evidence).
 - [x] 4.6 Run `openspec validate add-deps-cascade-task --strict`.
 - [x] 4.7 Gate green, then commit `ci(cascade): test the cascade task over the network`.
 
 ## 5. Verify and archive
 
-- [ ] 5.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
-- [ ] 5.2 Run `openspec archive add-deps-cascade-task`, then write the `## Purpose` line of the new main spec `openspec/specs/deps-cascade/spec.md` by hand.
-- [ ] 5.3 Run `openspec validate --all --strict`.
-- [ ] 5.4 Commit `chore(openspec): archive add-deps-cascade-task`. The archive rides the implementing PR (owner decision 4; contract §10).
+- [x] 5.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding. Done as the implementation review and its re-review at `fe93069`: no CRITICAL or major finding left, and the four nits are fixed.
+- [x] 5.2 Run `openspec archive add-deps-cascade-task`, then write the `## Purpose` line of the new main spec `openspec/specs/deps-cascade/spec.md` by hand.
+- [x] 5.3 Run `openspec validate --all --strict`.
+- [x] 5.4 Commit `chore(openspec): archive add-deps-cascade-task`. The archive rides the implementing PR (owner decision 4; contract §10).
