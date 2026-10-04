@@ -64,7 +64,7 @@ Merge gates (not tasks): `gh api repos/open-platform-model/.github/compare/<SHA>
 
 ## 9. Verify and archive
 
-- [ ] 9.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
-- [ ] 9.2 Run `openspec archive join-release-cascade`, then write the `## Purpose` line of the new main spec `openspec/specs/cascade-wiring/spec.md` by hand. Run `openspec validate --all --strict`.
-- [ ] 9.3 Commit `chore(openspec): archive join-release-cascade`. The archive rides the implementing PR (owner decision 4).
+- [x] 9.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
+- [x] 9.2 Run `openspec archive join-release-cascade`, then write the `## Purpose` line of the new main spec `openspec/specs/cascade-wiring/spec.md` by hand. Run `openspec validate --all --strict`.
+- [x] 9.3 Commit `chore(openspec): archive join-release-cascade`. The archive rides the implementing PR (owner decision 4).
 - After merge (PR-body items, not checkboxes; the supervisor, wiring §10): 8.4 `gh api repos/open-platform-model/.github/compare/<SHA>...main --jq .status` for the SHA on the library's `main` prints `identical` or `ahead`; `gh workflow run deps-cascade.yml -R open-platform-model/library -f dry_run=true` succeeds, `Publish` shows as skipped, the `Compute` log shows `scripts from open-platform-model/.github <SHA>`, and the summary matches a local `task -x deps:cascade` on `main` at that time (on 2026-10-04 a non-noop catalog move, which can also serve as the library's Phase 4 evidence, wiring §1, §15 item 5); 8.5 the next library PR shows `cascade/freshness` and `cascade/settled` as `n/a`, and the next `cascade-task.yml` run checks the resolver out at `<SHA>`; 8.6 the first live core-move PR carries `need-human-review`, checked by the supervisor (design.md D3); this is a check, not a Phase 4 gate.
