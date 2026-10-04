@@ -18,3 +18,8 @@ Every job that reads `RELEASE_APP_PRIVATE_KEY` SHALL declare `environment: relea
 
 - **WHEN** the owner has not yet stored `RELEASE_APP_PRIVATE_KEY` in the `release` Environment
 - **THEN** the job reads the organization secret of the same name and the release still runs
+
+#### Scenario: The organization secret still reaches the library
+
+- **WHEN** the organization secret `RELEASE_APP_PRIVATE_KEY` still lists this repository, whether or not the `release` Environment holds the key
+- **THEN** a workflow on any branch that does not declare the Environment can still read the organization secret, so the Environment gate closes only once the owner removes this repository from the organization secret or deletes it

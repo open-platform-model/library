@@ -23,4 +23,5 @@ Not in this change: moving the secret into the Environment (owner), the ruleset 
 
 - No `opm/` package changes; no public surface or SemVer effect. Commits are `ci`, which release-please hides, so the change cuts no release.
 - Until the owner stores `RELEASE_APP_PRIVATE_KEY` in `release`, the job reads the organization secret through the Environment, so the change is safe to merge now.
+- The gate holds only once the organization secret no longer reaches the library. An Environment secret of the same name takes precedence only inside that Environment, so a workflow on any branch that skips the Environment reads the organization secret for as long as it lists this repository. The owner action is two steps: store the key in `release`, then remove the library from the organization secret's selected repositories (or delete the organization secret), and check that the repository's organization-secrets listing no longer shows it.
 - Downstream consumers (cli, opm-operator) are unaffected.
