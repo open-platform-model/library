@@ -1,0 +1,16 @@
+# Values for wiring-check.sh (the byte-identical copy of the canonical check
+# in open-platform-model/.github; README "The wiring check"). Data, read with
+# yq, never run.
+pin-comment: .github main
+receiver: true
+env-allow: []
+publish-workflows: [release.yml, docs.yml]
+ci:
+  workflow: test.yml
+  job: test
+notify:
+  needs: [release-please]
+  if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'
+  tag: ${{ needs.release-please.outputs.tag_name }}
+publish:
+  labels-managed: false
