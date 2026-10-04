@@ -359,7 +359,7 @@ func TestReplacedVersion(t *testing.T) {
 		require.NoError(t, err, path)
 		assert.Equal(t, want, got)
 	}
-	for _, bad := range []string{"a.example/m", "a.example/m@1", "a.example/m@v0.1.0"} {
+	for _, bad := range []string{"a.example/m", "a.example/m@1", "a.example/m@v0.1.0", "a.example/m@v", "a.example/m@vx"} {
 		_, err := ReplacedVersion(bad)
 		assert.Error(t, err, bad)
 	}

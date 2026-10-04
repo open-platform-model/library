@@ -160,7 +160,10 @@ func (e *fieldNotAllowedError) Msg() (msg string, args []any) {
 }
 
 // trimSchemaPrefix drops a leading #module #config pair, or a leading
-// #config, comparing whole selectors.
+// #config, comparing whole selectors. It is defensive: walkDisallowed iterates
+// regular and optional fields only, which yields no definitions, so no path it
+// builds starts with either selector today. The config-validation spec still
+// requires the omission, so keep it until that clause goes.
 func trimSchemaPrefix(path []cue.Selector) []cue.Selector {
 	if len(path) >= 2 && path[0].String() == "#module" && path[1].String() == "#config" {
 		return path[2:]

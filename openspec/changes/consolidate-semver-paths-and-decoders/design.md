@@ -55,7 +55,9 @@ func Compare(a, b string) (int, error)
 
 `renderstage` and every other package compare and validate through these functions and never
 import `x/mod/semver` (or any other SemVer library) themselves, so "one SemVer implementation"
-holds in the import graph.
+holds in the import graph. The depguard rule `one-semver-implementation` in `.golangci.yml`
+enforces it: under `opm/` only `opm/internal/modversion` may import `x/mod/semver`, and
+`github.com/Masterminds/semver` is denied everywhere.
 
 `Major` keeps the string logic both copies use today rather than `semver.Major`, which returns
 `""` for an invalid input: today's callers get `"v"` plus whatever precedes the first dot, and
@@ -168,7 +170,7 @@ if c.Source == nil || c.Source.Root == "" {
 }
 mf, err := renderstage.ReadModFile(c.Source)
 if err != nil {
-	return nil, fmt.Errorf("reading catalog %s: %w", renderstage.ModFileName, err)
+	return nil, fmt.Errorf("catalog %s: %w", renderstage.ModFileName, err)
 }
 // reqs[path] = dep.Version for every entry of mf.Deps (version-less entries map to "")
 ```
@@ -193,8 +195,8 @@ opm-operator test matches "carries a build error" (grep at origin/main, 2026-10-
 
 ## Risks / Trade-offs
 
-- `go mod tidy` decides the exact `golang.org/x/mod` version (go.sum already carries v0.39.0
-  through `cuelang.org/go`). If tidy moves it or the `go` directive, the section commit says so
+- `go mod tidy` decides the exact `golang.org/x/mod` version (v0.39.0, already selected by MVS
+  through `golang.org/x/tools` v0.49.0 and in go.sum). If tidy moves it or the `go` directive, the section commit says so
   and the deps cascade carries it.
 - `Path()` for a dotted key changes shape. Only the cli reads it, and it joins; an unknown
   consumer reading segments was getting a wrong answer before.

@@ -47,7 +47,7 @@ func (c *Catalog) Requires() (map[string]string, error) {
 
 	mf, err := renderstage.ReadModFile(c.Source)
 	if err != nil {
-		return nil, fmt.Errorf("reading catalog %s: %w", renderstage.ModFileName, err)
+		return nil, fmt.Errorf("catalog %s: %w", renderstage.ModFileName, err)
 	}
 
 	reqs := make(map[string]string, len(mf.Deps))
