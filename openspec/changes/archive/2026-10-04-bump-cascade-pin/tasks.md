@@ -10,5 +10,5 @@
 
 ## 2. Verify and archive
 
-- [ ] 2.1 `openspec validate bump-cascade-pin --strict` passes and the verify skill reports no CRITICAL finding.
-- [ ] 2.2 `openspec archive bump-cascade-pin -y`; `openspec validate --all --strict` passes. Commit `chore(openspec): archive bump-cascade-pin`.
+- [x] 2.1 `openspec validate bump-cascade-pin --strict` passes and the verify skill reports no CRITICAL finding.
+- [x] 2.2 `openspec archive bump-cascade-pin -y`; `openspec validate --all --strict` passes. Commit `chore(openspec): archive bump-cascade-pin`.
