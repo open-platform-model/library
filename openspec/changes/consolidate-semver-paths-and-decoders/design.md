@@ -96,7 +96,7 @@ it must stay one literal. Doc comments that quote `opmodel.dev/core` or `v0.17.0
 | --- | --- | --- |
 | `skew.go` `isNewer` (:65-75) | `semver.NewVersion` both, `GreaterThan` | `c, err := modversion.Compare(a, b)`; `c > 0` |
 | `promote.go` `ReplacedVersion` (:296) | `semver.NewVersion(major + ".0.0")` | `modversion.Valid(major + ".0.0")`, else the existing `module path %q carries no major qualifier` |
-| `promote.go` `maxLanguage` (:321-339) | Masterminds parse, `"v" + best.String()` | start from `LanguageFloor`; check `modversion.Valid(v)` first and refuse an invalid input as `invalid language version %q` alone (no wrapped `invalid version` cause, so the text is not doubled); then `modversion.Compare(v, best)`; return the winning string as written |
+| `promote.go` `maxLanguage` (:321-339) | Masterminds parse, `"v" + best.String()` | start from `LanguageFloor`; `modversion.Compare(v, best)` (best is always valid, so an error names v) and refuse an invalid input as `invalid language version %q` alone, without wrapping Compare's `invalid version` text, so the message is not doubled; return the winning string as written |
 
 Inputs are `modfile.Parse` output (`v`-prefixed and valid). x/mod accepts the same shorthand
 Masterminds did (`vMAJOR`, `vMAJOR.MINOR`; the `v` prefix is supplied by `Canonical`), so which
