@@ -449,10 +449,10 @@ func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
 // values sources: it builds the package as authored in cueCtx from the
 // authored Source (the overlay already read for the layered build, without
 // the rendered values file), compiles the sources in that same context,
-// unifies the package's own values with them and validates the result against the module's #config exactly as
-// [Kernel.ValidateConfigDetailed] does, so a conflict is reported at
-// positions attributable to the source (its Origin) rather than at the
-// rendered overlay file. It returns nil when the failure is not a values
+// unifies the package's own values with them and validates the result
+// against the module's #config exactly as [Kernel.ValidateConfigDetailed]
+// does, so a conflict is reported at positions attributable to the source
+// (its Origin) rather than at the rendered overlay file. It returns nil when the failure is not a values
 // problem (the caller then reports the build error itself).
 func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.Source, sources []Source) error {
 	authored, err := loader.LoadDir(cueCtx, authoredSrc, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
