@@ -15,6 +15,9 @@ on:
       - ".cascade-frozen"
       - ".cascade-hold"
       - ".github/workflows/cascade-task.yml"
+      # S2 and S4 read the core examples these two carry.
+      - "docs/getting-started.md"
+      - "AGENTS.md"
   workflow_dispatch:
   schedule:
     - cron: "17 5 * * 1"
