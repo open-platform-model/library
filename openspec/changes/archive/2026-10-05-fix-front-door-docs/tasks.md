@@ -26,6 +26,6 @@ Depends on: nothing unmerged. Lands before wave-2 `lib-e2e5` and `lib-c4` (propo
 
 ## 4. Verify and archive
 
-- [ ] 4.1 The repo's verify skill (`openspec verify`) reports no CRITICAL finding.
-- [ ] 4.2 `openspec archive fix-front-door-docs -y`, then `openspec validate --all --strict` passes. The archive rides the PR.
-- [ ] 4.3 Commit `chore(openspec): archive fix-front-door-docs`.
+- [x] 4.1 The repo's verify skill (`openspec verify`) reports no CRITICAL finding.
+- [x] 4.2 `openspec archive fix-front-door-docs -y`, then `openspec validate --all --strict` passes. The archive rides the PR.
+- [x] 4.3 Commit `chore(openspec): archive fix-front-door-docs`.
