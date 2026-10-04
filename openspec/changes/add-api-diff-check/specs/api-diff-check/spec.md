@@ -2,7 +2,7 @@
 
 ### Requirement: Pull requests show breaking changes to the public API
 
-A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. Source: owner decision j4 (beta.1 walkthrough).
+A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. A value change of `schema.DefaultSchemaModule`, which the release cascade makes on every core move, SHALL be listed as allowed through one fixed line prefix and SHALL NOT count either. Source: owner decision j4 (beta.1 walkthrough); supervisor decision SD17.
 
 #### Scenario: A pull request removes an exported function
 
@@ -18,6 +18,16 @@ A pull request that changes Go code or the module files SHALL run a check that c
 
 - **WHEN** the repository carries the release tag `v0.7.0` and the nearest tag reachable from the base commit is `v1.0.0-beta.4`
 - **THEN** the check compares against `v1.0.0-beta.4`
+
+#### Scenario: A release-cascade pull request moves core
+
+- **WHEN** a pull request changes only the value of `schema.DefaultSchemaModule`
+- **THEN** the check lists the change as allowed and lists no incompatible change of the pull request
+
+#### Scenario: A pull request removes the core pin constant
+
+- **WHEN** a pull request removes `schema.DefaultSchemaModule`
+- **THEN** the check lists the removal as an incompatible change of the pull request
 
 #### Scenario: A break merged earlier since the tag
 
@@ -41,7 +51,7 @@ The check SHALL derive its outcome from the base release tag alone: when the tag
 #### Scenario: A compatible pull request
 
 - **WHEN** the pull request makes no incompatible change
-- **THEN** the job passes and says the API is compatible with the base tag
+- **THEN** the job passes and says the change adds no incompatible change since the base tag
 
 #### Scenario: No release tag is reachable
 

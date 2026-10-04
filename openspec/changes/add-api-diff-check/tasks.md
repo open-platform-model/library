@@ -11,7 +11,13 @@
 - [x] 2.1 `.github/workflows/api-diff.yml`: `on: pull_request` with the `paths:` filter from design.md (including `Taskfile.yml`); workflow `permissions: contents: read`; `concurrency: { group: api-diff-${{ github.event.pull_request.number }}, cancel-in-progress: true }`; job `API diff` on `ubuntu-latest`, `timeout-minutes: 10`; checkout, `setup-go` (`go-version-file: go.mod`) and `setup-task` at the SHAs `lint.yml` pins, checkout with `fetch-depth: 0` and `persist-credentials: false`; one step running `task api:diff` with `API_DIFF_BASE_REF: ${{ github.event.pull_request.base.sha }}` in its `env:`; no `continue-on-error`
 - [x] 2.2 actionlint on the new workflow and `task cascade:wiring:check` green, then commit ci: warn on breaking api changes in pull requests
 
-## 3. Documentation
+## 3. Offline tests and the allow line (round-1 triage, SD17)
 
-- [x] 3.1 `AGENTS.md`: a `task api:diff` line under "Core commands"; `api-diff.yml` (`contents: read`) in the "Workflow security" permissions list; one paragraph after "Workflow security" naming the workflow, the base-tag rule (nearest reachable, so `v0.7.0` never decides), inherited entries, the warn/block derivation and the two remedies, the tools module and its hand-moved pin, and that the job is not required (rebase on `add-consumer-build-job` if it merged first; both touch the permissions list)
-- [x] 3.2 `openspec validate add-api-diff-check --strict` and `task check` green (private `TMPDIR`), then commit docs: describe the api diff check
+- [x] 3.1 `.tasks/api-diff.sh`: move the split, the mode and the outcome into functions behind a `main` guard; add the fixed `ALLOW` prefix for the `DefaultSchemaModule` value change; resolve the tag before the tool build; in CI take the merge commit's first parent as the base; route a failed `git archive` through `die`; point at the summary past 10 annotations; reword the compatible line
+- [x] 3.2 `.tasks/api-diff-test.sh` with fixtures in `.tasks/apidiff/testdata` (new, inherited, edited and allowed entries; prerelease and release tags; exit codes 0, 1 and 2); `task api:diff:test` in `task check`, `task check:fast` and `test.yml`; the test script in the workflow's `paths:`; then commit ci: test the api diff script offline and allow the core pin entry
+- [x] 3.3 design.md, proposal.md, the spec and AGENTS.md describe the allow line, the tests and the GA open point; `task check` and `task cascade:wiring:check` green after merging origin/main
+
+## 4. Documentation
+
+- [x] 4.1 `AGENTS.md`: a `task api:diff` line under "Core commands"; `api-diff.yml` (`contents: read`) in the "Workflow security" permissions list; one paragraph after "Workflow security" naming the workflow, the base-tag rule (nearest reachable, so `v0.7.0` never decides), inherited entries, the warn/block derivation and the two remedies, the tools module and its hand-moved pin, and that the job is not required (rebase on `add-consumer-build-job` if it merged first; both touch the permissions list)
+- [x] 4.2 `openspec validate add-api-diff-check --strict` and `task check` green (private `TMPDIR`), then commit docs: describe the api diff check
