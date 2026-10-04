@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # api-diff-test.sh: offline tests of .tasks/api-diff.sh (task api:diff:test).
 # No network, no Go build: the functions run against the fixture diffs in
-# .tasks/apidiff/testdata, and the exit-2 paths fail before the tool build.
+# .tasks/apidiff/testdata, the exit-2 paths fail before the tool build, and
+# main's wiring runs end to end with APIDIFF_BIN set to stub-apidiff.sh.
 #
 #   head.diff        tag->head: an inherited entry, the allowed core pin, an
 #                    edited entry (moved again, so new) and a new entry
@@ -18,7 +19,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 data="$here/apidiff/testdata"
 
 # Run the checks outside CI unless a check sets it itself.
-unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY BASE API_DIFF_BASE_REF
+unset GITHUB_ACTIONS GITHUB_STEP_SUMMARY BASE API_DIFF_BASE_REF APIDIFF_BIN
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/api-diff-test.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
@@ -139,7 +140,7 @@ script="$here/api-diff.sh"
 run_main() { # run_main <name> <dir> <env...>: exit code into $tmp/<name>.rc
   local name=$1 dir=$2 rc=0
   shift 2
-  (cd "$dir" && env -u GITHUB_ACTIONS -u BASE -u API_DIFF_BASE_REF "$@" bash "$script") \
+  (cd "$dir" && env -u GITHUB_ACTIONS -u BASE -u API_DIFF_BASE_REF -u APIDIFF_BIN "$@" bash "$script") \
     >"$tmp/$name.out" 2>&1 || rc=$?
   echo "$rc" >"$tmp/$name.rc"
 }
@@ -167,6 +168,43 @@ first_parent=$(git -C "$repo" rev-parse HEAD)
 git -C "$repo" -c user.name=t -c user.email=t@example.invalid merge -q --no-ff -m merge topic
 run_main merge "$repo" GITHUB_ACTIONS=true API_DIFF_BASE_REF=0000000000000000000000000000000000000000
 check "in CI a merge commit's first parent is the base" grep -qF -- "reachable from $first_parent" "$tmp/merge.out"
+
+# --- main end to end, with the stub in place of the tool -------------------
+# A repository of three commits whose marker file names them: tag (tagged
+# v1.0.0), base and head (the work tree). The stub prints head.diff for
+# tag->head and base.diff for tag->base, so a swapped argument at a call site
+# either fails the stub or moves entries between new and inherited.
+e2e="$tmp/e2e"
+git init -q "$e2e"
+gitc() { git -C "$e2e" -c user.name=t -c user.email=t@example.invalid "$@"; }
+printf 'module example.invalid/e2e\n\ngo 1.21\n' >"$e2e/go.mod"
+echo tag >"$e2e/marker"
+gitc add -A && gitc commit -q -m tag && gitc tag v1.0.0
+echo base >"$e2e/marker"
+gitc commit -q -am base
+e2e_base=$(git -C "$e2e" rev-parse HEAD)
+echo head >"$e2e/marker"
+gitc commit -q -am head
+stub="$data/stub-apidiff.sh"
+
+run_main e2e "$e2e" APIDIFF_BIN="$stub" API_DIFF_BASE_REF="$e2e_base"
+check "e2e: block with new entries exits 1" rc_is e2e 1
+check "e2e: the tag is v1.0.0" count "$tmp/e2e.out" '## API diff against v1.0.0' 1
+check "e2e: two new entries" count "$tmp/e2e.out" 'Incompatible changes in this change (2):' 1
+check "e2e: the edited entry is new" count "$tmp/e2e.out" '- ./opm/x.C: value changed from 1 to 3' 1
+check "e2e: the removed entry is new" count "$tmp/e2e.out" '- ./opm/y.F: removed' 1
+check "e2e: one inherited entry" count "$tmp/e2e.out" 'Already on the base branch since v1.0.0 (1, not charged to this change):' 1
+check "e2e: the inherited entry is listed" count "$tmp/e2e.out" '- ./opm/helper/objectset: removed' 1
+check "e2e: the core pin is allowed" count "$tmp/e2e.out" 'Allowed (' 1
+check "e2e: base-only entries never show" count "$tmp/e2e.out" 'from 1 to 2' 0
+check "e2e: the stub header is dropped" count "$tmp/e2e.out" 'Incompatible changes:' 0
+
+run_main e2etag "$e2e" APIDIFF_BIN="$stub" API_DIFF_BASE_REF=v1.0.0
+check "e2e: a base on the tag charges every entry but the pin" count "$tmp/e2etag.out" 'Incompatible changes in this change (3):' 1
+
+run_main e2eci "$e2e" GITHUB_ACTIONS=true APIDIFF_BIN="$stub" API_DIFF_BASE_REF="$e2e_base"
+check "e2e: CI ignores APIDIFF_BIN" count "$tmp/e2eci.out" 'APIDIFF_BIN is ignored in CI' 1
+check "e2e: CI without the tools module exits 2" rc_is e2eci 2
 
 if [ "$fails" -gt 0 ]; then
   printf 'api-diff-test: %d check(s) failed\n' "$fails" >&2

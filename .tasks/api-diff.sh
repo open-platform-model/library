@@ -16,7 +16,8 @@
 #             warn exits 0, block exits 1 when the change adds an entry
 #
 # BASE=<tag> overrides the base tag for a local run; CI ignores it, so no
-# variable or input changes the mode there. Any failure of the check itself
+# variable or input changes the mode there. APIDIFF_BIN=<path> replaces the
+# built tool for a local run (the offline tests' stub); CI ignores it too. Any failure of the check itself
 # (tool build, export, no tag) exits 2 in both modes.
 #
 # Sourcing this file defines the functions only; .tasks/api-diff-test.sh
@@ -186,9 +187,16 @@ main() {
   export GOWORK=off GOFLAGS=-mod=readonly
 
   # --- The tool ---------------------------------------------------------------
-  APIDIFF="$TMP/bin/apidiff"
-  go build -C .tasks/apidiff -o "$APIDIFF" golang.org/x/exp/cmd/apidiff ||
-    die "building apidiff from .tasks/apidiff failed (a go.sum mismatch refuses the build)"
+  if [ -n "${APIDIFF_BIN:-}" ] && ! in_ci; then
+    # Outside CI only: .tasks/api-diff-test.sh points this at a stub to test
+    # the wiring below end to end without the tool.
+    APIDIFF=$APIDIFF_BIN
+  else
+    [ -z "${APIDIFF_BIN:-}" ] || echo "api:diff: APIDIFF_BIN is ignored in CI; the tool is built from .tasks/apidiff" >&2
+    APIDIFF="$TMP/bin/apidiff"
+    go build -C .tasks/apidiff -o "$APIDIFF" golang.org/x/exp/cmd/apidiff ||
+      die "building apidiff from .tasks/apidiff failed (a go.sum mismatch refuses the build)"
+  fi
 
   # --- Export the three APIs --------------------------------------------------
   MODULE=$(go list -m)
