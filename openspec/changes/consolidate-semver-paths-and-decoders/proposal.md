@@ -74,11 +74,13 @@ review (x1).
 Not **BREAKING**. No exported signature changes, and the two exported `platformmodule`
 constants keep their names, kinds and values. Observable differences: error text (the doubled
 prefix becomes single; the Cache's errored-value message says "is unusable" instead of
-"carries a build error"), `Path()` segments for
+"carries a build error"; `ReplacedVersion`'s refusal of a path whose major qualifier is not a
+valid version now reads `module path %q carries no major qualifier` in place of
+`module path %q: <parse cause>`, internal, matched by no consumer), `Path()` segments for
 a key containing dots (one segment instead of several; the joined string is the same), and
-`catalog.Requires` now refuses a module file that the render stage would refuse too (a
-dependency carrying `replaceWith`, an empty module path). A published catalog never carries
-either. `go.mod` drops one requirement and promotes another from `go.sum` to a direct
+`catalog.Requires` now refuses a module file whose dependency carries `replaceWith`, which the
+render stage refuses too (`modfile.Parse` already refused an empty module path, so that refusal
+is not new). A published catalog never carries `replaceWith`. `go.mod` drops one requirement and promotes another from `go.sum` to a direct
 requirement, which the deps cascade picks up.
 
 SemVer class: PATCH. Release class of the PR: `fix`.

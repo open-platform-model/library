@@ -21,5 +21,5 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 #### Scenario: Prerelease builds compare by SemVer precedence
 
-- **WHEN** the instance requires `2.0.0-beta.10` of a path and the platform carries `2.0.0-beta.2`, and in a second render the instance requires `2.0.0-beta.10` and the platform carries `2.0.0`
-- **THEN** the first row is marked newer and the second is not
+- **WHEN** the skew comparison compares an instance requiring `2.0.0-beta.10` of a path against a platform carrying `2.0.0-beta.2`, and against a platform carrying `2.0.0`
+- **THEN** the row against `2.0.0-beta.2` is marked newer and the row against `2.0.0` is not

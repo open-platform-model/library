@@ -43,11 +43,17 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       `modversion.LanguageFloor`; the inline `strings.Cut(version, ".")` majors use
       `modversion.Major`; delete `registrytest.Major` and its test. Callers in
       `opm/kernel/synth_schema_test.go` and `opm/kernel/integration_fixtures_test.go` call
-      `modversion.Major`. Verify: `grep -rn 'registrytest.Major\|"v0.17.0"' opm --include=*.go`
-      prints nothing; `go vet ./opm/...` clean.
+      `modversion.Major`, and the hand-written major in `opm/kernel/acquire_catalog_test.go`
+      (`providerCatalogBody`, `strings.Cut(version, ".")`) becomes `modversion.Major` too.
+      Verify: `grep -n 'v0\.17\.0\|registrytest.Major' opm/internal/registrytest/registrytest.go
+      opm/internal/renderstage/promote.go opm/helper/platformmodule/generate.go
+      opm/internal/synth/render.go` prints only doc-comment prose; `grep -rn 'registrytest.Major' opm`
+      prints nothing; `go vet ./opm/...` clean. (Test fixtures that declare
+      `language: version: "v0.17.0"` in CUE text stay as they are.)
 - [ ] 1.6 `opm/helper/platformmodule/generate.go`: `CorePath = modversion.CorePath` and
-      `LanguageVersion = modversion.LanguageFloor` inside the existing `const` block, doc
-      comments kept. Verify: `go doc ./opm/helper/platformmodule CorePath` shows a const;
+      `LanguageVersion = modversion.LanguageFloor` inside the existing `const` block; each doc
+      comment states its value (`"opmodel.dev/core@v2"`, `"v0.17.0"`) so the public Go API
+      reference entry stays self-contained. Verify: `go doc ./opm/helper/platformmodule CorePath` shows a const;
       `go test ./opm/helper/platformmodule -count=1` green.
 - [ ] 1.7 `go mod tidy`: `github.com/Masterminds/semver/v3` leaves `go.mod`,
       `golang.org/x/mod` is a direct requirement. Verify:
@@ -55,7 +61,10 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       `grep -rln 'golang.org/x/mod/semver' opm` lists only `opm/internal/modversion/modversion.go`.
 - [ ] 1.8 `AGENTS.md` repository layout: one line for `internal/modversion/` (version spelling,
       major, SemVer validity and order, the core path and language-floor constants; the only
-      SemVer importer). Verify: the layout block still renders as one code fence.
+      SemVer importer). Also reword the CUE-version paragraph's "the literals in
+      `opm/internal/registrytest`" to name `modversion.LanguageFloor` (the one Go constant behind
+      the render floor, the generated platform module and the registrytest fixtures). Locate both
+      edits by text, not line number. Verify: the layout block still renders as one code fence.
 - [ ] 1.9 `task check` green, then commit
       `refactor(renderstage): share version helpers and compare with x/mod semver`.
 
@@ -85,13 +94,16 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       constructor returns the decoder's error unwrapped; decoders unchanged. Verify:
       `go build ./opm/...` clean.
 - [ ] 3.2 Tests in `module_test.go`, `platform_test.go` and the catalog's constructor test: a
-      `metadata` that does not decode (e.g. `metadata: name: 1`) yields a nil artifact and an
-      error containing `decoding <kind> metadata:` exactly once (`strings.Count == 1`), the
+      `metadata` that does not decode (module and platform `metadata: name: 1`; catalog
+      `metadata: version: 1`, since `CatalogMetadata` has no `Name` and Decode ignores unknown
+      fields) yields a nil artifact and a non-nil error (asserted first) containing
+      `decoding <kind> metadata:` exactly once (`strings.Count == 1`), the
       schema-dispatch scenario "A decode failure names its artifact once". Existing
       "metadata field is required" asserts stay green. Verify:
       `go test ./opm/module ./opm/platform ./opm/catalog -count=1` green.
 - [ ] 3.3 `task check` green, then commit
-      `fix(module): name a metadata decode failure once`.
+      `fix(opm): name a metadata decode failure once` (the change spans module, platform and
+      catalog).
 
 ## 4. One local-path check and one module-file reader (module, renderstage, platformmodule, catalog; design CS6, CS7)
 
@@ -111,7 +123,9 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       refuse is refused"); the existing cases stay green. Verify:
       `go test ./opm/catalog -count=1` green.
 - [ ] 4.4 `task check` green, then commit
-      `refactor(catalog): read Requires through the shared module-file reader and check paths with IsLocal`.
+      `fix(catalog): read Requires through the shared module-file reader`, with a body line naming
+      the IsLocal sites (`opm/module`, `renderstage`, `helper/platformmodule`) and the newly refused
+      `replaceWith` dependency.
 
 ## 5. An unusable loaded schema says so (schema; design CS8)
 

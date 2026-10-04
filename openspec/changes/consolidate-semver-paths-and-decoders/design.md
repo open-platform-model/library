@@ -77,7 +77,10 @@ LanguageVersion = modversion.LanguageFloor
 ```
 
 inside its existing `const` block, so both stay exported untyped string constants with the
-same values (a `var` would break callers that use them in constant expressions).
+same values (a `var` would break callers that use them in constant expressions). Each doc
+comment states the value (`"opmodel.dev/core@v2"`, `"v0.17.0"`), because the public Go API
+reference excludes `opm/internal` and would otherwise show only a reference to an internal
+constant.
 `renderstage.MinLanguageVersion` is internal and has no user outside `renderstage`, so it is
 removed and `promote.go` reads `modversion.LanguageFloor`.
 
@@ -93,11 +96,11 @@ it must stay one literal. Doc comments that quote `opmodel.dev/core` or `v0.17.0
 | --- | --- | --- |
 | `skew.go` `isNewer` (:65-75) | `semver.NewVersion` both, `GreaterThan` | `c, err := modversion.Compare(a, b)`; `c > 0` |
 | `promote.go` `ReplacedVersion` (:296) | `semver.NewVersion(major + ".0.0")` | `modversion.Valid(major + ".0.0")`, else the existing `module path %q carries no major qualifier` |
-| `promote.go` `maxLanguage` (:321-339) | Masterminds parse, `"v" + best.String()` | start from `LanguageFloor`; `modversion.Compare(v, best)`, invalid reported as `invalid language version %q`; return the winning string as written |
+| `promote.go` `maxLanguage` (:321-339) | Masterminds parse, `"v" + best.String()` | start from `LanguageFloor`; check `modversion.Valid(v)` first and refuse an invalid input as `invalid language version %q` alone (no wrapped `invalid version` cause, so the text is not doubled); then `modversion.Compare(v, best)`; return the winning string as written |
 
-Inputs are `modfile.Parse` output (`v`-prefixed and valid), so x/mod's stricter parsing
-(no `1.2` coercion; the `v` prefix is supplied by `Canonical`) changes no accepted input that
-reaches these sites. Both libraries implement SemVer 2 precedence and ignore build metadata in
+Inputs are `modfile.Parse` output (`v`-prefixed and valid). x/mod accepts the same shorthand
+Masterminds did (`vMAJOR`, `vMAJOR.MINOR`; the `v` prefix is supplied by `Canonical`), so which
+inputs are accepted does not change at all; only `maxLanguage`'s printed form differs (below). Both libraries implement SemVer 2 precedence and ignore build metadata in
 comparison; new skew tests pin `v2.0.0-beta.2 < v2.0.0-beta.10 < v2.0.0` so a regression in
 prerelease ordering is caught. `maxLanguage` returning the string as written differs from today
 only for a shorthand like `v0.18` (Masterminds printed `v0.18.0`); `modfile.Parse` output and
@@ -138,8 +141,11 @@ func (e *fieldNotAllowedError) Path() []string {
 ```
 
 `trimSchemaPrefix` drops a leading `#module` `#config` pair, or a leading `#config`, comparing
-whole selectors. It replaces `normalizeFieldPath`, whose string `TrimPrefix("#config")` would
-also have eaten the front of a label such as `#configMap`. `Selector.String()` is the form
+whole selectors. It replaces `normalizeFieldPath`'s string `TrimPrefix` and keeps today's
+behaviour: a regular label such as `#configMap` comes out of `Selector.String()` quoted, and
+`walkDisallowed` iterates `Fields(cue.Optional(true))`, which yields no definitions, so the
+string trim could not misfire either; the selector-wise trim is for the selector-typed path,
+not a defect fix. `Selector.String()` is the form
 `walkDisallowed` records today, so a definition stays `#config`, a plain label stays bare and a
 label that needs quoting stays quoted (`"app.kubernetes.io/name"`). `Unquoted()` was rejected:
 it would change the cli's printed key and panics on a non-string selector. The cli joins the
@@ -172,7 +178,8 @@ the absent-file test (asserts `cue.mod`) and the unparseable-file test (asserts 
 `opm/catalog` may import `opm/internal/renderstage`: depguard only bars the kernel tier from
 `opm/helper` and `opm/k8s`, and `renderstage` imports `opm/module` and `opm/internal/sourcetree`,
 never `opm/catalog`, so there is no cycle. `ParseModFile` additionally refuses a dependency with
-`replaceWith` and an empty module path; the catalog-acquisition delta states it.
+`replaceWith`; that is the only newly refused shape (`modfile.Parse` already refuses an empty
+module path). The catalog-acquisition delta states both refusals.
 
 ### CS8: one wording for an unusable loaded value
 
@@ -191,8 +198,8 @@ opm-operator test matches "carries a build error" (grep at origin/main, 2026-10-
   and the deps cascade carries it.
 - `Path()` for a dotted key changes shape. Only the cli reads it, and it joins; an unknown
   consumer reading segments was getting a wrong answer before.
-- `catalog.Requires` refuses two shapes it tolerated. Neither appears in a published catalog
-  or a fixture; the full test suite is the check.
+- `catalog.Requires` refuses one shape it tolerated (a `replaceWith` dependency). It appears in
+  no published catalog or fixture; the full test suite is the check.
 
 ## Migration Plan
 
