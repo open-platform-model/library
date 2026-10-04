@@ -48,6 +48,12 @@ that `git status` then shows only the throwaway dump test as untracked before co
 - [x] 4.3 Run `task check`. Then delete the throwaway dump test from 1.2 and confirm that `git status` shows no edit outside this change.
 - [x] 4.4 Commit `chore(openspec): record drop-failed-pairs-from-render-glue measurements`.
 
+## 4b. Code-review round
+
+- [x] 4b.1 Add scenario `testdata/render/scenarios/unify_order` and `TestRender_UnifyRowsFollowTransformerOrder`: one component with three always-unify refusals whose candidate walk order differs from `#transformers` order; assert `Diagnostics.Unify` follows `#transformers` order. Verify: rewriting `unifyFailures` to iterate `v._candidates` fails the test.
+- [x] 4b.2 Add `opm/kernel/render_decode_internal_test.go` with a table test for `outputFailed` against `#T: output: {...} | [...{...}]`: healthy struct and list (not listed), nested non-concrete struct and list (not listed), nested conflict in a struct and in a list item (listed), root-incomplete (listed), missing lookup (not listed). Verify: dropping `out.Exists() &&` fails the test.
+- [x] 4b.3 Add `pairKey` and use it in `pairOutput` and in the missing-output refusal. Reword the proposal on the root-incomplete shape and the design Risks bullet on row order.
+
 ## 5. Verify and archive
 
 - [x] 5.1 Run `openspec verify` for `drop-failed-pairs-from-render-glue` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.

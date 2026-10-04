@@ -382,7 +382,10 @@ The dump's own run time, 485 renders in one `go test` process on the same shared
 - [A refused render still evaluates every pair's output once] → It evaluated them twice before. The
   cli needs the list on refusals (D1).
 - [`unifyFailures` row order] → D3 keeps `#transformers` order explicitly. The diagnostics dump in
-  D4 compares the decoded rows byte for byte.
+  D4 has no component with two unify rows, so it cannot see a reorder. The order is pinned by
+  `TestRender_UnifyRowsFollowTransformerOrder` (scenario `unify_order`: three unify rows on one
+  component whose candidate walk order differs from `#transformers` order). Iterating
+  `v._candidates` instead fails that test.
 - [memprobe is a simulation, and its pins lag the current platform (opm 4.6.0)] → Before and after
   use the same pins, so the comparison holds. The absolute numbers are labelled as simulation
   output. If the owner wants a reading from a real operator, it is one kind-cluster RSS measurement

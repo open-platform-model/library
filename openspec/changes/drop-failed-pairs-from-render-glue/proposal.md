@@ -40,10 +40,11 @@ memprobe's operator columns for the wave-1 baseline, this change's base and its 
 - `render.cue.tmpl`: build `_unify` and `_pred` over `_candidates` instead of over all of
   `#transformers`. `unifyFailures` keeps today's row order (see design.md D3).
 - `opm/kernel`: `RenderDiagnostics.FailedPairs` is filled in Go. A pair is failed when its
-  `rendered` output is an error (`Value.Err()` non-nil). This is the same set the glue's
-  `== _|_` guard reported. The kernel fills it on both `RenderError` paths after the build: the gate
-  refusal (`render.go:398-399`, which today returns before `decodeRendered` runs) and the pair
-  failure (`render.go:401-404`). An incomplete output stays out of the list, as today.
+  `rendered` output is an error (`Value.Err()` non-nil). The kernel fills it on both `RenderError`
+  paths after the build: the gate refusal (`render.go:398-399`, which today returns before
+  `decodeRendered` runs) and the pair failure (`render.go:401-404`). A struct or list root whose
+  only defect is non-concrete fields stays out of the list, as today. An output whose root is
+  itself incomplete is listed (see design.md D2).
 - `opm/kernel`: the `glueDiagnostics.FailedPairs` field, the `failed[p]` map in `decodeRendered` and
   its unreachable fallback cause `"transformer output is an error"` go away. The doc comment on
   `RenderDiagnostics.FailedPairs` says when it is filled.
