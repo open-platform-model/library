@@ -49,7 +49,7 @@ opm/
   internal/loader/        The kernel's one artifact loader: shape gate, LoadDir (the one build-and-gate step, directory or overlay), FetchArtifact (a published artifact by path@version: fetch, stage as an overlay, build through LoadDir like a directory artifact, gated to the shape the caller names) with FetchModule the #Module entry over it, adding the coordinate identity check
   internal/synth/         Instance synthesis from typed inputs, built inside the module's own staged tree
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
-  internal/               Test-only cross-package internals (schematest, registrytest) and the CUE closedness canary (cueregression)
+  internal/               Internal runtime packages (cueenv, modversion, sourcetree, valuesfile) plus test-only helpers (schematest, registrytest) and the CUE closedness canary (cueregression)
 adr/                      Architecture decision records
 enhancements/             Frozen historical proposals (cite as legacy:NNN; new work lives in the workspace enhancements/)
 openspec/                 OpenSpec proposals, specs, archives

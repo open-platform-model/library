@@ -358,7 +358,7 @@ k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/co
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).
 
-A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the core release the schema cache loads; synthesis takes only its major for the core import) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue.
+A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the core release the schema cache loads and a generated platform module pins; synthesis takes only its major for the core import) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue.
 
 Two independent compat tracks, never confuse:
 
