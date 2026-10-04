@@ -5,8 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-# Read-only: no step pushes, publishes or calls the GitHub API, so a same-repo
-# PR (deps/cascade included) runs this code without a write token.
+# Read-only: no step pushes or publishes, and the one GitHub API call (the
+# wiring check's compare read of the public .github repo) needs no write, so
+# a same-repo PR (deps/cascade included) runs this code without a write token.
 permissions:
   contents: read
 
@@ -36,12 +37,17 @@ jobs:
         with:
           version: 3.x
 
-      # The release-cascade callers keep the shape the Phase 3 wiring
-      # contract (version 3.1, 10.1) gives them: the caller-owned key-holding
-      # jobs, one .github main SHA on every cascade reference. Offline; the
-      # runner's mikefarah yq.
+      # The release-cascade callers keep the shapes the .github README ("The
+      # wiring check") gives them: the caller-owned key-holding jobs, the
+      # release key only in `environment: release` jobs, no Actions cache in
+      # a publishing workflow, and one .github SHA on every cascade reference,
+      # which --pin-on-main confirms is on .github's main. The script is a
+      # byte-identical copy of .github's at that SHA; the runner's mikefarah
+      # yq. task cascade:wiring:check is the offline local entry.
       - name: Verify the cascade wiring
-        run: task cascade:wiring:check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .tasks/cascade/wiring-check.sh --pin-on-main
 
       # Offline set of the release-cascade task's tests (workspace
       # RELEASING.md, section "The cascade"): no network, no cue, no
