@@ -10,7 +10,7 @@ What the library has on `main` (`3d7ce15`):
 - `task -x deps:cascade`, `:title`, `:body`. The resolver path comes from `CASCADE_RESOLVER` or the sibling `.github` checkout.
 - `pins.sh` labels the core row `need-human-review` (`.tasks/cascade/pins.sh:41`). The S5 test asserts the body's `<!-- cascade-labels: need-human-review -->` marker and its absence on a catalog-only move (`.tasks/cascade/test.sh`).
 - The task reads `CASCADE_EXPECT` as whitespace-split `<key>=<value>` pairs with the keys `opmodel.dev/core@v2` and `opmodel.dev/catalogs/opm@v4` (`.tasks/cascade/lib.sh`), the same keys as wiring §3.4. It keeps its state under `$(git rev-parse --absolute-git-dir)/cascade`, outside the working tree.
-- `cascade-task.yml` uses the receiver's layout (the library at `repo/`, `.github` at `org-github/` with `persist-credentials: false`), checks `.github` out at `ref: main`, and skips S5 when the resolver is missing there.
+- `cascade-task.yml` uses the receiver's layout (the library at `repo/`, `.github` at `org-github/` with `persist-credentials: false`), checks `.github` out at `ref: main`, and skips S5 when the resolver is missing there; this change pins the `ref:` and removes the skip (D6).
 - The required `Go tests` job (`test.yml` job `test`) runs on every PR with no path filter and installs Task; `.github/dependabot.yml` configures `github-actions` and already ignores `open-platform-model/docs-kit*`.
 
 Live settings (read 2026-10-04): Environment `cascade` (branch policy `main` only) with `CASCADE_APP_PRIVATE_KEY` and `CASCADE_APP_CLIENT_ID`; repo variable `CASCADE_DRY_RUN=true`; the `main` ruleset requires `Go tests` (integration 15368) plus the org mention-guard; `sha_pinning_required` is false; none of the cascade labels exist.
@@ -102,7 +102,7 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 
 - **The pin.** Five references carry `2376ffae4bfc665f327d51581350dea694c01504` and ` # .github main`: the notify and publish `uses:` steps, the `cascade-receive.yml` and `cascade-gates.yml` calls, and the `ref:` of the resolver checkout in `cascade-task.yml` (wiring §2.4). Owner decision 24 pins the two actions; the supervisor extended the pin to the two workflows (compute runs its own commit's scripts, so a mixed pin would split compute and publish across `plan.json`) and to the resolver checkout (so CI tests the resolver the receiver runs). This branch was written while A was open but pins the `main` squash SHA directly, because A had merged when it was brought to version 3.1.
 - **No S5 fallback.** With the resolver checkout pinned to a commit that has the resolver, the old "skip S5 when the resolver is missing" branch would only turn a bad pin into a silent skip, so `cascade-task.yml` now fails with `::error::no cascade resolver at the pinned .github commit` (wiring §10.1 item 3).
-- **Bumps.** A later `.github` cascade change reaches the library only through a `ci(deps): pin the cascade to .github <sha7>` PR that replaces the SHA in all five references (found with `grep -rn -A1 'open-platform-model/.github' .github/workflows`), passes `compare` and `task cascade:wiring:check`, and merges after its CI printed `cascade wiring: ok`. One receiver goes first as the canary in dry run; when the `.github` diff touches `cascade-publish` or `cascade-notify`, the others wait for the canary's first live run of that action (wiring §2.4, addendum item 4). There is no sandbox step (owner decision 26).
+- **Bumps.** A later `.github` cascade change reaches the library only through a `ci(deps): pin the cascade to .github <sha7>` PR that replaces the SHA in all five references (found with `grep -rn -A1 'open-platform-model/.github' .github/workflows`), passes `compare` and `task cascade:wiring:check`, and merges after its CI printed `cascade wiring: ok`. One receiver goes first as the canary in dry run; when the `.github` diff touches `cascade-publish` or `cascade-notify`, the others wait for the canary's first live run of that action (wiring §2.4, addendum item 4). No sandbox takes part (owner decision 26).
 - **Dependabot.** The `github-actions` ecosystem ignores `open-platform-model/.github*`, so Dependabot never moves one reference alone and breaks "one SHA per repo" (wiring §10.1 item 7).
 - **Merge order.** A merged first (done). Before this PR merges, the supervisor checks `compare <SHA>...main` prints `identical` or `ahead` and that `CASCADE_DRY_RUN` reads back `true` (done 2026-10-04; an unset variable would also be a dry run, the explicit `true` makes the state visible). A dispatch that reaches the library before this change merges returns 204 and starts nothing (wiring §1).
 
@@ -157,7 +157,16 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 
 ### Re-grep
 
-Filled in by task 7.2.
+**Context**: wiring §10.1 item 11 lists the stale version 2 wording a join branch must not keep.
+**Explored**: the item 11 command from the worktree root on 2026-10-04, over the files the branch changes plus `cascade-task.yml`.
+**Decision**: every remaining hit is one of the allowed kinds; none needs a fix.
+**Rationale**: the hits, by kind:
+
+- `labels-managed` on or about the `cascade-publish` step: `deps-cascade.yml`, `wiring-check.sh` (the publish `with` keys), design.md D2 and D3, proposal.md, spec `cascade-wiring` (two requirements), tasks.md 3.1.
+- "no secret" about `compute` and `gates` only: `AGENTS.md` (the `cascade` job), design.md D2, proposal.md, spec `cascade-wiring`, tasks.md 7.1 and 7.2.
+- Text that says the version 2 shape is gone or is being replaced: `AGENTS.md` ("there is no reusable notify workflow"), design.md Context (`cascade-notify.yml` no longer exists; `cascade-task.yml` at `ref: main` on `main`, pinned by this change), "Dependabot and the cascade pin" and "Version 3.1 rebuild" (`@main` in version 2), proposal.md Why (`ref: main` and the S5 skip on `main`), tasks.md 2.1 and 4.1.
+- Mutations and refusals: design.md "Wiring check tests" (`@main`, `ref: main`) and the spec scenario "One reference moves alone" (`@main`).
+- Not about the cascade: `AGENTS.md` "holds no" in the kernel acquire-verb paragraph, unchanged by this branch.
 
 ## Risks / Trade-offs
 

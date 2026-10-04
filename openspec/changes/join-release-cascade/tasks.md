@@ -51,10 +51,10 @@ Merge gates (not tasks): `gh api repos/open-platform-model/.github/compare/<SHA>
 
 ## 7. Docs and the re-grep (wiring §10.1 items 8 to 11)
 
-- [ ] 7.1 Rewrite the cascade sentences of the "Release cascade task" paragraph in `AGENTS.md`: `deps-cascade.yml` runs the task through the reusable `cascade-receive.yml` (compute and gates, no secret) and its own caller-owned `publish` job running the pinned `cascade-publish` action; `release.yml`'s caller-owned `notify-downstream` job runs the pinned `cascade-notify` action; every cascade reference, the `cascade-task.yml` resolver `ref:` included, carries one `.github` `main` SHA and moves only by a `ci(deps): pin the cascade to .github <sha7>` PR, which Dependabot leaves alone; `task cascade:wiring:check` runs in `Go tests`; the repo variables. Replace the sentence that offers the stub until the resolver reaches `.github` `main` with when to use the stub.
-- [ ] 7.2 Run the wiring §10.1 item 11 re-grep from the worktree root and fix every hit outside the allowed kinds (`labels-managed` on or about the `cascade-publish` step; "no secret" about `compute` or `gates` only; text that says it is superseded). Record the remaining hits in design.md "Re-grep".
-- [ ] 7.3 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
-- [ ] 7.4 Gate green, then commit `docs(agents): describe the pinned cascade wiring`.
+- [x] 7.1 Rewrite the cascade sentences of the "Release cascade task" paragraph in `AGENTS.md`: `deps-cascade.yml` runs the task through the reusable `cascade-receive.yml` (compute and gates, no secret) and its own caller-owned `publish` job running the pinned `cascade-publish` action; `release.yml`'s caller-owned `notify-downstream` job runs the pinned `cascade-notify` action; every cascade reference, the `cascade-task.yml` resolver `ref:` included, carries one `.github` `main` SHA and moves only by a `ci(deps): pin the cascade to .github <sha7>` PR, which Dependabot leaves alone; `task cascade:wiring:check` runs in `Go tests`; the repo variables. Replace the sentence that offers the stub until the resolver reaches `.github` `main` with when to use the stub.
+- [x] 7.2 Run the wiring §10.1 item 11 re-grep from the worktree root and fix every hit outside the allowed kinds (`labels-managed` on or about the `cascade-publish` step; "no secret" about `compute` or `gates` only; text that says it is superseded). Record the remaining hits in design.md "Re-grep".
+- [x] 7.3 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
+- [x] 7.4 Gate green, then commit `docs(agents): describe the pinned cascade wiring`.
 
 ## 8. Verify and archive
 
