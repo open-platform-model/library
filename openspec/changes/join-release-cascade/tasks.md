@@ -31,10 +31,10 @@ Merge gates (not tasks): `gh api repos/open-platform-model/.github/compare/<SHA>
 
 ## 4. The resolver checkout in cascade-task.yml (wiring §10.1 item 3)
 
-- [ ] 4.1 In `.github/workflows/cascade-task.yml`, change only the `ref:` of the `open-platform-model/.github` checkout from `ref: main` to `ref: <SHA> # .github main`; its `actions/checkout` pin stays. Say in the comment above the checkout that the resolver comes from the pinned `.github` commit, the same one the receiver runs.
-- [ ] 4.2 Delete the comment above `Cascade task tests (full set)` that has S5 wait for the real resolver to reach `.github` `main`, and replace the `if [ -x "$real" ] … else … fi` block with the two lines of wiring §10.1 item 3 (fail with `::error::no cascade resolver at the pinned .github commit`, then `export CASCADE_RESOLVER_REAL="$real"`).
-- [ ] 4.3 Run the full set locally against the resolver at `<SHA>` (`CASCADE_TEST_SET=all CASCADE_RESOLVER_REAL=<.github checkout at SHA>/.github/scripts/cascade/cascade-resolve.sh task -x deps:cascade:test`): every scenario passes, S5 included.
-- [ ] 4.4 Gate green (actionlint on `cascade-task.yml`), then commit `ci(cascade): pin the cascade-task resolver checkout to the .github SHA`.
+- [x] 4.1 In `.github/workflows/cascade-task.yml`, change only the `ref:` of the `open-platform-model/.github` checkout from `ref: main` to `ref: <SHA> # .github main`; its `actions/checkout` pin stays. Say in the comment above the checkout that the resolver comes from the pinned `.github` commit, the same one the receiver runs.
+- [x] 4.2 Delete the comment above `Cascade task tests (full set)` that has S5 wait for the real resolver to reach `.github` `main`, and replace the `if [ -x "$real" ] … else … fi` block with the two lines of wiring §10.1 item 3 (fail with `::error::no cascade resolver at the pinned .github commit`, then `export CASCADE_RESOLVER_REAL="$real"`).
+- [x] 4.3 Run the full set locally against the resolver at `<SHA>` (`CASCADE_TEST_SET=all CASCADE_RESOLVER_REAL=<.github checkout at SHA>/.github/scripts/cascade/cascade-resolve.sh task -x deps:cascade:test`): every scenario passes, S5 included.
+- [x] 4.4 Gate green (actionlint on `cascade-task.yml`), then commit `ci(cascade): pin the cascade-task resolver checkout to the .github SHA`.
 
 ## 5. The wiring check in the required job (wiring §10.1 item 6 and the addendum)
 
