@@ -74,11 +74,14 @@ func LoadDir(cueCtx *cue.Context, src *opmmodule.Source, opts Options, spec Arti
 	rel := strings.TrimPrefix(src.Pkg, "./")
 
 	cfg := &load.Config{Env: opts.Env}
-	// root is the directory the build is reported against: the package
-	// directory on disk, the module root in overlay mode.
+	// pkgDir is the package directory in both modes, so a build or gate error
+	// names the package that failed. root is the directory the load is
+	// reported against: the package directory on disk, the module root in
+	// overlay mode, where pkg names the package beneath it.
+	pkgDir := filepath.Join(src.Root, filepath.FromSlash(rel))
 	root, pkg := src.Root, "."
 	if src.Overlay == nil {
-		root = filepath.Join(src.Root, filepath.FromSlash(rel))
+		root = pkgDir
 		if err := CheckDir(root, spec); err != nil {
 			return cue.Value{}, err
 		}
@@ -108,11 +111,11 @@ func LoadDir(cueCtx *cue.Context, src *opmmodule.Source, opts Options, spec Arti
 
 	val := cueCtx.BuildInstance(instances[0])
 	if err := val.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("building %s package from %s: %w", spec.Label, root, err)
+		return cue.Value{}, fmt.Errorf("building %s package from %s: %w", spec.Label, pkgDir, err)
 	}
 
 	if err := gate(val, spec); err != nil {
-		return cue.Value{}, fmt.Errorf("validating %s package in %s: %w", spec.Label, root, err)
+		return cue.Value{}, fmt.Errorf("validating %s package in %s: %w", spec.Label, pkgDir, err)
 	}
 
 	return val, nil
