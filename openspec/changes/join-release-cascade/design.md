@@ -56,7 +56,7 @@ The library's release is the git tag (`release.yml:32-35`). Notify uses the `lib
 
 `deps-cascade.yml` is the wiring §5 file with the §5.1 library row: cron `17 5 * * *`, `setup-go: false`, `labels-managed: false`. No `setup-cue` or `cue-version` input: the default `v0.17.1` equals the library's `cue.yml` and `cascade-task.yml` setup-cue version.
 
-- **No Go.** `cascade.sh` runs no `go` command, and the task's preconditions are `git`, mikefarah `yq` and `jq` (`Taskfile.yml:896-907`). G2 runs the same task at the release head (wiring §8.2), so it needs no Go either.
+- **No Go.** `cascade.sh` runs no `go` command, and the task's preconditions are `git`, mikefarah `yq` and `jq` (`Taskfile.yml:896-906`). G2 runs the same task at the release head (wiring §8.2), so it needs no Go either.
 - **Labels.** The library has no `labels.yml` and no label sync, so the receiver creates the five bot labels itself (wiring §6.4 step 4).
 - **Cron.** `17 5 * * *` is the same minute as `cascade-task.yml`'s weekly `17 5 * * 1` (`cascade-task.yml:19-20`). They are separate workflows in separate concurrency groups, and both only read GHCR, so the Monday overlap is harmless. Kept as wiring §5.1 states it rather than diverging per repo.
 - `dry-run` is `inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false'` (wiring §5). That fails closed: only the exact string `false` is live.
@@ -70,7 +70,9 @@ The chain, end to end:
 3. The shared receiver's `compute` takes `plan.labels` as `deps-cascade` plus that marker (wiring §7.4), and `publish` verifies the set, creates the labels (`labels-managed: false`) and adds them (wiring §6.4 steps 2, 4, 5).
 4. The bot never removes `need-human-review` (wiring §6.4, last paragraph).
 
-So the library's job is to pass `labels-managed: false` and to state the requirement (spec `cascade-wiring`). Library `main` is current today, so the Phase 3 dry run can only show `noop`. The first non-noop dry-run summary for a core move is the evidence the Phase 4 gate needs before `CASCADE_DRY_RUN=false` (wiring §1, §15 item 5).
+So the library's job is to pass `labels-managed: false` and to state the requirement (spec `cascade-wiring`).
+
+What the Phase 3 dry run shows depends on the upstreams at that time; it matches a local `task -x deps:cascade` on `main`. On 2026-10-04 catalog_opm had published `opm-v4.5.2` while the library pinned `v4.5.1`, so the dry run is a real `test(fixtures)` push with an empty `cascade-labels` marker, not a `noop`. That non-noop summary can serve as the library's Phase 4 evidence (wiring §1, §15 item 5). The core path, and with it the `need-human-review` marker, is shown with the real resolver by the spike (task 1.2), which commits an older core in a scratch clone. The first live core-move PR carrying `need-human-review` is checked by the supervisor after Phase 4; it is a check, not a Phase 4 gate.
 
 ### D4. Gates caller
 
@@ -94,15 +96,15 @@ So the library's job is to pass `labels-managed: false` and to state the require
 ### Whether the receiver needs Go
 
 **Context**: wiring §5.1 sets `setup-go: false` for the library; a missing toolchain would fail `compute` only at the first real move.
-**Explored**: `cascade.sh` and `lib.sh` for `go` commands (none), and the task's preconditions (`Taskfile.yml:896-907`).
+**Explored**: `cascade.sh` and `lib.sh` for `go` commands (none), and the task's preconditions (`Taskfile.yml:896-906`).
 **Decision**: no Go.
 **Rationale**: the task edits a Go string literal with `sed` and never builds; the spike (tasks 1.1-1.3) confirms a full run without Go on `PATH`.
 
 ### Dependabot and the `@main` references
 
 **Context**: `.github/dependabot.yml` updates `github-actions` weekly and already ignores `open-platform-model/docs-kit*` because that pin moves with `.opm-docs-version`.
-**Explored**: the file's ignore list. Not verified: whether Dependabot proposes a SHA for a reusable-workflow reference pinned to a branch name.
-**Decision**: no ignore entry in this change. It is raised to the supervisor so all four receivers and core treat it the same way.
+**Explored**: the file's ignore list. Not verified: whether Dependabot proposes a SHA for a reusable-workflow reference pinned to a branch name. The plan review answered (moderately confident, untested) that Dependabot's github-actions updater proposes bumps only for version-tag or SHA refs, not branch refs such as `@main`.
+**Decision**: no ignore entry in this change or in any of the five joins. If a Dependabot PR for an `open-platform-model/.github` reference does appear, close it and add `open-platform-model/.github*` to all five in one follow-up.
 **Rationale**: a per-repo answer would make the five joins differ; a Dependabot PR is visible and closable, so the cost of waiting is small.
 
 ## Risks / Trade-offs
@@ -117,10 +119,14 @@ So the library's job is to pass `labels-managed: false` and to state the require
 1. Merge `.github` `add-release-cascade-workflows`.
 2. The supervisor sets `CASCADE_DRY_RUN=true` in the library.
 3. Merge this change (`ci: join the release cascade`).
-4. Phase 3 gate (the supervisor): `gh workflow run deps-cascade.yml -R open-platform-model/library -f dry_run=true`; the summary shows mode `fresh` and action `noop`, matching a local `task -x deps:cascade` exit 3 on `main`. The next PR shows both cascade contexts.
+4. Phase 3 gate (the supervisor): `gh workflow run deps-cascade.yml -R open-platform-model/library -f dry_run=true`; the summary matches a local `task -x deps:cascade` on `main` at that time. On 2026-10-04 that is exit 0, mode `fresh`, action `push` shown as a dry run, title `test(fixtures): bump opm catalog to v4.5.2` and an empty `cascade-labels` marker; with every pin current it is exit 3 and action `noop`. The next PR shows both cascade contexts.
 5. Rollback: set `CASCADE_NOTIFY=off` and disable `deps-cascade.yml` and `cascade-gates.yml` (stop switches, wiring §9.2), or revert the PR.
 
 ## Open Questions
 
-- Dependabot and `@main` (see Research & Decisions).
-- None blocking. The E-tests (E1, E1b, E2 to E7) belong to `.github` `add-release-cascade-workflows`.
+- None blocking. The E-tests (E1, E1b, E2 to E7) belong to `.github` `add-release-cascade-workflows`. E7 decides whether a Dependabot PR gets the gate statuses (spec `cascade-wiring`, "Every PR carries the cascade gate statuses").
+- For the supervisor: the sandbox-down `pins.sh` row (wiring §11.3) carries no label, so E2 never shows a marker label being created and added. Giving that row a label (for example `need-human-review`) and adding "label created with `e99695` and the `RELEASING.md` description, and added to the PR" to E2 would cover the marker-to-label leg of owner selection 9 before Phase 4.
+
+## Plan review
+
+The plan review of commit `22ea3b5` (1 blocker, 2 majors, 2 minors, 3 nits) is applied in full: the expected spike and dry-run results now match `main` at the time rather than a fixed `noop` (1); the spike forces the core path with no Go and runs a realistic catalog dispatch (2); the core-move check after merge is no longer a Phase 4 gate, and the sandbox label point is raised above (3); the gate-status requirement is scoped by E7 (4); the gates-only scenario is corrected (5); section 1 commits as `docs(openspec)` (6); the Taskfile citation is `896-906` (7); and the section gate names the known cache-race flake (8). No finding was rejected.

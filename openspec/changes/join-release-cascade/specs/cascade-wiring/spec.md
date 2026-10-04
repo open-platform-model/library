@@ -17,7 +17,7 @@ The library SHALL have a workflow `.github/workflows/deps-cascade.yml` that call
 #### Scenario: A gates-only run does not displace a pending real run
 
 - **WHEN** a real run is active, another real run is pending, and a gates-only run is dispatched
-- **THEN** the gates-only run waits in `deps-cascade-gates` and the pending real run stays pending
+- **THEN** the gates-only run runs in group `deps-cascade-gates`, and the pending run in `deps-cascade` is neither replaced nor cancelled
 
 ### Requirement: The receiver pushes nothing until CASCADE_DRY_RUN is exactly false
 
@@ -59,7 +59,7 @@ When a cascade run moves `DefaultSchemaModule`, the resulting PR SHALL carry the
 
 ### Requirement: Every PR carries the cascade gate statuses
 
-The library SHALL have a workflow `.github/workflows/cascade-gates.yml` that runs on `pull_request_target` (`opened`, `reopened`, `synchronize`), declares `permissions: {}` at the top, grants the calling job only `statuses: write` and `actions: write`, and calls the org's shared `cascade-gates.yml` at `@main` with the modes from the repo variables `CASCADE_G2_MODE` and `CASCADE_G3_MODE`, each `warn` when unset. It SHALL check out no PR code. The concurrency group SHALL be per PR number, cancelling an older run. Neither `cascade/freshness` nor `cascade/settled` SHALL become a required check in this change. Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 12; Phase 3 wiring contract §8.3.
+The library SHALL have a workflow `.github/workflows/cascade-gates.yml` that runs on `pull_request_target` (`opened`, `reopened`, `synchronize`), declares `permissions: {}` at the top, grants the calling job only `statuses: write` and `actions: write`, and calls the org's shared `cascade-gates.yml` at `@main` with the modes from the repo variables `CASCADE_G2_MODE` and `CASCADE_G3_MODE`, each `warn` when unset. It SHALL check out no PR code. The concurrency group SHALL be per PR number, cancelling an older run. Neither `cascade/freshness` nor `cascade/settled` SHALL become a required check in this change. For a PR opened by Dependabot, whether the statuses can be posted is subject to the `.github` sandbox result E7 (a `pull_request_target` run for Dependabot may get a read-only token); until E7 is recorded this requirement does not promise the statuses on Dependabot PRs. Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 12; Phase 3 wiring contract §8.3.
 
 #### Scenario: An ordinary PR
 
