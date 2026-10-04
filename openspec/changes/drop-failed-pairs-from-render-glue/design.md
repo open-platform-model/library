@@ -35,12 +35,15 @@ an error, not for a non-concrete output.
 - The two candidate rungs are evaluated only for candidates. Every verdict, and the order of every
   verdict list, stays as it is.
 - The memory and CPU effect is measured before and after with the same harness and recorded here.
+- The operator memory measurement the walkthrough asked for ("before and after j2, nil-out, shared
+  limit and g4") is recorded here too, as memprobe's operator columns against the wave-1 baseline
+  (see "Operator memory package").
 
 **Non-Goals:**
 
 - No change to the public `opm/` surface.
-- No operator-side memory work (shared render semaphore, `GOMEMLIMIT`), and no kind-cluster
-  operator measurement. See "Measurements".
+- No operator-side code change (shared render semaphore, `GOMEMLIMIT`). Those belong to the
+  operator memory package, which is sized against the numbers recorded here.
 - No other edit to `decodeRendered` or `render.go`. The changes queued behind this one rebase.
 
 ## Decisions
@@ -74,7 +77,10 @@ missing output is not listed, because today's glue lists only pairs whose output
 
 `decodeRendered` collects the same list as it walks the pairs, so it needs no second pass. The
 pair-failure branch of `Render` fills `diag.FailedPairs` from that list. The gate-refusal branch
-calls the helper before it builds the `RenderError`. `decodeRendered` drops the `failed` map and
+calls the helper before it builds the `RenderError`. It reads `rendered` through the same
+`LookupPath(pathRendered)` lookup `decodeRendered` uses. If `rendered` is absent there, the helper
+leaves `FailedPairs` empty: the gate error already refuses the render, and an absent `rendered` is
+a build defect that `decodeRendered` reports on the paths where it runs. `decodeRendered` drops the `failed` map and
 the fallback cause `"transformer output is an error"`, which only that map could reach. The
 `glueDiagnostics.FailedPairs` field and the `FailedPairs: pairsOf(g.FailedPairs)` line go too.
 `decodeRenderDiagnostics` leaves `FailedPairs` as a non-nil empty slice, as `pairsOf` does today.
@@ -88,7 +94,7 @@ evaluates each pair's output once after this change. Today it evaluates each one
 ### D2. `Err()` is the same test as the glue's `== _|_`
 
 The glue listed a pair when its output was bottom; the helper lists it when `Err()` is non-nil.
-They agree on the three output shapes that matter:
+They agree on the three output shapes the fixtures exercise, and a fourth needs a note:
 
 - **Error at the top of the output.** Both report it.
 - **Error nested inside the output.** core declares `#transform: output: {...} | [...{...}]`
@@ -103,7 +109,19 @@ They agree on the three output shapes that matter:
 - **Incomplete output.** Neither reports it. `TestRender_IncompletePairRefusesNamingPair` already
   asserts an empty `FailedPairs` and a `not concrete` cause from the concreteness check
   (`render_test.go:444-447`). That cause is only reachable when `Err()` is nil, so the test also
-  pins the `Err()` side.
+  pins the `Err()` side. This is an output whose root is a struct and whose defect is only
+  non-concrete fields inside it.
+- **Output whose root is incomplete.** The output itself cannot be resolved to a struct or a list,
+  for example `[if x {{a: 1}}][0]` with `x: bool`. Probed with cuelang.org/go v0.17.1 against
+  `#T: output: {...} | [...{...}]`: `Err()` returns `incomplete bool: bool`, so the helper lists the
+  pair. A top-level `== _|_` guard in the same probe also read true, so the two agree there. That
+  probe is not the glue: in the same probe `== _|_` also read true for a nested-incomplete struct,
+  which the real glue does not list (the `incomplete` scenario). So `== _|_` on an incomplete
+  value depends on how the evaluator reaches it, and no fixture produces a root-incomplete output.
+  The spec therefore defines the list by `Err()` and names this shape as listed. The
+  `TransformError` cause for it is unchanged either way, because `decodeRendered` already checked
+  `Err()` first at base. Only the `FailedPairs` entry for this unexercised shape rests on the
+  `Err()` definition.
 
 Section 1 pins the nested case in a test before the glue changes. The existing failed-pair test
 also asserts that the cause is the pair's own CUE error naming the output path. If a later core
@@ -156,7 +174,17 @@ whole non-short suite therefore runs with `OPM_FLOW_TEST_FORCE=1`, so that `Test
 flow tests fail rather than skip. As a further check that is not committed, a throwaway test
 dumps the decoded `RenderDiagnostics` (every field) and `Compiled` provenance as JSON for every
 render scenario and platform pairing the render tests use. It runs at base and again after
-sections 2 and 3, and the dumps must be byte-identical. The dumps live in the scratchpad.
+sections 2 and 3, and the dumps must be byte-identical. The dumps and the test source live in the
+scratchpad, next to the memprobe copy. "Verification" records the dump's scenario list and its
+sha256 at base, after section 2 and after section 3, so the claim can be checked after the test is
+deleted.
+
+The two evaluation rules in the spec (each pair is unified once, and the rungs cover candidates
+only) leave every decoded verdict unchanged, so the dump cannot catch a regression in them. A
+committed test on the built value guards them instead (`opm/kernel/render_glue_shape_test.go`,
+through `RenderForTest`): `diagnostics` carries no `failedPairs` field, and for a component on a
+platform with non-candidate transformers, the keys of the hidden `_unify` and `_pred` fields equal
+the keys of `_candidates` (looked up with `cue.Hid` in the render package).
 
 ## Research & Decisions
 
@@ -187,7 +215,10 @@ the operator's render path in one process. It does not exercise the operator's `
 (`config/manager/manager.yaml`) or its controller slots. The `r2` cases model the worst case of two
 controllers rendering at once with no shared limit. The pins are memprobe's: the platform carries
 k8s 1.0.0-beta.1 and opm 4.4.4, and core resolves to v2.0.0-beta.2. The cert_manager fixture is a
-snapshot of `modules/cert_manager`; k8up and web_app are the `modules/` checkouts.
+snapshot of `modules/cert_manager`. k8up and web_app were measured before from the `modules/`
+checkout at commit `09cff2b`, where both directories last changed in `d4d2e09`. Copies of both were
+taken into the scratchpad memprobe's `fixtures/` before any code edit, and the after run uses
+those copies, so a later move of the `modules/` checkout cannot shift the comparison.
 
 Each cell is the median of 5 runs, one process per run, with `GOGC` and `GOMEMLIMIT` unset. Heap
 and RSS are in MiB, CPU in seconds. CPU and heap are quoted rather than wall time, because the host
@@ -229,6 +260,46 @@ RSS columns varied by less than 5%.
 ### After
 
 Filled in by tasks.md 4.1, at the change's head, with the same harness, cases and knobs.
+
+### Operator memory package
+
+The walkthrough's operator measurement ("before and after j2, nil-out, shared limit and g4"), as
+memprobe's operator columns on cert_manager, all seven cases, 5 runs each, medians in MiB. memprobe
+models the nil-out (`*-nil` cases against `*-hold`) and the shared limit (`r1` against `r2`: one
+render slot against two) itself, so those two are read across rows rather than across columns.
+
+- **Wave-1 baseline**: `memprobe/results/baseline-20261003T140923`, library `507379a` (before j2;
+  the probe then pinned core v2.0.0-beta.1).
+- **Before g4**: this change's base, j2 merged (core's pins moved out of the schema module, which is
+  what `core_retained` measures). Run 2026-10-04 at `eb1e1fa` (the planning commit, no code edit),
+  `results/before-full-cert_manager-20261004T231756`.
+- **After g4**: this change's head (tasks.md 4.1).
+
+| Metric | Case | Wave-1 baseline (`507379a`) | Before g4 | After g4 |
+| --- | --- | --- | --- | --- |
+| `core_retained` | core | 71.8 | 2.5 | |
+| `idle_retained` | r1-nil | 165.2 | 95.9 | |
+| `apply_retained_over_idle` | r1-hold | 1570.6 | 1570.6 | |
+| `apply_retained_over_idle` | r1-nil | 1.6 | 1.6 | |
+| `apply_retained_over_idle` | r2-hold | 3141.1 | 3141.1 | |
+| `render_peak_heap` | r1-hold | 1896.1 | 1834.9 | |
+| `render_peak_heap` | r1-nil | 1898.8 | 1820.4 | |
+| `render_peak_heap` | r2-hold | 3708.4 | 3471.1 | |
+| `render_peak_heap` | r2-nil | 3711.3 | 3418.1 | |
+| `vmhwm` | core | 105.0 | 25.0 | |
+| `vmhwm` | r1-hold | 2054.8 | 1992.0 | |
+| `vmhwm` | r1-nil | 2055.4 | 1974.3 | |
+| `vmhwm` | r2-hold | 3999.3 | 3790.3 | |
+| `vmhwm` | r2-nil | 3995.8 | 3767.8 | |
+| `stagger_vmhwm` | stag-hold | 3750.2 | 3657.6 | |
+| `stagger_vmhwm` | stag-nil | 2021.8 | 1951.2 | |
+
+j2 cut the idle footprint (`core_retained` 71.8 to 2.5, `idle_retained` 165.2 to 95.9) and left the
+render peak almost where it was. The nil-out already drops what a held result retains through apply
+(`apply_retained_over_idle` 1570.6 held against 1.6 dropped). The render peak itself is what g4
+targets. This run's `user_s` is not quoted: the host's load average was above 50 on 16 CPUs while it
+ran, and its `r1-nil` `user_s` read 18.2 s against 9.8 s in the planning run of the same code. The
+heap and RSS columns agree with the planning run within 2%.
 
 ## Risks / Trade-offs
 

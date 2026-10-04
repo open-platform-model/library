@@ -30,7 +30,8 @@ multi-component and a cert-manager-sized module, then drop `failedPairs` from th
 `FailedPairs` in Go, on the gate-refusal path too, and key the matching rungs on candidates. The
 parity harness must keep the verdicts identical. It lands before any other change to
 `decodeRendered` or `render.go`. The same walkthrough asked for an operator memory measurement before
-and after this fix; the measure section records it.
+and after this fix ("before and after j2, nil-out, shared limit and g4"). design.md records
+memprobe's operator columns for the wave-1 baseline, this change's base and its head.
 
 ## What Changes
 
@@ -49,6 +50,8 @@ and after this fix; the measure section records it.
 - Tests: a gate refusal beside a failing pair reports the failing pair; the existing failed-pair
   test asserts that the cause is the pair's own CUE error, which pins that `Err()` sees a bottom
   nested inside the output. Every existing `FailedPairs` assertion stays as it is.
+  A test on the built render value pins the two evaluation rules: `diagnostics` carries no
+  `failedPairs` field, and a component's rung entries cover exactly its candidates.
 - `docs/site/diagnostics/transform-failed.md`: its maintainer comment drops the fallback cause from
   the list of causes. No reader-visible text changes.
 
