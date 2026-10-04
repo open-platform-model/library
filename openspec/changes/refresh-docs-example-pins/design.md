@@ -127,7 +127,7 @@ The assert dies in the same spirit as C1's exactly-one-line check (`:227-231`). 
 - **S4** (network, already moves core):
   - Before `set_older`, add one prose line to `AGENTS.md` naming `opmodel.dev/core@v1.0.0` and `opmodel.dev/core@v2.0.0-alpha.12`.
   - Also append an anchored `    Module: "opmodel.dev/core@v1.0.0",` line, and freeze `docs/getting-started.md` for `opmodel.dev/core@v2`.
-  - Expect `AGENTS.md` equal to that setup copy (the example back at the current core), `docs/getting-started.md` byte-unchanged after `set_older`, and warnings for both prose releases, the v1 example and the frozen file's older example.
+  - Expect `AGENTS.md` equal to that setup copy (the example back at the current core), `docs/getting-started.md` byte-unchanged after `set_older`, and warnings for both prose releases (a warning names `opmodel.dev/core@v1.0.0` in `AGENTS.md`; C4 dedupes versions per file, so the `cmp` against the setup copy is what proves the v1 example survives) and the frozen file's older example.
   - This proves "Another major is left alone", "A release named in prose is left alone" and the frozen-docs rule. `set_example` rewrites only the target version's major, so the v1 line survives the setup.
 - **S11 (offline, new)**:
   - Set the `docs/getting-started.md` example to an older same-major core, then run `setup_commit` and run the task with the stub answering core as current.
@@ -145,4 +145,4 @@ The network workflow's path filter gains `docs/getting-started.md` and `AGENTS.m
 
 ## Migration Plan
 
-None. The next core cascade run uses the new C4. A rollback is a revert of the one commit. The examples then stay at beta.2 and warn again on the next core move.
+None. The next core cascade run uses the new C4. A rollback is a revert of the squash commit. The examples then stay at beta.2 and warn again on the next core move.
