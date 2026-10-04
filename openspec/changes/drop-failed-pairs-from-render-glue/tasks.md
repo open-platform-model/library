@@ -35,11 +35,11 @@ that `git status` then shows only the throwaway dump test as untracked before co
 
 ## 3. render: evaluate the matching rungs for candidates only
 
-- [ ] 3.1 `render.cue.tmpl`: build `_unify` and `_pred` with `for tfqn, _ in _candidates let tf = #transformers[tfqn]`. Update their comments (`:173-175`, `:194-196`) to say they cover the candidates only.
-- [ ] 3.2 Rewrite `unifyFailures` to iterate `#transformers`, filtered on `v._candidates[tfqn]` and on `!v._unify[tfqn].ok`. That keeps today's row order (design D3). Update its comment.
-- [ ] 3.3 Re-run the 1.2 dump: it is byte-identical to the base dump. Record its sha256 in design.md "Verification".
-- [ ] 3.4 In `render_glue_shape_test.go`, assert that for a component on a platform with non-candidate transformers, the keys of the hidden `_unify` and `_pred` fields under `match.verdicts.<component>` equal the keys of `_candidates`, and that a non-candidate transformer exists on that platform (design D4).
-- [ ] 3.5 `task fmt`, `task vet`, `task lint` and `task test` green, then commit `perf(render): evaluate the matching rungs for candidates only`.
+- [x] 3.1 `render.cue.tmpl`: build `_unify` and `_pred` with `for tfqn, _ in _candidates let tf = #transformers[tfqn]`. Update their comments (`:173-175`, `:194-196`) to say they cover the candidates only.
+- [x] 3.2 Rewrite `unifyFailures` to iterate `#transformers`, filtered on `v._candidates[tfqn]` and on `!v._unify[tfqn].ok`. That keeps today's row order (design D3). Update its comment.
+- [x] 3.3 Re-run the 1.2 dump: it is byte-identical to the base dump. Record its sha256 in design.md "Verification".
+- [x] 3.4 In `render_glue_shape_test.go`, assert that for a component on a platform with non-candidate transformers, the keys of the hidden `_unify` and `_pred` fields under `match.verdicts.<component>` equal the keys of `_candidates`, and that a non-candidate transformer exists on that platform (design D4).
+- [x] 3.5 `task fmt`, `task vet`, `task lint` and `task test` green, then commit `perf(render): evaluate the matching rungs for candidates only`.
 
 ## 4. Measure after and run the full suite
 

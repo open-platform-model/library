@@ -332,6 +332,10 @@ The checksum is the sha256 of the files concatenated in byte order of their name
 | --- | --- |
 | base (library code of `58f8151`, section 1 scenario added), run twice | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f` |
 | after section 2 (`failedPairs` out of the glue, filled in Go) | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f`, byte-identical (`diff -r` clean) |
+| after section 3 (rungs keyed on candidates) | `7ef0085ca1cdec2d546976be78e27b4e2cf7bc45a5c5daba4b7e448584069b7f`, byte-identical (`diff -r` clean) |
+
+The dump's own run time, 485 renders in one `go test` process on the same shared host, fell from
+72-85 s at base to 28.5 s after section 3. That is a side reading, not a measurement.
 
 ## Risks / Trade-offs
 
