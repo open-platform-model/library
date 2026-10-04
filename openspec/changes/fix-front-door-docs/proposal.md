@@ -16,9 +16,9 @@ The owner decided this in the kernel-plan walkthrough (task c2): a separate, sma
 
 - **Four kinds everywhere.** `README.md:7` and `:19` name all four artifact types, `Catalog` included.
 - **The schema is named by its module.** `README.md:27` drops "(v1alpha2)". The README table's schema column and the `AGENTS.md:163` header name `opmodel.dev/core@v2` instead of a version label.
-- **Pinned by default, bare major opt-in.** `README.md:97` and `AGENTS.md:351`, `:353` and `:361` say that the default loader pins an exact core release (`schema.DefaultSchemaModule`) and that a bare major (`opmodel.dev/core@v2`) is opt-in. An additive change within a major still needs no Go-side bump, and the files say how it reaches a render. The pinned-loader code example at `AGENTS.md:356` stays.
+- **Pinned by default, bare major opt-in.** `README.md:97` and `AGENTS.md:351`, `:353` and `:361` say that the default loader pins an exact core release (`schema.DefaultSchemaModule`) and that a bare major (`opmodel.dev/core@v2`) is opt-in. An additive change within a major still needs no Go API change, and the files say how it reaches a render: artifacts re-pin core in their own `cue.mod`, and `DefaultSchemaModule` moves separately in the cascade's `fix(deps)` PR. The pinned-loader code example at `AGENTS.md:356` stays.
 - **README layout.** The `core/` row goes; the `kernel/` row names `Compiled`, the terminal output.
-- **CONSTITUTION Principle III.** The `opm/kernel/` bullet lists the verbs as built (acquire, synthesize, validate, render). The `opm/module/` bullet says module and instance model. The pipeline block shows acquire or synthesize, the four artifacts, the one-build render and `[]*kernel.Compiled`.
+- **CONSTITUTION Principle III.** The `opm/kernel/` bullet lists the verbs as built (acquire, synthesize, validate, render). The `opm/module/` bullet says module and instance model. The pipeline block shows acquisition producing the four artifacts, synthesis producing an instance, and `Render` taking an instance and a platform through one CUE build to `[]*kernel.Compiled`; a `Catalog` is read and derived from, never rendered.
 - **README further reading.** "small batches" becomes "mergeable sections".
 - **Site page.** `docs/site/diagnostics/colliding-contracts.md:35` names `core/src/pins/platform_contracts_pins.cue`.
 
@@ -26,9 +26,9 @@ The owner decided this in the kernel-plan walkthrough (task c2): a separate, sma
 
 - The `opm/k8s/` "planned" lines (`README.md:118`, `AGENTS.md:134`, `CONSTITUTION.md:70`). The Kubernetes-tier change (wave-2 `lib-e2e5`) owns them, and this change lands before it.
 - The `AGENTS.md` "Release cascade task" paragraph (`:303`) and the `AGENTS.md` repository layout block (`:124-157`), which other wave-2 changes edit.
-- The intro sentence "loading, processing, validating, and rendering OPM `#Module`s" in `CONSTITUTION.md:7` and its normative copy in `openspec/config.yaml`, the frozen-enhancement pointers at `README.md:55`, `:127` and `:149`, and the `README.md:32` debugValues migration line (wave-2 `lib-i3d2` owns it).
+- The intro sentence "loading, processing, validating, and rendering OPM `#Module`s" in `CONSTITUTION.md:7` and its normative copy in `openspec/config.yaml`, and the "module/release semantics" step of normative Principle II at `openspec/config.yaml:31` (all routed to wave-2 `lib-c4`), the frozen-enhancement pointers at `README.md:55`, `:127` and `:149`, and the `README.md:32` debugValues migration line (wave-2 `lib-i3d2` owns it).
 - Godoc and the one-statement-per-fact pass (wave-2 `lib-c4`, which runs after this change).
-- The stale scenario "Default resolves within the v2 major" in the main spec `schema-dispatch`, which still describes a bare-major default. It is spec text, not a front-door file.
+- Two stale scenarios in the main spec `schema-dispatch` that still describe a bare-major default: "Schema resolved via module identifier" (default `"opmodel.dev/core@v2"`) and "Default resolves within the v2 major". They are spec text, not front-door files; wave-2 `lib-c4`, which owns the SHALL requirements in specs, fixes both (REMOVED plus ADDED under a new name, since a MODIFIED that drops a scenario is refused).
 
 ## Capabilities
 
@@ -38,9 +38,9 @@ None.
 
 ### Modified Capabilities
 
-- `artifact-types`: adds a requirement that the front-door files name the four artifact types wherever they list the accepted kinds, and name the schema by its core module instead of a version label.
-- `schema-dispatch`: adds a requirement that the front-door files describe the default core as an exact pin and the bare major as opt-in.
-- `kernel-runtime`: adds a requirement that the front-door files list the kernel's verbs and packages as built.
+- `artifact-types`: adds a requirement that, where the front-door files list the accepted kinds or label the schema, they name all four artifact types and name the schema by its core module instead of a version label.
+- `schema-dispatch`: adds a requirement that, where the front-door files say which core the default loader uses, they describe it as an exact pin with the bare major opt-in, or link to this spec.
+- `kernel-runtime`: adds a requirement that, where the front-door files list the kernel's verbs and packages, they list them as built.
 
 ## Impact
 

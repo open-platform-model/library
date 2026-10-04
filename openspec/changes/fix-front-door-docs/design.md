@@ -36,18 +36,18 @@ This is a prose-only change to four files. The facts it writes were checked at l
 **Decision**: The replacement text says, in each spot:
 
 - The default loader pins an exact core release (`schema.DefaultSchemaModule`); a bare major (`opmodel.dev/core@v2`) is opt-in and resolves to the highest published release of that major.
-- An additive shape change within a major needs no Go-side bump. Artifacts take it up by re-pinning core in their own `cue.mod`, and the default moves only through a change that re-verifies the render glue (the release cascade).
+- An additive shape change within a major needs no Go API change. Artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule`, a Go const (`opm/schema/loader.go:43`), moves separately, in the cascade's `fix(deps)` PR, which re-verifies the render glue.
 
 Concretely:
 
-- `README.md:97`: "The two tracks are independent. The kernel's schema loader pins an exact core release by default (`schema.DefaultSchemaModule`), and a bare major (`opmodel.dev/core@v2`) is opt-in; acquisition and `Render` resolve core through each artifact's own `cue.mod`. An additive shape change within an OPM schema major therefore needs no Go-side bump: artifacts take it up by re-pinning core, and the default moves only through a change that re-verifies the render glue. A shape break in the schema is itself a coordinated library-breaking event."
+- `README.md:97`: "The two tracks are independent. The kernel's schema loader pins an exact core release by default (`schema.DefaultSchemaModule`), and a bare major (`opmodel.dev/core@v2`) is opt-in; acquisition and `Render` resolve core through each artifact's own `cue.mod`. An additive shape change within an OPM schema major therefore needs no Go API change: artifacts take it up by re-pinning core, and `DefaultSchemaModule` moves separately, in the release cascade's `fix(deps)` PR, which re-verifies the render glue. A shape break in the schema is itself a coordinated library-breaking event."
 - `AGENTS.md:351`: the second sentence becomes "The default loader pins an exact release, `opmodel.dev/core@v2.X.Y[-pre]` (`schema.DefaultSchemaModule`); the bare major `opmodel.dev/core@v2` is opt-in and resolves to the highest published release of that major."
-- `AGENTS.md:353`: "A consumer that needs another release, or the bare major, passes its own loader:" introduces the unchanged example at `:356`.
-- `AGENTS.md:361`: the last sentence becomes "Within a major, an additive schema change needs no Go change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` follows through the release cascade, which re-verifies the glue."
+- `AGENTS.md:353`: "A consumer that wants its own pin, or the bare major, passes its own loader, for example:" introduces the unchanged example at `:356` (the example's release equals the default, which the cascade keeps in step).
+- `AGENTS.md:361`: the last sentence becomes "Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the default for synthesized instances) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue."
 
 The word "floating" stays only where it describes the opt-in bare major (the godoc and specs already use it that way); after this change neither `README.md` nor `AGENTS.md` uses it.
 
-**Rationale**: "Absorbed transparently" was true only of a bare-major default. The new text keeps the true half (no Go bump for an additive change) and names the real path. The new wording names no release literal, so the cascade's prose warning (main spec `deps-cascade`) stays quiet.
+**Rationale**: "Absorbed transparently" was true only of a bare-major default. The new text keeps the true half (no Go API change for an additive change) and names the real path, including that the Go const itself moves in a release-class `fix(deps)` commit (`.tasks/cascade/test.sh`, `AGENTS.md` deps releases). The new wording names no release literal, so the cascade's prose warning (main spec `deps-cascade`) stays quiet.
 
 ### D3. The layout drops `core/`; `Compiled` is named on the `kernel/` row
 
@@ -72,16 +72,20 @@ The word "floating" stays only where it describes the opt-in bare major (the god
 - `:78-80`:
 
   ```text
-  acquire | synthesize -> Module | ModuleInstance | Platform | Catalog -> render (one CUE build) -> []*kernel.Compiled
+  acquire -> Module | ModuleInstance | Platform | Catalog
+  SynthesizeInstance(Module, values) -> ModuleInstance
+  Render(ModuleInstance, Platform) -> one CUE build -> []*kernel.Compiled
   ```
 
-**Rationale**: The pipeline block illustrates the package boundaries of Principle III, so it names the stages and artifacts at the same grain as the old one, no deeper. The `opm/k8s/` bullet at `:70` is untouched (proposal, "Not in this change").
+  A `Catalog` is read and derived from, never rendered (ADR-009); `Render` takes only an instance and a platform (`RenderInput{Instance, Platform}`, `opm/kernel/render.go`).
+
+**Rationale**: The pipeline block illustrates the package boundaries of Principle III, so it names the stages and artifacts at the same grain as the old one, no deeper, and sends into `Render` only what `Render` takes. The `opm/k8s/` bullet at `:70` is untouched (proposal, "Not in this change").
 
 ### D5. Section cut
 
-Three content sections and one verification section. Section 1 holds the README and AGENTS artifact-kind fixes (D1, README:7 and :19), section 2 the pinning wording (D2), section 3 the package map, the constitution, the further-reading line and the site page (D3, D4, w1-05). Each ends in one `docs:` commit and leaves `main` releasable, since no code changes.
+Three content sections and one closing section (verify, then the archive that rides the PR). Section 1 holds the README and AGENTS artifact-kind fixes (D1, README:7 and :19), section 2 the pinning wording (D2), section 3 the package map, the constitution, the further-reading line and the site page (D3, D4, w1-05). Each ends in one `docs:` commit and leaves `main` releasable, since no code changes.
 
-The gate for each section is the docs bundle check (`task docs:bundle:check`, which builds and lints the `docs/site` pages) and `openspec validate fix-front-door-docs --strict`. `task fmt`, `vet`, `lint` and `test` cover Go only and cannot change, so they run once, in section 4, through `task check` with a private `TMPDIR`.
+The gate for each section is `TMPDIR=$(mktemp -d) task check` on the whole tree (it includes `task docs:bundle:check`, which builds and lints the `docs/site` pages) and `openspec validate fix-front-door-docs --strict`, per the repo rule that every section's commit task carries the validation gates.
 
 ## Risks / Trade-offs
 
