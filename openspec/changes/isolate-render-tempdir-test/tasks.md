@@ -19,9 +19,8 @@ grep -c '^--- FAIL' "$T"/p*.log
 - [x] 1.4 Run the concurrent check again with the same or a higher `-test.count`, and keep a noise process running in the shared root for the whole run: `while :; do d=$(mktemp -d "$T/opm-render-XXXXXX"); rmdir "$d"; done &` (kill it after `wait`). Without the noise the re-run cannot fail, because after the fix nothing writes `opm-render-*` into `$T`. It must show 0 failures in every process. As a control, the same noise against `B0` must still fail. Record the result in design.md under "Verification", stating that the noise was running. If any test fails on a foreign `opm-render-*` directory, stop and report it to the supervisor: design D4's fallback (a `Kernel` staging-dir option) is an API decision for the owner.
 - [x] 1.5 `task check` green, then commit `test(kernel): list render staging dirs under a test-private temp root`.
 
-## 2. Verify, archive and open the PR
+## 2. Verify and archive
 
 - [ ] 2.1 Run `openspec verify` for `isolate-render-tempdir-test` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
 - [ ] 2.2 Run `openspec archive isolate-render-tempdir-test --yes`. Verify: the main `single-build-render` spec carries the new requirement, the change sits under `openspec/changes/archive/`, and `openspec validate --specs --strict` passes.
 - [ ] 2.3 Gates green, then commit `chore(openspec): archive isolate-render-tempdir-test` (the archive rides the implementing PR).
-- [ ] 2.4 Open the PR for the supervisor to review.

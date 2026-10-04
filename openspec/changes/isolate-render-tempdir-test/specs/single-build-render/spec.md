@@ -13,8 +13,3 @@ A test that asserts on the render staging directories `Kernel.Render` creates SH
 
 - **WHEN** a change to `Kernel.Render` leaves a staging directory behind after a successful render or a refusal
 - **THEN** the test covering that path fails, naming the leftover directory under its private root
-
-#### Scenario: The helper cannot list the shared temp dir
-
-- **WHEN** a developer reads the staging-directory test helper in `opm/kernel`
-- **THEN** it lists a directory the caller passes in, and no helper globs `os.TempDir()` for `opm-render-*`

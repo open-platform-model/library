@@ -27,6 +27,7 @@ listing of that shared directory sees the staging directories of every concurren
 
 `render_core_floor_test.go:32-33,50` already uses the safe pattern: set `TMPDIR` to `t.TempDir()`,
 keep the path, and glob that path rather than `os.TempDir()`.
+Once the helper exists, that test calls it too, so the pattern lives in one place.
 
 ## Goals / Non-Goals
 
@@ -45,7 +46,11 @@ keep the path, and glob that path rather than `os.TempDir()`.
 
 The requirement lands in `single-build-render`, which already owns the staging-removal claim the
 three tests check, not in `test-fixture-registry`, whose purpose is the in-process fixture
-registry harness.
+registry harness. This is a deliberate exception to the spec rule in `openspec/config.yaml`
+("Focus: WHAT behavior", "Describe observable behavior"): the requirement states how the tests
+that guard the staging-removal claim must observe it, because that claim is only checkable by
+such a test. Its scenarios state outcomes (no foreign failure, a leak still fails); none states
+the shape of the helper.
 
 ## Decisions
 
@@ -171,7 +176,7 @@ times. "Noise" is a fourth process looping
 
 | Binary | Count | Noise | p1 | p2 | p3 |
 | --- | --- | --- | --- | --- | --- |
-| `B0` (base `42f094b`, unchanged tests) | 40 | no | 1 | 2 | 3 |
+| `B0` (base `553b855`, built at docs-only `42f094b`, unchanged tests) | 40 | no | 1 | 2 | 3 |
 | `B0` | 40 | yes | 56 | 58 | 58 |
 | `B1` (this change) | 80 | yes | 0 | 0 | 0 |
 | `B0` (control, same session as `B1`) | 80 | yes | 103 | 113 | 112 |
