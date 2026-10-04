@@ -95,6 +95,7 @@ What the Phase 3 dry run shows depends on the upstreams at that time; it matches
 
 - **`release.yml` env allow-list.** The workflow-level `env` reaches every step of `notify-downstream`, the action's bash steps included. The contract's deny-list (`BASH_ENV`, `ENV`, `NODE_OPTIONS`) misses other variables that run code in bash, such as `SHELLOPTS` or `PS4`. So the script reads `release.yml`'s `env` and refuses any key not in `ENV_ALLOW`, which is empty for the library (it has no workflow-level `env`). It also requires the `env` to be absent or a plain map, so an expression cannot hide its keys from the check.
 - **`runs-on: ubuntu-latest`** on `notify-downstream` and `publish`, so a key-holding job cannot move to a self-hosted or other runner by mistake.
+- **Variant spellings** (implementation review of `fece884`, finding 1). GitHub matches Environment and secret names without regard to case, so the reader and Environment scans are case-insensitive: a key reader is any string matching `(?i)secrets(\.|\[\s*.)cascade_app_private_key|tojson\(\s*secrets\s*\)`, and a job declares the cascade Environment when its `environment` (string or map, as YAML text) matches `(?i)cascade|\$\{\{`, so an expression counts too. This is stricter than the contract §10.1 item 6 text, which matches only the exact spellings; the amendment is with the supervisor for all five repos.
 
 It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as the step "Verify the cascade wiring" of the required `Go tests` job, right after "Install Task", using the runner's mikefarah `yq`. It is not a new job or context. The script lives in the PR's own tree, so a PR can edit it together with the workflows: it guards against mistakes, and review plus the `main` ruleset guard against a deliberate edit. actionlint does not check a composite action's inputs, so this check is the one for `cascade-notify`'s and `cascade-publish`'s `with:` keys.
 
@@ -147,13 +148,15 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 **Context**: the check is the only guard on the key-holding jobs after merge, and actionlint does not check a composite action's inputs (D5).
 **Explored**: on 2026-10-04, with mikefarah `yq` v4.53.3, a harness (supervisor scratchpad `pj-library-mut.sh`, log `pj-library-mut.log`) copied the branch's `.github/` and the script into a fresh scratch tree per case, applied one mutation with `yq -i` or `sed`, and ran the script.
 **Decision**: the script as committed.
-**Rationale**: 42 of 42 cases behave as expected.
+**Rationale**: 48 of 48 cases behave as expected (log `pj-library-mut2.log`, after the review fix).
 
 - Pass (exit 0): the branch as it is (`cascade wiring: ok, .github 2376ffae4bfc665f327d51581350dea694c01504 (.github main)`); an extra header comment in `deps-cascade.yml`; a comment above a `with:` value.
 - Refused, the 13 wiring 3.1 mutations: a changed `publish` `if:`, an extra `publish` step, notify `contents: write`, `secrets: inherit` on the receive call, the key read by another job, a second SHA, `@main`, `ref: main` on the resolver, a branch comment, `environment` dropped from `publish`, `environment: cascade` on another job, a literal `dry-run: false`, a changed concurrency group.
 - Refused, the 11 wiring 3.1.1 mutations: `env: {BASH_ENV: repo/x.sh}` on `publish`, a workflow-level `env:` and a `defaults:` in `deps-cascade.yml`, `container:` on `notify-downstream`, `services:` on `publish`, a step-level `env:` on the notify step, an `if:` on the publish step, an extra `with:` key on the publish step, and `BASH_ENV`, `ENV` or `NODE_OPTIONS` in `release.yml`'s workflow `env`.
 - Refused, the addendum: `SHELLOPTS`, `PS4` and `CUE_VERSION` in `release.yml`'s workflow `env` (the library allows no key), `release.yml`'s `env` as an expression string (refused by the type check), `runs-on: self-hosted` on `notify-downstream`, `runs-on: ubuntu-24.04` on `publish`, and `runs-on` as the list `[ubuntu-latest]`.
 - Refused, eight more: the notify job removed, `environment: {name: cascade}` on another job, `publish` permissions widened to `contents: write`, `secrets:` on the gates call, `private-key` from another secret, the notify step naming `cascade-publish`, the resolver `ref:` deleted, and a 7-character SHA in every reference.
+- Refused, the six variant spellings of the implementation review (finding 1): `environment: Cascade`, `environment: {name: CASCADE}` and `environment: ${{ format("cas{0}","cade") }}` on another job; the key read in another job as `secrets["CASCADE_APP_PRIVATE_KEY"]`, `secrets.cascade_app_private_key` and `toJSON( secrets )`. Before the fix the first, third and fourth printed `ok`.
+- Not asserted (review nit 6, optional contract amendment): the notify job's `if:`, `needs:` and `tag:` values; `if: always()`, `needs: []` and `tag: v9.9.9` still print `ok`. The script stays the shared contract text there.
 
 ### Re-grep
 
@@ -172,8 +175,8 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 
 - **[A gates-only run per release-PR update]** → each push release-please makes to its PR (about one per releasable merge to `main`) starts one gates-only `Deps cascade` run, which runs the task at the release head with network and a cold CUE cache. Mitigation: it is not a required check, it runs in its own concurrency group (`deps-cascade-gates`), and a failure posts `WARN:` in `warn` mode.
 - **[The wiring check is in the PR's own tree]** → a PR can weaken the check together with the workflows. Mitigation: it is meant to catch mistakes; review and the `main` ruleset (PR required, owner bypass pull-request-only) catch a deliberate edit (D5).
-- **[Receiver CUE version is not tied to the library's]** → after a library CUE bump, the receiver still runs the reusable default. Mitigation: the comment in `deps-cascade.yml` (D2); the question is with the supervisor.
-- **[`False` counts as `false`]** → a mistyped `False` makes the receiver live. Mitigation: Phase 4 sets the value deliberately; the question of saying so in the contract is with the supervisor (D2).
+- **[Receiver CUE version is not tied to the library's]** → after a library CUE bump, the receiver still runs the reusable default. Mitigation: the comment in `deps-cascade.yml` (D2) and the CUE-bump checklist in `AGENTS.md`.
+- **[`False` counts as `false`]** → a mistyped `False` makes the receiver live. Mitigation: Phase 4 sets the value deliberately; the branch's text says the comparison ignores case, and the contract amendment is with the supervisor (D2).
 - **[A `.github` change to `cascade-publish` first runs live in one repo]** → the canary rule (D6) confines it; the offline suites in `.github` are the only evidence before that.
 - **[Schedule disabled after 60 days without repo activity]** → the library is active; `gh workflow enable` restores it.
 - **[Workflow edits on `main` under `WF_GUARD_RULE=tree`]** → a workflow change on `main` while a bot-only cascade PR is open is handled by `cascade-publish` (wiring §7.6). In dry run there is no cascade PR.
@@ -188,10 +191,11 @@ It runs as `task cascade:wiring:check`, in the aggregate `task check`, and as th
 
 ## Open Questions
 
-For the supervisor (none blocks this branch; each keeps the contract text as it is):
+None left on the branch. The implementation review of `fece884` settled the two earlier ones:
 
-- **CUE version of the receiver** (D2; implementation review finding 2): pass `cue-version: v0.17.1` in the library's `deps-cascade.yml` so it moves with `cue.yml`, which wiring §5.1 allows but the §5.2 block does not show, or keep the reusable default and add the receiver to the CUE-bump checklist.
-- **"Exactly `false`"** (D2; implementation review finding 1): wiring §5, §9.1 and §14, the `.github` README and `RELEASING.md` "Stop switches" say the receiver is live only when `CASCADE_DRY_RUN` is exactly `false`, but GitHub compares the string case-insensitively, so `False` goes live as well. Either amend that text to "is `false` (compared case-insensitively)", or check the variable's case in the shared action.
+- **CUE version of the receiver** (D2): keep the reusable default. §5.2 is byte for byte for the library and has no `cue-version` line, so passing one would break it. The default (`v0.17.1` at the pinned SHA) is the third item of the CUE-bump checklist in `AGENTS.md` "CUE toolchain pin", beside `cue.yml` and `cascade-task.yml`. Amending §5.1's "may pass" to apply only where §5.2 shows it is with the supervisor.
+- **"Exactly `false`"** (D2): the branch already says "compared case-insensitively". Amending the contract, the `.github` README, `RELEASING.md` and the other four branches to "`false` in any letter case" is with the supervisor; the expressions stay byte for byte.
+- **Pre-merge check item 1**: the branch has no `ci: pin the cascade to .github main` commit, because it pinned the `main` SHA directly once A had merged (D6). The supervisor waives the commit-name half in the PR body; the SHA half holds. No empty commit is added.
 
 ## Plan review
 

@@ -74,6 +74,10 @@ fi
 
 # Only the caller-owned jobs above read the key or declare the cascade
 # Environment, and no call into .github passes secrets (inherit included).
+# GitHub matches secret and Environment names without regard to case, so the
+# key match is case-insensitive and also catches secrets['...'] and
+# toJSON(secrets); an environment (string or map) that mentions cascade in any
+# case, or is an expression, counts as declaring the cascade Environment.
 want_key="release.yml:jobs.notify-downstream.steps.0.with.private-key"
 want_env="release.yml:notify-downstream"
 if [ "$RECEIVER" = true ]; then
@@ -84,8 +88,8 @@ got_key="" got_env="" got_sec=""
 for f in "$W"/*.yml "$W"/*.yaml; do
   [ -e "$f" ] || continue
   b=${f##*/}
-  got_key+=$(yq -r '.. | select(tag == "!!str" and test("secrets\.CASCADE_APP_PRIVATE_KEY")) | path | join(".")' "$f" | sed "s|^|$b:|")$'\n'
-  got_env+=$(yq -r '.jobs // {} | to_entries[] | select(.value.environment == "cascade" or .value.environment.name == "cascade") | .key' "$f" | sed "s|^|$b:|")$'\n'
+  got_key+=$(yq -r '.. | select(tag == "!!str" and test("(?i)secrets(\\.|\\[\\s*.)cascade_app_private_key|tojson\\(\\s*secrets\\s*\\)")) | path | join(".")' "$f" | sed "s|^|$b:|")$'\n'
+  got_env+=$(yq -r '.jobs // {} | to_entries[] | select(.value.environment // "" | tostring | test("(?i)cascade|\\$\\{\\{")) | .key' "$f" | sed "s|^|$b:|")$'\n'
   got_sec+=$(yq -r '.jobs // {} | to_entries[] | select((.value.uses // "") | test("^open-platform-model/\\.github/")) | select(.value | has("secrets")) | .key' "$f" | sed "s|^|$b:|")$'\n'
 done
 eq "secrets.CASCADE_APP_PRIVATE_KEY readers" "$want_key" "$(printf '%s' "$got_key" | sed '/^$/d' | sort)"

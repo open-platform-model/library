@@ -38,6 +38,11 @@ The library SHALL have a workflow `.github/workflows/deps-cascade.yml` whose job
 - **WHEN** a PR adds `secrets: inherit` to the `cascade` job, or reads `secrets.CASCADE_APP_PRIVATE_KEY` in any other job
 - **THEN** the `Go tests` job fails at the step "Verify the cascade wiring"
 
+#### Scenario: Another job reaches the key through a variant spelling
+
+- **WHEN** a PR gives a job other than `notify-downstream` and `publish` an `environment` that names `cascade` in any letter case or is an expression, or reads the key as `secrets.cascade_app_private_key`, `secrets['CASCADE_APP_PRIVATE_KEY']` or `toJSON(secrets)`
+- **THEN** the `Go tests` job fails at the step "Verify the cascade wiring"
+
 ### Requirement: The receiver pushes nothing until CASCADE_DRY_RUN is false
 
 `deps-cascade.yml` SHALL pass `${{ inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false' }}` as `dry-run` to both the reusable workflow and the `cascade-publish` step, and the `publish` job's `if:` SHALL also require `inputs.dry_run != true`, `vars.CASCADE_DRY_RUN == 'false'` and `github.ref == 'refs/heads/main'`. So the receiver SHALL publish only when the repo variable `CASCADE_DRY_RUN` is `false` (GitHub compares expression strings without regard to case, so `False` or `FALSE` also counts) and the run was not started with `dry_run: true`, and the `cascade-publish` action SHALL mint nothing unless its `dry-run` input is `false`, so a mistyped `if:` cannot make a dry run publish. An unset, deleted or any other value SHALL mean a dry run. In a dry run the receiver computes the diff, title, body and labels and writes them to the job summary, and pushes nothing, opens or edits no PR, and adds no label or comment. The gate statuses SHALL still be posted in a dry run. Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract (version 3.1) §5 and §9.1.

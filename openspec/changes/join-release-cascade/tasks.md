@@ -56,9 +56,15 @@ Merge gates (not tasks): `gh api repos/open-platform-model/.github/compare/<SHA>
 - [x] 7.3 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
 - [x] 7.4 Gate green, then commit `docs(agents): describe the pinned cascade wiring`.
 
-## 8. Verify and archive
+## 8. Implementation review fixes (review of `fece884`)
 
-- [ ] 8.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
-- [ ] 8.2 Run `openspec archive join-release-cascade`, then write the `## Purpose` line of the new main spec `openspec/specs/cascade-wiring/spec.md` by hand. Run `openspec validate --all --strict`.
-- [ ] 8.3 Commit `chore(openspec): archive join-release-cascade`. The archive rides the implementing PR (owner decision 4).
+- [x] 8.1 In `.tasks/cascade/wiring-check.sh`, make the key-reader scan match `(?i)secrets(\.|\[\s*.)cascade_app_private_key|tojson\(\s*secrets\s*\)` and the Environment scan match any `environment` (string or map) whose text matches `(?i)cascade|\$\{\{`; add the six variant-spelling mutations to the harness and record them in design.md "Wiring check tests" (finding 1).
+- [x] 8.2 Add the reusable `cue-version` default to the CUE-bump checklist in `AGENTS.md` "CUE toolchain pin", beside `cue.yml` and `cascade-task.yml` (finding 4); record the settled open questions in design.md (findings 2 to 4).
+- [x] 8.3 Gate green (shellcheck, actionlint, `task cascade:wiring:check`, `openspec validate --all --strict`), then commit `ci(cascade): match variant spellings in the cascade wiring check`.
+
+## 9. Verify and archive
+
+- [ ] 9.1 Run `openspec verify` (the repo's `openspec-verify-change` skill) and fix every CRITICAL finding.
+- [ ] 9.2 Run `openspec archive join-release-cascade`, then write the `## Purpose` line of the new main spec `openspec/specs/cascade-wiring/spec.md` by hand. Run `openspec validate --all --strict`.
+- [ ] 9.3 Commit `chore(openspec): archive join-release-cascade`. The archive rides the implementing PR (owner decision 4).
 - After merge (PR-body items, not checkboxes; the supervisor, wiring §10): 8.4 `gh api repos/open-platform-model/.github/compare/<SHA>...main --jq .status` for the SHA on the library's `main` prints `identical` or `ahead`; `gh workflow run deps-cascade.yml -R open-platform-model/library -f dry_run=true` succeeds, `Publish` shows as skipped, the `Compute` log shows `scripts from open-platform-model/.github <SHA>`, and the summary matches a local `task -x deps:cascade` on `main` at that time (on 2026-10-04 a non-noop catalog move, which can also serve as the library's Phase 4 evidence, wiring §1, §15 item 5); 8.5 the next library PR shows `cascade/freshness` and `cascade/settled` as `n/a`, and the next `cascade-task.yml` run checks the resolver out at `<SHA>`; 8.6 the first live core-move PR carries `need-human-review`, checked by the supervisor (design.md D3); this is a check, not a Phase 4 gate.
