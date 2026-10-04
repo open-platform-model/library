@@ -29,9 +29,9 @@ Merge gates (not tasks): `.github` `add-release-cascade-workflows` is merged fir
 
 ## 4. Docs
 
-- [ ] 4.1 Extend the "Release cascade task" paragraph in `AGENTS.md` (`AGENTS.md:299-301`) with two sentences: `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and opens one rolling `deps/cascade` PR (a core move labelled `need-human-review`); it stays a dry run until `CASCADE_DRY_RUN` is exactly `false`, `CASCADE_NOTIFY=off` stops the release job's dispatch to opm-operator and cli, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set the `cascade/freshness` and `cascade/settled` statuses.
-- [ ] 4.2 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
-- [ ] 4.3 Gate green, then commit `docs(agents): describe the cascade receiver and notify job`.
+- [x] 4.1 Extend the "Release cascade task" paragraph in `AGENTS.md` (`AGENTS.md:299-301`) with two sentences: `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and opens one rolling `deps/cascade` PR (a core move labelled `need-human-review`); it stays a dry run until `CASCADE_DRY_RUN` is `false`, `CASCADE_NOTIFY=off` stops the release job's dispatch to opm-operator and cli, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set the `cascade/freshness` and `cascade/settled` statuses.
+- [x] 4.2 Run `openspec validate join-release-cascade --strict` and `openspec validate --all --strict`.
+- [x] 4.3 Gate green, then commit `docs(agents): describe the cascade receiver and notify job`.
 
 ## 5. Verify and archive
 
