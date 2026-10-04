@@ -34,6 +34,8 @@ layout that ran two `opm/kernel` processes on one runner would hit it too, but n
   only list a temp root it chose, and no future caller can glob the shared temp dir.
 - A test helper gives a test a private staging root: it sets `TMPDIR` to `t.TempDir()` for the
   test and returns that directory, the pattern `render_core_floor_test.go:32-33,50` already uses.
+- `TestRender_OlderCorePlatformRefusedBeforeStaging` (`render_core_floor_test.go`) swaps its
+  inline `TMPDIR` and glob for the two helpers; its assertion is unchanged.
 - The three callers use the helper. Because the root is fresh, each asserts that the root holds
   no `opm-render-*` directory after its renders or refusals, which is the same claim as before
   (nothing is left behind), without the `before` snapshot.
@@ -60,6 +62,8 @@ None.
   directories lists only a temp root private to that test, so concurrent test processes
   sharing `TMPDIR` cannot change its result. `single-build-render` already owns the claim
   those tests check ("The staging directory SHALL be removed when the render completes").
+  A requirement about how tests observe the render is a deliberate exception to the spec rule
+  in `openspec/config.yaml` that specs describe observable behaviour; design.md records why.
 
 Follow-up, not in this change: two `single-build-render` scenarios say a refusal happens "before
 staging" and that "no staging directory is written" (main spec, the version-less dependency
@@ -69,7 +73,7 @@ change.
 
 ## Impact
 
-- Packages: `opm/kernel` tests only (`render_test.go`). No `opm/` public API change, no
+- Packages: `opm/kernel` tests only (`render_test.go`, `render_core_floor_test.go`). No `opm/` public API change, no
   behaviour change.
 - Downstream consumers (cli, opm-operator): none.
 - SemVer: none. The commit is `test(kernel)`, a type release-please hides, so it cuts no release.

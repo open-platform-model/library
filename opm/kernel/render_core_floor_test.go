@@ -29,8 +29,7 @@ func TestRender_OlderCorePlatformRefusedBeforeStaging(t *testing.T) {
 	plat := acquireOlderCorePlatform(t, k)
 	inst := acquireRenderInstance(t, k, "instance")
 
-	tmp := t.TempDir()
-	t.Setenv("TMPDIR", tmp)
+	root := privateStagingRoot(t)
 
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
@@ -47,9 +46,7 @@ func TestRender_OlderCorePlatformRefusedBeforeStaging(t *testing.T) {
 	var rerr *kernel.RenderError
 	assert.False(t, errors.As(err, &rerr), "the floor refuses before the build, not through the gate")
 
-	left, err := filepath.Glob(filepath.Join(tmp, "opm-render-*"))
-	require.NoError(t, err)
-	assert.Empty(t, left, "no staging directory was created")
+	assert.Empty(t, stagingDirs(t, root), "no staging directory was created")
 }
 
 // acquireOlderCorePlatform acquires the served healthy platform re-pinned to
