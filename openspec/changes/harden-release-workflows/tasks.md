@@ -17,6 +17,6 @@
 
 ## 4. Code owners and documentation
 
-- [ ] 4.1 `.github/CODEOWNERS` with the six owner lines
-- [ ] 4.2 `AGENTS.md`: the release Environment, read-only workflow tokens, the lint pin and the code-owner paths
-- [ ] 4.3 `task check` and `openspec validate harden-release-workflows --strict` green, then commit ci: require code-owner review of release and cascade files
+- [x] 4.1 `.github/CODEOWNERS` with the six owner lines
+- [x] 4.2 `AGENTS.md`: the release Environment, read-only workflow tokens, the lint pin and the code-owner paths
+- [x] 4.3 `task check` and `openspec validate harden-release-workflows --strict` green, then commit ci: require code-owner review of release and cascade files
