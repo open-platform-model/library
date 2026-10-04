@@ -20,7 +20,7 @@ Depends on: nothing unmerged (`add-deps-cascade-task` is on `main`). Independent
 
 ## 2. Verify and archive
 
-- [ ] 2.1 `openspec verify` (the repo's verify skill) reports no CRITICAL finding.
-- [ ] 2.2 `openspec archive refresh-docs-example-pins -y`.
-- [ ] 2.3 `openspec validate --all --strict` passes.
-- [ ] 2.4 Commit `chore(openspec): archive refresh-docs-example-pins`.
+- [x] 2.1 `openspec verify` (the repo's verify skill) reports no CRITICAL finding. The implementation review re-ran `task -x deps:cascade:test` with two mutants and left no blocker or major.
+- [x] 2.2 `openspec archive refresh-docs-example-pins -y`.
+- [x] 2.3 `openspec validate --all --strict` passes.
+- [x] 2.4 Commit `chore(openspec): archive refresh-docs-example-pins`.
