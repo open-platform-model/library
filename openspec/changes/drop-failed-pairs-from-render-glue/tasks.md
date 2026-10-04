@@ -50,6 +50,6 @@ that `git status` then shows only the throwaway dump test as untracked before co
 
 ## 5. Verify and archive
 
-- [ ] 5.1 Run `openspec verify` for `drop-failed-pairs-from-render-glue` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
+- [x] 5.1 Run `openspec verify` for `drop-failed-pairs-from-render-glue` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
 - [ ] 5.2 At PR time, not in the implement stage: run `openspec archive drop-failed-pairs-from-render-glue --yes`. Verify: the main `single-build-render` spec carries the modified requirement with the new scenario, the change sits under `openspec/changes/archive/`, and `openspec validate --specs --strict` passes.
 - [ ] 5.3 Run the gates green, then commit `chore(openspec): archive drop-failed-pairs-from-render-glue` (the archive rides the implementing PR).
