@@ -68,29 +68,29 @@ Tests only; every one passes on `origin/main` before any code moves.
 
 No behaviour change: the kernel still builds module and catalog from disk in this section.
 
-- [ ] 3.1 `opm/internal/loader/load.go`: add `Options{Env []string}` and
+- [x] 3.1 `opm/internal/loader/load.go`: add `Options{Env []string}` and
       `CheckDir(dir string, spec ArtifactSpec) error` (today's two messages, LS2). Change
       `LoadDir` to `LoadDir(cueCtx *cue.Context, src *module.Source, opts Options, spec
       ArtifactSpec)` with the two modes of the LS1 table; on-disk mode calls `CheckDir` on
       `Root` joined with `Pkg`. A nil `src` or empty `Root` returns the plain error
       `source carries no module root` (no sentinel wrap). Rewrite the `LoadDir` doc comment for the new arguments
       (only the lines the signature makes false). Doc comments on `Options` and `CheckDir`.
-- [ ] 3.2 `opm/internal/loader/registry.go`: `FetchArtifact` builds
+- [x] 3.2 `opm/internal/loader/registry.go`: `FetchArtifact` builds
       `src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}` once, loads it with
       `Options{Env: env}`, and returns that same pointer.
-- [ ] 3.3 `opm/internal/synth/instance.go`: `Instance` builds
+- [x] 3.3 `opm/internal/synth/instance.go`: `Instance` builds
       `&module.Source{Root: moduleRoot, Pkg: synthPkgDir, Overlay: overlay}` once, loads it
       with `loader.Options{Env: in.Env}`, and returns that same pointer.
-- [ ] 3.4 `opm/kernel/acquire.go`: the six `LoadDir` calls pass a `Source` and
+- [x] 3.4 `opm/kernel/acquire.go`: the six `LoadDir` calls pass a `Source` and
       `loader.Options{Env: k.loadEnv()}`, keeping today's mode at each site (on-disk
       `&module.Source{Root: absDir}` for module, catalog, platform, no-values instance and
       `attributeValuesError`; the values overlay `src` for the layered instance).
-- [ ] 3.5 `opm/internal/loader/load_test.go`: `loadDir` and the `:140` call build an on-disk
+- [x] 3.5 `opm/internal/loader/load_test.go`: `loadDir` and the `:140` call build an on-disk
       `Source` through one helper. Add `TestLoadDir_OverlaySubpackage` (an overlay `Source`
       with a non-empty `Pkg` builds `./<Pkg>`) and `TestLoadDir_NilSource` (the plain
       `source carries no module root` error, not `oerrors.ErrInvalidPackage`). Verify: `grep -rn 'LoadDir(' opm` shows only the new
       shape; `go test ./opm/internal/... ./opm/kernel -count=1` green.
-- [ ] 3.6 `task check` green, then commit
+- [x] 3.6 `task check` green, then commit
       `refactor(loader): take a module.Source and load options in LoadDir`.
 
 ## 4. Acquire directories through one read-then-build helper (kernel; design LS3, LS4, LS7)

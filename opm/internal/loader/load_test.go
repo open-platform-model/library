@@ -17,13 +17,19 @@ import (
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/schematest"
+	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
+// onDisk describes dir as an on-disk Source holding its root package.
+func onDisk(dir string) *module.Source {
+	return &module.Source{Root: dir}
+}
+
 // loadDir builds the root package of dir on disk through LoadDir with no
-// registry override — the shape every directory acquire verb runs.
+// registry override — the shape the on-disk directory acquire verbs run.
 func loadDir(dir string, spec loader.ArtifactSpec) (cue.Value, error) {
-	return loader.LoadDir(cuecontext.New(), dir, ".", nil, nil, spec)
+	return loader.LoadDir(cuecontext.New(), onDisk(dir), loader.Options{}, spec)
 }
 
 const platformFixture = `
@@ -137,7 +143,7 @@ metadata: { modulePath: "example.com/catalogs/demo@v1", version: "1.0.0" }
 `), loader.CatalogSpec},
 	} {
 		t.Run(name, func(t *testing.T) {
-			val, err := loader.LoadDir(cuecontext.New(), tc.dir, ".", nil, env, tc.spec)
+			val, err := loader.LoadDir(cuecontext.New(), onDisk(tc.dir), loader.Options{Env: env}, tc.spec)
 			require.NoError(t, err, "registry override must be accepted even when no imports use it")
 			assert.True(t, val.Exists())
 		})
@@ -158,6 +164,42 @@ func TestLoadDir_MissingPath(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, os.ErrNotExist), "got %v", err)
 	assert.True(t, strings.HasPrefix(err.Error(), `accessing platform directory "`), "got %v", err)
+}
+
+// An overlay Source with a non-empty Pkg builds the subdirectory package
+// "./<Pkg>" under Root, with Root as the module root, and never touches disk.
+func TestLoadDir_OverlaySubpackage(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "absent-root")
+	src := &module.Source{
+		Root: root,
+		Pkg:  "sub",
+		Overlay: map[string][]byte{
+			filepath.Join(root, "cue.mod", "module.cue"): []byte("module: \"example.com/p@v0\"\nlanguage: version: \"v0.17.0\"\n"),
+			filepath.Join(root, "root.cue"):              []byte("package other\n\nkind: \"Module\"\n"),
+			filepath.Join(root, "sub", "platform.cue"):   []byte(platformFixture),
+		},
+	}
+	val, err := loader.LoadDir(cuecontext.New(), src, loader.Options{}, loader.PlatformSpec)
+	require.NoError(t, err)
+	name, err := val.LookupPath(cue.ParsePath("metadata.name")).String()
+	require.NoError(t, err)
+	assert.Equal(t, "demo-platform", name)
+}
+
+// A nil Source, or one with no Root, is a caller bug: a plain error, not the
+// package-defect sentinel.
+func TestLoadDir_NilSource(t *testing.T) {
+	for name, src := range map[string]*module.Source{
+		"nil":     nil,
+		"no root": {Pkg: "sub"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loader.LoadDir(cuecontext.New(), src, loader.Options{}, loader.PlatformSpec)
+			require.Error(t, err)
+			assert.Equal(t, "source carries no module root", err.Error())
+			assert.False(t, errors.Is(err, oerrors.ErrInvalidPackage))
+		})
+	}
 }
 
 // TestShapeGate_RejectsMalformedPackages drives every artifact spec through a

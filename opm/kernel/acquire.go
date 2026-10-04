@@ -94,7 +94,7 @@ func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*modul
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: resolving module directory: %w", err)
 	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.ModuleSpec)
+	val, err := loader.LoadDir(cuecontext.New(), &module.Source{Root: absDir}, loader.Options{Env: k.loadEnv()}, loader.ModuleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*cata
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: resolving catalog directory: %w", err)
 	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.CatalogSpec)
+	val, err := loader.LoadDir(cuecontext.New(), &module.Source{Root: absDir}, loader.Options{Env: k.loadEnv()}, loader.CatalogSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: resolving platform directory: %w", err)
 	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.PlatformSpec)
+	val, err := loader.LoadDir(cuecontext.New(), &module.Source{Root: absDir}, loader.Options{Env: k.loadEnv()}, loader.PlatformSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +310,7 @@ func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, value
 		src  *module.Source
 	)
 	if len(values) == 0 {
-		spec, err = loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
+		spec, err = loader.LoadDir(cueCtx, &module.Source{Root: absDir}, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 		if err != nil {
 			return nil, err
 		}
@@ -396,11 +396,7 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sour
 	}
 	src.Overlay = overlay
 
-	pkg := "."
-	if src.Pkg != "" {
-		pkg = "./" + src.Pkg
-	}
-	spec, err := loader.LoadDir(cueCtx, src.Root, pkg, overlay, k.loadEnv(), loader.InstanceSpec)
+	spec, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
 		if vErr := k.attributeValuesError(cueCtx, absDir, sources); vErr != nil {
 			return cue.Value{}, nil, vErr
@@ -450,7 +446,7 @@ func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
 // rendered overlay file. It returns nil when the failure is not a values
 // problem (the caller then reports the build error itself).
 func (k *Kernel) attributeValuesError(cueCtx *cue.Context, absDir string, sources []Source) error {
-	authored, err := loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
+	authored, err := loader.LoadDir(cueCtx, &module.Source{Root: absDir}, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}
