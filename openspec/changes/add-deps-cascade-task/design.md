@@ -150,8 +150,12 @@ Pseudo-shape of phase A's exit handling (contract §5.2 rule 5; no `|| true`, no
 # set -e: the exit only leaves the command substitution's subshell, and set -e
 # then stops the script on the assignment's non-zero status.
 resolve() {
-  local out rc=0
-  out=$("$CASCADE_RESOLVER" newest "$1" "$2" --current "$3" --repo-root . $(expect_for "$2")) || rc=$?
+  local out rc=0 pairs p expect=()
+  read -ra pairs <<<"${CASCADE_EXPECT:-}"
+  for p in "${pairs[@]}"; do
+    case "$p" in "$2"=*) expect=(--expect "${p#*=}") ;; esac
+  done
+  out=$("$CASCADE_RESOLVER" newest "$1" "$2" --current "$3" --repo-root . "${expect[@]}") || rc=$?
   case "$rc" in
     0) printf '%s\n' "$out" ;;
     3) printf '%s\n' "$3" ;;
@@ -249,7 +253,7 @@ The shape follows contract §8 exactly. Library specifics:
 
 - `RELEASING.md` "Phases" asks that "a run on `main` exits 3".
 - **Today.** The library's `main` pins core `v2.0.0-beta.2` (the newest core) and catalog `v4.5.1` (the newest v4). `v4.5.1` pins core `v2.0.0-beta.1` (read from its GHCR modulefile), which is not newer than the loader. So a run on today's `main` is expected to exit 3 without a catch-up.
-- **Interim evidence (2026-10-04).** `task -x deps:cascade` on a clean copy of library `main` (`553b855`) with this change's task files laid over it, against the real resolver from the unmerged `add-cascade-resolver` branch (`7f9af60`) and live GHCR, exited 3 with an empty `git status --porcelain`. The warnings file held only the two prose warnings (`docs/getting-started.md` and `AGENTS.md` still name `opmodel.dev/core@v2.0.0-beta.1`). The full test set passed with `CASCADE_RESOLVER_REAL` at the same branch, S5 included. Task 4.5 repeats both once the resolver is on `.github` `main`.
+- **Interim evidence (2026-10-04).** `task -x deps:cascade` on a clean copy of this branch at `f12233e` (the implementation review's re-run used `fe93069`, the same phase A), against the real resolver from the unmerged `add-cascade-resolver` branch (`a481a29`) and live GHCR, exited 3 with an empty `git status --porcelain`. The warnings file held only the two prose warnings (`docs/getting-started.md` and `AGENTS.md` still name `opmodel.dev/core@v2.0.0-beta.1`). The full test set passed with `CASCADE_RESOLVER_REAL` at the same resolver, S2, S4, S4b and S5 included. Task 4.5 repeats both once the resolver is on `.github` `main`.
 - **After catalog_opm's catch-up.** That catch-up releases a catalog on core beta.2, and the library's catalog pin then moves through the supervisor's catch-up PR (contract §8, tier 1).
 
 ## Research & Decisions
