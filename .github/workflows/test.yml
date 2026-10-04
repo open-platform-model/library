@@ -29,6 +29,13 @@ jobs:
         with:
           version: 3.x
 
+      # The release-cascade callers keep the shape the Phase 3 wiring
+      # contract (version 3.1, 10.1) gives them: the caller-owned key-holding
+      # jobs, one .github main SHA on every cascade reference. Offline; the
+      # runner's mikefarah yq.
+      - name: Verify the cascade wiring
+        run: task cascade:wiring:check
+
       # Offline set of the release-cascade task's tests (workspace
       # RELEASING.md, section "The cascade"): no network, no cue, no
       # resolver. Every scenario runs against the stub in

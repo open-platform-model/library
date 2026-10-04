@@ -1,0 +1,89 @@
+name: Deps cascade
+
+# The release cascade receiver (workspace RELEASING.md, "The receiver" and
+# "Two-job split"; Phase 3 wiring contract version 3.1, 5 and 5.2). It runs
+# `task -x deps:cascade` when core or catalog_opm publishes a release, daily
+# as a sweep, and by hand, and keeps one rolling deps/cascade PR.
+#
+# Two jobs. `cascade` calls the reusable cascade-receive.yml: compute runs
+# the task with read-only permissions and gates posts the G2 and G3
+# statuses; neither holds a secret. `publish` is this repo's own job: the key
+# is read only here, where the job declares `environment: cascade` and
+# passes it as the private-key input of the cascade-publish action, pinned
+# to the .github main SHA; the job has no checkout or run step and no env,
+# container or services of its own (the action checks the repo out but never
+# runs it), and no call passes secrets. Every cascade reference carries the
+# same SHA; task cascade:wiring:check holds this shape in the Go tests job.
+#
+# Dry run fails closed: the receiver publishes only when the repo variable
+# CASCADE_DRY_RUN is `false` (GitHub compares it case-insensitively); unset
+# or any other value computes the diff into the job summary and pushes
+# nothing. The gate statuses are posted either way. Stop switches
+# (RELEASING.md "Stop switches"): the deps-cascade:hold label,
+# .cascade-hold, CASCADE_DRY_RUN, disabling this workflow, suspending the
+# opm-cascade App.
+
+on:
+  repository_dispatch:
+    types: [upstream-released]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Compute and show the diff in the job summary; push nothing
+        type: boolean
+        default: false
+      gates_only:
+        description: Evaluate and post the release-PR gates only (sent by Cascade gates)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.ref != 'refs/heads/main' && format('deps-cascade-{0}', github.ref) || (inputs.gates_only && 'deps-cascade-gates' || 'deps-cascade') }}
+  cancel-in-progress: false
+
+jobs:
+  cascade:
+    name: Deps cascade
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    uses: open-platform-model/.github/.github/workflows/cascade-receive.yml@2376ffae4bfc665f327d51581350dea694c01504 # .github main
+    with:
+      dry-run: ${{ inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false' }}
+      gates-only: ${{ inputs.gates_only == true }}
+      g2-mode: ${{ vars.CASCADE_G2_MODE || 'warn' }}
+      g3-mode: ${{ vars.CASCADE_G3_MODE || 'warn' }}
+      # No Go: the task never builds. CUE is the reusable default, v0.17.1,
+      # the version of cue.yml and cascade-task.yml; a CUE bump re-checks it.
+      setup-go: false
+
+  publish:
+    name: Publish
+    needs: cascade
+    if: >-
+      !cancelled()
+      && needs.cascade.outputs.compute-ok == 'true'
+      && needs.cascade.outputs.dry-run == 'false'
+      && inputs.dry_run != true
+      && vars.CASCADE_DRY_RUN == 'false'
+      && github.ref == 'refs/heads/main'
+      && contains(fromJSON('["push","recreate","close","conflict","too_long"]'), needs.cascade.outputs.action)
+    runs-on: ubuntu-latest
+    environment: cascade
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Publish
+        uses: open-platform-model/.github/.github/actions/cascade-publish@2376ffae4bfc665f327d51581350dea694c01504 # .github main
+        with:
+          dry-run: ${{ inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false' }}
+          labels-managed: false
+          client-id: ${{ vars.CASCADE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CASCADE_APP_PRIVATE_KEY }}

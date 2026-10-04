@@ -67,3 +67,23 @@ jobs:
       project: library
       mode: release
       tag: ${{ needs.release-please.outputs.tag_name }}
+
+  # A caller-owned job (Phase 3 wiring contract version 3.1, 4.6): it
+  # declares `environment: cascade` and passes the App key only as an input
+  # of the cascade-notify action, pinned to the .github main SHA.
+  notify-downstream:
+    name: Notify downstream
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true' && vars.CASCADE_NOTIFY != 'off'
+    runs-on: ubuntu-latest
+    environment: cascade
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Notify downstream
+        uses: open-platform-model/.github/.github/actions/cascade-notify@2376ffae4bfc665f327d51581350dea694c01504 # .github main
+        with:
+          tag: ${{ needs.release-please.outputs.tag_name }}
+          client-id: ${{ vars.CASCADE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CASCADE_APP_PRIVATE_KEY }}

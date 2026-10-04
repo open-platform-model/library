@@ -33,7 +33,10 @@ jobs:
     steps:
       # The repo goes to repo/ and the resolver to org-github/, side by side:
       # a checkout inside the repo's working tree would be copied into every
-      # test sandbox and show up in its diff.
+      # test sandbox and show up in its diff. The resolver comes from the
+      # pinned .github commit, the same SHA as every other cascade reference
+      # here, so this tests the resolver the receiver runs (Phase 3 wiring
+      # contract version 3.1, 2.4).
       - name: Clone the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,7 +46,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: open-platform-model/.github
-          ref: main
+          ref: 2376ffae4bfc665f327d51581350dea694c01504 # .github main
           path: org-github
           persist-credentials: false
 
@@ -58,9 +61,8 @@ jobs:
           version: 3.x
 
       # test.sh runs every scenario against the stub in
-      # .tasks/cascade/testdata. S5 (title and body) runs against the real
-      # resolver once open-platform-model/.github ships it on main, and
-      # prints SKIP S5 until then.
+      # .tasks/cascade/testdata, and S5 (title and body) also against the
+      # real resolver at the pinned commit.
       - name: Cascade task tests (full set)
         working-directory: repo
         env:
@@ -68,9 +70,6 @@ jobs:
         run: |
           yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
           real="$GITHUB_WORKSPACE/org-github/.github/scripts/cascade/cascade-resolve.sh"
-          if [ -x "$real" ]; then
-            export CASCADE_RESOLVER_REAL="$real"
-          else
-            echo "The real resolver is not on open-platform-model/.github main yet; S5 will skip."
-          fi
+          [ -x "$real" ] || { echo "::error::no cascade resolver at the pinned .github commit" >&2; exit 1; }
+          export CASCADE_RESOLVER_REAL="$real"
           task -x deps:cascade:test
