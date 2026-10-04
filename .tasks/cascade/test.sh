@@ -47,14 +47,28 @@ MAIN=$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-d
 # The sandboxes are their own repos: no user or system git config, a fixed
 # identity, and none of the caller's cascade env.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# No automatic maintenance or gc: a detached run that git commit starts can
+# still write into a sandbox .git while cleanup removes it.
+export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=maintenance.auto GIT_CONFIG_VALUE_0=false \
+  GIT_CONFIG_KEY_1=gc.auto GIT_CONFIG_VALUE_1=0
 export GIT_AUTHOR_NAME=cascade-test GIT_AUTHOR_EMAIL=cascade-test@example.invalid
 export GIT_COMMITTER_NAME=cascade-test GIT_COMMITTER_EMAIL=cascade-test@example.invalid
 unset CASCADE_ALLOW_DIRTY CASCADE_EXPECT CASCADE_BASE CASCADE_WARNINGS CASCADE_NOTES_FILE \
   CASCADE_SOURCE CASCADE_TAGS CASCADE_STUB_TABLE CASCADE_STUB_LOG
 
 TMP=$(mktemp -d)
+# A retry covers any late writer the config above does not stop.
 # shellcheck disable=SC2317,SC2329 # invoked by the trap (SC2317 before 0.10)
-cleanup() { chmod -R u+w "$TMP"; rm -rf "$TMP"; }
+cleanup() {
+  local _
+  for _ in 1 2 3; do
+    chmod -R u+w "$TMP" 2>/dev/null || true
+    rm -rf "$TMP" 2>/dev/null && return 0
+    sleep 1
+  done
+  chmod -R u+w "$TMP"
+  rm -rf "$TMP"
+}
 trap cleanup EXIT
 
 failed=0
