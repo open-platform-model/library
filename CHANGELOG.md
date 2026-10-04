@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-beta.4](https://github.com/open-platform-model/library/compare/v1.0.0-beta.3...v1.0.0-beta.4) (2026-10-04)
+
+
+### Code Refactoring
+
+* **docs:** publish the Go API reference as Library at /docs/reference/library/ ([#178](https://github.com/open-platform-model/library/issues/178)) ([da68090](https://github.com/open-platform-model/library/commit/da680904087c5006f3b3896a9c02d74d0e5e7cf5))
+
 ## [1.0.0-beta.3](https://github.com/open-platform-model/library/compare/v1.0.0-beta.2...v1.0.0-beta.3) (2026-10-03)
 
 
