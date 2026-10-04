@@ -20,9 +20,9 @@ As of `main` 8241250 there are three stale lines:
 | `docs/getting-started.md:56` | `// → "v2.0.0-beta.1"` | no (no `opmodel.dev/core@` prefix) |
 | `AGENTS.md:350` | `schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.1"}` | yes |
 
-The loader is `opmodel.dev/core@v2.0.0-beta.2` (`opm/schema/loader.go:43`). `AGENTS.md:341` writes the placeholder `opmodel.dev/core@v2.X.Y[-pre]`, which the matcher never hits. No other line in either file names a core release.
+The loader is `opmodel.dev/core@v2.0.0-beta.2` (`opm/schema/loader.go:43`). `AGENTS.md:345` writes the placeholder `opmodel.dev/core@v2.X.Y[-pre]`, which the matcher never hits. No other line in either file names a core release.
 
-The network scenario S2 (`.tasks/cascade/test.sh:308-333`) currently asserts that the docs warning appears (`:325`). It passes only because the docs are stale. A plain one-off bump would break S2 at that line: after the bump the docs name `D`, and `set_older` (`:168-180`) does not touch them.
+The network scenario S2 (`.tasks/cascade/test.sh:311-335`) currently asserts that the docs warning appears (`:325`). It passes only because the docs are stale. A plain one-off bump would break S2 at that line: after the bump the docs name `D`, and `set_older` (`:168-180`) does not touch them.
 
 ## Goals / Non-Goals
 
@@ -51,13 +51,17 @@ Condition: `D != D0`. A frozen loader keeps `D = D0` (`:108-110`), so it never e
 
 Without this condition, a docs-only lag would be a diff on its own. Both files are `shipped` class (`.tasks/cascade/classes` lists only test paths), so the bot would open a `fix(deps)` PR that moves no pin. Gate G2 would then report a stale shipped pin on every release PR while the docs lag. G2 is `task -x deps:cascade` at the release head, and exit 0 with a shipped path means "behind" (Phase 3 wiring contract §8.2). Under the condition, a lag without a core move stays a warning and exit 3.
 
-### D3. Rewrite every same-major literal, with a tightened matcher
+### D3. Rewrite the anchored examples of the same major; warn file-wide
 
-When core moved, the step rewrites every `opmodel.dev/core@<v>` whose major equals `D`'s major, not only those equal to `D0`. A file that lagged before the run therefore catches up on the next core move instead of staying stuck.
+When core moved, the step rewrites the version in every `Module: "opmodel.dev/core@<v>"` literal whose `<v>` is a release of `D`'s major, not only those equal to `D0`. A file that lagged before the run therefore catches up on the next core move instead of staying stuck.
+
+The rewrite is anchored on `Module: "`, the way C1 anchors on `const DefaultSchemaModule = "`. Both real examples share that anchor (`docs/getting-started.md:51`, `AGENTS.md:350`). A core release named anywhere else, prose included, is never rewritten: `AGENTS.md` is a long steering file, and a sentence that names a release on purpose ("the floor is `opmodel.dev/core@v2.0.0-alpha.12`") must not move on each core release. `.cascade-frozen` can only freeze a whole file, so it is no tool for that.
 
 A different major is never rewritten. Crossing a major is a hand-made PR (`RELEASING.md`, "Runbook" › "Handling a cascade PR", "new major available"), and the warning stays.
 
-The matcher becomes `opmodel\.dev/core@\K(v<maj>\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]*[0-9A-Za-z])?)`. It ends on an alphanumeric, so a sentence-final period is never part of the version. The old class `[0-9A-Za-z.+-]*` would swallow it. The warning step uses the same matcher, without the major restriction, so what is edited and what is warned about are judged the same way.
+The rewrite matcher, in `sed -E`, is `(Module: "opmodel\.dev/core@)v<maj>\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?"`. The closing quote is part of the match, so build metadata (`v2.0.0+meta`) and trailing digits (`v2.0.01`) are never half-rewritten; they are left alone and warned about. `D` is checked against `SEMVER_RE` before it enters the `sed` program, so it carries no `#`, `&` or `\`.
+
+The warning matcher stays file-wide, so whatever the rewrite leaves is still reported: `opmodel\.dev/core@\Kv[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]*[0-9A-Za-z])?(\+[0-9A-Za-z.-]*[0-9A-Za-z])?`. It ends on an alphanumeric, so a sentence-final period is never part of the version (the old class `[0-9A-Za-z.+-]*` swallowed it), and it keeps build metadata so `v2.0.0+meta` is warned about as itself.
 
 ### D4. One section, one `ci(cascade)` commit, the doc bump inside it
 
@@ -74,7 +78,7 @@ Both commits would be hidden types (`docs`, `ci`), so one commit loses nothing i
 
 ### D6. `.cascade-frozen` applies to the two files
 
-This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.dev/core@v2`. C2 already calls it the same way in phase C. A frozen doc is left byte-unchanged and warned about. Nothing freezes them today. The rule exists so that the frozen mechanism means the same thing for every file the task edits.
+This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.dev/core@v2`. C2 already calls it the same way in phase C. A frozen doc is left byte-unchanged and warned about. Nothing freezes them today. The rule exists so that the frozen mechanism means the same thing for every file the task edits. Because a frozen doc is a valid state that warns, no required test asserts that `main` carries no docs warning: the no-op scenario S1 makes no such assertion (plan review, finding 1, option a). S2 and S11 cover the behaviour.
 
 ## Research & Decisions
 
@@ -85,7 +89,7 @@ This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.d
 **Explored** (sources: `.tasks/cascade/cascade.sh:288-296`; `openspec/specs/deps-cascade/spec.md:89-105`; Phase 3 follow-ups research, section (3); Phase 2 contract §6.2 step 5):
 
 1. **One-off bump, warning kept.** This is the smallest change. The warning comes back on every core move, and a human must push a commit to `deps/cascade` to clear it. The research note leaned this way because the warning works as designed. The cost is a recurring manual step on every library core PR.
-2. **Placeholder in the examples** (`opmodel.dev/core@v2.X.Y-pre`, as `AGENTS.md:341` does in prose). It never warns, but the example stops being copy-pasteable, and it drops the "update to the current release" goal.
+2. **Placeholder in the examples** (`opmodel.dev/core@v2.X.Y-pre`, as `AGENTS.md:345` does in prose). It never warns, but the example stops being copy-pasteable, and it drops the "update to the current release" goal.
 3. **Skip `OCILoader{` lines in C4.** This hides the drift instead of fixing it.
 4. **Edit with the loader** (D1 to D3). It is about 15 lines of shell, reuses the frozen and warn helpers, and adds no new file.
 
@@ -96,42 +100,47 @@ This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.d
 ### C4, as it will read
 
 ```bash
-# C4. The docs examples follow the loader when core moved; what is left warns.
-maj=${D%%.*}                      # "v2"
-same="opmodel\\.dev/core@\\Kv${maj#v}\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]*[0-9A-Za-z])?"
-any='opmodel\.dev/core@\Kv[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]*[0-9A-Za-z])?'
+# C4. The Module: "…" examples follow the loader when core moved; every
+# other release named in the file warns.
+[[ "$D" =~ $SEMVER_RE ]] || die "the core target '$D' is not a SemVer"
+maj=${D%%.*}; maj=${maj#v}
 for doc in docs/getting-started.md AGENTS.md; do
   [ -f "$doc" ] || continue
   if [ "$D" != "$D0" ] && ! frozen "$doc" "$CORE_KEY"; then
-    perl -pi -e "s{$same}{$D}g" "$doc"          # perl: \K and the same PCRE as grep -P
-    # sanity: no same-major literal other than D remains
+    sed -i -E "s#(Module: \"opmodel\\.dev/core@)v$maj\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?\"#\\1$D\"#g" "$doc"
+    # assert: every anchored same-major example now names D
   fi
-  named=$({ grep -oP "$any" "$doc" || [ $? -eq 1 ]; } | LC_ALL=C sort -u)
-  # unchanged: warn "-" for each named version != D
+  # warn "-" for each release the file-wide matcher finds that is not D
 done
 ```
 
-The implementer may pick `sed -E` instead of `perl` if the whole match is rewritten (`s#(opmodel\.dev/core@)v2\.…#\1$D#g`). What matters is that the edit and the warning use the same version grammar. The sanity check dies when the edit leaves a same-major literal other than `D`, in the same spirit as C1's exactly-one-line check (`:227-231`).
+The assert dies in the same spirit as C1's exactly-one-line check (`:227-231`). It cannot fire unless `sed` itself misbehaves, so the spec does not name it and no scenario tests it (plan review, finding 7).
 
 ### Tests
 
-- **`set_older core|both`** also rewrites `opmodel.dev/core@<current loader>` in the two docs to the older core.
+- **`set_older core|both`** also rewrites `Module: "opmodel.dev/core@<current loader>"` in the two docs to the older core.
 - **S2**:
   - Drop the `:325` assertion.
+  - Set the `docs/getting-started.md` example to `v2.0.0-alpha.12`, older than `older.tsv`'s core, so the run proves a lagging example catches up.
   - Add "no warning names `docs/getting-started.md` or `AGENTS.md`".
   - The existing `same_as_base` check proves that the docs came back.
+- **S4** (network, already moves core):
+  - Before `set_older`, add one prose line to `AGENTS.md` naming `opmodel.dev/core@v1.0.0` and `opmodel.dev/core@v2.0.0-alpha.12`.
+  - Expect `AGENTS.md` equal to that setup copy (the example back at the current core), and warnings for both prose releases.
+  - This proves "Another major is left alone" and "A release named in prose is left alone".
 - **S11 (offline, new)**:
-  - Set `docs/getting-started.md`'s example to an older same-major core, then run `setup_commit` and run the task with the stub answering core as current.
+  - Set the `docs/getting-started.md` example to an older same-major core, then run `setup_commit` and run the task with the stub answering core as current.
   - Expect exit 3, an empty `status`, and a warning naming the file.
   - This proves D2 offline.
-- **S1 (no-op)** gains "no warning names the two docs", which proves the examples are current on `main`.
+
+The network workflow's path filter gains `docs/getting-started.md` and `AGENTS.md`, since S2 and S4 now read them; otherwise only the weekly cron would catch an edit there that breaks S2.
 
 ## Risks / Trade-offs
 
 - **[A human edits the examples into a form the matcher misses]**: then they are neither edited nor warned about. This is the same blind spot today's C4 has, and line 56 is the instance it already misses. Mitigation: D5 removes that instance, and the "Release cascade task" paragraph in `AGENTS.md` names the two files.
 - **[The docs edit adds two paths to every core cascade PR]**: The reviewer sees a prose diff beside the loader. It does not change the title, because the loader already makes the diff `shipped`.
 - **[Option 4 amends a Phase 2 contract step]**: The contract (§6.2 step 5) said warn only. This change rewrites the library spec, and the archived contract stays as history. The supervisor is told in the hand-off.
-- **[The S2 network test assumes the newest published core equals the loader]**: This assumption already exists (S2's `same_as_base`). The change adds two files to it, not a new assumption.
+- **[A hand-made core bump leaves the examples behind]**: the next cascade run that does not move core warns about them, and the next core move brings them current. No required check fails in between (D6).
 
 ## Migration Plan
 
