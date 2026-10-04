@@ -31,7 +31,7 @@ This is a prose-only change to four files. The facts it writes were checked at l
 
 **Context**: Three spots say additive schema changes are "absorbed by floating-major resolution". The owner's wording is "pinned by default, bare major opt-in".
 
-**Explored**: `schema.DefaultSchemaModule` names an exact release (`opm/schema/loader.go:43`). Acquisition and `Render` never read the schema cache; the module's own `cue.mod` resolves core inside the build (`AGENTS.md:221-228`). A bare-major loader makes `SynthesizeInstance` resolve the release through the cache. The release cascade moves `DefaultSchemaModule` with `task -x deps:cascade` and labels the PR `need-human-review` (`AGENTS.md:303`).
+**Explored**: `schema.DefaultSchemaModule` names an exact release (`opm/schema/loader.go:43`). Acquisition and `Render` never read the schema cache; the module's own `cue.mod` resolves core inside the build (`AGENTS.md:221-228`). For synthesis it supplies only the major of the core import; the release that import resolves to comes from the module's own `cue.mod` (`opm/kernel/synth.go:171-177`). A bare-major loader makes `SynthesizeInstance` resolve that major through the cache. The release cascade moves `DefaultSchemaModule` with `task -x deps:cascade` and labels the PR `need-human-review` (`AGENTS.md:303`).
 
 **Decision**: The replacement text says, in each spot:
 
@@ -43,7 +43,7 @@ Concretely:
 - `README.md:97`: "The two tracks are independent. The kernel's schema loader pins an exact core release by default (`schema.DefaultSchemaModule`), and a bare major (`opmodel.dev/core@v2`) is opt-in; acquisition and `Render` resolve core through each artifact's own `cue.mod`. An additive shape change within an OPM schema major therefore needs no Go API change: artifacts take it up by re-pinning core, and `DefaultSchemaModule` moves separately, in the release cascade's `fix(deps)` PR, which re-verifies the render glue. A shape break in the schema is itself a coordinated library-breaking event."
 - `AGENTS.md:351`: the second sentence becomes "The default loader pins an exact release, `opmodel.dev/core@v2.X.Y[-pre]` (`schema.DefaultSchemaModule`); the bare major `opmodel.dev/core@v2` is opt-in and resolves to the highest published release of that major."
 - `AGENTS.md:353`: "A consumer that wants its own pin, or the bare major, passes its own loader, for example:" introduces the unchanged example at `:356` (the example's release equals the default, which the cascade keeps in step).
-- `AGENTS.md:361`: the last sentence becomes "Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the default for synthesized instances) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue."
+- `AGENTS.md:361`: the last sentence becomes "Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the core release the schema cache loads; synthesis takes only its major for the core import) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue."
 
 The word "floating" stays only where it describes the opt-in bare major (the godoc and specs already use it that way); after this change neither `README.md` nor `AGENTS.md` uses it.
 
@@ -91,3 +91,4 @@ The gate for each section is `TMPDIR=$(mktemp -d) task check` on the whole tree 
 
 - **[AGENTS.md is edited by several wave-2 changes]** → the hunks here stay at `:163` and `:351-361`. A later change rebases onto this one.
 - **[README wording on how core reaches a render could overclaim]** → D2 states only what `AGENTS.md:221-228` and the cascade paragraph already state, in shorter form; the review checks each clause against those lines.
+- **[The new prose requirements have no automated gate]** → `openspec validate` does not read `README.md`, `AGENTS.md` or `CONSTITUTION.md`, and no `task check` step greps them, so a reintroduced "floating" or `v1alpha2` passes every gate. The requirements are review-enforced; a grep gate is left to a later change.
