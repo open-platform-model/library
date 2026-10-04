@@ -14,7 +14,8 @@ export OPM_REGISTRY="$CUE_REGISTRY"
 cache race; rerun `go test ./opm/helper/platformmodule -count=1` alone before treating it as a
 finding. Commit bodies never start a line with `word(` and carry no bare at-sign (write "the
 embed attribute"). The only trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
-Design decisions are LS1 to LS7 in design.md.
+Design decisions are LS1 to LS7 in design.md. Code and test comments cite no LSn, task or
+section number (openspec/config.yaml and AGENTS.md bar design-local ids in comments).
 
 ## 1. Pin today's directory acquisition behaviour (kernel, loader, sourcetree tests; design LS2, LS5, LS6)
 
@@ -45,14 +46,19 @@ Tests only; every one passes on `origin/main` before any code moves.
       directory "` and `platform path "`). Verify: `go test ./opm/internal/loader -count=1`
       green.
 - [ ] 1.5 `task check` green, then commit
-      `test(kernel): pin directory acquisition errors and embedded files`.
+      `test: pin directory acquisition errors and embedded files` (scope-neutral: the commit
+      spans the kernel, loader and sourcetree packages).
 
 ## 2. Read a directory overlay through os.DirFS (sourcetree; design LS6)
 
 - [ ] 2.1 `opm/internal/sourcetree/sourcetree.go`: `OverlayFromDir(root)` returns
       `OverlayFromFS(os.DirFS(root), ".", root)` wrapped in `reading module tree %s: %w`;
       the hand-written `filepath.WalkDir` goes. Update its doc comment to say it is
-      `OverlayFromFS` over the directory; drop imports nothing else uses. Verify:
+      `OverlayFromFS` over the directory; drop imports nothing else uses. Rewrite the package
+      doc's filter paragraph (its claim that nothing uses the embed attribute is false once
+      1.2 lands): non-CUE files such as embedded data are not carried in the overlay and are
+      read through the host layer when `Root` is the real directory. Correct the
+      `acquire_test.go` comment "cue/load does not read it" the same way. Verify:
       `go test ./opm/internal/sourcetree ./opm/internal/renderstage -count=1` green, and the
       section 1 tests unchanged.
 - [ ] 2.2 `task check` green, then commit
@@ -66,8 +72,8 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
       `CheckDir(dir string, spec ArtifactSpec) error` (today's two messages, LS2). Change
       `LoadDir` to `LoadDir(cueCtx *cue.Context, src *module.Source, opts Options, spec
       ArtifactSpec)` with the two modes of the LS1 table; on-disk mode calls `CheckDir` on
-      `Root` joined with `Pkg`. A nil `src` or empty `Root` returns an error wrapping
-      `oerrors.ErrInvalidPackage`. Rewrite the `LoadDir` doc comment for the new arguments
+      `Root` joined with `Pkg`. A nil `src` or empty `Root` returns the plain error
+      `source carries no module root` (no sentinel wrap). Rewrite the `LoadDir` doc comment for the new arguments
       (only the lines the signature makes false). Doc comments on `Options` and `CheckDir`.
 - [ ] 3.2 `opm/internal/loader/registry.go`: `FetchArtifact` builds
       `src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}` once, loads it with
@@ -81,8 +87,8 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
       `attributeValuesError`; the values overlay `src` for the layered instance).
 - [ ] 3.5 `opm/internal/loader/load_test.go`: `loadDir` and the `:140` call build an on-disk
       `Source` through one helper. Add `TestLoadDir_OverlaySubpackage` (an overlay `Source`
-      with a non-empty `Pkg` builds `./<Pkg>`) and `TestLoadDir_NilSource` (wraps
-      `oerrors.ErrInvalidPackage`). Verify: `grep -rn 'LoadDir(' opm` shows only the new
+      with a non-empty `Pkg` builds `./<Pkg>`) and `TestLoadDir_NilSource` (the plain
+      `source carries no module root` error, not `oerrors.ErrInvalidPackage`). Verify: `grep -rn 'LoadDir(' opm` shows only the new
       shape; `go test ./opm/internal/... ./opm/kernel -count=1` green.
 - [ ] 3.6 `task check` green, then commit
       `refactor(loader): take a module.Source and load options in LoadDir`.
@@ -106,20 +112,24 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
       and `AcquireCatalogFromDir` say the package is built from the overlay they stamp;
       `loadInstanceWithValues` and `attributeValuesError` name the authored overlay. Verify:
       `grep -rn overlaySourceForDir opm` prints nothing, and each directory verb reaches
-      `OverlayFromDir` at most once and `LoadDir` once per build (read the diff: the spec
-      scenarios "built from the overlay they carry" and "reuses the authored read" have no
-      runtime probe for the number of reads, so this inspection is their check).
+      `OverlayFromDir` at most once and `LoadDir` once per build (read the diff: the number
+      of reads has no runtime probe, design LS3/LS4, so this inspection is its check).
 - [ ] 4.5 Tests in `opm/kernel/acquire_test.go` and `acquire_catalog_test.go`:
       `TestKernel_AcquireCatalogFromDir_Subpackage` (catalog from a subdirectory: `Root` the
       module root, `Pkg` `sub`, overlay spans the root); in
       `TestKernel_AcquireInstanceFromDir_WithSources_ConflictAttributed` (or a sibling)
       assert the attributed error still names the source's `Origin` when the author's
-      directory also holds an `opm-values.cue` of its own (LS4). The section 1 tests pass
+      directory also holds an `opm-values.cue` of its own (LS4). Expose `dirSource` through
+      `opm/kernel/export_test.go` and add `TestDirSource_BuildsFromTheBytesReadFirst`: take
+      an overlay `Source` from it, rewrite a `.cue` file on disk, build that `Source` with
+      `loader.LoadDir`, and assert the value read first wins. The section 1 tests pass
       unchanged.
 - [ ] 4.6 Cross-cutting checks (LS7): `go test -race ./opm/kernel ./opm/internal/renderstage
       -count=1`, the parity tests (`go test ./opm/kernel -run Parity -count=1`) and
       `task cue:test:flow`. Verify: all green (the flow test may skip when the registry is
-      unreachable; say so if it does).
+      unreachable; say so if it does). If `TestKernel_AcquireModuleFromDir_EmbedsNonCUEFile`
+      passed in section 1 but fails now, stop and report to the supervisor before adding any
+      disk fallback.
 - [ ] 4.7 `task check` green, then commit
       `refactor(kernel): acquire directories through one read-then-build helper`.
 

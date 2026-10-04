@@ -66,8 +66,10 @@ and the package argument, as the overlay callers' errors do today. Module and ca
 from on-disk to overlay mode (LS3), so for a module or catalog acquired from a subdirectory a
 load or build error names the module root and `./<Pkg>` instead of the package directory; for
 a root package the text is unchanged. A nil `src`, or one with an empty
-`Root`, is refused with an error that wraps `oerrors.ErrInvalidPackage`, so the function
-states its precondition.
+`Root`, is refused with a plain `errors.New("source carries no module root")`, the wording
+`sourcetree.PackageName` and `sourcetree.ReadFile` already use for the same caller
+precondition. It does not wrap `oerrors.ErrInvalidPackage`: that sentinel classifies a
+package defect, and a missing root is a caller bug.
 
 `loader` already imports `opm/module` (`registry.go`), so there is no new import edge.
 
@@ -118,7 +120,12 @@ error unwrapped, as every directory verb does today.
 | `AcquireInstanceFromDir`, with values | true (through `dirSource`) | a copy of the overlay plus `opm-values.cue` |
 
 The three plain verbs become `acquireDir`, then `New<X>FromValue` (wrapped `<verb>: %w`), then
-stamp `.Source` with the `Source` the build used. `overlaySourceForDir` is deleted. A bool and
+stamp `.Source` with the `Source` the build used. `overlaySourceForDir` is deleted, so the
+directory is not walked a second time to stamp the `Source`. No runtime probe counts the
+reads (a package-level seam would be global mutable state, which CONSTITUTION Principle I
+bans), so that part is checked by reading the diff. What a test can check, it does: a kernel
+test calls `dirSource` through `export_test.go`, rewrites a `.cue` file on disk, builds from
+that `Source` with `loader.LoadDir`, and asserts the bytes read first win. A bool and
 not a named mode type: there are exactly two modes, and the table above is the only place
 that picks one.
 
@@ -138,7 +145,8 @@ replaces it with the rendered file, and deleting the key would show the disk fil
 host layer, while the kept authored overlay holds its original bytes, which is what today's
 disk rebuild reads. The supervisor note leaves the rest of `attributeValuesError` to
 lib-b1g2, so only its parameter (`absDir` becomes the authored `*module.Source`) and its
-`LoadDir` call change.
+`LoadDir` call change. Attribution then makes no further read of the directory; like LS3,
+that is checked by reading the diff, not by a runtime probe.
 
 The order of failures shifts slightly: the overlay is now read before the values sources are
 merged, so a directory that both fails to read and has bad sources reports the read error.
@@ -192,6 +200,12 @@ clean root. Neither walker descends into a symlinked directory, and both read a 
 the `reading module tree` text for a missing root, and both symlink cases, so a difference
 shows up in `TestOverlayFromDir_*` and not in an acquisition. `opm/internal/renderstage`'s test
 use of `OverlayFromDir` is unaffected.
+
+The inner error text changes in two places; only the `reading module tree <root>:` prefix is
+pinned. A missing root now reports `stat` where `filepath.WalkDir` reported `lstat`, and a
+read failure in the middle of the walk now carries `OverlayFromFS`'s own `reading <rel>:` wrap
+(`reading module tree R: reading sub/a.cue: open ...`). In the kernel, `loader.CheckDir` runs
+before the overlay read, so only a mid-walk read failure can reach a directory verb's caller.
 
 ### LS7. Module root in overlay mode
 

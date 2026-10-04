@@ -84,7 +84,8 @@ None.
 
 - `artifact-types`: one new requirement stating that a directory verb checks the path before
   reading anything, reads an overlay-mode tree once and builds the package from that read,
-  keeps platform and authored-instance acquisition in on-disk mode, and still builds a
+  defers platform and authored-instance acquisition to the on-disk mode their own
+  requirements state, and still builds a
   package that embeds a non-CUE file beside it.
 
 ## Impact
