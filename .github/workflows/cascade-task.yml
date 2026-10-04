@@ -1,0 +1,73 @@
+name: Cascade task
+
+# The full test set of the release-cascade task, `task -x deps:cascade:test`
+# (workspace RELEASING.md, section "The cascade"; Phase 2 cascade contract
+# §8). Network: S2, S4 and S5 resolve real older core and catalog versions
+# from GHCR. Not a required check, so a GHCR or registry blip never blocks an
+# unrelated PR; the offline set runs in the required `Go tests` job.
+
+on:
+  pull_request:
+    paths:
+      - ".tasks/cascade/**"
+      - ".tasks/*.yaml"
+      - "Taskfile.yml"
+      - ".cascade-frozen"
+      - ".cascade-hold"
+      - ".github/workflows/cascade-task.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  cascade-task:
+    name: Cascade task (network)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # The repo goes to repo/ and the resolver to org-github/, side by side:
+      # a checkout inside the repo's working tree would be copied into every
+      # test sandbox and show up in its diff.
+      - name: Clone the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+
+      - name: Clone the shared cascade resolver
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-platform-model/.github
+          ref: main
+          path: org-github
+          persist-credentials: false
+
+      - name: Setup CUE
+        uses: cue-lang/setup-cue@b0e30e540a2dae47304ebf16586a5b2db023b61c # v2.0.0
+        with:
+          version: v0.17.1
+
+      - name: Install Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.x
+
+      # test.sh runs every scenario against the stub in
+      # .tasks/cascade/testdata. S5 (title and body) runs against the real
+      # resolver once open-platform-model/.github ships it on main, and
+      # prints SKIP S5 until then.
+      - name: Cascade task tests (full set)
+        working-directory: repo
+        env:
+          CASCADE_TEST_SET: all
+        run: |
+          yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
+          real="$GITHUB_WORKSPACE/org-github/.github/scripts/cascade/cascade-resolve.sh"
+          if [ -x "$real" ]; then
+            export CASCADE_RESOLVER_REAL="$real"
+          else
+            echo "The real resolver is not on open-platform-model/.github main yet; S5 will skip."
+          fi
+          task -x deps:cascade:test

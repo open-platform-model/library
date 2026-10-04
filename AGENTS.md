@@ -296,6 +296,10 @@ task cue:publish PATH=modules/opm_platform [VERSION=vX.Y.Z]
 task cue:deps:update         # cue mod get + tidy across all
 ```
 
+### Release cascade task
+
+The release cascade (workspace `RELEASING.md`, section "The cascade") moves the library's upstream pins with `task -x deps:cascade`: core in `DefaultSchemaModule`, then the core pin of `testdata/cue.mod` and every `testdata/render` tree as text, and core and the opm catalog in the `CUE_MODULE_GLOBS` modules through explicit-version `cue mod get` and `tidy`. It edits the working tree only and exits 0 when the tree changed, 3 when there was nothing to do, anything else on error; always run it with `-x`, since plain `task` turns 3 into 201. A core move carries the `need-human-review` label: re-verify the glue against the new core before merging. `.cascade-frozen` and `.cascade-hold` steer it. `task -x deps:cascade:title` and `task -x deps:cascade:body` print the PR title and body through the shared resolver in `open-platform-model/.github`, found beside the workspace or through `CASCADE_RESOLVER`. `task -x deps:cascade:test` runs its scenarios in throwaway copies against the resolver stub (`CASCADE_TEST_SET=offline` is the `Go tests` step; the full set is the non-required `Cascade task (network)` workflow). `deps:cascade:test` needs no resolver; set `CASCADE_RESOLVER_REAL` to the real one to run S5 too. Locally, before the resolver is on `.github` main, prefix the other three with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh`. `task cue:deps:update` stays the hand-run task.
+
 ### Flow test
 
 ```bash

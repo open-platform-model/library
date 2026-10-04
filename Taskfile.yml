@@ -854,6 +854,100 @@ tasks:
   # Release
   # ============================================================================
 
+  # The release cascade task (workspace RELEASING.md, section "The cascade";
+  # Phase 2 cascade contract §3 and §5). Always run with `task -x`: plain
+  # `task` turns exit 3 ("nothing to do") into 201. The resolver var is
+  # declared per task through this anchor, never globally, so no other task
+  # runs git for it.
+  deps:cascade:
+    desc: Move core and the opm catalog to the newest published versions (exit 0 changed, 3 nothing to do)
+    summary: |
+      Moves the library's two upstream pins in the working tree only: no
+      commit, no branch, no push. Exit 0 when the tree changed, 3 when there
+      was nothing to do, anything else on error. Run it with `task -x`.
+
+        - core: DefaultSchemaModule in opm/schema/loader.go (shipped; the PR
+          carries need-human-review), then the core pin of testdata/cue.mod and
+          every testdata/render tree as text, and of the CUE_MODULE_GLOBS
+          modules through cue mod get and tidy;
+        - the opm catalog: the CUE_MODULE_GLOBS modules, as far as the
+          loader's core allows.
+
+      Honours .cascade-frozen and .cascade-hold. Warnings land in
+      .git/cascade/warnings. Needs the shared resolver beside the workspace
+      (../.github) or CASCADE_RESOLVER. `task cue:deps:update` stays the
+      hand-run task.
+
+      Usage:
+        task -x deps:cascade
+        CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh task -x deps:cascade
+    vars: &cascade_vars
+      CASCADE_RESOLVER_PATH:
+        sh: |
+          if [ -n "${CASCADE_RESOLVER:-}" ]; then
+            case "$CASCADE_RESOLVER" in /*) ;; *) echo "CASCADE_RESOLVER must be absolute" >&2; exit 1 ;; esac
+            printf '%s\n' "$CASCADE_RESOLVER"; exit 0
+          fi
+          common=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1
+          printf '%s\n' "$(dirname "$common")/../.github/.github/scripts/cascade/cascade-resolve.sh"
+    env:
+      CASCADE_RESOLVER: '{{.CASCADE_RESOLVER_PATH}}'
+      CASCADE_MODULE_GLOBS: '{{.CUE_MODULE_GLOBS}}'
+    preconditions:
+      - &cascade_resolver_check
+        sh: test -x '{{.CASCADE_RESOLVER_PATH}}'
+        msg: "cascade resolver not found: check out open-platform-model/.github beside this repo, or set CASCADE_RESOLVER"
+      - sh: command -v git >/dev/null 2>&1
+        msg: "git is required"
+      - &cascade_yq_check
+        sh: yq --version 2>&1 | grep -q mikefarah
+        msg: "yq v4 (mikefarah) is required"
+      - sh: command -v jq >/dev/null 2>&1
+        msg: "jq is required"
+    cmds:
+      - .tasks/cascade/cascade.sh
+
+  deps:cascade:title:
+    desc: Print the cascade PR title computed from the working tree's diff
+    vars: *cascade_vars
+    env:
+      CASCADE_RESOLVER: '{{.CASCADE_RESOLVER_PATH}}'
+    preconditions:
+      - *cascade_resolver_check
+    cmds:
+      - '"$CASCADE_RESOLVER" title --classes .tasks/cascade/classes --pins .tasks/cascade/pins.sh'
+
+  deps:cascade:body:
+    desc: Print the cascade PR body computed from the working tree's diff
+    vars: *cascade_vars
+    env:
+      CASCADE_RESOLVER: '{{.CASCADE_RESOLVER_PATH}}'
+    preconditions:
+      - *cascade_resolver_check
+    cmds:
+      - '"$CASCADE_RESOLVER" body --classes .tasks/cascade/classes --pins .tasks/cascade/pins.sh'
+
+  deps:cascade:test:
+    desc: Test deps:cascade in throwaway copies of the tree against the resolver stub
+    summary: |
+      Runs .tasks/cascade/test.sh: the stub checksum and pin-report checks,
+      then the scenarios, each in its own throwaway copy of the tree (this
+      checkout is never touched). CASCADE_TEST_SET=offline runs the set the
+      required `Go tests` job runs (no network, no cue); the default, all,
+      adds the network scenarios. Run it with `task -x`.
+
+      Needs no resolver: every scenario runs against the stub in
+      .tasks/cascade/testdata. S5 (title and body) runs only when
+      CASCADE_RESOLVER_REAL names the real resolver.
+
+      Usage:
+        CASCADE_TEST_SET=offline task -x deps:cascade:test
+        task -x deps:cascade:test
+    preconditions:
+      - *cascade_yq_check
+    cmds:
+      - .tasks/cascade/test.sh
+
   deps:release-check:
     desc: Fail if the tree carries a dev, pseudo-version or replaced pin (G1 release-pin gate)
     summary: |

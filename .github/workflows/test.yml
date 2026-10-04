@@ -29,6 +29,18 @@ jobs:
         with:
           version: 3.x
 
+      # Offline set of the release-cascade task's tests (workspace
+      # RELEASING.md, section "The cascade"): no network, no cue, no
+      # resolver. Every scenario runs against the stub in
+      # .tasks/cascade/testdata; .github/workflows/cascade-task.yml runs the
+      # full set.
+      - name: Cascade task tests (offline)
+        env:
+          CASCADE_TEST_SET: offline
+        run: |
+          yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
+          task -x deps:cascade:test
+
       # Offline: .opm-docs-version and every docs-kit publish.yml ref name the
       # same release. The bundle build itself is Docs / check (docs.yml).
       - name: Verify the docs-kit pins agree
