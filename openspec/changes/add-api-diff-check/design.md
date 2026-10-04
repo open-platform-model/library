@@ -43,10 +43,23 @@ library#181 (merged as `58f8151`) set the rules every workflow here follows: wor
 **Decision**: No allow list in this change.
 **Rationale**: It narrows what the post-GA block covers, which is the owner's call. With inherited entries, the cost is bounded: the `deps/cascade` pull request that moves core shows one new entry (a warning before GA, a red non-required check after), and every later pull request lists it as inherited only. A core move already carries `need-human-review`, so the extra annotation reaches a reviewer who is reading it anyway. If the owner wants the entry silenced, a follow-up adds a fixed-prefix allow line for that one symbol.
 
-### Rehearsal (task 1.5)
+### Rehearsal (task 1.4)
 Results of the local runs, recorded here rather than in a commit body (squash-body hazard, AGENTS.md):
 
-_Filled in by task 1.5._
+Run on 2026-10-04 with the pinned `apidiff` (`d6e0b57`), Go 1.26.5 locally, from this branch. Scratch copies were `git clone`s of the branch with the uncommitted script and tools module copied in, and `API_DIFF_BASE_REF=HEAD`.
+
+| Run | Expected | Seen |
+| --- | --- | --- |
+| `task api:diff` | nearest tag `v1.0.0-beta.4`, compatible | `mode: warn`, "The API is compatible with v1.0.0-beta.4", exit 0, about 15 s |
+| `task api:diff BASE=v1.0.0-alpha.33` | the `DefaultSchemaModule` entry, inherited | `mode: warn`, compatible, one inherited entry (`./opm/schema.DefaultSchemaModule: value changed from "opmodel.dev/core@v2.0.0-alpha.10" to "opmodel.dev/core@v2.0.0-beta.2"`), exit 0 |
+| `task api:diff BASE=v0.7.0` | mode line `block` | `mode: block (v0.7.0 is a release: ...)`; 110 entries, all inherited (main already carries them), so exit 0 |
+| `API_DIFF_BASE_REF=v0.7.0` (base commit = tag) | block with new entries | 110 new entries, 110 `::error` lines, the MAJOR / migration-fragment remedy, exit 1 |
+| Scratch copy: `Roots` in `opm/helper/platformmodule` unexported, with `GITHUB_ACTIONS=true`, `GITHUB_STEP_SUMMARY=<file>` and `BASE=v0.7.0` | listed as new, warn, `BASE` ignored | "BASE is ignored in CI", base tag `v1.0.0-beta.4`, `./opm/helper/platformmodule.Roots: removed` as new, one `::warning title=Incompatible API change::` line, the same text in the summary file with the `feat!` / `BREAKING CHANGE:` remedy, exit 0 |
+| Scratch copy: `modversion.Canonical` renamed in `opm/internal/` and its callers | nothing new | compatible with `v1.0.0-beta.4`, exit 0 |
+| Scratch copy: one `x/exp` hash in `.tasks/apidiff/go.sum` corrupted | build refused before any export | `verifying golang.org/x/exp@...: checksum mismatch ... SECURITY ERROR`, then "building apidiff from .tasks/apidiff failed", exit 2 |
+| `git clone --depth 1` with `GITHUB_ACTIONS=true` | fails with the fetch-the-tags hint | `::error title=API diff::no v[0-9]* tag is reachable from <sha>; fetch the tags ...`, exit 2 |
+
+At the root, `go list ./...` lists no package of the tools module, and `go build ./...`, `go vet ./...` and `task lint` (0 issues) pass with it present.
 
 ## Risks / Trade-offs
 

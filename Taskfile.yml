@@ -118,6 +118,13 @@ tasks:
     cmds:
       - go build ./...
 
+  api:diff:
+    desc: List incompatible changes to the exported opm/ API since the last release tag (warns on a prerelease tag, fails on a release; BASE=<tag> to pick one)
+    env:
+      BASE: '{{.BASE | default ""}}'
+    cmds:
+      - bash .tasks/api-diff.sh
+
   ## Tests
 
   test:
