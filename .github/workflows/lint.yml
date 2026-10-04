@@ -30,11 +30,23 @@ jobs:
         with:
           version: 3.x
 
+      # The release archive, checked against the sha256 committed here before
+      # anything from it runs: no install script from a mutable ref. A bump
+      # moves both values together by hand (from the release's checksums.txt);
+      # Dependabot does not see a run step.
       - name: Install golangci-lint
+        env:
+          GOLANGCI_LINT_VERSION: 2.8.0
+          GOLANGCI_LINT_SHA256: 7048bc6b25c9515ed092c83f9fa8709ca97937ead52d9ff317a143299ee97a50
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-            | sh -s -- -b "$(go env GOPATH)/bin" v2.8.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          name="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64"
+          dir="$RUNNER_TEMP/golangci-lint"
+          mkdir -p "$dir"
+          curl -sSfL --proto '=https' --tlsv1.2 -o "$dir/$name.tar.gz" \
+            "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/$name.tar.gz"
+          echo "$GOLANGCI_LINT_SHA256  $dir/$name.tar.gz" | sha256sum -c -
+          tar -xzf "$dir/$name.tar.gz" -C "$dir" --strip-components=1 "$name/golangci-lint"
+          echo "$dir" >> "$GITHUB_PATH"
 
       - name: Run linter
         run: task lint

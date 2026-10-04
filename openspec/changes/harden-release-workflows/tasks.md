@@ -12,8 +12,8 @@
 
 ## 3. Checksum-verified golangci-lint
 
-- [ ] 3.1 `lint.yml`: replace the `HEAD` install script with the v2.8.0 release archive, fetched over HTTPS and checked with `sha256sum -c` against the committed digest
-- [ ] 3.2 Run the install step's shell locally (download, verify, extract, `golangci-lint version`) and `task lint`, then commit ci(lint): install golangci-lint from a checksum-verified release
+- [x] 3.1 `lint.yml`: replace the `HEAD` install script with the v2.8.0 release archive, fetched over HTTPS and checked with `sha256sum -c` against the committed digest
+- [x] 3.2 Run the install step's shell locally (download, verify, extract, `golangci-lint version`) and `task lint`, then commit ci(lint): install golangci-lint from a checksum-verified release
 
 ## 4. Code owners and documentation
 
