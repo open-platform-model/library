@@ -98,9 +98,11 @@ None.
 - Public surface under `opm/`: none.
 - Behaviour: a module or catalog acquired from a directory is now built from the overlay
   stamped on it instead of from a separate disk read. For a root package the error text is
-  unchanged; for a module or catalog acquired from a subdirectory, a load or build error now
-  names the module root and `./<pkg>` (as the overlay-mode instance path already does),
-  instead of the package directory.
+  unchanged; for a module or catalog acquired from a subdirectory, a load error now names
+  the module root and `./<pkg>` (as the overlay-mode instance path already does) instead of
+  the package directory. Build and shape-gate errors name the package directory in both
+  modes, so an overlay build with a non-empty package (a synthesized instance, a layered
+  instance in a subdirectory) now names that package directory rather than the root.
 - Downstream: none. cli and opm-operator call only the exported verbs.
 - Sequencing: this change is the head of the library acquire chain (b2, then b1+g2, then
   d1+d3, then g5 part A). Each later change rebases on it before merge.

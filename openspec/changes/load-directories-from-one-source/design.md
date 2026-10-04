@@ -64,8 +64,15 @@ today's on-disk callers pass the package directory as `root`. Every load and bui
 that mode then names the same directory it names today. Overlay-mode errors name `Root`
 and the package argument, as the overlay callers' errors do today. Module and catalog move
 from on-disk to overlay mode (LS3), so for a module or catalog acquired from a subdirectory a
-load or build error names the module root and `./<Pkg>` instead of the package directory; for
-a root package the text is unchanged. A nil `src`, or one with an empty
+load error names the module root and `./<Pkg>` instead of the package directory; for a root
+package the text is unchanged. Build and shape-gate errors name the package directory (`Root`
+joined with `Pkg`) in both modes, so they still say which package failed. For the existing
+overlay callers with a non-empty `Pkg` (the synthesized instance package, a layered instance in
+a subdirectory) that makes a build or gate error name the package directory rather than the
+root, a more precise text. `TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot` pins
+both texts at the module and catalog verbs; a build from the package directory on disk would
+report the load error against `<root>/sub (.)`, so the test fails if the verbs stop building
+from the overlay they stamp. A nil `src`, or one with an empty
 `Root`, is refused with a plain `errors.New("source carries no module root")`, the wording
 `sourcetree.PackageName` and `sourcetree.ReadFile` already use for the same caller
 precondition. It does not wrap `oerrors.ErrInvalidPackage`: that sentinel classifies a
@@ -172,7 +179,16 @@ file of the same path. Building a directory-acquired artifact from its overlay t
 the `.cue` bytes that were read once and every other file from disk, which is what the
 on-disk build sees. Not covered, and not changed by this change: when a module acquired
 this way is staged elsewhere (`Render` re-keys overlay inputs under the staging directory),
-its non-CUE files are not carried. That is today's behaviour, and the Non-Goals above list it.
+its non-CUE files are not carried. That is today's behaviour, and the Non-Goals above list it;
+a library issue tracks it.
+
+A known gap that predates this change: a package directory reached through a symlinked
+directory under `Root` (acquiring `<root>/linkdir` where `linkdir` points elsewhere).
+`sourceForDir` gives `Pkg` = `linkdir`, and `OverlayFromDir` does not descend into a symlinked
+directory, so the overlay holds none of that package's files and the build reads them from
+disk through the host layer. The stamped `Source` cannot then serve `SynthesizeInstance` or
+`Render`. Resolving the path with `filepath.EvalSymlinks` before `sourceForDir` would close
+it; that is a follow-up, not part of this change.
 
 One residual difference: a `.cue` file created on disk between the read and the build is seen
 by the build (through the host layer) but not stamped. The window is the same function call,
@@ -221,7 +237,9 @@ where today's on-disk module and catalog builds let cue/load find the module roo
 **Decision**: accept it, and run the flow and parity suites in the last real section.
 **Rationale**: `sourceForDir` and cue/load search for the same ancestor except for a
 `cue.mod` directory with no `module.cue` in it, which cue/load treats as a root and
-`sourceForDir` skips. Such a tree is not a valid CUE module and fails either way. A
+`sourceForDir` skips. For such a tree both builds behave the same: a package with no
+imports acquires in both, as a probe of a root `cue.mod/` without `module.cue` and of a
+nested empty `sub/cue.mod/` showed. A
 directory with no enclosing module is its own `Root` in both, and the layered-instance path
 already builds module-less overlays (`TestKernel_AcquireInstanceFromDir_WithSources_ModuleLess`).
 

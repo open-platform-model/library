@@ -124,6 +124,11 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
       an overlay `Source` from it, rewrite a `.cue` file on disk, build that `Source` with
       `loader.LoadDir`, and assert the value read first wins. The section 1 tests pass
       unchanged.
+- [x] 4.5a Review follow-up: `TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot`
+      acquires a module and a catalog from a subdirectory and pins the load error
+      (`loading <label> package from <root> (./sub): `) and the build error (`building <label>
+      package from <root>/sub: `). It fails if the verbs build from the package directory on
+      disk. `LoadDir` names the package directory in build and gate errors in both modes.
 - [x] 4.6 Cross-cutting checks (LS7): `go test -race ./opm/kernel ./opm/internal/renderstage
       -count=1`, the parity tests (`go test ./opm/kernel -run Parity -count=1`) and
       `task cue:test:flow`. Verify: all green (the flow test may skip when the registry is
