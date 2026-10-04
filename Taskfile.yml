@@ -226,7 +226,7 @@ tasks:
       - task: api:diff:test
 
   check:fast:
-    desc: Run fmt, vet, tests, and the docs bundle check (skip lint)
+    desc: Run fmt, vet, tests, the docs bundle check, and the api:diff tests (skip lint)
     cmds:
       - task: fmt
       - task: vet
