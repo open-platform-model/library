@@ -59,7 +59,10 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: consumer/go.mod
-          cache-dependency-path: consumer/go.sum
+          # Off: a pull_request-only workflow never writes a main-scoped
+          # entry, so every PR would save cold entries against the repo's
+          # cache quota and could evict test.yml's main-scoped Go cache.
+          cache: false
 
       - name: Build and vet ${{ matrix.consumer }} against this library
         env:

@@ -61,6 +61,11 @@ jobs:
           yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
           task -x deps:cascade:test
 
+      # Offline: .tasks/consumer-build.sh (run by consumer-build.yml) against
+      # synthetic git repos, including the pipefail and tree-check mutants.
+      - name: Consumer build script tests (offline)
+        run: task consumer-build:test
+
       # Offline: .opm-docs-version and every docs-kit publish.yml ref name the
       # same release. The bundle build itself is Docs / check (docs.yml).
       - name: Verify the docs-kit pins agree

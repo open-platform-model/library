@@ -81,15 +81,24 @@ failed=""
 
 echo "consumer-build: $name ($consumer_commit) against $library, work dir $work"
 
+# Set before init: go work init writes to GOWORK when it is set, so a GOWORK
+# from the caller's environment would put the file outside the work directory.
+export GOWORK="$work/go.work"
 if ! (cd "$work" && go work init "$consumer" "$library") 2>&1 | tee "$work/init.log"; then
   failed=init
 fi
-export GOWORK="$work/go.work"
 
 for step in build vet; do
   [ -z "$failed" ] || break
   echo "consumer-build: go $step ./... in $name"
-  if ! go -C "$consumer" "$step" ./... 2>&1 | tee "$work/$step.log"; then
+  # -o /dev/null: a consumer whose ./... is one main package would otherwise
+  # get a binary written into its checkout and fail the tree check.
+  if [ "$step" = build ]; then
+    args=(build -o /dev/null ./...)
+  else
+    args=(vet ./...)
+  fi
+  if ! go -C "$consumer" "${args[@]}" 2>&1 | tee "$work/$step.log"; then
     failed=$step
   fi
 done
