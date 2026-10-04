@@ -51,7 +51,7 @@ Tests only; every one passes on `origin/main` before any code moves.
 
 ## 2. Read a directory overlay through os.DirFS (sourcetree; design LS6)
 
-- [ ] 2.1 `opm/internal/sourcetree/sourcetree.go`: `OverlayFromDir(root)` returns
+- [x] 2.1 `opm/internal/sourcetree/sourcetree.go`: `OverlayFromDir(root)` returns
       `OverlayFromFS(os.DirFS(root), ".", root)` wrapped in `reading module tree %s: %w`;
       the hand-written `filepath.WalkDir` goes. Update its doc comment to say it is
       `OverlayFromFS` over the directory; drop imports nothing else uses. Rewrite the package
@@ -61,7 +61,7 @@ Tests only; every one passes on `origin/main` before any code moves.
       `acquire_test.go` comment "cue/load does not read it" the same way. Verify:
       `go test ./opm/internal/sourcetree ./opm/internal/renderstage -count=1` green, and the
       section 1 tests unchanged.
-- [ ] 2.2 `task check` green, then commit
+- [x] 2.2 `task check` green, then commit
       `refactor(sourcetree): read a directory overlay through os.DirFS`.
 
 ## 3. LoadDir takes a Source and load options (loader, synth; design LS1, LS2)

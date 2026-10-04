@@ -395,7 +395,8 @@ func overlayKeys(t *testing.T, src *module.Source) []string {
 // root, and HasSource() true so the module is a SynthesizeInstance input.
 func TestKernel_AcquireModuleFromDir_CarriesOverlaySource(t *testing.T) {
 	root := writeTempModuleRoot(t, "", acquireModuleFixture)
-	// A non-.cue sibling must not enter the overlay: cue/load does not read it.
+	// A non-.cue sibling must not enter the overlay: the overlay carries .cue
+	// files only, and an embedded data file is read from disk beneath it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("not cue"), 0o644))
 
 	k := kernel.New()

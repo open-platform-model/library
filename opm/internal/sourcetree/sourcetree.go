@@ -12,11 +12,13 @@
 // not this package's.
 //
 // Both walkers apply one filter: a regular file is included iff its name ends
-// in ".cue", the module's own cue.mod/module.cue included. That is the set
-// cue/load reads (nothing in the workspace uses @embed), and it keeps an
+// in ".cue", the module's own cue.mod/module.cue included. That keeps an
 // on-disk walk from swallowing .git or vendored trees. Directory names are
 // not filtered, so a vendored cue.mod/pkg/**/*.cue is included as cue/load
-// would read it.
+// would read it. Non-CUE files a package reads through the embed attribute
+// (embedded data) are not carried in the overlay: when Root is the real
+// directory, cue/load reads them through the host filesystem beneath the
+// overlay.
 package sourcetree
 
 import (
@@ -106,27 +108,14 @@ func packageFiles(src *module.Source, pkgDir string) ([]string, error) {
 }
 
 // OverlayFromDir reads every .cue file under root (the module's own
-// cue.mod/module.cue included) into an overlay map keyed by the
-// file's path under root; pass an absolute root so the keys are the absolute
-// paths cue/load expects. The overlay mirrors the on-disk tree rather than
-// re-deciding what cue/load includes, so a build from it evaluates exactly as
-// the on-disk build would.
+// cue.mod/module.cue included) into an overlay map keyed by the file's path
+// under root; pass an absolute root so the keys are the absolute paths
+// cue/load expects. It is [OverlayFromFS] over the directory, keyed under
+// root itself, so the overlay mirrors the on-disk tree rather than
+// re-deciding what cue/load includes. A symlinked .cue file is read through
+// the link under its own key; a symlinked directory is not descended into.
 func OverlayFromDir(root string) (map[string][]byte, error) {
-	overlay := map[string][]byte{}
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), cueSuffix) {
-			return nil
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		overlay[p] = data
-		return nil
-	})
+	overlay, err := OverlayFromFS(os.DirFS(root), ".", root)
 	if err != nil {
 		return nil, fmt.Errorf("reading module tree %s: %w", root, err)
 	}
