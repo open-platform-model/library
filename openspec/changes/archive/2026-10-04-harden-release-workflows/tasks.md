@@ -1,7 +1,8 @@
 ## 1. Release key in the release Environment
 
 - [x] 1.1 `release.yml`: workflow `permissions: {}`; the `release-please` job declares `environment: release` and `permissions: {}`; `publish-docs` and `notify-downstream` keep their grants
-- [x] 1.2 `task cascade:wiring:check` and actionlint green, then commit ci(release): read the release app key only in the release environment
+- [x] 1.2 The mint step scopes the App token to this repo with `permission-contents: write` and `permission-pull-requests: write` (review follow-up)
+- [x] 1.3 `task cascade:wiring:check` and actionlint green, then commit ci(release): read the release app key only in the release environment
 
 ## 2. Read-only tokens for the CI workflows
 

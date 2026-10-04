@@ -2,7 +2,7 @@
 
 ### Requirement: The release App key is read only in the release Environment
 
-Every job that reads `RELEASE_APP_PRIVATE_KEY` SHALL declare `environment: release`, the Environment whose deployment branch policy admits `main` only, and no other job SHALL read it. Today that is the release workflow's release-please job, which SHALL be granted no `GITHUB_TOKEN` permission (`permissions: {}`), since it acts with the App token alone. The release workflow SHALL declare `permissions: {}` at the workflow level, so each of its jobs carries only its own grants. Source: owner selection 29; security pass finding GOV-2.
+Every job that reads `RELEASE_APP_PRIVATE_KEY` SHALL declare `environment: release`, the Environment whose deployment branch policy admits `main` only, and no other job SHALL read it. Today that is the release workflow's release-please job, which SHALL be granted no `GITHUB_TOKEN` permission (`permissions: {}`), since it acts with the App token alone. The release workflow SHALL declare `permissions: {}` at the workflow level, so each of its jobs carries only its own grants. The job SHALL mint the App token for this repository only (`owner`, `repositories`) with `contents: write` and `pull-requests: write` and no other permission, rather than every permission the App's installation holds. Source: owner selection 29; security pass finding GOV-2.
 
 #### Scenario: A release run on main
 
