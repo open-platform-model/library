@@ -46,8 +46,8 @@ Merge gates (not tasks): `gh api repos/open-platform-model/.github/compare/<SHA>
 
 ## 6. Dependabot ignore (wiring §10.1 item 7)
 
-- [ ] 6.1 In `.github/dependabot.yml`, append the wiring §10.1 item 7 comment and `- dependency-name: "open-platform-model/.github*"` to the `github-actions` entry's `ignore:` list, after the docs-kit entry, with the same six-space indentation.
-- [ ] 6.2 Gate green, then commit `ci(deps): keep Dependabot off the cascade pin`.
+- [x] 6.1 In `.github/dependabot.yml`, append the wiring §10.1 item 7 comment and `- dependency-name: "open-platform-model/.github*"` to the `github-actions` entry's `ignore:` list, after the docs-kit entry, with the same six-space indentation.
+- [x] 6.2 Gate green, then commit `ci(deps): keep Dependabot off the cascade pin`.
 
 ## 7. Docs and the re-grep (wiring §10.1 items 8 to 11)
 
