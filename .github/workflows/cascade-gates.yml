@@ -1,8 +1,9 @@
 name: Cascade gates
 
 # Posts cascade/freshness (G2) and cascade/settled (G3) on every PR through
-# the shared cascade-gates workflow in the org .github repo (workspace
-# RELEASING.md, "Gates"; Phase 3 wiring contract 8.3). An ordinary PR gets
+# the reusable cascade-gates workflow in the org .github repo, pinned to the
+# same .github main SHA as every cascade reference here (workspace
+# RELEASING.md, "Gates"; Phase 3 wiring contract version 3.1, 8.3). An ordinary PR gets
 # both as `n/a`; a release-please PR gets a gates-only Deps cascade run that
 # evaluates and posts them on its head. pull_request_target, but nothing is
 # checked out, so no PR code runs with these permissions. Both stay warnings
@@ -25,7 +26,7 @@ jobs:
     permissions:
       statuses: write
       actions: write
-    uses: open-platform-model/.github/.github/workflows/cascade-gates.yml@main
+    uses: open-platform-model/.github/.github/workflows/cascade-gates.yml@2376ffae4bfc665f327d51581350dea694c01504 # .github main
     with:
       g2-mode: ${{ vars.CASCADE_G2_MODE || 'warn' }}
       g3-mode: ${{ vars.CASCADE_G3_MODE || 'warn' }}
