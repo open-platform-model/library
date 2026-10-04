@@ -37,10 +37,9 @@ See `CONSTITUTION.md` for the full set of principles.
 
 ```text
 opm/
-  core/                   Platform-neutral primitives — Compiled (terminal output)
   errors/                 Structured errors, grouped CUE diagnostics, typed render-gate causes
   schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata types
-  kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render)
+  kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render) and `Compiled`, its terminal output
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
   catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() and Requires(). Read and derived from; never rendered
@@ -141,7 +140,7 @@ task check
 
 ## Further reading
 
-- `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, small batches).
+- `CONSTITUTION.md` — design principles (kernel neutrality, type safety, separation of concerns, SemVer discipline, mergeable sections).
 - `openspec/config.yaml` — normative constitution source.
 - `opmodel.dev/core@v2` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.

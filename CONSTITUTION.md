@@ -61,8 +61,8 @@ The library MUST preserve clear package boundaries. Each package owns a single r
 
 - `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata types
 - `opm/errors/` — structured errors and grouped CUE diagnostics (alias as `oerrors` in consumers)
-- `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, load, process, validate, synthesize, render)
-- `opm/module/` — module and release model, value-validation accessors
+- `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, synthesize, validate, render)
+- `opm/module/` — module and instance model, value-validation accessors
 - `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
 - `opm/catalog/` — the acquired catalog artifact ([ADR-009](adr/009-catalog-is-an-acquired-kind.md)): reads and derives, never judges
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
@@ -76,7 +76,9 @@ The one validation primitive lives on `*kernel.Kernel` (`ValidateConfigDetailed`
 Domain logic belongs in focused packages, not aggregated into one monolithic API. Clear boundaries keep the library easier to test, evolve, and reuse across implementations.
 
 ```text
-loader -> module -> schema-validate -> render -> core
+acquire -> Module | ModuleInstance | Platform | Catalog
+SynthesizeInstance(Module, values) -> ModuleInstance
+Render(ModuleInstance, Platform) -> one CUE build -> []*kernel.Compiled
 ```
 
 ---

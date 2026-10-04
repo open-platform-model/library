@@ -17,12 +17,12 @@ Depends on: nothing unmerged. Lands before wave-2 `lib-e2e5` and `lib-c4` (propo
 
 ## 3. Package map, constitution and site page
 
-- [ ] 3.1 `README.md:40`: delete the `core/` layout row; the `kernel/` row ends "and `Compiled`, its terminal output" (design.md D3).
-- [ ] 3.2 `CONSTITUTION.md:64`, `:65` and the pipeline block at `:78-80`: the D4 texts in design.md (acquire, synthesize, then `Render` over an instance and a platform; no `Catalog` into render). Leave the `opm/k8s/` bullet at `:70` alone.
-- [ ] 3.3 `README.md:144`: "small batches" becomes "mergeable sections".
-- [ ] 3.4 `docs/site/diagnostics/colliding-contracts.md:35`: `core/src/platform_contracts_pins.cue` becomes `core/src/pins/platform_contracts_pins.cue`.
-- [ ] 3.5 Verify: every directory the `README.md` layout block lists under `opm/` exists (`ls -d opm/<dir>`); `grep -n 'load, process\|release model\|schema-validate' CONSTITUTION.md` prints nothing; `grep -rn 'core/src/[a-z_]*_pins\.cue' docs README.md AGENTS.md` lists only `core/src/pins/` paths.
-- [ ] 3.6 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: fix the package map, constitution pipeline and pins path`.
+- [x] 3.1 `README.md:40`: delete the `core/` layout row; the `kernel/` row ends "and `Compiled`, its terminal output" (design.md D3).
+- [x] 3.2 `CONSTITUTION.md:64`, `:65` and the pipeline block at `:78-80`: the D4 texts in design.md (acquire, synthesize, then `Render` over an instance and a platform; no `Catalog` into render). Leave the `opm/k8s/` bullet at `:70` alone.
+- [x] 3.3 `README.md:144`: "small batches" becomes "mergeable sections".
+- [x] 3.4 `docs/site/diagnostics/colliding-contracts.md:35`: `core/src/platform_contracts_pins.cue` becomes `core/src/pins/platform_contracts_pins.cue`.
+- [x] 3.5 Verify: every directory the `README.md` layout block lists under `opm/` exists (`ls -d opm/<dir>`); `grep -n 'load, process\|release model\|schema-validate' CONSTITUTION.md` prints nothing; `grep -rn 'core/src/[a-z_]*_pins\.cue' docs README.md AGENTS.md` lists only `core/src/pins/` paths.
+- [x] 3.6 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: fix the package map, constitution pipeline and pins path`.
 
 ## 4. Verify and archive
 
