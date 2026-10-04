@@ -5,14 +5,20 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
-  pull-requests: write
+# No workflow-wide grant: each job declares its own (security pass, owner
+# selection 30), so a read-only repo default breaks nothing.
+permissions: {}
 
 jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    # The only reader of RELEASE_APP_PRIVATE_KEY. The release Environment
+    # admits main only, so no workflow on another branch can read the key
+    # (owner selection 29). The job acts with the App token alone and needs
+    # nothing from GITHUB_TOKEN.
+    environment: release
+    permissions: {}
     # Read by the cascade notify job (workspace RELEASING.md, "The cascade");
     # same shape as opm-operator's release workflow.
     outputs:
@@ -21,13 +27,19 @@ jobs:
     steps:
       # A PR opened or pushed with GITHUB_TOKEN holds its CI runs for manual
       # approval. Acting as the release App lets the release PR's CI start on
-      # its own.
+      # its own. The token is scoped to this repo and to what release-please
+      # uses (the release branch, tags and releases; the release PR and its
+      # labels), not every permission the App's installation holds.
       - name: Mint the release App token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # The library ships no binary and no container image — a release is the
       # git tag itself. release-please opens the release PR, tags vX.Y.Z on
@@ -49,8 +61,7 @@ jobs:
   # `release: published` trigger would run on the tag ref and be refused.
   # When this job does not run, docs.yml's dispatch publishes the release
   # instead. No version is passed: opm-docs reads it from the tag.
-  # The workflow-level permissions carry no id-token; this job grants what
-  # publish.yml's release mode needs and nothing more.
+  # This job grants what publish.yml's release mode needs and nothing more.
   # Pinned by docs-kit release tag, not a SHA: the signing certificate names
   # publish.yml at this ref, and the site trusts only docs-kit's v* tags
   # (docs-kit C5, C9). Moves with .opm-docs-version in one PR.

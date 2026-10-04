@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: no step pushes, publishes or calls the GitHub API, so a same-repo
+# PR (deps/cascade included) runs this code without a write token.
+permissions:
+  contents: read
+
 env:
   # The kernel flow integration test resolves the OPM core schema and
   # the opmodel.dev/catalogs/opm catalog from GHCR (see schema.PublicRegistry).
@@ -18,6 +23,8 @@ jobs:
     steps:
       - name: Clone the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
