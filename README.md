@@ -94,7 +94,7 @@ The library follows SemVer 2.0.0. The public surface is everything under `opm/`.
 - **Go module SemVer** governs the Go types and function signatures consumed by downstream binaries. Before GA, a breaking Go API change is a `feat!` commit that advances the prerelease counter; from GA, a breaking change here is a major bump of the library.
 - **OPM schema versioning** governs the CUE shapes consumed at runtime — `#Module`, `#ModuleInstance`, `#Platform`, `#Component`, transformer contracts. The kernel MUST be able to load and render older schema versions seamlessly so that downstream implementations inherit multi-version support without per-implementation effort.
 
-The two tracks are independent: within an OPM schema major, additive shape changes are absorbed by floating-major resolution and require no Go-side bump; a shape break in the schema is itself a coordinated library-breaking event.
+The two tracks are independent. The kernel's schema loader pins an exact core release by default (`schema.DefaultSchemaModule`), and a bare major (`opmodel.dev/core@v2`) is opt-in; acquisition and `Render` resolve core through each artifact's own `cue.mod`. An additive shape change within an OPM schema major therefore needs no Go API change: artifacts take it up by re-pinning core, and `DefaultSchemaModule` moves separately, in the release cascade's `fix(deps)` PR, which re-verifies the render glue. A shape break in the schema is itself a coordinated library-breaking event.
 
 ### Beta promise
 

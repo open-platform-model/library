@@ -10,10 +10,10 @@ Depends on: nothing unmerged. Lands before wave-2 `lib-e2e5` and `lib-c4` (propo
 
 ## 2. Pinned by default, bare major opt-in
 
-- [ ] 2.1 `README.md:97`: the D2 text in design.md.
-- [ ] 2.2 `AGENTS.md:351`, `:353` and `:361`: the D2 texts in design.md. The code example at `:356` is unchanged.
-- [ ] 2.3 Verify: `grep -n -i 'floating' README.md AGENTS.md` prints nothing; `grep -nE 'opmodel\.dev/core@v[0-9]+\.[0-9]+\.[0-9]+' README.md AGENTS.md` lists only the `AGENTS.md` loader example, so the cascade's prose warning set is unchanged.
-- [ ] 2.4 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: say the core schema is pinned by default`.
+- [x] 2.1 `README.md:97`: the D2 text in design.md.
+- [x] 2.2 `AGENTS.md:351`, `:353` and `:361`: the D2 texts in design.md. The code example at `:356` is unchanged.
+- [x] 2.3 Verify: `grep -n -i 'floating' README.md AGENTS.md` prints nothing; `grep -nE 'opmodel\.dev/core@v[0-9]+\.[0-9]+\.[0-9]+' README.md AGENTS.md` lists only the `AGENTS.md` loader example, so the cascade's prose warning set is unchanged.
+- [x] 2.4 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: say the core schema is pinned by default`.
 
 ## 3. Package map, constitution and site page
 
