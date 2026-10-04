@@ -11,7 +11,8 @@
 #   0  setup: clean tree, state directory, steering files, registries
 #   A  resolve every target (core, catalog, language check); no edits
 #   B  compute the module loop's scope; check for cue when it is non-empty
-#   C  edit: loader, text re-pin of the test trees, module loop, warnings
+#   C  edit: loader, text re-pin of the test trees, module loop, the docs
+#      examples (only when the loader moved), warnings
 set -euo pipefail
 die() { printf 'cascade: %s\n' "$1" >&2; exit "${2:-1}"; }
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -111,6 +112,8 @@ if frozen "$LOADER" "$CORE_KEY"; then
 else
   D=$(resolve cue "$CORE_KEY" "$D0")
 fi
+# D reaches sed programs in C1 and C4, so it must be a plain SemVer.
+[[ "$D" =~ $SEMVER_RE ]] || die "the core target '$D' is not a SemVer"
 
 # A2. The opm catalog, from the parity module. It moves only as far as the
 # loader's core allows (contract §6.2 step 3).
@@ -285,10 +288,24 @@ for i in "${!scope[@]}"; do
   unset was
 done
 
-# C4. Prose that names a core release other than the loader's: a warning only.
+# C4. The docs examples (openspec change refresh-docs-example-pins, design.md
+# D2, D3, D6). In a run that moved the loader, the version in every
+# `Module: "opmodel.dev/core@<v>"` example of the loader's major becomes D,
+# unless the file is frozen for core; no other line is edited, prose
+# included. Then every core release the file still names other than D is a
+# warning, build metadata included. A run that does not move core never edits
+# here, so a docs lag alone is never a diff.
+maj=${D%%.*}; maj=${maj#v}
+example="(Module: \"opmodel\\.dev/core@)v$maj\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?\""
 for doc in docs/getting-started.md AGENTS.md; do
   [ -f "$doc" ] || continue
-  named=$({ grep -oP 'opmodel\.dev/core@\Kv[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*' "$doc" || [ $? -eq 1 ]; } | LC_ALL=C sort -u)
+  if [ "$D" != "$D0" ] && ! frozen "$doc" "$CORE_KEY"; then
+    # D is a checked SemVer (A1), so it holds no '#', '&' or '\'.
+    sed -i -E "s#$example#\\1$D\"#g" "$doc"
+    left=$({ grep -oE "$example" "$doc" || [ $? -eq 1 ]; } | { grep -vxF "Module: \"opmodel.dev/core@$D\"" || [ $? -eq 1 ]; })
+    [ -z "$left" ] || die "the example rewrite in $doc left: $left"
+  fi
+  named=$({ grep -oP 'opmodel\.dev/core@\Kv[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]*[0-9A-Za-z])?(\+[0-9A-Za-z.-]*[0-9A-Za-z])?' "$doc" || [ $? -eq 1 ]; } | LC_ALL=C sort -u)
   while IFS= read -r v; do
     if [ -z "$v" ] || [ "$v" = "$D" ]; then continue; fi
     warn - "\`$doc\` still names \`opmodel.dev/core@$v\`"

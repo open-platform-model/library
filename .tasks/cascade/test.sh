@@ -11,11 +11,13 @@
 #
 #   CASCADE_TEST_SET=offline  checks, S1 no-op, S3 resolver error, S6 dirty
 #                             tree, S7 lagging tree, S8 catalog needs core,
-#                             S9 frozen loader, S10 frozen lag needs no cue
-#   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module,
-#                             S4b tidy raises a frozen key and S5 title and
-#                             body (network: cue mod get resolves the real
-#                             older versions)
+#                             S9 frozen loader, S10 frozen lag needs no cue,
+#                             S11 lagging docs
+#   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
+#                             (and prose releases in AGENTS.md), S4b tidy
+#                             raises a frozen key and S5 title and body
+#                             (network: cue mod get resolves the real older
+#                             versions)
 #
 # S5 runs only when CASCADE_RESOLVER_REAL names an executable real resolver;
 # otherwise it prints SKIP S5.
@@ -161,16 +163,34 @@ net_env() {
   export CUE_CACHE_DIR="$SB/cue-cache"
 }
 
+# DOCS: the files whose `Module: "opmodel.dev/core@…"` example follows the
+# loader (openspec change refresh-docs-example-pins).
+DOCS="docs/getting-started.md AGENTS.md"
+
+# set_example FILE VERSION: point FILE's `Module: "opmodel.dev/core@…"`
+# example at VERSION; exit when the file has none.
+set_example() {
+  sed -i -E "s#(Module: \"opmodel\\.dev/core@)v[0-9][^\"]*\"#\\1$2\"#g" "$1"
+  grep -qF "Module: \"opmodel.dev/core@$2\"" "$1" || { printf 'test.sh: %s has no core example to set to %s\n' "$1" "$2" >&2; exit 1; }
+}
+
+# docs_warned: print the warnings that name a docs file.
+docs_warned() {
+  # shellcheck disable=SC2016 # the backticks are message text
+  { warnings | grep -e '`docs/getting-started.md`' -e '`AGENTS.md`' || [ $? -eq 1 ]; }
+}
+
 # set_older WHAT: write older.tsv's versions into every location the task
-# moves. WHAT is core, catalog or both. Core: the loader and the core pin of
-# every tracked cue.mod/module.cue; catalog: the catalog pin of every tracked
-# cue.mod/module.cue that has one.
+# moves. WHAT is core, catalog or both. Core: the loader, the docs examples
+# and the core pin of every tracked cue.mod/module.cue; catalog: the catalog
+# pin of every tracked cue.mod/module.cue that has one.
 set_older() {
-  local oc ok f mods
+  local oc ok f mods doc
   oc=$(older "$CORE_KEY"); ok=$(older "$CATALOG_KEY")
   if [ "$1" != catalog ]; then
     sed -i -E "s|^(const DefaultSchemaModule = \"opmodel\\.dev/core@)[^\"]+|\\1$oc|" "$LOADER"
     [ "$(loader_core <"$LOADER")" = "$oc" ] || { printf 'test.sh: cannot set the loader to %s\n' "$oc" >&2; exit 1; }
+    for doc in $DOCS; do set_example "$doc" "$oc"; done
   fi
   mods=$(git ls-files '*cue.mod/module.cue')
   while IFS= read -r f; do
@@ -304,9 +324,30 @@ s10_frozen_lag_needs_no_cue() {
   else pass S10; fi
 }
 
+# S11: an example that lags while core does not move is warned about and left
+# alone, so a docs lag on its own is never a diff (refresh-docs-example-pins,
+# design.md D2).
+s11_lagging_docs() {
+  sandbox s11
+  set_example docs/getting-started.md "$(older "$CORE_KEY")"
+  setup_commit
+  table
+  run_cascade
+  local want
+  # shellcheck disable=SC2016 # the backticks are message text
+  want='`docs/getting-started.md` still names `opmodel.dev/core@'"$(older "$CORE_KEY")"'`'
+  if [ "$RC" != 3 ]; then fail S11 "exit $RC, not 3: $(tail -n3 "$SB/out")"
+  elif [ -n "$(status)" ]; then fail S11 "the tree changed: $(status | head -n3)"
+  elif ! warnings | grep -qF "$want"; then fail S11 "no warning names the lagging docs/getting-started.md"
+  else pass S11; fi
+}
+
 # --- Network scenarios -----------------------------------------------------------
 
 S2_DIR=""; S2_BASE=""
+# Older than older.tsv's core; check_older does not cover it, so keep it a
+# real v2 release below that one.
+S2_DOC_CORE=v2.0.0-alpha.12
 
 s2_older_pins() {
   sandbox s2
@@ -316,13 +357,15 @@ s2_older_pins() {
   # the run must warn (and never edit a language.version).
   sed -i -E "s|^(language-of\t$CATALOG_KEY\t[^\t]+\t).*|\1v0.99.0|" "$SB/table.tsv"
   set_older both
+  # One example lags further than the loader, so the run proves it catches
+  # up on the next core move.
+  set_example docs/getting-started.md "$S2_DOC_CORE"
   setup_commit
   run_cascade
   if [ "$RC" != 0 ]; then fail S2 "exit $RC, not 0: $(tail -n5 "$SB/out")"; return; fi
   # shellcheck disable=SC2016 # the backticks are message text
   if ! warnings | grep -q 'declares `language.version` `v0.99.0`'; then fail S2 "no language.version warning for the moved catalog"; return; fi
-  # shellcheck disable=SC2016 # the backticks are message text
-  if ! warnings | grep -q "^-"$'\t''`docs/getting-started.md` still names'; then fail S2 "no warning that docs/getting-started.md names another core"; return; fi
+  if [ -n "$(docs_warned)" ]; then fail S2 "a warning names a docs file: $(docs_warned | head -n2 | tr '\n' ' ')"; return; fi
   # The library has no version-advance paths: the golden list is empty, so
   # the result must equal the original tree exactly.
   if ! same_as_base; then fail S2 "the result differs from the original tree: $(git diff --name-only "$BASE0" | head -n5 | tr '\n' ' ')"; return; fi
@@ -334,10 +377,17 @@ s2_older_pins() {
   else pass S2; S2_DIR="$SB"; S2_BASE="$CASCADE_BASE"; fi
 }
 
+# S4_PROSE: a prose line in AGENTS.md naming another major and an older v2
+# release outside any `Module: "…"` example; the run must leave it and warn.
+# shellcheck disable=SC2016 # the backticks are prose text
+S4_PROSE='Cascade test S4 prose: `opmodel.dev/core@v1.0.0` and `opmodel.dev/core@v2.0.0-alpha.12`.'
+
 s4_frozen() {
   sandbox s4
   net_env
   table
+  printf '\n%s\n' "$S4_PROSE" >>AGENTS.md
+  cp AGENTS.md "$SB/agents.want"
   set_older both
   [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
   printf '  - path: %s\n    pins: ["%s", "%s"]\n    reason: "cascade test S4"\n' \
@@ -345,11 +395,16 @@ s4_frozen() {
   setup_commit
   cp "$S4_FILE" "$SB/frozen.before"
   run_cascade
-  local other
-  other=$(git diff --name-only "$BASE0" | grep -v -x -e "$S4_FILE" -e .cascade-frozen || [ $? -eq 1 ])
+  local other w1 w2
+  other=$(git diff --name-only "$BASE0" | grep -v -x -e "$S4_FILE" -e .cascade-frozen -e AGENTS.md || [ $? -eq 1 ])
+  # shellcheck disable=SC2016 # the backticks are message text
+  w1='`AGENTS.md` still names `opmodel.dev/core@v1.0.0`' w2='`AGENTS.md` still names `opmodel.dev/core@v2.0.0-alpha.12`'
   if [ "$RC" != 0 ]; then fail S4 "exit $RC, not 0: $(tail -n5 "$SB/out")"
   elif ! cmp -s "$S4_FILE" "$SB/frozen.before"; then fail S4 "the frozen $S4_FILE changed"
   elif [ -n "$other" ]; then fail S4 "other files differ from the original tree: $(printf '%s' "$other" | head -n5 | tr '\n' ' ')"
+  elif ! cmp -s AGENTS.md "$SB/agents.want"; then fail S4 "AGENTS.md is not its setup copy with the example current: $(diff "$SB/agents.want" AGENTS.md | head -n4 | tr '\n' ' ')"
+  elif ! warnings | grep -qF "$w1"; then fail S4 "no warning for the v1 release in AGENTS.md prose"
+  elif ! warnings | grep -qF "$w2"; then fail S4 "no warning for the older v2 release in AGENTS.md prose"
   else pass S4; fi
 }
 
@@ -430,6 +485,7 @@ s7_lagging_tree
 s8_catalog_needs_core
 s9_frozen_loader
 s10_frozen_lag_needs_no_cue
+s11_lagging_docs
 if [ "$SET" = all ]; then
   s2_older_pins
   s4_frozen
