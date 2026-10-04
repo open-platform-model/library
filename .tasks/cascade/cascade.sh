@@ -86,10 +86,28 @@ cmp_v() {
   case "$CMP" in -1|0|1) ;; *) die "semver-cmp $1 $2 printed '$CMP'" ;; esac
 }
 
-# A1. Core, from DefaultSchemaModule.
+# frozen FILE KEY: exit 0 when .cascade-frozen freezes KEY at FILE, 1 when not.
+frozen() {
+  local rc=0
+  "$R" is-frozen "$1" "$2" --repo-root . || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    3) return 1 ;;
+    *) die "is-frozen $1 $2 failed (exit $rc)" "$rc" ;;
+  esac
+}
+
+# A1. Core, from DefaultSchemaModule. A frozen loader keeps core where it is
+# before anything reads D, so the catalog check and the language check below
+# judge the core the run will really have (contract §6.2 step 3).
 D0=$(loader_core <"$LOADER")
 [[ "$D0" =~ $SEMVER_RE ]] || die "cannot read DefaultSchemaModule from $LOADER"
-D=$(resolve cue "$CORE_KEY" "$D0")
+if frozen "$LOADER" "$CORE_KEY"; then
+  warn "$CORE_KEY" "\`$LOADER\` is frozen for \`$CORE_KEY\`; \`DefaultSchemaModule\` stays at \`$D0\`"
+  D="$D0"
+else
+  D=$(resolve cue "$CORE_KEY" "$D0")
+fi
 
 # A2. The opm catalog, from the parity module. It moves only as far as the
 # loader's core allows (contract §6.2 step 3).
@@ -176,31 +194,16 @@ fi
 
 # --- Phase C: edit -----------------------------------------------------------
 
-# frozen FILE KEY: exit 0 when .cascade-frozen freezes KEY at FILE, 1 when not.
-frozen() {
-  local rc=0
-  "$R" is-frozen "$1" "$2" --repo-root . || rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    3) return 1 ;;
-    *) die "is-frozen $1 $2 failed (exit $rc)" "$rc" ;;
-  esac
-}
-
-# C1. The loader (shipped). One anchored literal edit, labelled for review.
+# C1. The loader (shipped). One anchored literal edit, labelled for review. A
+# frozen loader never gets here: phase A kept D at D0.
 if [ "$D" != "$D0" ]; then
-  if frozen "$LOADER" "$CORE_KEY"; then
-    warn "$CORE_KEY" "\`$LOADER\` is frozen for \`$CORE_KEY\`; \`DefaultSchemaModule\` stays at \`$D0\`"
-    D="$D0"
-  else
-    before=$(cat "$LOADER"; printf x)
-    sed -i -E "s|^(const DefaultSchemaModule = \"opmodel\\.dev/core@)[^\"]+(\")|\\1${D}\\2|" "$LOADER"
-    changed=$({ diff <(printf '%s' "${before%x}") "$LOADER" || [ $? -eq 1 ]; } | { grep -c '^>' || [ $? -eq 1 ]; })
-    if [ "$changed" != 1 ] || [ "$(loader_core <"$LOADER")" != "$D" ]; then
-      die "the DefaultSchemaModule rewrite in $LOADER changed $changed line(s), not exactly one"
-    fi
-    warn "$CORE_KEY" "\`DefaultSchemaModule\` moved from \`$D0\` to \`$D\`; need-human-review: re-verify the glue (\`$LOADER\`) before merging"
+  before=$(cat "$LOADER"; printf x)
+  sed -i -E "s|^(const DefaultSchemaModule = \"opmodel\\.dev/core@)[^\"]+(\")|\\1${D}\\2|" "$LOADER"
+  changed=$({ diff <(printf '%s' "${before%x}") "$LOADER" || [ $? -eq 1 ]; } | { grep -c '^>' || [ $? -eq 1 ]; })
+  if [ "$changed" != 1 ] || [ "$(loader_core <"$LOADER")" != "$D" ]; then
+    die "the DefaultSchemaModule rewrite in $LOADER changed $changed line(s), not exactly one"
   fi
+  warn "$CORE_KEY" "\`DefaultSchemaModule\` moved from \`$D0\` to \`$D\`; need-human-review: re-verify the glue (\`$LOADER\`) before merging"
 fi
 
 # C2. Text re-pin of the trees cue cannot resolve (contract §6.2 step 2): the

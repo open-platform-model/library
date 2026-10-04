@@ -102,7 +102,7 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
 
 **Phase A, resolve.** No file is written until every target is known.
 
-1. `D0` = the loader value. Call `newest cue opmodel.dev/core@v2 --current D0 --repo-root .`, plus `--expect` when `CASCADE_EXPECT` names `opmodel.dev/core@v2`.
+1. `D0` = the loader value. First call `is-frozen opm/schema/loader.go opmodel.dev/core@v2 --repo-root .` (read-only; contract v1.1 clarification C3 allows it before `newest`). On 0, warn "`opm/schema/loader.go` is frozen for `opmodel.dev/core@v2`; `DefaultSchemaModule` stays at `D0`", set `D = D0` and skip `newest`, so steps 2 and 3 judge the core the run really has (implementation review finding 1). Otherwise call `newest cue opmodel.dev/core@v2 --current D0 --repo-root .`, plus `--expect` when `CASCADE_EXPECT` names `opmodel.dev/core@v2`.
    - Exit 0: the target `D` is the printed version.
    - Exit 3: `D = D0`.
    - Any other exit: the task exits non-zero.
@@ -122,7 +122,7 @@ opmodel.dev/catalogs/opm@v4	opm catalog	test	<v>
 
 **Phase C, edit.** Only where something moved, in this order:
 
-1. **Loader** (shipped). When `D != D0`, rewrite line 43's literal to `opmodel.dev/core@D`. It is a single anchored `sed` on `const DefaultSchemaModule = "opmodel.dev/core@...`.
+1. **Loader** (shipped). When `D != D0` (never for a frozen loader, phase A step 1), rewrite line 43's literal to `opmodel.dev/core@D`. It is a single anchored `sed` on `const DefaultSchemaModule = "opmodel.dev/core@...`.
    - The task checks that exactly one line changed. Otherwise it exits 1.
    - It appends the warning "`DefaultSchemaModule` moved from `D0` to `D`; `need-human-review`: re-verify the glue (`opm/schema/loader.go`) before merging", under key `opmodel.dev/core@v2`.
    - This signal accompanies the `labels` column of `pins.sh`, which puts `need-human-review` in the body's `cascade-labels` marker.
@@ -220,6 +220,7 @@ The shape follows contract §8 exactly. Library specifics:
 
   ```
   check-files --repo-root .
+  is-frozen opm/schema/loader.go opmodel.dev/core@v2 --repo-root .
   newest cue opmodel.dev/catalogs/opm@v4 --current V --repo-root .
   newest cue opmodel.dev/core@v2 --current V --repo-root .
   ```
@@ -228,6 +229,7 @@ The shape follows contract §8 exactly. Library specifics:
 - **S3.** Sets the core `newest` row to `ERROR`. Core is the first pin resolved.
 - **S7 lagging tree (offline).** One render tree's core `v:` is set to `older.tsv`'s core; the loader and the other files are unchanged; current rows only. Expected: exit 0, and the only path that differs from the setup commit is that file, now equal to the original bytes. No `cue` runs, since no loop module is in scope.
 - **S8 catalog needs a newer core (offline).** Current rows, except that the catalog's `newest` row names a version above the tree (`v4.999.0`) and a `pin-of opmodel.dev/catalogs/opm@v4 v4.999.0 opmodel.dev/core@v2 v2.999.0` row names a core above the loader. Expected: exit 3, a clean tree, and "advance core first" in `.git/cascade/warnings`.
+- **S9 frozen loader (offline).** The sandbox appends an entry freezing `opm/schema/loader.go` for `opmodel.dev/core@v2` to `.cascade-frozen`. The table offers core `v2.999.0`, catalog `v4.999.0` whose `pin-of` core is `v2.999.0`, and a `language-of` row for core `v2.999.0` at `v0.99.0`. Expected: exit 3, a clean tree, no `newest` call for core, the "is frozen" and "advance core first" warnings, and no `language.version` warning.
 - **S2 setup.** Writes `older.tsv`'s core into the loader, into `testdata/cue.mod` and every render tree, and into the five module files. Writes `older.tsv`'s catalog into the four catalog files.
   - **Expected.** Exit 0, and the copy is byte-identical to the original tree. The library has no version-advance paths, so the golden list is empty.
   - **Rerun.** A second run, with `CASCADE_BASE` still at the setup SHA, exits 3.

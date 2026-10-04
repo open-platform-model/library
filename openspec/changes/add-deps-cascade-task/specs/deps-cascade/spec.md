@@ -21,7 +21,7 @@
 
 ### Requirement: Core moves with DefaultSchemaModule and is labelled for human review
 
-The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest published `opmodel.dev/core@v2` release the resolver returns. It SHALL edit only that string literal. It SHALL NOT edit any other Go file. Prereleases SHALL count while the current pin is a prerelease. The pin SHALL NOT move backwards, SHALL NOT cross a major, and SHALL stop at an in-date `.cascade-hold` `max`. When it moves, the task SHALL record a warning that names the move and `need-human-review`. The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `cascade-labels` marker names that label whenever core moved. Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RELEASING.md`, section "Labels".
+The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest published `opmodel.dev/core@v2` release the resolver returns. It SHALL edit only that string literal. It SHALL NOT edit any other Go file. Prereleases SHALL count while the current pin is a prerelease. The pin SHALL NOT move backwards, SHALL NOT cross a major, and SHALL stop at an in-date `.cascade-hold` `max`. When `.cascade-frozen` lists `opm/schema/loader.go` for `opmodel.dev/core@v2`, the pin SHALL stay, and every later step, the catalog check included, SHALL use that unchanged core. When it moves, the task SHALL record a warning that names the move and `need-human-review`. The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `cascade-labels` marker names that label whenever core moved. Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RELEASING.md`, section "Labels".
 
 #### Scenario: A newer core is published
 
@@ -32,6 +32,11 @@ The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go`
 
 - **WHEN** the resolver answers exit 3 for `opmodel.dev/core@v2`, as it does when an in-date `.cascade-hold` caps core at the current value
 - **THEN** the loader is unchanged
+
+#### Scenario: A frozen loader holds back the catalog
+
+- **WHEN** `.cascade-frozen` lists `opm/schema/loader.go` for `opmodel.dev/core@v2`, a newer core is published, and the newest catalog pins that newer core
+- **THEN** the loader and every catalog pin are unchanged, the task exits 3, and the warnings file says the loader is frozen and that core must advance first
 
 #### Scenario: The resolver warns of a new core major
 

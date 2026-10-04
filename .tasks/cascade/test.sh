@@ -10,7 +10,8 @@
 # move on main never breaks the test.
 #
 #   CASCADE_TEST_SET=offline  checks, S1 no-op, S3 resolver error, S6 dirty
-#                             tree, S7 lagging tree, S8 catalog needs core
+#                             tree, S7 lagging tree, S8 catalog needs core,
+#                             S9 frozen loader
 #   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
 #                             and S5 title and body (network: cue mod get
 #                             resolves the real older versions)
@@ -243,6 +244,28 @@ s8_catalog_needs_core() {
   else pass S8; fi
 }
 
+# S9: a frozen loader is decided before the catalog and language checks, so
+# a catalog that needs the newer core waits ("advance core first") and no
+# language.version warning names a core move that never happens.
+s9_frozen_loader() {
+  sandbox s9
+  [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
+  printf '  - path: %s\n    pins: ["%s"]\n    reason: "cascade test S9"\n' \
+    "$LOADER" "$CORE_KEY" >>.cascade-frozen
+  setup_commit
+  table v2.999.0 v4.999.0
+  printf 'pin-of\t%s\tv4.999.0\t%s\tv2.999.0\n' "$CATALOG_KEY" "$CORE_KEY" >>"$SB/table.tsv"
+  printf 'language-of\t%s\tv2.999.0\tv0.99.0\n' "$CORE_KEY" >>"$SB/table.tsv"
+  run_cascade
+  if [ "$RC" != 3 ]; then fail S9 "exit $RC, not 3: $(tail -n3 "$SB/out")"
+  elif [ -n "$(status)" ]; then fail S9 "the tree changed: $(status | head -n3)"
+  elif grep -q "^newest cue $CORE_KEY " "$SB/log"; then fail S9 "core was resolved although the loader is frozen"
+  elif ! warnings | grep -q 'is frozen for'; then fail S9 "no warning that the loader is frozen"
+  elif ! warnings | grep -q 'advance core first'; then fail S9 "no \"advance core first\" warning"
+  elif warnings | grep -q 'language.version'; then fail S9 "a language.version warning for a core move that never happens"
+  else pass S9; fi
+}
+
 # --- Network scenarios -----------------------------------------------------------
 
 S2_DIR=""; S2_BASE=""
@@ -344,6 +367,7 @@ s3_error
 s6_dirty
 s7_lagging_tree
 s8_catalog_needs_core
+s9_frozen_loader
 if [ "$SET" = all ]; then
   s2_older_pins
   s4_frozen

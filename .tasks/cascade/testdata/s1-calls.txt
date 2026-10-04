@@ -1,3 +1,4 @@
 check-files --repo-root .
+is-frozen opm/schema/loader.go opmodel.dev/core@v2 --repo-root .
 newest cue opmodel.dev/catalogs/opm@v4 --current V --repo-root .
 newest cue opmodel.dev/core@v2 --current V --repo-root .
