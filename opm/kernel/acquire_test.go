@@ -434,6 +434,49 @@ func TestKernel_AcquireModuleFromDir_Subpackage(t *testing.T) {
 	assert.Equal(t, []string{"cue.mod/module.cue", "sub/module.cue"}, overlayKeys(t, mod.Source))
 }
 
+// artifact-types spec, "Module and catalog are built from the overlay they
+// carry", at the verb: a subdirectory package is loaded as "./<pkg>" under
+// the module root it stamps, so a load error names the root and the package.
+// A build from the package directory on disk would name "<root>/sub (.)".
+// A build error still names the package directory.
+func TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot(t *testing.T) {
+	const unresolvable = "package mod\n\nimport \"example.com/modules/demo/missing\"\n\nx: missing.y\n"
+	const conflicting = "package mod\n\nx: 1\nx: 2\n"
+
+	k := kernel.New()
+	ctx := context.Background()
+	verbs := []struct {
+		label   string
+		acquire func(dir string) (bool, error)
+	}{
+		{"module", func(dir string) (bool, error) {
+			mod, err := k.AcquireModuleFromDir(ctx, dir)
+			return mod != nil, err
+		}},
+		{"catalog", func(dir string) (bool, error) {
+			cat, err := k.AcquireCatalogFromDir(ctx, dir)
+			return cat != nil, err
+		}},
+	}
+
+	for _, v := range verbs {
+		t.Run(v.label+"/load error", func(t *testing.T) {
+			root := writeTempModuleRoot(t, "sub", unresolvable)
+			got, err := v.acquire(filepath.Join(root, "sub"))
+			require.Error(t, err)
+			assert.False(t, got)
+			assert.True(t, strings.HasPrefix(err.Error(), "loading "+v.label+" package from "+root+" (./sub): "), "got %v", err)
+		})
+		t.Run(v.label+"/build error", func(t *testing.T) {
+			root := writeTempModuleRoot(t, "sub", conflicting)
+			got, err := v.acquire(filepath.Join(root, "sub"))
+			require.Error(t, err)
+			assert.False(t, got)
+			assert.True(t, strings.HasPrefix(err.Error(), "building "+v.label+" package from "+filepath.Join(root, "sub")+": "), "got %v", err)
+		})
+	}
+}
+
 // A relative directory path is stamped as its absolute form.
 func TestKernel_AcquireModuleFromDir_RelativePathAbsolutized(t *testing.T) {
 	root := writeTempModuleRoot(t, "", acquireModuleFixture)
@@ -830,9 +873,9 @@ data: _ @embed(file="d.json")
 	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue", "sub/module.cue"}, overlayKeys(t, sub.Source))
 }
 
-// artifact-types spec, "Module and catalog are built from the overlay they
-// carry": a Source described from a directory builds from the .cue bytes it
-// read, so a later edit on disk does not reach the build.
+// The Source a directory verb describes builds from the .cue bytes it read,
+// so a later edit on disk does not reach the build. The verb-level wiring is
+// TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot.
 func TestDirSource_BuildsFromTheBytesReadFirst(t *testing.T) {
 	root := writeTempModuleRoot(t, "", acquireModuleFixture)
 	src, err := kernel.DirSourceForTest(root)
