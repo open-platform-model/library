@@ -69,8 +69,9 @@ test *_test.go
 **Taskfile.** The four tasks go in `Taskfile.yml` beside `deps:release-check` (`Taskfile.yml:857`), under the exact names `deps:cascade`, `deps:cascade:title`, `deps:cascade:body` and `deps:cascade:test`.
 
 - An included `.tasks/cascade.yaml` with namespace `deps` was considered and dropped. It would collide with the existing top-level `deps:release-check`.
-- The `CASCADE_RESOLVER_PATH` var is declared at task level through one YAML anchor shared by the four tasks, never as a global `vars:` entry (contract §3).
-- Each task exports `CASCADE_RESOLVER` and has the precondition `test -x '{{.CASCADE_RESOLVER_PATH}}'`, with the contract §3 message.
+- The `CASCADE_RESOLVER_PATH` var is declared at task level through one YAML anchor shared by `deps:cascade`, `deps:cascade:title` and `deps:cascade:body`, never as a global `vars:` entry (contract §3).
+- Those three tasks export `CASCADE_RESOLVER` and have the precondition `test -x '{{.CASCADE_RESOLVER_PATH}}'`, with the contract §3 message.
+- `deps:cascade:test` has neither (contract v1.1 clarification C7): `test.sh` runs every scenario against the stub, and S5 reads `CASCADE_RESOLVER_REAL`. Its only precondition is `yq`.
 - `deps:cascade` also has the preconditions `git`, `yq` (mikefarah v4) and `jq`. `cue` is checked inside `cascade.sh`, and only when a pin will move, so the offline set needs no `cue` on the runner.
 
 ### D2. `pins.sh`
@@ -183,16 +184,15 @@ Contract §5.2 rule 14, as it applies to the library:
 
 ### D6. CI placement
 
-Every invocation of a cascade task needs `CASCADE_RESOLVER` set when no `.github` checkout sits beside the repo, because the contract §3 precondition `test -x '{{.CASCADE_RESOLVER_PATH}}'` otherwise falls back to the workspace path, which never exists on a runner. `test.sh` itself sets `CASCADE_RESOLVER` to the stub inside each sandbox; the outer value only satisfies the precondition.
+`deps:cascade:test` needs no resolver (contract v1.1 clarification C7): `test.sh` sets `CASCADE_RESOLVER` to the stub inside each sandbox, so neither CI step sets it. The network job uses the checkout layout of contract v1.1 clarification C4 (the repo at `repo`, `.github` at `org-github` beside it), and the offline step runs inside the required `Go tests` job (clarification C6).
 
 - **Required, offline.** One step in `test.yml` job `Go tests`, after "Install Task":
-  - `run: task -x deps:cascade:test`, with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`.
-  - The env satisfies the contract §3 precondition without a checkout of `.github`. `test.sh` uses the stub for every scenario anyway.
+  - `run: task -x deps:cascade:test`, with env `CASCADE_TEST_SET: offline`. No checkout of `.github` is needed.
   - `ubuntu-latest` ships mikefarah `yq` v4. The step checks `yq --version` first and fails clearly if it is not there.
 - **Non-required, network.** A new `.github/workflows/cascade-task.yml`:
   - job `Cascade task (network)`, with `timeout-minutes: 20` and `permissions: contents: read`;
   - triggers: `pull_request` with paths `.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold` and the workflow file; `workflow_dispatch`; and a weekly `schedule`;
-  - steps: checkout of the library with `path: repo`; setup-cue `v0.17.1`; setup-task; a checkout of `open-platform-model/.github` at `main` with `path: org-github` and `persist-credentials: false`, so it sits beside the repo and never inside its working tree (where `test.sh`'s `git ls-files --others` would copy it into every sandbox); then `task -x deps:cascade:test` with `working-directory: repo` and `CASCADE_RESOLVER: ${{ github.workspace }}/repo/.tasks/cascade/testdata/stub-resolve.sh`.
+  - steps: checkout of the library with `path: repo`; setup-cue `v0.17.1`; setup-task; a checkout of `open-platform-model/.github` at `main` with `path: org-github` and `persist-credentials: false`, so it sits beside the repo and never inside its working tree (where `test.sh`'s `git ls-files --others` would copy it into every sandbox); then `task -x deps:cascade:test` with `working-directory: repo`.
   - `CASCADE_RESOLVER_REAL=$GITHUB_WORKSPACE/org-github/.github/scripts/cascade/cascade-resolve.sh` is exported by the run step only when that file exists.
   - No setup-go: nothing in the task or its tests runs Go.
   - Every action is SHA-pinned as `test.yml` pins it.
@@ -239,7 +239,7 @@ The shape follows contract §8 exactly. Library specifics:
   - `body` holds both markers, two table rows, `need-human-review` in `cascade-labels`, and `## Notes` last.
   - **Catalog-only variant.** A second sandbox sets only the four catalog files to `older.tsv`'s catalog and runs `task -x deps:cascade` (exit 0). Then `title` prints `test(fixtures): bump opm catalog to <tree catalog>`, and the body's `cascade-labels` marker is empty.
 - **Exit-code discipline.** Every invocation is `task -x ...` (contract §3).
-- **Local runs.** Until `add-cascade-resolver` merges, no resolver sits at the workspace default path, so every local run of a cascade task is prefixed `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` (or points at the resolver worktree).
+- **Local runs.** Until `add-cascade-resolver` merges, no resolver sits at the workspace default path, so a local run of `deps:cascade`, `deps:cascade:title` or `deps:cascade:body` is prefixed `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` (or points at the resolver worktree). `deps:cascade:test` needs no prefix (contract v1.1 clarification C7).
 
 ### D8. Phase 2 gate for the library
 

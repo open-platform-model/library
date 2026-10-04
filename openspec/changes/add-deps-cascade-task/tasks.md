@@ -36,9 +36,9 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 - [x] 3.1 Add `.tasks/cascade/test.sh` (mode 0755). It holds the sandbox, the table builder, the checksum and pins checks, and the S1 (with the new-major warning pass-through), S3, S6, S7 and S8 scenarios (design.md D7; contract §8). It prints `PASS`/`FAIL` lines and exits 0 or 1.
 - [x] 3.2 Add `.tasks/cascade/testdata/s1-calls.txt` with the three normalized lines from design.md D7.
-- [x] 3.3 Add the `deps:cascade:test` task, with the shared resolver var and precondition, `CASCADE_TEST_SET` passed through, and a precondition on `yq`.
-- [x] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline` and `CASCADE_RESOLVER: ${{ github.workspace }}/.tasks/cascade/testdata/stub-resolve.sh`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.
-- [x] 3.5 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh CASCADE_TEST_SET=offline task -x deps:cascade:test` locally: every scenario PASS, and the worktree unchanged afterwards.
+- [x] 3.3 Add the `deps:cascade:test` task, with `CASCADE_TEST_SET` passed through and a precondition on `yq`. It needs no resolver var or precondition (contract v1.1 clarification C7).
+- [x] 3.4 Add a step to `.github/workflows/test.yml` job `Go tests`, after "Install Task". It runs `task -x deps:cascade:test` with env `CASCADE_TEST_SET: offline`, after a `yq --version | grep -q mikefarah` check. Run `actionlint` on the file.
+- [x] 3.5 Run `CASCADE_TEST_SET=offline task -x deps:cascade:test` locally, with no `CASCADE_RESOLVER` set: every scenario PASS, and the worktree unchanged afterwards.
 - [x] 3.6 Gate green, then commit `ci(cascade): run the offline cascade task tests in Go tests`.
 
 ## 4. Network tests, workflow and docs
@@ -48,12 +48,12 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
   - job `Cascade task (network)`, `timeout-minutes: 20`, `permissions: contents: read`;
   - triggers: PR paths (`.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold`, the workflow file), `workflow_dispatch` and a weekly schedule;
   - SHA-pinned actions, setup-cue `v0.17.1`, no setup-go;
-  - the library checked out at `path: repo`, the task run with `working-directory: repo` and `CASCADE_RESOLVER` set to the stub under `repo/`;
+  - the library checked out at `path: repo`, the task run with `working-directory: repo` and no `CASCADE_RESOLVER`;
   - the `org-github` checkout of `open-platform-model/.github` at `main` with `persist-credentials: false`, then `CASCADE_RESOLVER_REAL` exported only when the resolver file exists.
 
   Run `actionlint`.
 - [x] 4.3 Add a short "Release cascade task" paragraph to `AGENTS.md` (Build/test section). It names the four tasks, `task -x`, the exit codes, `need-human-review` on a core move, and that `cue:deps:update` stays the hand-run task.
-- [x] 4.4 Run `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
+- [x] 4.4 Run `task -x deps:cascade:test` (full set) locally with network: S1-S4 PASS, S5 SKIP or PASS.
 - [ ] 4.5 Once `add-cascade-resolver` is merged in `.github`, run the full set again with `CASCADE_RESOLVER_REAL` pointing at the workspace checkout's real resolver, and check that S5 passes. Run `task -x deps:cascade` with the real resolver on a clean scratch copy of `main`, and record its exit code and diff in design.md D8 (the Phase 2 gate evidence).
 - [x] 4.6 Run `openspec validate add-deps-cascade-task --strict`.
 - [x] 4.7 Gate green, then commit `ci(cascade): test the cascade task over the network`.

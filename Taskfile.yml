@@ -936,14 +936,14 @@ tasks:
       required `Go tests` job runs (no network, no cue); the default, all,
       adds the network scenarios. Run it with `task -x`.
 
+      Needs no resolver: every scenario runs against the stub in
+      .tasks/cascade/testdata. S5 (title and body) runs only when
+      CASCADE_RESOLVER_REAL names the real resolver.
+
       Usage:
         CASCADE_TEST_SET=offline task -x deps:cascade:test
         task -x deps:cascade:test
-    vars: *cascade_vars
-    env:
-      CASCADE_RESOLVER: '{{.CASCADE_RESOLVER_PATH}}'
     preconditions:
-      - *cascade_resolver_check
       - *cascade_yq_check
     cmds:
       - .tasks/cascade/test.sh

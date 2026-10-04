@@ -54,15 +54,14 @@ jobs:
         with:
           version: 3.x
 
-      # The stub satisfies the task's resolver precondition; test.sh uses it
-      # for every scenario. S5 (title and body) runs against the real
+      # test.sh runs every scenario against the stub in
+      # .tasks/cascade/testdata. S5 (title and body) runs against the real
       # resolver once open-platform-model/.github ships it on main, and
       # prints SKIP S5 until then.
       - name: Cascade task tests (full set)
         working-directory: repo
         env:
           CASCADE_TEST_SET: all
-          CASCADE_RESOLVER: ${{ github.workspace }}/repo/.tasks/cascade/testdata/stub-resolve.sh
         run: |
           yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
           real="$GITHUB_WORKSPACE/org-github/.github/scripts/cascade/cascade-resolve.sh"
