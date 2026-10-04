@@ -149,8 +149,8 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 6. Archive (at PR time, on the supervisor's word)
 
-- [ ] 6.1 `openspec archive consolidate-semver-paths-and-decoders --yes` on this branch, so the
+- [x] 6.1 `openspec archive consolidate-semver-paths-and-decoders --yes` on this branch, so the
       archive rides the implementing PR. Verify: the four main specs carry the modified
       requirements and `openspec validate --all --strict` passes. No `enhancement.yaml`, so no
       delivery log runs.
-- [ ] 6.2 Commit `chore(openspec): archive consolidate-semver-paths-and-decoders`.
+- [x] 6.2 Commit `chore(openspec): archive consolidate-semver-paths-and-decoders`.
