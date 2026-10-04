@@ -12,9 +12,10 @@
 #   CASCADE_TEST_SET=offline  checks, S1 no-op, S3 resolver error, S6 dirty
 #                             tree, S7 lagging tree, S8 catalog needs core,
 #                             S9 frozen loader, S10 frozen lag needs no cue
-#   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
-#                             and S5 title and body (network: cue mod get
-#                             resolves the real older versions)
+#   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module,
+#                             S4b tidy raises a frozen key and S5 title and
+#                             body (network: cue mod get resolves the real
+#                             older versions)
 #
 # S5 runs only when CASCADE_RESOLVER_REAL names an executable real resolver;
 # otherwise it prints SKIP S5.
@@ -348,6 +349,31 @@ s4_frozen() {
   else pass S4; fi
 }
 
+# S4b: a key frozen for one module, and tidy raises it by MVS when the other
+# key moves. The task must refuse (contract §5.2 rule 8), naming the key.
+# web_app's core is frozen at v2.0.0-alpha.12 and its catalog is older.tsv's,
+# whose core (v2.0.0-beta.1) is newer, so moving the catalog raises core.
+S4B_CORE=v2.0.0-alpha.12
+
+s4b_tidy_raises_frozen() {
+  sandbox s4b
+  net_env
+  set_dep_v "$S4_FILE" "$CORE_KEY" "$S4B_CORE"
+  set_dep_v "$S4_FILE" "$CATALOG_KEY" "$(older "$CATALOG_KEY")"
+  [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
+  printf '  - path: %s\n    pins: ["%s"]\n    reason: "cascade test S4b"\n' \
+    "$S4_FILE" "$CORE_KEY" >>.cascade-frozen
+  setup_commit
+  table
+  run_cascade
+  local other
+  other=$(git diff --name-only HEAD | grep -v -x -e "$S4_FILE" || [ $? -eq 1 ])
+  if [ "$RC" = 0 ] || [ "$RC" = 3 ]; then fail S4b "exit $RC, not a refusal: $(tail -n3 "$SB/out")"
+  elif ! grep -qF "tidy changed the frozen $CORE_KEY pin from $S4B_CORE" "$SB/out"; then fail S4b "the refusal does not name the frozen key: $(tail -n3 "$SB/out")"
+  elif [ -n "$other" ]; then fail S4b "files other than $S4_FILE changed: $(printf '%s' "$other" | head -n5 | tr '\n' ' ')"
+  else pass S4b; fi
+}
+
 # real VERB: `task -x deps:cascade:VERB` against the real resolver; sets OUT, RC.
 real() {
   RC=0
@@ -403,6 +429,7 @@ s10_frozen_lag_needs_no_cue
 if [ "$SET" = all ]; then
   s2_older_pins
   s4_frozen
+  s4b_tidy_raises_frozen
   s5_title_body
 fi
 

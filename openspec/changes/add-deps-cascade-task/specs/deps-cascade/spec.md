@@ -76,6 +76,11 @@ The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cu
 - **WHEN** `.cascade-frozen` lists `testdata/modules/web_app/cue.mod/module.cue` for both OPM keys and both pins move
 - **THEN** that file is byte-unchanged and every other module moves
 
+#### Scenario: Tidy raises a frozen key
+
+- **WHEN** `.cascade-frozen` lists a module's `cue.mod/module.cue` for `opmodel.dev/core@v2` only, and moving its catalog makes `tidy` raise that core
+- **THEN** the task exits with a code other than 0 and 3, naming the file and the frozen key
+
 ### Requirement: The cascade task never touches release or steering files
 
 The task SHALL NOT modify these:

@@ -237,6 +237,7 @@ The shape follows contract §8 exactly. Library specifics:
 - **S4 frozen choice.** `testdata/modules/web_app/cue.mod/module.cue`, frozen for `opmodel.dev/core@v2` and `opmodel.dev/catalogs/opm@v4`. It is a loop module with both OPM keys and no third-party dep.
   - **Expected.** That file is byte-unchanged; everything else is as in S2; exit 0.
   - The repo's real 12 entries stay in the file during the scenario.
+- **S4b tidy raises a frozen key (network).** `testdata/modules/web_app/cue.mod/module.cue` gets core `v2.0.0-alpha.12`, frozen for `opmodel.dev/core@v2` only, and `older.tsv`'s catalog; current rows otherwise. The catalog moves to the tree's, whose core is newer than `v2.0.0-alpha.12`, so `tidy` raises the frozen core by MVS. Expected: an exit other than 0 and 3, the output names the frozen key and its old value, and no file other than that one differs from the setup commit (contract §5.2 rule 5 allows the partial edit; implementation review finding 2).
 - **S5.** Runs only when `CASCADE_RESOLVER_REAL` is set and executable; otherwise it prints `SKIP S5`. After S2 it checks:
   - `title` prints `fix(deps): bump core to <tree core> and opm catalog to <tree catalog>`;
   - `body` holds both markers, two table rows, `need-human-review` in `cascade-labels`, and `## Notes` last.

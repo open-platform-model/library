@@ -43,7 +43,7 @@ Merge gate (not a task): `.github` `add-cascade-resolver` is merged before this 
 
 ## 4. Network tests, workflow and docs
 
-- [x] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), and S5 with its catalog-only variant, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`. S2, S4 and S5 copy the main checkout's `.cue-cache/mod` beside the sandbox and export `CUE_CACHE_DIR` to it.
+- [x] 4.1 Extend `test.sh` with S2 (older pins, an empty golden list of advance paths, and a second run that exits 3), S4 (`testdata/modules/web_app/cue.mod/module.cue` frozen for both keys, appended to the real `.cascade-frozen` in the sandbox), S4b (the same file frozen for core only while tidy raises it), and S5 with its catalog-only variant, gated on `CASCADE_RESOLVER_REAL`, otherwise `SKIP S5`. S2, S4 and S5 copy the main checkout's `.cue-cache/mod` beside the sandbox and export `CUE_CACHE_DIR` to it.
 - [x] 4.2 Add `.github/workflows/cascade-task.yml` per design.md D6:
   - job `Cascade task (network)`, `timeout-minutes: 20`, `permissions: contents: read`;
   - triggers: PR paths (`.tasks/cascade/**`, `.tasks/*.yaml`, `Taskfile.yml`, `.cascade-frozen`, `.cascade-hold`, the workflow file), `workflow_dispatch` and a weekly schedule;
