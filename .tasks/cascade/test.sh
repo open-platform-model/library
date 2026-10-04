@@ -29,7 +29,8 @@ STUB_SUM=970130f7d55c07f5b86d4f5b6f392330427ff923eb34f93553656bcd4b893d9c
 OLDER="$here/testdata/older.tsv"
 S1_CALLS="$here/testdata/s1-calls.txt"
 TODAY=2026-10-03
-# The loop module S4, S4b and S10 freeze: both OPM keys, no third-party dep.
+# The loop module S4, S4b and S10 use: both OPM keys, no third-party dep (S4
+# freezes both, S4b and S10 core only).
 S4_FILE=testdata/modules/web_app/cue.mod/module.cue
 
 SET="${CASCADE_TEST_SET:-all}"
@@ -269,17 +270,20 @@ s9_frozen_loader() {
   else pass S9; fi
 }
 
-# no_cue_path: point PATH at the directories that hold no cue, plus a
-# directory with task alone, so the run proves it never needs cue.
+# no_cue_path: a directory of symlinks to the tools a stubbed run needs, and
+# nothing else, so the run proves it never needs cue. A tool missing here is
+# skipped; the run then fails loudly on it rather than passing by accident.
+NO_CUE_TOOLS="task yq jq git bash sh env sed grep awk find sort uniq diff cmp
+sha256sum xargs mktemp cat tr head tail cut wc dirname basename ls mkdir rm cp
+mv touch date"
 no_cue_path() {
-  local d keep=""
+  local t p
   mkdir -p "$SB/bin"
-  ln -sf "$(command -v task)" "$SB/bin/task"
-  while IFS= read -r d; do
-    if [ -z "$d" ] || [ -x "$d/cue" ]; then continue; fi
-    keep="$keep:$d"
-  done <<<"$(tr ':' '\n' <<<"$PATH")"
-  printf '%s%s\n' "$SB/bin" "$keep"
+  for t in $NO_CUE_TOOLS; do
+    p=$(command -v "$t" 2>/dev/null) || continue
+    case "$p" in /*) ln -sf "$p" "$SB/bin/$t" ;; esac
+  done
+  printf '%s\n' "$SB/bin"
 }
 
 # S10: a loop module whose core is frozen below the loader has nothing to move,
