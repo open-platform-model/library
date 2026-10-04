@@ -61,7 +61,8 @@ read source changes.
   changes them later).
 - **`OverlayFromDir` over `os.DirFS`.** `sourcetree.OverlayFromDir(root)` becomes
   `OverlayFromFS(os.DirFS(root), ".", root)` wrapped in today's `reading module tree <root>:`
-  error. Keys, the `.cue`-only filter and symlink handling stay the same; tests pin them.
+  error. Keys, the `.cue`-only filter and symlink handling below the root stay the same;
+  tests pin them. A root that is itself a symlink is now walked through the link (design LS6).
 - **Tests first.** Before the refactor, tests pin the missing-directory and not-a-directory
   error text of all four directory verbs, a module that embeds a non-CUE file through the
   embed attribute, and `OverlayFromDir`'s keys, error text and symlink behaviour.

@@ -207,6 +207,13 @@ read failure in the middle of the walk now carries `OverlayFromFS`'s own `readin
 (`reading module tree R: reading sub/a.cue: open ...`). In the kernel, `loader.CheckDir` runs
 before the overlay read, so only a mid-walk read failure can reach a directory verb's caller.
 
+One behaviour change, found during verification: a root that is itself a symlink to a
+directory. `filepath.WalkDir` does not follow a symlinked root, so today's overlay for a module
+or catalog acquired through such a path is empty (and the module reports no source), while the
+build reads the tree from disk. `os.DirFS` resolves the root through the link, so the overlay
+now holds the tree, keyed under the path as given, and the package is built from it. This is
+the behaviour the verbs already document; `TestOverlayFromDir_SymlinkedRoot` pins it.
+
 ### LS7. Module root in overlay mode
 
 **Context**: the research notes that overlay mode sets `cfg.ModuleRoot = Root` explicitly,

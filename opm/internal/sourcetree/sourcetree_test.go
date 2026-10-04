@@ -173,6 +173,27 @@ func TestOverlayFromDir_Symlinks(t *testing.T) {
 	assert.Equal(t, "package m\n\nx: 1\n", string(overlay[filepath.Join(src.Root, "link.cue")]))
 }
 
+// A root that is itself a symlink to a directory is walked through the link,
+// with every key under the root as given.
+func TestOverlayFromDir_SymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	src := diskSource(t, "", map[string]string{
+		"cue.mod/module.cue": modFile,
+		"module.cue":         "package m\n",
+	})
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(src.Root, link))
+
+	overlay, err := OverlayFromDir(link)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		filepath.Join(link, "cue.mod", "module.cue"),
+		filepath.Join(link, "module.cue"),
+	}, sortedKeys(overlay))
+}
+
 func TestOverlayFromFS_RekeysUnderSyntheticRoot(t *testing.T) {
 	fsys := fstest.MapFS{
 		"mod/cue.mod/module.cue":  {Data: []byte(modFile)},
