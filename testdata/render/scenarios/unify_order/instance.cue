@@ -20,8 +20,8 @@ metadata: {
 	}
 	#config: {}
 	#components: {
-		// Two always-unify refusals on one component, with the candidates
-		// walked in the opposite order to the platform's transformers: the
+		// Three always-unify refusals on one component, with the candidates
+		// walked in a different order from the platform's transformers: the
 		// narrow resource comes first, so narrow-transformer is the first
 		// candidate, yet it sits after deployment-transformer in the
 		// catalog. The container resource is authored as a plain struct
