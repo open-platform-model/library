@@ -2,7 +2,7 @@
 
 ### Requirement: Render staging assertions observe only a test-private temp root
 
-A test that asserts on the render staging directories `Kernel.Render` creates SHALL first point the process temp directory at a directory owned by that test, and SHALL list only that directory. No test helper SHALL list the ambient temp directory (`os.TempDir()` as inherited from the environment). The result of such a test SHALL NOT depend on staging directories that other test processes, sharing the same `TMPDIR`, create or remove while it runs. Each test keeps its intent: after its renders or refusals, its private root holds no staging directory.
+A test that asserts on the render staging directories `Kernel.Render` creates SHALL first point the process temp directory at a directory owned by that test, and SHALL list only that directory. The result of such a test SHALL NOT depend on staging directories that other test processes, sharing the same `TMPDIR`, create or remove while it runs. Each test keeps its intent: after its renders or refusals, its private root holds no staging directory.
 
 #### Scenario: Concurrent test processes share one TMPDIR
 
