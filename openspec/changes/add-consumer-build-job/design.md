@@ -4,34 +4,44 @@ cli (`go 1.26.0`) and opm-operator (`go 1.26.2`) both require `github.com/open-p
 
 ## Goals / Non-Goals
 
-**Goals:** a library PR author sees, on the PR, whether cli and opm-operator still compile and vet against the PR head, and which symbol broke if not; no `replace` reaches a tracked file; the required job and G1 are untouched; the workflow meets the library#181 rules.
+**Goals:** a library PR author sees, on the PR, whether cli and opm-operator still compile and vet against the PR's merge commit, and which symbol broke if not; no `replace` reaches a tracked file; the required job and G1 are untouched; the workflow meets the library#181 rules.
 
-**Non-Goals:** consumer tests, e2e or lint; fork PRs; running on `main` pushes; making the job required; the rest of decision j4 (API diff, Dependabot ignores, `RELEASING.md`).
+**Non-Goals:** consumer tests, e2e or lint; the consumers' `//go:build ignore` programs; fork PRs; running on `main` pushes; making the job required; the rest of decision j4 (API diff, Dependabot ignores, `RELEASING.md`).
 
 ## Decisions
 
 - The workflow MUST be a new file, `consumer-build.yml`, with `on: pull_request` and a `paths:` filter: `opm/**`, `go.mod`, `go.sum`, `.github/workflows/consumer-build.yml`, `.tasks/consumer-build.sh`. A path filter is safe here only because the check is not required (a required check that a filter skips stalls the PR).
 - The job MUST run only for same-repo PRs: `if: github.event.pull_request.head.repo.full_name == github.repository`. It MUST NOT use `pull_request_target`.
-- Workflow `permissions: contents: read`; no job grants more. Every checkout sets `persist-credentials: false`.
-- `concurrency: consumer-build-<PR number>` with `cancel-in-progress: true`, so a new push stops the old run.
-- One job, a matrix over `consumer: [cli, opm-operator]` with `fail-fast: false`, so one consumer's break does not hide the other's result. Job name `Consumer build (<consumer>)`.
-- Steps: check out the library (PR head, the event default) at `library/`; check out `open-platform-model/<consumer>` at `ref: main` into `consumer/`; `actions/setup-go` (the SHA `test.yml` pins) with `go-version-file: consumer/go.mod` and `cache-dependency-path: consumer/go.sum`; then `bash library/.tasks/consumer-build.sh <consumer-dir> <library-dir> <work-dir>` with `GOTOOLCHAIN=local`, so the Go that runs is the one the consumer's `go.mod` names, never a silent toolchain download.
-- `.tasks/consumer-build.sh` SHALL:
-  1. create the work directory and run `go work init <consumer-dir> <library-dir>` there (with `GOTOOLCHAIN=local` the `go.work` `go` line is the installed toolchain's, which is at least the consumer's);
-  2. run `go build ./...` and then `go vet ./...` in the consumer with `GOWORK=<work-dir>/go.work`, teeing output to a log in the work directory;
-  3. on failure, and only when `GITHUB_STEP_SUMMARY` is set, append a summary section naming the consumer, its `git rev-parse HEAD`, the step that failed, and the compiler's `file:line:col: message` lines (first 50), and print a `::warning` line naming the consumer; then exit non-zero;
-  4. assert, in both checkouts, that `git status --porcelain` is empty, so neither a `go.work`, a `go.work.sum` nor an edited `go.mod` was left in a tracked tree.
+- Workflow `permissions: contents: read`; no job grants more. Every checkout sets `persist-credentials: false`. Every action is pinned by full commit SHA with a version comment, at the SHAs `test.yml` pins.
+- Concurrency is declared at the workflow level, `concurrency: {group: consumer-build-${{ github.event.pull_request.number }}, cancel-in-progress: true}`, so a new push stops the old run. At the workflow level the group covers the whole run, both matrix legs together; a job-level group without `${{ matrix.consumer }}` would make the cli and opm-operator legs cancel each other.
+- One job, a matrix over `consumer: [cli, opm-operator]` with `fail-fast: false`, so one consumer's break does not hide the other's result. Job name `Consumer build (<consumer>)`, `timeout-minutes: 15`, so a stuck module download does not run for the 360-minute default.
+- Steps: check out the library at `library/` with the checkout default for `pull_request`, which is the PR's merge commit (the PR head merged onto its base, as in `test.yml`): the code that would land; check out `open-platform-model/<consumer>` at `ref: main` into `consumer/`; `actions/setup-go` with `go-version-file: consumer/go.mod` and `cache-dependency-path: consumer/go.sum`; then `bash library/.tasks/consumer-build.sh <consumer-dir> <library-dir> <work-dir>` with `GOTOOLCHAIN=local`, so the Go that runs is the one the consumer's `go.mod` names, never a silent toolchain download.
+- `.tasks/consumer-build.sh` runs under `set -euo pipefail`, so a failing `go` command in a `| tee` pipeline fails the pipeline, and SHALL:
+  1. snapshot `git status --porcelain` of both checkouts before anything else, checking git's own exit status (a git failure is an error, never an empty snapshot);
+  2. create the work directory and run `go work init <consumer-dir> <library-dir>` there (with `GOTOOLCHAIN=local` the `go.work` `go` line is the installed toolchain's, which is at least the consumer's);
+  3. run `go build ./...` and then `go vet ./...` in the consumer with `GOWORK=<work-dir>/go.work`, teeing each step's output to a log in the work directory; the first failing step (init, build or vet) is recorded and the later steps are skipped;
+  4. on failure, and only when `GITHUB_STEP_SUMMARY` is set, append a summary section naming the consumer, its `git rev-parse HEAD`, the step that failed, and the compiler's `file:line:col: message` lines (first 50), or, when no such line matches (a toolchain or `go work` error such as `go: module ... requires go >= 1.26.3`), the log's last 30 lines; and print a `::warning` line naming the consumer;
+  5. on every path, passed or failed, take the snapshot again and compare it with step 1's, so neither a `go.work`, a `go.work.sum` nor an edited `go.mod` was left in a tracked tree; a difference is an error. Comparing against a snapshot, not requiring an empty status, lets the script run locally against a library worktree with uncommitted edits;
+  6. exit non-zero when a step failed or a tree changed.
 - One `go.work` per consumer, never one for both. A shared workspace would run MVS across cli and opm-operator together and build each with versions it does not use.
-- `go vet ./...` compiles the consumers' test files too, so an API used only in a consumer's tests is covered without running them.
+- `go vet ./...` compiles the consumers' `_test.go` files too, so an API used only in a consumer's tests is covered without running them. Files behind a `//go:build ignore` constraint are not: cli's `tests/integration/platform-build/main.go` and `tests/integration/render-parity/main.go` import the library but neither command compiles them (a Non-Goal).
 
 ```bash
 # .tasks/consumer-build.sh <consumer-dir> <library-dir> <work-dir> (sketch)
-mkdir -p "$work" && (cd "$work" && go work init "$consumer" "$library")
+set -euo pipefail
+before_c=$(git -C "$consumer" status --porcelain)   # set -e fails on a git error
+before_l=$(git -C "$library" status --porcelain)
+failed=""
+mkdir -p "$work"
+(cd "$work" && go work init "$consumer" "$library") >"$work/init.log" 2>&1 || failed=init
 export GOWORK="$work/go.work"
 for step in build vet; do
-  go -C "$consumer" "$step" ./... 2>&1 | tee "$work/$step.log" || report "$step"
+  [ -z "$failed" ] || break
+  go -C "$consumer" "$step" ./... 2>&1 | tee "$work/$step.log" || failed=$step
 done
-for tree in "$consumer" "$library"; do test -z "$(git -C "$tree" status --porcelain)"; done
+[ -z "$failed" ] || report "$failed"
+[ "$(git -C "$consumer" status --porcelain)" = "$before_c" ] || tree_changed consumer
+[ "$(git -C "$library" status --porcelain)" = "$before_l" ] || tree_changed library
 ```
 
 ## Research & Decisions
@@ -52,7 +62,7 @@ for tree in "$consumer" "$library"; do test -z "$(git -C "$tree" status --porcel
 **Context**: The plan entry says "keep it warn-only"; the owner decision says "a non-required job".
 **Explored**: (a) `continue-on-error: true`, so the check stays green and only the annotation and summary show the break; (b) the job fails, and is not in the required checks.
 **Decision**: (b).
-**Rationale**: Non-required already means the job never blocks a merge, which is what "warn-only" asks for. A green check on a broken consumer is easy to miss, while a red non-required check is visible in the PR list and still mergeable. The summary and warning carry the detail either way.
+**Rationale**: Non-required already means the job never blocks a merge, which is what "warn-only" asks for. A green check on a broken consumer is easy to miss, while a red non-required check is visible in the PR list and still mergeable. The summary and warning carry the detail either way. The supervisor confirmed this reading in the plan review. It differs on purpose from the API-diff check (add-api-diff-check), which in warn mode before GA exits 0 with a warning; AGENTS.md states that this job goes red without blocking a merge; the add-api-diff-check paragraph, which lands next to it, states its own green-with-warning behaviour before GA.
 
 ### Consumer ref
 **Context**: Which consumer commit to build.
@@ -61,7 +71,7 @@ for tree in "$consumer" "$library"; do test -z "$(git -C "$tree" status --porcel
 
 ## Risks / Trade-offs
 
-- [A `feat!` PR goes red here by design] → intended; the summary names the symbol, and the consumer migrates after the release through the cascade.
+- [A PR goes red because it changes API a consumer's `main` still uses] → per SD1 (deprecate, then remove) the library does not delete or rename such API; it deprecates it, and the removal waits until both consumers have migrated. A red run is therefore a signal to rework the PR that way, not an expected outcome to merge through. The job stays non-required, so the owner can still merge deliberately.
 - [A consumer's own `main` is broken] → the job goes red for a reason outside the PR; the summary shows the consumer commit, and the job is non-required.
 - [CI minutes] → two jobs per Go-touching PR, cancelled on a new push; the Go module cache is keyed on the consumer's `go.sum`. Caches written by a PR run are scoped to its ref and never reach `main` or the release workflow.
 - [A consumer starts needing a generated file or a private module] → the build fails with a clear Go error; the job would then need a setup step, decided then.
