@@ -8,8 +8,8 @@
 
 ## 2. The API diff workflow
 
-- [ ] 2.1 `.github/workflows/api-diff.yml`: `on: pull_request` with the `paths:` filter from design.md (including `Taskfile.yml`); workflow `permissions: contents: read`; `concurrency: { group: api-diff-${{ github.event.pull_request.number }}, cancel-in-progress: true }`; job `API diff` on `ubuntu-latest`, `timeout-minutes: 10`; checkout, `setup-go` (`go-version-file: go.mod`) and `setup-task` at the SHAs `lint.yml` pins, checkout with `fetch-depth: 0` and `persist-credentials: false`; one step running `task api:diff` with `API_DIFF_BASE_REF: ${{ github.event.pull_request.base.sha }}` in its `env:`; no `continue-on-error`
-- [ ] 2.2 actionlint on the new workflow and `task cascade:wiring:check` green, then commit ci: warn on breaking api changes in pull requests
+- [x] 2.1 `.github/workflows/api-diff.yml`: `on: pull_request` with the `paths:` filter from design.md (including `Taskfile.yml`); workflow `permissions: contents: read`; `concurrency: { group: api-diff-${{ github.event.pull_request.number }}, cancel-in-progress: true }`; job `API diff` on `ubuntu-latest`, `timeout-minutes: 10`; checkout, `setup-go` (`go-version-file: go.mod`) and `setup-task` at the SHAs `lint.yml` pins, checkout with `fetch-depth: 0` and `persist-credentials: false`; one step running `task api:diff` with `API_DIFF_BASE_REF: ${{ github.event.pull_request.base.sha }}` in its `env:`; no `continue-on-error`
+- [x] 2.2 actionlint on the new workflow and `task cascade:wiring:check` green, then commit ci: warn on breaking api changes in pull requests
 
 ## 3. Documentation
 
