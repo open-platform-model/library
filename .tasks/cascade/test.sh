@@ -14,7 +14,8 @@
 #                             S9 frozen loader, S10 frozen lag needs no cue,
 #                             S11 lagging docs
 #   CASCADE_TEST_SET=all      (default) also S2 older pins, S4 frozen module
-#                             (and prose releases in AGENTS.md), S4b tidy
+#                             and docs file (and another-major and prose
+#                             releases in AGENTS.md), S4b tidy
 #                             raises a frozen key and S5 title and body
 #                             (network: cue mod get resolves the real older
 #                             versions)
@@ -168,9 +169,11 @@ net_env() {
 DOCS="docs/getting-started.md AGENTS.md"
 
 # set_example FILE VERSION: point FILE's `Module: "opmodel.dev/core@…"`
-# example at VERSION; exit when the file has none.
+# examples of VERSION's major at VERSION; exit when the file has none.
+# Examples of another major stay, as they do in the task (S4).
 set_example() {
-  sed -i -E "s#(Module: \"opmodel\\.dev/core@)v[0-9][^\"]*\"#\\1$2\"#g" "$1"
+  local maj=${2%%.*}
+  sed -i -E "s#(Module: \"opmodel\\.dev/core@)$maj\\.[0-9][^\"]*\"#\\1$2\"#g" "$1"
   grep -qF "Module: \"opmodel.dev/core@$2\"" "$1" || { printf 'test.sh: %s has no core example to set to %s\n' "$1" "$2" >&2; exit 1; }
 }
 
@@ -379,32 +382,44 @@ s2_older_pins() {
 
 # S4_PROSE: a prose line in AGENTS.md naming another major and an older v2
 # release outside any `Module: "…"` example; the run must leave it and warn.
+# S4 also freezes docs/getting-started.md for core, so its older example
+# must stay byte-unchanged and be warned about.
 # shellcheck disable=SC2016 # the backticks are prose text
 S4_PROSE='Cascade test S4 prose: `opmodel.dev/core@v1.0.0` and `opmodel.dev/core@v2.0.0-alpha.12`.'
+# S4_OTHER_MAJOR: an anchored example of another major; the run must leave
+# it byte-unchanged (only the loader's major moves) and warn.
+S4_OTHER_MAJOR='    Module: "opmodel.dev/core@v1.0.0",'
 
 s4_frozen() {
   sandbox s4
   net_env
   table
-  printf '\n%s\n' "$S4_PROSE" >>AGENTS.md
+  printf '\n%s\n%s\n' "$S4_PROSE" "$S4_OTHER_MAJOR" >>AGENTS.md
   cp AGENTS.md "$SB/agents.want"
   set_older both
+  # docs/getting-started.md is frozen for core, so its older example stays.
+  cp docs/getting-started.md "$SB/gs.want"
   [ -f .cascade-frozen ] || printf 'frozen:\n' >.cascade-frozen
   printf '  - path: %s\n    pins: ["%s", "%s"]\n    reason: "cascade test S4"\n' \
     "$S4_FILE" "$CORE_KEY" "$CATALOG_KEY" >>.cascade-frozen
+  printf '  - path: %s\n    pins: ["%s"]\n    reason: "cascade test S4 docs"\n' \
+    docs/getting-started.md "$CORE_KEY" >>.cascade-frozen
   setup_commit
   cp "$S4_FILE" "$SB/frozen.before"
   run_cascade
-  local other w1 w2
-  other=$(git diff --name-only "$BASE0" | grep -v -x -e "$S4_FILE" -e .cascade-frozen -e AGENTS.md || [ $? -eq 1 ])
+  local other w1 w2 w3
+  other=$(git diff --name-only "$BASE0" | grep -v -x -e "$S4_FILE" -e .cascade-frozen -e AGENTS.md -e docs/getting-started.md || [ $? -eq 1 ])
   # shellcheck disable=SC2016 # the backticks are message text
   w1='`AGENTS.md` still names `opmodel.dev/core@v1.0.0`' w2='`AGENTS.md` still names `opmodel.dev/core@v2.0.0-alpha.12`'
+  w3="\`docs/getting-started.md\` still names \`opmodel.dev/core@$(older "$CORE_KEY")\`"
   if [ "$RC" != 0 ]; then fail S4 "exit $RC, not 0: $(tail -n5 "$SB/out")"
   elif ! cmp -s "$S4_FILE" "$SB/frozen.before"; then fail S4 "the frozen $S4_FILE changed"
   elif [ -n "$other" ]; then fail S4 "other files differ from the original tree: $(printf '%s' "$other" | head -n5 | tr '\n' ' ')"
   elif ! cmp -s AGENTS.md "$SB/agents.want"; then fail S4 "AGENTS.md is not its setup copy with the example current: $(diff "$SB/agents.want" AGENTS.md | head -n4 | tr '\n' ' ')"
-  elif ! warnings | grep -qF "$w1"; then fail S4 "no warning for the v1 release in AGENTS.md prose"
+  elif ! cmp -s docs/getting-started.md "$SB/gs.want"; then fail S4 "the frozen docs/getting-started.md changed: $(diff "$SB/gs.want" docs/getting-started.md | head -n4 | tr '\n' ' ')"
+  elif ! warnings | grep -qF "$w1"; then fail S4 "no warning for the v1 release in AGENTS.md"
   elif ! warnings | grep -qF "$w2"; then fail S4 "no warning for the older v2 release in AGENTS.md prose"
+  elif ! warnings | grep -qF "$w3"; then fail S4 "no warning for the frozen docs/getting-started.md example"
   else pass S4; fi
 }
 
