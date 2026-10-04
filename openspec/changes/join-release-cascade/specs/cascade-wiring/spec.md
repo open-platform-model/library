@@ -21,7 +21,7 @@ The library SHALL have a workflow `.github/workflows/deps-cascade.yml` that call
 
 ### Requirement: The receiver pushes nothing until CASCADE_DRY_RUN is exactly false
 
-`deps-cascade.yml` SHALL pass `dry-run: true` to the reusable workflow unless the repo variable `CASCADE_DRY_RUN` is exactly `false` and the run was not started with `dry_run: true`. An unset, deleted or any other value SHALL mean a dry run. In a dry run the receiver computes the diff, title, body and labels and writes them to the job summary, and pushes nothing, opens or edits no PR, and adds no label or comment. The gate statuses SHALL still be posted in a dry run. Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract §9.1.
+`deps-cascade.yml` SHALL pass `dry-run: true` to the reusable workflow unless the repo variable `CASCADE_DRY_RUN` equals `false` and the run was not started with `dry_run: true`. GitHub compares expression strings without regard to case, so `False` or `FALSE` also counts as `false`. An unset, deleted or any other value SHALL mean a dry run. In a dry run the receiver computes the diff, title, body and labels and writes them to the job summary, and pushes nothing, opens or edits no PR, and adds no label or comment. The gate statuses SHALL still be posted in a dry run. Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract §9.1.
 
 #### Scenario: The variable is unset
 

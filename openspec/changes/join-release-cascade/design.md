@@ -59,7 +59,7 @@ The library's release is the git tag (`release.yml:32-35`). Notify uses the `lib
 - **No Go.** `cascade.sh` runs no `go` command, and the task's preconditions are `git`, mikefarah `yq` and `jq` (`Taskfile.yml:896-906`). G2 runs the same task at the release head (wiring §8.2), so it needs no Go either.
 - **Labels.** The library has no `labels.yml` and no label sync, so the receiver creates the five bot labels itself (wiring §6.4 step 4).
 - **Cron.** `17 5 * * *` is the same minute as `cascade-task.yml`'s weekly `17 5 * * 1` (`cascade-task.yml:19-20`). They are separate workflows in separate concurrency groups, and both only read GHCR, so the Monday overlap is harmless. Kept as wiring §5.1 states it rather than diverging per repo.
-- `dry-run` is `inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false'` (wiring §5). That fails closed: only the exact string `false` is live.
+- `dry-run` is `inputs.dry_run == true || vars.CASCADE_DRY_RUN != 'false'` (wiring §5). That fails closed: only the string `false` is live. GitHub compares expression strings without regard to case, so `False` and `FALSE` are live too; "exactly `false`" in wiring §9.1 is true up to case. The expression is kept as the contract gives it, so the four receivers stay identical, and the point is raised to the supervisor.
 
 ### D3. `need-human-review` needs no library code
 
