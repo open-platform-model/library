@@ -160,12 +160,12 @@ migrations/                   Per-change migration fragments + policy (README.md
 
 The kernel accepts exactly:
 
-| Artifact         | Schema (`v1alpha2`)  | Go type              |
-| ---------------- | -------------------- | -------------------- |
-| `Module`         | `#Module`            | `*module.Module`     |
-| `ModuleInstance`  | `#ModuleInstance`     | `*module.Instance`    |
-| `Platform`       | `#Platform`          | `*platform.Platform` |
-| `Catalog`        | `#Catalog`           | `*catalog.Catalog`   |
+| Artifact         | Schema (`opmodel.dev/core@v2`) | Go type              |
+| ---------------- | ------------------------------ | -------------------- |
+| `Module`         | `#Module`                      | `*module.Module`     |
+| `ModuleInstance` | `#ModuleInstance`              | `*module.Instance`   |
+| `Platform`       | `#Platform`                    | `*platform.Platform` |
+| `Catalog`        | `#Catalog`                     | `*catalog.Catalog`   |
 
 `Catalog` is the fourth, admitted by **ADR-009** on stated terms: the kernel acquires, reads and derives; every verdict about what it reads stays with the caller. A catalog is never rendered. ADR-009 also states, in writing, the four-part test a FIFTH kind must pass — do not add one without meeting it there.
 

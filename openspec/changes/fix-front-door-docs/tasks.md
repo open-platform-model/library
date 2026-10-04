@@ -2,11 +2,11 @@ Depends on: nothing unmerged. Lands before wave-2 `lib-e2e5` and `lib-c4` (propo
 
 ## 1. Four artifact types and their schema module
 
-- [ ] 1.1 `README.md:7`: the owns bullet lists "modules, module instances, platforms, catalogs". `README.md:19`: the kernel accepts only `Module`, `ModuleInstance`, `Platform` and `Catalog`.
-- [ ] 1.2 `README.md:25-27`: the column header reads "Schema definition (`opmodel.dev/core@v2`)", the `Module` row drops "(v1alpha2)", and the table stays aligned (design.md D1).
-- [ ] 1.3 `AGENTS.md:163`: the header reads "Schema (`opmodel.dev/core@v2`)", table aligned (design.md D1).
-- [ ] 1.4 Verify: `grep -n 'v1alpha2' README.md AGENTS.md` prints nothing, and no line of `README.md` names three of the kinds as the whole set the kernel accepts or acquires.
-- [ ] 1.5 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: name four artifact types and the core module in the front door`.
+- [x] 1.1 `README.md:7`: the owns bullet lists "modules, module instances, platforms, catalogs". `README.md:19`: the kernel accepts only `Module`, `ModuleInstance`, `Platform` and `Catalog`.
+- [x] 1.2 `README.md:25-27`: the column header reads "Schema definition (`opmodel.dev/core@v2`)", the `Module` row drops "(v1alpha2)", and the table stays aligned (design.md D1).
+- [x] 1.3 `AGENTS.md:163`: the header reads "Schema (`opmodel.dev/core@v2`)", table aligned (design.md D1).
+- [x] 1.4 Verify: `grep -n 'v1alpha2' README.md AGENTS.md` prints nothing, and no line of `README.md` names three of the kinds as the whole set the kernel accepts or acquires.
+- [x] 1.5 `TMPDIR=$(mktemp -d) task check` and `openspec validate fix-front-door-docs --strict` green, then commit `docs: name four artifact types and the core module in the front door`.
 
 ## 2. Pinned by default, bare major opt-in
 

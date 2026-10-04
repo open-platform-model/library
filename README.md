@@ -4,7 +4,7 @@ The reference implementation of the Open Platform Model runtime, packaged as a G
 
 The kernel owns:
 
-- Loading and acquiring OPM artifacts (modules, module instances, platforms) from CUE module directories and OCI registries.
+- Loading and acquiring OPM artifacts (modules, module instances, platforms, catalogs) from CUE module directories and OCI registries.
 - Resolving CUE module references through the native CUE module system (OCI registries, `cue.mod`).
 - Validating user-supplied values against `#config` schemas with grouped, position-aware diagnostics.
 - Rendering: one CUE build per render that imports the instance, the platform and its catalogs, runs matching and transformer execution as CUE inside that build, reports the verdicts as data, and emits platform-neutral rendered values with full provenance.
@@ -16,18 +16,18 @@ The kernel does **not** own:
 - Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
 - Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
 - Platform directory lifecycle. A platform is a CUE module on disk that imports its catalogs; the frontend writes it by hand or generates it from coordinates with the opt-in `opm/helper/platformmodule` helper, owns where it lives (generations, caching), and the kernel acquires and renders against it.
-- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, and `Platform` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
+- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, `Platform` and `Catalog` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
 
 ## Artifact types
 
 The kernel accepts exactly four artifact types — every input ultimately resolves to one of them:
 
-| Artifact         | Schema definition          | Go type              | Role                                                                                                                       |
-| ---------------- | -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `Module`         | `#Module` (v1alpha2)       | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).                                  |
-| `ModuleInstance` | `#ModuleInstance`          | `*module.Instance`   | Per-deployment instantiation of a `Module` with concrete user values.                                                      |
-| `Platform`       | `#Platform`                | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build. |
-| `Catalog`        | `#Catalog`                 | `*catalog.Catalog`   | The contracts a catalog defines beside the transformers implementing them. Acquired, read and derived from — never rendered (ADR-009).                     |
+| Artifact         | Schema definition (`opmodel.dev/core@v2`) | Go type              | Role                                                                                                                                   |
+| ---------------- | ----------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Module`         | `#Module`                                 | `*module.Module`     | Author-defined application blueprint (components, `#config` schema, `debugValues` field).                                              |
+| `ModuleInstance` | `#ModuleInstance`                         | `*module.Instance`   | Per-deployment instantiation of a `Module` with concrete user values.                                                                  |
+| `Platform`       | `#Platform`                               | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build.               |
+| `Catalog`        | `#Catalog`                                | `*catalog.Catalog`   | The contracts a catalog defines beside the transformers implementing them. Acquired, read and derived from — never rendered (ADR-009). |
 
 `#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
