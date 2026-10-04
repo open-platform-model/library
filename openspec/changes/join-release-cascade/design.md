@@ -98,7 +98,20 @@ What the Phase 3 dry run shows depends on the upstreams at that time; it matches
 **Context**: wiring §5.1 sets `setup-go: false` for the library; a missing toolchain would fail `compute` only at the first real move.
 **Explored**: `cascade.sh` and `lib.sh` for `go` commands (none), and the task's preconditions (`Taskfile.yml:896-906`).
 **Decision**: no Go.
-**Rationale**: the task edits a Go string literal with `sed` and never builds; the spike (tasks 1.1-1.3) confirms a full run without Go on `PATH`.
+**Rationale**: the task edits a Go string literal with `sed` and never builds. The spike (below, run b) confirms it: with no `go` on `PATH`, a run that moves core and the catalog reaches `cue mod get` and `tidy` in all three `CUE_MODULE_GLOBS` modules and exits 0, and leaves no `.task/` directory.
+
+### Receiver spike
+
+**Context**: the receiver's `compute` runs the task in a fresh checkout at `repo/`, with `.github` at `org-github/` and `CASCADE_RESOLVER` pointing into it (wiring §6.2 steps 2, 3, 10), and G2 runs it again in a detached worktree of a release head (wiring §8.2). Run 2026-10-04 against library `origin/main` `8241250` and `.github` `main` `6a18e7d` (the real resolver), with `PATH` holding only `git`, `task`, `cue` v0.17.1, mikefarah `yq` v4.53.3, `jq`, `curl` and `/usr/bin`, no `go`, and an empty `CUE_CACHE_DIR` per run. Scripts: supervisor scratchpad `p3-library-join-run.sh`, `p3-library-join-older.sh`, `p3-library-join-g2.sh`.
+**Explored**:
+
+- **(a) `main` as it is** (`CASCADE_BASE=origin/main`): `task -x deps:cascade` exit 0. It rewrote four `cue.mod/module.cue` files (`modules/opm_platform`, `testdata/modules/web_app`, `testdata/parity`, `testdata/parity/opm_platform`) to `opmodel.dev/catalogs/opm@v4.5.2`, because catalog_opm published `opm-v4.5.2` on 2026-10-04 and the library pins `v4.5.1`. `task -x deps:cascade:title` gave `test(fixtures): bump opm catalog to v4.5.2`; the body carried `<!-- cascade-labels:  -->` (empty). The two doc-pin warnings (`docs/getting-started.md`, `AGENTS.md`) are the separate docs follow-up.
+- **(b) The forced core path**: a second clone with core set to `v2.0.0-beta.1` in `opm/schema/loader.go` and the catalog to `v4.5.0` in every `cue.mod/module.cue` (the pins of `.tasks/cascade/testdata/older.tsv`, applied as `test.sh` `set_older` does, 36 files), committed, and `CASCADE_BASE` set to that commit. Exit 0; `DefaultSchemaModule` moved to `v2.0.0-beta.2`; title `fix(deps): bump core to v2.0.0-beta.2 and opm catalog to v4.5.2`; body marker `<!-- cascade-labels: need-human-review -->`.
+- **(c) A realistic dispatch** on a third clone of `main`: `CASCADE_SOURCE=catalog_opm`, `CASCADE_TAGS=opm-v4.5.2`, `CASCADE_EXPECT='opmodel.dev/catalogs/opm@v4=v4.5.2'`. Exit 0, the same diff and title as (a); the body differs from (a) only in the triggering-releases line (`catalog_opm` `opm-v4.5.2` instead of "None recorded").
+- **G2** (task 1.3) on clone (a), reset to `main`: a detached worktree of `origin/main` outside `repo/`, the task under `env -u CASCADE_EXPECT -u CASCADE_SOURCE -u CASCADE_TAGS -u CASCADE_NOTES_FILE` with `CASCADE_BASE=<sha>`: exit 0, and the resolver's `classify` put all four changed paths in class `test`, so G2 reports `ok: only test/release-tool pins behind`. The warnings file landed in `repo/.git/worktrees/<name>/cascade/warnings`, none in the worktree; after `worktree remove` the clone's `HEAD` and status were unchanged.
+
+**Decision**: the receiver's call sequence works on the library as wiring §5.1 configures it (`setup-go: false`, CUE v0.17.1), and the `need-human-review` marker comes out of the real resolver on a core move.
+**Rationale**: every run matched what `main` gives at the time, which is the expected result (tasks 1.2, 1.3). Run (a) is also the result the Phase 3 dry run should show (Migration Plan step 4).
 
 ### Dependabot and the `@main` references
 
