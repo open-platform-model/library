@@ -144,8 +144,12 @@ func gateErrors(diag RenderDiagnostics) error {
 // pairOutput looks up one matched pair's output on the glue's `rendered`
 // struct, keyed by pair so every error names the pair.
 func pairOutput(rendered cue.Value, p RenderPair) cue.Value {
-	key := fmt.Sprintf("%s :: %s", p.Component, p.Transformer)
-	return rendered.LookupPath(cue.MakePath(cue.Str(key))).LookupPath(pathOutput)
+	return rendered.LookupPath(cue.MakePath(cue.Str(pairKey(p)))).LookupPath(pathOutput)
+}
+
+// pairKey is the glue's `rendered` key for one matched pair.
+func pairKey(p RenderPair) string {
+	return fmt.Sprintf("%s :: %s", p.Component, p.Transformer)
 }
 
 // outputFailed reports whether a pair's output is an error: an error at the
@@ -194,7 +198,7 @@ func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string
 		out := pairOutput(rendered, p)
 		if !out.Exists() {
 			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer,
-				Cause: fmt.Errorf("rendered output missing at %q", fmt.Sprintf("%s :: %s", p.Component, p.Transformer))})
+				Cause: fmt.Errorf("rendered output missing at %q", pairKey(p))})
 			continue
 		}
 		if outputFailed(out) {
