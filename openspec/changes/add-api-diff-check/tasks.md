@@ -13,5 +13,5 @@
 
 ## 3. Documentation
 
-- [ ] 3.1 `AGENTS.md`: a `task api:diff` line under "Core commands"; `api-diff.yml` (`contents: read`) in the "Workflow security" permissions list; one paragraph after "Workflow security" naming the workflow, the base-tag rule (nearest reachable, so `v0.7.0` never decides), inherited entries, the warn/block derivation and the two remedies, the tools module and its hand-moved pin, and that the job is not required (rebase on `add-consumer-build-job` if it merged first; both touch the permissions list)
-- [ ] 3.2 `openspec validate add-api-diff-check --strict` and `task check` green (private `TMPDIR`), then commit docs: describe the api diff check
+- [x] 3.1 `AGENTS.md`: a `task api:diff` line under "Core commands"; `api-diff.yml` (`contents: read`) in the "Workflow security" permissions list; one paragraph after "Workflow security" naming the workflow, the base-tag rule (nearest reachable, so `v0.7.0` never decides), inherited entries, the warn/block derivation and the two remedies, the tools module and its hand-moved pin, and that the job is not required (rebase on `add-consumer-build-job` if it merged first; both touch the permissions list)
+- [x] 3.2 `openspec validate add-api-diff-check --strict` and `task check` green (private `TMPDIR`), then commit docs: describe the api diff check
