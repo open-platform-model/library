@@ -11,12 +11,14 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -826,4 +828,40 @@ data: _ @embed(file="d.json")
 	assert.Equal(t, "from sub", lookupString(t, sub.Package, "data.greeting"))
 	assert.Equal(t, "sub", sub.Source.Pkg)
 	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue", "sub/module.cue"}, overlayKeys(t, sub.Source))
+}
+
+// artifact-types spec, "Module and catalog are built from the overlay they
+// carry": a Source described from a directory builds from the .cue bytes it
+// read, so a later edit on disk does not reach the build.
+func TestDirSource_BuildsFromTheBytesReadFirst(t *testing.T) {
+	root := writeTempModuleRoot(t, "", acquireModuleFixture)
+	src, err := kernel.DirSourceForTest(root)
+	require.NoError(t, err)
+	require.NotNil(t, src.Overlay)
+
+	edited := strings.Replace(acquireModuleFixture, `version:    "0.1.0"`, `version:    "9.9.9"`, 1)
+	require.NotEqual(t, acquireModuleFixture, edited)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "module.cue"), []byte(edited), 0o644))
+
+	val, err := loader.LoadDir(cuecontext.New(), src, loader.Options{}, loader.ModuleSpec)
+	require.NoError(t, err)
+	assert.Equal(t, "0.1.0", lookupString(t, val, "metadata.version"), "the bytes read first win over the later disk edit")
+}
+
+// artifact-types spec, "Values attribution reuses the authored read": when
+// the author's directory holds its own opm-values.cue, the layered build
+// replaces it with the rendered file, and a conflicting source is still
+// attributed to its Origin.
+func TestKernel_AcquireInstanceFromDir_WithSources_ConflictAttributedOverAuthoredValuesFile(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := copyRenderInstance(t, "instance_partial")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "opm-values.cue"),
+		[]byte("package instance\n\nvalues: image: \"nginx:1.27\"\n"), 0o644))
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
+		mustSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`))
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.Contains(t, err.Error(), "image")
+	assert.True(t, positionsName(err, "/values/prod.cue"), "no position names the source: %v", err)
 }

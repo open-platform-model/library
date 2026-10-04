@@ -56,9 +56,9 @@ func CheckDir(dir string, spec ArtifactSpec) error {
 //     dependency resolution; the package is built as "./<Pkg>". A file the
 //     overlay does not carry is read from the host filesystem beneath it. This
 //     is how a registry-fetched artifact ([FetchArtifact] stages the fetch
-//     under a synthetic root and builds it here, for every kind), a
-//     values-layered instance package and a synthesized instance package are
-//     all built.
+//     under a synthetic root and builds it here, for every kind), a module or
+//     catalog acquired from a directory, a values-layered instance package and
+//     a synthesized instance package are all built.
 //
 // opts carries the load settings ([Options]). A nil src, or one with no Root,
 // is a caller bug and is refused with a plain error.

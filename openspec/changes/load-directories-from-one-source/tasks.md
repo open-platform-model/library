@@ -95,26 +95,26 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
 
 ## 4. Acquire directories through one read-then-build helper (kernel; design LS3, LS4, LS7)
 
-- [ ] 4.1 `opm/kernel/acquire.go`: add `dirSource` and `acquireDir` (LS3): `filepath.Abs`
+- [x] 4.1 `opm/kernel/acquire.go`: add `dirSource` and `acquireDir` (LS3): `filepath.Abs`
       (today's `<verb>: resolving <label> directory: %w`), `loader.CheckDir` first,
       `sourceForDir`, and with the overlay flag one `sourcetree.OverlayFromDir(src.Root)`
       (wrapped `<verb>: %w`); then `LoadDir` on that `Source`, its error returned unwrapped.
-- [ ] 4.2 `AcquireModuleFromDir` and `AcquireCatalogFromDir` call `acquireDir(..., true)` and
+- [x] 4.2 `AcquireModuleFromDir` and `AcquireCatalogFromDir` call `acquireDir(..., true)` and
       stamp the `Source` they built from; `AcquirePlatformFromDir` and the no-values branch of
       `AcquireInstanceFromDir` call `acquireDir(..., false)`. Delete `overlaySourceForDir`.
-- [ ] 4.3 `loadInstanceWithValues` (LS4): take the authored `Source` from
+- [x] 4.3 `loadInstanceWithValues` (LS4): take the authored `Source` from
       `dirSource(..., true)` (its own `os.Stat` goes), merge the sources, read the package
       name from the authored `Source`, render the values file, build from a new `Source` with
       the same `Root`/`Pkg` and `maps.Clone` of the authored overlay plus `opm-values.cue`,
       and return that one. `attributeValuesError` takes the authored `*module.Source` instead
       of `absDir` and builds from it; nothing else in its body changes.
-- [ ] 4.4 Rewrite only the doc-comment lines this section makes false: `AcquireModuleFromDir`
+- [x] 4.4 Rewrite only the doc-comment lines this section makes false: `AcquireModuleFromDir`
       and `AcquireCatalogFromDir` say the package is built from the overlay they stamp;
       `loadInstanceWithValues` and `attributeValuesError` name the authored overlay. Verify:
       `grep -rn overlaySourceForDir opm` prints nothing, and each directory verb reaches
       `OverlayFromDir` at most once and `LoadDir` once per build (read the diff: the number
       of reads has no runtime probe, design LS3/LS4, so this inspection is its check).
-- [ ] 4.5 Tests in `opm/kernel/acquire_test.go` and `acquire_catalog_test.go`:
+- [x] 4.5 Tests in `opm/kernel/acquire_test.go` and `acquire_catalog_test.go`:
       `TestKernel_AcquireCatalogFromDir_Subpackage` (catalog from a subdirectory: `Root` the
       module root, `Pkg` `sub`, overlay spans the root); in
       `TestKernel_AcquireInstanceFromDir_WithSources_ConflictAttributed` (or a sibling)
@@ -124,13 +124,13 @@ No behaviour change: the kernel still builds module and catalog from disk in thi
       an overlay `Source` from it, rewrite a `.cue` file on disk, build that `Source` with
       `loader.LoadDir`, and assert the value read first wins. The section 1 tests pass
       unchanged.
-- [ ] 4.6 Cross-cutting checks (LS7): `go test -race ./opm/kernel ./opm/internal/renderstage
+- [x] 4.6 Cross-cutting checks (LS7): `go test -race ./opm/kernel ./opm/internal/renderstage
       -count=1`, the parity tests (`go test ./opm/kernel -run Parity -count=1`) and
       `task cue:test:flow`. Verify: all green (the flow test may skip when the registry is
       unreachable; say so if it does). If `TestKernel_AcquireModuleFromDir_EmbedsNonCUEFile`
       passed in section 1 but fails now, stop and report to the supervisor before adding any
       disk fallback.
-- [ ] 4.7 `task check` green, then commit
+- [x] 4.7 `task check` green, then commit
       `refactor(kernel): acquire directories through one read-then-build helper`.
 
 ## 5. Verify
