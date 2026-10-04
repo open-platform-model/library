@@ -4,7 +4,7 @@
 // request and publishes edge from main; release.yml's publish-docs job
 // publishes each release. Preview it with `task docs:bundle`.
 bundles: library: {
-	placement: {kind: "docs", root: "/docs/", owns: ["reference/go-api/"]}
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/library/"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [{
 		kind:   "go-api"
@@ -14,8 +14,8 @@ bundles: library: {
 		// the page helper-objectset. opm/internal/ is never documented.
 		root: "./opm"
 		packages: ["./opm/..."]
-		section:     "reference/go-api/"
-		title:       "Go API"
+		section:     "reference/library/"
+		title:       "Library"
 		description: "Every exported package of the OPM library, from its doc comments."
 	}, {
 		// The authored pages ship in the same bundle (docs-kit DESIGN

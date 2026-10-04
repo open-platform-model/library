@@ -48,12 +48,12 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCach
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-beta.1",
+    Module: "opmodel.dev/core@v2.0.0-beta.2",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
 log.Printf("resolved schema: %s", k.SchemaCache().ResolvedVersion())
-// → "v2.0.0-beta.1"
+// → the version after the "@" in Module
 ```
 
 ## Acquire a module
