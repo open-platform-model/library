@@ -436,6 +436,46 @@ deps: {
 	require.Error(t, err)
 }
 
+// TestCompareSkew_PrereleasePrecedence pins the single-build-render scenario
+// "Prerelease builds compare by SemVer precedence": beta.10 is newer than
+// beta.2 (numeric, not lexical), and older than the release it precedes.
+func TestCompareSkew_PrereleasePrecedence(t *testing.T) {
+	mod := func(core string) *ModFile {
+		return mustParse(t, `module: "testing.opmodel.dev/m@v0"
+language: version: "v0.17.0"
+deps: "opmodel.dev/core@v2": v: "`+core+`"
+`, "m")
+	}
+	inst := mod("v2.0.0-beta.10")
+
+	rows, err := CompareSkew(mod("v2.0.0-beta.2"), inst)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.True(t, rows[0].Newer, "beta.10 is newer than beta.2")
+
+	rows, err = CompareSkew(mod("v2.0.0"), inst)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.False(t, rows[0].Newer, "beta.10 is older than the 2.0.0 release")
+}
+
+// TestMaxLanguage_FloorAndInvalid pins maxLanguage on modversion: the floor
+// wins over an older or empty declaration, the winner is returned as written,
+// and an invalid declaration is named once.
+func TestMaxLanguage_FloorAndInvalid(t *testing.T) {
+	got, err := maxLanguage("", "v0.16.0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.17.0", got)
+
+	got, err = maxLanguage("v0.17.1", "v0.17.0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.17.1", got)
+
+	_, err = maxLanguage("v0.17.0", "nope")
+	require.Error(t, err)
+	assert.Equal(t, `invalid language version "nope"`, err.Error())
+}
+
 // ── Local replacements (render-local-replacements) ──────────────────
 
 // localView parses a local-module.cue against a module file and returns the

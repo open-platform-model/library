@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"cuelang.org/go/mod/modfile"
-	"github.com/Masterminds/semver/v3"
+
+	"github.com/open-platform-model/library/opm/internal/modversion"
 )
 
 // RenderModulePath is the render module's own identity: a reserved, never
@@ -16,11 +17,6 @@ import (
 // render so generated files are byte-stable across renders of the same
 // inputs.
 const RenderModulePath = "render.opmodel.dev/build@v0"
-
-// MinLanguageVersion is the floor of the render module's declared
-// language.version: v0.17.0 introduced cue.mod/local-module.cue, which
-// carries the directory replacements that bring the inputs into the build.
-const MinLanguageVersion = "v0.17.0"
 
 // Promotion is the render module's derived dependency list (0019:D13): the
 // platform module's tidied list adopted whole, the instance module's list
@@ -44,7 +40,9 @@ type Promotion struct {
 	Deps map[string]Dep
 
 	// Language is the render module's language.version: the maximum of the
-	// two inputs' declared versions, floored at MinLanguageVersion.
+	// two inputs' declared versions, floored at modversion.LanguageFloor
+	// (v0.17.0 introduced cue.mod/local-module.cue, which carries the
+	// directory replacements that bring the inputs into the build).
 	Language string
 
 	// Replacements maps each replaced qualified path to its target (the
@@ -293,8 +291,8 @@ func ReplacedVersion(qualifiedPath string) (string, error) {
 	if !ok || !strings.HasPrefix(major, "v") || strings.ContainsAny(major, "./") {
 		return "", fmt.Errorf("module path %q carries no major qualifier", qualifiedPath)
 	}
-	if _, err := semver.NewVersion(major + ".0.0"); err != nil {
-		return "", fmt.Errorf("module path %q: %w", qualifiedPath, err)
+	if !modversion.Valid(major + ".0.0") {
+		return "", fmt.Errorf("module path %q carries no major qualifier", qualifiedPath)
 	}
 	return major + ".0.0", nil
 }
@@ -317,23 +315,23 @@ func defaultRoots(deps map[string]Dep) map[string]bool {
 }
 
 // maxLanguage returns the later of two declared language versions, floored at
-// MinLanguageVersion. An empty declaration counts as the floor.
+// modversion.LanguageFloor. An empty declaration counts as the floor. The
+// winner is returned as written.
 func maxLanguage(a, b string) (string, error) {
-	best, err := semver.NewVersion(MinLanguageVersion)
-	if err != nil {
-		return "", err
-	}
+	best := modversion.LanguageFloor
 	for _, v := range []string{a, b} {
 		if v == "" {
 			continue
 		}
-		parsed, err := semver.NewVersion(v)
+		// best is the floor or an earlier valid winner, so an error here
+		// names v; it is reported alone, without Compare's own wording.
+		c, err := modversion.Compare(v, best)
 		if err != nil {
-			return "", fmt.Errorf("invalid language version %q: %w", v, err)
+			return "", fmt.Errorf("invalid language version %q", v)
 		}
-		if parsed.GreaterThan(best) {
-			best = parsed
+		if c > 0 {
+			best = v
 		}
 	}
-	return "v" + best.String(), nil
+	return best, nil
 }

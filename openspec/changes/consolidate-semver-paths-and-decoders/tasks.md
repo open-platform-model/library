@@ -17,28 +17,28 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ## 1. One home for version helpers (modversion, renderstage, synth, registrytest, platformmodule; design CS1-CS3)
 
-- [ ] 1.1 `opm/internal/modversion/modversion.go`: add `CoreModule`, `CorePath`,
+- [x] 1.1 `opm/internal/modversion/modversion.go`: add `CoreModule`, `CorePath`,
       `LanguageFloor`, `Major`, `Valid` and `Compare` (design CS1), each with a doc comment;
       `Compare` refuses an invalid input as `invalid version %q` naming the caller's spelling.
       Update the package doc to say it is the library's one home for version helpers and the
       only importer of `golang.org/x/mod/semver`. Verify: `go build ./opm/...` clean.
-- [ ] 1.2 `modversion_test.go`: table tests for `Major` (move `registrytest_test.go`'s
+- [x] 1.2 `modversion_test.go`: table tests for `Major` (move `registrytest_test.go`'s
       `TestMajor` table here, plus `""` → `"v"`), `Valid` (bare, prefixed, prerelease,
       `not-a-version`), and `Compare` (equal, bare vs prefixed equal, `v2.0.0-beta.2` <
       `v2.0.0-beta.10` < `v2.0.0`, invalid on either side names that input). Verify:
       `go test ./opm/internal/modversion -count=1` green.
-- [ ] 1.3 `opm/internal/renderstage`: `skew.go` `isNewer` and `promote.go` `ReplacedVersion` and
+- [x] 1.3 `opm/internal/renderstage`: `skew.go` `isNewer` and `promote.go` `ReplacedVersion` and
       `maxLanguage` go through modversion per the design CS3 table; delete
       `MinLanguageVersion` and point its doc mentions at `modversion.LanguageFloor`; drop the
       Masterminds import. Add `TestCompareSkew_PrereleasePrecedence` to `modfile_test.go`
       (instance `v2.0.0-beta.10` vs platform `v2.0.0-beta.2` is newer; vs `v2.0.0` is not),
       the single-build-render scenario "Prerelease builds compare by SemVer precedence".
       Verify: `go test ./opm/internal/renderstage -count=1` green.
-- [ ] 1.4 `opm/internal/synth/render.go`: delete `corePath` and `major`; the import line is
+- [x] 1.4 `opm/internal/synth/render.go`: delete `corePath` and `major`; the import line is
       `modversion.CoreModule + "@" + modversion.Major(coreVersion)` (design CS2); move the
       `corePath` doc's reasoning to the call site in one sentence. Verify:
       `go test ./opm/internal/synth -count=1` green.
-- [ ] 1.5 `opm/internal/registrytest/registrytest.go`: `coreDep` and the stand-in core's
+- [x] 1.5 `opm/internal/registrytest/registrytest.go`: `coreDep` and the stand-in core's
       directory use `modversion.CoreModule`; the three `v0.17.0` literals use
       `modversion.LanguageFloor`; the inline `strings.Cut(version, ".")` majors use
       `modversion.Major`; delete `registrytest.Major` and its test. Callers in
@@ -50,22 +50,22 @@ trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
       opm/internal/synth/render.go` prints only doc-comment prose; `grep -rn 'registrytest.Major' opm`
       prints nothing; `go vet ./opm/...` clean. (Test fixtures that declare
       `language: version: "v0.17.0"` in CUE text stay as they are.)
-- [ ] 1.6 `opm/helper/platformmodule/generate.go`: `CorePath = modversion.CorePath` and
+- [x] 1.6 `opm/helper/platformmodule/generate.go`: `CorePath = modversion.CorePath` and
       `LanguageVersion = modversion.LanguageFloor` inside the existing `const` block; each doc
       comment states its value (`"opmodel.dev/core@v2"`, `"v0.17.0"`) so the public Go API
       reference entry stays self-contained. Verify: `go doc ./opm/helper/platformmodule CorePath` shows a const;
       `go test ./opm/helper/platformmodule -count=1` green.
-- [ ] 1.7 `go mod tidy`: `github.com/Masterminds/semver/v3` leaves `go.mod`,
+- [x] 1.7 `go mod tidy`: `github.com/Masterminds/semver/v3` leaves `go.mod`,
       `golang.org/x/mod` is a direct requirement. Verify:
       `grep -rn Masterminds --include=*.go --include=go.mod .` prints nothing and
       `grep -rln 'golang.org/x/mod/semver' opm` lists only `opm/internal/modversion/modversion.go`.
-- [ ] 1.8 `AGENTS.md` repository layout: one line for `internal/modversion/` (version spelling,
+- [x] 1.8 `AGENTS.md` repository layout: one line for `internal/modversion/` (version spelling,
       major, SemVer validity and order, the core path and language-floor constants; the only
       SemVer importer). Also reword the CUE-version paragraph's "the literals in
       `opm/internal/registrytest`" to name `modversion.LanguageFloor` (the one Go constant behind
       the render floor, the generated platform module and the registrytest fixtures). Locate both
       edits by text, not line number. Verify: the layout block still renders as one code fence.
-- [ ] 1.9 `task check` green, then commit
+- [x] 1.9 `task check` green, then commit
       `refactor(renderstage): share version helpers and compare with x/mod semver`.
 
 ## 2. A dotted key is one Path() segment (kernel; design CS5)

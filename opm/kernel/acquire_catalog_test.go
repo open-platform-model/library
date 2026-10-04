@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
@@ -43,7 +43,7 @@ func containerResFQN() string { return baseCatalogPath + "/resources/container@v
 // because that helper authors no `fulfilment`, which is the whole subject
 // here: every generated demand takes core's "catalog" default.
 func providerCatalogBody(path, version string) string {
-	major, _, _ := strings.Cut(version, ".")
+	major := modversion.Major(version)
 	impl := fmt.Sprintf("%s/transformers/schedule@%s", path, version)
 	return fmt.Sprintf(`metadata: {
 	modulePath:  %q
@@ -85,7 +85,7 @@ func providerCatalogBody(path, version string) string {
 	#transform: output: {}
 }
 `,
-		path+"@v"+major, version,
+		path+"@"+major, version,
 		impl, impl,
 		backupTraitFQN(), baseCatalogPath+"/traits", backupTraitFQN(),
 		containerResFQN(), baseCatalogPath+"/resources", containerResFQN(),
