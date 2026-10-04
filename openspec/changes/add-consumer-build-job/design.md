@@ -56,7 +56,18 @@ done
 **Context**: Whether the consumers build in workspace mode against the library at all, before writing the workflow.
 **Explored**: On 2026-10-04, cli `5180cad1` and opm-operator `8dc24b3` exported to the scratchpad, one `go work init <consumer> <library worktree>` each in its own directory, then `go build ./...` and `go vet ./...` with `GOWORK` set, Go 1.26.5, `GOTOOLCHAIN=local`.
 **Decision**: Both pass (about 7 and 8 seconds with a warm module cache). cli's `go:embed dist/install.yaml` is committed, and opm-operator needs no generated code, so a plain clone builds.
-**Rationale**: The approach works without extra setup steps. Still unverified, and checked by section 1: that the script's failure report names the broken symbol, and that the checkout of another public repo with the read-only job token behaves on Actions as locally (proved by the PR's own run).
+**Rationale**: The approach works without extra setup steps. Still unverified: that the checkout of another public repo with the read-only job token behaves on Actions as locally (proved by the PR's own run).
+
+### Script rehearsal (tasks 1.2 and 1.3)
+**Context**: Whether `.tasks/consumer-build.sh` reports what the spec asks, run against real git checkouts.
+**Explored**: On 2026-10-04, shallow `git clone`s of cli `main` (`abc0093`) and opm-operator `main` (`8dc24b3`) in the scratchpad, Go 1.26.5, `GOTOOLCHAIN=local`.
+**Decision**: The script behaves as designed:
+- Against this worktree (with the uncommitted script itself in it): both consumers build and vet, exit 0, both trees unchanged; the snapshot comparison accepts the worktree's own pending edits.
+- A `go` wrapper that drops `stray.txt` into the consumer during `go vet`: exit 1, the tree check names `?? stray.txt`.
+- A consumer directory that is not a git repository: exit 1, `git status failed`, before any build.
+- A shallow clone of library `main` with `func WithRegistry(` renamed in `opm/kernel`: exit 1; the summary names cli commit `abc0093c…`, the step `go build ./...` and `internal/config/kernel.go:13:27: undefined: kernel.WithRegistry`, and the `::warning` names cli; the tree check still ran (both trees unchanged).
+- The same clone with its `go` line raised to `1.27.0`: `go work init` fails, exit 1, and with no `file:line:col` line the summary falls back to the log tail: `go: ../library/go.mod requires go >= 1.27.0 (running go 1.26.5; GOTOOLCHAIN=local)`.
+**Rationale**: Every failure path of the script ran on a git checkout, so the tree check is exercised, and the failing pipeline status reaches the script under `pipefail`.
 
 ### Green with a warning, or red and non-required
 **Context**: The plan entry says "keep it warn-only"; the owner decision says "a non-required job".
