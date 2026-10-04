@@ -435,3 +435,17 @@ The matching algorithm (which transformers a component is paired with, the deman
 - **WHEN** a developer reads `adr/012-matching-stays-in-the-library-glue.md`
 - **THEN** it states that the matching algorithm stays in the library glue under 0019:D10 and 0019:D17, that single derived rules move into core one at a time with a parity test, and that `#contracts.providedBy` is the precedent
 - **AND** it names moving `#Match` whole into core (core#62) and a core reverse index as rejected alternatives with reasons
+
+### Requirement: Render staging assertions observe only a test-private temp root
+
+A test that asserts on the render staging directories `Kernel.Render` creates SHALL first point the process temp directory at a directory owned by that test, and SHALL list only that directory. The result of such a test SHALL NOT depend on staging directories that other test processes, sharing the same `TMPDIR`, create or remove while it runs. Each test keeps its intent: after its renders or refusals, its private root holds no staging directory.
+
+#### Scenario: Concurrent test processes share one TMPDIR
+
+- **WHEN** several processes of the `opm/kernel` test binary run the staging-directory tests repeatedly at the same time with one shared `TMPDIR`
+- **THEN** none of those tests fails because of a staging directory another process created or removed
+
+#### Scenario: A render leaks its staging directory
+
+- **WHEN** a change to `Kernel.Render` leaves a staging directory behind after a successful render or a refusal
+- **THEN** the test covering that path fails, naming the leftover directory under its private root

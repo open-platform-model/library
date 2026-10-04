@@ -22,6 +22,6 @@ grep -c '^--- FAIL' "$T"/p*.log
 
 ## 2. Verify and archive
 
-- [ ] 2.1 Run `openspec verify` for `isolate-render-tempdir-test` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
-- [ ] 2.2 Run `openspec archive isolate-render-tempdir-test --yes`. Verify: the main `single-build-render` spec carries the new requirement, the change sits under `openspec/changes/archive/`, and `openspec validate --specs --strict` passes.
-- [ ] 2.3 Gates green, then commit `chore(openspec): archive isolate-render-tempdir-test` (the archive rides the implementing PR).
+- [x] 2.1 Run `openspec verify` for `isolate-render-tempdir-test` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
+- [x] 2.2 Run `openspec archive isolate-render-tempdir-test --yes`. Verify: the main `single-build-render` spec carries the new requirement, the change sits under `openspec/changes/archive/`, and `openspec validate --specs --strict` passes.
+- [x] 2.3 Gates green, then commit `chore(openspec): archive isolate-render-tempdir-test` (the archive rides the implementing PR).
