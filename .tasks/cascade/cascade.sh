@@ -112,7 +112,9 @@ if frozen "$LOADER" "$CORE_KEY"; then
 else
   D=$(resolve cue "$CORE_KEY" "$D0")
 fi
-# D reaches sed programs in C1 and C4, so it must be a plain SemVer.
+# D reaches sed programs in C1 and C4, so it must be a SemVer: it then holds
+# no '#', '&' or '\'. SEMVER_RE admits build metadata, which CUE module
+# versions never carry.
 [[ "$D" =~ $SEMVER_RE ]] || die "the core target '$D' is not a SemVer"
 
 # A2. The opm catalog, from the parity module. It moves only as far as the

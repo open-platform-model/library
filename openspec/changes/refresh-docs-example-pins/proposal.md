@@ -47,7 +47,7 @@ None.
 
 ## Impact
 
-**SemVer: no release.** Nothing under `opm/` changes. The one commit is a `ci(cascade)` commit, which release-please hides (`AGENTS.md`, "Commit style"). The docs edits ride in it because the S2 test asserts both halves together (design.md D4). No public surface changes. Principle VII: the step is about 15 lines of shell. It reuses the task's existing frozen check and warning helper, and it adds no new file and no new tool.
+**SemVer: no release.** Nothing under `opm/` changes. Section 1 is one `ci(cascade)` commit, which release-please hides (`AGENTS.md`, "Commit style"). The docs edits ride in it because the S2 test asserts both halves together (design.md D4). No public surface changes. Principle VII: the step is about 15 lines of shell. It reuses the task's existing frozen check and warning helper, and it adds no new file and no new tool.
 
 **Affected files:** `.tasks/cascade/cascade.sh` (C4), `.tasks/cascade/test.sh` (S2, S4, `set_older`, new S11), `.github/workflows/cascade-task.yml` (path filter only; a human edit, not a bot one), `docs/getting-started.md`, `AGENTS.md`. No `opm/` package.
 
@@ -66,7 +66,7 @@ None.
 - It should merge before library's receiver goes live (Phase 4), so the first live core cascade carries no docs warning.
 - Certain conflict with B3 (library `join-release-cascade`): the "Release cascade task" paragraph is one physical line (`AGENTS.md:301`), and B3 task 4.1 extends the same line. Whichever PR merges second runs `git merge origin/main` and keeps both clauses.
 - A hand-made core bump (like PR 173) that leaves the examples behind fails no required check: the no-op scenario does not assert that `main` is warning-free (design.md D6). The next cascade run warns, and the next core move brings the examples current.
-- Gate to merge: `task check` green, the full `task -x deps:cascade:test` green (the non-required `Cascade task (network)` workflow runs it on this PR because `.tasks/cascade/**` changes), and on this branch `task -x deps:cascade` exits 3 with no docs warning.
+- Gate to merge: `task check` green, the full `task -x deps:cascade:test` green (the non-required `Cascade task (network)` workflow runs it on this PR because `.tasks/cascade/**` changes), and on this branch `task -x deps:cascade` leaves no warning that names `docs/getting-started.md` or `AGENTS.md` (exit 0 or 3: exit 0 when a newer catalog, such as opm v4.5.2 over the pinned v4.5.1, is published).
 
 **Amendments outside this repo** (for the supervisor; not made here):
 

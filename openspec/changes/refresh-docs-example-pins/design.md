@@ -78,7 +78,7 @@ Both commits would be hidden types (`docs`, `ci`), so one commit loses nothing i
 
 ### D6. `.cascade-frozen` applies to the two files
 
-This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.dev/core@v2`. C2 already calls it the same way in phase C. A frozen doc is left byte-unchanged and warned about. Nothing freezes them today. The rule exists so that the frozen mechanism means the same thing for every file the task edits. Because a frozen doc is a valid state that warns, no required test asserts that `main` carries no docs warning: the no-op scenario S1 makes no such assertion (plan review, finding 1, option a). S2 and S11 cover the behaviour.
+This uses the existing `frozen FILE KEY` helper (`:92-101`), with key `opmodel.dev/core@v2`. C2 already calls it the same way in phase C. A frozen doc is left byte-unchanged and warned about. Nothing freezes them today. The rule exists so that the frozen mechanism means the same thing for every file the task edits. Because a frozen doc is a valid state that warns, no required test asserts that `main` carries no docs warning: the no-op scenario S1 makes no such assertion (plan review, finding 1, option a). S2 and S11 cover the behaviour, and S4 covers a frozen doc.
 
 ## Research & Decisions
 
@@ -126,8 +126,9 @@ The assert dies in the same spirit as C1's exactly-one-line check (`:227-231`). 
   - The existing `same_as_base` check proves that the docs came back.
 - **S4** (network, already moves core):
   - Before `set_older`, add one prose line to `AGENTS.md` naming `opmodel.dev/core@v1.0.0` and `opmodel.dev/core@v2.0.0-alpha.12`.
-  - Expect `AGENTS.md` equal to that setup copy (the example back at the current core), and warnings for both prose releases.
-  - This proves "Another major is left alone" and "A release named in prose is left alone".
+  - Also append an anchored `    Module: "opmodel.dev/core@v1.0.0",` line, and freeze `docs/getting-started.md` for `opmodel.dev/core@v2`.
+  - Expect `AGENTS.md` equal to that setup copy (the example back at the current core), `docs/getting-started.md` byte-unchanged after `set_older`, and warnings for both prose releases, the v1 example and the frozen file's older example.
+  - This proves "Another major is left alone", "A release named in prose is left alone" and the frozen-docs rule. `set_example` rewrites only the target version's major, so the v1 line survives the setup.
 - **S11 (offline, new)**:
   - Set the `docs/getting-started.md` example to an older same-major core, then run `setup_commit` and run the task with the stub answering core as current.
   - Expect exit 3, an empty `status`, and a warning naming the file.
