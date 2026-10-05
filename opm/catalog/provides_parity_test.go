@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -153,7 +154,7 @@ func assertParity(t *testing.T, cat *catalog.Catalog) []string {
 	// above cannot tell a Provides that decodes from one that always folds.
 	// The same catalog with its #transformers dropped can: under its real
 	// committed core pin, Provides must still answer core's field.
-	stripped, err := catalog.NewCatalogFromValue(cat.Package.Context().CompileString("{}").
+	stripped, err := catalog.NewCatalogFromValue(cuecontext.New().CompileString("{}").
 		FillPath(schema.Metadata, cat.Package.LookupPath(schema.Metadata)).
 		FillPath(schema.CatalogProvides, field))
 	require.NoError(t, err)
