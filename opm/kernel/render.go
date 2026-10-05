@@ -410,6 +410,9 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	if err != nil {
 		return none, nil, fmt.Errorf("building render module: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return none, nil, err
+	}
 
 	var replacements []Replacement
 	for _, r := range staged.Replacements {

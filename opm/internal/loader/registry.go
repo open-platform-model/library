@@ -100,7 +100,12 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	// location (the modcache returns {FS: OSDirFS(extractDir), Dir: "."}).
 	loc, err := reg.Fetch(ctx, mv)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("fetching %s %s: %w", spec.Label, mv, err)
+		return cue.Value{}, nil, fmt.Errorf("fetching %s %s: %w", spec.Label, mv, classifyFetch(err, mv))
+	}
+	// A fetch served from the module cache never consults ctx, so this check
+	// is what observes a cancellation before the build.
+	if err := ctx.Err(); err != nil {
+		return cue.Value{}, nil, err
 	}
 
 	// Stage the fetched artifact's .cue files in memory under a deterministic
@@ -128,6 +133,10 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}
 	val, err := LoadDir(cueCtx, src, Options{Env: env}, spec)
 	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	// The build takes no context; a cancellation during it lands here.
+	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
 
@@ -183,4 +192,15 @@ func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 	}
 
 	return nil
+}
+
+// classifyFetch classifies a registry fetch failure ([oerrors.Classify]) and,
+// when it is a fetch failure, records the coordinate that was fetched: the
+// one site that knows it exactly. The message is unchanged.
+func classifyFetch(err error, mv module.Version) error {
+	classified := oerrors.Classify(err)
+	if fe, ok := classified.(*oerrors.FetchError); ok {
+		fe.Coordinate = mv.String()
+	}
+	return classified
 }

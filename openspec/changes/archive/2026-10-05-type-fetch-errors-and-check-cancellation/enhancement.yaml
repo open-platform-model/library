@@ -1,0 +1,7 @@
+# Under-claimed on purpose. 0021:D8 is a set of GA exit criteria, and this
+# change satisfies only R12 on the library side (the frontends still match
+# message text until they move onto Classify). The cancellation checks land
+# standalone under 0009:D9 as revised on 2026-10-03, which leaves cancellation
+# inside a stage with 0009, so they deliver no 0009 decision.
+implements:
+  - enhancement: "0021"

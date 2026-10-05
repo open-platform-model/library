@@ -21,7 +21,10 @@ import (
 // value, whichever Loader produced it: [OCILoader] reports it as an error
 // itself, and Get refuses an errored value any other Loader returns with a
 // nil error. To force a re-fetch, construct a fresh Cache with a fresh
-// Loader.
+// Loader. A memoized load error keeps its classification: an [OCILoader]
+// fetch failure the registry may get past later still matches opm/errors'
+// ErrTransient, but Get on the same Cache returns it again, so a retry
+// needs a fresh Cache (a fresh Kernel).
 //
 // Each Cache instance owns its own memoization and its own context. The
 // context is the one long-lived evaluation state a Kernel holds, and no
