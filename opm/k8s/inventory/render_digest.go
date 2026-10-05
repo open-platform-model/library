@@ -32,11 +32,14 @@ var errNotObject = errors.New("the JSON is not an object")
 // sets the value of the labels.ManagedBy label to "" when metadata.labels
 // holds that key, and encodes the result as JSON with sorted object keys, no
 // HTML escaping and a trailing newline. Strings are written as Go's
-// encoding/json Encoder writes them with HTML escaping off: U+2028, U+2029
-// and control characters as \u escapes, invalid UTF-8 as U+FFFD. It hashes "opm-render-v1\n" followed
-// by the encoded objects, sorted by group (from apiVersion), kind,
-// metadata.namespace and metadata.name, with the encoded bytes as the final
-// tie-break. A sort field that is missing or not a string reads as "".
+// encoding/json Encoder writes them with HTML escaping off: " and \ escaped;
+// \b, \f, \n, \r and \t as short escapes; the other characters from U+0000
+// to U+001F, and U+2028 and U+2029, as \u escapes with lowercase hex; every
+// other character, including U+007F and < > &, literal; invalid UTF-8 as
+// U+FFFD. It hashes "opm-render-v1\n" followed by the encoded objects, sorted
+// by group (from apiVersion), kind, metadata.namespace and metadata.name,
+// with the encoded bytes as the final tie-break. A sort field that is missing
+// or not a string reads as "".
 //
 // The managed-by value is the one value ignored: it is the runtime's name
 // (opm-cli or opm-controller), so the cli and the operator digest one render

@@ -5,10 +5,9 @@ other numbering. Line references are at library `origin/main` `ca7c56b` (after
 add-kubernetes-object-packages, library#196), cli `origin/main` `bd4d1a7c` and opm-operator
 `origin/main` `dd0d798`, all fetched 2026-10-05. Evidence is the owner's beta-1 plan
 decision for this work (task e3 of the beta-1 kernel checklist), with the frontend code
-re-read at those heads. Since
-that research, the cli's `pkg/inventory/entry.go` has gained `K8sIdentity`, `IdentityOf` and
-`AdmitSet` (the operator-install admission). They are not part of this change (proposal, Not in
-this change). The digest and stale-set code it describes is unchanged.
+re-read at those heads. Since the owner's decision, the cli's `pkg/inventory/entry.go` has
+gained `K8sIdentity`, `IdentityOf` and `AdmitSet` (the operator-install admission). They are
+not part of this change (proposal, Not in this change). The digest and stale-set code it describes is unchanged.
 
 ## Goals / Non-Goals
 
@@ -253,14 +252,22 @@ assertion pins the hex string itself, as a committed constant. The fixtures:
 
 - Inventory: a core-group, cluster-scoped entry with empty `Group` and `Namespace` (the case
   where the frontends disagree today), a namespaced `apps` entry, one entry with an empty
-  `Component`, two `apps` entries whose namespace order and name order disagree, and two
-  entries with one identity whose component order and version order disagree, given out of
-  order. The pairs make every comparison in the sort decide an order somewhere, so a reorder
-  of the sort fields changes the golden value. A repeated entry is its own table row.
-- Render: a Deployment with a managed-by label, an integer above 2^53 and a U+2028 in an
-  annotation (which pins Go's string escaping), a core-group Service, a cluster-scoped
-  Namespace, and two Services whose namespace order and name order disagree, given out of
-  order.
+  `Component`, and four pairs given out of order: two `apps` entries whose namespace order
+  and name order disagree, two ConfigMaps in one namespace whose name order and component
+  order disagree, two entries with one identity whose component order and version order
+  disagree, and two entries that differ only in version. A repeated entry is its own table
+  row.
+- Render: a Deployment with a managed-by label, an integer above 2^53 and an annotation with
+  U+2028, a newline, U+0001 and U+007F (which pin Go's string escaping), a core-group
+  Service, a cluster-scoped Namespace, and, given out of order, a core ConfigMap in namespace
+  `z` (its kind order and namespace order disagree with the Namespace's and the Services'),
+  two Services whose namespace order and name order disagree, and two Services in one
+  namespace whose name order and encoded-bytes order disagree.
+
+In each fixture, every sort field decides at least one order that the fields after it would
+decide the other way. A sort with any two fields swapped or any one field dropped therefore
+writes other bytes and fails the golden test; a sweep of every such swap and drop confirmed
+that for both digests.
 
 Behaviour tests, one per spec scenario: order independence, sensitivity to each single field
 and to adding or removing an entry, managed-by value ignored, managed-by key presence counted,
