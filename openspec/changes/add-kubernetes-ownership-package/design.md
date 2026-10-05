@@ -12,7 +12,8 @@ changed since the research:
   archived change `2026-10-04-migrate-manifest-installed-operator`). `PreApplyExistenceCheck`
   now takes an `AdmitSet`, and `MigrationPlan.Admit()` fills it with the proven earlier-manifest
   objects, the Deployment the migration recreates, and the rendered objects that already carry
-  the instance's UUID. The library's `Admit` input is shaped to take exactly that set (OW4).
+  the instance's UUID. The library's apply-side `Admit` input is shaped to take exactly that set
+  (OW4); the delete side is narrower.
 
 The contract is enhancement 0012 as merged in enhancements#88 and amended on 2026-10-04:
 0012:D8:R1 to R7, 0012:D1:R4/R7, 0012:D4:R1/R2, and the sketch in
@@ -110,7 +111,8 @@ frontend can skip the live read for a protected kind, as the cli's `recordUnread
    inventory or not, adopted or admitted.
 3. `InInventory`: apply. The ownership refusals cover only objects outside the inventory.
 4. The adopt annotation's value equals `InstanceUUID` and `InstanceUUID` is not empty: apply.
-   An annotation whose value is empty or only whitespace counts as no annotation at all.
+   The value is compared with surrounding whitespace trimmed (a UUID never contains whitespace),
+   and a value that is empty or only whitespace counts as no annotation at all.
 5. The managed-by value is not an OPM runtime's (`labels.IsOPMManagedBy`): refuse
    `foreign-object`, unless `Admit` holds and the object carries no other instance's UUID (OW4).
 6. The live UUID label is not empty and differs from `InstanceUUID`: refuse `other-instance`.
@@ -162,11 +164,13 @@ and rendered objects that already carry the instance's own UUID.
 **Explored**: A first draft let `Admit` lift both ownership refusals, like the annotation.
 0012:D8:R6 is narrower: a proven object carries no instance identity, so it could never meet
 `other-instance`.
-**Decision**: `Admit` lifts only `foreign-object` on apply and only `not-opm-managed` on delete,
-and only when the live object carries no UUID label or carries `InstanceUUID`. On delete it
-lifts `not-opm-managed` only for the kinds 0012:D8:R7 lets install delete: `apps` `Deployment`,
-and `rbac.authorization.k8s.io` `RoleBinding` and `ClusterRoleBinding` (the cli's R7 set,
-`internal/operator/legacy.go`). An admitted object of any other kind, a ConfigMap or a custom
+**Decision**: `Admit` lifts only `foreign-object` on apply and only `not-opm-managed` on delete.
+On apply it lifts only when the live object carries no UUID label or carries `InstanceUUID`. On
+delete it lifts only when the live object carries no UUID label at all, since 0012:D8:R7 lets
+install delete outside the inventory only objects proven as 0012:D8:R6 states, and those carry
+no OPM instance identity. On delete it also lifts `not-opm-managed` only for the kinds
+0012:D8:R7 lets install delete: `apps` `Deployment`, and `rbac.authorization.k8s.io`
+`RoleBinding` and `ClusterRoleBinding` (the cli's 0012:D8:R7 set, `internal/operator/legacy.go`). An admitted object of any other kind, a ConfigMap or a custom
 resource among them, still skips as `not-opm-managed`. It never lifts `terminating`,
 `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The caller sets
 `Admit` only for an object it has proven. The library cannot check the proof, which needs the
@@ -176,11 +180,13 @@ admitted object whose UUID label names another instance is not a proven object, 
 refuses it even if a caller's proof has a hole. The delete bound is enforced by the verdict, as
 `safety-excluded` is, because it sees group and kind and need not trust the caller for it. The
 apply side keeps no kind bound: the cli's admit set covers every kind of the earlier manifest
-(Namespace, ClusterRole, ServiceAccount and so on), and applying over a proven object is what R6
-asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
+(Namespace, ClusterRole, ServiceAccount and so on), and applying over a proven object is what
+0012:D8:R6 asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
 `Ours` objects carry the instance's own. Delete-side `Admit` stays, because without it the
-install's R7 deletes could not go through `CanDelete`, and the owner's e4 answer puts every
-delete path through it.
+install's 0012:D8:R7 deletes could not go through `CanDelete`, and the owner's e4 answer puts every
+delete path through it. The delete side needs no `InstanceUUID` case: the superseded bindings
+have names the module does not render, so they never get the instance UUID, and a recreated
+Deployment that carries it is already OPM-managed and passes without admission.
 
 ### OW5: The delete verdict carries the judged UID and resourceVersion; the precondition is UID only
 

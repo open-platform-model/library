@@ -12,7 +12,8 @@
 #### Scenario: No library code sets the adopt annotation
 
 - **WHEN** every non-test Go file under `opm/` is parsed
-- **THEN** no file outside `opm/k8s/labels` spells the literal `opmodel.dev/adopt`, and no file calls a `SetAnnotations` method
+- **THEN** no file outside `opm/k8s/labels` spells the literal `opmodel.dev/adopt`
+- **AND** no file outside `opm/k8s/labels` and `opm/k8s/ownership`, which only reads the key, refers to the adopt annotation constant
 
 ### Requirement: The ownership verdicts are pure
 
@@ -35,7 +36,7 @@ The library SHALL provide `opm/k8s/ownership` with a per-object delete verdict a
 
 ### Requirement: Safety-excluded kinds match on group and kind
 
-The library SHALL report a core-group `Namespace` and an `apiextensions.k8s.io` `CustomResourceDefinition` as safety-excluded, and no other group and kind pair. The test SHALL NOT need a live object. Source: 0012:D1:R4, the 0012 contract's `#safetyExcluded`.
+The library SHALL report a core-group `Namespace` and an `apiextensions.k8s.io` `CustomResourceDefinition` as safety-excluded, and no other group and kind pair. The test SHALL NOT need a live object. Source: 0012:D1:R3, the 0012 contract's `#safetyExcluded`.
 
 #### Scenario: The two protected kinds are excluded
 
@@ -49,7 +50,7 @@ The library SHALL report a core-group `Namespace` and an `apiextensions.k8s.io` 
 
 ### Requirement: The delete verdict skips with a reason or proceeds with the judged object's identity
 
-The delete verdict SHALL decide in this order and stop at the first match: skip as `safety-excluded` when the kind is safety-excluded, whatever the live object; skip as `already-absent` when there is no live object; skip as `not-opm-managed` when the live managed-by label is not an OPM runtime's value; skip as `owner-mismatch` when the live UUID label and the instance's UUID are both non-empty and differ; otherwise proceed. An empty UUID on either side SHALL pass the owner comparison. An object being deleted SHALL NOT be skipped for that reason. A proceed verdict SHALL carry the UID and the resourceVersion of the live object it judged. Its DELETE precondition SHALL name that UID and SHALL NOT name a resourceVersion. A caller MAY add the carried resourceVersion itself. A skip verdict, and a proceed verdict whose judged UID is empty, SHALL yield no precondition at all, never a precondition on an empty UID. A skip verdict SHALL carry a message naming the object and the reason. Source: 0012:D1:R4, 0012:D4:R1.
+The delete verdict SHALL decide in this order and stop at the first match: skip as `safety-excluded` when the kind is safety-excluded, whatever the live object; skip as `already-absent` when there is no live object; skip as `not-opm-managed` when the live managed-by label is not an OPM runtime's value; skip as `owner-mismatch` when the live UUID label and the instance's UUID are both non-empty and differ; otherwise proceed. An empty UUID on either side SHALL pass the owner comparison. An object being deleted SHALL NOT be skipped for that reason. A proceed verdict SHALL carry the UID and the resourceVersion of the live object it judged. Its DELETE precondition SHALL name that UID and SHALL NOT name a resourceVersion. A caller MAY add the carried resourceVersion itself. A skip verdict, and a proceed verdict whose judged UID is empty, SHALL yield no precondition at all, never a precondition on an empty UID. A skip verdict SHALL carry a message naming the object and the reason. Source: 0012:D1:R3/R4, 0012:D4:R1.
 
 #### Scenario: A protected kind is skipped without a live read
 
@@ -148,7 +149,7 @@ The apply verdict SHALL decide in this order and stop at the first match. When t
 
 ### Requirement: The adopt annotation is the only override and the refusal names it
 
-An adopt annotation whose value equals the instance UUID SHALL lift the `foreign-object` and `other-instance` refusals. An adopt annotation whose value is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. The refusal message for `foreign-object` and `other-instance` SHALL name the object, the annotation key `opmodel.dev/adopt` and the instance UUID to set it to, unless the instance UUID is empty. The `other-instance` message SHALL ask the user to remove the object from the instance that owns it before annotating it, since that instance applies the object again for as long as it holds it in its inventory. No message SHALL name any other way past a refusal, such as a command-line flag. No message SHALL carry an enhancement reference. Source: 0012:D8:R2/R3.
+An adopt annotation whose value equals the instance UUID SHALL lift the `foreign-object` and `other-instance` refusals. The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. The refusal message for `foreign-object` and `other-instance` SHALL name the object, the annotation key `opmodel.dev/adopt` and the instance UUID to set it to, unless the instance UUID is empty. The `other-instance` message SHALL ask the user to remove the object from the instance that owns it before annotating it, since that instance applies the object again for as long as it holds it in its inventory. No message SHALL name any other way past a refusal, such as a command-line flag. No message SHALL carry an enhancement reference. Source: 0012:D8:R2/R3.
 
 #### Scenario: Adoption lifts a foreign refusal
 
@@ -165,6 +166,11 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation names a different UUID
 - **THEN** the verdict refuses as `foreign-object`
 - **AND** the message says the annotation names another instance
+
+#### Scenario: Surrounding whitespace in the annotation value is ignored
+
+- **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation is the instance UUID with surrounding whitespace
+- **THEN** the verdict applies
 
 #### Scenario: A blank annotation counts as none
 
@@ -185,7 +191,7 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 
 ### Requirement: The operator install admission lifts only a proven object's ownership refusal
 
-Both verdicts SHALL take an admission input that a caller sets only for an object it has proven came from an earlier operator release's install manifest. On apply, admission SHALL lift `foreign-object` only, and only when the live object carries no UUID label or carries the instance UUID. On delete, admission SHALL lift `not-opm-managed` only, under the same UUID condition, and only for an `apps` `Deployment`, a `rbac.authorization.k8s.io` `RoleBinding` or a `rbac.authorization.k8s.io` `ClusterRoleBinding`, the kinds install may delete outside the inventory. The UUID label is the only identity admission compares. Admission SHALL NOT lift `terminating`, `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The library does not check the proof. Source: 0012:D8:R6/R7, 0012:D4:R1.
+Both verdicts SHALL take an admission input that a caller sets only for an object it has proven came from an earlier operator release's install manifest. On apply, admission SHALL lift `foreign-object` only, and only when the live object carries no UUID label or carries the instance UUID. On delete, admission SHALL lift `not-opm-managed` only, only when the live object carries no UUID label at all, and only for an `apps` `Deployment`, a `rbac.authorization.k8s.io` `RoleBinding` or a `rbac.authorization.k8s.io` `ClusterRoleBinding`, the kinds install may delete outside the inventory. The UUID label is the only identity admission compares. Admission SHALL NOT lift `terminating`, `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The library does not check the proof. Source: 0012:D8:R6/R7, 0012:D4:R1.
 
 #### Scenario: A proven earlier-manifest object is admitted on apply
 
@@ -210,6 +216,11 @@ Both verdicts SHALL take an admission input that a caller sets only for an objec
 #### Scenario: An admitted object carrying another identity is not deleted
 
 - **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize` and a UUID label that differs from the non-empty instance UUID
+- **THEN** it skips as `not-opm-managed`
+
+#### Scenario: An admitted object carrying this instance's UUID is not deleted
+
+- **WHEN** the delete verdict is asked for an admitted live ClusterRoleBinding with no OPM managed-by label and a UUID label equal to the instance UUID
 - **THEN** it skips as `not-opm-managed`
 
 #### Scenario: Admission deletes only the install's deletable kinds

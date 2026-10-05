@@ -30,8 +30,8 @@ enhancement reference.
       literal (scenario "The key is the fixed literal"). `TestVocabularyLiterals` stays as it is:
       its table is the frontend-parity table, and neither frontend has an adopt key. A
       `TestNoLibraryCodeSetsTheAdoptAnnotation` parses every non-test Go file under `opm/` and
-      fails if a file outside `opm/k8s/labels` spells `opmodel.dev/adopt` or any file calls a
-      `SetAnnotations` method (scenario "No library code sets the adopt annotation"). Verify:
+      fails if a file outside `opm/k8s/labels` spells `opmodel.dev/adopt`, or a file outside
+      `opm/k8s/labels` and `opm/k8s/ownership` refers to `AnnotationAdopt` (scenario "No library code sets the adopt annotation"). Verify:
       `go test ./opm/k8s/labels -count=1` green.
 - [x] 1.3 `task check` green, then commit
       `feat(k8s): add the adopt annotation key to opm/k8s/labels`.
