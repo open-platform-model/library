@@ -44,7 +44,9 @@
 // registry module) included; no verb takes a per-call override. Absent the
 // option, every operation inherits the process CUE_REGISTRY and applies no
 // default; the mapping is plumbed into the operation's load configuration and
-// never written back to the environment.
+// never written back to the environment. Every operation resolves through the
+// Kernel's one registry client, under a module cache of that operation's own,
+// so no fetch failure outlives the operation that saw it (see [Kernel]).
 //
 // # Every operation shares nothing
 //
@@ -153,8 +155,8 @@
 // [Kernel.SynthesizeInstance]) and a source-carrying platform
 // ([Kernel.AcquirePlatformFromDir]: a platform is a CUE module on disk that
 // imports its catalogs), stages one generated render module that imports both
-// (an on-disk input in place, an overlay-mode input served from memory; the
-// per-render staging directory holds only the generated module), builds it
+// (an on-disk input in place, an overlay-mode input and the generated module
+// itself served from memory, so a render writes no staging file), builds it
 // once, and decodes the matching verdicts ([RenderDiagnostics]) and the
 // rendered output ([RenderResult.Compiled], one entry per rendered object as a
 // [*Compiled] carrying instance, component and transformer provenance).
@@ -182,8 +184,8 @@
 // self-refusing under a plain cue eval. The kernel decides from the decoded
 // rows and the decoded routable verdict only, never by reading the gate. Each
 // typed cause carries its diagnostics rows unchanged and wraps nothing. Inputs
-// are never mutated, and the staging directory is removed on return, success
-// or failure; refusals before evaluation (a missing Source, a platform whose
+// are never mutated, and nothing is staged on disk, success or failure;
+// refusals before evaluation (a missing Source, a platform whose
 // core predates #contracts.providedBy, an uncovered OPM-namespace path, skew
 // under [SkewRefuse], a local replacement without the opt-in) are plain
 // errors. The core floor runs before anything is staged: a platform module

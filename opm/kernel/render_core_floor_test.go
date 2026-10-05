@@ -22,7 +22,7 @@ import (
 // single-build-render spec, "An older-core platform is refused before
 // staging": the served healthy platform, re-pinned to core 2.0.0-alpha.10
 // (before #contracts.providedBy), acquires, but Render refuses it with the
-// typed core-floor error before creating a staging directory. Not a
+// typed core-floor error before staging anything. Not a
 // *RenderError: the build never runs, and no provider count of the kernel's
 // own stands in for core's.
 func TestRender_OlderCorePlatformRefusedBeforeStaging(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRender_OlderCorePlatformRefusedBeforeStaging(t *testing.T) {
 	plat := acquireOlderCorePlatform(t, k)
 	inst := acquireRenderInstance(t, k, "instance")
 
-	root := privateStagingRoot(t)
+	root := privateTempDir(t)
 
 	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
 	require.Error(t, err)
@@ -47,7 +47,7 @@ func TestRender_OlderCorePlatformRefusedBeforeStaging(t *testing.T) {
 	var rerr *kernel.RenderError
 	assert.False(t, errors.As(err, &rerr), "the floor refuses before the build, not through the gate")
 
-	assert.Empty(t, stagingDirs(t, root), "no staging directory was created")
+	assertNoStagingFile(t, root)
 }
 
 // acquireOlderCorePlatform acquires the served healthy platform re-pinned to

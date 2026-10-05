@@ -89,11 +89,13 @@ type Input struct {
 	Labels      map[string]string
 	Annotations map[string]string
 
-	// Env is the environment slice the synthesized build's load configuration
-	// consults — the kernel's CUE_REGISTRY mapping via cueenv.Override, nil to
-	// read the process environment unchanged. It is kernel plumbing, not a
-	// caller-facing knob: Kernel.SynthesizeInstance fills it from WithRegistry.
-	Env []string
+	// Load is the load settings the synthesized build passes to
+	// loader.LoadDir: the environment slice (the kernel's CUE_REGISTRY mapping
+	// via cueenv.Override, nil to read the process environment unchanged) and
+	// the registry the build resolves through (one operation of the Kernel's
+	// shared client; nil lets cue/load build one). It is kernel plumbing, not
+	// a caller-facing knob: Kernel.SynthesizeInstance fills it.
+	Load loader.Options
 }
 
 // synthPkgDir is the reserved subdirectory, under the acquired module's staged
@@ -188,7 +190,7 @@ func Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *mo
 	// subdirectory of the module's staged root, with the module's own
 	// cue.mod/module.cue as the module file.
 	src := &module.Source{Root: moduleRoot, Pkg: synthPkgDir, Overlay: overlay}
-	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: in.Env}, loader.InstanceSpec)
+	val, err := loader.LoadDir(cueCtx, src, in.Load, loader.InstanceSpec)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("instance synthesis: %w", err)
 	}

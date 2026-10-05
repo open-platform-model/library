@@ -10,6 +10,11 @@
 // the process environment", so the SDK reads it exactly as it would without
 // the kernel in between.
 //
+// It also owns the kernel's shared registry client ([Registry]): one
+// resolver and OCI transport per Kernel, with a fresh module cache for each
+// operation ([Registry.Operation]), so a fetch failure is never remembered
+// past the operation that saw it.
+//
 // This package is under opm/internal/ so every package under opm/ that
 // touches cue/load (the file and registry loaders, the schema loader and the
 // render stage) shares one implementation.

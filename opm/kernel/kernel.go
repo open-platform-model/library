@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -19,10 +20,31 @@ import (
 // process to reuse the in-process schema cache; constructing a fresh Kernel
 // per request pays the schema-fetch cost on every cold disk cache. The CUE
 // module cache on disk is shared across Kernels.
+//
+// A Kernel also owns one registry client: the resolver and the OCI transport
+// behind it, built on the first operation that needs it (never by [New])
+// from the [WithRegistry] mapping, else the process CUE_REGISTRY, and from
+// the registry credentials configuration. Every module load and registry
+// fetch of the Kernel's own operations resolves through it: registry and
+// directory acquisition, instance synthesis, file-backed values sources and
+// the render build. Each operation wraps the client in a module cache of its
+// own, over the cache directory CUE_CACHE_DIR names when that operation
+// starts, so a fetch failure (a refused connection, an error status, a
+// version not yet published, a cancelled context) is never served to a later
+// operation, and a change to CUE_CACHE_DIR reaches the next operation. A
+// failure to build the client is returned to that operation and the next one
+// tries again, and a failed registry call drops the client so the next
+// operation builds a fresh one. The mapping and the credentials are
+// otherwise read once, when the client is built: a process that changes
+// CUE_REGISTRY or rotates a credentials file later keeps the old view until
+// a registry call fails or it constructs a new Kernel. The schema cache's
+// loader is not part of this: a [schema.OCILoader] is configured on its own
+// and keeps its own client, and the opt-in helper tier builds its own.
 type Kernel struct {
-	schemaLoader schema.Loader
-	schemaCache  *schema.Cache
-	registry     string
+	schemaLoader   schema.Loader
+	schemaCache    *schema.Cache
+	registry       string
+	registryClient *cueenv.Registry
 }
 
 // Option configures a [Kernel] at construction time. Options compose via
@@ -46,8 +68,10 @@ type Option func(*Kernel)
 // An explicit [WithSchemaLoader] still wins, whatever order the options are
 // given in: the loader is chosen after every option has been applied.
 //
-// New never returns nil, creates no [cue.Context] and evaluates nothing. The
-// returned Kernel is safe for concurrent use across method calls.
+// New never returns nil, creates no [cue.Context], evaluates nothing and
+// builds no registry client: the Kernel's one client (see [Kernel]) is built
+// on the first operation that needs it. The returned Kernel is safe for
+// concurrent use across method calls.
 //
 // New does NOT trigger a schema load, and on a pinned loader (the default)
 // no Kernel method does either: only instance synthesis on a loader that
@@ -68,6 +92,8 @@ func New(opts ...Option) *Kernel {
 		loader = schema.OCILoader{Registry: k.registry}
 	}
 	k.schemaCache = &schema.Cache{Loader: loader}
+	// The one registry client, built on its first use, not here.
+	k.registryClient = cueenv.NewRegistry(k.registry)
 	return k
 }
 
@@ -116,7 +142,9 @@ func WithSchemaLoader(l schema.Loader) Option {
 // the process environment; the kernel applies no built-in default registry —
 // the same stance as the schema loader. The mapping is never written back to
 // the process environment; it is plumbed into the load configuration for the
-// operation only.
+// operation only. Every kernel operation shares one registry client built
+// from it; when the mapping and the environment are read is described on
+// [Kernel].
 func WithRegistry(registry string) Option {
 	return func(k *Kernel) {
 		k.registry = registry

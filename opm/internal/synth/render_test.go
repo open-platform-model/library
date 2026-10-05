@@ -21,8 +21,8 @@ import (
 // Kernel.AcquireModuleFromRegistry does: Instance builds the synthesized
 // package inside the module's own staged tree, so a full synthesis (unlike
 // the guard tests in instance_test.go) needs a source-carrying module.
-// Returns the module and the environment slice the build resolves through.
-func servedModule(t *testing.T) (*module.Module, []string) {
+// Returns the module and the load options the build resolves through.
+func servedModule(t *testing.T) (*module.Module, loader.Options) {
 	t.Helper()
 	modPath := registrytest.UniquePath(t, "modules") + "/demo"
 	fixture := registrytest.ModuleFixture{
@@ -32,7 +32,7 @@ func servedModule(t *testing.T) (*module.Module, []string) {
 			"#components: {}\n#config: {}\ndebugValues: {}\n",
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{fixture}, nil)
-	env := cueenv.Override(reg, "")
+	env := loader.Options{Env: cueenv.Override(reg, "")}
 
 	val, src, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.1.0", env)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestInstance_LabelsAndAnnotationsSorted(t *testing.T) {
 			Namespace:   "ns",
 			Labels:      fill(labels, descending),
 			Annotations: fill(annotations, descending),
-			Env:         env,
+			Load:        env,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, src)

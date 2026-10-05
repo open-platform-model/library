@@ -141,8 +141,8 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*mod
 	}
 
 	cueCtx := cuecontext.New()
-	env := k.loadEnv()
-	compiled, merged, err := mergeSources(cueCtx, in.Values, env)
+	opts := k.loadOptions()
+	compiled, merged, err := mergeSources(cueCtx, in.Values, opts)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
@@ -157,7 +157,7 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*mod
 		Values:      merged,
 		Labels:      in.Labels,
 		Annotations: in.Annotations,
-		Env:         env,
+		Load:        opts,
 	}
 	spec, src, err := synth.Instance(cueCtx, coreVersion, input)
 	if ctxErr := ctx.Err(); ctxErr != nil {

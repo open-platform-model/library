@@ -72,7 +72,7 @@ When local replacements are enabled for the render, each input's own `cue.mod/lo
 #### Scenario: Replacement without opt-in refused
 
 - **WHEN** `Render` is invoked with the opt-in off and the platform module's `cue.mod/local-module.cue` replaces its catalog path
-- **THEN** it returns an error naming the platform and `cue.mod/local-module.cue`, and no staging directory is written
+- **THEN** it returns an error naming the platform and `cue.mod/local-module.cue`, no render module is staged, and no staging file is written
 
 #### Scenario: Inputs without the file are unaffected
 
@@ -116,20 +116,6 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 - **WHEN** the skew comparison compares an instance requiring `2.0.0-beta.10` of a path against a platform carrying `2.0.0-beta.2`, and against a platform carrying `2.0.0`
 - **THEN** the row against `2.0.0-beta.2` is marked newer and the row against `2.0.0` is not
-
-### Requirement: Each render is its own build in its own context
-
-`Render` SHALL create a fresh `cue.Context` for the render, evaluate the staged render module exactly once with it, and release its own references to it when `Render` returns; a `*kernel.Compiled` the caller holds keeps that build alive until the caller releases it. No built value SHALL be shared between renders, and the render SHALL NOT use any long-lived context. The staging directory SHALL hold only the generated render module (its `cue.mod` and glue); an overlay-mode input SHALL be served from memory and an on-disk input from its own directory, so nothing of either input is copied. The staging directory SHALL be removed when the render completes.
-
-#### Scenario: Repeated renders share nothing
-
-- **WHEN** `Render` is invoked twice with the same inputs
-- **THEN** each invocation stages, builds and decodes independently, and the results are byte-identical
-
-#### Scenario: The staging directory holds no input files
-
-- **WHEN** a render of an overlay-mode instance against an overlay-mode platform is staged
-- **THEN** the staging directory contains `cue.mod/module.cue`, `cue.mod/local-module.cue` and the glue file, and no `instance/` or `platform/` directory
 
 ### Requirement: Matching runs inside the build with verdicts as data
 
@@ -376,12 +362,12 @@ Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as 
 
 ### Requirement: A render refuses a platform whose core predates the provider count
 
-`Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the platform's `#contracts` carries `providedBy`, as recorded when the platform was constructed and reported by `Platform.CoreFloor()` (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL leave no staging directory behind and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it. The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from. The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on one Kernel.
+`Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the platform's `#contracts` carries `providedBy`, as recorded when the platform was constructed and reported by `Platform.CoreFloor()` (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it. The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from. The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on one Kernel.
 
 #### Scenario: An older-core platform is refused before staging
 
 - **WHEN** a platform module identical to a served fixture but pinning core `2.0.0-alpha.10` is acquired and rendered
-- **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no render staging directory remains
+- **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no staging file is written
 
 #### Scenario: A current-core platform is not affected
 
@@ -453,20 +439,6 @@ The matching algorithm (which transformers a component is paired with, the deman
 - **THEN** it states that the matching algorithm stays in the library glue under 0019:D10 and 0019:D17, that single derived rules move into core one at a time with a parity test, and that `#contracts.providedBy` is the precedent
 - **AND** it names moving `#Match` whole into core (core#62) and a core reverse index as rejected alternatives with reasons
 
-### Requirement: Render staging assertions observe only a test-private temp root
-
-A test that asserts on the render staging directories `Kernel.Render` creates SHALL first point the process temp directory at a directory owned by that test, and SHALL list only that directory. The result of such a test SHALL NOT depend on staging directories that other test processes, sharing the same `TMPDIR`, create or remove while it runs. Each test keeps its intent: after its renders or refusals, its private root holds no staging directory.
-
-#### Scenario: Concurrent test processes share one TMPDIR
-
-- **WHEN** several processes of the `opm/kernel` test binary run the staging-directory tests repeatedly at the same time with one shared `TMPDIR`
-- **THEN** none of those tests fails because of a staging directory another process created or removed
-
-#### Scenario: A render leaks its staging directory
-
-- **WHEN** a change to `Kernel.Render` leaves a staging directory behind after a successful render or a refusal
-- **THEN** the test covering that path fails, naming the leftover directory under its private root
-
 ### Requirement: A render reports every contract its instance requires
 
 The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredContracts`. The field holds every contract key that a component of the render requires: the keys of each component's `#resources`, plus the keys of its `#traits` when it attaches any. The keys are sorted in byte order with duplicates removed. Source: 0013:D24.
@@ -516,3 +488,58 @@ Computing the demand SHALL fail closed. A component's `#resources` is read with 
 
 - **WHEN** any served render fixture whose instance has no synthesised components renders and the build reaches its diagnostics
 - **THEN** `RequiredContracts` equals the sorted, deduplicated `#resources` and `#traits` keys of the instance package's own components
+
+### Requirement: Each render is its own in-memory build in its own context
+
+`Render` SHALL create a fresh `cue.Context` for the render, evaluate the staged render module exactly once with it, and release its own references to it when `Render` returns; a `*kernel.Compiled` the caller holds keeps that build alive until the caller releases it. No built value SHALL be shared between renders, and the render SHALL NOT use any long-lived context. The render module SHALL be staged in memory under a fixed synthetic root, an absolute path on every operating system (on Windows it carries a volume), that does not exist on disk; because cue/load reads a real directory beneath an overlay root, staging SHALL refuse, with an error naming the path, when anything exists at that root: its generated `cue.mod/module.cue`, `cue.mod/local-module.cue` and glue file, and every file of an overlay-mode input, SHALL be served to the build from the load overlay, and an on-disk input SHALL be served from its own directory, so nothing of either input is copied and nothing is written. The coverage invariant SHALL be checked against the `cue.mod/module.cue` bytes the build is served.
+
+#### Scenario: Repeated renders share nothing
+
+- **WHEN** `Render` is invoked twice with the same inputs
+- **THEN** each invocation stages, builds and decodes independently, and the results are byte-identical
+
+#### Scenario: The render module is served from memory
+
+- **WHEN** a render of an overlay-mode instance against an overlay-mode platform is staged
+- **THEN** the staged overlay carries `cue.mod/module.cue`, `cue.mod/local-module.cue` and the glue file under the synthetic root, and every input file under that root's `instance/` or `platform/` directory
+- **AND** the synthetic root does not exist on disk before or after the build
+
+#### Scenario: An existing render root is refused
+
+- **WHEN** a directory holding a `.cue` file of the render package, or a plain file, exists at the synthetic root and a render module is staged
+- **THEN** staging returns an error naming the root, and nothing is staged or built
+
+#### Scenario: The synthetic roots are absolute
+
+- **WHEN** the render root and a registry module's synthetic root are computed on any operating system
+- **THEN** both are absolute paths, so cue/load accepts the overlay keys beneath them
+
+#### Scenario: Local replacements resolve from an in-memory render module
+
+- **WHEN** a render module whose `cue.mod/local-module.cue` replaces input and catalog paths with on-disk directories is served from memory under the synthetic root
+- **THEN** the one build resolves every replaced path from its directory
+- **AND** the same build with `cue.mod/local-module.cue` left out of the overlay fails to resolve the replaced input, so the overlay's file is the one the build read
+
+#### Scenario: Concurrent renders share the synthetic root
+
+- **WHEN** several goroutines build render modules staged under the same synthetic root at the same time
+- **THEN** every build succeeds with the same result as a sequential build, and the race detector reports nothing
+
+### Requirement: A render writes no staging file
+
+`Kernel.Render` SHALL write no staging file: it SHALL create, write or remove nothing under the process temp directory and nothing at the render module's synthetic root, not on a successful render, not on a refusal before staging, not on a refusal before evaluation, and not on a build failure. The CUE module cache is not staging: a render whose build fetches a dependency fills the module cache under `CUE_CACHE_DIR` exactly as any other load does. A test that asserts this SHALL point the process temp directory at a directory owned by that test and SHALL find it empty afterwards, so its result does not depend on other test processes sharing the same `TMPDIR`, and SHALL find that the synthetic root does not exist.
+
+#### Scenario: A successful render leaves the temp directory untouched
+
+- **WHEN** a test points `TMPDIR` at an empty directory it owns and renders a served instance against a served platform
+- **THEN** the render succeeds, the directory is still empty, and the render module's synthetic root does not exist on disk
+
+#### Scenario: A refusal leaves the temp directory untouched
+
+- **WHEN** a test points `TMPDIR` at an empty directory it owns and `Render` refuses an older-core platform, a local replacement without the opt-in, an instance dependency that carries no version and no replacement, and catalog skew under `SkewRefuse`, and fails to load a render module whose instance imports a module nothing serves
+- **THEN** each call returns its refusal, the directory is still empty, and the synthetic root does not exist on disk
+
+#### Scenario: A render that writes is caught
+
+- **WHEN** a change to `Kernel.Render` writes a file or directory under the process temp directory
+- **THEN** the test covering that path fails, naming what it found under its private root

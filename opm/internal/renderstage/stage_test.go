@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
@@ -105,60 +107,68 @@ func diskPlatform(t *testing.T) *module.Source {
 	return &module.Source{Root: dir}
 }
 
-// stagedFiles lists every file under dir, slash-separated and relative to
-// it, sorted: what one render leaves on disk.
-func stagedFiles(t *testing.T, dir string) []string {
+// generatedFiles lists the overlay entries of staged that are the generated
+// render module (everything not under instance/ or platform/),
+// slash-separated, relative to RenderRoot and sorted. It also asserts that
+// RenderRoot does not exist on disk: staging writes nothing.
+func generatedFiles(t *testing.T, staged *Staged) []string {
 	t.Helper()
+	assertAbsent(t, RenderRoot)
 	var files []string
-	require.NoError(t, filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	for key := range staged.Overlay {
+		rel, err := filepath.Rel(RenderRoot, key)
+		require.NoError(t, err)
+		rel = filepath.ToSlash(rel)
+		if strings.HasPrefix(rel, "instance/") || strings.HasPrefix(rel, "platform/") {
+			continue
 		}
-		if !d.IsDir() {
-			rel, err := filepath.Rel(dir, p)
-			require.NoError(t, err)
-			files = append(files, filepath.ToSlash(rel))
-		}
-		return nil
-	}))
+		files = append(files, rel)
+	}
 	sort.Strings(files)
 	return files
 }
 
-func TestStage_ServesOverlayFromMemoryAndWritesRenderModule(t *testing.T) {
+// renderModule is what generatedFiles returns for every staged render.
+var renderModule = []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}
+
+// served returns the overlay entry at the slash path rel under RenderRoot.
+func served(t *testing.T, staged *Staged, rel string) []byte {
+	t.Helper()
+	data, ok := staged.Overlay[filepath.Join(RenderRoot, filepath.FromSlash(rel))]
+	require.True(t, ok, "%s is served from the overlay", rel)
+	return data
+}
+
+func TestStage_ServesOverlayFromMemoryAndStagesRenderModule(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
 	inst := overlayInstance(root)
 	plat := diskPlatform(t)
-	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
+	staged, err := Stage(inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, dir, staged.Dir)
+	assert.Equal(t, RenderRoot, staged.Dir)
 
-	// The overlay tree is re-keyed under <dir>/instance (the directory the
-	// local-module.cue replacement names) on Staged.Overlay, every entry
-	// included, and nothing of it is written.
-	instDir := filepath.Join(dir, "instance")
-	_, err = os.Stat(instDir)
-	assert.True(t, os.IsNotExist(err), "no instance/ directory is written for an overlay-mode input")
-	require.Len(t, staged.Overlay, len(inst.Overlay))
+	// The overlay tree is re-keyed under <RenderRoot>/instance (the
+	// directory the local-module.cue replacement names) on Staged.Overlay,
+	// every entry included, beside the generated module, and nothing of it
+	// is written.
+	instDir := filepath.Join(RenderRoot, "instance")
+	require.Len(t, staged.Overlay, len(inst.Overlay)+len(renderModule))
 	for _, rel := range []string{"cue.mod/module.cue", "module.cue", "opm-synth-instance/instance.cue", "opm-synth-instance/values.cue", "opm-synth-instance/notes.md", "opm-synth-instance/nested/deep.cue"} {
 		assert.Contains(t, staged.Overlay, filepath.Join(instDir, filepath.FromSlash(rel)), rel)
 	}
 	assert.Equal(t, "package instance\n\ny: 2\n", string(staged.Overlay[filepath.Join(instDir, "opm-synth-instance", "instance.cue")]))
-	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir), "the staging directory holds only the generated render module")
+	assert.Equal(t, renderModule, generatedFiles(t, staged), "the overlay carries the generated render module beside the instance")
 
 	// Generated files. The on-disk platform is referenced in place through
 	// the local-module.cue replacement.
-	moduleCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "module.cue"))
-	require.NoError(t, err)
+	moduleCue := served(t, staged, "cue.mod/module.cue")
 	assert.Contains(t, string(moduleCue), `module: "`+RenderModulePath+`"`)
 	assert.Contains(t, string(moduleCue), `"opmodel.dev/catalogs/opm@v4"`)
-	localCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "local-module.cue"))
-	require.NoError(t, err)
+	localCue := served(t, staged, "cue.mod/local-module.cue")
 	assert.Contains(t, string(localCue), "replaceWith")
-	glue, err := os.ReadFile(filepath.Join(dir, RenderFileName))
-	require.NoError(t, err)
+	assert.Contains(t, string(localCue), plat.Root, "the on-disk platform is served from its own directory")
+	glue := served(t, staged, RenderFileName)
 	assert.Contains(t, string(glue), `instance "testing.opmodel.dev/modules/web_app/opm-synth-instance@v1:instance"`)
 	assert.Contains(t, string(glue), `platform "testing.opmodel.dev/render/platform@v0"`)
 
@@ -185,34 +195,27 @@ func rekeyed(t *testing.T, dir, root string) *module.Source {
 func TestStage_OverlayInputsLeaveOnlyTheRenderModule(t *testing.T) {
 	inst := overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app"))
 	plat := rekeyed(t, diskPlatform(t).Root, filepath.Join(string(filepath.Separator), "opm-registry-module", "platform"))
-	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
+	staged, err := Stage(inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
-	for _, name := range []string{"instance", "platform"} {
-		_, err := os.Stat(filepath.Join(dir, name))
-		assert.True(t, os.IsNotExist(err), "%s/ is served from memory, never written", name)
-	}
-	assert.Len(t, staged.Overlay, len(inst.Overlay)+len(plat.Overlay))
-	assert.Contains(t, staged.Overlay, filepath.Join(dir, "platform", "platform.cue"))
-	assert.Contains(t, staged.Overlay, filepath.Join(dir, "platform", "cue.mod", "module.cue"))
-	localCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "local-module.cue"))
-	require.NoError(t, err)
-	assert.Contains(t, string(localCue), filepath.Join(dir, "platform"), "the replacement names the in-memory directory")
+	assert.Equal(t, renderModule, generatedFiles(t, staged))
+	assert.Len(t, staged.Overlay, len(inst.Overlay)+len(plat.Overlay)+len(renderModule))
+	assert.Contains(t, staged.Overlay, filepath.Join(RenderRoot, "platform", "platform.cue"))
+	assert.Contains(t, staged.Overlay, filepath.Join(RenderRoot, "platform", "cue.mod", "module.cue"))
+	localCue := served(t, staged, "cue.mod/local-module.cue")
+	assert.Contains(t, string(localCue), filepath.Join(RenderRoot, "platform"), "the replacement names the in-memory directory")
 }
 
-func TestStage_OnDiskInputsCarryNoOverlay(t *testing.T) {
+func TestStage_OnDiskInputsCarryOnlyTheRenderModule(t *testing.T) {
 	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
 	inst := &module.Source{Root: filepath.Join(fixture, "instance")}
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
-	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
+	staged, err := Stage(inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
-	assert.Empty(t, staged.Overlay, "on-disk inputs are referenced in place")
-	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
+	assert.Len(t, staged.Overlay, len(renderModule), "on-disk inputs are referenced in place; only the generated module is served")
+	assert.Equal(t, renderModule, generatedFiles(t, staged))
 }
 
 // TestStageBuild_OverlayInstanceServedFromMemory is the change's spike
@@ -227,17 +230,15 @@ func TestStageBuild_OverlayInstanceServedFromMemory(t *testing.T) {
 
 	inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
-	dir := t.TempDir()
 
-	staged, err := Stage(dir, inst, plat, "rt", StageOptions{})
+	staged, err := Stage(inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(dir, "instance"))
-	require.True(t, os.IsNotExist(err), "the instance tree is not written")
-	require.Len(t, staged.Overlay, len(inst.Overlay))
+	require.Len(t, staged.Overlay, len(inst.Overlay)+len(renderModule))
+	assertAbsent(t, RenderRoot)
 
 	// Build with the process environment: the registry helper set
 	// CUE_REGISTRY and CUE_CACHE_DIR for this test.
-	built, err := Build(cuecontext.New(), staged, nil)
+	built, err := Build(cuecontext.New(), staged, loader.Options{})
 	require.NoError(t, err, "cue/load serves the replacement directory from the overlay")
 	require.NoError(t, built.Err())
 
@@ -257,24 +258,24 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")
 	plat := diskPlatform(t)
 
-	_, err := Stage(t.TempDir(), nil, plat, "rt", StageOptions{})
+	_, err := Stage(nil, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "instance carries no source")
-	_, err = Stage(t.TempDir(), overlayInstance(root), nil, "rt", StageOptions{})
+	_, err = Stage(overlayInstance(root), nil, "rt", StageOptions{})
 	require.ErrorContains(t, err, "platform carries no source")
-	_, err = Stage(t.TempDir(), overlayInstance(root), plat, "", StageOptions{})
+	_, err = Stage(overlayInstance(root), plat, "", StageOptions{})
 	require.ErrorContains(t, err, "runtime name")
 
 	// An overlay entry outside its root is refused rather than written
 	// somewhere else.
 	escaped := overlayInstance(root)
 	escaped.Overlay[filepath.Join(string(filepath.Separator), "elsewhere", "x.cue")] = []byte("package x\n")
-	_, err = Stage(t.TempDir(), escaped, plat, "rt", StageOptions{})
+	_, err = Stage(escaped, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "outside the source root")
 
 	// Two package clauses in one package directory.
 	mixed := overlayInstance(root)
 	mixed.Overlay[filepath.Join(root, "opm-synth-instance", "other.cue")] = []byte("package other\n")
-	_, err = Stage(t.TempDir(), mixed, plat, "rt", StageOptions{})
+	_, err = Stage(mixed, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "more than one package")
 
 	// No package clause at all.
@@ -285,7 +286,7 @@ func TestStage_RefusesBadInputs(t *testing.T) {
 		}
 	}
 	bare.Overlay[filepath.Join(root, "opm-synth-instance", "data.cue")] = []byte("a: 1\n")
-	_, err = Stage(t.TempDir(), bare, plat, "rt", StageOptions{})
+	_, err = Stage(bare, plat, "rt", StageOptions{})
 	require.ErrorContains(t, err, "no package clause")
 }
 
@@ -437,14 +438,11 @@ func withLocalFile(t *testing.T, src *module.Source, content string) *module.Sou
 	return src
 }
 
-// readPair returns the staged cue.mod pair's bytes.
-func readPair(t *testing.T, dir string) (moduleCue, localCue []byte) {
+// readPair returns the staged cue.mod pair's bytes, as the build is served
+// them.
+func readPair(t *testing.T, staged *Staged) (moduleCue, localCue []byte) {
 	t.Helper()
-	moduleCue, err := os.ReadFile(filepath.Join(dir, "cue.mod", "module.cue"))
-	require.NoError(t, err)
-	localCue, err = os.ReadFile(filepath.Join(dir, "cue.mod", "local-module.cue"))
-	require.NoError(t, err)
-	return moduleCue, localCue
+	return served(t, staged, "cue.mod/module.cue"), served(t, staged, "cue.mod/local-module.cue")
 }
 
 func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
@@ -454,26 +452,24 @@ func TestStage_RefusesLocalReplacementsUnlessEnabled(t *testing.T) {
 	// The platform's file carries a replacement: refused, nothing written.
 	plat := withLocalFile(t, diskPlatform(t), `deps: "opmodel.dev/catalogs/opm@v4": replaceWith: "`+catDir+`"
 `)
-	dir := t.TempDir()
-	_, err := Stage(dir, overlayInstance(root), plat, "rt", StageOptions{})
+	_, err := Stage(overlayInstance(root), plat, "rt", StageOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `platform "testing.opmodel.dev/render/platform@v0"`)
 	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
-	assert.Empty(t, stagedFiles(t, dir), "refused before anything is written")
+	assertAbsent(t, RenderRoot)
 
 	// The instance's file (overlay mode) carries one: same refusal.
 	inst := withLocalFile(t, overlayInstance(root), `deps: "example.com/helpers@v1": replaceWith: "./helpers"
 `)
-	dir = t.TempDir()
-	_, err = Stage(dir, inst, diskPlatform(t), "rt", StageOptions{})
+	_, err = Stage(inst, diskPlatform(t), "rt", StageOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `instance "testing.opmodel.dev/modules/web_app@v1"`)
 	assert.Contains(t, err.Error(), "cue.mod/local-module.cue")
-	assert.Empty(t, stagedFiles(t, dir))
+	assertAbsent(t, RenderRoot)
 
 	// A file with no replacement is not a redirection: it stages.
 	noRepl := withLocalFile(t, diskPlatform(t), "deps: \"opmodel.dev/core@v2\": v: \"v2.0.0-beta.1\"\n")
-	staged, err := Stage(t.TempDir(), overlayInstance(root), noRepl, "rt", StageOptions{})
+	staged, err := Stage(overlayInstance(root), noRepl, "rt", StageOptions{})
 	require.NoError(t, err)
 	assert.Nil(t, staged.Replacements)
 }
@@ -483,15 +479,13 @@ func TestStage_AbsentLocalFileStagesIdenticallyEitherWay(t *testing.T) {
 	inst := &module.Source{Root: filepath.Join(fixture, "instance")}
 	plat := &module.Source{Root: filepath.Join(fixture, "platform")}
 
-	off := t.TempDir()
-	stagedOff, err := Stage(off, inst, plat, "rt", StageOptions{})
+	stagedOff, err := Stage(inst, plat, "rt", StageOptions{})
 	require.NoError(t, err)
-	on := t.TempDir()
-	stagedOn, err := Stage(on, inst, plat, "rt", StageOptions{LocalReplacements: true})
+	stagedOn, err := Stage(inst, plat, "rt", StageOptions{LocalReplacements: true})
 	require.NoError(t, err)
 
-	moduleOff, localOff := readPair(t, off)
-	moduleOn, localOn := readPair(t, on)
+	moduleOff, localOff := readPair(t, stagedOff)
+	moduleOn, localOn := readPair(t, stagedOn)
 	assert.Equal(t, string(moduleOff), string(moduleOn), "module.cue is byte-identical")
 	assert.Equal(t, string(localOff), string(localOn), "local-module.cue is byte-identical")
 	assert.Nil(t, stagedOff.Replacements)
@@ -509,8 +503,7 @@ func TestStage_HonoursLocalReplacements(t *testing.T) {
 	"opmodel.dev/catalogs/opm@v4": replaceWith: "/mine"
 }
 `)
-	dir := t.TempDir()
-	staged, err := Stage(dir, inst, plat, "rt", StageOptions{LocalReplacements: true})
+	staged, err := Stage(inst, plat, "rt", StageOptions{LocalReplacements: true})
 	require.NoError(t, err)
 
 	helpersDir := filepath.Join(root, "helpers")
@@ -518,10 +511,10 @@ func TestStage_HonoursLocalReplacements(t *testing.T) {
 		{Path: "example.com/helpers@v1", Target: helpersDir, By: "instance"},
 		{Path: "opmodel.dev/catalogs/opm@v4", Target: catDir, By: "platform"},
 	}, staged.Replacements, "the platform's replacement and the instance-only one; the instance's catalog replacement is inert")
-	assert.Equal(t, []string{"cue.mod/local-module.cue", "cue.mod/module.cue", RenderFileName}, stagedFiles(t, dir))
+	assert.Equal(t, renderModule, generatedFiles(t, staged))
 
-	// The written pair carries exactly those targets, as cue/load reads it.
-	moduleCue, localCue := readPair(t, dir)
+	// The served pair carries exactly those targets, as cue/load reads it.
+	moduleCue, localCue := readPair(t, staged)
 	assert.Contains(t, string(localCue), `replaceWith: "`+catDir+`"`)
 	assert.Contains(t, string(localCue), `replaceWith: "`+helpersDir+`"`)
 	assert.NotContains(t, string(localCue), "/mine")
@@ -533,7 +526,7 @@ func TestStage_HonoursLocalReplacements(t *testing.T) {
 	assert.Equal(t, "v4.2.0", eff.Deps["opmodel.dev/catalogs/opm@v4"].Version, "the replaced path keeps the platform's pin")
 	assert.Equal(t, helpersDir, eff.Deps["example.com/helpers@v1"].ReplaceWith)
 	assert.Equal(t, plat.Root, eff.Deps["testing.opmodel.dev/render/platform@v0"].ReplaceWith)
-	assert.Equal(t, filepath.Join(dir, "instance"), eff.Deps["testing.opmodel.dev/modules/web_app@v1"].ReplaceWith)
+	assert.Equal(t, filepath.Join(RenderRoot, "instance"), eff.Deps["testing.opmodel.dev/modules/web_app@v1"].ReplaceWith)
 }
 
 // TestStageBuild_LocalReplacementsResolveInOneBuild is the change's spike
@@ -584,7 +577,7 @@ deps: {
 		RenderFileName: string(glue),
 	})
 
-	built, err := Build(cuecontext.New(), &Staged{Dir: dir}, nil)
+	built, err := Build(cuecontext.New(), &Staged{Dir: dir}, loader.Options{})
 	require.NoError(t, err, "cue/load serves both replacement directories inside the one build")
 	require.NoError(t, built.Err())
 
@@ -595,4 +588,180 @@ deps: {
 	label, err := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
 	require.NoError(t, err)
 	assert.Equal(t, "local", label, "(b) the deployment's bytes came from the replaced catalog directory, not the published build")
+}
+
+// ── Spike: the render module served from memory ─────────────────────
+
+// componentNames returns the field names of the render module's _components.
+func componentNames(t *testing.T, built cue.Value) []string {
+	t.Helper()
+	components := built.LookupPath(cue.MakePath(cue.Hid("_components", RenderModulePath+":render")))
+	require.NoError(t, components.Err())
+	require.True(t, components.Exists())
+	fields, err := components.Fields()
+	require.NoError(t, err)
+	var names []string
+	for fields.Next() {
+		names = append(names, fields.Selector().String())
+	}
+	sort.Strings(names)
+	return names
+}
+
+func assertAbsent(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "%s must not exist on disk", path)
+}
+
+// RenderRoot is absolute on every OS (on Windows it carries a volume), since
+// cue/load refuses an overlay key that is not absolute.
+func TestRenderRoot_IsAbsolute(t *testing.T) {
+	assert.True(t, filepath.IsAbs(RenderRoot), "%s is absolute", RenderRoot)
+	assert.Equal(t, "opm-render", filepath.Base(RenderRoot))
+}
+
+// Stage refuses when anything exists at RenderRoot: cue/load merges a real
+// directory's entries into the overlay, so a stray .cue file there would
+// join the render package. The test points the root at a directory it owns
+// that holds such a file.
+func TestStage_RefusesAnExistingRenderRoot(t *testing.T) {
+	existing := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(existing, "injected.cue"), []byte("package render\n\nINJECTED: \"from disk\"\n"), 0o644))
+	saved := RenderRoot
+	RenderRoot = existing
+	t.Cleanup(func() { RenderRoot = saved })
+
+	staged, err := Stage(overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")), diskPlatform(t), "rt", StageOptions{})
+	require.Error(t, err)
+	assert.Nil(t, staged)
+	assert.Contains(t, err.Error(), "render root "+existing+" exists on disk")
+
+	// A file at the root is refused the same way.
+	file := filepath.Join(t.TempDir(), "opm-render")
+	require.NoError(t, os.WriteFile(file, nil, 0o644))
+	RenderRoot = file
+	_, err = Stage(overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")), diskPlatform(t), "rt", StageOptions{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), file)
+}
+
+// TestStageBuild_RenderModuleServedFromMemory pins the assumption in-memory
+// staging rests on: cue/load v0.17 reads cue.mod/module.cue,
+// cue.mod/local-module.cue and the glue of the main module, and every
+// replacement directory, from load.Config.Overlay under RenderRoot, a root
+// that does not exist on disk.
+func TestStageBuild_RenderModuleServedFromMemory(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	registrytest.NewRegistryFromDir(t, filepath.Join(fixture, "registry"), "testing.opmodel.dev/library-render")
+
+	t.Run("overlay instance, on-disk platform", func(t *testing.T) {
+		inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
+		plat := &module.Source{Root: filepath.Join(fixture, "platform")}
+		staged, err := Stage(inst, plat, "rt", StageOptions{})
+		require.NoError(t, err)
+		assert.Equal(t, RenderRoot, staged.Dir)
+		assertAbsent(t, RenderRoot)
+
+		built, err := Build(cuecontext.New(), staged, loader.Options{})
+		require.NoError(t, err, "cue/load serves the whole render module from the overlay")
+		require.NoError(t, built.Err())
+		assert.Equal(t, []string{"config", "web"}, componentNames(t, built))
+		assertAbsent(t, RenderRoot)
+	})
+
+	t.Run("both inputs overlay, built concurrently", func(t *testing.T) {
+		inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
+		plat := rekeyed(t, filepath.Join(fixture, "platform"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/platform", "v0.0.0"))
+		staged, err := Stage(inst, plat, "rt", StageOptions{})
+		require.NoError(t, err)
+		assertAbsent(t, RenderRoot)
+
+		const n = 4
+		results := make([][]string, n)
+		errs := make([]error, n)
+		var wg sync.WaitGroup
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				built, err := Build(cuecontext.New(), staged, loader.Options{})
+				if err == nil {
+					err = built.Err()
+				}
+				errs[i] = err
+				if err == nil {
+					results[i] = componentNames(t, built)
+				}
+			}()
+		}
+		wg.Wait()
+		for i := range n {
+			require.NoError(t, errs[i], "goroutine %d", i)
+			assert.Equal(t, []string{"config", "web"}, results[i], "goroutine %d", i)
+		}
+		assertAbsent(t, RenderRoot)
+	})
+}
+
+// TestStageBuild_LocalReplacementsServedFromMemory is
+// TestStageBuild_LocalReplacementsResolveInOneBuild with the hand-written
+// render module served from an overlay under RenderRoot, which does not exist:
+// directory replacements of the instance, the platform, a never-published
+// module and the catalog all resolve from disk while the main module comes
+// from memory. Leaving local-module.cue out of the overlay makes the
+// instance import unresolvable, so the overlay's file is the one read.
+func TestStageBuild_LocalReplacementsServedFromMemory(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	registrytest.NewRegistryFromDir(t, filepath.Join(fixture, "registry"), "testing.opmodel.dev/library-render")
+
+	libDir := writeLibModule(t)
+	catDir := catalogWithLabel(t, fixture)
+	instDir := instanceImportingLib(t, fixture, libDir)
+	platDir := filepath.Join(fixture, "platform")
+
+	glue, err := RenderGlue(GlueInputs{
+		InstancePath: "testing.opmodel.dev/library-render/instance@v0",
+		PlatformPath: "testing.opmodel.dev/library-render/platform@v0",
+		RuntimeName:  "spike",
+	})
+	require.NoError(t, err)
+	overlay := map[string][]byte{
+		filepath.Join(RenderRoot, "cue.mod", "module.cue"): []byte(`module: "` + RenderModulePath + `"
+language: version: "v0.17.0"
+deps: {
+	"opmodel.dev/core@v2": v: "` + registrytest.DefaultCoreVersion + `"
+	"` + libModulePath + `": v: "v0.0.0"
+	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
+	"testing.opmodel.dev/library-render/instance@v0": {v: "v0.0.0", default: true}
+	"testing.opmodel.dev/library-render/platform@v0": {v: "v0.0.0", default: true}
+	"testing.opmodel.dev/library-render/web_app@v0": v: "v0.1.0"
+}
+`),
+		filepath.Join(RenderRoot, "cue.mod", "local-module.cue"): []byte(`deps: {
+	"` + libModulePath + `": replaceWith: "` + libDir + `"
+	"testing.opmodel.dev/library-render/cat@v0": replaceWith: "` + catDir + `"
+	"testing.opmodel.dev/library-render/instance@v0": replaceWith: "` + instDir + `"
+	"testing.opmodel.dev/library-render/platform@v0": replaceWith: "` + platDir + `"
+}
+`),
+		filepath.Join(RenderRoot, RenderFileName): glue,
+	}
+
+	built, err := Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, loader.Options{})
+	require.NoError(t, err, "cue/load serves the replacement directories with the main module in memory")
+	require.NoError(t, built.Err())
+	deployment := renderedOutput(t, built, "web", "testing.opmodel.dev/library-render/cat/transformers/deployment-transformer@0.1.0")
+	label, err := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
+	require.NoError(t, err)
+	assert.Equal(t, "local", label, "the deployment's bytes came from the replaced catalog directory")
+	assertAbsent(t, RenderRoot)
+
+	// Negative control: without the overlay's local-module.cue the
+	// instance import has nowhere to resolve from.
+	delete(overlay, filepath.Join(RenderRoot, "cue.mod", "local-module.cue"))
+	_, err = Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, loader.Options{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "testing.opmodel.dev/library-render/instance@v0")
+	assertAbsent(t, RenderRoot)
 }

@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -304,29 +302,33 @@ func (e *RenderError) Error() string { return "render refused: " + e.Err.Error()
 func (e *RenderError) Unwrap() error { return e.Err }
 
 // Render renders an instance against a platform as ONE CUE build
-// (0019:D9): it stages a generated render module in a per-render temporary
-// directory (the promoted cue.mod, 0019:D13; directory replacements
-// bringing both inputs in, an on-disk input in place and an overlay-mode
-// input from memory, so the directory holds only the generated module; the
-// embedded matching and execution glue), verifies the promoted list covers
-// every OPM-namespace path either input requires, applies the skew policy
-// (0019:D7/D18), builds the module once in a fresh cue.Context whose
-// references the kernel drops when Render returns (0019:D8), and decodes
-// `diagnostics` and `rendered` off the built value.
+// (0019:D9): it stages a generated render module in memory, under a
+// synthetic root that must not exist on disk (the promoted cue.mod,
+// 0019:D13; directory replacements bringing both inputs in, an on-disk input
+// in place and an overlay-mode input from memory; the embedded matching and
+// execution glue), verifies the promoted list covers every OPM-namespace
+// path either input requires, applies the skew policy (0019:D7/D18), builds
+// the module once in a fresh cue.Context whose references the kernel drops
+// when Render returns (0019:D8), and decodes `diagnostics` and `rendered`
+// off the built value. A render is refused when anything exists at that
+// root, since the build would read it beneath the overlay.
 //
 // The Kernel holds no context of its own, and no built value survives the
-// call except the returned output; repeated renders share nothing. The staging
-// directory is removed on return, success or failure. Registry resolution
-// for the platform's catalog imports uses [WithRegistry] when set, else the
-// process CUE_REGISTRY, plumbed through the load configuration only.
+// call except the returned output; repeated renders share nothing. A render
+// writes no staging file, success or failure: the generated module reaches
+// the build through the load overlay. The CUE module cache under
+// CUE_CACHE_DIR is filled when the build fetches a dependency, as for any
+// load. Registry resolution for the platform's catalog imports uses
+// [WithRegistry] when set, else the process CUE_REGISTRY, plumbed through
+// the load configuration only.
 //
 // Refusals before evaluation (missing Source, a platform whose core predates
 // the provider count, uncovered OPM path, skew under [SkewRefuse]) return
 // plain errors; refusals after evaluation return a [*RenderError] carrying
 // the decoded diagnostics. A platform whose #contracts carries no
 // providedBy (a platform module pinning core older than
-// [schema.ProvidedBySince]) is refused before staging, with no staging
-// directory created, by the error [platform.Platform.CoreFloor] returns,
+// [schema.ProvidedBySince]) is refused before staging, with nothing staged,
+// by the error [platform.Platform.CoreFloor] returns,
 // wrapping [*oerrors.PlatformCoreTooOldError]: the render never falls back
 // to a provider count of its own. The floor is the fact the platform
 // recorded at construction; Render reads no Package, only the platform's
@@ -373,13 +375,7 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 		return none, nil, fmt.Errorf("render refused before staging: %w", err)
 	}
 
-	dir, err := os.MkdirTemp("", "opm-render-")
-	if err != nil {
-		return none, nil, fmt.Errorf("creating render staging directory: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
-
-	staged, err := renderstage.Stage(dir, in.Instance.Source, in.Platform.Source, in.RuntimeName, renderstage.StageOptions{
+	staged, err := renderstage.Stage(in.Instance.Source, in.Platform.Source, in.RuntimeName, renderstage.StageOptions{
 		LocalReplacements: in.LocalReplacements,
 		SkipUnprovided:    in.SkipUnprovided,
 	})
@@ -403,7 +399,7 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 
 	// One build, one context, dropped with the render (0019:D8).
-	built, err := renderstage.Build(cuecontext.New(), staged, cueenv.Override(k.registry, ""))
+	built, err := renderstage.Build(cuecontext.New(), staged, k.loadOptions())
 	if err != nil {
 		return none, nil, fmt.Errorf("building render module: %w", err)
 	}

@@ -237,12 +237,22 @@ func TestOverlayFromFS_RekeysUnderSyntheticRoot(t *testing.T) {
 
 func TestSyntheticRoot(t *testing.T) {
 	got := SyntheticRoot("x.example/modules/hello@v0", "v0.0.2")
-	assert.Equal(t, filepath.Join(string(filepath.Separator), "opm-registry-module", "x.example_modules_hello_v0_v0.0.2"), got)
+	assert.Equal(t, filepath.Join(VolumeRoot("opm-registry-module"), "x.example_modules_hello_v0_v0.0.2"), got)
 	assert.True(t, filepath.IsAbs(got))
 	assert.Equal(t, got, SyntheticRoot("x.example/modules/hello@v0", "v0.0.2"), "deterministic")
 	assert.NotEqual(t, got, SyntheticRoot("x.example/modules/hello@v0", "v0.0.3"))
 	assert.Equal(t, got, SyntheticRoot("x.example/modules/hello@v0", "0.0.2"),
 		"a bare and a v-prefixed spelling of one version give the same root")
+}
+
+// VolumeRoot is absolute on every OS, so cue/load accepts the overlay keys
+// beneath it; on Windows that means it carries a volume.
+func TestVolumeRoot_IsAbsolute(t *testing.T) {
+	got := VolumeRoot("opm-x")
+	assert.True(t, filepath.IsAbs(got), "%s is absolute", got)
+	assert.Equal(t, "opm-x", filepath.Base(got))
+	assert.Equal(t, filepath.VolumeName(got)+string(filepath.Separator), filepath.Dir(got), "it sits directly beneath the root")
+	assert.True(t, filepath.IsAbs(SyntheticRoot("x.example/m@v0", "v0.1.0")))
 }
 
 func TestReadFile_OverlayAndDisk(t *testing.T) {

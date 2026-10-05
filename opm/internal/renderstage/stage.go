@@ -3,6 +3,7 @@ package renderstage
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -10,22 +11,39 @@ import (
 	"cuelang.org/go/cue/load"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// Staged is one render module written to a directory: what the kernel needs
-// to build it and to report on the version skew it was staged under.
+// RenderRoot is the synthetic root every render module is staged under: an
+// absolute path directly beneath the file-system root (/opm-render on Unix;
+// on Windows, on the current volume). Nothing is written there: the
+// generated module and every overlay-mode input are served to the build from
+// [Staged.Overlay], keyed under it. cue/load merges a real directory's
+// entries into the overlay, so [Stage] refuses when anything exists at the
+// path. It is the same for every render, which is safe because an overlay
+// belongs to one load.Instances call and nothing in cue/load keys
+// process-wide state on the main module's root (the module cache keys by
+// module@version), and it makes the positions in a render build error the
+// same from one render to the next. It is a variable only so a test can
+// point it at an existing directory; nothing else assigns it.
+var RenderRoot = sourcetree.VolumeRoot("opm-render")
+
+// Staged is one render module staged in memory: what the kernel needs to
+// build it and to report on the version skew it was staged under.
 type Staged struct {
-	// Dir is the render module's root: cue.mod/module.cue,
-	// cue.mod/local-module.cue and render.cue live here, and nothing else.
+	// Dir is the render module's root, [RenderRoot]. Nothing exists there on
+	// disk; cue.mod/module.cue, cue.mod/local-module.cue and render.cue are
+	// entries of Overlay under it.
 	Dir string
 
-	// Overlay holds every file of an overlay-mode input, keyed under Dir at
-	// the directory its local-module.cue replacement names (<Dir>/instance,
-	// <Dir>/platform). Build serves them to cue/load through
-	// load.Config.Overlay; none of them is written to Dir. Empty when both
-	// inputs are on disk.
+	// Overlay always carries the generated module: cue.mod/module.cue,
+	// cue.mod/local-module.cue and render.cue under Dir. It also holds every
+	// file of an overlay-mode input, keyed under Dir at the directory its
+	// local-module.cue replacement names (<Dir>/instance, <Dir>/platform).
+	// Build serves all of it to cue/load through load.Config.Overlay; an
+	// on-disk input is not in it and is read from its own directory.
 	Overlay map[string][]byte
 
 	// Skew holds the per-path resolved-versions rows (0019:D18), instance list
@@ -45,7 +63,7 @@ type StageOptions struct {
 	// means: true promotes its replacements into the render module's
 	// main-module view (platform's whole, instance's on paths the platform
 	// does not name) and reports them on Staged.Replacements; false refuses,
-	// before anything is written, an input whose file carries a replacement,
+	// before anything is staged, an input whose file carries a replacement,
 	// since silently dropping the file is what made a developer's redirection
 	// invisible at render time. An input without the file stages identically
 	// either way.
@@ -57,15 +75,16 @@ type StageOptions struct {
 	SkipUnprovided bool
 }
 
-// Stage writes the render module for instance and platform into dir (which
-// must exist and be empty): promotes the two module files, writes the
-// cue.mod pair, verifies OPM-path coverage, compares skew, and writes the
-// glue. An overlay-mode input is not written: its entries are re-keyed under
-// dir onto Staged.Overlay for Build to serve from memory, and an on-disk
-// input is referenced in place. It performs no build.
+// Stage stages the render module for instance and platform in memory under
+// [RenderRoot]: it promotes the two module files, places the cue.mod pair on
+// Staged.Overlay, verifies OPM-path coverage against the module.cue bytes the
+// build will be served, compares skew, and places the glue. An overlay-mode
+// input's entries are re-keyed under RenderRoot onto Staged.Overlay, and an
+// on-disk input is referenced in place. It writes nothing to the filesystem
+// and performs no build.
 //
 // opts carries the caller's per-render switches; see [StageOptions].
-func Stage(dir string, instance, platform *module.Source, runtimeName string, opts StageOptions) (*Staged, error) {
+func Stage(instance, platform *module.Source, runtimeName string, opts StageOptions) (*Staged, error) {
 	if instance == nil {
 		return nil, errors.New("instance carries no source")
 	}
@@ -75,17 +94,17 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, op
 	if runtimeName == "" {
 		return nil, errors.New("runtime name must be non-empty")
 	}
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return nil, fmt.Errorf("resolving staging directory: %w", err)
+	root := RenderRoot
+	if err := checkRootAbsent(root); err != nil {
+		return nil, err
 	}
 
 	overlay := map[string][]byte{}
-	instDir, err := serveDir(absDir, "instance", instance, overlay)
+	instDir, err := serveDir(root, "instance", instance, overlay)
 	if err != nil {
 		return nil, fmt.Errorf("staging instance tree: %w", err)
 	}
-	platDir, err := serveDir(absDir, "platform", platform, overlay)
+	platDir, err := serveDir(root, "platform", platform, overlay)
 	if err != nil {
 		return nil, fmt.Errorf("staging platform tree: %w", err)
 	}
@@ -123,33 +142,22 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, op
 	if err != nil {
 		return nil, fmt.Errorf("promoting dependency lists: %w", err)
 	}
-	modDir := filepath.Join(absDir, "cue.mod")
-	if err := os.MkdirAll(modDir, 0o755); err != nil {
-		return nil, fmt.Errorf("creating %s: %w", modDir, err)
-	}
+	modDir := filepath.Join(root, "cue.mod")
 	moduleBytes, err := promotion.ModuleFile()
 	if err != nil {
 		return nil, err
 	}
 	modulePath := filepath.Join(modDir, "module.cue")
-	if err := os.WriteFile(modulePath, moduleBytes, 0o644); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", modulePath, err)
-	}
+	overlay[modulePath] = moduleBytes
 	localBytes, err := promotion.LocalModuleFile()
 	if err != nil {
 		return nil, err
 	}
-	localPath := filepath.Join(modDir, "local-module.cue")
-	if err := os.WriteFile(localPath, localBytes, 0o644); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", localPath, err)
-	}
+	overlay[filepath.Join(root, filepath.FromSlash(LocalModFileName))] = localBytes
 
-	// The 0019:D13 tripwire: re-read what was written, never the in-memory list.
-	written, err := os.ReadFile(modulePath)
-	if err != nil {
-		return nil, fmt.Errorf("re-reading %s: %w", modulePath, err)
-	}
-	if err := VerifyCoverage(written, modulePath, map[string]*ModFile{"instance": instMF, "platform": platMF}); err != nil {
+	// The 0019:D13 tripwire: re-parse the bytes the build is served, never
+	// the in-memory list.
+	if err := VerifyCoverage(overlay[modulePath], modulePath, map[string]*ModFile{"instance": instMF, "platform": platMF}); err != nil {
 		return nil, err
 	}
 
@@ -178,30 +186,33 @@ func Stage(dir string, instance, platform *module.Source, runtimeName string, op
 	if err != nil {
 		return nil, err
 	}
-	gluePath := filepath.Join(absDir, RenderFileName)
-	if err := os.WriteFile(gluePath, glue, 0o644); err != nil {
-		return nil, fmt.Errorf("writing %s: %w", gluePath, err)
-	}
+	overlay[filepath.Join(root, RenderFileName)] = glue
 
-	return &Staged{Dir: absDir, Overlay: overlay, Skew: skew, Replacements: promotion.Rows}, nil
+	return &Staged{Dir: root, Overlay: overlay, Skew: skew, Replacements: promotion.Rows}, nil
 }
 
 // Build evaluates the staged render module exactly once in cueCtx and returns
-// the built value. env is the environment slice cue/load consults (nil for
-// the process environment). The overlay-mode inputs Stage collected are
-// handed to cue/load as load.Config.Overlay, so their replacement directories
-// are served from memory. A load failure (an import that does not resolve,
-// a malformed module file) is returned as an error; an evaluation error on
-// the built value is NOT, because the fail-closed gate is one such error and
-// the kernel reads `diagnostics` beside it.
-func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error) {
+// the built value. opts carries the load settings: Env, the environment
+// slice cue/load consults (nil for the process environment), and Registry,
+// the registry the build resolves its dependencies through (nil lets
+// cue/load build one from Env). Staged.Overlay (the generated module and the
+// overlay-mode inputs) is handed to cue/load as load.Config.Overlay, so the
+// main module and those replacement directories are served from memory and
+// nothing under Staged.Dir needs to exist on disk. A load failure (an import
+// that does not resolve, a malformed module file) is returned as an error;
+// an evaluation error on the built value is NOT, because the fail-closed
+// gate is one such error and the kernel reads `diagnostics` beside it.
+func Build(cueCtx *cue.Context, staged *Staged, opts loader.Options) (cue.Value, error) {
 	if cueCtx == nil || staged == nil {
 		return cue.Value{}, errors.New("build needs a context and a staged module")
 	}
 	cfg := &load.Config{
 		Dir:        staged.Dir,
 		ModuleRoot: staged.Dir,
-		Env:        env,
+		Env:        opts.Env,
+	}
+	if opts.Registry != nil {
+		cfg.Registry = opts.Registry
 	}
 	if len(staged.Overlay) > 0 {
 		cfg.Overlay = make(map[string]load.Source, len(staged.Overlay))
@@ -217,6 +228,21 @@ func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error)
 		return cue.Value{}, fmt.Errorf("loading the render module: %w", oerrors.Classify(instances[0].Err))
 	}
 	return cueCtx.BuildInstance(instances[0]), nil
+}
+
+// checkRootAbsent refuses when anything exists at root: cue/load reads a real
+// directory's entries beneath the overlay, so a stray file there would join
+// every render package.
+func checkRootAbsent(root string) error {
+	_, err := os.Lstat(root)
+	switch {
+	case err == nil:
+		return fmt.Errorf("render root %s exists on disk; the render module is served from memory under it and the build would read what is there, so remove it", root)
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("checking that the render root %s is absent: %w", root, err)
+	}
 }
 
 // serveDir returns the absolute directory cue/load serves src from: its own
