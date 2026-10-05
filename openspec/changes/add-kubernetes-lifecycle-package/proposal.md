@@ -15,10 +15,10 @@ loops decide differently.
   branches, so a second frontend that wants the same answer has to copy them.
 
 Enhancement 0012 gives the whole deletion sequence to the library: the plan, the transition that
-names the next action and the verdict on releasing the hold (0012:D4, 0012:D1:R1/R2/R5/R6). The
-owner decided walkthrough task f2 on 2026-10-03, and 0012:D4 quotes it: "Deletion protocol only, in
-opm/k8s/lifecycle, owned by 0012 (DeletionPlan, serialisable State, Advance, MayReleaseHold), used
-by both frontends' delete paths; closes the ownership half of 0012:OQ10. No hook semantics." ADR-008
+names the next action and the verdict on releasing the hold (0012:D4, 0012:D1:R1/R2/R5/R6). 0012:D4
+reads: "Deletion protocol only, in opm/k8s/lifecycle, owned by 0012 (DeletionPlan, serialisable
+State, Advance, MayReleaseHold), used by both frontends' delete paths; closes the ownership half of
+0012:OQ10. No hook semantics." ADR-008
 (amended 2026-10-03) fixes where a deletion plan comes from: the persisted inventory plus the live
 objects, with no render and no stored plan, and a prune's stale set is computed by the inventory
 package and handed to the same plan.
@@ -44,7 +44,7 @@ is the library half of f2. The frontends adopt it in their own changes.
     instance delete and its stale-set prune pass `Prune: true`.
   - `State`: a JSON-serialisable value the caller owns. It records the next step, what the state
     awaits and one outcome per finished step. Because it is serialisable, a controller can carry
-    it across reconciles (0012:D4:R5). op-f2 plans to rebuild it each pass from
+    it across reconciles (0012:D4:R5). the operator's adoption change plans to rebuild it each pass from
     `status.inventory` plus the live objects, with no new CRD field (ADR-008, Deletion plans). The
     cli holds it in memory for one command. A golden test pins its JSON encoding.
   - `Advance(plan, state, event) (State, Action, error)`: one action per call. An action is one
@@ -91,16 +91,19 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
 
 ## Not in this change
 
-- **Frontend adoption.** In the operator change (op-f2), both reconcilers' deletion paths and
+- **Frontend adoption.** In the operator's adoption change, both reconcilers' deletion paths and
   their prune-on-reconcile paths run a short loop around `Advance` with the impersonated client,
   and `MayReleaseHold` decides when the finalizer comes off. That moves the operator's delete order
   to descending weight and its propagation from Background to Foreground. Both are behaviour
-  changes, and op-f2 carries the release note. `MayReleaseHold` returns `cleanup-forbidden` for a
+  changes, and that change carries the release note. `MayReleaseHold` returns `cleanup-forbidden` for a
   Forbidden failure whatever the identity source, while today's operator stalls only when it
-  impersonates and requeues otherwise. op-f2 keeps that split (stall when impersonating, requeue
-  when not), so the verdict alone changes no operator behaviour there; if op-f2 chooses
-  otherwise, it carries that change in the same release note. The cli change (cli-f2) replaces the body of
-  `kubernetes.Delete` and its stale-set prune with the same loop. Each frontend keeps its own
+  impersonates and requeues otherwise. The operator keeps that split (stall when impersonating,
+  requeue when not), so the verdict alone changes no operator behaviour there; if its adoption
+  change chooses otherwise, it carries that change in the same release note. The cli's adoption
+  change replaces the body of `kubernetes.Delete` and its stale-set prune with the same loop. Every
+  cli delete then carries the UID precondition, which it sends without today: an object recreated
+  between the read and the delete becomes a per-resource Conflict error and the instance is kept,
+  where today the new object is deleted. The cli's adoption change states the exit-code effect. Each frontend keeps its own
   status messages, events, dry-run reporting and exit codes.
 - **Hook semantics.** No step a module declares runs as part of deletion (0012:D4:R6). The rest of
   0012:OQ10 stays with 0009:OQ7.
@@ -112,8 +115,8 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   `ownership.DeleteVerdict.Preconditions` does.
 - **The conformance test.** The 0012 contract's `#Conformance` property (executed ⊆ authorised:
   no delete the plan did not name) is asserted by a shared test in library, and 0012 graduation
-  needs it. It needs a delete loop to observe, so it lands with the frontend loops in op-f2 and
-  cli-f2, or in a later library test-helper change they call. This change ships no loop and does
+  needs it. It needs a delete loop to observe, so it lands with the frontend loops in the operator
+  and cli adoption changes, or in a later library test-helper change they call. This change ships no loop and does
   not deliver it.
 - **The operator install's admitted deletions** (0012:D8:R7). They act on objects outside the
   inventory, so they are not inventory steps. The install calls `ownership.CanDelete` with `Admit`
@@ -137,11 +140,11 @@ None.
   list already admits everything the new package imports: the standard library,
   `k8s.io/apimachinery` and the library's own `opm/` packages.
 - Downstream: the cli and opm-operator compile unchanged against this tree, and the consumer-build
-  job stays green. Their adoption changes (op-f2, cli-f2) gate on the first library release that
-  contains this change. cli-f2 checks against cli#307 (install-operator-from-module) if that PR is
+  job stays green. Their adoption changes gate on the first library release that
+  contains this change. The cli's checks against cli#307 (install-operator-from-module) if that PR is
   still open.
-- Ordering: this change follows lib-e3 (#203) and lib-e4 (#202), both merged. lib-h4 runs beside
-  it and may edit the same doc lines. Whichever merges second merges `origin/main` into its branch.
+- Ordering: this change follows #203 (inventory) and #202 (ownership), both merged. Another
+  library change runs beside it and may edit the same doc lines. Whichever merges second merges `origin/main` into its branch.
 - `enhancement.yaml` declares 0012 and claims no decision. 0012:D4 and the deletion halves of
   0012:D1:R1/R2/R5/R6 are delivered only when both frontends' delete paths run this protocol, so
-  that claim belongs to op-f2 and cli-f2. Under-claiming is the safe direction.
+  that claim belongs to the frontends' adoption changes. Under-claiming is the safe direction.
