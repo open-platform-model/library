@@ -100,7 +100,7 @@ Commits:
 
 ## 2. The hold verdict (lifecycle; design LC5)
 
-- [ ] 2.1 Write `opm/k8s/lifecycle/hold.go`.
+- [x] 2.1 Write `opm/k8s/lifecycle/hold.go`.
       - Declare `Identity` with its three constants, `HoldInput`, `HoldReason` with its seven
         constants (the contract's literals), `HoldVerdict` and `MayReleaseHold`, in the LC5 order.
       - Messages name the reason in plain words and give a count where one exists (for example,
@@ -108,7 +108,7 @@ Commits:
         name. The force-orphan and identity messages speak of "the deleting identity", so the cli
         and the operator can each add their own remedy.
       Verify: `go vet ./opm/k8s/...` is clean.
-- [ ] 2.2 Write `hold_test.go`.
+- [x] 2.2 Write `hold_test.go`.
       - One table covers every scenario of "The hold verdict is decided from the policy and the
         plan's outcome".
       - One row per operator `handleDeletion` branch (design Context, branches 1 to 8). Each row
@@ -118,7 +118,7 @@ Commits:
       - An end-to-end case drives a plan with `Advance` (one deleted step, one skipped
         `not-opm-managed`, one safety-excluded) and asserts `cleanup-complete`.
       Verify: `go test ./opm/k8s/lifecycle -count=1` is green.
-- [ ] 2.3 Run `task check` until green, then commit
+- [x] 2.3 Run `task check` until green, then commit
       `feat(k8s): add the deletion hold verdict to opm/k8s/lifecycle`. The body names the seven
       reasons and says that force-orphan releases only when the deleting identity is missing.
 

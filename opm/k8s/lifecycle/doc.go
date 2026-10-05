@@ -30,8 +30,13 @@
 // the object that was judged. A frontend reports a delete that fails its
 // precondition as left behind or to retry, never as deleted.
 //
+// [MayReleaseHold] decides whether an instance's deletion hold may come off,
+// from the plan's policy, the outcome and whether the caller could act as the
+// deleting identity. Its inputs name no frontend and no finalizer, and how a
+// frontend surfaces a hold is its own policy.
+//
 // The protocol has no hook semantics. Its actions are reads, deletions and
-// skips of the plan's own inventory entries; no step a
+// skips of the plan's own inventory entries, and the hold verdict; no step a
 // module declares runs as part of a deletion. The package reads no cluster,
 // no clock and no environment, starts no goroutine, logs nothing, and never
 // changes the entries, live objects or errors it is given.
