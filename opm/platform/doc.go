@@ -12,8 +12,10 @@
 // imports the platform package into the render build. The composed
 // transformers are read by the render glue, in CUE, inside the build; the
 // one derived view Go reads by path is the contract inventory
-// (#Platform.#contracts), on demand through Platform.Contracts and never at
-// construction.
+// (#Platform.#contracts). The platform's constructor decodes it, and the
+// core floor (whether #contracts carries providedBy), once, and records
+// them on the Platform; Platform.Contracts and Platform.CoreFloor return
+// the recorded result.
 package platform
 
 // Design records behind the package doc above, for maintainers:

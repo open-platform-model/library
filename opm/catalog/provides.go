@@ -35,8 +35,7 @@ import (
 //
 // Nothing decodes this at construction and no kernel verb calls it: the value
 // is already built, and it is read only when a caller asks, so acquiring a
-// catalog pays nothing for it. That is platform.Platform.Contracts's rule,
-// and so is the next one.
+// catalog pays nothing for it.
 //
 // Reports, never refusals. The result is deterministically ordered and
 // deduplicated, so two derivations of one catalog compare equal element for

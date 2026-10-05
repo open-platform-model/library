@@ -239,9 +239,9 @@ The library SHALL expose every CUE path the kernel's Go code reads on an OPM art
 - `Config`: `Module.ConfigSchema`, `Instance.ConfigSchema`, and values checking against `#config` at acquire and synthesis.
 - `Module`: the instance's reference to its `#Module`, read by `Instance.ConfigSchema`, `Instance.ModuleMetadata` and values checking at acquire and synthesis.
 - `DebugValues`: `Module.DebugValues`, the documented frontend read of a module's debug overlay.
-- `Contracts`: `Platform.Contracts()`.
-- `ContractsProvidedBy`: the core-floor presence check `Kernel.Render` runs before staging. `Platform.Contracts()` decodes the same field relative to `Contracts`, and the render glue reads it in CUE.
-- `ContractsCollisions` and `ContractsCollidingEntries`: they name fields that `Platform.Contracts()` reads relative to `Contracts` and the render glue reads in CUE. In Go only tests read the variables, which document the collision report.
+- `Contracts`: the contract-inventory decode `NewPlatformFromValue` records at construction, which `Platform.Contracts()` returns (on a `Platform` the constructor did not build, the first `Contracts()` or `CoreFloor()` call runs the same decode).
+- `ContractsProvidedBy`: the core-floor presence test `NewPlatformFromValue` records at construction, which `Platform.CoreFloor()` reports and `Kernel.Render` checks before staging. The inventory decode reads the same field relative to `Contracts`, and the render glue reads it in CUE.
+- `ContractsCollisions` and `ContractsCollidingEntries`: they name fields that the inventory decode reads relative to `Contracts` and the render glue reads in CUE. In Go only tests read the variables, which document the collision report.
 - `CatalogProvides`: `Catalog.Provides()`.
 - `Transformers`: `Catalog.Provides()` reads it on both of its paths, to refuse an unevaluated `#transformers`, and the deprecated provider-set fold, for a catalog built against a core older than `schema.ProvidesSince`, reads every transformer through it.
 - `RequiredResources`, `RequiredTraits` and `Fulfilment`: the deprecated fold reads them relative to a transformer and to its demand entries, not from an artifact root.

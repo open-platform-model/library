@@ -2,6 +2,8 @@ package platform
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"cuelang.org/go/cue"
 
@@ -130,11 +132,13 @@ type ContractInventory struct {
 	CollidingEntries map[string][]string `json:"collidingEntries"`
 }
 
-// Contracts decodes the contract inventory off Package on demand
-// (#Platform.#contracts, [schema.Contracts]). Nothing decodes it at
-// construction and no kernel verb calls it: the value is already built, and
-// it is read only when a caller asks (the operator's readiness loop, a
-// platform check), so a render pays nothing for it.
+// Contracts returns the contract inventory (#Platform.#contracts,
+// [schema.Contracts]) that was decoded once, when the platform was
+// constructed (see [Platform]), or the refusal recorded in its place. It
+// reads no Package on a constructed platform, and no kernel verb calls it.
+// Each call returns its own copy: a caller may change the maps and slices
+// it gets without changing what the next call returns, and callers on
+// several goroutines share nothing.
 //
 // The eleven data fields are read by path, so the decoded set is exactly
 // this type's field list; `defined` stays on Package (see
@@ -151,7 +155,7 @@ type ContractInventory struct {
 // platform carrying no #contracts at all (Field "#contracts": a value built
 // against a core release before 2.0.0-alpha.9, or one that is not a
 // #Platform). A missing providedBy is the refusal Kernel.Render returns for
-// the same platform.
+// the same platform (see [Platform.CoreFloor]).
 //
 // The one exception is the collision report: an absent `collisions` or
 // `collidingEntries` decodes as empty. Every core release carrying
@@ -162,15 +166,77 @@ type ContractInventory struct {
 // provably has no collision. A collision field that is present but fails
 // to decode is still an error.
 func (p *Platform) Contracts() (*ContractInventory, error) {
-	cv := p.Package.LookupPath(schema.Contracts)
+	f := p.facts()
+	if f.tooOld != nil {
+		return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: f.tooOld.field, Since: f.tooOld.since, Require: schema.ProvidedBySince}
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.inv.clone(), nil
+}
+
+// CoreFloor reports whether the platform's #contracts carries providedBy,
+// the provider count Kernel.Render's glue reads. It returns nil when it
+// does, and otherwise the *oerrors.PlatformCoreTooOldError (Field
+// "providedBy", Since and Require [schema.ProvidedBySince]) that
+// Kernel.Render refuses the platform with before staging. Like
+// [Platform.Contracts] it reads the fact recorded at construction, not
+// Package. The floor is a presence test only: it holds for a platform whose
+// #contracts carries providedBy but fails to evaluate, which Contracts
+// refuses and a render fails in its build.
+func (p *Platform) CoreFloor() error {
+	if p.facts().providedBy {
+		return nil
+	}
+	return &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: "providedBy", Since: schema.ProvidedBySince, Require: schema.ProvidedBySince}
+}
+
+// facts is what decodeFacts reads off a platform value, once.
+type facts struct {
+	// providedBy is the core floor: #contracts.providedBy exists.
+	providedBy bool
+	// inv is the decoded inventory, nil when tooOld or err is set.
+	inv *ContractInventory
+	// tooOld records a missing #contracts or report field as data, so
+	// each Contracts call builds a fresh typed error naming the platform.
+	tooOld *tooOld
+	// err is a #contracts that did not evaluate or a field that failed to
+	// decode. It is immutable and returned as recorded.
+	err error
+}
+
+// tooOld is a missing #contracts or report field and the first core release
+// carrying it.
+type tooOld struct {
+	field string
+	since string
+}
+
+// facts returns the recorded facts, decoding them from Package on the first
+// call. The constructor makes that first call; on a Platform it did not
+// build, the first Contracts or CoreFloor call does.
+func (p *Platform) facts() *facts {
+	p.once.Do(func() { p.recorded = decodeFacts(p.Package) })
+	return &p.recorded
+}
+
+// decodeFacts reads the core floor and decodes the contract inventory off a
+// platform value. It never fails: a refusal is recorded in place of the
+// inventory.
+func decodeFacts(v cue.Value) facts {
+	f := facts{providedBy: v.LookupPath(schema.ContractsProvidedBy).Exists()}
+	cv := v.LookupPath(schema.Contracts)
 	if !cv.Exists() {
-		return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: "#contracts", Since: "2.0.0-alpha.9", Require: schema.ProvidedBySince}
+		f.tooOld = &tooOld{field: "#contracts", since: "2.0.0-alpha.9"}
+		return f
 	}
 	if err := cv.Err(); err != nil {
-		return nil, fmt.Errorf("platform %s did not evaluate: %w", schema.Contracts, err)
+		f.err = fmt.Errorf("platform %s did not evaluate: %w", schema.Contracts, err)
+		return f
 	}
 	inv := &ContractInventory{}
-	for _, f := range []struct {
+	for _, d := range []struct {
 		name string
 		into any
 		// since is the first core release deriving the field, named in the
@@ -187,30 +253,33 @@ func (p *Platform) Contracts() (*ContractInventory, error) {
 		{"discriminated", &inv.Discriminated, "2.0.0-alpha.10"},
 		{"providedBy", &inv.ProvidedBy, schema.ProvidedBySince},
 	} {
-		v := cv.LookupPath(cue.ParsePath(f.name))
-		if !v.Exists() {
-			return nil, &oerrors.PlatformCoreTooOldError{Platform: p.name(), Field: f.name, Since: f.since, Require: schema.ProvidedBySince}
+		fv := cv.LookupPath(cue.ParsePath(d.name))
+		if !fv.Exists() {
+			f.tooOld = &tooOld{field: d.name, since: d.since}
+			return f
 		}
-		if err := v.Decode(f.into); err != nil {
-			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)
+		if err := fv.Decode(d.into); err != nil {
+			f.err = fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, d.name, err)
+			return f
 		}
 	}
-	// The collision report, absent read as empty (see above), never behind
-	// a since-guard: a guard would refuse every platform pinning a core
-	// between the floor and the report's first release.
-	for _, f := range []struct {
+	// The collision report, absent read as empty (see Contracts), never
+	// behind a since-guard: a guard would refuse every platform pinning a
+	// core between the floor and the report's first release.
+	for _, d := range []struct {
 		name string
 		into any
 	}{
 		{"collisions", &inv.Collisions},
 		{"collidingEntries", &inv.CollidingEntries},
 	} {
-		v := cv.LookupPath(cue.ParsePath(f.name))
-		if !v.Exists() {
+		fv := cv.LookupPath(cue.ParsePath(d.name))
+		if !fv.Exists() {
 			continue
 		}
-		if err := v.Decode(f.into); err != nil {
-			return nil, fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, f.name, err)
+		if err := fv.Decode(d.into); err != nil {
+			f.err = fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, d.name, err)
+			return f
 		}
 	}
 	if inv.Collisions == nil {
@@ -219,7 +288,41 @@ func (p *Platform) Contracts() (*ContractInventory, error) {
 	if inv.CollidingEntries == nil {
 		inv.CollidingEntries = map[string][]string{}
 	}
-	return inv, nil
+	f.inv = inv
+	return f
+}
+
+// clone deep-copies the inventory: every map, every slice, and each
+// Comparable row's Contracts. It keeps nil and empty apart, so a copy
+// compares (reflect.DeepEqual, JSON null against []) exactly as the decoded
+// value does.
+func (inv *ContractInventory) clone() *ContractInventory {
+	out := *inv
+	out.DefinedBy = maps.Clone(inv.DefinedBy)
+	out.RequiredBy = cloneListMap(inv.RequiredBy)
+	out.ProvidedBy = cloneListMap(inv.ProvidedBy)
+	out.Unfulfilled = slices.Clone(inv.Unfulfilled)
+	out.OverSubscribed = slices.Clone(inv.OverSubscribed)
+	out.Comparable = slices.Clone(inv.Comparable)
+	for i := range out.Comparable {
+		out.Comparable[i].Contracts = slices.Clone(out.Comparable[i].Contracts)
+	}
+	out.Collisions = slices.Clone(inv.Collisions)
+	out.CollidingEntries = cloneListMap(inv.CollidingEntries)
+	return &out
+}
+
+// cloneListMap copies a map of lists and each list, keeping nil and empty
+// apart at both levels.
+func cloneListMap(m map[string][]string) map[string][]string {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string][]string, len(m))
+	for k, v := range m {
+		out[k] = slices.Clone(v)
+	}
+	return out
 }
 
 // name is the platform's metadata.name, or empty when no metadata was

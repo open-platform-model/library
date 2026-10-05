@@ -352,7 +352,8 @@ func TestContracts_DisabledDefinerDoesNotHideOverSubscription(t *testing.T) {
 
 // A value carrying no #contracts (built against a core release before
 // 2.0.0-alpha.9, or not a #Platform at all) is refused by the accessor with
-// an error naming the missing field; construction itself does not read it.
+// an error naming the missing field; construction records the refusal and
+// does not return it.
 func TestContracts_MissingInventoryErrors(t *testing.T) {
 	v := cuecontext.New().CompileString(`
 kind: "Platform"
@@ -361,7 +362,7 @@ type: "kubernetes"
 `)
 	require.NoError(t, v.Err())
 	plat, err := platform.NewPlatformFromValue(v)
-	require.NoError(t, err, "construction never decodes the inventory")
+	require.NoError(t, err, "construction records the refusal and does not return it")
 
 	inv, err := plat.Contracts()
 	require.Error(t, err)
@@ -440,6 +441,11 @@ type: "kubernetes"
 	assert.Equal(t, "providedBy", old.Field)
 	assert.Equal(t, "2.0.0-alpha.12", old.Since)
 	assert.Equal(t, "2.0.0-alpha.12", old.Require)
+
+	// The floor refuses the same platform with the same typed error.
+	var floor *oerrors.PlatformCoreTooOldError
+	require.True(t, errors.As(plat.CoreFloor(), &floor))
+	assert.Equal(t, *old, *floor)
 }
 
 // majCollisions is the collision report every colliding-majors platform

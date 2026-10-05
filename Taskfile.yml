@@ -135,14 +135,16 @@ tasks:
   test:
     desc: Run unit tests, then the render packages under the race detector
     cmds:
-      # Every package once: the render packages run only in the -race pass
-      # below, so they are excluded here rather than built and run twice.
-      - go test $(go list ./... | grep -v -e /opm/kernel -e /opm/internal/renderstage)
+      # Every package once: the race-checked packages run only in the -race
+      # pass below, so they are excluded here rather than built and run twice.
+      - go test $(go list ./... | grep -v -E '/opm/(kernel|platform|internal/renderstage)(/|$)')
       # Render shares nothing between renders (0019:D8); run the render
       # packages under -race so the concurrency claim the docs make is
       # checked on every push (the earlier shared-platform claim went
-      # unchecked and was measured false, see ADR-002).
-      - go test -race ./opm/kernel/... ./opm/internal/renderstage/...
+      # unchecked and was measured false, see ADR-002). opm/platform runs
+      # here too: one platform's recorded contract inventory is read from
+      # several goroutines, and its tests check that under -race.
+      - go test -race ./opm/kernel/... ./opm/internal/renderstage/... ./opm/platform/...
 
   test:verbose:
     desc: Run unit tests with verbose output

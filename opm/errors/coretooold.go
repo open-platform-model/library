@@ -7,8 +7,8 @@ import (
 
 // PlatformCoreTooOldError reports a platform module pinning a core release
 // older than the first one deriving a #Platform.#contracts field the kernel
-// reads. Returned (wrapped) by Kernel.Render before staging and by
-// Platform.Contracts. The fix is re-pinning opmodel.dev/core in the platform
+// reads. Returned (wrapped) by Kernel.Render before staging, and by
+// Platform.Contracts and Platform.CoreFloor. The fix is re-pinning opmodel.dev/core in the platform
 // module; the kernel never falls back to a count or a verdict of its own.
 type PlatformCoreTooOldError struct {
 	// Platform is the platform's metadata.name (empty when the value
