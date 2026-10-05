@@ -67,20 +67,20 @@ ported code: cli `origin/main` `bd4d1a7c`, `internal/kubernetes/health.go` and
 
 ## 2. Docs, consumer builds and the API diff
 
-- [ ] 2.1 `README.md`: add `health/` to the layout tree under `k8s/` and name
+- [x] 2.1 `README.md`: add `health/` to the layout tree under `k8s/` and name
       `opm/k8s/health` (readiness evaluation over objects the frontend fetches) in the
       tier paragraph. `AGENTS.md`: add `health` to the tier list in the "Public surface"
       bullet and a `health/` line under `k8s/` in the Repository Layout (Status strings,
       Evaluate, IsHealthy, Aggregate; pure, ported from the cli). `CONSTITUTION.md`: add
       `opm/k8s/health` to the list of the tier's packages today. Keep any package a concurrent
       tier change has already added to those lines.
-- [ ] 2.2 `adr/011-kubernetes-tier-beside-the-kernel.md` Status: append one sentence,
+- [x] 2.2 `adr/011-kubernetes-tier-beside-the-kernel.md` Status: append one sentence,
       "Amended 2026-10-05 by `add-kubernetes-health-package`: readiness evaluation arrives as
       `opm/k8s/health`, its rules and status strings ported unchanged from the CLI, pure over
       objects the frontend fetches; a strict depguard rule holds it to the standard library and
       `k8s.io/apimachinery`." Item 1's indicative list already names `health`; no item changes.
-- [ ] 2.3 Consumer builds, not committed: clone cli and opm-operator `main` fresh into the
+- [x] 2.3 Consumer builds, not committed: clone cli and opm-operator `main` fresh into the
       scratch dir and run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> .` for each.
       Both pass. Run `task api:diff`: it lists no incompatible change charged to this branch.
-- [ ] 2.4 `openspec validate add-kubernetes-health-package --strict` green, `task check` green,
+- [x] 2.4 `openspec validate add-kubernetes-health-package --strict` green, `task check` green,
       then commit `docs(k8s): list opm/k8s/health in the tier docs and ADR-011`.
