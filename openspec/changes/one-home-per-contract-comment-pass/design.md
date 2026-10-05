@@ -121,7 +121,7 @@ The kernel-runtime ADDED requirement is the SHALL form of the same rule.
 
 ## Risks / Trade-offs
 
-- [Round-3 changes rewrite comments this change also edits] → This change merges last. It rebases onto `main` before the PR and re-runs section 5. The hunks are comments, so conflicts are textual.
+- [Round-3 changes rewrite comments this change also edits] → This change merges last. It merges `origin/main` into its branch before the PR and re-runs section 5. The hunks are comments, so conflicts are textual.
 - [A claim dropped with a prose copy had no other home] → D4 requires checking each claim against its home before a copy goes, and adding it to the godoc when missing.
 - [A doc-comment fix waits for the next release to reach the published reference] → Accepted. A docs revision can ship it earlier (`AGENTS.md` § Docs bundles).
 - [A repin change written before this merges re-introduces the old cascade-wiring `Source:` line at its archive] → Named in the proposal. The repin author takes the new line when rebasing.

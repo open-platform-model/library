@@ -37,10 +37,10 @@ Depends on: nothing unmerged. Merges after the other round-3 library changes, by
 
 ## 5. Absorb main and sweep
 
-- [ ] 5.1 `git fetch origin` and rebase onto `origin/main` after the other round-3 library changes merge. Resolve conflicts keeping their code and this change's comments. Where a round-3 change rewrote a doc this change also edits (add-kubernetes-ownership-package edits `opm/k8s/labels/doc.go`), keep that change's text and move only the ADR pointer.
-- [ ] 5.2 Re-run every verify step of sections 1 to 4 over the rebased tree. Apply the same rules to what round 3 landed: new `opm/k8s/*` package docs (ADR pointers, holder-bounded wording), new restatements of the env rule, and new cue/load overlay sites.
-- [ ] 5.3 Cross-check: `task api:diff` reports no change of this branch. Run `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator `main`, which build and vet green. `go vet ./...` is clean, and `task docs:bundle` builds.
-- [ ] 5.4 Gates green. If 5.2 changed anything, commit `docs: apply the one-home rule to the round-3 packages`; otherwise record "no sweep changes" in this box.
+- [ ] 5.1 `git fetch origin` and `git merge origin/main` after the other round-3 library changes merge (the squash drops the merge commit). Resolve conflicts keeping their code and this change's comments. Where a round-3 change rewrote a doc this change also edits (add-kubernetes-ownership-package edits `opm/k8s/labels/doc.go`), keep that change's text and move only the ADR pointer.
+- [ ] 5.2 Re-run every verify step of sections 1 to 4 over the merged tree. Apply the same rules to what round 3 landed: new `opm/k8s/*` package docs (ADR pointers, holder-bounded wording), new restatements of the env rule, and new cue/load overlay sites.
+- [x] 5.3 Cross-check: `task api:diff` reports no change of this branch. Run `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator `main`, which build and vet green. `go vet ./...` is clean, and `task docs:bundle` builds.
+- [ ] 5.4 Gates green. If 5.2 changed anything, commit `docs: apply the one-home rule to the round-3 packages`; otherwise record "no sweep changes" in this box. 2026-10-05, before any round-3 change merged (origin/main still ca7c56b): the sweep over this tree found nothing further, so no sweep changes yet; 5.1, 5.2 and this box are redone after the round-3 changes merge.
 
 ## 6. Verify and archive
 
