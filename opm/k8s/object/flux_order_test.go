@@ -98,9 +98,10 @@ func fluxContradictions() []string {
 }
 
 // TestFluxOrderContradictions records every pair of kinds the library orders
-// strictly opposite to Flux v0.77.0. It decides nothing: under SD11 the
-// operator submits one library stage per Flux ApplyAll, so none of these
-// pairs ever meets inside one Flux sort. A weight edit that adds or removes a
+// strictly opposite to Flux v0.77.0. It decides nothing: the operator
+// submits one library stage per Flux ApplyAll, so Flux refines and never
+// contradicts the library order (0012:D4, ADR-011), and none of these pairs
+// ever meets inside one Flux sort. A weight edit that adds or removes a
 // pair fails here until this list is edited in review (kubernetes-tier,
 // "Differences from Flux's apply order are recorded").
 func TestFluxOrderContradictions(t *testing.T) {

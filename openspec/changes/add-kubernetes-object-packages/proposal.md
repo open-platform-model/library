@@ -22,7 +22,7 @@ and e5:
   delete their copies in their own adoption changes.
 - **The objectset move.** ADR-011 item 9 and the helper doc say that `opm/helper/objectset`
   (duplicate apply identities) moves into `opm/k8s/object` with the first tier package. Both
-  frontends import it at `origin/main`. Supervisor decision SD1 (deprecate, then remove) keeps
+  frontends import it at `origin/main`. The library rule deprecate, then remove: the library never removes API a frontend imports at `main` (AGENTS.md, Consumer build paragraph) keeps
   the helper package, marks it Deprecated and points it at `opm/k8s/object`. Its removal is a
   later change that merges after both frontends have migrated, so a deps-cascade bump of either
   frontend keeps compiling.
@@ -59,8 +59,7 @@ derive inventory entries from that one converted set.
     `GetWeight` becomes `Weight`.
   - `Stages` cuts an apply set into the stages the order implies: the cluster definitions
     (CustomResourceDefinitions and core Namespaces) first, then one stage per distinct weight,
-    ascending. This is the input SD11 needs ("apply one library weight group per fluxssa
-    ApplyAll"). It is the same definition the cli's two-stage apply uses.
+    ascending. This is the input the operator needs to apply one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011). It is the same definition the cli's two-stage apply uses.
   - `Duplicates`, `Duplicate`, `Identity`, `Producer` and `DuplicateIdentitiesError` are copied
     from `opm/helper/objectset` with their behaviour and wording unchanged.
   - A documentation-only test lists Flux's `ReconcileOrder` kinds (fluxcd/pkg/ssa v0.77.0, the
@@ -68,9 +67,9 @@ derive inventory entries from that one converted set.
     kinds and one custom kind (unlisted kinds rank 0 in Flux), it records every pair the library
     orders strictly the other way, so a table change that adds or removes a contradiction shows up in review.
 - **`opm/helper/objectset`** stays and is frozen. Its package doc and every exported symbol
-  carry `Deprecated:` with the replacement in `opm/k8s/object` (SD1). Its behaviour does not
+  carry `Deprecated:` with the replacement in `opm/k8s/object` (deprecate, then remove). Its behaviour does not
   change.
-- **`go.mod`**: `go 1.26.0` and `k8s.io/apimachinery v0.36.4`, matching both frontends (SD10).
+- **`go.mod`**: `go 1.26.0` and `k8s.io/apimachinery v0.36.4`, matching both frontends.
   If the CI lint pin cannot lint a Go 1.26 module, it moves to the release the cli pins (design
   KO1).
 - **Lint**: one rule holds `opm/k8s/labels` to the standard library. ADR-011 item 2 left one
@@ -87,7 +86,7 @@ derive inventory entries from that one converted set.
   requirements. `duplicate-object-identities` moves its home to `opm/k8s/object` and states
   the deprecated copy. `helper-packages` marks `objectset` as Deprecated.
 
-Not **BREAKING** (SD1). Every addition is new API. Nothing is removed or renamed. Two things are
+Not **BREAKING** (deprecate, then remove). Every addition is new API. Nothing is removed or renamed. Two things are
 observable. The Go floor rises from 1.25.0 to 1.26.0, a floor both frontends already declare.
 Importers of `opm/helper/objectset` (cli and opm-operator) now see a deprecation, which
 staticcheck's SA1019 reports in their lint. Both frontends run a full golangci-lint with
@@ -107,7 +106,7 @@ SemVer class: MINOR. Release class of the PR: `feat`.
   and `compiled_adapter.go`, switching importers, per-weight-group `ApplyAll`, and depguard
   rules against the old paths.
 - **Removing `opm/helper/objectset`.** That is its own change, after both frontends have
-  migrated (SD1).
+  migrated (deprecate, then remove).
 - **The render digest and inventory entries** (lib-e3, `opm/k8s/inventory`), **ownership
   verdicts and the adopt annotation key** (lib-e4), **health** (lib-f5) and **the deletion
   protocol** (lib-f2). `Export` exists so that those packages and the frontends need one export,
@@ -118,7 +117,7 @@ SemVer class: MINOR. Release class of the PR: `feat`.
 - **Changing any weight.** The table is ported as it is (owner e5). The Flux comparison
   documents the differences and decides nothing.
 - **A dependabot or release rule that moves `k8s.io/apimachinery` only through the library.**
-  SD24 records no owner decision on it. This change only states the MVS floor fact in
+  The owner has decided no such rule. This change only states the MVS floor fact in
   `AGENTS.md`.
 
 ## Capabilities
@@ -150,8 +149,8 @@ None.
   pin), `README.md`, `AGENTS.md`, `CONSTITUTION.md`, `adr/011-kubernetes-tier-beside-the-kernel.md`.
 - Downstream: cli and opm-operator compile unchanged against this tree. The consumer-build job
   must stay green. Their adoption changes (cli-e2e5, op-e2e5) gate on the first library release
-  that contains this change (SD2). The operator applies one library weight group per
-  `ApplyAll` (SD11) using `Stages`.
+  that contains this change. The operator applies one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011),
+  using `Stages`.
 - Ordering (wave-2 serialization): this change follows lib-consolidate and lib-c2 (both merged).
   lib-d1d3 rebases on its `go.mod`. lib-e3, lib-e4 and lib-f5 build on these packages, and
   lib-e4 adds the adopt annotation key to `opm/k8s/labels`.
