@@ -307,3 +307,14 @@ func TestCheckRootAbsent(t *testing.T) {
 		})
 	}
 }
+
+// IsSynthetic is true only for a path directly under SyntheticBase, which is
+// what SyntheticRoot returns; a directory-acquired root is not synthetic.
+func TestIsSynthetic(t *testing.T) {
+	root := SyntheticRoot("x.example/m@v0", "v0.1.0")
+	assert.True(t, IsSynthetic(root))
+	assert.False(t, IsSynthetic(SyntheticBase), "the base itself is not a synthetic root")
+	assert.False(t, IsSynthetic(filepath.Join(root, "opm-synth-instance")), "a path beneath a root is not a root")
+	assert.False(t, IsSynthetic(t.TempDir()), "a real directory is not a synthetic root")
+	assert.False(t, IsSynthetic(""))
+}

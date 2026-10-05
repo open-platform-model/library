@@ -27,19 +27,19 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 2. sourcetree, loader: refuse an existing synthetic root at acquire
 
-- [ ] 2.1 `opm/internal/sourcetree/sourcetree.go`: rename `syntheticBase` to `SyntheticBase`
+- [x] 2.1 `opm/internal/sourcetree/sourcetree.go`: rename `syntheticBase` to `SyntheticBase`
   (design D4). Its doc says it is the directory every `SyntheticRoot` lies under, that it is a
   variable only so a test can point it at an existing directory, and that nothing else assigns it.
   Add `IsSynthetic(root string) bool`, true when root lies directly under `SyntheticBase` (design
   D3). Extend the `SyntheticRoot` doc: nothing exists at the root on disk, and the acquire and
   synthesis refuse when something does.
-- [ ] 2.2 `opm/internal/loader/registry.go`: in `FetchArtifact`, right after `synthRoot` is
+- [x] 2.2 `opm/internal/loader/registry.go`: in `FetchArtifact`, right after `synthRoot` is
   computed and before `OverlayFromFS` (design D2), call
   `sourcetree.CheckRootAbsent("synthetic root", spec.Label, synthRoot)` and return
   `staging <label> <module@version> in overlay: <cause>` on error. Update the staging comment and
   the `FetchArtifact` doc to say the acquire refuses when anything exists at the synthetic root,
   and why.
-- [ ] 2.3 `opm/internal/loader/registry_test.go`: add `TestFetchModule_RefusesAnExistingSyntheticRoot`,
+- [x] 2.3 `opm/internal/loader/registry_test.go`: add `TestFetchModule_RefusesAnExistingSyntheticRoot`,
   not parallel. It publishes a module fixture as the bare-version test does, points
   `sourcetree.SyntheticBase` at `t.TempDir()` (restored in `t.Cleanup`), and creates
   `sourcetree.SyntheticRoot(modPath+"@v0", "v0.0.2")` as a directory holding `injected.cue`
@@ -49,9 +49,9 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   it and assert that the same fetch succeeds, so the refusal came from the root and nothing else.
   Add `TestFetchArtifact_CatalogRefusesAnExistingSyntheticRoot` next to the catalog bare-version
   test: the same refusal and recovery for `FetchArtifact` with `loader.CatalogSpec`.
-- [ ] 2.4 `opm/internal/sourcetree/sourcetree_test.go`: `TestIsSynthetic` covers a
+- [x] 2.4 `opm/internal/sourcetree/sourcetree_test.go`: `TestIsSynthetic` covers a
   `SyntheticRoot`, the base itself, a path beneath a synthetic root and an unrelated absolute path.
-- [ ] 2.5 `go test -race -count=1 ./opm/internal/loader/ ./opm/internal/sourcetree/ ./opm/internal/renderstage/ ./opm/kernel/`
+- [x] 2.5 `go test -race -count=1 ./opm/internal/loader/ ./opm/internal/sourcetree/ ./opm/internal/renderstage/ ./opm/kernel/`
   green, then `task check` green. Commit
   `fix(loader): refuse an acquire whose synthetic root exists on disk`.
 

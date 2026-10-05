@@ -192,19 +192,32 @@ func CheckRootAbsent(role, served, root string) error {
 	}
 }
 
-// syntheticBase is the directory every [SyntheticRoot] lies under.
-var syntheticBase = VolumeRoot("opm-registry-module")
+// SyntheticBase is the directory every [SyntheticRoot] lies under:
+// /opm-registry-module on Unix, C:\opm-registry-module on Windows. It is a
+// variable only so a test can point it at an existing directory; nothing
+// else assigns it.
+var SyntheticBase = VolumeRoot("opm-registry-module")
+
+// IsSynthetic reports whether root is a [SyntheticRoot]: a path directly
+// under [SyntheticBase]. A root acquired from a directory is a real
+// directory and never reports true.
+func IsSynthetic(root string) bool {
+	return root != "" && filepath.Dir(root) == SyntheticBase
+}
 
 // SyntheticRoot returns a deterministic absolute path used as the in-memory
 // module root for the overlay. It is derived purely from path@version (no
 // randomness, no clock) so the load is reproducible, and is sanitized into a
 // single path segment so it never collides with real source on disk. The
 // version is canonicalised first, so a bare ("0.0.2") and a v-prefixed
-// ("v0.0.2") spelling of the same version give the same root.
+// ("v0.0.2") spelling of the same version give the same root. Nothing exists
+// at the root on disk. Because the path is predictable and cue/load merges a
+// real directory beneath an overlay root into the load, the registry acquire
+// and instance synthesis refuse ([CheckRootAbsent]) when something does.
 func SyntheticRoot(modPath, version string) string {
 	repl := strings.NewReplacer("/", "_", ":", "_", "@", "_", "+", "_")
 	safe := repl.Replace(modPath + "@" + modversion.Canonical(version))
-	return filepath.Join(syntheticBase, safe)
+	return filepath.Join(SyntheticBase, safe)
 }
 
 // ReadFile returns the contents of path inside src: the overlay entry in

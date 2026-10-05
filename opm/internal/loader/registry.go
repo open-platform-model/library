@@ -61,7 +61,10 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // deterministic synthetic root, so the module's own cue.mod/module.cue
 // drives transitive dependency resolution and its kind/metadata are
 // evaluated at the package root. No wrapper package is synthesized and no
-// temporary directory is written.
+// temporary directory is written. The synthetic root does not exist on disk;
+// because cue/load would read a real directory there into the build, the
+// acquire refuses, naming the path and building nothing, when anything
+// exists at it.
 //
 // Because the build IS [LoadDir] — the kernel's one evaluate-and-shape-gate
 // routine, the same call directory acquisition makes — the fetched artifact
@@ -125,8 +128,14 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	}
 
 	// Stage the fetched artifact's .cue files in memory under a deterministic
-	// synthetic root. A fetch carrying no .cue file is not an artifact.
+	// synthetic root. A fetch carrying no .cue file is not an artifact. The
+	// root is predictable and cue/load merges a real directory beneath an
+	// overlay root into the load, so anything at the root on disk (which
+	// nothing in OPM creates) is refused rather than built.
 	synthRoot := sourcetree.SyntheticRoot(modPath, canonical)
+	if err := sourcetree.CheckRootAbsent("synthetic root", spec.Label, synthRoot); err != nil {
+		return cue.Value{}, nil, fmt.Errorf("staging %s %s in overlay: %w", spec.Label, mv, err)
+	}
 	overlay, err := sourcetree.OverlayFromFS(loc.FS, loc.Dir, synthRoot)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("staging %s %s in overlay: %w", spec.Label, mv, err)
