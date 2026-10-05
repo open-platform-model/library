@@ -10,14 +10,14 @@ spike, and all four cases passed. This section lands the spike as a committed te
 assumption stays pinned against a CUE bump. If any case fails here, stop after this section and
 report it. Do not implement a fallback that keeps a temporary directory.
 
-- [ ] 1.1 `opm/internal/renderstage/stage_test.go`: add `TestStageBuild_RenderModuleServedFromMemory`, which builds today's `Stage` output after moving it into an overlay under a synthetic root that does not exist on disk (the staging directory's prefix is rewritten in the overlay keys and in `local-module.cue`, and the directory is removed before the build). Two subtests:
+- [x] 1.1 `opm/internal/renderstage/stage_test.go`: add `TestStageBuild_RenderModuleServedFromMemory`, which builds today's `Stage` output after moving it into an overlay under a synthetic root that does not exist on disk (the staging directory's prefix is rewritten in the overlay keys and in `local-module.cue`, and the directory is removed before the build). Two subtests:
   - an overlay-mode instance with an on-disk platform; `_components` holds `web` and `config`;
   - both inputs overlay-mode, built by four goroutines at once from one `Staged`.
 
   Assert that the root does not exist before or after the build.
-- [ ] 1.2 Same file: add `TestStageBuild_LocalReplacementsServedFromMemory`, the hand-written render module of `TestStageBuild_LocalReplacementsResolveInOneBuild` served from an overlay under the synthetic root. The deployment carries the replaced catalog's label. Add a negative control: the same build with `cue.mod/local-module.cue` removed from the overlay fails to resolve the instance import.
-- [ ] 1.3 Spike the shared-client shape in a scratch test (not committed; section 3 lands it in `cueenv`): one `modregistry.NewClientWithResolver(modconfig.NewResolver(...))` shared by two operations, each with its own `modcache.New(client, cacheDir)`, against an in-process registry behind a proxy that refuses the first request. The first operation's fetch fails, the second operation's fetch succeeds, and a cue/load build given the per-operation cache as `Config.Registry` resolves its dependencies. If it fails, stop and report.
-- [ ] 1.4 Run `go test -race -count=1 -run 'TestStageBuild_' ./opm/internal/renderstage/` green, then `task check` green, then commit `test(renderstage): pin that cue/load serves the render module from an overlay`.
+- [x] 1.2 Same file: add `TestStageBuild_LocalReplacementsServedFromMemory`, the hand-written render module of `TestStageBuild_LocalReplacementsResolveInOneBuild` served from an overlay under the synthetic root. The deployment carries the replaced catalog's label. Add a negative control: the same build with `cue.mod/local-module.cue` removed from the overlay fails to resolve the instance import.
+- [x] 1.3 Spike the shared-client shape in a scratch test (not committed; section 3 lands it in `cueenv`): one `modregistry.NewClientWithResolver(modconfig.NewResolver(...))` shared by two operations, each with its own `modcache.New(client, cacheDir)`, against an in-process registry behind a proxy that refuses the first request. The first operation's fetch fails, the second operation's fetch succeeds, and a cue/load build given the per-operation cache as `Config.Registry` resolves its dependencies. If it fails, stop and report.
+- [x] 1.4 Run `go test -race -count=1 -run 'TestStageBuild_' ./opm/internal/renderstage/` green, then `task check` green, then commit `test(renderstage): pin that cue/load serves the render module from an overlay`.
 
 ## 2. renderstage, kernel: stage the render module in memory
 

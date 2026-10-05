@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -595,4 +596,178 @@ deps: {
 	label, err := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
 	require.NoError(t, err)
 	assert.Equal(t, "local", label, "(b) the deployment's bytes came from the replaced catalog directory, not the published build")
+}
+
+// ── Spike: the render module served from memory ─────────────────────
+
+// spikeRoot is a synthetic render root that exists nowhere on disk.
+var spikeRoot = filepath.Join(string(filepath.Separator), "opm-render-spike", "render")
+
+// moveIntoMemory moves a staged render module out of its directory and into
+// an overlay keyed under root: the generated files are read, every key and
+// every occurrence of the directory in local-module.cue is rewritten to root,
+// and the directory is removed. What is left is what an in-memory Stage
+// would produce.
+func moveIntoMemory(t *testing.T, staged *Staged, root string) *Staged {
+	t.Helper()
+	dir := staged.Dir
+	overlay := make(map[string][]byte, len(staged.Overlay)+3)
+	for key, data := range staged.Overlay {
+		rel, err := filepath.Rel(dir, key)
+		require.NoError(t, err)
+		overlay[filepath.Join(root, rel)] = data
+	}
+	for _, rel := range []string{"cue.mod/module.cue", "cue.mod/local-module.cue", RenderFileName} {
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+		require.NoError(t, err)
+		overlay[filepath.Join(root, filepath.FromSlash(rel))] = []byte(strings.ReplaceAll(string(data), dir, root))
+	}
+	require.NoError(t, os.RemoveAll(dir))
+	moved := *staged
+	moved.Dir = root
+	moved.Overlay = overlay
+	return &moved
+}
+
+// componentNames returns the field names of the render module's _components.
+func componentNames(t *testing.T, built cue.Value) []string {
+	t.Helper()
+	components := built.LookupPath(cue.MakePath(cue.Hid("_components", RenderModulePath+":render")))
+	require.NoError(t, components.Err())
+	require.True(t, components.Exists())
+	fields, err := components.Fields()
+	require.NoError(t, err)
+	var names []string
+	for fields.Next() {
+		names = append(names, fields.Selector().String())
+	}
+	sort.Strings(names)
+	return names
+}
+
+func assertAbsent(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "%s must not exist on disk", path)
+}
+
+// TestStageBuild_RenderModuleServedFromMemory pins the assumption in-memory
+// staging rests on: cue/load v0.17 reads cue.mod/module.cue,
+// cue.mod/local-module.cue and the glue of the main module, and every
+// replacement directory, from load.Config.Overlay under a root that does not
+// exist on disk.
+func TestStageBuild_RenderModuleServedFromMemory(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	registrytest.NewRegistryFromDir(t, filepath.Join(fixture, "registry"), "testing.opmodel.dev/library-render")
+
+	t.Run("overlay instance, on-disk platform", func(t *testing.T) {
+		inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
+		plat := &module.Source{Root: filepath.Join(fixture, "platform")}
+		staged, err := Stage(t.TempDir(), inst, plat, "rt", StageOptions{})
+		require.NoError(t, err)
+		moved := moveIntoMemory(t, staged, spikeRoot)
+		assertAbsent(t, spikeRoot)
+
+		built, err := Build(cuecontext.New(), moved, nil)
+		require.NoError(t, err, "cue/load serves the whole render module from the overlay")
+		require.NoError(t, built.Err())
+		assert.Equal(t, []string{"config", "web"}, componentNames(t, built))
+		assertAbsent(t, spikeRoot)
+	})
+
+	t.Run("both inputs overlay, built concurrently", func(t *testing.T) {
+		inst := rekeyed(t, filepath.Join(fixture, "instance"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/instance", "v0.0.0"))
+		plat := rekeyed(t, filepath.Join(fixture, "platform"), sourcetree.SyntheticRoot("testing.opmodel.dev/library-render/platform", "v0.0.0"))
+		staged, err := Stage(t.TempDir(), inst, plat, "rt", StageOptions{})
+		require.NoError(t, err)
+		moved := moveIntoMemory(t, staged, spikeRoot)
+		assertAbsent(t, spikeRoot)
+
+		const n = 4
+		results := make([][]string, n)
+		errs := make([]error, n)
+		var wg sync.WaitGroup
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				built, err := Build(cuecontext.New(), moved, nil)
+				if err == nil {
+					err = built.Err()
+				}
+				errs[i] = err
+				if err == nil {
+					results[i] = componentNames(t, built)
+				}
+			}()
+		}
+		wg.Wait()
+		for i := range n {
+			require.NoError(t, errs[i], "goroutine %d", i)
+			assert.Equal(t, []string{"config", "web"}, results[i], "goroutine %d", i)
+		}
+		assertAbsent(t, spikeRoot)
+	})
+}
+
+// TestStageBuild_LocalReplacementsServedFromMemory is
+// TestStageBuild_LocalReplacementsResolveInOneBuild with the hand-written
+// render module served from an overlay under a root that does not exist:
+// directory replacements of the instance, the platform, a never-published
+// module and the catalog all resolve from disk while the main module comes
+// from memory. Leaving local-module.cue out of the overlay makes the
+// instance import unresolvable, so the overlay's file is the one read.
+func TestStageBuild_LocalReplacementsServedFromMemory(t *testing.T) {
+	fixture := filepath.Join(schematest.LibraryRoot(t), "testdata", "render")
+	registrytest.NewRegistryFromDir(t, filepath.Join(fixture, "registry"), "testing.opmodel.dev/library-render")
+
+	libDir := writeLibModule(t)
+	catDir := catalogWithLabel(t, fixture)
+	instDir := instanceImportingLib(t, fixture, libDir)
+	platDir := filepath.Join(fixture, "platform")
+
+	glue, err := RenderGlue(GlueInputs{
+		InstancePath: "testing.opmodel.dev/library-render/instance@v0",
+		PlatformPath: "testing.opmodel.dev/library-render/platform@v0",
+		RuntimeName:  "spike",
+	})
+	require.NoError(t, err)
+	overlay := map[string][]byte{
+		filepath.Join(spikeRoot, "cue.mod", "module.cue"): []byte(`module: "` + RenderModulePath + `"
+language: version: "v0.17.0"
+deps: {
+	"opmodel.dev/core@v2": v: "` + registrytest.DefaultCoreVersion + `"
+	"` + libModulePath + `": v: "v0.0.0"
+	"testing.opmodel.dev/library-render/cat@v0": v: "v0.1.0"
+	"testing.opmodel.dev/library-render/instance@v0": {v: "v0.0.0", default: true}
+	"testing.opmodel.dev/library-render/platform@v0": {v: "v0.0.0", default: true}
+	"testing.opmodel.dev/library-render/web_app@v0": v: "v0.1.0"
+}
+`),
+		filepath.Join(spikeRoot, "cue.mod", "local-module.cue"): []byte(`deps: {
+	"` + libModulePath + `": replaceWith: "` + libDir + `"
+	"testing.opmodel.dev/library-render/cat@v0": replaceWith: "` + catDir + `"
+	"testing.opmodel.dev/library-render/instance@v0": replaceWith: "` + instDir + `"
+	"testing.opmodel.dev/library-render/platform@v0": replaceWith: "` + platDir + `"
+}
+`),
+		filepath.Join(spikeRoot, RenderFileName): glue,
+	}
+
+	built, err := Build(cuecontext.New(), &Staged{Dir: spikeRoot, Overlay: overlay}, nil)
+	require.NoError(t, err, "cue/load serves the replacement directories with the main module in memory")
+	require.NoError(t, built.Err())
+	deployment := renderedOutput(t, built, "web", "testing.opmodel.dev/library-render/cat/transformers/deployment-transformer@0.1.0")
+	label, err := deployment.LookupPath(cue.ParsePath(`metadata.labels."render.test/catalog"`)).String()
+	require.NoError(t, err)
+	assert.Equal(t, "local", label, "the deployment's bytes came from the replaced catalog directory")
+	assertAbsent(t, spikeRoot)
+
+	// Negative control: without the overlay's local-module.cue the
+	// instance import has nowhere to resolve from.
+	delete(overlay, filepath.Join(spikeRoot, "cue.mod", "local-module.cue"))
+	_, err = Build(cuecontext.New(), &Staged{Dir: spikeRoot, Overlay: overlay}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "testing.opmodel.dev/library-render/instance@v0")
+	assertAbsent(t, spikeRoot)
 }
