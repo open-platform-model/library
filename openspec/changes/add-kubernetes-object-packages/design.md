@@ -3,7 +3,10 @@
 See proposal.md, Why. Design-local decisions are numbered KO1 to KO11 so they collide with no
 other numbering. Line references are at library `origin/main` `a8bfc76` (after lib-consolidate
 and lib-c2), cli `origin/main` `0b37e3f2` and opm-operator `origin/main` `9b83611`, all fetched
-2026-10-05. Evidence comes from the wave-2 research entries e2 and e5
+2026-10-05. Re-checked at cli `origin/main` `1338e700` (after cli#316, cli#317 and cli#318):
+`pkg/core` and `pkg/resourceorder` are unchanged since `0b37e3f2`, and the KO2 consumer lines
+still hold. `0b37e3f2` stays the provenance commit for the ported code (the weight table last
+changed in `75e5f268`). Evidence comes from the wave-2 research entries e2 and e5
 (`claude-stuff/kernel-plan-beta1/wave2-plan-result.json`), re-checked at those heads. One thing
 changed since the research: lib-consolidate merged and `go.mod` now carries `golang.org/x/mod`.
 
@@ -65,7 +68,7 @@ const (
 	ManagedByCLI        = "opm-cli"             // core's #runtimeName for the cli
 	ManagedByController = "opm-controller"      // core's #runtimeName for the operator
 	ManagedByLegacy     = "open-platform-model" // recognised, never stamped
-	Component           = "opmodel.dev/component"
+	Component           = "opmodel.dev/component" // the OPM object category, not a component name
 	ComponentName           = "component.opmodel.dev/name"
 	ModuleInstanceName      = "module-instance.opmodel.dev/name"
 	ModuleInstanceNamespace = "module-instance.opmodel.dev/namespace"
@@ -77,7 +80,12 @@ func IsOPMManagedBy(value string) bool // ManagedByCLI, ManagedByController or M
 
 Each doc comment says who writes the label. Core's CUE stamps managed-by, the instance name and
 UUID, and the component name. Only the cli writes `Component` and `ModuleInstanceNamespace`,
-and only on its own inventory objects. The package doc states the rule: it names and
+and only on its own inventory objects. `Component` keeps the name its key carries, so a reader
+matches it to `opmodel.dev/component` at a glance, but its doc comment opens with "the OPM
+object category (the cli writes \"inventory\"), not a component name" and points at
+`ComponentName` for the component a rendered object came from. A rename to `ObjectCategory`
+was weighed and not taken: it would hide the key, and the doc comment carries the warning where
+an IDE shows it. The package doc states the rule: it names and
 recognises labels, and it never stamps them on rendered objects (0012:D6). The values are
 byte-equal to the frontends' copies, and a table test pins each one. lib-e4 later adds the
 adopt annotation key here.
@@ -147,12 +155,17 @@ type ExportError struct {
 }
 ```
 
-`Export` stops at the first failure. `ExportError.Error()` names the resource and the step, and
+`Export` stops at the first failure. Decoding is into `map[string]any`, so any JSON value that
+is not an object fails with `ExportDecode`: a concrete list or string fails in `json.Unmarshal`,
+and a concrete `null`, which `json.Unmarshal` accepts as a nil map, is refused by an explicit
+nil check, so `Exported.Object.Object` is never nil. `ToUnstructured` stays a verbatim port and
+does not gain that check. `ExportError.Error()` names the resource and the step, and
 `Unwrap` returns `Err`. The operator needs `Step`, because it maps the two failures to different
 condition reasons today (`RenderFailedReason` for the export, `ApplyFailedReason` for the
-decode). Tests assert three things: `Exported.JSON` equals the resource's own `MarshalJSON`
-bytes, `Exported.Object` equals what those bytes decode to, and the input slice and its
-Resources are untouched. That each value is exported once is structural: `Export` calls
+decode). Tests assert four things: `Exported.JSON` equals the resource's own `MarshalJSON`
+bytes, `Exported.Object` equals what those bytes decode to, the input slice and its
+Resources are untouched, and a list, a string and `null` each fail with `ExportDecode` and the
+right `Index`. That each value is exported once is structural: `Export` calls
 `MarshalJSON` once per item and decodes from its result. It is checked in review, because no
 public seam can count CUE exports.
 **Rationale**: The digest (lib-e3), apply objects and inventory entries all read `Exported`, so
@@ -199,6 +212,12 @@ type Stage[T any] struct {
 func Stages[T any](items []T, gvkOf func(T) schema.GroupVersionKind) []Stage[T]
 ```
 
+The definition stage spans two weights, -100 (CustomResourceDefinition) and 0 (Namespace), so
+it is not one library weight group in SD11's literal sense. It is still safe to hand to one
+`ApplyAll` call, because Flux v0.77.0 ranks CustomResourceDefinition before Namespace too
+(`sort.go` `ReconcileOrder.First[0]` and `[1]`), so Flux's re-sort inside the call keeps the
+library's order. `flux_order_test.go` asserts that this pair is no contradiction.
+
 The cluster definitions are matched on group and kind, so a `Namespace` kind in another API
 group is not one. It still takes the kind-only fallback weight 0 in its weight stage. Flux's own
 definition stage also holds ClusterRoles. The library's does not, because the cli's does not.
@@ -213,14 +232,19 @@ keep its two-stage apply. One function then defines "stage" for both frontends.
 and that the disagreement is invisible today.
 **Decision**: `flux_order_test.go` lists the 25 kinds of `ReconcileOrder.First` and `.Last`
 from fluxcd/pkg/ssa v0.77.0 `sort.go` as string literals, with that version in a comment. Flux
-itself is denied by depguard and is not imported. The test resolves each kind to a library
-weight through the kind-only lookup. It computes every ordered pair that Flux places in one
-order and the library strictly in the other. It asserts that the set equals a committed list,
+itself is denied by depguard and is not imported. The test's universe is Flux's 25 kinds, the
+26 kinds of the library's kind table and one representative custom kind (`Widget`). Flux ranks
+`First` kinds -23 to -1 and `Last` kinds 1 and 2 (`computeKind2index`), and every kind it does
+not list, including `Widget`, ranks 0 (ties then break by group and kind, which the test does
+not model). The test resolves each kind to a library weight through the kind-only lookup. It
+counts a pair only when the Flux ranks differ and the library weights are strictly opposite. It asserts that the set equals a committed list,
 so adding or removing a contradiction fails the test and needs a reviewed edit of the list.
-Known members include PersistentVolume and PersistentVolumeClaim after Deployment in Flux but
-before it in the library, the `*Class` kinds early in Flux but at the default weight in the
+Known members include PersistentVolume and PersistentVolumeClaim after Deployment in Flux
+(unlisted, rank 0) but before it in the library, the `*Class` kinds early in Flux but at the default weight in the
 library, and the webhook configurations last in Flux but at 500, before custom resources at
-1000, in the library. The test decides nothing. Under SD11 these contradictions cannot appear
+1000, in the library (the custom resource ranks 0 in Flux, between the two). It also asserts that
+CustomResourceDefinition before Namespace is no contradiction, the pair KO6's definition stage
+rests on. The test decides nothing. Under SD11 these contradictions cannot appear
 inside one `ApplyAll` call, because each call holds a single weight.
 **Rationale**: This makes the e1 rule "an engine may refine, never contradict" checkable in
 review without importing the engine.
@@ -235,11 +259,18 @@ import it. The fences forbid forwarding in either direction. `opm/helper` may no
 the signature `Duplicates(compiled []*kernel.Compiled) []Duplicate` stay the same. The
 identity read, the group-only key, row order and error wording do not change. The test file is
 ported whole. The helper package keeps its code, and each exported symbol and the package doc
-gain a `Deprecated: use opm/k8s/object.<Name>` paragraph. The two in-repo importers of the
-deprecated package get `//nolint:staticcheck` with the reason "SA1019: the deprecated copy is
-tested until its removal". These are the helper's own external test package and
-`opm/kernel/flow_integration_test.go`, which may not import the tier. The removal change
-deletes both.
+gain a `Deprecated: use opm/k8s/object.<Name>` paragraph. The in-repo importers outside the helper
+get `//nolint:staticcheck` with the reason "SA1019: the deprecated copy is tested until its
+removal" on every line staticcheck reports, the import and each use:
+`opm/kernel/flow_integration_test.go` (the import and the `objectset.Duplicates` call) and
+`opm/kernel/render_test.go` (the import and the `objectset.Duplicates` call), which may not
+import the tier. The helper's own external test package `objectset_test` gets none, because
+staticcheck (v0.7.0 `sa1019.go`) does not report a package's own external test package using
+it. The removal change deletes the kernel test uses.
+The ported test carries the same synthetic transformer id
+(`opmodel.dev/catalogs/opm/transformer-registration-transformer@4.4.0`) as the helper test, so
+`opm/k8s/object/duplicates_test.go` gets its own `.cascade-frozen` entry with the pin
+`opmodel.dev/catalogs/opm@v4`, appended at the end of the file.
 **Rationale**: Two identical copies for one release window is the price of SD1. The copy is
 mechanical and the identical test suites pin it. No cross-package parity test is possible,
 because the fences forbid it.
@@ -261,6 +292,9 @@ tier siblings. Test files stay outside the strict rules, so testify is allowed, 
 existing deny rules still cover them. Section 1 proves the two assumptions this rests on with
 mutation checks: that depguard v2 applies every matching rule (a strict allow and a lax deny
 both bite), and that `$gostd` works in this golangci-lint version.
+The spec states this as a MODIFIED of the existing requirement "The Kubernetes tier imports no
+cluster client or controller framework", which already named the allowed set, rather than a
+second requirement owning the same rule.
 **Rationale**: The list is four entries and costs one lint rule. Without it, a new third-party
 import into a mandatory tier, which reaches every Kubernetes frontend's module graph, depends on
 a reviewer noticing.
@@ -270,19 +304,28 @@ a reviewer noticing.
 **Context**: SD1 says the API is "Deprecated". Both frontends enable staticcheck with every
 check on (cli `.golangci.yml` `checks: [all, -ST1000, -ST1003]`, operator default), and SA1019
 reports imports of a deprecated package.
-**Decision**: Use the standard `Deprecated:` paragraph, as SD1 says. The proposal and the
-report state the cost: the cascade's library bump PR in each frontend can show SA1019 in lint
-until that frontend's adoption change lands. It still compiles, which is SD1's stated purpose.
-Section 5 measures this against both frontends instead of assuming it.
+**Decision**: Use the standard `Deprecated:` paragraph, as SD1 says. Both frontends run a
+full golangci-lint with staticcheck on every PR (the cli through golangci-lint-action with no
+`only-new-issues`), so the cascade's library bump PR in each frontend would turn lint red. Each
+frontend's bump PR therefore carries the mechanical import swap `opm/helper/objectset` to
+`opm/k8s/object` (cli `internal/workflow/render/render.go`, `validation.go` and their tests;
+operator `internal/reconcile/resolution.go`, `internal/render/kernel_module_renderer.go` and
+their tests). `Duplicates`, `Duplicate`, `Identity`, `Producer` and
+`DuplicateIdentitiesError` keep their names and signatures, so the swap is the import line
+and the package qualifier. cli-e2e5 and op-e2e5 still do the rest of the adoption. Section 5
+measures the SA1019 count against both frontends as evidence.
 **Rationale**: A prose-only "superseded" note would avoid the lint finding but would not be the
-deprecation SD1 asks for. The supervisor decides how the bump PRs absorb it.
+deprecation SD1 asks for. The bump still compiles without the swap, which is SD1's purpose; the
+swap keeps the bump PR's lint green too.
 
 ### KO11: The docs say what exists
 
-**Decision**: `README.md` (§ Helper boundary), `AGENTS.md` (rules line and layout) and
-`CONSTITUTION.md` Principle III drop "planned" for `opm/k8s/` and name `labels` and `object`.
-They locate edits by text, because lib-c2 moved lines. The layout marks `helper/objectset/` as
-Deprecated. `AGENTS.md` adds `k8s` to the commit scopes and one bullet under "CUE toolchain
+**Decision**: `README.md` (§ Helper boundary, the Layout tree and the bullet that names
+`opm/helper/objectset` for Kubernetes vocabulary), `AGENTS.md` (rules line and layout) and
+`CONSTITUTION.md` (Principle III and the helper list that names objectset) drop "planned" for
+`opm/k8s/` and name `labels` and `object`.
+They locate edits by text, because lib-c2 moved lines. Every layout and list that names
+`objectset` marks it Deprecated with its replacement. `AGENTS.md` adds `k8s` to the commit scopes and one bullet under "CUE toolchain
 pin": `k8s.io/apimachinery` in `go.mod` (v0.36.4) is, by MVS, every embedder's apimachinery
 floor, like `cuelang.org/go`. It states no bump policy (SD24). The ADR-011 Status gains an
 "Amended 2026-10-05 by add-kubernetes-object-packages" sentence covering three things:
@@ -299,8 +342,8 @@ names `opm/k8s/object.Resource` as the Kubernetes wrapper. That is prose only, w
 - **Two duplicate-identity copies.** A fix to one must reach the other until removal. Mitigation:
   the helper copy is frozen (Deprecated), the ported tests are identical, and removal follows the
   frontends' adoption.
-- **SA1019 in frontend lint on the bump PR** (KO10). Mitigation: measured in section 5 and
-  reported. Adoption removes it.
+- **SA1019 in frontend lint on the bump PR** (KO10). Mitigation: each bump PR carries the
+  mechanical import swap; the count is measured in section 5 and reported.
 - **Go floor 1.26.0** shuts out an embedder on Go 1.25. Mitigation: the only embedders are on
   1.26. 0012:D2 accepted the apimachinery floor.
 - **Weight-table contradictions with Flux** stay (KO7). Mitigation: they are documented and

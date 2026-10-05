@@ -6,7 +6,8 @@ come from the beta-1 kernel-plan walkthrough (owner, 2026-10-02/03), where they 
 and e5:
 
 - **e2.** The cli and the operator each carry a `pkg/core` package. Both copies are
-  byte-identical at their `origin/main` (cli `0b37e3f2`, opm-operator `9b83611`): a `Resource`
+  byte-identical at their `origin/main` (cli `0b37e3f2`, re-checked unchanged at `1338e700`;
+  opm-operator `9b83611`): a `Resource`
   that wraps a rendered `cue.Value` with its instance, component and transformer provenance,
   `MarshalJSON` and `ToUnstructured` on it, and the OPM label vocabulary with `IsOPMManagedBy`.
   The operator also carries `ResourceFromCompiled`, and the cli copies the same fields inline
@@ -44,13 +45,15 @@ derive inventory entries from that one converted set.
   - `Resource` is the frontends' wrapper, field for field (`Value cue.Value` plus `Instance`,
     `Component` and `Transformer`). It keeps the accessors (`Kind`, `Name`, `Namespace`,
     `APIVersion`, `GVK`, `Labels`, `Annotations`, `String`) and the conversions (`MarshalJSON`,
-    `ToUnstructured`). `NewResource` and `Resources` build it from `*kernel.Compiled`, which
+    `ToUnstructured`). `labels.Component` keeps its key's name, and its doc says it is the OPM
+    object category, not a component name (design KO2). `NewResource` and `Resources` build it from `*kernel.Compiled`, which
     replaces `ResourceFromCompiled` and the cli's inline copy.
   - `Export` exports each resource from CUE exactly once. It returns, index-aligned with its
     input, the JSON bytes, the decoded `*unstructured.Unstructured` and the provenance. A caller
     can then compute a digest, build apply objects and derive inventory entries from one export
     and drop the CUE values straight after. `*ExportError` names the failing resource and
-    whether the CUE export or the JSON decode failed.
+    whether the CUE export or the JSON decode failed; a value that exports to JSON that is not
+    an object (a list, a string or `null`) is a decode failure.
   - The kind-class weight table (`Weight` plus the `Weight*` constants), `Sort` and `Direction`
     are ported unchanged from `cli/pkg/resourceorder` at cli `origin/main` `0b37e3f2`.
     `GetWeight` becomes `Weight`.
@@ -61,8 +64,9 @@ derive inventory entries from that one converted set.
   - `Duplicates`, `Duplicate`, `Identity`, `Producer` and `DuplicateIdentitiesError` are copied
     from `opm/helper/objectset` with their behaviour and wording unchanged.
   - A documentation-only test lists Flux's `ReconcileOrder` kinds (fluxcd/pkg/ssa v0.77.0, the
-    operator's pin) as literals, with no Flux import. It records every pair the library orders
-    the other way, so a table change that adds or removes a contradiction shows up in review.
+    operator's pin) as literals, with no Flux import. Over those kinds, the library's table
+    kinds and one custom kind (unlisted kinds rank 0 in Flux), it records every pair the library
+    orders strictly the other way, so a table change that adds or removes a contradiction shows up in review.
 - **`opm/helper/objectset`** stays and is frozen. Its package doc and every exported symbol
   carry `Deprecated:` with the replacement in `opm/k8s/object` (SD1). Its behaviour does not
   change.
@@ -86,9 +90,14 @@ derive inventory entries from that one converted set.
 Not **BREAKING** (SD1). Every addition is new API. Nothing is removed or renamed. Two things are
 observable. The Go floor rises from 1.25.0 to 1.26.0, a floor both frontends already declare.
 Importers of `opm/helper/objectset` (cli and opm-operator) now see a deprecation, which
-staticcheck's SA1019 reports in their lint. Both frontends enable staticcheck with every check
-on, so their library bump PR (the cascade) can turn lint red until each adopts
-`opm/k8s/object`. The bump still compiles.
+staticcheck's SA1019 reports in their lint. Both frontends run a full golangci-lint with
+staticcheck on every PR, so each frontend's cascade bump PR carries the mechanical import swap
+`opm/helper/objectset` to `opm/k8s/object` (cli `internal/workflow/render/render.go`,
+`validation.go` and their tests; operator `internal/reconcile/resolution.go`,
+`internal/render/kernel_module_renderer.go` and their tests). `Duplicates`, `Duplicate`,
+`Identity`, `Producer` and `DuplicateIdentitiesError` keep identical names and signatures, so
+the swap is a few lines and keeps the bump's lint green. Without it the bump still compiles.
+cli-e2e5 and op-e2e5 do the rest of the adoption.
 
 SemVer class: MINOR. Release class of the PR: `feat`.
 
@@ -132,10 +141,12 @@ None.
 
 - Packages: new `opm/k8s/labels` and `opm/k8s/object`. `opm/helper/objectset` gets doc comments
   only. `opm/helper/doc.go` and the `kernel.Compiled` doc comment get prose only. A
-  `//nolint:staticcheck` with its reason goes on the two in-repo test imports of the deprecated
-  package (`opm/helper/objectset/objectset_test.go`, `opm/kernel/flow_integration_test.go`; the
-  kernel test cannot import the tier).
-- Repo files: `go.mod`, `go.sum`, `.golangci.yml`, possibly `.github/workflows/lint.yml` (lint
+  `//nolint:staticcheck` with its reason goes on each line staticcheck reports in the two kernel
+  tests that use the deprecated package (`opm/kernel/flow_integration_test.go` and
+  `opm/kernel/render_test.go`, the import and the `Duplicates` call in each; the kernel tests
+  cannot import the tier). The helper's own external test package needs none.
+- Repo files: `go.mod`, `go.sum`, `.golangci.yml`, `.cascade-frozen` (an entry for the ported
+  duplicates test), possibly `.github/workflows/lint.yml` (lint
   pin), `README.md`, `AGENTS.md`, `CONSTITUTION.md`, `adr/011-kubernetes-tier-beside-the-kernel.md`.
 - Downstream: cli and opm-operator compile unchanged against this tree. The consumer-build job
   must stay green. Their adoption changes (cli-e2e5, op-e2e5) gate on the first library release

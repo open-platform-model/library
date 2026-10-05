@@ -15,7 +15,8 @@ export OPM_REGISTRY="$CUE_REGISTRY"
 cross-process cache race. Rerun `go test ./opm/helper/platformmodule -count=1` on its own before
 treating it as a finding. Commit bodies never start a line with `word(` and carry no bare
 at-sign. The only trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`. Source citations
-for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b83611`.
+for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700`), opm-operator
+`origin/main` `9b83611`.
 
 ## 1. Spike: Go 1.26.0 floor, lint pin and the tier allow list (go.mod, lint; design KO1, KO9)
 
@@ -95,8 +96,10 @@ for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b836
         export feeds every consumer of the object"); input untouched (scenario "The input
         survives the export"); a value with a non-concrete field fails with `*ExportError`,
         `Step == ExportMarshal`, the right `Index` and the Resource named in the message
-        (scenario "A failing export names the resource and the step"); `errors.As` and
-        `Unwrap` work.
+        (scenario "A failing export names the resource and the step"); a concrete list
+        (`[1]`), a string and `null` each fail with `*ExportError`, `Step == ExportDecode` and
+        the right `Index` (scenario "A value that is not an object fails at the decode");
+        `errors.As` and `Unwrap` work.
 
       Verify: `go test ./opm/k8s/object -count=1` green.
 - [ ] 3.4 `task check` green, then commit
@@ -124,8 +127,11 @@ for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b836
         another group is not a cluster definition" and "No cluster definitions, no definition
         stage"; the input slice is unchanged after the call.
       - `flux_order_test.go` (KO7): Flux ssa v0.77.0 `ReconcileOrder.First` and `.Last` as
-        literals, the contradiction set computed and compared with a committed list (each
-        entry commented). Negative check, not committed: lowering `WeightDeployment` below
+        literals; the universe is those 25 kinds, the 26 kind-table kinds and `Widget`, with
+        unlisted kinds at Flux rank 0; a pair counts only when the Flux ranks differ and the
+        library weights are strictly opposite; the set is compared with a committed list (each
+        entry commented), and CustomResourceDefinition before Namespace is asserted to be no
+        contradiction (scenario "Kinds Flux does not list are compared at rank 0"). Negative check, not committed: lowering `WeightDeployment` below
         `WeightService` fails it naming that pair (scenario "A weight edit that creates a
         contradiction is caught").
 
@@ -139,7 +145,8 @@ for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b836
 - [ ] 5.1 `opm/k8s/object/duplicates.go`: copy of `opm/helper/objectset/objectset.go` with the
       same exported names, signature and wording. Move the objectset package doc's content
       into the `object` package doc's duplicates paragraph. `duplicates_test.go`: the helper
-      test, ported whole. Verify: `go test ./opm/k8s/object -count=1` green; a scripted diff
+      test, ported whole. Append an entry for `opm/k8s/object/duplicates_test.go` with the pin
+      `opmodel.dev/catalogs/opm@v4` at the end of `.cascade-frozen`. Verify: `go test ./opm/k8s/object -count=1` green; a scripted diff
       of the two implementation files and of the two test files, after normalising package
       and import names, is empty (duplicate-object-identities scenario "Both homes agree on a
       render"; not committed).
@@ -147,9 +154,11 @@ for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b836
       the package doc and to each exported symbol (`Identity`, `Producer`, `Duplicate`,
       `Duplicates`, `DuplicateIdentitiesError`), with no code change (scenario "The deprecated
       home says where to go"). Add `//nolint:staticcheck // SA1019: the deprecated copy is
-      tested until its removal` on the import in `objectset_test.go` and in
-      `opm/kernel/flow_integration_test.go`. Verify: `task lint` green, and with either nolint
-      removed it reports SA1019 (not committed).
+      tested until its removal` on the import and on the `objectset.Duplicates` call in
+      `opm/kernel/flow_integration_test.go` and in `opm/kernel/render_test.go`.
+      `objectset_test.go` needs none (staticcheck exempts a package's own external test
+      package). Verify: `task lint` green, and with the nolints in
+      `flow_integration_test.go` removed it reports SA1019 (not committed).
 - [ ] 5.3 Whole-tree checks on the final code:
       - `task check`;
       - `go test -race ./opm/k8s/... -count=1`;
@@ -169,17 +178,21 @@ for ported code: cli `origin/main` `0b37e3f2`, opm-operator `origin/main` `9b836
 
 - [ ] 6.1 Locate every edit by text, not by line number:
       - `README.md` § Helper boundary: "the planned Kubernetes tier" becomes the tier with
-        `labels` and `object`; the lint paragraph counts the new rules.
+        `labels` and `object`; the lint paragraph counts the new rules. The Layout tree gains
+        `k8s/labels/` and `k8s/object/` rows, and its `objectset/` row is marked Deprecated
+        with its replacement. The bullet that presents `opm/helper/objectset` as the place for
+        Kubernetes vocabulary names `opm/k8s/object` instead.
       - `AGENTS.md`: the rules line ("`opm/k8s/` (planned, no package yet)"); the layout
         block (the `k8s/` row becomes `k8s/labels/` and `k8s/object/` rows, and
         `helper/objectset/` is marked Deprecated with its replacement); `k8s` in the commit
         scopes; one bullet under "CUE toolchain pin" on the apimachinery MVS floor (no bump
         policy, SD24).
       - `CONSTITUTION.md` Principle III: "`opm/k8s/` (planned)" becomes the tier as it now
-        exists.
+        exists; the helper list that names objectset marks it Deprecated.
 
       Verify: `grep -n "planned" README.md AGENTS.md CONSTITUTION.md` shows no `opm/k8s`
-      hit; the layout block is still one code fence.
+      hit; `grep -n objectset README.md AGENTS.md CONSTITUTION.md | grep -v -i deprecated`
+      shows no line presenting it as current; the layout block is still one code fence.
 - [ ] 6.2 `adr/011-kubernetes-tier-beside-the-kernel.md`: one Status sentence, "Amended
       2026-10-05 by add-kubernetes-object-packages", covering the first packages `labels` and
       `object`, item 9 carried out as copy, deprecate, then remove (SD1), and item 2's
