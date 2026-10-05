@@ -118,6 +118,10 @@ demand as typed data") over the plan's literal field placement.
 normalises the field to `[]string{}`, so that a status write does not alternate between absent and
 empty (the operator's existing guarantee).
 
+**The contract op-i3g2 consumes.** The operator reads `out.Diagnostics.RequiredContracts` from a
+`RenderResult`, and `rerr.Diagnostics.RequiredContracts` from a `*RenderError` if it wants demand on
+refusals. There is no `RenderResult.RequiredContracts`. The PR body names this field path.
+
 **Where demand is not reported.** A render that fails before evaluation returns a plain error,
 not a `*RenderError`: a missing input or Source, the core floor, staging, uncovered paths, skew
 under `SkewRefuse`, or a cancelled context. A build error or a diagnostics decode failure also
@@ -139,6 +143,15 @@ known list on a plain error. The operator already does this today when the rende
   matching sees, and this change does not make it stricter than the matcher. Making both strict is
   a separate decision about the matcher.
 - An errored `components` struct fails the build, as it does today.
+
+- A `#traits` that exists but is bottom (a conflict) is the one place where the guard could be
+  looser than the operator walk. The walk tests `Exists()`, which is true for a bottom value, then
+  calls `Fields()`, which errors, so the walk fails closed. The glue's `!= _|_` drops the value.
+  The second spike in section 1 (`bad_traits`) pins what `Render` does at the base for a
+  component whose `#traits` is a top-level conflict. If the render already refuses, this
+  difference is unreachable through a successful render, and the field's godoc says so. If the
+  render returns a result, the implementer stops before section 2 and reports to the supervisor,
+  because the demand would then be looser than `demand.go`.
 
 The spike in section 1 checks the first point. It renders a test-only instance whose component has
 no `#resources`, using a `*module.Instance` struct literal whose `Source` names a plain CUE package
@@ -173,6 +186,10 @@ notes they are missing. This change leaves them out:
 This is the reading that matches the owner's decision, which is that the operator drops the walk.
 
 ### D6. `Instance.ModuleMetadata()` decodes on call
+
+`ModuleMetadata()` is all or nothing: on any decode failure it returns nil, with no partial fill.
+The cli's local `decodeModuleMetadata` is best-effort and keeps the fields that decoded, so
+cli-d2-accessors maps nil to the zero metadata, as its missing-`#module` path does today.
 
 ```go
 // ModuleMetadata returns the metadata of the module this instance was
@@ -239,13 +256,78 @@ these accessors are not on `RenderResult`. There is no `Module.InitValues()` (SD
   render. The matcher already forces the same maps, so the extra cost should be small. Section 4
   measures it with the memprobe setup that g4 used (cert_manager `r1-nil`, `RUNS=5`). If
   `render_peak_heap` or `user_s` rises by more than 5% against the base, the implementer stops and
-  reports to the supervisor.
+  reports to the supervisor. `render_peak_heap` is the hard stop. `user_s` includes about 2 s of
+  fixed startup and moves with host load, so a `user_s` rise over 5% is re-measured with base and
+  head run back to back before it is reported.
 - **Errored `#traits` is not fail-closed** (design D3). It matches the matcher, and it is stated in the
   field's godoc.
 - **Merge order.** lib-d1d3 also edits `render.go`, in disjoint hunks. lib-h4 rebases onto this
   change (SD14). Whichever of this change and lib-d1d3 merges second takes the merge.
 - **Demand absent on plain errors** (design D2). This is unchanged for the operator, which already keeps
   its last status on those paths. op-i3g2 must keep doing that.
+
+## Research & Decisions
+
+### Where the demand field lives
+
+**Context**: The plan entry named `RenderResult.RequiredContracts` and also asked for demand on
+`RenderError.Diagnostics`.
+
+**Explored**: `RenderDiagnostics` rides on both `RenderResult.Diagnostics` and
+`RenderError.Diagnostics` (`opm/kernel/render.go`), and is decoded once by
+`decodeRenderDiagnostics` under one concreteness check.
+
+**Decision**: One field, `RenderDiagnostics.RequiredContracts` (D2). op-i3g2 reads
+`Diagnostics.RequiredContracts`.
+
+**Rationale**: One value to keep correct instead of two, and it meets 0013:D24 on both success and
+refusal. It follows the owner's "exports contract demand as typed data" over the plan's literal
+placement.
+
+### Whether to add `opm/schema` paths for `#resources` and `#traits`
+
+**Context**: The operator's `demand.go:17-24` notes that the paths are missing, and the plan entry
+listed them.
+
+**Explored**: The `schema-dispatch` requirement "Path inventory exposed as package-level vars" and
+its scenario "Matcher and transformer paths are gone", which names `ComponentResources` and
+`ComponentTraits` as identifiers that must not exist; the glue, which reads both in CUE; the
+operator walk, which op-i3g2 deletes.
+
+**Decision**: No new paths (D5). The parity test builds its paths locally.
+
+**Rationale**: A path with no production reader is removed under that requirement, and once the
+operator drops its walk nothing reads them.
+
+### Decode module metadata on call, or once at acquisition
+
+**Context**: The plan said "decoded once in processInstance".
+
+**Explored**: Storing a decode needs an exported field or setter on `module.Instance` that the
+kernel package can write, and the "Uniform Artifact Shape" rule allows three fields only. A
+struct-literal `Instance` (frontends' tests, `opm/kernel/validate_test.go`) would return nil while
+its `Package` holds the metadata. Also read: the cli's raw reads (`render.go`, `values.go`,
+`instinit/values.go`) and its best-effort `decodeModuleMetadata`.
+
+**Decision**: Decode on call with the existing unexported `decodeModuleMetadata` (D6), all or
+nothing.
+
+**Rationale**: No new API besides the accessor, `Package` stays the source of truth, and the cost
+is one lookup and one decode of a small struct.
+
+### Fail-closed boundary of the demand
+
+**Context**: Owner i3: the library "fails closed itself". The operator walk refuses on a bottom
+`#traits` (`Exists()` then `Fields()`).
+
+**Explored**: The matcher's unguarded `#resources` read and its `!= _|_` guard on `#traits`, and
+the two spikes in section 1 (`no_resources`, `bad_traits`).
+
+**Decision**: `#resources` unguarded, and `#traits` behind the matcher's guard (D3), subject to the
+`bad_traits` spike.
+
+**Rationale**: Demand sees exactly what matching sees, and the spikes show whether the render
+refuses where the walk would have.
 
 ## Measurements
 

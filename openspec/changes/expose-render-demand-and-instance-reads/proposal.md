@@ -31,8 +31,9 @@ only. SD14 folds two spec and docs fixes into this change: the duplicate artifac
 
 - `render.cue.tmpl`: `diagnostics` gains `requiredContracts`, the sorted, deduplicated contract
   keys of every component in the build (`#resources` read unguarded, `#traits` when present). It
-  covers components omitted under `SkipUnprovided`, and it will cover components the kernel
-  synthesises once those exist.
+  covers components omitted under `SkipUnprovided`. 0013's target schema adds synthesised components
+  through the render glue, not through the instance's `components`, so the change that adds them
+  must add them to the set this field iterates.
 - `opm/kernel`: `RenderDiagnostics.RequiredContracts []string`, decoded under the existing
   concreteness check. It is set on every `RenderResult` and on every `*RenderError`, and it is an
   empty, non-nil slice for an instance with no components. A component whose `#resources` is
@@ -63,6 +64,11 @@ Not in this change:
   no Go code reads them: the glue reads both in CUE, and the operator drops its walk. The
   `schema-dispatch` spec removes a path with no reader and names `ComponentResources` and
   `ComponentTraits` among the paths that must not exist. design.md D5 records the reasoning.
+- The `schema-dispatch` requirement "Path inventory exposed as package-level vars" still lists
+  the readers of `Values`, `Module` and `DebugValues` as before. After this change they also have
+  production readers in `Instance.Values()`, `Instance.ModuleMetadata()` and `Module.DebugValues()`,
+  so the list is stale. This change does not MODIFY that requirement, because lib-h2 (round 2,
+  `CatalogProvides`) changes the same list. The fix belongs to lib-c4, which merges after both.
 - Removing or deprecating any existing API. `Package` stays public, and `schema.DebugValues`,
   `schema.Values` and `schema.Module` stay.
 

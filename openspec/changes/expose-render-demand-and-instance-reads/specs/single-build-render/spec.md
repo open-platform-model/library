@@ -20,6 +20,11 @@ Computing the demand SHALL fail closed. A component's `#resources` is read with 
 - **WHEN** an instance renders whose component attaches no `#traits`
 - **THEN** that component's resource keys are listed and the render does not fail on the absent traits
 
+#### Scenario: A component with traits and no resources
+
+- **WHEN** an instance renders whose component has an empty `#resources` map and attaches `#traits`
+- **THEN** that component's trait keys are listed on `RequiredContracts`
+
 #### Scenario: No components
 
 - **WHEN** an instance with no components renders
@@ -42,5 +47,5 @@ Computing the demand SHALL fail closed. A component's `#resources` is read with 
 
 #### Scenario: The demand equals the declared contracts of the instance
 
-- **WHEN** any served render fixture renders and the build reaches its diagnostics
+- **WHEN** any served render fixture whose instance has no synthesised components renders and the build reaches its diagnostics
 - **THEN** `RequiredContracts` equals the sorted, deduplicated `#resources` and `#traits` keys of the instance package's own components
