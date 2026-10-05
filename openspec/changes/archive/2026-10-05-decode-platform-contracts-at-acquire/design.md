@@ -251,7 +251,8 @@ v1.0.0-beta.6), Go 1.26.5.
   `TestParity_ShippedCatalogDiscriminated`, `TestParity_Probes`, `TestRender_InventoryParity` and
   the three `TestFlow_*` tests ran and passed.
 - **Consumer builds (task 3.2).** `GOTOOLCHAIN=local bash .tasks/consumer-build.sh` against fresh
-  clones of cli `main` `79fae49` and opm-operator `main` `d973660`: both build and vet against this
+  clones of cli `main` `aaf70c3` and opm-operator `main` `b1d226b` (re-run after the code review's
+  fixes; the first run was against cli `79fae49` and opm-operator `d973660`): both build and vet against this
   tree, so `go vet`'s copylocks reports no copied `Platform` in either. opm-operator's
   `./internal/platform/...` and `./internal/controller/...` unit tests (envtest assets 1.36.0,
   library selected through the script's `go.work`, nothing written to the clone) pass, including
