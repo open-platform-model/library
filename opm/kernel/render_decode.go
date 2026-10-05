@@ -24,7 +24,6 @@ type glueDiagnostics struct {
 	OverSubscribed []oerrors.OverSubscribedContract `json:"overSubscribed"`
 	Collisions     []oerrors.ContractCollision      `json:"collisions"`
 	Routable       bool                             `json:"routable"`
-	FailedPairs    []gluePair                       `json:"failedPairs"`
 }
 
 type gluePair struct {
@@ -83,7 +82,7 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacemen
 		Collisions:       g.Collisions,
 		Routable:         g.Routable,
 		UnhandledTraits:  map[string][]string{},
-		FailedPairs:      pairsOf(g.FailedPairs),
+		FailedPairs:      []RenderPair{},
 		ResolvedVersions: rows,
 		Replacements:     replacements,
 	}
@@ -142,36 +141,69 @@ func gateErrors(diag RenderDiagnostics) error {
 	return errors.Join(gate...)
 }
 
-// decodeRendered reads each matched pair's output off `rendered`, in pair
-// order. A pair the glue reported as failed carries its CUE cause; a pair
-// whose output is not concrete (invisible to the glue's `== _|_` guards) is
-// refused here at a path naming the pair. Output kind dispatch: a struct is
-// one object, a list is one object per item.
-func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string) ([]*Compiled, error) {
+// pairOutput looks up one matched pair's output on the glue's `rendered`
+// struct, keyed by pair so every error names the pair.
+func pairOutput(rendered cue.Value, p RenderPair) cue.Value {
+	return rendered.LookupPath(cue.MakePath(cue.Str(pairKey(p)))).LookupPath(pathOutput)
+}
+
+// pairKey is the glue's `rendered` key for one matched pair.
+func pairKey(p RenderPair) string {
+	return fmt.Sprintf("%s :: %s", p.Component, p.Transformer)
+}
+
+// outputFailed reports whether a pair's output is an error: an error at the
+// output's root, one nested anywhere inside it (core's output disjunction
+// turns it into an error at the root), or a root that is itself incomplete.
+// A missing output is not listed (a non-existent value also carries an
+// error, so Exists is checked first), and neither is a struct or list whose
+// only defect is non-concrete fields: the concreteness check refuses those.
+func outputFailed(out cue.Value) bool {
+	return out.Exists() && out.Err() != nil
+}
+
+// failedPairs names the matched pairs whose rendered output is an error, in
+// pair order. It reads `rendered` off the built value the way decodeRendered
+// does; when `rendered` is absent it names none, and the caller's own
+// refusal stands.
+func failedPairs(built cue.Value, pairs []RenderPair) []RenderPair {
+	failed := []RenderPair{}
 	rendered := built.LookupPath(pathRendered)
 	if !rendered.Exists() {
-		return nil, fmt.Errorf("render module carries no rendered field: %w", built.Err())
+		return failed
 	}
-	failed := map[RenderPair]bool{}
-	for _, p := range diag.FailedPairs {
-		failed[p] = true
+	for _, p := range pairs {
+		if outputFailed(pairOutput(rendered, p)) {
+			failed = append(failed, p)
+		}
+	}
+	return failed
+}
+
+// decodeRendered reads each matched pair's output off `rendered`, in pair
+// order. A pair whose output is an error carries its CUE cause and is
+// returned in failed, in pair order; a pair whose output is not concrete is
+// refused here at a path naming the pair. Output kind dispatch: a struct is
+// one object, a list is one object per item.
+func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string) (compiled []*Compiled, failed []RenderPair, err error) {
+	failed = []RenderPair{}
+	rendered := built.LookupPath(pathRendered)
+	if !rendered.Exists() {
+		return nil, failed, fmt.Errorf("render module carries no rendered field: %w", built.Err())
 	}
 
-	compiled := make([]*Compiled, 0, len(diag.Pairs))
+	compiled = make([]*Compiled, 0, len(diag.Pairs))
 	var errs []error
 	for _, p := range diag.Pairs {
-		key := fmt.Sprintf("%s :: %s", p.Component, p.Transformer)
-		out := rendered.LookupPath(cue.MakePath(cue.Str(key))).LookupPath(pathOutput)
+		out := pairOutput(rendered, p)
 		if !out.Exists() {
 			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer,
-				Cause: fmt.Errorf("rendered output missing at %q", key)})
+				Cause: fmt.Errorf("rendered output missing at %q", pairKey(p))})
 			continue
 		}
-		if err := out.Err(); err != nil || failed[p] {
-			if err == nil {
-				err = errors.New("transformer output is an error")
-			}
-			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer, Cause: err})
+		if outputFailed(out) {
+			failed = append(failed, p)
+			errs = append(errs, &oerrors.TransformError{Component: p.Component, Transformer: p.Transformer, Cause: out.Err()})
 			continue
 		}
 		if err := out.Validate(cue.Concrete(true)); err != nil {
@@ -187,9 +219,9 @@ func decodeRendered(built cue.Value, diag RenderDiagnostics, instanceName string
 		compiled = append(compiled, items...)
 	}
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("executing transforms: %w", errors.Join(errs...))
+		return nil, failed, fmt.Errorf("executing transforms: %w", errors.Join(errs...))
 	}
-	return compiled, nil
+	return compiled, failed, nil
 }
 
 func splitOutput(out cue.Value, p RenderPair, instanceName string) ([]*Compiled, error) {

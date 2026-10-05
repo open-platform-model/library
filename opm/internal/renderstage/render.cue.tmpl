@@ -173,8 +173,11 @@ _components:   instance.components
 				// Rung 2, always-unify: plain `&` over every FQN present on
 				// both sides; "structurally agrees" is "not bottom", which
 				// `== _|_` answers without letting the bottom escape.
+				// Evaluated for this component's candidates only: every
+				// reader looks it up by a candidate key.
 				_unify: {
-					for tfqn, tf in #transformers {
+					for tfqn, _ in _candidates
+					let tf = #transformers[tfqn] {
 						(tfqn): {
 							conflicts: [
 								if tf.requiredResources != _|_
@@ -193,9 +196,11 @@ _components:   instance.components
 
 				// Rung 3, predicate: required labels, resources and traits
 				// all present. Label values are unified, so every type
-				// #LabelsAnnotationsType admits is compared.
+				// #LabelsAnnotationsType admits is compared. Evaluated for
+				// this component's candidates only, like rung 2.
 				_pred: {
-					for tfqn, tf in #transformers {
+					for tfqn, _ in _candidates
+					let tf = #transformers[tfqn] {
 						(tfqn): {
 							missingLabels: [
 								if tf.requiredLabels != _|_
@@ -431,12 +436,14 @@ _components:   instance.components
 	]
 	// Every CANDIDATE the always-unify rung disqualified, with the
 	// conflicting FQNs, whether or not the demand later resolved through
-	// another candidate.
+	// another candidate. Rows follow #transformers order: the candidate
+	// filter picks the rows, and iterating #transformers (a presence test,
+	// no unification) fixes their order.
 	unifyFailures: [
 		for cid, v in verdicts
-		for tfqn, u in v._unify
+		for tfqn, _ in #transformers
 		if v._candidates[tfqn] != _|_
-		if !u.ok {{component: cid, transformer: tfqn, conflicts: u.conflicts}},
+		if !v._unify[tfqn].ok {{component: cid, transformer: tfqn, conflicts: v._unify[tfqn].conflicts}},
 	]
 	// Skipped rows are not in `unresolved`, and an omitted component is
 	// not in `unmatched`, so the switch reaches the gate through these two.
@@ -547,18 +554,6 @@ diagnostics: {
 			}
 		}
 	}
-	// Error-class pair failures as data: an output that is bottom. An
-	// INCOMPLETE output is not bottom and is caught by the kernel's per-pair
-	// concreteness check instead (measured boundary, 0019 D10).
-	failedPairs: [
-		for p in match.pairs
-		let applied = (_transformers[p.transformer].#transform & {
-			#moduleInstance: instance
-			#component:      _components[p.component]
-			#context: #runtimeName: _runtimeName
-		}).output
-		if applied == _|_ {p},
-	]
 }
 
 // The fail-closed gate (0010 D28, D37) as one unification: an unresolved

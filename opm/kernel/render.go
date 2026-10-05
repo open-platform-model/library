@@ -181,7 +181,10 @@ type RenderDiagnostics struct {
 	// no matched transformer handles. Advisory: a frontend formats it.
 	UnhandledTraits map[string][]string
 
-	// FailedPairs names matched pairs whose transformer output errored.
+	// FailedPairs names the matched pairs whose transformer output is an
+	// error, in pair order. It is filled on every RenderError raised after
+	// the build, a gate refusal included, and is empty on a successful
+	// render. An output that is only non-concrete is not listed.
 	FailedPairs []RenderPair
 
 	// OverSubscribed is every provider-fulfilled contract key that
@@ -396,10 +399,12 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 		return built, nil, err
 	}
 	if gate := gateErrors(diag); gate != nil {
+		diag.FailedPairs = failedPairs(built, diag.Pairs)
 		return built, nil, &RenderError{Diagnostics: diag, Err: gate}
 	}
-	compiled, err := decodeRendered(built, diag, in.Instance.Metadata.Name)
+	compiled, failed, err := decodeRendered(built, diag, in.Instance.Metadata.Name)
 	if err != nil {
+		diag.FailedPairs = failed
 		return built, nil, &RenderError{Diagnostics: diag, Err: err}
 	}
 
