@@ -2,7 +2,7 @@
 
 ## Purpose
 Defines how a library pull request is checked against the library's consumers, cli and
-opm-operator, before it merges: each consumer's main is built and vetted against the PR through a
+opm-controller, before it merges: each consumer's main is built and vetted against the PR through a
 throwaway Go workspace that never touches a tracked tree, a break is reported with the symbol it
 breaks without blocking the merge, and the workflow that does it holds only a read token.
 

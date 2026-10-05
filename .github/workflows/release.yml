@@ -20,7 +20,7 @@ jobs:
     environment: release
     permissions: {}
     # Read by the cascade notify job (workspace RELEASING.md, "The cascade");
-    # same shape as opm-operator's release workflow.
+    # same shape as opm-controller's release workflow.
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}

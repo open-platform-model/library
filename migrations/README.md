@@ -16,7 +16,7 @@ The library is pre-GA, through its alpha and beta lines alike. Until the first G
   release-please renders that footer into the `CHANGELOG.md` entry of the `-beta.N` release
   it lands in. The rule is recorded in
   [ADR-010](../adr/010-beta-migration-notes-in-changelog.md).
-- Both consumers (`cli`, `opm-operator`) live in this workspace and migrate in the same
+- Both consumers (`cli`, `opm-controller`) live in this workspace and migrate in the same
   coordinated PR wave, so a standing recipe document has no audience yet.
 
 From the first GA release onward this directory becomes mandatory and CI-enforced. The
@@ -56,7 +56,7 @@ One paragraph: the removed/changed surface and why.
 
 ## Migration recipe
 
-Old-vs-new table or diff. Name the affected downstream call sites (`cli`, `opm-operator`)
+Old-vs-new table or diff. Name the affected downstream call sites (`cli`, `opm-controller`)
 when known.
 ```
 

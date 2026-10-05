@@ -12,7 +12,7 @@ The text below is preserved as the record of the decision and its evidence at th
 
 ## Context
 
-The `opm-operator` rewrite onto the kernel needs to render many `ModuleRelease`s concurrently against a single, long-lived `*MaterializedPlatform` — materialize once (per Platform-CR generation), reuse across all releases. Every other operator need is already satisfied by the library (Kernel lifetime, `sync.Once` schema cache, `Materialize` + concurrency-safe `LRU`). The render path is the one gap.
+The `opm-controller` rewrite onto the kernel needs to render many `ModuleRelease`s concurrently against a single, long-lived `*MaterializedPlatform` — materialize once (per Platform-CR generation), reuse across all releases. Every other controller need is already satisfied by the library (Kernel lifetime, `sync.Once` schema cache, `Materialize` + concurrency-safe `LRU`). The render path is the one gap.
 
 Two constraints block this on the shipped CUE version (`v0.16.1`):
 
@@ -40,8 +40,8 @@ Alternatives rejected: **shared Kernel + caller mutex** (correct, but serializes
 
 ## Consequences
 
-**Positive:** Concurrent rendering against a single materialized platform becomes possible and parallel; the operator's render path needs no mutex and the materialized platform is reused, not rebuilt. The kernel's concurrency story becomes "per-goroutine Kernel, shared read-only platform" — simpler than making a single Kernel internally thread-safe. The required kernel change is small and contained to `opm/compile`.
+**Positive:** Concurrent rendering against a single materialized platform becomes possible and parallel; the controller's render path needs no mutex and the materialized platform is reused, not rebuilt. The kernel's concurrency story becomes "per-goroutine Kernel, shared read-only platform" — simpler than making a single Kernel internally thread-safe. The required kernel change is small and contained to `opm/compile`.
 
 **Negative / Trade-off:** Production adoption pins CUE `v0.17`, currently alpha; the workspace is on `v0.16.1`, so the recontract either waits for a stable v0.17 or explicitly accepts alpha risk. Measured speedup saturates around four cores (allocator-bound on this workload) — real, but sub-linear; throughput beyond that needs allocation work, not more goroutines. The raw-CUE keystone proves the CUE primitive; the kernel end-to-end path is confirmed by code analysis and the `spike-concurrent-render-v0170` full-flow test, not yet by production code.
 
-**Decoupling:** The operator does not wait on any of this. It ships on `v0.16.1` with a render-path mutex and drops the mutex later, only if and when this ADR's recontract lands. Nothing here is on the operator's critical path.
+**Decoupling:** The controller does not wait on any of this. It ships on `v0.16.1` with a render-path mutex and drops the mutex later, only if and when this ADR's recontract lands. Nothing here is on the controller's critical path.

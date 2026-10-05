@@ -1,6 +1,6 @@
 # OPM kernel
 
-The reference implementation of the Open Platform Model runtime, packaged as a Go library. Every OPM front-end — the `opm` CLI, the `opm-operator` controller, the planned Crossplane composition function, and any future runtime — embeds this kernel and inherits its behaviour.
+The reference implementation of the Open Platform Model runtime, packaged as a Go library. Every OPM front-end — the `opm` CLI, the `opm-controller` Kubernetes controller, the planned Crossplane composition function, and any future runtime — embeds this kernel and inherits its behaviour.
 
 The kernel owns:
 
@@ -13,10 +13,10 @@ The kernel does **not** own:
 
 - Process model, command flags, exit codes, stdout/stderr formatting (lives in CLI / controller).
 - Logging output (the kernel logs nothing; any logging lives with the caller).
-- Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-operator`).
+- Cluster reconciliation, status reporting, GitOps wiring (lives in `opm-controller`).
 - Platform-native identity — frontends wrap rendered values into their own platform-specific resource types.
 - Platform directory lifecycle. A platform is a CUE module on disk that imports its catalogs; the frontend writes it by hand or generates it from coordinates with the opt-in `opm/helper/platformmodule` helper, owns where it lives (generations, caching), and the kernel acquires and renders against it.
-- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, `Platform` and `Catalog` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / operator / XR fn).
+- Debug-overlay policy. `#ModuleDebug` is **not** a kernel artifact; the kernel accepts only `Module`, `ModuleInstance`, `Platform` and `Catalog` (see "Artifact types" below). Debug values live as a `debugValues` field on `Module` itself; whether the frontend layers them into the values stack is policy that lives in the helper layer (CLI / controller / XR fn).
 
 ## Artifact types
 
@@ -88,7 +88,7 @@ The two tracks are independent. The kernel's schema loader pins an exact core re
 
 ### Beta promise
 
-From its first beta, the library is on the path to GA, together with the other prerelease lines (`opmodel.dev/core@v2`, cli, opm-operator). A breaking change is still allowed during beta, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the [CHANGELOG](CHANGELOG.md) shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)). It advances the `-beta.N` counter and never moves the Go module path to a new major (no `v2` of the library during beta). Stable lines (`opmodel.dev/catalogs/opm@v4` and the module fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false` plus a visible carrier commit per package, in dependency order. GA is cut only when the GA exit criteria in 0021:D8 (workspace root, `enhancements/0021/03-decisions.md`) hold, among them the library's API-quality criteria, 0021:D8:R11 to 0021:D8:R14: no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change.
+From its first beta, the library is on the path to GA, together with the other prerelease lines (`opmodel.dev/core@v2`, cli, opm-controller). A breaking change is still allowed during beta, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the [CHANGELOG](CHANGELOG.md) shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)). It advances the `-beta.N` counter and never moves the Go module path to a new major (no `v2` of the library during beta). Stable lines (`opmodel.dev/catalogs/opm@v4` and the module fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false` plus a visible carrier commit per package, in dependency order. GA is cut only when the GA exit criteria in 0021:D8 (workspace root, `enhancements/0021/03-decisions.md`) hold, among them the library's API-quality criteria, 0021:D8:R11 to 0021:D8:R14: no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change.
 
 Pin an explicit `v1.0.0-beta.N` (`go get github.com/open-platform-model/library@v1.0.0-beta.N`): `go get ...@latest` resolves the retired `v0.7.0`.
 
@@ -101,7 +101,7 @@ Key pieces:
 - `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata types, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
 - `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to callers. `kernel.WithRegistry(string)` sets the ONE registry mapping every kernel operation resolves through; the [`opm/kernel` package documentation](opm/kernel/doc.go) lists the operations.
 
-Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
+Frontends (CLI, controller, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
 
 ## Helper boundary (`opm/helper/`)
 
@@ -112,7 +112,7 @@ The boundary is enforced by `task lint`, not just documented: a `depguard` rule 
 Today this layer holds exactly two subpackages:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
-- `opm/helper/objectset` — **Deprecated: use `opm/k8s/object`.** Duplicate rendered object identities: `Duplicates` and `DuplicateIdentitiesError`, identical to the copy in `opm/k8s/object`, which is now the home of that Kubernetes vocabulary. This copy is frozen and stays only until the cli and the operator have moved their imports; a later change removes it.
+- `opm/helper/objectset` — **Deprecated: use `opm/k8s/object`.** Duplicate rendered object identities: `Duplicates` and `DuplicateIdentitiesError`, identical to the copy in `opm/k8s/object`, which is now the home of that Kubernetes vocabulary. This copy is frozen and stays only until the cli and the controller have moved their imports; a later change removes it.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 
