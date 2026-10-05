@@ -39,7 +39,7 @@ The check is not wired into `task check`; library#198, which tracks the ungated 
 - [ ] 4.1 After the other round-8 library changes merge: `git fetch origin` and `git merge origin/main` (the squash drops the merge commit). Keep their text; where one of them changed a requirement this change's deltas copy, re-copy the delta from the new main spec and change only the Source words.
 - [ ] 4.2 Re-run the walkthrough-id check, the 2.6 greps and the 3.2 check over the merged tree. Apply sections 2 and 3's form to any new citation the merged changes added (for example a comment citing g2, d1 or e4, or a newly archived change).
 - [ ] 4.3 Refresh ADR-013's Landed column against the PRs merged by now in every repo it names, including the round-8 library PRs (the g2, d1 and e4 refinements) and any frontend half that has merged. Keep "pending" where a decided half has not merged.
-- [ ] 4.4 Cross-check: `task api:diff` reports no incompatible change of this branch. Run `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator `main` (each in its own work directory under the scratch dir), and both build and vet green. `openspec validate --all --strict` passes.
+- [x] 4.4 Cross-check: `task api:diff` reports no incompatible change of this branch. Run `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator `main` (each in its own work directory under the scratch dir), and both build and vet green. `openspec validate --all --strict` passes.
 - [ ] 4.5 Gates green. If 4.1 to 4.3 changed anything, commit `docs(adr): bring ADR-013 up to date with main`; otherwise record "no sweep changes" in this box.
 
 ## 5. Verify and archive
