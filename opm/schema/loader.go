@@ -41,7 +41,7 @@ import (
 // re-verifies the glue and the fixtures against the new release; a default
 // that floats ahead of the glue breaks every synthesized artifact on a cold
 // cache.
-const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.3"
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.4"
 
 // DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
 // pins, in the canonical "v"-prefixed form a cue.mod dependency carries
