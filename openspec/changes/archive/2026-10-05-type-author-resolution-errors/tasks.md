@@ -39,8 +39,8 @@ the files it names with `git add <file>`.
 ## 5. Verify and archive
 
 - [x] 5.1 Run `openspec verify` for `type-author-resolution-errors` (the repo's openspec-verify-change skill). There must be no CRITICAL finding.
-- [ ] 5.2 At PR time, not in the implement stage: run `openspec archive type-author-resolution-errors --yes`. Then check:
+- [x] 5.2 At PR time, not in the implement stage: run `openspec archive type-author-resolution-errors --yes`. Then check:
   - `fetch-error-classification` carries the restated `Classify` requirement and the two ADDED requirements;
   - its Purpose is edited by hand so that it no longer says `Classify` leaves every author defect unchanged;
   - `openspec validate --specs --strict` passes.
-- [ ] 5.3 Run the gates green, then commit `chore(openspec): archive type-author-resolution-errors`. The archive rides the implementing PR.
+- [x] 5.3 Run the gates green, then commit `chore(openspec): archive type-author-resolution-errors`. The archive rides the implementing PR.
