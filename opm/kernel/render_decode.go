@@ -24,6 +24,9 @@ type glueDiagnostics struct {
 	OverSubscribed []oerrors.OverSubscribedContract `json:"overSubscribed"`
 	Collisions     []oerrors.ContractCollision      `json:"collisions"`
 	Routable       bool                             `json:"routable"`
+	// RequiredContracts is the instance's contract demand, sorted and
+	// deduplicated in the build.
+	RequiredContracts []string `json:"requiredContracts"`
 }
 
 type gluePair struct {
@@ -85,6 +88,13 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacemen
 		FailedPairs:      []RenderPair{},
 		ResolvedVersions: rows,
 		Replacements:     replacements,
+	}
+	// An instance with no components decodes an empty list as nil; report
+	// it as empty so a caller writing it to status never alternates between
+	// absent and empty.
+	diag.RequiredContracts = g.RequiredContracts
+	if diag.RequiredContracts == nil {
+		diag.RequiredContracts = []string{}
 	}
 
 	for _, w := range g.Warnings {

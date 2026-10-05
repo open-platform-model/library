@@ -15,19 +15,19 @@ it is committed. Every commit task stages the files it names with `git add <file
 
 ## 2. render: report every contract a render requires
 
-- [ ] 2.1 `opm/internal/renderstage/render.cue.tmpl`: add the hidden `_demand` struct and `diagnostics.requiredContracts` (design D1), with the comment from D1. `#resources` is read unguarded, and `#traits` behind `!= _|_`.
-- [ ] 2.2 `opm/kernel/render_decode.go`: add `RequiredContracts []string` (json `requiredContracts`) to `glueDiagnostics`. Copy it onto `RenderDiagnostics` in `decodeRenderDiagnostics`, and normalise nil to `[]string{}`.
-- [ ] 2.3 `opm/kernel/render.go`: add `RenderDiagnostics.RequiredContracts` with the godoc from design D2. Also say there that the field is absent on a plain error, and what the `bad_traits` spike showed about a conflicting `#traits`. `opm/kernel/doc.go`: add the field to the list of `RenderDiagnostics` fields and name it as the instance's contract demand. `docs/getting-started.md` and `README.md`: add it wherever they list the `RenderDiagnostics` fields.
-- [ ] 2.4 Add `testdata/render/scenarios/empty`, an instance of a module with no components, and its README row. Add `opm/kernel/render_demand_test.go` with these tests:
+- [x] 2.1 `opm/internal/renderstage/render.cue.tmpl`: add the hidden `_demand` struct and `diagnostics.requiredContracts` (design D1), with the comment from D1. `#resources` is read unguarded, and `#traits` behind `!= _|_`.
+- [x] 2.2 `opm/kernel/render_decode.go`: add `RequiredContracts []string` (json `requiredContracts`) to `glueDiagnostics`. Copy it onto `RenderDiagnostics` in `decodeRenderDiagnostics`, and normalise nil to `[]string{}`.
+- [x] 2.3 `opm/kernel/render.go`: add `RenderDiagnostics.RequiredContracts` with the godoc from design D2. Also say there that the field is absent on a plain error, and what the `bad_traits` spike showed about a conflicting `#traits`. `opm/kernel/doc.go`: add the field to the list of `RenderDiagnostics` fields and name it as the instance's contract demand. `docs/getting-started.md` and `README.md`: add it wherever they list the `RenderDiagnostics` fields.
+- [x] 2.4 Add `testdata/render/scenarios/empty`, an instance of a module with no components, and its README row. Add `opm/kernel/render_demand_test.go` with these tests:
   - happy path: resources and traits, sorted, with a key shared by two components listed once;
   - a component with no `#traits`;
   - `empty`: success, `RequiredContracts` non-nil and of length 0;
   - `missing`: the field is set on the `*RenderError`;
   - `unprovided` under `SkipUnprovided`: the omitted `ledger` component's keys are listed;
   - a traits-only component (`#resources: {}` plus `#traits`), in a scenario package added for it: its trait keys are listed.
-- [ ] 2.5 In the same file, add the parity test from design D4. `walkDeclaredContracts` is copied from opm-operator `internal/render/demand.go` at its `origin/main`, with the commit cited in a comment. The test compares the helper's result with `RequiredContracts` for every scenario package, the happy-path instance and the parity harness instances, and asserts the exclusion list (`unstated`, `no_resources`, and `bad_traits` if it refuses before diagnostics). The traits-only package is in the parity set.
-- [ ] 2.6 `opm/kernel/render_glue_shape_test.go`: through `RenderForTest`, assert that `diagnostics.requiredContracts` exists on the built value and is a concrete list.
-- [ ] 2.7 `task check` green, then commit `feat(render): report every contract a render requires`.
+- [x] 2.5 In the same file, add the parity test from design D4. `walkDeclaredContracts` is copied from opm-operator `internal/render/demand.go` at its `origin/main`, with the commit cited in a comment. The test compares the helper's result with `RequiredContracts` for every scenario package, the happy-path instance and the parity harness instances, and asserts the exclusion list (`unstated`, `no_resources`, and `bad_traits` if it refuses before diagnostics). The traits-only package is in the parity set.
+- [x] 2.6 `opm/kernel/render_glue_shape_test.go`: through `RenderForTest`, assert that `diagnostics.requiredContracts` exists on the built value and is a concrete list.
+- [x] 2.7 `task check` green, then commit `feat(render): report every contract a render requires`.
 
 ## 3. module: instance module metadata, values and module debugValues accessors
 

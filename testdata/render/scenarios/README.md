@@ -24,6 +24,9 @@ thing that differs between them:
 | `optional_unprovided` | on `platform_providers`: the snapshot trait made effectively optional at the attachment site: renders with an unhandled-trait entry and no skipped row, with or without the switch |
 | `skipped_beside_refused` | on `platform_providers`: `app` attaches the unprovided snapshot trait, sibling `vault` the label-less archive trait: under the switch, refused on the archive row alone with the snapshot row readable as skipped |
 | `omitted_refused` | on `platform_providers`: `ledger` is omitted for the unprovided ledger resource and also attaches the advisory sidecar, the catalog-fulfilled backup and the label-less archive trait, beside `web` with the sidecar: under the switch, only `web` stays on the unhandled-trait table, and backup and archive still refuse |
+| `empty` | a module with no components: renders, and `RequiredContracts` is an empty, non-nil list |
+| `shared_demand` | two components declaring the same container resource, one with no `#traits`, beside a config-maps component: renders, each key listed once on `RequiredContracts` |
+| `traits_only` | a component with an empty `#resources` map and an attached sidecar trait: nothing matches it, so refused, and the refusal's `RequiredContracts` is the trait key |
 | `no_resources` | NOT a `#ModuleInstance`: a plain package whose component carries no `#resources`, rendered through a struct-literal instance: the render refuses with a plain error, never reading the component as one with no demand |
 | `bad_traits` | a component whose `#traits` is a top-level conflict: acquisition refuses it, and a struct-literal instance that skips acquisition fails the build with a plain error |
 

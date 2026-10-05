@@ -72,3 +72,18 @@ func TestRenderGlue_RungsCoverCandidatesOnly(t *testing.T) {
 			"component %s: the predicate rung covers its candidates only", cid)
 	}
 }
+
+// The demand is a field of the build's own diagnostics, concrete beside the
+// other verdicts, so it shares their fail-closed decode (0013:D24).
+func TestRenderGlue_DiagnosticsCarryRequiredContracts(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "instance")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.NoError(t, err)
+	demand := built.LookupPath(cue.ParsePath("diagnostics.requiredContracts"))
+	require.True(t, demand.Exists(), "diagnostics carries requiredContracts")
+	require.NoError(t, demand.Validate(cue.Concrete(true)), "the demand is concrete")
+	assert.Equal(t, cue.ListKind, demand.Kind(), "the demand is a list")
+}

@@ -531,6 +531,21 @@ rendered: {
 	}
 }
 
+// The instance's contract demand (0013:D24): every contract key a component
+// of this render requires, keyed so duplicates collapse. It iterates
+// _components, the set the matcher iterates, so a component omitted under
+// the skip switch still counts. #resources is read unguarded, like the
+// matcher reads it, so a component without it fails the build instead of
+// reading as no demand. #traits is read behind the matcher's presence test.
+_demand: {
+	for _, comp in _components {
+		for fqn, _ in comp.#resources {(fqn): true}
+		if comp.#traits != _|_ {
+			for fqn, _ in comp.#traits {(fqn): true}
+		}
+	}
+}
+
 diagnostics: {
 	pairs:          match.pairs
 	unmatched:      match.unmatched
@@ -554,6 +569,13 @@ diagnostics: {
 			}
 		}
 	}
+	// Every contract key a component of this render requires: each
+	// component's #resources keys and, when it attaches any, its #traits
+	// keys, sorted and deduplicated. Every component counts, an omitted one
+	// included. #resources is read unguarded, like the matcher reads it, so
+	// a component without it fails the build instead of reading as no
+	// demand.
+	requiredContracts: list.SortStrings([for k, _ in _demand {k}])
 }
 
 // The fail-closed gate (0010 D28, D37) as one unification: an unresolved

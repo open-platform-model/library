@@ -71,7 +71,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacemen
         instance-only paths) -> RenderDiagnostics.Replacements rows; refuse an input carrying one when the opt-in is off
         verify every OPM-namespace path either input requires is covered; apply the skew policy (SkewWarn | SkewRefuse)
         build once in a fresh cue.Context, dropped on return
-        decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, skipped, unify, unhandled traits, over-subscribed, resolved versions)
+        decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, skipped, unify, unhandled traits, over-subscribed, resolved versions, required contracts)
         fail-closed gate     -> *RenderError carrying the diagnostics and typed causes (errors.As)
         decode `rendered`    -> []*kernel.Compiled with instance / component / transformer provenance
 ```
