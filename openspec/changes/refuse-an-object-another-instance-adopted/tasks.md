@@ -67,15 +67,15 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   `0012/contracts/contracts.cue` has merged. Before merging, check the merged requirement number;
   if it is not `R8`, correct every `0012:D8:R8` in this change's code, docs and spec delta, then
   run the gates again. Until then the PR body states the gate.
-- [ ] 3.2 `AGENTS.md` § Repository Layout, the `ownership/` line: `CanDelete` also skips
+- [x] 3.2 `AGENTS.md` § Repository Layout, the `ownership/` line: `CanDelete` also skips
   adopted-elsewhere; `CanApply` also refuses adopted-elsewhere, inside the inventory (the frontend
   drops it from its next inventory) and outside it. `README.md` lists no reasons; leave it.
-- [ ] 3.3 `adr/011-kubernetes-tier-beside-the-kernel.md`: append to the Status paragraph
+- [x] 3.3 `adr/011-kubernetes-tier-beside-the-kernel.md`: append to the Status paragraph
   "Amended 2026-10-05 by `refuse-an-object-another-instance-adopted` (0012:D8:R8): `CanApply`
   refuses as `adopted-elsewhere` an object another instance adopted, inside the inventory too, and
   the frontend drops it from its next inventory; `CanDelete` leaves an object annotated for
   another instance in place." (with the number from 3.1).
-- [ ] 3.4 `task api:diff` reports no incompatible change (two added constants only), and the
+- [x] 3.4 `task api:diff` reports no incompatible change (two added constants only), and the
   consumer build (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <consumer-checkout> . <work-dir>`)
   passes against fresh clones of cli and opm-operator `main`. `openspec validate
   refuse-an-object-another-instance-adopted --strict` green. `task check` green. Commit
