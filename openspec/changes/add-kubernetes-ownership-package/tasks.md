@@ -109,7 +109,7 @@ enhancement reference.
 
 ## 4. Docs and whole-tree checks (README, AGENTS, CONSTITUTION)
 
-- [ ] 4.1 Locate every edit by text, not by line number:
+- [x] 4.1 Locate every edit by text, not by line number:
       - `README.md` § Helper boundary: the sentence listing the tier's packages gains
         `opm/k8s/ownership`, the apply and delete verdicts. The Layout tree gains a
         `k8s/ownership/` row.
@@ -124,7 +124,7 @@ enhancement reference.
       Verify: `grep -n "opm/k8s/ownership\|k8s/ownership" README.md AGENTS.md CONSTITUTION.md`
       shows each edit; the layout block is still one code fence; `task docs:bundle:check`
       green.
-- [ ] 4.2 Whole-tree checks on the final code:
+- [x] 4.2 Whole-tree checks on the final code:
       - `task check`;
       - `task api:diff` against `origin/main`: it reports only additions, in `opm/k8s/labels`
         and `opm/k8s/ownership`;
@@ -133,7 +133,7 @@ enhancement reference.
       Consumer check, not committed: clone cli and opm-operator fresh at their `origin/main`
       into the scratch dir, and run `.tasks/consumer-build.sh` against this tree for each. Both
       must build and vet. Verify: both green; record the two heads for the report.
-- [ ] 4.3 `task check` green, then commit
+- [x] 4.3 `task check` green, then commit
       `docs(k8s): list opm/k8s/ownership in the tier docs`.
 
 ## 5. Archive (at PR time)
