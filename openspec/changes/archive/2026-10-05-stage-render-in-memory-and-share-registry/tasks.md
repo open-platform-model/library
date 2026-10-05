@@ -106,5 +106,5 @@ report it. Do not implement a fallback that keeps a temporary directory.
 ## 5. Verify and archive
 
 - [x] 5.1 Run `openspec verify` for `stage-render-in-memory-and-share-registry` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
-- [ ] 5.2 At PR time, not in the implement stage: run `openspec archive stage-render-in-memory-and-share-registry --yes`, then check that `openspec validate --specs --strict` passes, that `single-build-render` carries "Each render is its own in-memory build in its own context" and "A render writes no staging file", and that `kernel-runtime` carries "One registry client per Kernel".
-- [ ] 5.3 Run the gates green, then commit `chore(openspec): archive stage-render-in-memory-and-share-registry` (the archive rides the implementing PR).
+- [x] 5.2 At PR time, not in the implement stage: run `openspec archive stage-render-in-memory-and-share-registry --yes`, then check that `openspec validate --specs --strict` passes, that `single-build-render` carries "Each render is its own in-memory build in its own context" and "A render writes no staging file", and that `kernel-runtime` carries "One registry client per Kernel".
+- [x] 5.3 Run the gates green, then commit `chore(openspec): archive stage-render-in-memory-and-share-registry` (the archive rides the implementing PR).
