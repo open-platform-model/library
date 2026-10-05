@@ -53,11 +53,11 @@ it is committed. Every commit task stages the files it names with `git add <file
 
 ## 5. Verify and archive
 
-- [ ] 5.1 Run `openspec verify` for `expose-render-demand-and-instance-reads` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
-- [ ] 5.2 At PR time, not in the implement stage: run `openspec archive expose-render-demand-and-instance-reads --yes`. Verify the following:
+- [x] 5.1 Run `openspec verify` for `expose-render-demand-and-instance-reads` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
+- [x] 5.2 At PR time, not in the implement stage: run `openspec archive expose-render-demand-and-instance-reads --yes`. Verify the following:
   - the main `single-build-render` spec carries the new requirement;
   - `artifact-types` carries "Module and platform constructors from cue.Value" without the duplicate scenario, the renamed instance-accessor requirement, the modified debugValues scenario and "Module exposes its debug values";
   - after the archive, the `artifact-types` Purpose is edited to name the instance values and module-metadata accessors and `Module.DebugValues()` (archive never rewrites a Purpose);
   - `openspec validate --specs --strict` passes.
   - The PR body names `Diagnostics.RequiredContracts` (on `RenderResult` and `*RenderError`) as the field op-i3g2 consumes.
-- [ ] 5.3 Run the gates green, then commit `chore(openspec): archive expose-render-demand-and-instance-reads` (the archive rides the implementing PR).
+- [x] 5.3 Run the gates green, then commit `chore(openspec): archive expose-render-demand-and-instance-reads` (the archive rides the implementing PR).
