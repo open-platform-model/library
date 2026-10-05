@@ -120,12 +120,12 @@ This section lands tests that pass on `origin/main` and pin the gap.
 
 - [x] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
 - [x] 4.2 `openspec validate refuse-unset-required-config --strict` passes.
-- [ ] 4.3 Archive only when the PR is being opened, on this branch, so the archive rides the
+- [x] 4.3 Archive only when the PR is being opened, on this branch, so the archive rides the
       implementing PR: `openspec archive refuse-unset-required-config --yes`, then
       `openspec validate --all --strict`, then commit
       `chore(openspec): archive refuse-unset-required-config`. There is no
       `enhancement.yaml`, so no delivery log runs.
-- [ ] 4.4 Open the PR titled (CONSTITUTION VI: a pre-GA behaviour break lands as `feat!`)
+- [x] 4.4 Open the PR titled (CONSTITUTION VI: a pre-GA behaviour break lands as `feat!`)
       `feat(kernel)!: refuse an instance that leaves a required config value unset`. Its
       body records the owner's settlement of library#211 (the kernel refuses an unset
       required `#config` value on both instance verbs; the operator then deletes its
