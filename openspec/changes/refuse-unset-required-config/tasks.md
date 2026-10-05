@@ -22,7 +22,7 @@ reason is needed, never an RCn, task or section number.
 
 This section lands tests that pass on `origin/main` and pin the gap.
 
-- [ ] 1.1 `opm/kernel/synth_test.go`: publish a synth module (`publishSynthModule`) whose
+- [x] 1.1 `opm/kernel/synth_test.go`: publish a synth module (`publishSynthModule`) whose
       `#config` declares `replicas: int | *1`, `image: string`, `tag!: string`,
       `opt?: string` and `any: _`, and whose one component reads only `replicas` through a
       hidden field (`_r: #config.replicas & int`). With one source `replicas: 2`:
@@ -34,11 +34,11 @@ This section lands tests that pass on `origin/main` and pin the gap.
       test, not committed) and record the result in design.md, RC2 "Spike result". Done
       while applying the plan review: `values & #config` is the chosen order; the compiled
       sources add no position.
-- [ ] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory of
+- [x] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory of
       the same module (`writeImportedInstance`, importing the module 1.1 publishes) with its
       own `values: {replicas: 2}`: accepted today with and without a trailing source that
       sets `opt`.
-- [ ] 1.4 `task check` green, then commit
+- [x] 1.4 `task check` green, then commit
       `test(kernel): pin instances that leave an unread config value unset`.
 
 ## 2. Refuse an unset required config value in instance processing (kernel; design RC1 to RC4)
