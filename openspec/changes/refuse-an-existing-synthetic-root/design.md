@@ -48,7 +48,7 @@ where the caller passes both phrases. `renderstage.checkRootAbsent` is deleted a
 the helper with `render root` and `render module`, so the render refusal stays byte-identical and
 `TestStage_RefusesAnExistingRenderRoot` passes unchanged. `FetchArtifact` passes `synthetic root`
 and the artifact label (`module`, `catalog`); `synth.Instance` passes `synthetic root` and
-`instance package`.
+`module and its synthesized instance package`.
 
 Alternative: a second copy of the ten lines in `loader`. Rejected: the two guards protect against
 the same cue/load behaviour and should not drift apart.

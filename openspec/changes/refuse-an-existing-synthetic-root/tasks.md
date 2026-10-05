@@ -59,7 +59,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 - [x] 3.1 `opm/internal/synth/instance.go`: in `Instance`, after `buildOverlay` and before
   `LoadDir` (design D3), when `sourcetree.IsSynthetic(moduleRoot)` call
-  `sourcetree.CheckRootAbsent("synthetic root", "instance package", moduleRoot)` and return
+  `sourcetree.CheckRootAbsent("synthetic root", "module and its synthesized instance package", moduleRoot)` and return
   `instance synthesis: <cause>` with a nil tree on error. Document it in the `Instance` doc.
 - [x] 3.2 `opm/internal/synth/instance_test.go`: add `TestInstance_RefusesAnExistingSyntheticRoot`,
   not parallel. It points `sourcetree.SyntheticBase` at `t.TempDir()`, publishes a core-v2 module

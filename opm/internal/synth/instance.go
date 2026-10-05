@@ -196,7 +196,7 @@ func Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *mo
 	// is checked again right before the build. A directory-acquired root is
 	// real by design and is not checked.
 	if sourcetree.IsSynthetic(moduleRoot) {
-		if err := sourcetree.CheckRootAbsent("synthetic root", "instance package", moduleRoot); err != nil {
+		if err := sourcetree.CheckRootAbsent("synthetic root", "module and its synthesized instance package", moduleRoot); err != nil {
 			return cue.Value{}, nil, fmt.Errorf("instance synthesis: %w", err)
 		}
 	}
