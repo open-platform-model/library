@@ -152,8 +152,10 @@ type State struct {
 // never changes an earlier one or the caller's backing array. It returns an
 // error, the input state and the zero Action only when the state cannot
 // belong to the plan: its next step lies outside the plan, it records a
-// number of outcomes other than its next step, or it awaits something after
-// the last step or something that is not a defined action.
+// number of outcomes other than its next step, an outcome is out of step
+// order or carries a result other than deleted, skipped or failed, or it
+// awaits something after the last step or something that is not a defined
+// action.
 func Advance(plan DeletionPlan, state State, ev Event) (State, Action, error) {
 	if err := checkState(plan, state); err != nil {
 		return state, Action{}, err

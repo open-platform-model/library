@@ -228,6 +228,7 @@ how the cli keeps its per-resource errors and the operator its joined error from
 
 - `state.Next` is outside `0..plan.Len()`;
 - `len(state.Outcomes) != state.Next`, since every finished step records exactly one outcome;
+- an outcome's `Step` differs from its index, or its `Result` is not deleted, skipped or failed (Advance never writes such an outcome);
 - the state awaits something while `Next == plan.Len()`;
 - `state.Awaiting` is not one of the three defined values.
 

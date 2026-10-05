@@ -124,7 +124,7 @@ The caller SHALL hand back the raw error of each read or delete, and the library
 
 ### Requirement: The deletion state is a serialisable value the caller owns
 
-The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, it awaits something after the last step, or what it awaits is not a defined value. The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: 0012:D4:R5, ADR-008 rule 2.
+The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, an outcome is out of step order or carries a result other than deleted, skipped or failed, it awaits something after the last step, or what it awaits is not a defined value. The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: 0012:D4:R5, ADR-008 rule 2.
 
 #### Scenario: A round-tripped state advances identically
 
@@ -150,6 +150,11 @@ The deletion state SHALL be a plain value with a defined JSON encoding, holding 
 #### Scenario: A state whose outcomes do not match its next step is refused
 
 - **WHEN** the state names step 1 of a plan and records no outcome
+- **THEN** the transition returns an error and the input state unchanged
+
+#### Scenario: A state with an out-of-order or unknown outcome is refused
+
+- **WHEN** the state names step 2 of a plan and its second outcome records step 9, or records a result other than deleted, skipped or failed
 - **THEN** the transition returns an error and the input state unchanged
 
 #### Scenario: The JSON encoding is fixed
