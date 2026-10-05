@@ -43,9 +43,10 @@ replacements, cue/load wraps the given registry in a per-load replacing registry
 
 **Goals:**
 
-- A render writes nothing to the filesystem. The generated render module is served to the one
+- A render writes no staging file. The generated render module is served to the one
   build from `load.Config.Overlay` under a root that does not exist.
-- One registry client per Kernel, built on first use, handed to every load and fetch the kernel
+- One registry client (resolver and transport) per Kernel, built on first use, wrapped in a fresh
+  module cache for each operation and handed to every load and fetch the kernel
   runs.
 - No change to any exported signature, to render output, diagnostics or error causes, or to the
   render's refusal order.
@@ -96,77 +97,131 @@ those bytes to `VerifyCoverage`, with that path as the position name. The commen
 "re-read what was written" to "re-parse the bytes the build is served, never the in-memory
 list". `TestVerifyCoverage_DoctoredPromotionRefuses` keeps the refusal pinned.
 
-### D3. One lazily built client per Kernel, retried on a construction error
+### D3. One resolver and transport per Kernel; a fresh module cache per operation
 
-`opm/internal/cueenv` gains the client, since that package is already the one home for how the
-kernel's registry environment reaches CUE:
+"Registry client" in this change means the resolver and the OCI transport behind it: the
+`*modregistry.Client` that `modconfig.NewRegistry` builds from `modconfig.NewResolver`. It does
+not mean the `*modcache.Cache` that `modconfig.NewRegistry` wraps around that client. The
+distinction matters because the module cache remembers failures. Its `downloadZipCache` and
+`modFileCache` are `par.ErrCache` values (`cuelang.org/go@v0.17.1/mod/modcache/fetch.go:52-53`),
+and `ErrCache.Do` stores the error together with the value (`internal/par/work.go:117-122`). A
+module cache shared for the life of an operator Kernel would therefore serve one 503, one refused
+connection, one 404 before a version is published, or one cancelled context to every later fetch
+of that `module@version` until the process restarts. The operator already avoids exactly this
+for its platform source (opm-operator `internal/controller/platform_controller.go` builds a fresh source per reconcile for that
+reason). So the Kernel shares only the part that holds no per-module state.
+
+`opm/internal/cueenv` gains the shared client, since that package is already the one home for
+how the kernel's registry environment reaches CUE:
 
 ```go
-// Registry is a modconfig.CachedRegistry built on first use from env and
-// shared by every load handed it. A construction error is returned to that
-// call and not kept: the next call tries again.
+// Registry is a Kernel's one registry client: a resolver and its OCI
+// transport, built on first use and shared by every operation. It holds no
+// module cache; each operation gets its own (Operation).
 type Registry struct {
-	env []string
-	mu  sync.Mutex
-	reg modconfig.CachedRegistry
-	new func(*modconfig.Config) (modconfig.CachedRegistry, error) // nil: modconfig.NewRegistry
+	mapping string // the WithRegistry value; "" reads CUE_REGISTRY
+
+	mu     sync.Mutex
+	client *modregistry.Client
+
+	newClient func(env []string) (*modregistry.Client, error) // nil: modconfig.NewResolver + modregistry.NewClientWithResolver
+	wrapOp    func(modconfig.CachedRegistry) modconfig.CachedRegistry // nil: none; test-only
 }
 
-func NewRegistry(env []string) *Registry
-func (r *Registry) Client() (modconfig.CachedRegistry, error)
-// ModFile, Fetch, ModuleVersions, FetchFromCache delegate to Client().
+func NewRegistry(mapping string) *Registry
+
+// Operation returns the registry one kernel operation hands to every load
+// and fetch it runs. Its environment is read now (Override(mapping, "")),
+// and on its first use it gets the shared client (building it if needed)
+// and a fresh modcache.New(client, cacheDir), cacheDir from that
+// environment by the rule cue uses: CUE_CACHE_DIR, else
+// os.UserCacheDir()/cue.
+func (r *Registry) Operation() *Operation
+
+// Operation implements modconfig.CachedRegistry.
+type Operation struct { ... }
+func (o *Operation) Env() []string
+func (o *Operation) Init() error
 ```
 
-`kernel.New` stores `cueenv.NewRegistry(k.loadEnv())` behind a pointer field on `Kernel`. The env
-slice is computed once in `New`: `cueenv.Override` copies `os.Environ()` only when `WithRegistry`
-is set, and otherwise returns nil. The client itself is built on first use. With a nil env,
-`modconfig.NewRegistry` reads the process environment at that moment. In both cases the process
-environment is read no later than the first use of the client, which is the rule the docs state.
+The rules the type keeps:
 
-A new unexported `(*Kernel).loadOptions() loader.Options` returns `{Env: k.loadEnv(), Registry:
-k.registryClient}` (the second field is nil on a zero `Kernel`). It replaces every
-`loader.Options{Env: k.loadEnv()}` and every bare `k.loadEnv()` argument:
+- **The client is built once, on first use, and a construction error is not kept.** `Init` (and
+  every registry method, through it) builds the client under the mutex when there is none. A
+  failure is returned to that operation and the next operation tries again.
+  `modconfig.LazyRegistry` caches its error, which would keep an invalid `CUE_REGISTRY` value for
+  the life of an operator process, while today the next operation tries again.
+- **A failure is not remembered past its operation.** Each operation gets a fresh module cache,
+  so a fetch failure is remembered only within the operation that saw it, as today. In addition,
+  a `Fetch`, `ModFile` or `ModuleVersions` call that fails drops the shared client (when it is
+  still the one the operation used), so the next operation builds a fresh resolver and transport.
+  This covers the one failure the transport itself keeps: `cueLoginsTransport.init` records a
+  credentials-file read error once per host (`mod/modconfig/modconfig.go`, `initOnce`). Dropping
+  the client after a failure costs one rebuild, which is what every operation pays today.
+  `FetchFromCache` reports a cache miss as an error during normal resolution, so its errors do
+  not drop the client.
+- **The cache directory is read for each operation.** `Operation` reads `CUE_CACHE_DIR` when the
+  kernel starts the operation, as every load does today. What the Kernel reads once, on the
+  client's first build, is the registry mapping (`CUE_REGISTRY` when `WithRegistry` is absent)
+  and the credentials configuration.
+- **One environment slice per operation.** `Operation.Env()` is the slice the cache directory
+  was read from, and the kernel passes that same slice as `loader.Options.Env`, so there are not
+  two snapshots in one operation. cue/load reads `Env` only to build a registry of its own
+  (`cue/load/config.go:339-343`), so with a registry given it is inert, but a zero `Options`
+  still uses it.
 
-- `loader.Options` gains `Registry modconfig.Registry`. `LoadDir` sets `cfg.Registry` from it.
+`kernel.New` stores `cueenv.NewRegistry(k.registry)` behind a pointer field on `Kernel`. A new
+unexported `(*Kernel).loadOptions() loader.Options` starts one operation: with a registry it
+returns `{Env: op.Env(), Registry: op}`. On a `Kernel` not built by `New` (the zero value, which
+`Render` accepts today) it returns `{Env: k.loadEnv()}` and leaves `Registry` unset. It never
+puts a nil pointer into the interface field, so cue/load still builds its own registry there. Each
+verb calls `loadOptions()` once and passes the result to every load and fetch it runs. It replaces
+every `loader.Options{Env: k.loadEnv()}` and every bare `k.loadEnv()` argument:
+
+- `loader.Options` gains `Registry modconfig.Registry`. `LoadDir` sets `cfg.Registry` from it
+  when it is set.
 - `FetchArtifact` and `FetchModule` take `opts loader.Options` in place of `env []string`.
   - With `opts.Registry` set, `FetchArtifact` uses it.
   - Otherwise it builds a client with `modconfig.NewRegistry(&modconfig.Config{Env: opts.Env})` as
     today.
   - A construction failure keeps today's wording, `building module registry resolver: %w`, and
-    stays unclassified. For a `*cueenv.Registry`, `FetchArtifact` first calls `Client()` and
-    reports its error in that wording, before the fetch.
+    stays unclassified. When the given registry has an `Init() error` method (a
+    `*cueenv.Operation`), `FetchArtifact` calls it first and reports its error in that wording,
+    before the fetch.
   - The staged build passes the same options to `LoadDir`.
 - `renderstage.Build(cueCtx, staged, opts loader.Options)` sets `Env` and `Registry`.
   `renderstage` importing `loader` creates no cycle: `loader` imports neither `renderstage` nor
   `synth`.
 - `synth.Input.Env []string` becomes `synth.Input.Load loader.Options`.
 - `compileSource`, `compileSources`, `mergeSources` and `validateSources` take `loader.Options`
-  in place of `env`, and the file-backed load sets `cfg.Registry`.
+  in place of `env`, and the file-backed load sets `cfg.Registry` when it is set.
 
 The client is built lazily, so `kernel.New` still evaluates nothing and fails on nothing, as the
-"Kernel Type and Construction" requirement asks. The pointer field means a copied `Kernel` shares
-its client, and `go vet` copylocks has nothing to flag.
+"Kernel Type and Construction" requirement asks. A load that needs no registry never builds it,
+as today with cue/load's own lazy registry. The pointer field means a copied `Kernel` shares its
+client, and `go vet` copylocks has nothing to flag.
 
-A construction error is not cached. `modconfig.LazyRegistry` caches it, but then a long-running
-operator would keep an invalid logins file or an unreadable cache directory for the life of the
-process, while today the next operation tries again. Not caching keeps today's recovery.
+Tests reach the constructor through `cueenv.Registry`'s unexported fields: unit tests in `cueenv`
+cover counting, retry, concurrent first use, and that neither a transient failure nor a
+cancelled fetch is remembered. In `opm/kernel`, `export_test.go` adds
+`(*Kernel).SetRegistryHooksForTest`, which installs a counting constructor and a per-operation
+wrapper that counts the calls each operation makes through the client. Test-only seams end in
+`ForTest` (`opm/kernel/kernel_test.go`, `TestKernel_ExportedSurface`), and the seam is not part of
+the shipped surface, so the "Configuration Options" requirement still holds.
 
-Tests reach the constructor through `cueenv.Registry`'s unexported `new` field: a unit test in
-`cueenv` covers counting, retry and concurrent first use. In `opm/kernel` an `export_test.go`
-adds a test-only option that installs a counting constructor. It is not part of the shipped
-surface, so the "Configuration Options" requirement still holds.
 
 ### D4. Scope: the kernel's own loads; the schema loader and the helper keep theirs
 
 "One registry client per Kernel" names no exceptions. This change reads it as the kernel's own
 loads: every row of the Context table except the last two.
 
-- **`schema.OCILoader`** carries `CacheDir`, which overrides `CUE_CACHE_DIR` for the schema load
-  alone (`schema/loader.go:158`). A client built from the kernel's environment would ignore that
-  override. A caller-supplied `schema.Loader` is not the kernel's to configure at all. Giving
-  `OCILoader` an unexported client hook would add a second way to configure the schema load, to
-  save one client per process: the schema cache loads once per Kernel, and on a pinned kernel no
-  verb loads it. The loader keeps its own client.
+- **`schema.OCILoader`** is configured on its own: it may override the cache directory
+  (`CacheDir`, applied at `schema/loader.go:158`), and the kernel's default loader is simply
+  `schema.OCILoader{Registry: k.registry}` with no override (`opm/kernel/kernel.go:68`). A
+  caller-supplied `schema.Loader` is not the kernel's to configure at all. Giving `OCILoader` an
+  unexported client hook would add a second way to configure the schema load, to save one client
+  per Kernel: the schema cache loads once per Kernel, and on a pinned kernel no verb loads it. The
+  loader keeps its own client.
 - **`helper/platformmodule.NewRegistry`** is the opt-in helper tier's caller-built client for
   closure derivation. It is not a kernel operation, and the helper tier must not reach into the
   kernel.
@@ -181,13 +236,13 @@ Section 2 (staging):
 - the `opm/internal/renderstage` package doc ("stages the generated render module into a
   directory", "The directory holds only the generated module");
 - the `Stage`, `Staged`, `Staged.Dir`, `Staged.Overlay` and `Build` docs;
-- `Kernel.Render`'s doc ("in a per-render temporary directory", "The staging directory is removed
-  on return");
+- `Kernel.Render`'s doc (`opm/kernel/render.go:307-308` "in a per-render temporary directory",
+  `:318` "The staging directory is removed on return", and the core-floor sentence at `:328-329`
+  "with no staging directory created");
 - the `opm/kernel` package doc (`doc.go:157` "the per-render staging directory holds only the
-  generated module", `:185` "the staging directory is removed on return", and the core-floor
-  sentence "with no staging directory created");
+  generated module", `:185` "the staging directory is removed on return");
 - ADR-005: a dated amendment sentence on its Status, saying rule 1's "the staging directory" no
-  longer exists because a render stages in memory and writes nothing;
+  longer exists because a render stages in memory and writes no staging file;
 - ADR-006: a dated amendment sentence on its Status, saying the "Staging touches disk" negative
   is retired;
 - the AGENTS.md layout line for `internal/renderstage` ("temp-dir staging" becomes "in-memory
@@ -195,11 +250,15 @@ Section 2 (staging):
 
 Section 3 (client):
 
-- the `Kernel` type doc and `New` doc: one client, built on first use, its scope (D4), and that
-  the process environment is read no later than that first use;
+- the `Kernel` type doc and `New` doc: one client (resolver and transport), built on first use,
+  its scope (D4), a fresh module cache per operation, that the registry mapping and credentials
+  are read when the client is first built and the cache directory at each operation, and that a
+  failure is not remembered past its operation;
 - the `WithRegistry` doc: one sentence linking the `Kernel` doc;
 - the `opm/internal/cueenv` package doc;
-- the `loader.Options`, `LoadDir`, `FetchArtifact` and `synth.Input` docs.
+- the `loader.Options`, `LoadDir`, `FetchArtifact` and `synth.Input` docs;
+- the AGENTS.md layout line for `internal/cueenv`, which today says the package is only the
+  `CUE_REGISTRY` / `CUE_CACHE_DIR` override; it also owns the shared client now.
 
 ## Research & Decisions
 
@@ -246,15 +305,23 @@ through the overlay-aware filesystem. That is the same mechanism `FetchArtifact`
 
 **Explored**: every `load.Config` and `modconfig.NewRegistry` site under `opm/` (Context table);
 `modconfig.LazyRegistry` (`mod/modconfig/modconfig.go:375-420`), which caches a construction
-error for the life of the value; cue/load's handling of a caller-supplied `Config.Registry`.
+error for the life of the value; cue/load's handling of a caller-supplied `Config.Registry`;
+`modconfig.NewRegistry` (`mod/modconfig/modconfig.go:362-372`), which wraps the resolver's client
+in a `*modcache.Cache` whose `par.ErrCache` fields keep every fetch error with its key
+(`mod/modcache/fetch.go:52-53`, `internal/par/work.go:117-122`); and the transport's
+`initOnce`, which keeps a credentials read error per host.
 
-**Decision**: one `cueenv.Registry` per Kernel, built lazily and retried on error (D3). The scope
-is the kernel's own loads, not the schema `OCILoader` and not the helper's closure client (D4).
+**Decision**: one `cueenv.Registry` per Kernel, holding the resolver and transport, built lazily,
+retried on a construction error and dropped after a failed registry call; a fresh module cache per
+operation over it (D3). The scope is the kernel's own loads, not the schema `OCILoader` and not
+the helper's closure client (D4).
 
 **Rationale**: The kernel's module, catalog, platform, instance, values and render loads share one
-client. The `OCILoader` keeps its own because its `CacheDir` override cannot be honoured by a
-client built from the kernel environment. `cueenv` already owns how the kernel's registry environment reaches
-CUE. Not caching the error keeps today's per-operation recovery.
+resolver and transport. Sharing the module cache as well would remember a transient fetch failure
+for the life of an operator Kernel, which today's per-operation client never does, and the owner
+asked for this half of the plan to be non-breaking. The `OCILoader` keeps its own client because
+it is configured on its own. `cueenv` already owns how the kernel's registry environment reaches
+CUE. Not caching any error past its operation keeps today's per-operation recovery.
 
 ### Spec delta shape
 
@@ -267,8 +334,8 @@ CUE. Not caching the error keeps today's per-operation recovery.
   files" names a directory that no longer exists, so a MODIFIED that keeps the name would state
   something false. The new requirement keeps "Repeated renders share nothing" word for word.
 - "Render staging assertions observe only a test-private temp root" is REMOVED: there is no
-  staging directory left to observe. It is replaced by "A render writes nothing to the
-  filesystem", which keeps its intent (a test owns its temp root, and a leak fails that test).
+  staging directory left to observe. It is replaced by "A render writes no staging
+  file", which keeps its intent (a test owns its temp root, and a leak fails that test).
 - The two requirements whose prose says "no staging directory" are MODIFIED with every scenario
   kept, and only the wording changed.
 - The client rule is a new `kernel-runtime` requirement, since "Registry Configuration Option" is
@@ -276,23 +343,32 @@ CUE. Not caching the error keeps today's per-operation recovery.
 
 ## Risks / Trade-offs
 
-- **The environment is read once per Kernel.** `CUE_CACHE_DIR`, `CUE_REGISTRY` (when no
-  `WithRegistry`) and the registry login configuration are read when the client is first built.
-  A process that changes them later, or rotates a credentials file in place, keeps the old view
-  until it constructs a new Kernel. Today each operation reads them again. Neither frontend
-  depends on this: the operator sets `CUE_CACHE_DIR` before `kernel.New` and configures no
-  registry credentials, and the cli builds one Kernel per invocation. The `Kernel` doc states the
-  rule. Library tests set `CUE_REGISTRY` and `CUE_CACHE_DIR` through `registrytest` and
-  `schematest` before they construct their Kernel, so the planning audit found no test that sets
-  them after first use. Section 3 audits again, after the change, by running the suite.
+- **Part of the environment is read once per Kernel.** `CUE_REGISTRY` (when no `WithRegistry`)
+  and the registry credentials configuration are read when the client is first built. A process
+  that changes them later, or rotates a credentials file in place, keeps the old view until the
+  client is dropped after a failed registry call or a new Kernel is constructed. Today each
+  operation reads them again. `CUE_CACHE_DIR` is still read for every operation, so a consumer
+  that points it somewhere else between operations is unaffected. opm-operator relies on that:
+  `test/integration/reconcile/platform_transient_failure_test.go` constructs a Kernel and then
+  points `CUE_CACHE_DIR` at an empty directory, expecting a real registry round trip; section 4
+  runs that suite against this tree. The operator configures no registry credentials, and the cli
+  builds one Kernel per invocation. The `Kernel` doc states the rule. Library tests set
+  `CUE_REGISTRY` through `registrytest` and `schematest` before they construct their Kernel;
+  section 3 audits that by running the suite.
+- **A failure is remembered only within its operation.** One operation shares one module cache,
+  so a fetch that failed is not retried inside the same operation, which is today's behaviour too
+  (cue/load's own registry lives exactly one load). Across operations nothing is kept: the module
+  cache is fresh, and the client is rebuilt after any failed `Fetch`, `ModFile` or
+  `ModuleVersions`.
 - **A fixed root shared with the host filesystem.** cue/load reads a file the overlay does not
   carry from disk beneath the overlay root. A real `/opm-render` directory holding `.cue` files
   could therefore leak into the render package. `sourcetree.SyntheticRoot` (`/opm-registry-module`)
   has had the same exposure since `add-registry-module-loader`. A test pins that a render with no
   such directory reads nothing from disk. Detecting a hostile host directory is out of scope.
-- **Sharing one client across concurrent loads.** `modcache.Cache`, the resolver
-  (`registries` under a mutex) and the transport (`initOnce`, `loginsMu`, `mu`) are built for
-  shared use; the `cue` command shares one client across its loads. Section 3 runs
+- **Sharing one client across concurrent operations.** The resolver (`registries` under a
+  mutex) and the transport (`initOnce`, `loginsMu`, `mu`) are built for shared use. Each
+  operation's module cache is its own, and concurrent operations share only the on-disk cache, as
+  concurrent Kernels do today (the module cache takes a lock file per version). Section 3 runs
   `TestKernel_ConcurrentAcquireAndSynth`, the two concurrent-render tests and the cold
   concurrent-render test under `-race`, now through one client.
 - **No memory claim.** Staging wrote three small files, and a client is a resolver plus a

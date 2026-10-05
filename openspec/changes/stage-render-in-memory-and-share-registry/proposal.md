@@ -32,13 +32,21 @@ and is not in this one.
   `local-module.cue` replacement. The 0019:D13 tripwire re-parses the `module.cue` bytes that the
   overlay serves, not the in-memory list. `Build` keeps `Dir = ModuleRoot = staged.Dir` and needs
   nothing on disk. `Kernel.Render` drops `os.MkdirTemp` and `os.RemoveAll`, together with the
-  "creating render staging directory" error path. A render then writes nothing to the
-  filesystem: not on success, not on a refusal, and not on a build failure.
-- **One registry client per Kernel.** `kernel.New` gives the Kernel one registry client,
-  built lazily. On its first use it is constructed with `modconfig.NewRegistry` from the kernel's
-  load environment (`WithRegistry` applied through `cueenv.Override`). A construction error is
-  returned to that call and not remembered, so a later call tries again. The kernel hands this one
-  client to every load and fetch it runs:
+  "creating render staging directory" error path. A render then writes no staging file: nothing
+  under the process temp directory and nothing at the render root, not on success, not on a
+  refusal, and not on a build failure. The CUE module cache under `CUE_CACHE_DIR` is still filled
+  when a dependency is fetched, as it is today.
+- **One registry client per Kernel.** "Client" here means the resolver and its OCI transport (a
+  `*modregistry.Client`), not the module cache `modconfig.NewRegistry` wraps around it.
+  `kernel.New` gives the Kernel one such client, built lazily on its first use from the kernel's
+  mapping (`WithRegistry`, else `CUE_REGISTRY`). A construction error is returned to that call and
+  not remembered, so a later call tries again. Each kernel operation wraps the shared client in a
+  fresh module cache (`modcache.New`) over the cache directory read for that operation. A fetch
+  failure (a 503, a refused connection, a version not yet published, a cancelled context) is
+  therefore remembered only within the operation that saw it, as today; sharing the module cache
+  would have served it to every later operation on a long-lived Kernel. A failed registry call
+  also drops the shared client, so the next operation builds a fresh one. The kernel hands each
+  operation's registry to every load and fetch that operation runs:
   - `loader.LoadDir`, through a new `Registry` field on `loader.Options`;
   - `loader.FetchArtifact` and `FetchModule`, which now take `loader.Options` in place of the bare
     env slice and use the given client instead of building one;
@@ -50,9 +58,9 @@ and is not in this one.
   itself, as it does today.
 - **Scope of "one client per Kernel".** It covers the kernel's own module, catalog, platform,
   instance, values and render loads. Two clients stay outside it, on purpose:
-  - The schema cache's `schema.OCILoader` keeps its own client. Its `CacheDir` field overrides
-    `CUE_CACHE_DIR` for the schema load alone, so it cannot share a client built from the kernel
-    environment. A caller-supplied `schema.Loader` was never the kernel's to configure.
+  - The schema cache's `schema.OCILoader` keeps its own client. It is configured on its own (it
+    may override the cache directory), and the schema cache loads once per Kernel. A
+    caller-supplied `schema.Loader` was never the kernel's to configure.
   - `helper/platformmodule.NewRegistry` stays caller-built. It belongs to the opt-in helper tier and
     is not a kernel operation.
 - **Docs.** The following say a render no longer stages to disk: the `opm/internal/renderstage`
@@ -60,7 +68,8 @@ and is not in this one.
   doc (the sentences on the "staging directory" and on its removal on return). The `Kernel` type
   doc and the `WithRegistry` doc state the one-client rule, its scope and when the environment is
   read. ADR-005 and ADR-006 each get a dated amendment sentence. The AGENTS.md layout line for
-  `internal/renderstage` changes from "temp-dir staging" to in-memory staging.
+  `internal/renderstage` changes from "temp-dir staging" to in-memory staging, and the one for
+  `internal/cueenv` names the shared client.
 
 ## Capabilities
 
@@ -76,7 +85,7 @@ None.
     staging directory holds no input files" names a directory that no longer exists, and OpenSpec
     1.12 does not let a MODIFIED requirement drop a main-spec scenario.
   - REMOVED "Render staging assertions observe only a test-private temp root", and ADDED "A
-    render writes nothing to the filesystem".
+    render writes no staging file".
   - MODIFIED "Local replacements are honoured only when the caller opts in" (the refusal stages
     nothing; scenario kept).
   - MODIFIED "A render refuses a platform whose core predates the provider count" (the refusal
@@ -98,12 +107,14 @@ None.
   - Positions in render build errors now name the deterministic `/opm-render/...` paths instead
     of a random temporary directory. Two renders of the same inputs therefore report identical
     positions.
-  - The kernel reads the process environment (`CUE_CACHE_DIR`, `CUE_REGISTRY` when `WithRegistry`
-    is absent, and the CUE config directory for registry logins) once, when its client is first
-    built. A later change to that environment no longer reaches the kernel's loads. Both
-    frontends set it before constructing their one Kernel: the operator sets `CUE_CACHE_DIR` in
-    `cmd/main.go` before `kernel.New`, and the cli builds its Kernel per invocation. The `Kernel`
-    and `WithRegistry` docs state the rule.
+  - The kernel reads `CUE_REGISTRY` (when `WithRegistry` is absent) and the registry credentials
+    configuration when its client is first built, and again only after a failed registry call
+    drops the client. `CUE_CACHE_DIR` is still read for every operation, as today. A frontend
+    does depend on that: opm-operator's `platform_transient_failure` integration spec points
+    `CUE_CACHE_DIR` at an empty directory after it constructs its Kernel, and section 4 runs that
+    suite against this tree. The operator configures no registry credentials and the cli builds
+    one Kernel per invocation, so neither depends on re-reading the rest. The `Kernel` and
+    `WithRegistry` docs state the rule.
   - No memory saving is claimed. Peak memory is dominated by evaluation and conversion, not by
     staging or client setup. The verification section quotes a memprobe before and after for one
     render.

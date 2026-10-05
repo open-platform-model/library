@@ -26,19 +26,19 @@
 - **WHEN** several goroutines build render modules staged under the same synthetic root at the same time
 - **THEN** every build succeeds with the same result as a sequential build, and the race detector reports nothing
 
-### Requirement: A render writes nothing to the filesystem
+### Requirement: A render writes no staging file
 
-`Kernel.Render` SHALL NOT create, write or remove any file or directory: not on a successful render, not on a refusal before staging, not on a refusal before evaluation, and not on a build failure. A test that asserts this SHALL point the process temp directory at a directory owned by that test and SHALL find it empty afterwards, so its result does not depend on other test processes sharing the same `TMPDIR`.
+`Kernel.Render` SHALL write no staging file: it SHALL create, write or remove nothing under the process temp directory and nothing at the render module's synthetic root, not on a successful render, not on a refusal before staging, not on a refusal before evaluation, and not on a build failure. The CUE module cache is not staging: a render whose build fetches a dependency fills the module cache under `CUE_CACHE_DIR` exactly as any other load does. A test that asserts this SHALL point the process temp directory at a directory owned by that test and SHALL find it empty afterwards, so its result does not depend on other test processes sharing the same `TMPDIR`, and SHALL find that the synthetic root does not exist.
 
 #### Scenario: A successful render leaves the temp directory untouched
 
 - **WHEN** a test points `TMPDIR` at an empty directory it owns and renders a served instance against a served platform
-- **THEN** the render succeeds and the directory is still empty
+- **THEN** the render succeeds, the directory is still empty, and the render module's synthetic root does not exist on disk
 
 #### Scenario: A refusal leaves the temp directory untouched
 
 - **WHEN** a test points `TMPDIR` at an empty directory it owns and `Render` refuses an older-core platform, a local replacement without the opt-in, and an uncovered OPM-namespace path
-- **THEN** each call returns its refusal and the directory is still empty
+- **THEN** each call returns its refusal, the directory is still empty, and the synthetic root does not exist on disk
 
 #### Scenario: A render that writes is caught
 
@@ -54,7 +54,7 @@
 #### Scenario: Replacement without opt-in refused
 
 - **WHEN** `Render` is invoked with the opt-in off and the platform module's `cue.mod/local-module.cue` replaces its catalog path
-- **THEN** it returns an error naming the platform and `cue.mod/local-module.cue`, no render module is staged, and nothing is written to the filesystem
+- **THEN** it returns an error naming the platform and `cue.mod/local-module.cue`, no render module is staged, and no staging file is written
 
 #### Scenario: Inputs without the file are unaffected
 
@@ -73,7 +73,7 @@
 #### Scenario: An older-core platform is refused before staging
 
 - **WHEN** a platform module identical to a served fixture but pinning core `2.0.0-alpha.10` is acquired and rendered
-- **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and nothing is written to the filesystem
+- **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no staging file is written
 
 #### Scenario: A current-core platform is not affected
 
@@ -100,6 +100,6 @@
 
 ### Requirement: Render staging assertions observe only a test-private temp root
 
-**Reason**: A render creates no staging directory, so there is nothing to observe. The concern behind the requirement (a test whose result depends on another test process sharing `TMPDIR`) still applies to the stronger claim that a render writes nothing.
+**Reason**: A render creates no staging directory, so there is nothing to observe. The concern behind the requirement (a test whose result depends on another test process sharing `TMPDIR`) still applies to the stronger claim that a render writes no staging file.
 
-**Migration**: Replaced by "A render writes nothing to the filesystem", whose tests point `TMPDIR` at a directory they own and find it empty after their renders and refusals.
+**Migration**: Replaced by "A render writes no staging file", whose tests point `TMPDIR` at a directory they own and find it empty after their renders and refusals.
