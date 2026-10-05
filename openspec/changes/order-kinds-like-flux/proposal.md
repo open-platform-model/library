@@ -5,7 +5,8 @@ engine's own staging may refine that order within a stage but never contradict i
 applies through Flux's `ApplyAllStaged` (`github.com/fluxcd/pkg/ssa` v0.77.0) over the whole set,
 so Flux's order is the order the operator's objects reach the cluster in. The library's weight
 table in `opm/k8s/object` was ported unchanged from the cli's `pkg/resourceorder`, and it
-disagrees with Flux on many pairs. `opm/k8s/object/flux_order_test.go` records them:
+disagrees with Flux on many pairs. `opm/k8s/object/flux_order_test.go` listed them at `af2bf84`,
+the base of this change:
 
 - Mutating and validating webhook configurations weigh 500, so the library applies them before
   custom resources (1000). Flux applies them last. Applied first, a webhook with
@@ -67,10 +68,9 @@ so Flux only ever refines the library order.
   follow the weight table" now says a frontend may hand Flux the whole set or any one stage, because
   the table never contradicts Flux.
 
-Release note (for this PR body and for the changelog entry of the cli PR that takes this release;
-release-please writes only a fix commit's title into the library CHANGELOG): the kind-class apply
-order now agrees with Flux's
-staged apply. Moved kinds: MutatingWebhookConfiguration and ValidatingWebhookConfiguration (now
+Release note (the `BREAKING CHANGE:` footer of the squash commit, which release-please writes into
+the library CHANGELOG, and the changelog entry of the cli PR that takes this release): the
+kind-class apply order now agrees with Flux's staged apply. Moved kinds: MutatingWebhookConfiguration and ValidatingWebhookConfiguration (now
 after custom resources); PriorityClass, RuntimeClass, IngressClass, GatewayClass, ClusterClass,
 VolumeSnapshotClass and StorageClass (now right after ClusterRoles, as is any kind whose name ends
 in `Class`); ClusterRoleBinding (now after the class kinds); ResourceQuota (now before
@@ -98,27 +98,28 @@ None.
 - Packages: `opm/k8s/object` (`weights.go`, `doc.go`, `stages.go` comment) and its tests
   (`weights_test.go`, `flux_order_test.go`, `sort_test.go`). `opm/k8s/lifecycle` orders by
   `object.Sort` and needs no code change; its tests are re-run.
-- Public API: additive. New constants `WeightClass`, `WeightResourceQuota` and `WeightLimitRange`;
+- Public API: new constants `WeightClass`, `WeightResourceQuota` and `WeightLimitRange`;
   no exported name is renamed or removed. The values of thirteen existing constants change, which
   `task api:diff` lists as "value changed" entries (warn mode on the beta base). No consumer's
   non-test code reads a weight's number: the cli calls `object.Weight` and `object.Sort`, the
   operator calls neither.
 - api:diff advice: the job summary says each of those thirteen "value changed" warnings needs a
-  `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). This change deliberately keeps the
-  release class `fix` against that advice: the constants must track the table, keeping their old
-  values would make them state an order the library no longer applies, and their only contract is
-  the relative order. For the same reason these warnings are not counted as a breaking change for
-  the three quiet betas of 0021:D8:R14; the owner confirms that reading on the PR.
-- SemVer: PATCH, release class `fix`. The values are ranks whose only contract is the relative
-  order, and the order is corrected to the one the operator's engine already applies by and
-  0012:D5:R1 requires of both frontends.
+  `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). This change follows it: the
+  constants change value in place, because keeping their old values would make them state an
+  order the library no longer applies, and the squash commit's `BREAKING CHANGE:` footer names
+  every changed constant with its old and new value and the moved kinds.
+- SemVer: the next beta, release class `feat!`. It is a breaking change of the beta line (ADR-010),
+  and it changes the apply, prune and delete order of every frontend that orders through
+  `opm/k8s/object`, to the one the operator's engine already applies by and 0012:D5:R1 requires
+  of both frontends.
 - cli: its apply, prune, delete, `tree` and manifest output order change on the bump.
   `internal/kubernetes/order_parity_test.go` pins the retired literals and fails on the bump PR by
   design ("an order change is a reviewed edit in both repositories"); that PR edits it and carries
   the release-note line above in its changelog.
 - opm-operator: nothing changes at its `main` today. It applies through Flux, which orders the set,
-  and it calls neither `object.Sort` nor `opm/k8s/lifecycle`. A parity test there can assert that
-  Flux's comparison never contradicts `object.Weight`.
+  and it calls neither `object.Sort` nor `opm/k8s/lifecycle`. Its next change adds a parity test
+  that compares Flux's staged order, through the Flux module itself, with `object.Weight`; that
+  test, not the library, notices a Flux bump that reorders kinds.
 - `enhancement.yaml` links this change to enhancement 0012 like the earlier library slices of it,
   with no decision claimed: 0012:D5 is delivered only once both frontends adopt the Kubernetes tier
   (ADR-011 item 3), and this change corrects the table they will adopt.

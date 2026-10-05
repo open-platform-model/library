@@ -4,7 +4,7 @@
 (0012:D5). The cli submits objects in that order. The operator hands the whole set to Flux's
 `ApplyAllStaged` (`github.com/fluxcd/pkg/ssa` v0.77.0, the version opm-operator pins), and Flux
 re-sorts it. 0012:D5:R1 allows that engine to refine the library order and forbids it to contradict
-it. Today Flux contradicts the library on 196 kind pairs by rank alone (the list in `flux_order_test.go`), and on more once its group-and-kind tie-break is counted, so the
+it. Today Flux contradicts the library on 196 kind pairs by rank alone (the list `flux_order_test.go` held at `af2bf84`, the base of this change), and on more once its group-and-kind tie-break is counted, so the
 same module reaches the cluster in two different orders depending on the frontend.
 
 What Flux v0.77.0 does, read from `ssa@v0.77.0/manager_apply.go`, `sort.go` and `utils/is.go`:
@@ -142,7 +142,8 @@ goes, since a group-less CustomResourceDefinition is no longer a definition.
 ### D4. Delete order follows without code
 
 `Sort(…, Descending)` and `lifecycle.NewDeletionPlan` read the same table. Webhook configurations
-are now deleted first, which matches Helm 4's uninstall order and stops a webhook from blocking
+are now deleted first, which on this point matches Helm 4's uninstall order (Helm agrees with
+Flux only in part; see "Helm as partial corroboration") and stops a webhook from blocking
 the deletion of the objects it guards. Class kinds are deleted after everything that names them.
 
 ## Research & Decisions
@@ -172,14 +173,15 @@ each of them (a Pod waits for its claim, an autoscaler retries its target), as 0
 relies on. The narrower reading, comparing ranks only, would keep that grading but leave the
 operator applying those kinds in an order the library forbids.
 
-### Helm as corroboration
+### Helm as partial corroboration
 
 **Context**: Helm's install order is the other widely used kind order.
 
 **Explored**: `InstallOrder` in Helm v3.19.0 (`pkg/releaseutil/kind_sorter.go`) and Helm v4.0.0
 (`pkg/release/v1/util/kind_sorter.go`).
 
-**Decision**: Cite Helm where it agrees with Flux; do not follow it where it does not.
+**Decision**: Cite Helm as partial corroboration only, where it agrees with Flux; do not follow
+it where it does not.
 
 **Rationale**: Helm agrees with Flux, and so with the new table, that PriorityClass, ResourceQuota
 and LimitRange come before the workloads, that PodDisruptionBudget comes before volumes,
@@ -203,16 +205,17 @@ only real moves.
 ## Risks / Trade-offs
 
 - [Thirteen constants change value; `task api:diff` lists them as incompatible] → warn mode on the
-  beta base; no consumer reads the numbers; release class stays `fix` because the contract is the
-  relative order, corrected to the one 0012:D5:R1 requires.
+  beta base; no consumer's non-test code reads the numbers; the release class is `feat!` with a
+  `BREAKING CHANGE:` footer that names each old and new value (ADR-010).
 - [PersistentVolumeClaims now follow Deployments in the cli] → a Pod stays Pending until its claim
   exists and then starts; the operator already applies in this order.
 - [A NetworkPolicy still lands after the Pods it selects] → unchanged from today (it weighed 150,
   after the workloads) and the same as Flux; a default-deny policy that must exist first is
   module-internal ordering, which 0012:D5 leaves to a future Bundle.
 - [A Flux bump changes `ReconcileOrder` or the stages] → the literals in `flux_order_test.go` name
-  the version; the operator's bump must update them, and the guard then shows any new
-  contradiction.
+  the version, and nothing in the library follows the operator's pin. The operator's next change
+  adds a parity test that compares Flux's own staged order with `object.Weight`; it fails on such a
+  bump, and the literals are then updated here.
 - [The cli's `order_parity_test.go` fails on the bump] → by design; the bump PR edits it.
 - [Delete order moves too: PersistentVolumeClaims, PersistentVolumes, Jobs, DaemonSets, Ingresses
   and autoscalers are now deleted before Deployments, StatefulSets and PodDisruptionBudgets] → a

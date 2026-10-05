@@ -79,3 +79,8 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   `openspec validate order-kinds-like-flux --strict` green.
 - [x] 3.2 Tick every task in this file and commit
   `chore(openspec): mark order-kinds-like-flux implemented`.
+
+## 4. openspec: archive
+
+- [x] 4.1 `openspec archive order-kinds-like-flux --yes` on the branch, then `task openspec:check`
+  green; commit `chore(openspec): archive order-kinds-like-flux`.
