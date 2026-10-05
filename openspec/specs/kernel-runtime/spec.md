@@ -116,7 +116,7 @@ The canonical Go implementation of layered values validation and of instance pro
 
 - **WHEN** a consumer inspects the exported methods of `Kernel`
 - **THEN** `ProcessModuleInstance` does not exist; instance processing is an unexported kernel internal
-- **AND** both `AcquireInstanceFromDir` and `SynthesizeInstance` assert concreteness on the built spec via `spec.Validate(cue.Concrete(true))` (CUE stdlib), decode instance metadata, and return a `*module.Instance`
+- **AND** both `AcquireInstanceFromDir` and `SynthesizeInstance` assert concreteness on the built spec via `spec.Validate(cue.Concrete(true))` (CUE stdlib) and on the values unified with `#config` (see "Instance verbs refuse an unset required config value"), decode instance metadata, and return a `*module.Instance`
 
 #### Scenario: opm/validate package is gone
 
@@ -273,7 +273,7 @@ A missing required input SHALL fail with an error wrapping the corresponding `op
 
 ### Requirement: Tier-2 validation runs where values are applied
 
-When values are non-empty, the kernel SHALL validate them against the Module's `#config` schema at the point they are applied to the instance, regardless of whether a Tier-1 helper validated them upstream. Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources into the package overlay, and `SynthesizeInstance` renders them into the synthesized package; both then check the sources against `#config` so a violation is reported at the sources' own positions, and both assert concreteness on the whole built spec. `Kernel.Render` SHALL NOT perform a second validation pass: the render build imports the instance as processed, which is already concrete.
+When values are non-empty, the kernel SHALL validate them against the Module's `#config` schema at the point they are applied to the instance, regardless of whether a Tier-1 helper validated them upstream. Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources into the package overlay, and `SynthesizeInstance` renders them into the synthesized package; both then check the sources against `#config` so a violation is reported at the sources' own positions, and both assert concreteness on the whole built spec and on the values unified with `#config` (see "Instance verbs refuse an unset required config value"). `Kernel.Render` SHALL NOT perform a second validation pass: the render build imports the instance as processed, which is already concrete.
 
 #### Scenario: Kernel re-validates after Detailed
 

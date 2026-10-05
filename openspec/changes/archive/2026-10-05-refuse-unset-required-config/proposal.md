@@ -81,6 +81,9 @@ None.
   value", with scenarios for both verbs, the unread field, the `_` field, the parity with
   `ValidateConfigDetailed` and the unchanged error of instances refused before. The
   failure-path attribution scenario stays in `instance-synthesis`, its one home.
+- `instance-synthesis`: modifies "Values field is caller-supplied with no implicit
+  fallback"; the THEN of "Zero Values is not replaced by debugValues" now ends "... and the
+  call fails on concreteness".
 
 ## Impact
 
