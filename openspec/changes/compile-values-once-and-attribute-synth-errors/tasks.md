@@ -126,8 +126,8 @@ Tests only. Every one passes on `origin/main` before any code moves.
 
 ## 4. Verify
 
-- [ ] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
-- [ ] 4.2 `openspec validate compile-values-once-and-attribute-synth-errors --strict` passes.
+- [x] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
+- [x] 4.2 `openspec validate compile-values-once-and-attribute-synth-errors --strict` passes.
 - [ ] 4.3 Archive only when the supervisor says the PR is being opened, on this branch, so
       the archive rides the implementing PR:
       `openspec archive compile-values-once-and-attribute-synth-errors --yes`, then
