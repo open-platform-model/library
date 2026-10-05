@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/open-platform-model/library/opm/k8s/inventory"
+	"github.com/open-platform-model/library/opm/k8s/labels"
 	"github.com/open-platform-model/library/opm/k8s/lifecycle"
 	"github.com/open-platform-model/library/opm/k8s/ownership"
 )
@@ -208,4 +209,28 @@ func TestMayReleaseHoldAfterAdvance(t *testing.T) {
 	got := lifecycle.MayReleaseHold(p, final, lifecycle.HoldInput{})
 	assert.True(t, got.Release)
 	assert.Equal(t, lifecycle.HoldCleanupComplete, got.Because)
+}
+
+// TestAPruneOfADroppedObjectLeavesItForTheAdoptingInstance covers the end of
+// a hand-over: the instance dropped an object another instance adopted from
+// its inventory, so the object is in the stale set, but its UUID label is
+// still this instance's until the adopting instance applies it. The prune
+// leaves it in place and the hold still releases.
+func TestAPruneOfADroppedObjectLeavesItForTheAdoptingInstance(t *testing.T) {
+	stale := inventory.StaleSet([]inventory.Entry{web, cm}, []inventory.Entry{cm})
+	require.Equal(t, []inventory.Entry{web}, stale)
+	p := lifecycle.NewDeletionPlan(stale, prune, thisUUID)
+
+	dropped := liveOf(web, append(ours, uid("w1"))...)
+	dropped.SetAnnotations(map[string]string{labels.AnnotationAdopt: otherUUID})
+	answer := (&cluster{live: map[inventory.Entry]*unstructured.Unstructured{web: dropped}}).answer(false)
+
+	actions, final := driveToDone(t, p, answer, false)
+	assert.NotContains(t, kinds(actions), lifecycle.ActionDelete)
+	require.Len(t, final.Outcomes, 1)
+	assert.Equal(t, lifecycle.ResultSkipped, final.Outcomes[0].Result)
+	assert.Equal(t, ownership.SkipAdoptedElsewhere, final.Outcomes[0].Skip)
+
+	got := lifecycle.MayReleaseHold(p, final, lifecycle.HoldInput{})
+	assert.True(t, got.Release)
 }

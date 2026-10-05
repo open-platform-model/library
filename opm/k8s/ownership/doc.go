@@ -27,7 +27,8 @@
 // instance that held it refuses it. A frontend drops an object refused as
 // adopted-elsewhere from the inventory it records next, keeps applying the
 // instance's other objects, and never deletes the object for that refusal.
-// Annotating the object back for the instance that held it reverses the
+// The delete verdict leaves an object annotated for another instance in
+// place, so the instance that let go of it never prunes it. Annotating the object back for the instance that held it reverses the
 // hand-over.
 //
 // A proceed verdict from [CanDelete] carries the UID and resourceVersion of

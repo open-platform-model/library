@@ -41,23 +41,23 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 
 ## 2. ownership: leave an object another instance is adopting in place on delete
 
-- [ ] 2.1 `opm/k8s/ownership/delete.go`: add `SkipAdoptedElsewhere SkipReason = "adopted-elsewhere"`.
+- [x] 2.1 `opm/k8s/ownership/delete.go`: add `SkipAdoptedElsewhere SkipReason = "adopted-elsewhere"`.
   In `CanDelete`, after the `owner-mismatch` check, skip as `adopted-elsewhere` when the trimmed
   adopt annotation is non-blank and the instance UUID is empty or differs from it, with the
   message of design AD6 (design AD5). Update the `CanDelete` doc's order and the
   `DeleteInput.InstanceUUID` and `DeleteInput.Admit` docs (an empty UUID counts any annotation
   as another instance's; admission does not lift the adoption skip).
-- [ ] 2.2 `opm/k8s/ownership/delete_test.go`: in `TestCanDelete`, add the new delete scenarios
+- [x] 2.2 `opm/k8s/ownership/delete_test.go`: in `TestCanDelete`, add the new delete scenarios
   (annotated for another instance, annotation naming this instance, empty instance UUID skipping
   an annotated object, an admitted Deployment annotated for another instance), and give "an
   empty UUID on either side passes" no annotation as before. Extend
   `TestSkipReasonLiterals` with `adopted-elsewhere`, and pin the skip message verbatim.
-- [ ] 2.3 `opm/k8s/lifecycle/advance_test.go`: add a case to `TestAdvance` (or a named test beside
+- [x] 2.3 `opm/k8s/lifecycle/advance_test.go`: add a case to `TestAdvance` (or a named test beside
   it) for the scenario "A prune of a dropped object leaves it for the adopting instance": a plan
   from a stale set, a live read carrying the owner's UUID label and an adopt annotation naming
   another instance; assert a skipped outcome with `adopted-elsewhere`, no delete action, and that
   `MayReleaseHold` releases once the plan is done. `TestStateJSONGolden` stays unchanged.
-- [ ] 2.4 `go test -race -count=1 ./opm/k8s/...` green, then `task check` green. Commit
+- [x] 2.4 `go test -race -count=1 ./opm/k8s/...` green, then `task check` green. Commit
   `feat(k8s): leave an object another instance is adopting in place on delete`.
 
 ## 3. docs: package map, layout and ADR-011
