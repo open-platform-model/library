@@ -243,4 +243,26 @@ ADDED requirement in `platform-artifact`.
 
 ## Verification
 
-Filled in by the implement stage (tasks 3.1-3.3).
+Run on 2026-10-05 against branch head `fff88fe` (base `origin/main` `b2d51d7`, library
+v1.0.0-beta.6), Go 1.26.5.
+
+- **Full suite (task 3.1).** `OPM_FLOW_TEST_FORCE=1 go test -race -v ./opm/...`: every package
+  `ok`, 560 top-level tests passed, none skipped and none failed. `TestParity_ShippedCatalog`,
+  `TestParity_ShippedCatalogDiscriminated`, `TestParity_Probes`, `TestRender_InventoryParity` and
+  the three `TestFlow_*` tests ran and passed.
+- **Consumer builds (task 3.2).** `GOTOOLCHAIN=local bash .tasks/consumer-build.sh` against fresh
+  clones of cli `main` `79fae49` and opm-operator `main` `d973660`: both build and vet against this
+  tree, so `go vet`'s copylocks reports no copied `Platform` in either. opm-operator's
+  `./internal/platform/...` and `./internal/controller/...` unit tests (envtest assets 1.36.0,
+  library selected through the script's `go.work`, nothing written to the clone) pass, including
+  `TestInventoryUnreadableIsAnErrorNotAnEmptyInventory`, the `&platform.Platform{}` case.
+- **API diff (task 3.3).** `task api:diff`: "This change adds no incompatible change since
+  v1.0.0-beta.6." `apidiff -m` of `origin/main` against the branch, built from `.tasks/apidiff`:
+
+  ```
+  Compatible changes:
+  - ./opm/platform.(*Platform).CoreFloor: added
+  ```
+
+- **Gates.** `task check` green after sections 1 and 2; `task test` now runs `opm/platform` under
+  `-race`.

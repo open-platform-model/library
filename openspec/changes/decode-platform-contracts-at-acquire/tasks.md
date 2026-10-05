@@ -44,10 +44,10 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 3. Full suite, consumer builds and api diff
 
-- [ ] 3.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
-- [ ] 3.2 Run the consumer build against fresh clones of cli `main` and opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. `go vet`'s copylocks must report no copy of a `Platform` (design D2). Also run opm-operator's `internal/controller` and `internal/platform` unit tests against this tree (a `replace` in a scratch copy, never committed), including the `platform_inventory_test.go` zero-platform test. Record the consumer commits and results in design.md "Verification".
-- [ ] 3.3 Run `task api:diff`. It must list `(*Platform).CoreFloor` as a compatible addition and no incompatible change charged to this branch. Record the output in design.md "Verification".
-- [ ] 3.4 `task check` green, then commit `chore(openspec): record decode-platform-contracts-at-acquire verification`.
+- [x] 3.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
+- [x] 3.2 Run the consumer build against fresh clones of cli `main` and opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. `go vet`'s copylocks must report no copy of a `Platform` (design D2). Also run opm-operator's `internal/controller` and `internal/platform` unit tests against this tree (a `replace` in a scratch copy, never committed), including the `platform_inventory_test.go` zero-platform test. Record the consumer commits and results in design.md "Verification".
+- [x] 3.3 Run `task api:diff`. It must list `(*Platform).CoreFloor` as a compatible addition and no incompatible change charged to this branch. Record the output in design.md "Verification".
+- [x] 3.4 `task check` green, then commit `chore(openspec): record decode-platform-contracts-at-acquire verification`.
 
 ## 4. Verify and archive
 
