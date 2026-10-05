@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
@@ -152,11 +153,26 @@ func loadMain(t *testing.T, registry string, src *opmmodule.Source) error {
 	return err
 }
 
-// cueForm is one failure as a library site receives it.
+// cueForm is one failure as a library site receives it, and what Classify
+// makes of it.
 type cueForm struct {
-	name string
-	run  func(t *testing.T) error
-	want observed
+	name  string
+	run   func(t *testing.T) error
+	want  observed
+	class classified
+}
+
+// classified is Classify's answer for a form; the zero value means
+// "returned unchanged".
+type classified struct {
+	ok        bool
+	kind      oerrors.FetchKind
+	status    int
+	transient bool
+}
+
+func kindOf(kind oerrors.FetchKind, status int, transient bool) classified {
+	return classified{ok: true, kind: kind, status: status, transient: transient}
 }
 
 func cueForms() []cueForm {
@@ -174,45 +190,45 @@ func cueForms() []cueForm {
 		// A direct fetch keeps the typed chain.
 		{"fetch/absent", func(t *testing.T) error {
 			return fetchDep(context.Background(), t, servedDep(t), "v0.0.9")
-		}, observed{contains: []string{"module test.example/dep@v0.0.9: module not found"}, notFound: true}},
+		}, observed{contains: []string{"module test.example/dep@v0.0.9: module not found"}, notFound: true}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"fetch/unreachable", func(t *testing.T) error {
 			return fetchDep(context.Background(), t, registrytest.UnreachableRegistry(t), depVersion)
-		}, observed{contains: []string{"cannot do HTTP request", "connection refused"}, netErr: true}},
-		{"fetch/401", statusFetch(401), observed{contains: []string{": 401 Unauthorized: "}, status: 401}},
+		}, observed{contains: []string{"cannot do HTTP request", "connection refused"}, netErr: true}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"fetch/401", statusFetch(401), observed{contains: []string{": 401 Unauthorized: "}, status: 401}, kindOf(oerrors.FetchUnauthorized, 401, false)},
 		// CUE's registry client reports a 403 on a tag lookup as not found.
-		{"fetch/403", statusFetch(403), observed{contains: []string{"module not found"}, notFound: true}},
-		{"fetch/404", statusFetch(404), observed{contains: []string{"module not found"}, notFound: true}},
-		{"fetch/429", statusFetch(429), observed{contains: []string{": 429 Too Many Requests: "}, status: 429}},
-		{"fetch/500", statusFetch(500), observed{contains: []string{": 500 Internal Server Error: "}, status: 500}},
-		{"fetch/503", statusFetch(503), observed{contains: []string{": 503 Service Unavailable: "}, status: 503}},
+		{"fetch/403", statusFetch(403), observed{contains: []string{"module not found"}, notFound: true}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"fetch/404", statusFetch(404), observed{contains: []string{"module not found"}, notFound: true}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"fetch/429", statusFetch(429), observed{contains: []string{": 429 Too Many Requests: "}, status: 429}, kindOf(oerrors.FetchOther, 429, false)},
+		{"fetch/500", statusFetch(500), observed{contains: []string{": 500 Internal Server Error: "}, status: 500}, kindOf(oerrors.FetchOther, 500, true)},
+		{"fetch/503", statusFetch(503), observed{contains: []string{": 503 Service Unavailable: "}, status: 503}, kindOf(oerrors.FetchOther, 503, true)},
 		{"fetch/expired-deadline", func(t *testing.T) error {
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 			defer cancel()
 			return fetchDep(ctx, t, servedDep(t), depVersion)
-		}, observed{contains: []string{"cannot do HTTP request", "context deadline exceeded"}, netErr: true, deadline: true}},
+		}, observed{contains: []string{"cannot do HTTP request", "context deadline exceeded"}, netErr: true, deadline: true}, kindOf(oerrors.FetchUnreachable, 0, true)},
 		{"fetch/cancelled", func(t *testing.T) error {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 			return fetchDep(ctx, t, servedDep(t), depVersion)
-		}, observed{contains: []string{"cannot do HTTP request", "context canceled"}, netErr: true, canceled: true}},
+		}, observed{contains: []string{"cannot do HTTP request", "context canceled"}, netErr: true, canceled: true}, classified{}},
 
 		// cue/load flattens the cause: the %w at modpkgload's "cannot fetch"
 		// does not survive into the instance error, so only text is left.
 		{"load/absent", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "v0.0.9", "test.example/dep"))
-		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.9: module test.example/dep@v0.0.9: module not found"}}},
+		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.9: module test.example/dep@v0.0.9: module not found"}}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"load/no-module-provides", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "", "test.example/other@v0"))
-		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}},
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"load/unreachable", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, depVersion, "test.example/dep"))
-		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "cannot do HTTP request", "connection refused"}}},
-		{"load/401", statusLoad(401), observed{contains: []string{": 401 Unauthorized: "}}},
-		{"load/403", statusLoad(403), observed{contains: []string{"module not found"}}},
-		{"load/404", statusLoad(404), observed{contains: []string{"module not found"}}},
-		{"load/429", statusLoad(429), observed{contains: []string{": 429 Too Many Requests: "}}},
-		{"load/500", statusLoad(500), observed{contains: []string{": 500 Internal Server Error: "}}},
-		{"load/503", statusLoad(503), observed{contains: []string{": 503 Service Unavailable: "}}},
+		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "cannot do HTTP request", "connection refused"}}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"load/401", statusLoad(401), observed{contains: []string{": 401 Unauthorized: "}}, kindOf(oerrors.FetchUnauthorized, 401, false)},
+		{"load/403", statusLoad(403), observed{contains: []string{"module not found"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"load/404", statusLoad(404), observed{contains: []string{"module not found"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"load/429", statusLoad(429), observed{contains: []string{": 429 Too Many Requests: "}}, kindOf(oerrors.FetchOther, 429, false)},
+		{"load/500", statusLoad(500), observed{contains: []string{": 500 Internal Server Error: "}}, kindOf(oerrors.FetchOther, 500, true)},
+		{"load/503", statusLoad(503), observed{contains: []string{": 503 Service Unavailable: "}}, kindOf(oerrors.FetchOther, 503, true)},
 		// A published dependency whose module file does not parse: the
 		// module graph cannot be expanded, and no fetch form is inside.
 		{"load/malformed-dependency-module-file", func(t *testing.T) error {
@@ -221,25 +237,25 @@ func cueForms() []cueForm {
 					[]byte(depModFile+"bogus: 1\ndeps: \"test.example/next@v0\": v: \"v0.0.1\"\n"), []byte("unused"))
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/next@v0"))
-		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}},
+		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, classified{}},
 		// A published archive that does not unzip.
 		{"load/corrupt-archive", func(t *testing.T) error {
 			reg := rawRegistry(t, func(r ociregistry.Interface) {
 				pushRaw(t, r, "test.example/dep", depVersion, []byte(depModFile), []byte("not a zip"))
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
-		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "zip: not a valid zip file"}}},
+		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "zip: not a valid zip file"}}, kindOf(oerrors.FetchOther, 0, false)},
 
 		// The schema loader loads a standalone package by path@version, and
 		// that path keeps the typed chain.
 		{"schema/unreachable", func(t *testing.T) error {
 			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.UnreachableRegistry(t), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
 			return err
-		}, observed{contains: []string{"cannot fetch opmodel.dev/core@v2.0.0: ", "cannot do HTTP request"}, netErr: true}},
+		}, observed{contains: []string{"cannot fetch opmodel.dev/core@v2.0.0: ", "cannot do HTTP request"}, netErr: true}, kindOf(oerrors.FetchUnreachable, 0, true)},
 		{"schema/503", func(t *testing.T) error {
 			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.NewStatusRegistry(t, 503), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
 			return err
-		}, observed{contains: []string{": 503 Service Unavailable: "}, status: 503}},
+		}, observed{contains: []string{": 503 Service Unavailable: "}, status: 503}, kindOf(oerrors.FetchOther, 503, true)},
 	}
 }
 
@@ -255,6 +271,31 @@ func TestCUEFailureForms(t *testing.T) {
 			}
 			got.contains = f.want.contains
 			assert.Equal(t, f.want, got, "typed chain of %q", err.Error())
+		})
+	}
+}
+
+// TestClassify_CUEFailureForms pins Classify's answer for each form the
+// embedded CUE produces: its kind, its status and whether it is transient,
+// or that it comes back unchanged.
+func TestClassify_CUEFailureForms(t *testing.T) {
+	for _, f := range cueForms() {
+		t.Run(f.name, func(t *testing.T) {
+			err := f.run(t)
+			require.Error(t, err)
+			got := oerrors.Classify(err)
+			assert.Equal(t, err.Error(), got.Error(), "the message is unchanged")
+			var fe *oerrors.FetchError
+			if !f.class.ok {
+				assert.Same(t, err, got, "returned unchanged")
+				assert.False(t, errors.As(got, &fe))
+				assert.NotErrorIs(t, got, oerrors.ErrTransient)
+				return
+			}
+			require.True(t, errors.As(got, &fe), "classified: %q", err.Error())
+			assert.Equal(t, f.class.kind, fe.Kind)
+			assert.Equal(t, f.class.status, fe.Status)
+			assert.Equal(t, f.class.transient, errors.Is(got, oerrors.ErrTransient))
 		})
 	}
 }

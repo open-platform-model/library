@@ -3,6 +3,7 @@ module github.com/open-platform-model/library
 go 1.26.0
 
 require (
+	cuelabs.dev/go/oci/ociregistry v0.0.0-20260717083115-5eb5795f322a
 	cuelang.org/go v0.17.1
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/mod v0.39.0
@@ -10,7 +11,6 @@ require (
 )
 
 require (
-	cuelabs.dev/go/oci/ociregistry v0.0.0-20260717083115-5eb5795f322a // indirect
 	github.com/cockroachdb/apd/v3 v3.2.3 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect

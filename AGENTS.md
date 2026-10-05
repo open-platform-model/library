@@ -122,7 +122,7 @@ Read these on entry:
 
 ```text
 opm/
-  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract, ContractCollision) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, collision.go, skew.go), plus the rowless NotRoutableError catch-all (collision.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts
+  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract, ContractCollision) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, collision.go, skew.go), plus the rowless NotRoutableError catch-all (collision.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts; the fetch classification (fetch.go, classify.go): *FetchError with its FetchKind, the ErrTransient sentinel (network-level only) and Classify, the one place that matches registry and cue/load error text
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
