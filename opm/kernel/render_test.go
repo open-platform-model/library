@@ -1246,3 +1246,30 @@ func TestRender_ComponentWithConflictingTraitsRefuses(t *testing.T) {
 	assert.False(t, errors.As(err, &rerr), "the refusal is a plain error, not a diagnostics row")
 	assert.Contains(t, err.Error(), "#traits")
 }
+
+// artifact-types, "Module metadata of an acquired instance": both
+// acquisition verbs produce an instance whose ModuleMetadata() equals the
+// embedded #module's metadata in every identity field.
+func TestInstance_ModuleMetadataOfAcquiredInstances(t *testing.T) {
+	k := newRenderKernel(t)
+	for name, inst := range map[string]*module.Instance{
+		"SynthesizeInstance":     synthRenderInstance(t, k, "0.1.0"),
+		"AcquireInstanceFromDir": acquireRenderInstance(t, k, "instance"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var want schema.ModuleMetadata
+			require.NoError(t, inst.Package.LookupPath(schema.Module).LookupPath(schema.Metadata).Decode(&want))
+
+			got := inst.ModuleMetadata()
+			require.NotNil(t, got)
+			assert.Equal(t, "web_app", got.Name)
+			assert.NotEmpty(t, got.FQN)
+			assert.NotEmpty(t, got.UUID)
+			assert.Equal(t, want.Name, got.Name)
+			assert.Equal(t, want.ModulePath, got.ModulePath)
+			assert.Equal(t, want.Version, got.Version)
+			assert.Equal(t, want.FQN, got.FQN)
+			assert.Equal(t, want.UUID, got.UUID)
+		})
+	}
+}

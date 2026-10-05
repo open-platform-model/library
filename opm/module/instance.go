@@ -9,9 +9,10 @@ import (
 // Instance is an OPM #ModuleInstance artifact in the unified artifact shape.
 //
 // Package is the source of truth: it is the concrete, values-filled CUE
-// value for the instance and every kernel-internal read (components subtree,
-// source module, transformer match data) goes through Package.LookupPath
-// with paths from opm/schema.
+// value for the instance. Every kernel-internal read goes through
+// Package.LookupPath with paths from opm/schema, and the accessors
+// (Components, ConfigSchema, Values, ModuleMetadata) are those same reads,
+// offered to frontends so they need not repeat the paths.
 //
 // Metadata is an ergonomic decoded projection of the instance-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —
@@ -66,4 +67,38 @@ func (r *Instance) ConfigSchema() cue.Value {
 		return cue.Value{}
 	}
 	return mod.LookupPath(schema.Config)
+}
+
+// Values returns the instance's merged values at schema.Values on
+// r.Package, as evaluated.
+//
+// It returns the zero cue.Value (not an error) for a nil receiver or an
+// instance with no values field; callers test Exists().
+func (r *Instance) Values() cue.Value {
+	if r == nil {
+		return cue.Value{}
+	}
+	return r.Package.LookupPath(schema.Values)
+}
+
+// ModuleMetadata returns the metadata of the module this instance was built
+// from, decoded from the embedded #module (schema.Module) on r.Package.
+//
+// It returns nil for a nil receiver, an instance with no #module, or
+// metadata that does not decode. The decode is all or nothing: there is no
+// partial result. Each call decodes afresh, and like Metadata the result is
+// a cache: Package wins when they disagree.
+func (r *Instance) ModuleMetadata() *ModuleMetadata {
+	if r == nil {
+		return nil
+	}
+	mod := r.Package.LookupPath(schema.Module)
+	if !mod.Exists() {
+		return nil
+	}
+	meta, err := decodeModuleMetadata(mod)
+	if err != nil {
+		return nil
+	}
+	return meta
 }

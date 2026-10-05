@@ -31,17 +31,17 @@ it is committed. Every commit task stages the files it names with `git add <file
 
 ## 3. module: instance module metadata, values and module debugValues accessors
 
-- [ ] 3.1 `opm/module/instance.go`: add `ModuleMetadata()` (design D6, using `decodeModuleMetadata` on `Package.LookupPath(schema.Module)`) and `Values()` (design D7), each with godoc. Update the `Instance` doc comment so that it no longer says every read goes through `Package.LookupPath` alone.
-- [ ] 3.2 `opm/module/module.go`: add `DebugValues()` (design D7). Change the package doc's debug-overlay paragraph to say the overlay is read with `Module.DebugValues()`.
-- [ ] 3.3 `opm/schema/paths.go`: the `DebugValues` comment says frontends read it through `Module.DebugValues()`. The path itself stays (SD1: cli reads it at `origin/main`).
-- [ ] 3.4 Tests in `opm/module/instance_test.go` and `opm/module/module_test.go`:
+- [x] 3.1 `opm/module/instance.go`: add `ModuleMetadata()` (design D6, using `decodeModuleMetadata` on `Package.LookupPath(schema.Module)`) and `Values()` (design D7), each with godoc. Update the `Instance` doc comment so that it no longer says every read goes through `Package.LookupPath` alone.
+- [x] 3.2 `opm/module/module.go`: add `DebugValues()` (design D7). Change the package doc's debug-overlay paragraph to say the overlay is read with `Module.DebugValues()`.
+- [x] 3.3 `opm/schema/paths.go`: the `DebugValues` comment says frontends read it through `Module.DebugValues()`. The path itself stays (SD1: cli reads it at `origin/main`).
+- [x] 3.4 Tests in `opm/module/instance_test.go` and `opm/module/module_test.go`:
   - `ModuleMetadata()` on a well-formed instance (Name, Version, ModulePath, FQN and UUID equal the embedded `#module.metadata`), with no `#module` (nil), with undecodable metadata (nil), and on a nil receiver (nil, no panic);
   - `Values()` on a well-formed instance (equal to `Package.LookupPath(schema.Values)`), with no `values`, and on a nil receiver;
   - `DebugValues()` present, absent (`Exists() == false`) and on a nil receiver.
   In `opm/kernel`, add one acquisition test that `SynthesizeInstance` and `AcquireInstanceFromDir` instances both return a non-nil `ModuleMetadata()` whose `Name`, `ModulePath`, `Version`, `FQN` and `UUID` equal the metadata decoded from `inst.Package.LookupPath(schema.Module)`.
-- [ ] 3.5 `opm/kernel/flow_integration_test.go:66`: read `mod.DebugValues()` in place of the raw lookup.
-- [ ] 3.6 `README.md:32`: the migration line reads "read `mod.DebugValues()`" in place of `mod.Package.LookupPath(schema.DebugValues)` (SD14).
-- [ ] 3.7 `task check` green, then commit `feat(module): add instance module metadata, values and module debugValues accessors`.
+- [x] 3.5 `opm/kernel/flow_integration_test.go:66`: read `mod.DebugValues()` in place of the raw lookup.
+- [x] 3.6 `README.md:32`: the migration line reads "read `mod.DebugValues()`" in place of `mod.Package.LookupPath(schema.DebugValues)` (SD14).
+- [x] 3.7 `task check` green, then commit `feat(module): add instance module metadata, values and module debugValues accessors`.
 
 ## 4. Measure after and run the full suite
 

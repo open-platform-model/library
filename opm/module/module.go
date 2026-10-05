@@ -5,7 +5,7 @@
 // Debug overlays. The CUE schema includes a `debugValues` field on every
 // `#Module` for author-supplied example values used by build/validation
 // tooling. `debugValues` is a Module field — NOT a separate kernel artifact —
-// and it is read off Module.Package via schema.DebugValues. Whether a
+// and it is read with Module.DebugValues. Whether a
 // frontend layers debugValues into the values stack is a policy decision
 // that lives in the helper layer; the kernel itself never observes the
 // distinction.
@@ -32,6 +32,22 @@ func (m *Module) ConfigSchema() cue.Value {
 		return cue.Value{}
 	}
 	return m.Package.LookupPath(schema.Config)
+}
+
+// DebugValues returns the module's author-supplied debugValues at
+// schema.DebugValues on m.Package.
+//
+// It returns the zero cue.Value (not an error) for a nil receiver or a
+// module that declares none; callers test Exists(). The kernel never reads
+// it: whether a frontend layers it into its values stack is the frontend's
+// own policy.
+//
+//nolint:revive // method receiver name 'm' is consistent with package convention
+func (m *Module) DebugValues() cue.Value {
+	if m == nil {
+		return cue.Value{}
+	}
+	return m.Package.LookupPath(schema.DebugValues)
 }
 
 // Module represents an OPM #Module artifact in the unified artifact shape.

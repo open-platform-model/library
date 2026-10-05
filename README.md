@@ -29,7 +29,7 @@ The kernel accepts exactly four artifact types — every input ultimately resolv
 | `Platform`       | `#Platform`                               | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build.               |
 | `Catalog`        | `#Catalog`                                | `*catalog.Catalog`   | The contracts a catalog defines beside the transformers implementing them. Acquired, read and derived from — never rendered (ADR-009). |
 
-`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
+`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.DebugValues()` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
 See `CONSTITUTION.md` for the full set of principles.
 
