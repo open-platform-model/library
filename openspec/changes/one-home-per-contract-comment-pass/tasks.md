@@ -30,10 +30,10 @@ Depends on: nothing unmerged. Merges after the other round-3 library changes, by
 
 ## 4. Sources a reader can open
 
-- [ ] 4.1 `AGENTS.md:311` and `:317`: apply the D7 texts.
-- [ ] 4.2 `.tasks/api-diff.sh:28-29`: apply the D7 comment text. The `ALLOW` array is not touched.
-- [ ] 4.3 Verify: `git grep -nE '\bSD[0-9]+\b|[Ss]upervisor' -- . ':!openspec/changes' ':!openspec/specs'` prints nothing. The remaining hits under `openspec/specs/` are `api-diff-check` and `cascade-wiring`, whose deltas here replace them at archive; after archive the same grep without the `openspec/specs` exclusion prints nothing. `task api:diff:test` is green.
-- [ ] 4.4 Gates green, then commit `docs: cite resolvable sources for the api-diff and cascade rules`.
+- [x] 4.1 `AGENTS.md:311` and `:317`: apply the D7 texts.
+- [x] 4.2 `.tasks/api-diff.sh:28-29`: apply the D7 comment text. The `ALLOW` array is not touched.
+- [x] 4.3 Verify: `git grep -nE '\bSD[0-9]+\b|[Ss]upervisor' -- . ':!openspec/changes' ':!openspec/specs'` prints nothing. The remaining hits under `openspec/specs/` are `api-diff-check` and `cascade-wiring`, whose deltas here replace them at archive; after archive the same grep without the `openspec/specs` exclusion prints nothing. `task api:diff:test` is green.
+- [x] 4.4 Gates green, then commit `docs: cite resolvable sources for the api-diff and cascade rules`.
 
 ## 5. Absorb main and sweep
 
