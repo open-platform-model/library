@@ -71,7 +71,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 3. opm/k8s/object: Resource and the one-pass Export (go.mod; design KO3, KO4)
 
-- [ ] 3.1 `opm/k8s/object/resource.go`: `Resource` with fields and accessors ported verbatim
+- [x] 3.1 `opm/k8s/object/resource.go`: `Resource` with fields and accessors ported verbatim
       from `pkg/core/resource.go` (including `parseAPIVersion` and the best-effort lookups),
       plus `NewResource` and `Resources` per KO3. `convert.go`: `MarshalJSON` and
       `ToUnstructured` ported verbatim. `doc.go` covers four things:
@@ -82,12 +82,12 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
       `go get k8s.io/apimachinery@v0.36.4`, then `go mod tidy`. Verify: `go.mod` requires
       `k8s.io/apimachinery v0.36.4` directly; `go build ./...` clean.
-- [ ] 3.2 `opm/k8s/object/export.go`: `Exported`, `Export`, `ExportStep`
+- [x] 3.2 `opm/k8s/object/export.go`: `Exported`, `Export`, `ExportStep`
       (`ExportMarshal`, `ExportDecode`) and `ExportError` (`Error`, `Unwrap`) per KO4. Each
       Resource is exported once through `MarshalJSON` and decoded from those bytes. The input
       is never written. Export stops at the first failure. Verify: `go vet ./opm/k8s/...`
       clean.
-- [ ] 3.3 Tests:
+- [x] 3.3 Tests:
       - `resource_test.go`: port the frontends' `pkg/core/resource_test.go` cases;
         `NewResource(nil)` is nil; `Resources` skips nil entries and keeps order; the
         best-effort accessors (scenario "Accessors are best-effort").
@@ -102,7 +102,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
         `errors.As` and `Unwrap` work.
 
       Verify: `go test ./opm/k8s/object -count=1` green.
-- [ ] 3.4 `task check` green, then commit
+- [x] 3.4 `task check` green, then commit
       `feat(k8s): add opm/k8s/object with Resource and a one-pass Export`. The body says that
       `k8s.io/apimachinery v0.36.4` enters `go.mod`.
 

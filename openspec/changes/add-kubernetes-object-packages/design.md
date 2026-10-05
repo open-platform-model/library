@@ -164,7 +164,9 @@ type ExportError struct {
 is not an object fails with `ExportDecode`: a concrete list or string fails in `json.Unmarshal`,
 and a concrete `null`, which `json.Unmarshal` accepts as a nil map, is refused by an explicit
 nil check, so `Exported.Object.Object` is never nil. `ToUnstructured` stays a verbatim port and
-does not gain that check. `ExportError.Error()` names the resource and the step, and
+does not gain that check. A nil `*Resource` in the input fails at `ExportMarshal` instead of
+panicking. `ExportStep` has a `String` ("cue export", "json decode") that the error message
+uses. `ExportError.Error()` names the resource and the step, and
 `Unwrap` returns `Err`. The operator needs `Step`, because it maps the two failures to different
 condition reasons today (`RenderFailedReason` for the export, `ApplyFailedReason` for the
 decode). Tests assert four things: `Exported.JSON` equals the resource's own `MarshalJSON`
