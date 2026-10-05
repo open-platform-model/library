@@ -101,6 +101,20 @@ linters:
             - "!**/*_test.go"
           allow:
             - $gostd
+        # The readiness evaluator is pure (kubernetes-tier spec, "Readiness
+        # evaluation is a pure function over fetched objects"): it judges
+        # objects the frontend has fetched, so the standard library and
+        # apimachinery's unstructured objects are all it needs. Holding it to
+        # those keeps a cluster client, and every other opm/ package, out of
+        # it. Test files may use testify.
+        k8s-health-imports-only-apimachinery:
+          list-mode: strict
+          files:
+            - "**/opm/k8s/health/**"
+            - "!**/*_test.go"
+          allow:
+            - $gostd
+            - k8s.io/apimachinery
         # ADR-011 item 2 left one question to add-kubernetes-object-packages:
         # whether a strict allow list for the tier pays. It does. The tier is
         # mandatory for every Kubernetes frontend, so each third-party import

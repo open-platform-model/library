@@ -20,20 +20,20 @@ ported code: cli `origin/main` `bd4d1a7c`, `internal/kubernetes/health.go` and
 
 ## 1. opm/k8s/health (design HP1 to HP5)
 
-- [ ] 1.1 `opm/k8s/health/health.go`: `Status`, the seven constants, `Evaluate`, `IsHealthy`
+- [x] 1.1 `opm/k8s/health/health.go`: `Status`, the seven constants, `Evaluate`, `IsHealthy`
       and the unexported helpers ported verbatim from the cli's `health.go`, renamed per HP1
       and with the five kind constants declared locally. Logic and status strings unchanged,
       including the PersistentVolumeClaim raw-phase passthrough and the `nolint:errcheck`
       reasons. `Aggregate` per HP2. Doc comments keep the cli's wording where it still holds;
       `Aggregate`'s says what `unhealthy` counts. Verify: `go build ./opm/k8s/...` clean.
-- [ ] 1.2 `opm/k8s/health/doc.go`: the package doc holds only reader-facing contract, with
+- [x] 1.2 `opm/k8s/health/doc.go`: the package doc holds only reader-facing contract, with
       0012:D3 cited once: that it is pure and the caller fetches every object with its own
       client; that a caller must read the object after its apply, uncached, or a pre-apply read
       can report the old rollout as `Ready` (design Risks); and that the status strings are
       stable. ADR-011, the cli source commit `bd4d1a7c` and the rule that the strings change only
       in a `feat!` go in a plain `//` maintainer comment separated from the package clause by a
       blank line, so opm-docs does not publish them (AGENTS.md, Docs bundles).
-- [ ] 1.3 `opm/k8s/health/health_test.go` (package `health`): every test of the cli's
+- [x] 1.3 `opm/k8s/health/health_test.go` (package `health`): every test of the cli's
       `health_test.go` moved with its cases and expectations unchanged and the identifiers
       renamed; drop the cli's `// --- 7.3: ...` task-number header and spell the issue
       reference in a case name as `cli#228`. The two `QuickInstanceHealth` tests become `Aggregate` tests over `Evaluate`
@@ -54,15 +54,15 @@ ported code: cli `origin/main` `bd4d1a7c`, `internal/kubernetes/health.go` and
       `go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' ./opm/k8s/health` lists
       only the package and `k8s.io/apimachinery` packages (and their own dependencies), no
       `opm/` package and no client.
-- [ ] 1.4 `.golangci.yml`: add `k8s-health-imports-only-apimachinery`, a strict depguard rule
+- [x] 1.4 `.golangci.yml`: add `k8s-health-imports-only-apimachinery`, a strict depguard rule
       holding `**/opm/k8s/health/**` non-test files to `$gostd` and `k8s.io/apimachinery`
       (scenario "The package performs no cluster I/O"). `README.md`'s boundary paragraph
       counts one more rule.
-- [ ] 1.5 Byte check, not committed: `diff` the cli's `health.go` at `bd4d1a7c` against the new
+- [x] 1.5 Byte check, not committed: `diff` the cli's `health.go` at `bd4d1a7c` against the new
       `health.go` with the HP1 renames applied to the cli copy by `sed`. The only differences
       are the package clause, the local kind constants, `Aggregate` in place of
       `QuickInstanceHealth`, the added `ProgressDeadlineExceeded`, and doc-comment wording. Record nothing; fix any other difference.
-- [ ] 1.6 `task check` green, then commit
+- [x] 1.6 `task check` green, then commit
       `feat(k8s): add the opm/k8s/health readiness evaluator`.
 
 ## 2. Docs, consumer builds and the API diff
