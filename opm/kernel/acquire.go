@@ -320,20 +320,21 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, values ...Source) (*module.Instance, error) {
 	cueCtx := cuecontext.New()
 	var (
-		spec cue.Value
-		src  *module.Source
-		err  error
+		spec     cue.Value
+		src      *module.Source
+		compiled []cue.Value
+		err      error
 	)
 	if len(values) == 0 {
 		spec, src, err = k.acquireDir(cueCtx, "Kernel.AcquireInstanceFromDir", dirPath, loader.InstanceSpec, false)
 	} else {
-		spec, src, err = k.loadInstanceWithValues(cueCtx, dirPath, values)
+		spec, src, compiled, err = k.loadInstanceWithValues(cueCtx, dirPath, values)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	if err := k.checkInstanceValues(spec, values); err != nil {
+	if err := checkInstanceValues(spec, compiled); err != nil {
 		return nil, err
 	}
 
@@ -345,27 +346,29 @@ func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, value
 	return inst, nil
 }
 
-// mergeSources compiles a values stack in cueCtx, unifies it in order and
-// returns the merged value. It is the one merge both values paths run: the
-// extra sources of [Kernel.AcquireInstanceFromDir] and InstanceInput.Values
-// on [Kernel.SynthesizeInstance], each in the context of the build the merged
-// value is rendered into, and each file-backed source through env, the
-// kernel's registry mapping ([Kernel.loadEnv]). An empty stack, or one whose
-// sources carry no values, is the zero value with no error — the "no values
-// supplied" path.
-func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (cue.Value, error) {
-	values, err := compileSources(cueCtx, sources, env)
+// mergeSources compiles a values stack in cueCtx once, unifies it in order
+// and returns both the compiled values and their merge. It is the one merge
+// both values paths run: the extra sources of [Kernel.AcquireInstanceFromDir]
+// and InstanceInput.Values on [Kernel.SynthesizeInstance], each in the
+// context of the build the merged value is rendered into, and each
+// file-backed source through env, the kernel's registry mapping
+// ([Kernel.loadEnv]). The compiled values live in that same context, so the
+// checks after the build validate them as they are, with no second compile.
+// An empty stack, or one whose sources carry no values, merges to the zero
+// value with no error — the "no values supplied" path.
+func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (compiled []cue.Value, merged cue.Value, err error) {
+	compiled, err = compileSources(cueCtx, sources, env)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("compiling values sources: %w", err)
+		return nil, cue.Value{}, fmt.Errorf("compiling values sources: %w", err)
 	}
-	merged := unifyValues(values)
+	merged = unifyValues(compiled)
 	if !merged.Exists() {
-		return cue.Value{}, nil
+		return compiled, cue.Value{}, nil
 	}
 	if err := merged.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unifying values sources: %w", err)
+		return nil, cue.Value{}, fmt.Errorf("unifying values sources: %w", err)
 	}
-	return merged, nil
+	return compiled, merged, nil
 }
 
 // loadInstanceWithValues builds the instance package at dirPath in cueCtx
@@ -374,25 +377,27 @@ func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (cue.Valu
 // runs from a copy of it plus the rendered values file, and the returned
 // overlay-mode Source is the one that build used. The authored overlay
 // itself is kept unchanged for attributing a failed build to the sources.
-func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sources []Source) (cue.Value, *module.Source, error) {
+// The sources' compiled values are returned with the build, for the check
+// that follows it.
+func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sources []Source) (cue.Value, *module.Source, []cue.Value, error) {
 	const verb = "Kernel.AcquireInstanceFromDir"
 	authored, err := dirSource(verb, dirPath, loader.InstanceSpec, true)
 	if err != nil {
-		return cue.Value{}, nil, err
+		return cue.Value{}, nil, nil, err
 	}
 
-	merged, err := mergeSources(cueCtx, sources, k.loadEnv())
+	compiled, merged, err := mergeSources(cueCtx, sources, k.loadEnv())
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("%s: %w", verb, err)
+		return cue.Value{}, nil, nil, fmt.Errorf("%s: %w", verb, err)
 	}
 
 	pkgName, err := sourcetree.PackageName(authored)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("%s: %w: %w", verb, err, oerrors.ErrInvalidPackage)
+		return cue.Value{}, nil, nil, fmt.Errorf("%s: %w: %w", verb, err, oerrors.ErrInvalidPackage)
 	}
 	rendered, err := valuesfile.Render(pkgName, merged)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("%s: %w", verb, err)
+		return cue.Value{}, nil, nil, fmt.Errorf("%s: %w", verb, err)
 	}
 
 	// The rendered values file joins the package directory (Root joined with
@@ -406,13 +411,13 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sou
 
 	spec, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
-		if vErr := k.attributeValuesError(cueCtx, authored, sources); vErr != nil {
-			return cue.Value{}, nil, vErr
+		if vErr := k.attributeValuesError(cueCtx, authored, compiled); vErr != nil {
+			return cue.Value{}, nil, nil, vErr
 		}
-		return cue.Value{}, nil, err
+		return cue.Value{}, nil, nil, err
 	}
 
-	return spec, src, nil
+	return spec, src, compiled, nil
 }
 
 // checkInstanceValues validates, on every acquire, the values the built spec
@@ -423,16 +428,18 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sou
 // into a let binding the output never reads, so CUE alone reports nothing
 // for a key no component consumes; this is the check that does.
 //
-// The sources are checked first, on their own, so their errors name each
-// source's Origin rather than the rendered overlay file the build merged
-// them through. The built `values` is checked second: with the sources
-// already clean, any disallowed key left in it comes from the package's own
-// files, whose positions the built value keeps. Concreteness is not asserted
-// (requireConcrete false): valid but incomplete values pass here and are
-// held to concreteness by the instance processing step afterwards.
-func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
+// The sources' values (compiled once by [mergeSources], in the context the
+// spec was built in; nil when the call passed none) are checked first, on
+// their own, so their errors name each source's Origin rather than the
+// rendered overlay file the build merged them through. The built `values` is
+// checked second: with the sources already clean, any disallowed key left in
+// it comes from the package's own files, whose positions the built value
+// keeps. Concreteness is not asserted (requireConcrete false): valid but
+// incomplete values pass here and are held to concreteness by the instance
+// processing step afterwards.
+func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, err := validateSources(configSchema, sources, k.loadEnv(), false); err != nil {
+	if _, err := validateCompiled(configSchema, compiled, false); err != nil {
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(spec), err)
 	}
 	built := spec.LookupPath(schema.Values)
@@ -448,32 +455,44 @@ func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
 // attributeValuesError explains a failed layered build in terms of the
 // values sources: it builds the package as authored in cueCtx from the
 // authored Source (the overlay already read for the layered build, without
-// the rendered values file), compiles the sources in that same context,
-// unifies the package's own values with them and validates the result
-// against the module's #config exactly as [Kernel.ValidateConfigDetailed]
-// does, so a conflict is reported at positions attributable to the source
-// (its Origin) rather than at the rendered overlay file. It returns nil when the failure is not a values
+// the rendered values file), unifies the package's own values with the
+// sources' values (compiled once by [mergeSources], in that same context)
+// and validates the result against the module's #config without requiring
+// concreteness (see [valuesConflict]), so a conflict is reported at
+// positions attributable to the source (its Origin) rather than at the
+// rendered overlay file. It returns nil when the failure is not a values
 // problem (the caller then reports the build error itself).
-func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.Source, sources []Source) error {
+func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.Source, compiled []cue.Value) error {
 	authored, err := loader.LoadDir(cueCtx, authoredSrc, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}
+	if vErr := valuesConflict(authored, compiled); vErr != nil {
+		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(authored), vErr)
+	}
+	return nil
+}
+
+// valuesConflict is the failure-path attribution both instance verbs share.
+// authored is the instance package built without the rendered values file
+// (the authored package on the acquire path, the values-free synthesized
+// package on the synthesis path), and compiled the call's values, compiled
+// once in the context authored was built in. It unifies authored's own
+// values with compiled and validates the result against authored's #config
+// without requiring concreteness: a field the values leave unset is not a
+// conflict, and a missing-field message with no source position must never
+// replace the real build error. Concreteness is enforced by the instance
+// processing step on a build that succeeds. It returns the raw CUE error, or
+// nil when the values are clean or there is nothing to check.
+func valuesConflict(authored cue.Value, compiled []cue.Value) error {
 	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
-	all := make([]cue.Value, 0, len(sources)+1)
+	all := make([]cue.Value, 0, len(compiled)+1)
 	if own := authored.LookupPath(schema.Values); own.Exists() {
 		all = append(all, own)
 	}
-	compiled, err := compileSources(cueCtx, sources, k.loadEnv())
-	if err != nil {
-		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: compiling values sources: %w", bestEffortInstanceName(authored), err)
-	}
 	all = append(all, compiled...)
-	if _, vErr := validateValues(configSchema, all, true); vErr != nil {
-		name := bestEffortInstanceName(authored)
-		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
-	}
-	return nil
+	_, err := validateCompiled(configSchema, all, false)
+	return err
 }
 
 // sourceForDir describes an on-disk package directory as a Source: Root is

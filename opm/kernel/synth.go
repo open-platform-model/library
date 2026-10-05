@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
@@ -75,6 +76,17 @@ type InstanceInput struct {
 // asserts concreteness on the whole built spec and decodes instance metadata.
 // No additional values source is consulted.
 //
+// A values conflict at a path a component consumes fails the build itself.
+// When the build fails and in.Values carry values, the failure is attributed
+// to the sources the way [Kernel.AcquireInstanceFromDir] attributes it: the
+// package is built again in the call's context without the rendered values
+// file, and the values already compiled are checked against that build's
+// #config without requiring concreteness (concreteness is enforced on a
+// build that succeeds). A values error is returned framed
+// `instance "<name>": …` at the sources' own positions; in every other case
+// (no values, the values-free build fails too, or the values are clean) the
+// build error is returned unchanged.
+//
 // The synthesized package imports core at the major of the kernel's schema
 // release: read from the configured [schema.OCILoader] when it pins an exact
 // release (the default), with no schema load, and resolved through the
@@ -123,12 +135,12 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 
 	cueCtx := cuecontext.New()
 	env := k.loadEnv()
-	merged, err := mergeSources(cueCtx, in.Values, env)
+	compiled, merged, err := mergeSources(cueCtx, in.Values, env)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
 
-	spec, src, err := synth.Instance(cueCtx, coreVersion, synth.Input{
+	input := synth.Input{
 		Module:      in.Module,
 		Name:        in.Name,
 		Namespace:   in.Namespace,
@@ -136,19 +148,35 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 		Labels:      in.Labels,
 		Annotations: in.Annotations,
 		Env:         env,
-	})
+	}
+	spec, src, err := synth.Instance(cueCtx, coreVersion, input)
 	if err != nil {
+		if merged.Exists() {
+			// A values conflict a component consumes fails the build itself,
+			// positioned in the rendered values file. Build the package again
+			// without that file, in this same context, and check the values
+			// the merge compiled against its #config, the way
+			// Kernel.AcquireInstanceFromDir checks them against its package
+			// as authored. The schema comes from this call's own build, never
+			// from the module's Package.
+			input.Values = cue.Value{}
+			if rebuilt, _, rErr := synth.Instance(cueCtx, coreVersion, input); rErr == nil {
+				if vErr := valuesConflict(rebuilt, compiled); vErr != nil {
+					return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", in.Name, vErr)
+				}
+			}
+		}
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
 
-	// The build merged the sources into `values`; check them against the
-	// module's #config the way layered validation does, so a type or
-	// constraint violation is reported at the source's own positions. This is
-	// the same pass Kernel.AcquireInstanceFromDir runs over its extra values;
-	// concreteness of the whole instance is enforced by processInstance
-	// afterwards.
+	// The build merged the sources into `values`; check the values the merge
+	// compiled against the module's #config the way layered validation does,
+	// so a type or constraint violation is reported at the source's own
+	// positions. This is the same pass Kernel.AcquireInstanceFromDir runs over
+	// its extra values; concreteness of the whole instance is enforced by
+	// processInstance afterwards.
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := validateSources(configSchema, in.Values, env, false); vErr != nil {
+	if _, vErr := validateCompiled(configSchema, compiled, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
 	}
 

@@ -39,15 +39,14 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 }
 
 // validateSources compiles sources in the schema's own context, in stack
-// order, and hands the values to [validateValues]. It backs
-// [Kernel.ValidateConfigDetailed] (requireConcrete true) and the kernel's
-// internal per-source attribution pass under [Kernel.AcquireInstanceFromDir]
-// with extra values and [Kernel.SynthesizeInstance] (requireConcrete false:
-// type errors, constraint violations and disallowed fields on the fields
-// that are set still surface, missing required fields do not, since the
-// whole built instance is checked for concreteness afterwards). env is the
-// environment slice a file-backed source's load consults, the kernel's
-// registry mapping ([Kernel.loadEnv]); nil reads the process environment.
+// order, and hands the values to [validateCompiled]. It backs
+// [Kernel.ValidateConfigDetailed]; the acquire and synthesis paths compile
+// their sources once for the merge and validate those values through
+// [validateCompiled] instead. requireConcrete false still surfaces type
+// errors, constraint violations and disallowed fields on the fields that are
+// set, but not missing required fields. env is the environment slice a
+// file-backed source's load consults, the kernel's registry mapping
+// ([Kernel.loadEnv]); nil reads the process environment.
 //
 // Returns the unified value on success and the zero value plus the raw CUE
 // error tree on failure; callers wrap with [fmt.Errorf] if they want context
@@ -63,6 +62,16 @@ func validateSources(schema cue.Value, sources []Source, env []string, requireCo
 	values, err := compileSources(schema.Context(), sources, env) //nolint:staticcheck // the schema's own context is the one the sources must be built in
 	if err != nil {
 		return cue.Value{}, err
+	}
+	return validateCompiled(schema, values, requireConcrete)
+}
+
+// validateCompiled is [validateSources] for values already compiled in the
+// schema's context: no values or a zero schema short-circuit to (zero, nil),
+// anything else goes to [validateValues].
+func validateCompiled(schema cue.Value, values []cue.Value, requireConcrete bool) (cue.Value, error) {
+	if len(values) == 0 || !schema.Exists() {
+		return cue.Value{}, nil
 	}
 	return validateValues(schema, values, requireConcrete)
 }
