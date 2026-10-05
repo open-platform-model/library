@@ -4,7 +4,7 @@
 
 A single `Kernel` SHALL be safe for concurrent use across its own method calls: no operation shares evaluation state with another, because each creates its own `cue.Context` and drops its references to it on return, and the schema cache is memoized under synchronization. A value the operation returns (an artifact's `Package`, a `*kernel.Compiled`) keeps that context alive for as long as the caller holds it, and no longer: the context's lifetime is bounded by its holder (ADR-007). A consumer that needs concurrent operations uses one `Kernel` per process; the package documentation SHALL state this and SHALL NOT recommend one Kernel per goroutine.
 
-`Kernel.Render` SHALL share nothing between renders: each render is its own CUE build in a fresh `cue.Context` whose references the kernel drops when `Render` returns, and no built value is retained by the kernel. A `*kernel.Compiled` the caller holds keeps its render's build alive until the caller releases it. Concurrency is across operations, never within one; a consumer rendering from several goroutines calls `Render` on one Kernel, with no shared built platform value and no mutex. The package documentation SHALL state this, SHALL NOT present any shared built value as a supported shape, and SHALL state that a render pool is sized by memory (about 61 MB plus 7.75 MB per component per concurrent render, 0019 experiment 08) rather than by core count. The retracted shared-materialized-platform model and its mutex stopgap SHALL NOT appear as supported shapes.
+`Kernel.Render` SHALL share nothing between renders: each render is its own CUE build in a fresh `cue.Context` whose references the kernel drops when `Render` returns, and no built value is retained by the kernel. A `*kernel.Compiled` the caller holds keeps its render's build alive until the caller releases it. Concurrency is across operations, never within one; a consumer rendering from several goroutines calls `Render` on one Kernel, with no shared materialized platform value and no mutex. The package documentation SHALL state this, SHALL NOT present a value built into a shared context, or a shared materialized platform, as a supported shape, and SHALL state that a render pool is sized by memory (about 61 MB plus 7.75 MB per component per concurrent render, 0019 experiment 08) rather than by core count. The retracted shared-materialized-platform model and its mutex stopgap SHALL NOT appear as supported shapes.
 
 #### Scenario: Documentation states the contract
 
@@ -35,7 +35,7 @@ A single `Kernel` SHALL be safe for concurrent use across its own method calls: 
 
 ### Requirement: Each runtime contract has one home
 
-Each runtime contract of the library SHALL be stated in the doc comment of the package, type or function that owns it; the rationale behind a contract SHALL live in an ADR under `adr/`, and its testable obligations in a requirement under `openspec/specs/`. `README.md`, `AGENTS.md` and the pages under `docs/` SHALL link to a contract's home instead of restating it, and MAY keep a short orientation sentence that names the home. A doc comment that the docs bundle publishes (any exported package under `opm/`) SHALL NOT carry an `ADR-NNN` pointer; a package that wants one keeps it in a non-doc comment. No committed file SHALL cite a session-local decision, one recorded only in an agent session's own log, as a source: it states the rule and cites a source a reader can open (an owner decision by its walkthrough id, an ADR, an enhancement decision such as `0012:D3`, a pull request or an archived change). Source: owner decision c4 (beta.1 walkthrough).
+Each runtime contract of the library SHALL be stated in the doc comment of the package, type or function that owns it; the rationale behind a contract SHALL live in an ADR under `adr/`, and its testable obligations in a requirement under `openspec/specs/`. `README.md`, `AGENTS.md` and the pages under `docs/` SHALL link to a contract's home instead of restating it, and MAY keep a short orientation sentence that names the home. A doc comment that the docs bundle publishes (any exported package under `opm/`) SHALL NOT carry an `ADR-NNN` pointer; a package that wants one keeps it in a non-doc comment. No committed file outside `openspec/changes/` SHALL cite a session-local decision, one recorded only in an agent session's own log (a numbered `SD` decision, or "the supervisor"), as a source: it states the rule and cites a source a reader can open (an owner decision by its walkthrough id, an ADR, an enhancement decision such as `0012:D3`, a pull request or an archived change). Source: owner decision c4 (beta.1 walkthrough).
 
 #### Scenario: The render contract is stated once
 
@@ -45,7 +45,7 @@ Each runtime contract of the library SHALL be stated in the doc comment of the p
 #### Scenario: The env-override rule is stated in its homes
 
 - **WHEN** a developer searches the non-test Go code under `opm/` for `os.Setenv`
-- **THEN** the hits are the `opm/internal/cueenv` package doc and the `OCILoader` type doc, and the acquire verbs and the loader options link to the package doc instead
+- **THEN** the hits are the `opm/internal/cueenv` package doc and the `OCILoader` type doc; the acquire verbs link `[WithRegistry]` or the `opm/kernel` package doc, and the loader options link `[cueenv.Override]`, instead
 
 #### Scenario: Published doc comments carry no ADR pointer
 
@@ -54,10 +54,5 @@ Each runtime contract of the library SHALL be stated in the doc comment of the p
 
 #### Scenario: No session-local citation
 
-- **WHEN** a developer searches the repository outside `openspec/changes/` for a `Source:` line, a comment or a prose citation that names a session-local decision
-- **THEN** none is found; each rule cites a source a reader can open
-
-#### Scenario: Which artifacts carry a Source
-
-- **WHEN** a developer reads the `module.Source` doc
-- **THEN** it names Module (registry and directory acquire, overlay mode), Instance (synthesis in overlay mode; directory acquire on disk, or in overlay mode with values sources), Platform (directory acquire, on disk) and Catalog (registry and directory acquire, overlay mode), and makes no claim of a single cue/load overlay site
+- **WHEN** a developer runs `git grep -nE '\bSD[0-9]+\b|[Ss]upervisor' -- . ':!openspec/changes'`
+- **THEN** it prints nothing; each rule cites a source a reader can open
