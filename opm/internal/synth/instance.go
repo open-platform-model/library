@@ -46,6 +46,7 @@ import (
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/loader"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/internal/valuesfile"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -135,6 +136,10 @@ const synthPkgDir = "opm-synth-instance"
 // Instance REQUIRES the module to carry staged source (Module.HasSource());
 // acquire it via Kernel.AcquireModuleFromRegistry or
 // Kernel.AcquireModuleFromDir. It never fetches from a registry itself.
+// When the module came from a registry its root is a synthetic root
+// ([sourcetree.SyntheticRoot]); Instance refuses, naming the path and
+// building nothing, when anything exists there on disk, because cue/load
+// would read it into the build.
 //
 // The function does NOT enforce concreteness and does NOT decode instance
 // metadata. Both live downstream in the kernel's instance processing, which
@@ -183,6 +188,17 @@ func Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *mo
 	moduleRoot, overlay, err := buildOverlay(in, coreVersion)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("instance synthesis: %w", err)
+	}
+
+	// A registry-acquired module's root is a synthetic root that must not
+	// exist on disk: cue/load would merge a real directory there into this
+	// build. The acquire checked it, but this build can run much later, so it
+	// is checked again right before the build. A directory-acquired root is
+	// real by design and is not checked.
+	if sourcetree.IsSynthetic(moduleRoot) {
+		if err := sourcetree.CheckRootAbsent("synthetic root", "instance package", moduleRoot); err != nil {
+			return cue.Value{}, nil, fmt.Errorf("instance synthesis: %w", err)
+		}
 	}
 
 	// Evaluate the synthesized package through the SAME build-and-shape-gate

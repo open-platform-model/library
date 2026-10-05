@@ -57,18 +57,18 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 3. synth: refuse an existing synthetic root at synthesis
 
-- [ ] 3.1 `opm/internal/synth/instance.go`: in `Instance`, after `buildOverlay` and before
+- [x] 3.1 `opm/internal/synth/instance.go`: in `Instance`, after `buildOverlay` and before
   `LoadDir` (design D3), when `sourcetree.IsSynthetic(moduleRoot)` call
   `sourcetree.CheckRootAbsent("synthetic root", "instance package", moduleRoot)` and return
   `instance synthesis: <cause>` with a nil tree on error. Document it in the `Instance` doc.
-- [ ] 3.2 `opm/internal/synth/instance_test.go`: add `TestInstance_RefusesAnExistingSyntheticRoot`,
+- [x] 3.2 `opm/internal/synth/instance_test.go`: add `TestInstance_RefusesAnExistingSyntheticRoot`,
   not parallel. It points `sourcetree.SyntheticBase` at `t.TempDir()`, publishes a core-v2 module
   fixture to an in-memory registry, fetches it with `loader.FetchModule` (the root is absent, so the
   acquire succeeds), then creates the synthetic root holding an injected `.cue` file. Assert that
   `synth.Instance` returns an error containing `synthetic root <path> exists on disk` and a nil
   tree. Remove the root and assert that the same call succeeds. A module acquired from a directory
   keeps synthesizing: the existing directory-acquired synthesis tests stay green.
-- [ ] 3.3 `go test -race -count=1 ./opm/internal/synth/ ./opm/kernel/` green, then `task check`
+- [x] 3.3 `go test -race -count=1 ./opm/internal/synth/ ./opm/kernel/` green, then `task check`
   green, `task api:diff` reports no incompatible change, and the consumer build
   (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <consumer-checkout> . <work-dir>`) passes
   against cli and opm-operator `main`. Commit
