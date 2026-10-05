@@ -1,7 +1,7 @@
 # Changes here need a code owner's review (main ruleset).
-/.github/                       @emil-jacero @orvis98
-/.tasks/                        @emil-jacero @orvis98
-/Taskfile*.yml                  @emil-jacero @orvis98
-/release-please-config.json     @emil-jacero @orvis98
-/.release-please-manifest.json  @emil-jacero @orvis98
-/.cascade-frozen                @emil-jacero @orvis98
+/.github/                       @emil-jacero
+/.tasks/                        @emil-jacero
+/Taskfile*.yml                  @emil-jacero
+/release-please-config.json     @emil-jacero
+/.release-please-manifest.json  @emil-jacero
+/.cascade-frozen                @emil-jacero
