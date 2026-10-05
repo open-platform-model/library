@@ -22,20 +22,20 @@ Commit rules:
 
 ## 1. Pin core v2.0.0-beta.3 (schema, testdata, docs examples; design PS1)
 
-- [ ] 1.1 Run `task -x deps:cascade` in the worktree.
+- [x] 1.1 Run `task -x deps:cascade` in the worktree.
       - It resolves `../.github` through the common git dir. Pass `CASCADE_RESOLVER` with an absolute path if it does not.
       - Expect exit 0 and these edits: `DefaultSchemaModule` reads `"opmodel.dev/core@v2.0.0-beta.3"`; the core pin of `testdata/cue.mod`, every `testdata/render` tree and every `CUE_MODULE_GLOBS` module moves to `v2.0.0-beta.3`; the core examples in `docs/getting-started.md` and `AGENTS.md` follow.
       - Record whether `opmodel.dev/catalogs/opm@v4` moved, and to which build. Read `.git/cascade/warnings` and resolve or record each warning.
       - If the resolver cannot run, fall back to `DEFAULT_CORE=v2.0.0-beta.3 task cue:deps:update`, after editing `opm/schema/loader.go:43` by hand, and edit the two docs examples by hand.
       - Verify: `grep -rn 'v2.0.0-beta.2' --include=module.cue testdata modules` prints nothing. `.cascade-frozen` files keep their deliberate old cores.
-- [ ] 1.2 Check the derived pins.
+- [x] 1.2 Check the derived pins.
       - `go test ./opm/internal/registrytest ./opm/schema ./opm/internal/loader -count=1` is green. `TestDefaultCoreVersion_IsTheDefaultSchemaRelease` reads the new default.
       - `grep -rn 'beta\.2' opm --include=*.go` shows only `.cascade-frozen` files and the version-comparison tables (`modversion_test.go`, `renderstage/modfile_test.go`), not a core pin.
-- [ ] 1.3 Catalog pin. No literal edit is needed: the parity harness reads the shipped build from `testdata/parity/cue.mod` (`shippedCatalogVersion`).
+- [x] 1.3 Catalog pin (moved v4.5.1 -> v4.6.0; shipped parity green, `shippedCases` unchanged). No literal edit is needed: the parity harness reads the shipped build from `testdata/parity/cue.mod` (`shippedCatalogVersion`).
       - Expect 1.1 to move `opmodel.dev/catalogs/opm@v4` v4.5.1 -> v4.6.0, or 4.7.0 if catalog_opm#145 merged first. Record the build.
       - Run `go test ./opm/kernel -run 'TestParity_Shipped' -count=1`. Edit the bare-name `shippedCases` rows only if `assertRowsCoverPairs` or `TestParity_ShippedCatalogDiscriminated` fails at the new build.
-- [ ] 1.4 Run `go test ./opm/kernel -run 'TestKernel_AcquireCatalog' -count=1`. It is green with unchanged expectations. These tests now run against a core whose catalogs carry `provides`, and the fold still answers.
-- [ ] 1.5 `task check` green (fmt, vet, lint, test, the offline api-diff fixture test and the cascade wiring check). Then run `task api:diff` explicitly (it diffs this tree against the base tag; `task check` does not) and record that its Allowed section shows the `DefaultSchemaModule` beta.2 -> beta.3 line. Then commit `fix(deps): pin core v2.0.0-beta.3`. If the catalog moved, the body adds one line naming the catalog build and the parity literals.
+- [x] 1.4 Run `go test ./opm/kernel -run 'TestKernel_AcquireCatalog' -count=1`. It is green with unchanged expectations. These tests now run against a core whose catalogs carry `provides`, and the fold still answers.
+- [x] 1.5 `task check` green (fmt, vet, lint, test, the offline api-diff fixture test and the cascade wiring check). Then run `task api:diff` explicitly (it diffs this tree against the base tag; `task check` does not) and record that its Allowed section shows the `DefaultSchemaModule` beta.2 -> beta.3 line. Then commit `fix(deps): pin core v2.0.0-beta.3`. If the catalog moved, the body adds one line naming the catalog build and the parity literals.
 
 ## 2. Read core's provider set, with the fold as a deprecated fallback (schema, catalog; design PS2-PS7)
 
