@@ -55,7 +55,7 @@ func makeWorkload(kind string, generation int64, spec, status map[string]interfa
 	return obj
 }
 
-func TestEvaluateHealth_Deployment(t *testing.T) {
+func TestEvaluate_Deployment(t *testing.T) {
 	progressDeadline := []interface{}{
 		map[string]interface{}{"type": "Progressing", "status": "False", "reason": "ProgressDeadlineExceeded"},
 		map[string]interface{}{"type": "Available", "status": "True"},
@@ -173,7 +173,7 @@ func TestEvaluateHealth_Deployment(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_StatefulSet(t *testing.T) {
+func TestEvaluate_StatefulSet(t *testing.T) {
 	// ssStatus builds a StatefulSet status; revisions default to a settled "rev-1".
 	ssStatus := func(observed, ready, updated int64, current, update string) map[string]interface{} {
 		return map[string]interface{}{
@@ -297,7 +297,7 @@ func TestEvaluateHealth_StatefulSet(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_DaemonSet(t *testing.T) {
+func TestEvaluate_DaemonSet(t *testing.T) {
 	dsStatus := func(observed, desired, updated, available int64) map[string]interface{} {
 		return map[string]interface{}{
 			"observedGeneration": observed, "desiredNumberScheduled": desired,
@@ -326,7 +326,7 @@ func TestEvaluateHealth_DaemonSet(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_Job(t *testing.T) {
+func TestEvaluate_Job(t *testing.T) {
 	tests := []struct {
 		name       string
 		conditions []map[string]interface{}
@@ -347,6 +347,22 @@ func TestEvaluateHealth_Job(t *testing.T) {
 			expected: NotReady,
 		},
 		{
+			name: "Failed before Complete in condition order",
+			conditions: []map[string]interface{}{
+				{"type": "Failed", "status": "True"},
+				{"type": "Complete", "status": "True"},
+			},
+			expected: NotReady,
+		},
+		{
+			name: "Complete before Failed in condition order",
+			conditions: []map[string]interface{}{
+				{"type": "Complete", "status": "True"},
+				{"type": "Failed", "status": "True"},
+			},
+			expected: Complete,
+		},
+		{
 			name:       "Job in progress",
 			conditions: nil,
 			expected:   NotReady,
@@ -361,12 +377,12 @@ func TestEvaluateHealth_Job(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_CronJob(t *testing.T) {
+func TestEvaluate_CronJob(t *testing.T) {
 	resource := makeResource("CronJob", nil)
 	assert.Equal(t, Applied, Evaluate(resource))
 }
 
-func TestEvaluateHealth_Passive(t *testing.T) {
+func TestEvaluate_Passive(t *testing.T) {
 	// Kinds with no readiness concept report Applied, never Ready (cli#46).
 	// PersistentVolumeClaim is intentionally excluded — it has its own evaluatePVCHealth branch.
 	passiveResources := []string{
@@ -385,7 +401,7 @@ func TestEvaluateHealth_Passive(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_PVC(t *testing.T) {
+func TestEvaluate_PVC(t *testing.T) {
 	tests := []struct {
 		name     string
 		phase    string
@@ -414,7 +430,7 @@ func TestEvaluateHealth_PVC(t *testing.T) {
 	}
 }
 
-func TestEvaluateHealth_Custom(t *testing.T) {
+func TestEvaluate_Custom(t *testing.T) {
 	tests := []struct {
 		name       string
 		conditions []map[string]interface{}

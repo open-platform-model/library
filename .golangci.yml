@@ -106,7 +106,9 @@ linters:
         # objects the frontend has fetched, so the standard library and
         # apimachinery's unstructured objects are all it needs. Holding it to
         # those keeps a cluster client, and every other opm/ package, out of
-        # it. Test files may use testify.
+        # it. The prefix also admits apimachinery's wait helpers, so that the
+        # package neither waits nor polls is kept by review, not by this rule.
+        # Test files may use testify.
         k8s-health-imports-only-apimachinery:
           list-mode: strict
           files:

@@ -11,9 +11,10 @@
 // StatefulSet or DaemonSet has rolled out, whether a Job has completed, the
 // phase of a PersistentVolumeClaim, and the Ready condition of a custom
 // resource; an object with no readiness concept, such as a ConfigMap or a
-// custom resource without a Ready condition, reports [Applied]. [Aggregate] folds the statuses of one instance's objects into one
-// status with a ready count and a total, and [ProgressDeadlineExceeded] tells
-// a stalled Deployment rollout from one still in progress.
+// custom resource without a Ready condition, reports [Applied].
+// [Aggregate] folds the statuses of one instance's objects into one status
+// with a ready count and a total, and [ProgressDeadlineExceeded] tells a
+// stalled Deployment rollout from one still in progress.
 //
 // The package is pure. It reads no cluster, waits for nothing and polls
 // nothing: the caller fetches each live object with its own client and passes
