@@ -213,6 +213,30 @@ func TestKernel_AcquireCatalogFromRegistry(t *testing.T) {
 	}, requires, "both committed requirements are readable, each as a path and a version")
 }
 
+// A catalog in a subdirectory names its module root and a relative Pkg; the
+// overlay spans the whole root and the package is built from it.
+func TestKernel_AcquireCatalogFromDir_Subpackage(t *testing.T) {
+	schematest.SetEnv(t)
+	root := writeCatalogDir(t, providerCatalogBody("test.example/catalogs/provider", "1.0.0"))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "sub"), 0o755))
+	require.NoError(t, os.Rename(filepath.Join(root, "catalog.cue"), filepath.Join(root, "sub", "catalog.cue")))
+
+	cat, err := kernel.New().AcquireCatalogFromDir(context.Background(), filepath.Join(root, "sub"))
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", cat.Metadata.Version)
+	require.NotNil(t, cat.Source)
+	assert.Equal(t, root, cat.Source.Root)
+	assert.Equal(t, "sub", cat.Source.Pkg)
+	keys := make([]string, 0, len(cat.Source.Overlay))
+	for key := range cat.Source.Overlay {
+		rel, err := filepath.Rel(root, key)
+		require.NoError(t, err)
+		keys = append(keys, filepath.ToSlash(rel))
+	}
+	sort.Strings(keys)
+	assert.Equal(t, []string{"cue.mod/module.cue", "sub/catalog.cue"}, keys)
+}
+
 // catalog-acquisition spec, "A non-catalog artifact is refused by shape",
 // module scenario, over the REGISTRY path: the refusal is the shape gate's,
 // so it reads the same whichever route resolved the artifact.

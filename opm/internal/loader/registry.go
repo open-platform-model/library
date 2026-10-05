@@ -125,12 +125,13 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	// registry/cache dependency resolution intact. Do not "simplify" this to
 	// FS-pinning; registry_internal_test.go pins the negative result. The
 	// add-registry-module-loader change records the measurement.
-	val, err := LoadDir(cueCtx, synthRoot, ".", overlay, env, spec)
+	src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}
+	val, err := LoadDir(cueCtx, src, Options{Env: env}, spec)
 	if err != nil {
 		return cue.Value{}, nil, err
 	}
 
-	return val, &opmmodule.Source{Root: synthRoot, Overlay: overlay}, nil
+	return val, src, nil
 }
 
 // verifyModuleIdentity compares the acquired module's declared identity
