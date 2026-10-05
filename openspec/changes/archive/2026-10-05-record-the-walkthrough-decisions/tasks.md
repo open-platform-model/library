@@ -5,7 +5,7 @@ Depends on: nothing unmerged. Merges last among the round-8 library changes (pro
 The walkthrough-id check used below (design.md, decision 3), two commands that each print nothing when the tree is clean:
 
 ```
-git grep -nE "[Oo]wner('s)? (walkthrough )?([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|walkthrough ([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|(walkthrough|checklist) items? [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]|[Oo]wner('s)?,? [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*'
+git grep -nE "[Oo]wner('s)? (walkthrough )?([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|walkthrough ([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|(walkthrough|checklist) items? [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]|[Oo]wner('s)?,? [a-j][1-5]\b|(walkthrough|kernel[ -]plan),? \(?[a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*'
 git grep -nE "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*' | sed -E 's/ADR-013, decisions? [a-j][1-5]((, | and )[a-j][1-5])*//g' | grep -E "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b"
 ```
 
@@ -36,11 +36,11 @@ The check is not wired into `task check`; library#198, which tracks the ungated 
 
 ## 4. Absorb main and sweep again
 
-- [ ] 4.1 Waiting: library#217, library#218, library#220 and enhancements#105 are still open. After the other round-8 library changes merge: `git fetch origin` and `git merge origin/main` (the squash drops the merge commit). Keep their text; where one of them changed a requirement this change's deltas copy, re-copy the delta from the new main spec and change only the Source words.
-- [ ] 4.2 Waiting on 4.1. Re-run the walkthrough-id check, the 2.6 greps and the 3.2 check over the merged tree. Apply sections 2 and 3's form to any new citation the merged changes added (for example a comment citing g2, d1 or e4, or a newly archived change).
-- [ ] 4.3 Waiting on 4.1. Refresh ADR-013's Landed column against the PRs merged by now in every repo it names, including the round-8 library PRs (the g2, d1 and e4 refinements) and any frontend half that has merged. Keep "pending" where a decided half has not merged.
+- [x] 4.1 After library#217, library#218, library#220 and enhancements#105 merged: `git fetch origin` and `git merge origin/main` (the squash drops the merge commit). The merge was clean; none of them changed a requirement this change's deltas copy, so no delta was re-copied.
+- [x] 4.2 Re-ran the walkthrough-id check, the 2.6 greps and the 3.2 check over the merged tree: the merged changes added no prefixed citation (their archives use id-only shorthand, which ADR-013 resolves). The first check pattern was widened to also catch "(walkthrough, e4)", "walkthrough e4" and "kernel plan c4", here, in design.md, in the `kernel-runtime` spec and in the library#198 comment; it does not match its own text, and over the repo it prints nothing outside ADR-013.
+- [x] 4.3 Refreshed ADR-013's Landed column: d1 adds library#218, g2 adds library#217, e4 adds enhancements#105 and library#220 and cites 0012:D8:R8, recording the e4 refinement as annotation only (a foreign UUID label alone does not refuse). The frontend halves of d1, e4 and g2 stay pending.
 - [x] 4.4 Cross-check: `task api:diff` reports no incompatible change of this branch. Run `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator `main` (each in its own work directory under the scratch dir), and both build and vet green. `openspec validate --all --strict` passes.
-- [ ] 4.5 Gates green. If 4.1 to 4.3 changed anything, commit `docs(adr): bring ADR-013 up to date with main`; otherwise record "no sweep changes" in this box. So far: `origin/main` was still 88afdfb when this change was archived, and the widened checks found more archived citations (fixed with the checks). The 4.1 to 4.3 pass runs once the PRs 4.1 names have merged.
+- [x] 4.5 Gates green (`task check`, `openspec validate --specs --strict`), then commit `docs(adr): bring ADR-013 up to date with main`.
 
 ## 5. Verify and archive
 
