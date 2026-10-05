@@ -138,11 +138,11 @@ enhancement reference.
 
 ## 5. Archive (at PR time)
 
-- [ ] 5.1 Merge `origin/main` into the branch first (lib-e3 and lib-f5 append to the same
+- [x] 5.1 Merge `origin/main` into the branch first (lib-e3 and lib-f5 append to the same
       `kubernetes-tier` main spec and doc lines), then
       `openspec archive add-kubernetes-ownership-package --yes` on this branch, so the archive
       rides the implementing PR. If `origin/main` moves after the archive, merge it and re-run
       the archive step. Verify: the `kubernetes-tier` main spec carries the new requirements,
       and `openspec validate --all --strict` passes. Skip the delivery log; the claim belongs
       to op-e4 and cli-e4.
-- [ ] 5.2 Commit `chore(openspec): archive add-kubernetes-ownership-package`.
+- [x] 5.2 Commit `chore(openspec): archive add-kubernetes-ownership-package`.
