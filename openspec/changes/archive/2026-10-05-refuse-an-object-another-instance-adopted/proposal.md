@@ -11,7 +11,7 @@ later prune or delete by either side races the other.
 The owner settled enhancements#103: A refuses it too. A's apply guard also refuses an object in
 A's inventory whose live adopt annotation names another instance, and A drops the object from its
 next inventory. The annotation alone triggers it: a UUID label naming another instance does not,
-so an instance whose UUID changes (a module moved to a new path) keeps applying its own objects.
+so an instance whose UUID changes (a module moved to a new path) keeps applying its own objects, except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID.
 This extends 0012:D8 with one requirement, 0012:D8:R8, added by the enhancements amendment that
 merges first (design.md AD7).
 

@@ -10,7 +10,7 @@ The contract is enhancement 0012:D8:R1 to R7 as merged, plus the amendment the o
 enhancements#103: "the apply guard also refuses an in-inventory object whose live adopt
 annotation names another instance; A drops it from its next inventory. Extends 0012:D8." The
 owner first selected "adopt annotation or UUID label" and narrowed it to the annotation only, so
-that a module-path move, which changes the instance UUID, keeps working.
+that a module-path move, which changes the instance UUID, keeps working, except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID.
 
 ## Goals / Non-Goals
 
@@ -23,8 +23,8 @@ that a module-path move, which changes the instance UUID, keeps working.
 
 **Non-Goals:**
 - Any frontend edit, any cluster read.
-- Changing what the adopt annotation lifts. It still lifts only `foreign-object` and
-  `other-instance`, and only when it names this instance.
+- Changing when the adopt annotation lifts a refusal. It lifts `foreign-object`,
+  `other-instance` and `adopted-elsewhere`, and only when it names this instance.
 - A helper that edits an inventory. Dropping the object is the frontend's write; the library
   states which verdict calls for it.
 
@@ -81,7 +81,7 @@ it over.
 Inside the inventory a UUID label naming another instance does not refuse. The instance UUID is
 SHA1 of registry path, name and namespace, so pointing an instance at a moved module path keeps
 its inventory but changes its UUID; refusing on the old label would drop every one of its own
-objects. B can relabel an object only after an annotation naming B, so the annotation already
+objects. The move keeps working for every object except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID (see Risks). B can relabel an object only after an annotation naming B, so the annotation already
 covers every real hand-over.
 
 Outside the inventory, once B has applied the object its annotation and UUID label both name B.
@@ -109,8 +109,8 @@ drops tracking, the safe outcome is the one that keeps the object and its tracki
 ### AD4: Outside the inventory, an annotation naming another instance refuses an OPM object
 
 **Context**: Once A drops the object, A's module still renders it, and A's next apply judges it
-outside the inventory. If B has applied it, its UUID label is B's and `other-instance` refuses
-it. If B has not, its UUID label is still A's (or absent), the object is OPM-managed, and today
+outside the inventory. If B has applied it, its UUID label is B's and it refuses as
+`adopted-elsewhere` (AD2). If B has not, its UUID label is still A's (or absent), the object is OPM-managed, and today
 the verdict applies it: A records it again and the fight resumes one apply later.
 **Decision**: After the `foreign-object` and `other-instance` checks, an object whose adopt
 annotation is non-blank and does not name this instance refuses as `adopted-elsewhere`. That
@@ -184,6 +184,12 @@ resolves once the amendment merges.
 - **A stale annotation.** An adopt annotation is never removed by OPM. An object adopted into A
   keeps `opmodel.dev/adopt=<A>`; B can take it only by changing the annotation, which is the
   deliberate act the guard asks for.
+- **A module-path move with an adopted object.** A move changes the instance UUID, and an
+  object the instance once adopted keeps `opmodel.dev/adopt=<old UUID>`, since OPM never removes
+  the annotation. In the inventory that annotation now names another instance, so the instance
+  refuses the object as `adopted-elsewhere` and drops it; its prune skips it as `owner-mismatch`
+  and its next apply refuses it again outside the inventory. The object is left unmanaged until
+  it is re-annotated with the new UUID. Every object the instance did not adopt moves with it.
 - **An annotation naming a nonexistent or mistyped UUID.** A refuses the object and drops it,
   every apply refuses it for as long as A renders it, and prune and uninstall skip it (the hold
   still releases). The object is left orphaned with A's label. Remedy: re-annotate it with A's

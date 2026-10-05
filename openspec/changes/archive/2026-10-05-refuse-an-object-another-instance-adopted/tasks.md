@@ -69,7 +69,8 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   the `adopted-elsewhere` literal to `#ApplyRefusalReason` and `#SkipReason` in
   `0012/contracts/contracts.cue` has merged. Before merging, check the merged requirement number;
   if it is not `R8`, correct every `0012:D8:R8` in this change's code, docs and spec delta, then
-  run the gates again. The PR body states the gate.
+  run the gates again. The PR body states the gate; the amendment is enhancements#105, and the
+  merger confirms it has merged with R8 unchanged before merging this change.
 - [x] 3.2 `AGENTS.md` § Repository Layout, the `ownership/` line: `CanDelete` also skips
   adopted-elsewhere; `CanApply` also refuses adopted-elsewhere, inside the inventory (the frontend
   drops it from its next inventory) and outside it. `README.md` lists no reasons; leave it.
@@ -87,6 +88,6 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 ## 4. openspec: verify and archive
 
 - [x] 4.1 `openspec verify` (the opsx:verify skill) reports no CRITICAL finding.
-- [x] 4.2 At PR time, after the 3.1 gate: `openspec archive refuse-an-object-another-instance-adopted --yes`,
+- [x] 4.2 At PR time, with the 3.1 gate stated in the PR body: `openspec archive refuse-an-object-another-instance-adopted --yes`,
   then `task openspec:check` and `openspec validate --all --strict` green.
 - [x] 4.3 Commit `chore(openspec): archive refuse-an-object-another-instance-adopted`.
