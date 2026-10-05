@@ -20,7 +20,7 @@ the files it names with `git add <file>`.
 - [x] 2.3 Tests in `opm/errors`. `resolution_test.go`: `Error()` equals the cause's text; a nil `Err` does not panic; `errors.Is(ErrTransient)` is false; `errors.As` finds no `*FetchError`; `cueerrors.Errors` through a `*ResolutionError` returns the list's errors and positions. In `classify_test.go`, move the two `cannot find module providing package a.b/c` forms from `TestClassify_UnrecognisedIsUnchanged` to a new `TestClassify_Resolution` table, and add rows there: the cli's constructed forms with `cannot do HTTP request` and with a 503 (`*FetchError`, no `*ResolutionError`), the mixed list `cannot fetch m@v0.0.1: unzip /c/m.zip: zip: not a valid zip file` plus `cannot find module providing package a.b/c` (`FetchOther`, no `*ResolutionError`), and classifying a `*ResolutionError` twice (the same value). In `classify_cue_test.go`, extend `classified` with the resolution kind, and set the `load/undeclared-import`, `load/own-path-missing-package`, `load/dependency-missing-package` and `standalone/unprovided-import` cases to `ResolutionImportUnprovided`. Keep every text assertion as it is: no message changes.
 - [x] 2.4 `opm/kernel/fetch_classify_test.go`: rename `TestFetchClassify_UnresolvableImportStaysPlain` to `TestFetchClassify_UnresolvableImportIsResolutionError`, keep both rows and the text assertion, and assert a `*ResolutionError` of kind `ResolutionImportUnprovided`, no `*FetchError` and no `ErrTransient`. Add a row for a package missing from a declared, served dependency (`registrytest`), and a row through `AcquireInstanceFromDir` with a file-backed values source that imports an undeclared module.
 - [x] 2.5 `opm/errors/errors.go` package doc: reword the fetch paragraph ("A registry fetch or dependency resolution failure is a [*FetchError]") so a fetch failure is a `*FetchError` and an author-defect resolution failure a `*ResolutionError`, with one sentence on the new type. Update the `opm/errors` line in AGENTS.md "Repository Layout" (the fetch classification entry) to name `*ResolutionError` and `ResolutionKind`. Update `TestClassify_UnrecognisedIsUnchanged`'s comment so it no longer says an import no module provides comes back unchanged.
-- [ ] 2.6 `task check` green, then commit `feat(errors): type unprovided imports as resolution errors`.
+- [x] 2.6 `task check` green, then commit `feat(errors): type unprovided imports as resolution errors`.
 
 ## 3. errors: type ambiguous imports and invalid module files
 
@@ -38,7 +38,7 @@ the files it names with `git add <file>`.
 
 ## 5. Verify and archive
 
-- [ ] 5.1 Run `openspec verify` for `type-author-resolution-errors` (the repo's openspec-verify-change skill). There must be no CRITICAL finding.
+- [x] 5.1 Run `openspec verify` for `type-author-resolution-errors` (the repo's openspec-verify-change skill). There must be no CRITICAL finding.
 - [ ] 5.2 At PR time, not in the implement stage: run `openspec archive type-author-resolution-errors --yes`. Then check:
   - `fetch-error-classification` carries the restated `Classify` requirement and the two ADDED requirements;
   - its Purpose is edited by hand so that it no longer says `Classify` leaves every author defect unchanged;
