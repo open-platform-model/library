@@ -22,3 +22,9 @@ The registry module loader SHALL load the fetched module in memory and SHALL NOT
 - **WHEN** a directory holding a `.cue` file of the module's package, or a plain file, exists at the synthetic root of a module version and that version is fetched from the registry
 - **THEN** the load returns an error naming the synthetic root, and no value and no source
 - **AND** once nothing exists at the root, the same fetch succeeds
+
+#### Scenario: An existing synthetic root refuses a catalog acquire
+
+- **WHEN** a directory holding a `.cue` file, or a plain file, exists at the synthetic root of a catalog version and that version is fetched from the registry with the catalog spec
+- **THEN** the load returns an error naming the synthetic root, and no value and no source
+- **AND** once nothing exists at the root, the same fetch succeeds
