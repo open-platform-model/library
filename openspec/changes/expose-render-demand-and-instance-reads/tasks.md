@@ -45,10 +45,10 @@ it is committed. Every commit task stages the files it names with `git add <file
 
 ## 4. Measure after and run the full suite
 
-- [ ] 4.1 Re-run memprobe at the head with the same knobs. Fill in "Measurements / After" in design.md in the same table shape, with the ratio for each column. If cert_manager `r1-nil` `render_peak_heap` rose by more than 5% over the base, stop and report it to the supervisor. If `user_s` rose by more than 5%, re-run base and head back to back first, and report only a rise that holds.
-- [ ] 4.2 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/kernel/... ./opm/internal/renderstage/...`, then `OPM_FLOW_TEST_FORCE=1 go test ./...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
-- [ ] 4.3 Run the consumer build locally against a fresh clone of cli `main` and of opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. Record the consumer commits in design.md "Verification". Then run `task api:diff`: it must list no incompatible change charged to this branch.
-- [ ] 4.4 `task check` green, then commit `chore(openspec): record expose-render-demand-and-instance-reads measurements`.
+- [x] 4.1 Re-run memprobe at the head with the same knobs. Fill in "Measurements / After" in design.md in the same table shape, with the ratio for each column. If cert_manager `r1-nil` `render_peak_heap` rose by more than 5% over the base, stop and report it to the supervisor. If `user_s` rose by more than 5%, re-run base and head back to back first, and report only a rise that holds.
+- [x] 4.2 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/kernel/... ./opm/internal/renderstage/...`, then `OPM_FLOW_TEST_FORCE=1 go test ./...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
+- [x] 4.3 Run the consumer build locally against a fresh clone of cli `main` and of opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. Record the consumer commits in design.md "Verification". Then run `task api:diff`: it must list no incompatible change charged to this branch.
+- [x] 4.4 `task check` green, then commit `chore(openspec): record expose-render-demand-and-instance-reads measurements`.
 
 ## 5. Verify and archive
 

@@ -356,8 +356,29 @@ Base: `a774337` (code at `origin/main` `a8bfc76`; the branch adds only planning 
 
 ### After
 
-Filled in by task 4.1.
+Head: `4ecf06a` (sections 1-3). Load average about 7 at the head run.
+
+| Case | render_peak_heap | render_peak_live | vmhwm | user_s |
+| --- | --- | --- | --- | --- |
+| cert_manager `r1-nil` | 301.6 (1.035) | 242.9 (1.046) | 349.5 (1.000) | 2.41 (0.94) |
+| cert_manager `r2-nil` | 445.0 (1.002) | 334.0 (0.973) | 559.1 (1.002) | 3.21 (0.90) |
+
+The ratio in brackets is head over base. `r1-nil` `render_peak_heap`, the hard stop, rose 3.5%,
+under the 5% limit. `user_s` fell, so no re-run was needed. `render_peak_heap` is a sampled peak,
+and the r2 case moved by 0.2%, so the r1 rise is within what one sampled peak varies by. The
+comprehension adds no measurable cost.
 
 ## Verification
 
-Filled in by tasks 2.x and 4.2.
+- Section 2: `TestRenderDemand_ParityWithOperatorWalk` compares the build's demand with a copy of
+  the operator's walk (opm-operator `9b83611`) on the 19 scenario packages that reach their diagnostics, the
+  happy-path instance and `instance_maj0` and `instance_bk0` on `platform_collide`, and asserts the
+  three exclusions (`unstated`, `no_resources`, `bad_traits`) each refuse with a plain error.
+  `TestParity_ShippedCatalog` asserts the same on the shipped catalog.
+- `OPM_FLOW_TEST_FORCE=1 go test -race -count=1 ./opm/kernel/... ./opm/internal/renderstage/...`:
+  pass, no test skipped. `TestParity_ShippedCatalog`, `TestParity_ShippedCatalogDiscriminated`,
+  `TestRender_InventoryParity` and `TestFlow_WebApp_OnOpmPlatform` ran and passed.
+- `OPM_FLOW_TEST_FORCE=1 go test -count=1 ./...`: pass.
+- Consumer build (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh`, fresh clones of `main`): cli
+  `bd4d1a7` and opm-operator `9b83611` both build and vet against this worktree.
+- `task api:diff` against v1.0.0-beta.4: no incompatible change.
