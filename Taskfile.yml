@@ -137,7 +137,7 @@ tasks:
     cmds:
       # Every package once: the race-checked packages run only in the -race
       # pass below, so they are excluded here rather than built and run twice.
-      - go test $(go list ./... | grep -v -e /opm/kernel -e /opm/internal/renderstage -e /opm/platform)
+      - go test $(go list ./... | grep -v -E '/opm/(kernel|platform|internal/renderstage)(/|$)')
       # Render shares nothing between renders (0019:D8); run the render
       # packages under -race so the concurrency claim the docs make is
       # checked on every push (the earlier shared-platform claim went

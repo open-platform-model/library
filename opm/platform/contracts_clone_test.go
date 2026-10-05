@@ -39,3 +39,35 @@ func TestContractInventoryClone_KeepsNilAndEmptyApart(t *testing.T) {
 		})
 	}
 }
+
+// clone shares nothing with its source: changing the copy's map entries,
+// slice elements and a Comparable row's Contracts leaves the source as it was.
+func TestContractInventoryClone_SharesNothing(t *testing.T) {
+	src := func() *ContractInventory {
+		return &ContractInventory{
+			DefinedBy:        map[string]string{"a": "x"},
+			RequiredBy:       map[string][]string{"a": {"t"}},
+			ProvidedBy:       map[string][]string{"g": {"c1", "c2"}},
+			Unfulfilled:      []string{"u"},
+			OverSubscribed:   []string{"o"},
+			Comparable:       []ComparablePredicates{{Broader: "x", Narrower: "y", Contracts: []string{"a"}}},
+			Collisions:       []string{"c"},
+			CollidingEntries: map[string][]string{"e": {"1"}},
+		}
+	}
+	inv := src()
+	out := inv.clone()
+	assert.NotSame(t, inv, out)
+
+	out.DefinedBy["a"] = "changed"
+	out.RequiredBy["a"][0] = "changed"
+	out.ProvidedBy["g"][1] = "changed"
+	out.Unfulfilled[0] = "changed"
+	out.OverSubscribed[0] = "changed"
+	out.Comparable[0].Contracts[0] = "changed"
+	out.Comparable[0].Broader = "changed"
+	out.Collisions[0] = "changed"
+	out.CollidingEntries["e"][0] = "changed"
+
+	assert.Equal(t, src(), inv)
+}

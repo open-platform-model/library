@@ -17,8 +17,7 @@ import (
 )
 
 // The tests below pin the platform-artifact requirement "A platform records
-// its core floor and contract inventory at construction" (owner decision h4
-// of the beta.1 kernel checklist walkthrough).
+// its core floor and contract inventory at construction".
 
 // recordedInventorySrc is a current-core #contracts carrying every report
 // field, one Comparable row, a defined contract nothing requires (an empty
@@ -54,17 +53,19 @@ func compilePlatformValue(t *testing.T, src string) cue.Value {
 // is replaced with the zero value.
 func TestContracts_RecordedAtConstructionSurvivesZeroPackage(t *testing.T) {
 	k := contractsKernel(t)
-	plat := acquireContractsPlatform(t, k, filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform"))
+	dir := filepath.Join(schematest.LibraryRoot(t), "testdata", "render", "platform")
+	plat := acquireContractsPlatform(t, k, dir)
 
-	before, err := plat.Contracts()
-	require.NoError(t, err)
-	require.NoError(t, plat.CoreFloor())
-
+	// Zero Package before the first read, so only a record taken at
+	// construction can answer.
 	plat.Package = cue.Value{}
+
+	want, err := acquireContractsPlatform(t, k, dir).Contracts()
+	require.NoError(t, err)
 
 	after, err := plat.Contracts()
 	require.NoError(t, err, "the recorded inventory is returned without reading Package")
-	assert.Equal(t, before, after)
+	assert.Equal(t, want, after)
 	assert.NoError(t, plat.CoreFloor(), "the recorded floor is read without reading Package")
 }
 
@@ -75,11 +76,18 @@ func TestContracts_EachCallReturnsItsOwnInventory(t *testing.T) {
 	plat, err := platform.NewPlatformFromValue(compilePlatformValue(t, recordedInventorySrc))
 	require.NoError(t, err)
 
-	want, err := plat.Contracts()
+	// want comes from an independent decode, so a shared record would
+	// not change it along with got.
+	other, err := platform.NewPlatformFromValue(compilePlatformValue(t, recordedInventorySrc))
+	require.NoError(t, err)
+	want, err := other.Contracts()
 	require.NoError(t, err)
 	got, err := plat.Contracts()
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+	first, err := plat.Contracts()
+	require.NoError(t, err)
+	assert.NotSame(t, first, got, "each call returns a new inventory")
 
 	got.DefinedBy["r/a@v1"] = "changed"
 	got.RequiredBy["r/a@v1"][0] = "changed"
