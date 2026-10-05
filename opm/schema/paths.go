@@ -19,8 +19,9 @@ import "cuelang.org/go/cue"
 //   - DebugValues: Module.DebugValues.
 //   - Contracts: the inventory decode platform.NewPlatformFromValue records,
 //     which Platform.Contracts returns.
-//   - ContractsProvidedBy: the core-floor presence check Kernel.Render runs
-//     before staging.
+//   - ContractsProvidedBy: the core-floor presence test
+//     platform.NewPlatformFromValue records, which Platform.CoreFloor
+//     reports and Kernel.Render checks before staging.
 //   - ContractsCollisions, ContractsCollidingEntries: in Go, tests only; they
 //     document the collision report, whose fields the inventory decode reads
 //     relative to [Contracts].
@@ -63,10 +64,13 @@ var (
 	// ContractsProvidedBy is #Platform.#contracts.providedBy: every
 	// provider-fulfilled contract FQN an enabled transformer requires, to
 	// the sorted registry keys of the entries supplying it. It is the one
-	// provider count: the render glue reads it in CUE, Contracts() decodes
-	// it, and Kernel.Render checks, before staging, only that the
-	// platform's Package carries it (a presence test, nothing more), so a
-	// platform pinning a core older than [ProvidedBySince] is refused.
+	// provider count: the render glue reads it in CUE, and
+	// platform.NewPlatformFromValue records whether the platform carries it
+	// (a presence test, nothing more), the core floor
+	// (*platform.Platform).CoreFloor reports and Kernel.Render checks before
+	// staging, so a platform pinning a core older than [ProvidedBySince] is
+	// refused. The inventory decode reads the same field relative to
+	// [Contracts].
 	ContractsProvidedBy = cue.MakePath(cue.Def("contracts"), cue.Str("providedBy"))
 
 	// ContractsCollisions is #Platform.#contracts.collisions: every

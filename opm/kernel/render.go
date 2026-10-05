@@ -14,7 +14,6 @@ import (
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // SkewPolicy is the caller's response to catalog version skew
@@ -324,11 +323,14 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // Refusals before evaluation (missing Source, a platform whose core predates
 // the provider count, uncovered OPM path, skew under [SkewRefuse]) return
 // plain errors; refusals after evaluation return a [*RenderError] carrying
-// the decoded diagnostics. A platform whose Package carries no
-// #contracts.providedBy (a platform module pinning core older than
+// the decoded diagnostics. A platform whose #contracts carries no
+// providedBy (a platform module pinning core older than
 // [schema.ProvidedBySince]) is refused before staging, with no staging
-// directory created, by an error wrapping [*oerrors.PlatformCoreTooOldError]:
-// the render never falls back to a provider count of its own.
+// directory created, by the error [platform.Platform.CoreFloor] returns,
+// wrapping [*oerrors.PlatformCoreTooOldError]: the render never falls back
+// to a provider count of its own. The floor is the fact the platform
+// recorded at construction; Render reads no Package, only the platform's
+// Metadata and Source.
 func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, error) {
 	_, res, err := k.render(ctx, in)
 	return res, err
@@ -363,16 +365,10 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 	// The core floor: the render build evaluates the platform module's own
 	// core pin, the one its Package was built from, so a Package lacking
-	// providedBy is a build whose glue would lack it. One read-only path
-	// lookup and presence test on the shared Package; no unification, no
-	// fill.
-	if !in.Platform.Package.LookupPath(schema.ContractsProvidedBy).Exists() {
-		return none, nil, fmt.Errorf("render refused before staging: %w", &oerrors.PlatformCoreTooOldError{
-			Platform: platformMetadataName(in.Platform),
-			Field:    "providedBy",
-			Since:    schema.ProvidedBySince,
-			Require:  schema.ProvidedBySince,
-		})
+	// providedBy is a build whose glue would lack it. The platform recorded
+	// the floor at construction; Render reads that fact, not Package.
+	if err := in.Platform.CoreFloor(); err != nil {
+		return none, nil, fmt.Errorf("render refused before staging: %w", err)
 	}
 
 	dir, err := os.MkdirTemp("", "opm-render-")
@@ -432,16 +428,6 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 
 	return built, &RenderResult{Compiled: compiled, Diagnostics: diag}, nil
-}
-
-// platformMetadataName is the platform's raw metadata.name, empty when none
-// was decoded: the Platform field of a PlatformCoreTooOldError, which words
-// an empty name itself, so Render and Contracts() name a platform alike.
-func platformMetadataName(p *platform.Platform) string {
-	if p != nil && p.Metadata != nil {
-		return p.Metadata.Name
-	}
-	return ""
 }
 
 func platformName(p *platform.Platform) string {

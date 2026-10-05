@@ -28,19 +28,19 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 2. kernel: Render reads the recorded core floor
 
-- [ ] 2.1 `opm/kernel/render.go`: replace the `Package` lookup with `in.Platform.CoreFloor()`, wrapped as `render refused before staging: %w`, at the same point: after the `ctx.Err()` check and before the staging directory (design D4). Delete `platformMetadataName` if nothing else reads it. Drop the `opm/schema` import if it is unused.
-- [ ] 2.2 Docs in this section (design D5, section 2 list):
+- [x] 2.1 `opm/kernel/render.go`: replace the `Package` lookup with `in.Platform.CoreFloor()`, wrapped as `render refused before staging: %w`, at the same point: after the `ctx.Err()` check and before the staging directory (design D4). Delete `platformMetadataName` if nothing else reads it. Drop the `opm/schema` import if it is unused.
+- [x] 2.2 Docs in this section (design D5, section 2 list):
   - the `Render` doc and the floor comment in `render.go`;
   - the `opm/kernel` package doc (`doc.go`: the "with one exception: Render reads ... Package" sentence in "Every operation shares nothing", the Goroutine safety sentence that a render "reads the shared Package only for the core floor", which now says a render reads no `Package` and the floor reads the fact recorded at construction, and the core-floor paragraph);
   - the `schema.ContractsProvidedBy` comment;
   - a dated amendment sentence on ADR-007's Status paragraph, in the form of the existing one: "Amended 2026-10-05 by `decode-platform-contracts-at-acquire` (owner decision h4 of the beta.1 kernel checklist walkthrough): `Render` reads no `Package`; the core floor reads the fact the platform recorded at construction." The 2026-09-30 sentence stays as history.
 
   AGENTS.md is not edited: its `platform/` line stays true, and the `Platform` godoc is the contract's one home.
-- [ ] 2.3 Tests in `opm/kernel`:
+- [x] 2.3 Tests in `opm/kernel`:
   - `render_core_floor_test.go`: keep `TestRender_OlderCorePlatformRefusedBeforeStaging` and `TestRender_UnnamedOlderCorePlatformSameMessageAsContracts` unchanged; the struct-literal case is now the pin for the hand-built scenario. Add a test that an acquired current-core platform with its `Package` replaced by the zero `cue.Value` renders the same objects as the unchanged platform ("A render reads no platform Package"). Add a test that acquiring the alpha.10-pinned platform yields equal typed errors from `CoreFloor()` and from `Render`'s unwrapped cause. Update the race-test comments (`TestRender_SharedPlatformConcurrentRenders` and its cold sibling): the floor reads recorded Go fields, not `Package`.
   - `render_core_floor_test.go` `acquireOlderCorePlatform`: reword the helper comment and the require message ("acquisition does not read the inventory") to say that acquisition records the refusal and does not return it.
   - `render_collision_test.go`: the hand-built old-core colliding platform still constructs, passes the floor and fails in the build. Update its comment ("construction reads metadata only") to the new construction.
-- [ ] 2.4 `task check` green, then commit `feat(kernel): read the recorded core floor in Render`.
+- [x] 2.4 `task check` green, then commit `feat(kernel): read the recorded core floor in Render`.
 
 ## 3. Full suite, consumer builds and api diff
 

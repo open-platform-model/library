@@ -188,7 +188,8 @@ func TestRender_OlderCoreWithoutCollisionReportRendersUnchanged(t *testing.T) {
 // the absent-means-empty proof, since no loader checked it. Measured: the
 // loader refuses the directory (the definedBy fold conflicts), the hand-built
 // value still carries metadata and #contracts.providedBy so it passes
-// construction and the render's core floor, and the render build then fails
+// construction (which records the contracts refusal and does not return it)
+// and the render's core floor, and the render build then fails
 // on the same definedBy conflict when the diagnostics are decoded. It is a
 // plain error, never a render: the collision is not detected as a collision,
 // but it is not rendered either.
@@ -210,8 +211,12 @@ func TestRender_HandBuiltOlderCoreCollidingPlatformNeverRenders(t *testing.T) {
 	// The same value built by hand, bypassing the loader's error check.
 	pkg := buildPlatformValue(t, dir)
 	plat, err := platform.NewPlatformFromValue(pkg)
-	require.NoError(t, err, "construction reads metadata only")
-	require.True(t, plat.Package.LookupPath(schema.ContractsProvidedBy).Exists(), "the value passes the core floor")
+	require.NoError(t, err, "construction records the contracts refusal and does not return it")
+	require.True(t, plat.Package.LookupPath(schema.ContractsProvidedBy).Exists(), "the value carries providedBy")
+	require.NoError(t, plat.CoreFloor(), "the value passes the core floor")
+	_, contractsErr := plat.Contracts()
+	require.Error(t, contractsErr, "the recorded inventory refusal is returned later")
+	assert.Contains(t, contractsErr.Error(), "conflicting values")
 	require.False(t, plat.Package.LookupPath(schema.ContractsCollisions).Exists(), "and carries no collision report")
 	plat.Source = &platform.Source{Root: dir}
 
