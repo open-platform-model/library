@@ -11,8 +11,6 @@ import (
 )
 
 func TestCanApply(t *testing.T) {
-	operatorNS := ownership.Object{Kind: "Namespace", Name: "opm-operator-system"}
-	clusterRole := ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: "opm-operator-manager"}
 	adoptKey := labels.AnnotationAdopt
 
 	tests := []struct {
@@ -40,11 +38,6 @@ func TestCanApply(t *testing.T) {
 			name: "a terminating object adopted by this instance is refused",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("helm"), adopt(thisUUID), terminating()), InstanceUUID: thisUUID},
 			want: ownership.RefuseTerminating,
-		},
-		{
-			name: "admission never lifts the terminating refusal",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), terminating()), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseTerminating, contains: []string{"Namespace/opm-operator-system"},
 		},
 		{
 			name: "a terminating object annotated for another instance is refused as terminating",
@@ -175,33 +168,6 @@ func TestCanApply(t *testing.T) {
 			name: "a whitespace annotation counts as none",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("helm"), adopt("  \t")), InstanceUUID: thisUUID},
 			want: ownership.RefuseForeignObject, notContains: []string{"names another instance"},
-		},
-		{
-			name: "a proven earlier-manifest object is admitted on apply",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "a proven ClusterRole with no labels is admitted on apply",
-			in:   ownership.ApplyInput{Object: clusterRole, Live: live("rbac.authorization.k8s.io/v1", "ClusterRole", "", "opm-operator-manager"), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "an admitted object carrying this instance's UUID is applied",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(thisUUID)), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "an admitted object carrying another identity is refused",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseForeignObject,
-		},
-		{
-			name: "admission never lifts the adopted-elsewhere refusal",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), adopt(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseAdoptedElsewhere,
-		},
-		{
-			name: "admission never lifts other-instance",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseOtherInstance,
 		},
 	}
 	for _, tt := range tests {

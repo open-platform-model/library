@@ -65,12 +65,3 @@ func liveUUID(live *unstructured.Unstructured) string {
 func opmManaged(live *unstructured.Unstructured) bool {
 	return labels.IsOPMManagedBy(liveLabel(live, labels.ManagedBy))
 }
-
-// carriesNoOtherIdentity reports whether the live object carries no module
-// instance UUID, or the given instance's. The UUID label is the only identity
-// compared: the instance name is no input, and an object without a UUID label
-// predates UUID stamping.
-func carriesNoOtherIdentity(live *unstructured.Unstructured, instanceUUID string) bool {
-	u := liveUUID(live)
-	return u == "" || u == instanceUUID
-}
