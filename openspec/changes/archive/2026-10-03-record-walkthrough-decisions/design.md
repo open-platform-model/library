@@ -42,7 +42,7 @@ Where matching lives is a separate question from what ADR-005 to ADR-008 settle,
 - **Rejected:** moving `#Match` whole (core#62, not now), and reversing 0019:D17 with a core reverse index. Either one makes every matching fix a core release and every matching break a `feat!` on core (a new major after GA), and needs an enhancement decision amending 0019.
 - **Consequences:** core#62 is to be closed as not now, with a pointer to ADR-012. This change does not close it.
 
-**Reading chosen (additions):** the conditions "an additive core release" and "when core can compute it from core shapes alone" are the planner's reading, not the owner's d5 text. They follow from the owner's h2 answer (each move an additive core release) and from the `providedBy` precedent. The supervisor accepted the "core shapes alone" condition on 2026-10-03.
+**Reading chosen (additions):** the conditions "an additive core release" and "when core can compute it from core shapes alone" are the planner's reading, not the text of ADR-013, decision d5. They follow from ADR-013, decision h2 (each move an additive core release) and from the `providedBy` precedent. The "core shapes alone" condition was accepted on 2026-10-03.
 
 ### 3. ADR-005 gets ADR-007's holder-bounded wording, not a rewrite
 

@@ -114,7 +114,7 @@ SemVer class: MINOR. Release class of the PR: `feat`.
 - **The g1 switch of `Compiled.Value` to JSON bytes.** It is deferred by the owner. `Resource`
   wraps the value. Because `Export` already hands out bytes, the later switch can stay internal
   to `opm/k8s/object`.
-- **Changing any weight.** The table is ported as it is (owner e5). The Flux comparison
+- **Changing any weight.** The table is ported as it is (ADR-013, decision e5). The Flux comparison
   documents the differences and decides nothing.
 - **A dependabot or release rule that moves `k8s.io/apimachinery` only through the library.**
   The owner has decided no such rule. This change only states the MVS floor fact in

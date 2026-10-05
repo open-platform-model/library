@@ -87,7 +87,7 @@ of a library one plus the cli's hand-written copy in `status.go`.
 
 **Context**: The research noted that ReplicaSets and ReplicationControllers are not evaluated:
 they fall to the condition rule and report `Applied` because they carry no `Ready` condition.
-**Decision**: Unchanged. The move is verbatim (owner f5), and the cli's output for such an
+**Decision**: Unchanged. The move is verbatim (ADR-013, decision f5), and the cli's output for such an
 object must stay the same when it adopts the package.
 **Rationale**: A new rule is a behaviour change for the cli's `instance status`. If op-f5 or a
 module author needs one, it is its own change with its own test.
@@ -114,7 +114,7 @@ unchanged (it still returns `NotReady` for such a Deployment). The generation ch
 condition left over from the previous rollout from reporting a fresh apply as stalled before the
 controller has seen it. Any other kind returns false.
 **Rationale**: (a) breaks the verbatim move. (c) puts a readiness rule back into a frontend,
-against ADR-011 items 1 and 3 and the owner's f5 decision ("Evaluator moves to
+against ADR-011 items 1 and 3 and ADR-013, decision f5 ("Evaluator moves to
 opm/k8s/health"). (b) proposed later by op-f5 would add a second library release before op-f5
 could start. The predicate is one function and one test; the requeue policy that reads it stays
 op-f5's.

@@ -10,7 +10,7 @@ The three front-door files a new reader opens first, `README.md`, `AGENTS.md` an
 - **An old principle name.** `README.md:144` summarizes the constitution with "small batches". Principle VIII is Mergeable Sections (`CONSTITUTION.md:20`).
 - **A moved core file.** The site page `docs/site/diagnostics/colliding-contracts.md:35` tells the reader to check against `core/src/platform_contracts_pins.cue`. core moved its pins into `core/src/pins/` (core PR 103), so the file is now `core/src/pins/platform_contracts_pins.cue`.
 
-The owner decided this as ADR-013, decision c2: a separate, small library docs PR for the README, AGENTS and CONSTITUTION front-door fixes, with "floating major" replaced by "pinned by default, bare major opt-in". The supervisor folded in wave-1 follow-up w1-05, the colliding-contracts pins path.
+The owner decided this as ADR-013, decision c2: a separate, small library docs PR for the README, AGENTS and CONSTITUTION front-door fixes, with "floating major" replaced by "pinned by default, bare major opt-in". The colliding-contracts pins path is folded in.
 
 ## What Changes
 

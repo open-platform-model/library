@@ -40,7 +40,7 @@ The contract is enhancement 0012 as merged in enhancements#88 and amended on 202
 ### OW1: The adopt key is `opmodel.dev/adopt`, declared in `opm/k8s/labels`
 
 **Context**: 0012:D8 fixes the key in the implementing change: "indicatively
-`opmodel.dev/adopt`", and the owner's e4 answer uses the same example.
+`opmodel.dev/adopt`", and ADR-013, decision e4 uses the same example.
 **Explored**: The OPM keys at HEAD fall into two families (`opm/k8s/labels/labels.go`).
 Identity labels use a subject-prefixed domain (`module-instance.opmodel.dev/uuid`,
 `component.opmodel.dev/name`), and the cli's category label uses the bare domain
@@ -183,7 +183,7 @@ apply side keeps no kind bound: the cli's admit set covers every kind of the ear
 (Namespace, ClusterRole, ServiceAccount and so on), and applying over a proven object is what
 0012:D8:R6 asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
 `Ours` objects carry the instance's own. Delete-side `Admit` stays, because without it the
-install's 0012:D8:R7 deletes could not go through `CanDelete`, and the owner's e4 answer puts every
+install's 0012:D8:R7 deletes could not go through `CanDelete`, and ADR-013, decision e4 puts every
 delete path through it. The delete side needs no `InstanceUUID` case: the superseded bindings
 have names the module does not render, so they never get the instance UUID, and a recreated
 Deployment that carries it is already OPM-managed and passes without admission.

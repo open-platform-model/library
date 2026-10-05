@@ -1,7 +1,7 @@
 ## Context
 
-See proposal.md, Why. Four small consolidations share one change because the owner bundled b3,
-b4 and b5 and the supervisor folded x1 in. Design-local decisions are numbered CS1 to CS8 so
+See proposal.md, Why. Four small consolidations share one change because ADR-013, decisions b3,
+b4 and b5 bundle them, and x1 was folded in. Design-local decisions are numbered CS1 to CS8 so
 they collide with no other numbering. Line numbers are at library `origin/main` `58f8151`
 (v1.0.0-beta.4 plus #180 and #181; neither touched these files since the wave-2 research at
 `93a892f`).
