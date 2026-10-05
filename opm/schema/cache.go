@@ -32,7 +32,10 @@ import (
 // schema takes the returned value's Context. The library MUST NOT expose a
 // package-level Cache singleton; long-running consumers attach the Cache
 // to a Kernel (or equivalent lifetime anchor) and keep that anchor alive
-// across operations.
+// across operations. Two Caches, in one process or in two, share CUE's
+// on-disk module cache ($CUE_CACHE_DIR) and never the in-process value: each
+// loads once, and a release already in the disk cache is not downloaded
+// again.
 type Cache struct {
 	// Loader is the strategy used to resolve and build the schema value.
 	// Required.

@@ -10,10 +10,11 @@
 // frontend writes itself are the ones on its own bookkeeping objects, such as
 // the cli's inventory Secret; each constant's doc says who writes it.
 //
-// It is part of the Kubernetes tier and imports nothing outside the Go
-// standard library, which a depguard rule in .golangci.yml enforces, so a
-// frontend can read the vocabulary without the rest of the tier.
+// It is part of the Kubernetes tier beside the kernel and imports nothing
+// outside the Go standard library, which a depguard rule in .golangci.yml
+// enforces, so a frontend can read the vocabulary without the rest of the
+// tier.
 package labels
 
-// Maintainer pointer, kept out of the package doc because it publishes into
-// the Library reference: the tier this package belongs to is ADR-011.
+// Design record behind the package doc above, for maintainers: the
+// Kubernetes tier beside the kernel is ADR-011.

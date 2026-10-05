@@ -36,9 +36,9 @@ import "github.com/open-platform-model/library/opm/kernel"
 k := kernel.New()
 ```
 
-`kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required. `WithRegistry` sets the ONE registry mapping every kernel operation resolves through: the render build's catalog imports, `AcquireModuleFromRegistry`'s module pulls, directory acquisition, `SynthesizeInstance`, the compilation of file-backed values sources (so a values file importing a registry module resolves it here too, on `ValidateConfigDetailed`, on `AcquireInstanceFromDir` with trailing values and on `SynthesizeInstance`) and the default schema cache; without it the kernel inherits the process `CUE_REGISTRY`. The mapping is plumbed into the load configuration only, never written back to the environment.
+`kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required. `WithRegistry` sets the ONE registry mapping every kernel operation resolves through; the [`opm/kernel` package documentation](../opm/kernel/doc.go) lists the operations, and without the option the kernel inherits the process `CUE_REGISTRY`.
 
-The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCache().Get()` triggers one `OCILoader.Load` call; subsequent calls on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization. No kernel verb loads the schema on a pinned kernel (the default): `SynthesizeInstance` reads the core import major off the pin, and acquisition and `Render` resolve core through the module's own `cue.mod` inside the build. Only a bare-major loader (`opmodel.dev/core@v2`) makes synthesis load the schema to learn the release.
+Each Kernel owns one schema cache for its lifetime; the godoc of [`kernel.New`](../opm/kernel/kernel.go) and [`Kernel.SchemaCache`](../opm/kernel/kernel.go) states when the schema loads and that the cache lives as long as its Kernel.
 
 ### Pin a specific schema version
 
@@ -221,11 +221,8 @@ if err != nil {
         // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
         // UnhandledTraits, OverSubscribed, Collisions, Routable,
         // ResolvedVersions, and RequiredContracts, the instance's contract
-        // demand) and rerr.Err the typed causes, joined in gate
-        // order (*oerrors.ContractCollisionsError,
-        // *oerrors.UnresolvedDemandsError, *oerrors.OverSubscribedContractsError,
-        // *oerrors.UnmatchedComponentsError, *oerrors.NotRoutableError) or
-        // *oerrors.TransformError, each reachable through errors.As.
+        // demand) and rerr.Err the typed causes, in the order the
+        // RenderError doc gives, each reachable through errors.As.
         var unmatched *oerrors.UnmatchedComponentsError
         if errors.As(rerr.Err, &unmatched) {
             // unmatched.Components: one row per component, each carrying its

@@ -26,7 +26,7 @@ set -euo pipefail
 
 # Accepted incompatible entries, matched as fixed line prefixes. The release
 # cascade rewrites this constant on every core move (.tasks/cascade/cascade.sh,
-# phase C1); supervisor decision SD17 of the beta.1 walkthrough.
+# phase C1), so its value change is allowed and nothing else is.
 ALLOW=(
   './opm/schema.DefaultSchemaModule: value changed from '
 )

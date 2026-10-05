@@ -50,8 +50,10 @@ type Option func(*Kernel)
 // returned Kernel is safe for concurrent use across method calls.
 //
 // New does NOT trigger a schema load, and on a pinned loader (the default)
-// no Kernel method does either: only a bare-major loader's instance
-// synthesis, or a caller's own [schema.Cache.Get], runs the lazy fetch.
+// no Kernel method does either: only instance synthesis on a loader that
+// pins no exact release (a bare-major [schema.OCILoader], or any other
+// [schema.Loader]), or a caller's own [schema.Cache.Get], runs the lazy
+// fetch.
 func New(opts ...Option) *Kernel {
 	k := &Kernel{}
 	for _, opt := range opts {
@@ -133,7 +135,8 @@ func WithRegistry(registry string) Option {
 //
 // Typical use: read [schema.Cache.ResolvedVersion] for diagnostics after a
 // load has run. Nothing needs to be passed back in: a kernel whose loader
-// names a bare major resolves the core release for [Kernel.SynthesizeInstance]
+// pins no exact release (a bare-major [schema.OCILoader], or any other
+// [schema.Loader]) resolves the core release for [Kernel.SynthesizeInstance]
 // through this cache on its own, and a pinned kernel (the default) runs no
 // load at all, so a consumer that wants the diagnostic calls
 // [schema.Cache.Get] itself.

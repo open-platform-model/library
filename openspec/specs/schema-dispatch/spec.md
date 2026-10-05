@@ -5,39 +5,6 @@ Defines the single-schema dispatch surface that replaces the retired multi-`apiV
 
 ## Requirements
 
-### Requirement: Single OPM schema, externally resolved, with no apiVersion field
-
-The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v2` (or a caller-pinned exact version, in any major, via `OCILoader.Module`), resolved through CUE's module system against `CUE_REGISTRY`. The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other in-tree location. The schema package MUST NOT define a top-level `#ApiVersion` constant. Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform`, `#Resource`, `#Trait`) MUST NOT carry an `apiVersion` field.
-
-#### Scenario: No in-tree schema source
-
-- **WHEN** the library tree is inspected after this change
-- **THEN** no directory `library/apis/` exists
-- **AND** no Go file embeds `opmodel.dev/core` source via `//go:embed`
-
-#### Scenario: Schema resolved via module identifier
-
-- **WHEN** the kernel's `*schema.Cache` is populated for the first time
-- **THEN** the underlying load goes through `cue/load.Instances` against the configured module identifier (default `"opmodel.dev/core@v2"`)
-- **AND** the resolved value's `LookupPath(cue.ParsePath("#ModuleInstance"))` exists
-
-#### Scenario: Evaluated module has no apiVersion field
-
-- **WHEN** an artifact authored against the library schema is loaded and evaluated
-- **THEN** `apiVersion` on the artifact root does not exist
-
-#### Scenario: Default resolves within the v2 major
-
-- **WHEN** `(schema.OCILoader{}).Load(ctx)` runs with no `Module` override
-- **THEN** the bare major `"opmodel.dev/core@v2"` is expanded through the loader's existing bare-major mechanism and resolves to the highest published version within the v2 major
-- **AND** SemVer prerelease ordering applies, so a `v2.0.0-0.dev.*` snapshot tag never outranks a `v2.0.0-alpha.N` tag
-
-#### Scenario: Caller-pinned earlier major still loads
-
-- **WHEN** `(schema.OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}).Load(ctx)` is called
-- **THEN** the loader resolves exactly that version and returns its schema value
-- **AND** no code path upgrades or rewrites the caller's pin
-
 ### Requirement: DefaultSchemaModule constant
 
 `schema.DefaultSchemaModule` SHALL name an exact core release, not the floating `opmodel.dev/core@v2` major. It is the release the kernel's render glue, fixtures and parity oracle were verified against. The constant is the only record of which release that is: this specification, the doc comments and the tests name no release as the current default. `2.0.0-alpha.13` remains the first release that reports contract collisions on the derived `#Platform.#contracts` inventory (`collisions` and `collidingEntries`, with `routable` false while any exist, and with `defined` and `definedBy` folding only single-definer keys; core change `fold-colliding-contract-keys`). It reports them on top of the per-registry-entry provider count (`providedBy`), the comparable-predicate report (`comparable` and `discriminated`; 0015:D5, 0015:OQ9), the 0015:D1/D2/D18 inventory, the 0019:D5 registry shape and the 0019:D12 context projection. The default's documentation SHALL keep naming `2.0.0-alpha.13` as that release and SHALL NOT attribute those reports to a beta release. The default is not the render floor: `Kernel.Render` and `Platform.Contracts()` accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on, and a platform pinning a release between the floor and `2.0.0-alpha.13` decodes an absent collision report as no collision. `OCILoader.Load` with an empty `Module` field SHALL resolve this identifier. The constant advances only through a deliberate change that re-verifies the glue and fixtures against the new release; a default that floats ahead of the glue breaks every synthesized artifact on a cold cache. Doc comments that cite the default module identifier (`opm/kernel`, `opm/schema`) SHALL cite it by the constant's name (`DefaultSchemaModule`), never by the floating major, and SHALL NOT present a literal release as the current default; a release literal in a doc comment is a format example only, so a default move edits no doc comment.
@@ -135,7 +102,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 
 ### Requirement: A pinned schema release is known without a load
 
-`OCILoader` SHALL report, without any I/O, the exact core release its module identifier names: `PinnedVersion()` returns that release and `true` when `Module` (or `DefaultSchemaModule` when `Module` is empty) names a full release, and `("", false)` when it names a bare major. A kernel whose configured loader pins an exact release SHALL derive the core release its synthesized instances import from that pin and SHALL NOT load the schema to do so; a kernel whose loader names a bare major SHALL resolve the release through its schema cache as before.
+`OCILoader` SHALL report, without any I/O, the exact core release its module identifier names: `PinnedVersion()` returns that release and `true` when `Module` (or `DefaultSchemaModule` when `Module` is empty) names a full release, and `("", false)` when it names a bare major. A kernel whose configured loader pins an exact release SHALL derive the core release its synthesized instances import from that pin and SHALL NOT load the schema to do so; a kernel whose loader pins no exact release (a bare-major `OCILoader`, or any `Loader` that is not an `OCILoader`) SHALL resolve the release through its schema cache.
 
 #### Scenario: Default loader is pinned
 
@@ -200,7 +167,7 @@ The library MUST NOT cache the `Loader`'s result at package scope. There SHALL b
 
 ### Requirement: Cache exposes the resolved schema version
 
-`(*Cache).ResolvedVersion() string` SHALL return the schema module version that the underlying Loader resolved during the first successful Load (e.g., `"v2.0.0-alpha.4"` when the default `opmodel.dev/core@v2` resolved to `v2.0.0-alpha.4`). Before the first successful Load, `ResolvedVersion()` SHALL return the empty string.
+`(*Cache).ResolvedVersion() string` SHALL return the schema module version that the underlying Loader resolved during the first successful Load (e.g., `"v2.0.0-alpha.4"` when a bare-major `opmodel.dev/core@v2` loader resolved to `v2.0.0-alpha.4`). Before the first successful Load, `ResolvedVersion()` SHALL return the empty string.
 
 #### Scenario: ResolvedVersion is empty before Get
 
@@ -264,7 +231,22 @@ The library SHALL expose `opm/schema.PublicRegistry` as an exported string const
 
 ### Requirement: Path inventory exposed as package-level vars
 
-The library SHALL expose every CUE path some production code path reads as exported package-level `cue.Path` variables in `opm/schema`. After the render cutover the readers are metadata decoding, instance processing, the loaders' identity reads and the instance's components and `#config` accessors, so the inventory is exactly `Metadata`, `Components`, `Values`, `Config`, `Module` and `DebugValues` (the last kept for the documented frontend read of a module's debug overlay). The paths the Go matcher, executor and context builder read (`Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`) and `ModuleMetadataPath` (read only by the `ModuleVersion` accessor the context builder needed) SHALL be removed with those readers: the render build reads the instance's components and the platform's `#composedTransformers` in CUE, inside the generated glue. A path with no reader is removed, not retained for a possible consumer.
+The library SHALL expose every CUE path the kernel's Go code reads on an OPM artifact as an exported package-level `cue.Path` variable in `opm/schema`, and the package documentation SHALL name each path's readers. The inventory SHALL be exactly these paths:
+
+- `Metadata`: metadata decoding of every artifact kind (including the module metadata `Instance.ModuleMetadata` decodes), instance processing and the registry loader's identity read.
+- `Components`: `Instance.Components`.
+- `Values`: `Instance.Values`, the values check and conflict attribution of an instance build, and the top-level `values:` unwrap of a file-backed values source.
+- `Config`: `Module.ConfigSchema`, `Instance.ConfigSchema`, and values checking against `#config` at acquire and synthesis.
+- `Module`: the instance's reference to its `#Module`, read by `Instance.ConfigSchema`, `Instance.ModuleMetadata` and values checking at acquire and synthesis.
+- `DebugValues`: `Module.DebugValues`, the documented frontend read of a module's debug overlay.
+- `Contracts`: `Platform.Contracts()`.
+- `ContractsProvidedBy`: the core-floor presence check `Kernel.Render` runs before staging. `Platform.Contracts()` decodes the same field relative to `Contracts`, and the render glue reads it in CUE.
+- `ContractsCollisions` and `ContractsCollidingEntries`: they name fields that `Platform.Contracts()` reads relative to `Contracts` and the render glue reads in CUE. In Go only tests read the variables, which document the collision report.
+- `CatalogProvides`: `Catalog.Provides()`.
+- `Transformers`: `Catalog.Provides()` reads it on both of its paths, to refuse an unevaluated `#transformers`, and the deprecated provider-set fold, for a catalog built against a core older than `schema.ProvidesSince`, reads every transformer through it.
+- `RequiredResources`, `RequiredTraits` and `Fulfilment`: the deprecated fold reads them relative to a transformer and to its demand entries, not from an artifact root.
+
+The paths the retired Go matcher, executor and context builder read (`Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`) and `ModuleMetadataPath` SHALL stay removed: the render build reads the instance's components and the platform's `#composedTransformers` and `#contracts` in CUE, inside the generated glue. A path that no kernel code reads, by variable or relative to an inventory path, is removed, not retained for a possible consumer.
 
 #### Scenario: Consumer references a path directly
 
@@ -275,13 +257,18 @@ The library SHALL expose every CUE path some production code path reads as expor
 #### Scenario: Matcher and transformer paths are gone
 
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
-- **THEN** none of `Transformers`, `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`, `ModuleMetadataPath` exists
+- **THEN** none of `Registry`, `Transform`, `TransformerRequiredLabels`, `TransformerRequiredResources`, `TransformerRequiredTraits`, `TransformerOptionalTraits`, `ModuleInstance`, `Component`, `Context`, `Output`, `MatchLabels`, `MetadataLabels`, `MetadataAnnotations`, `MetadataFQN`, `ComponentResources`, `ComponentTraits`, `ModuleMetadataPath` exists
 
 #### Scenario: Platform view and context sub-paths are not exported
 
 - **WHEN** a developer inspects the exported identifiers of `opm/schema`
 - **THEN** none of `KnownResources`, `KnownTraits`, `ComposedTransformers`, `Matchers`, `MatchersResources`, `MatchersTraits`, `ContextModuleInstanceMetadata`, `ContextComponentMetadata`, `ContextRuntimeName` exists
 - **AND** the render glue reads `#composedTransformers` inside the build; no Go code path navigates a platform value by path
+
+#### Scenario: Instance and module reads go through the inventory
+
+- **WHEN** a frontend calls `Instance.Values()`, `Instance.ModuleMetadata()` or `Module.DebugValues()`
+- **THEN** each reads its field through the matching inventory path: `schema.Values`; `schema.Module`, then `schema.Metadata`; `schema.DebugValues`
 
 ### Requirement: Metadata decoders are free functions
 
@@ -364,3 +351,41 @@ Where `README.md` or `AGENTS.md` states which core the default schema loader use
 - **WHEN** a developer reads `AGENTS.md` § OPM schema versioning
 - **THEN** where it says which core the default loader uses, it names `schema.DefaultSchemaModule` as an exact-release default and the bare major as opt-in, or links to this spec
 - **AND** neither `README.md` nor `AGENTS.md` uses the word "floating"
+
+### Requirement: Single OPM schema, externally resolved and pinned by default
+
+The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v2` (or a caller-pinned exact version, in any major, via `OCILoader.Module`), resolved through CUE's module system against `CUE_REGISTRY`. The default loader SHALL resolve the exact release `schema.DefaultSchemaModule` names; the bare major `opmodel.dev/core@v2` SHALL be opt-in, through `OCILoader.Module`. The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other in-tree location. The schema package MUST NOT define a top-level `#ApiVersion` constant. Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform`, `#Resource`, `#Trait`) MUST NOT carry an `apiVersion` field.
+
+#### Scenario: No in-tree schema source
+
+- **WHEN** the library tree is inspected after this change
+- **THEN** no directory `library/apis/` exists
+- **AND** no Go file embeds `opmodel.dev/core` source via `//go:embed`
+
+#### Scenario: Schema resolved via the default module identifier
+
+- **WHEN** the kernel's `*schema.Cache` is populated for the first time
+- **THEN** the underlying load goes through `cue/load.Instances` against the configured module identifier (default `schema.DefaultSchemaModule`, an exact release)
+- **AND** the resolved value's `LookupPath(cue.ParsePath("#ModuleInstance"))` exists
+
+#### Scenario: Evaluated module has no apiVersion field
+
+- **WHEN** an artifact authored against the library schema is loaded and evaluated
+- **THEN** `apiVersion` on the artifact root does not exist
+
+#### Scenario: Default resolves the pinned release
+
+- **WHEN** `(schema.OCILoader{}).Load(ctx)` runs with no `Module` override
+- **THEN** the loader loads exactly the release `schema.DefaultSchemaModule` names, with no bare-major expansion
+
+#### Scenario: Bare major resolves within the v2 major (opt-in)
+
+- **WHEN** `(schema.OCILoader{Module: "opmodel.dev/core@v2"}).Load(ctx)` is called
+- **THEN** the bare major is expanded through the loader's bare-major mechanism and resolves to the highest published version within the v2 major
+- **AND** SemVer prerelease ordering applies, so a `v2.0.0-0.dev.*` snapshot tag never outranks a `v2.0.0-alpha.N` tag
+
+#### Scenario: Caller-pinned earlier major still loads
+
+- **WHEN** `(schema.OCILoader{Module: "opmodel.dev/core@v1.0.0-alpha.1"}).Load(ctx)` is called
+- **THEN** the loader resolves exactly that version and returns its schema value
+- **AND** no code path upgrades or rewrites the caller's pin

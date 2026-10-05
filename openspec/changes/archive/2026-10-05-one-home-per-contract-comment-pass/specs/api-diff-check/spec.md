@@ -1,9 +1,4 @@
-# api-diff-check Specification
-
-## Purpose
-Show every pull request the incompatible changes it makes to the library's exported `opm/` Go API since the last release tag, so a breaking change cannot land unnoticed: the check warns while the base tag is a prerelease and fails once it is a release (owner decision j4 of the beta.1 walkthrough), never charges a pull request with breaks already on the base branch or with the release cascade's core-pin move, and builds its tool from a checksum committed in this repository.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Pull requests show breaking changes to the public API
 
@@ -39,29 +34,6 @@ A pull request that changes Go code or the module files SHALL run a check that c
 - **WHEN** the base branch already carries an incompatible change since the base tag and the pull request does not touch it
 - **THEN** the check lists that change as inherited from the base branch, does not warn or fail on it, and names no remedy for it
 
-### Requirement: The base tag decides between warning and failing
-
-The check SHALL derive its outcome from the base release tag alone: when the tag has a prerelease suffix it SHALL warn and pass, and when the tag is a release it SHALL fail on any incompatible change of the pull request. In both modes it SHALL name the base tag and each change. In warn mode it SHALL state that a breaking change needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010); in fail mode it SHALL state that a breaking change is MAJOR and needs a migration fragment per `migrations/README.md` (ADR-004). No repository variable or input SHALL change the mode in CI. A failure of the check itself (a tool build error, no reachable tag) SHALL fail the job in both modes. Source: owner decision j4 (beta.1 walkthrough); ADR-010; ADR-004; CONSTITUTION VI.
-
-#### Scenario: A breaking change on the beta line
-
-- **WHEN** the base tag is `v1.0.0-beta.4` and the pull request makes an incompatible change
-- **THEN** the job passes, shows each change as a warning annotation and writes a job summary naming the `feat!` commit and `BREAKING CHANGE:` footer the change needs
-
-#### Scenario: A breaking change after GA
-
-- **WHEN** the base tag is a release such as `v1.0.0` and the pull request makes an incompatible change
-- **THEN** the job fails, shows each change as an error annotation and names the migration fragment the change needs
-
-#### Scenario: A compatible pull request
-
-- **WHEN** the pull request makes no incompatible change
-- **THEN** the job passes and says the change adds no incompatible change since the base tag
-
-#### Scenario: No release tag is reachable
-
-- **WHEN** no `v[0-9]*` tag is reachable from the base commit, as in a shallow clone
-- **THEN** the job fails and says to fetch the tags, in warn mode too
 
 ### Requirement: The check runs read-only with a committed tool checksum
 

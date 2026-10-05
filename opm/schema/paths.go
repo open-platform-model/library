@@ -2,16 +2,38 @@ package schema
 
 import "cuelang.org/go/cue"
 
-// CUE paths the kernel's Go code reads or writes on an OPM artifact: metadata
-// decoding, instance processing, the loaders' identity reads, the
-// instance's components and #config accessors, the platform's on-demand
-// contract inventory, the render's core floor and the catalog's on-demand
-// provider set. This is the whole inventory. Matching and
-// execution read nothing by path from Go: the render build imports the
-// instance and the platform as packages and the generated glue reads
-// `components`, `#composedTransformers` and `#contracts` in CUE
-// (0019:D9/D10). A path with no reader is removed, not kept for a possible
-// consumer.
+// CUE paths the kernel's Go code reads on an OPM artifact. This is the whole
+// inventory, and each path's readers are:
+//
+//   - Metadata: metadata decoding of every artifact kind (including the
+//     module metadata Instance.ModuleMetadata decodes), instance processing
+//     and the registry loader's identity read.
+//   - Components: Instance.Components.
+//   - Values: Instance.Values, the values check and conflict attribution of
+//     an instance build, and the top-level `values:` unwrap of a file-backed
+//     values source.
+//   - Config: Module.ConfigSchema, Instance.ConfigSchema, and values checking
+//     against #config at acquire and synthesis.
+//   - Module: Instance.ConfigSchema, Instance.ModuleMetadata and values
+//     checking at acquire and synthesis.
+//   - DebugValues: Module.DebugValues.
+//   - Contracts: Platform.Contracts.
+//   - ContractsProvidedBy: the core-floor presence check Kernel.Render runs
+//     before staging.
+//   - ContractsCollisions, ContractsCollidingEntries: in Go, tests only; they
+//     document the collision report, whose fields Platform.Contracts reads
+//     relative to [Contracts].
+//   - CatalogProvides: Catalog.Provides.
+//   - Transformers: Catalog.Provides, on both of its paths, and the
+//     deprecated provider-set fold inside it.
+//   - RequiredResources, RequiredTraits, Fulfilment: the deprecated fold,
+//     relative to a transformer and its demand entries.
+//
+// Matching and execution read nothing by path from Go: the render build
+// imports the instance and the platform as packages and the generated glue
+// reads `components`, `#composedTransformers` and `#contracts` in CUE
+// (0019:D9/D10). A path that no kernel code reads, by variable or relative to
+// an inventory path, is removed, not kept for a possible consumer.
 //
 // Definition fields (those starting with "#" in CUE) use cue.MakePath with
 // cue.Def selectors; concrete fields use cue.ParsePath. The two forms are
@@ -48,14 +70,16 @@ var (
 	// contract FQN more than one enabled registry entry's catalog lists,
 	// ascending. Such a key is folded into none of definedBy, requiredBy,
 	// unfulfilled or comparable, and routable is false while any exists.
-	// The render glue reads it and Contracts() decodes it, both guarded on
-	// presence: a core without it cannot evaluate a colliding platform, so
-	// absence means no collision ([CollisionsSince]).
+	// The render glue reads it and Contracts() decodes it, both by name
+	// relative to [Contracts] and guarded on presence: a core without it
+	// cannot evaluate a colliding platform, so absence means no collision
+	// ([CollisionsSince]). In Go only tests read this variable.
 	ContractsCollisions = cue.MakePath(cue.Def("contracts"), cue.Str("collisions"))
 
 	// ContractsCollidingEntries is #Platform.#contracts.collidingEntries:
 	// each [ContractsCollisions] key to the ascending registry keys (path
-	// plus major) of the enabled entries whose catalogs list it.
+	// plus major) of the enabled entries whose catalogs list it. As for
+	// [ContractsCollisions], in Go only tests read this variable.
 	ContractsCollidingEntries = cue.MakePath(cue.Def("contracts"), cue.Str("collidingEntries"))
 
 	// Catalog. Transformers is #Catalog.#transformers, the implementations
@@ -63,9 +87,11 @@ var (
 	// read RELATIVE to a transformer and to one of its demand entries, not
 	// from an artifact root: the provider-fulfilled set a catalog implements
 	// is the fold of every contract those two demand maps require whose
-	// value carries fulfilment "provider". Their one reader is the
-	// deprecated fallback inside (*catalog.Catalog).Provides, on demand,
-	// for a catalog built against a core older than [ProvidesSince].
+	// value carries fulfilment "provider". (*catalog.Catalog).Provides
+	// reads Transformers on both of its paths, to refuse an unevaluated
+	// #transformers; the other three are read only by its deprecated fold,
+	// on demand, for a catalog built against a core older than
+	// [ProvidesSince].
 	Transformers      = cue.MakePath(cue.Def("transformers"))
 	RequiredResources = cue.ParsePath("requiredResources")
 	RequiredTraits    = cue.ParsePath("requiredTraits")

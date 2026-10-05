@@ -210,39 +210,17 @@ Two independent knobs — do not conflate them:
 
 ### Schema cache lifetime contract
 
-The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
-`opmodel.dev/core@v2` against `CUE_REGISTRY`) and memoized in a
-`*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
+The schema cache contract is godoc: `schema.Cache` (one memoized load per cache into a
+private context, the on-disk cache two caches share, no package-level singleton),
+`kernel.New` (no load at construction, and which calls load) and `Kernel.SchemaCache`
+(one cache per Kernel for its lifetime). Edit the godoc; do not restate it here. Facts the godoc does not carry:
 
-- **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
-  share the on-disk CUE module cache (`$CUE_CACHE_DIR`, by default
-  `~/.cache/cuelang/mod/`) but not the in-process memoized `cue.Value`.
-- **Long-running consumers (operator, server) MUST keep the Kernel alive
-  across operations.** The schema fetch happens once per Kernel-instance on
-  first `Cache.Get()`, into a private `cue.Context` the cache creates and
-  never exposes; subsequent calls return the cached value with no registry
-  round-trip. `Get` takes no context: a caller that must compile against the
-  schema (the cli publish gate) uses the returned value's `Context()`. The
-  cache is the one long-lived evaluation state a Kernel owns; every verb
-  builds in a context of its own (ADR-007).
-- **No kernel verb loads the schema on a pinned kernel.** The default loader
-  pins an exact release (`schema.DefaultSchemaModule`), and
-  `SynthesizeInstance` reads the core import major off that pin
-  (`OCILoader.PinnedVersion`) with no load; only a bare-major loader
-  (`opmodel.dev/core@v2`) makes synthesis resolve the release through the
-  cache. The callers that still load it are the consumers' own: the cli
-  publish gate and the operator's startup smoke check call
-  `SchemaCache().Get` for their own reasons. Acquisition and `Render` never
-  read the cache: the module's own `cue.mod` resolves core inside the build.
-- **Short-lived consumers (CLI, tests) pay one fetch per cold disk cache,
-  then hit the warm CUE cache.** A repeated CLI invocation in the same
-  process tree gets the same disk cache; a fresh checkout (or a deleted
-  `$CUE_CACHE_DIR`) re-fetches once.
-- The library auto-applies no `CUE_REGISTRY` default. Frontends (CLI,
-  operator) MUST set `CUE_REGISTRY` (e.g. to `schema.PublicRegistry`,
-  which maps `opmodel.dev` → `ghcr.io/open-platform-model`) before the
-  first schema-touching Kernel call. Tests use the workspace-local cache
-  via `opm/internal/schematest`.
+- On a pinned kernel (the default), the only calls that load the schema are the
+  consumers' own: the cli publish gate and the operator's startup smoke check call
+  `SchemaCache().Get`.
+- Frontends set `CUE_REGISTRY` (the library applies no default, `opm/schema` package
+  doc); tests use the workspace-local cache through `opm/internal/schematest` (see
+  "Test module cache: two tiers").
 
 ### Render contract
 
@@ -311,13 +289,13 @@ task cue:deps:update         # cue mod get + tidy across all
 
 The release cascade (workspace `RELEASING.md`, section "The cascade") moves the library's upstream pins with `task -x deps:cascade`: core in `DefaultSchemaModule`, then the core pin of `testdata/cue.mod` and every `testdata/render` tree as text, and core and the opm catalog in the `CUE_MODULE_GLOBS` modules through explicit-version `cue mod get` and `tidy`. It edits the working tree only and exits 0 when the tree changed, 3 when there was nothing to do, anything else on error; always run it with `-x`, since plain `task` turns 3 into 201. A core move carries the `need-human-review` label: re-verify the glue against the new core before merging. The same run moves the core release in the `OCILoader` `Module` examples of `docs/getting-started.md` and this file to the new core; any other core release either file names, in prose or another major, is left alone and warned about. `.cascade-frozen` and `.cascade-hold` steer it. `task -x deps:cascade:title` and `task -x deps:cascade:body` print the PR title and body through the shared resolver in `open-platform-model/.github`, found beside the workspace or through `CASCADE_RESOLVER`. `task -x deps:cascade:test` runs its scenarios in throwaway copies against the resolver stub (`CASCADE_TEST_SET=offline` is the `Go tests` step; the full set is the non-required `Cascade task (network)` workflow). `deps:cascade:test` needs no resolver; set `CASCADE_RESOLVER_REAL` to the real one to run S5 too. Without a sibling `.github` checkout, prefix the other three with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` to run them against the stub. `task cue:deps:update` stays the hand-run task.
 
-In CI (Phase 3 wiring contract version 3.1, archived in `.github` as `openspec/changes/archive/2026-10-04-add-release-cascade-workflows/contract.md`), `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and keeps one rolling `deps/cascade` PR (a core move labelled `need-human-review`). Its `cascade` job calls the reusable `cascade-receive.yml` in `open-platform-model/.github` (compute and gates, with no secret in reach); its own `publish` job declares `environment: cascade` and runs the `cascade-publish` action. `release.yml`'s `notify-downstream` job likewise declares `environment: cascade` and runs the `cascade-notify` action, which tells opm-operator and cli about each library release; there is no reusable notify workflow. The App key is read only in those two caller-owned jobs, as the `private-key` input of the pinned action; they have no checkout or `run:` step and no `env:`, `container:` or `services:`, and no call passes `secrets:`. `cascade-gates.yml` posts `cascade/freshness` and `cascade/settled` on every PR through the reusable `cascade-gates.yml`. Every cascade reference (the two actions, the two reusable workflows, and the `ref:` of the resolver checkout in `cascade-task.yml`) names the same full `.github` `main` commit SHA with the comment `# .github main` (owner decision 24, extended by the supervisor to the workflows and the resolver). A `.github` change reaches the library only through a `ci(deps): pin the cascade to .github <sha7>` PR that moves all five together (`.github` README "Pinning and bumps"; `RELEASING.md` "Moving the cascade pin"); Dependabot ignores them. `task cascade:wiring:check` (`.tasks/cascade/wiring-check.sh`, part of `task check` and a step of `Go tests`) refuses any other shape: one SHA and the pin comment everywhere, the exact keys, permissions, `runs-on: ubuntu-latest` and inputs of the two key-holding jobs, no workflow-level `env` in `release.yml`, and the exact dry-run expressions; it guards against mistakes, and review plus the `main` ruleset guard against a deliberate edit. Repo variables steer it: the receiver stays a dry run until `CASCADE_DRY_RUN` is `false` (GitHub compares it case-insensitively), `CASCADE_NOTIFY=off` stops the release job's dispatch, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set whether those two statuses warn or fail.
+In CI (Phase 3 wiring contract version 3.1, archived in `.github` as `openspec/changes/archive/2026-10-04-add-release-cascade-workflows/contract.md`), `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and keeps one rolling `deps/cascade` PR (a core move labelled `need-human-review`). Its `cascade` job calls the reusable `cascade-receive.yml` in `open-platform-model/.github` (compute and gates, with no secret in reach); its own `publish` job declares `environment: cascade` and runs the `cascade-publish` action. `release.yml`'s `notify-downstream` job likewise declares `environment: cascade` and runs the `cascade-notify` action, which tells opm-operator and cli about each library release; there is no reusable notify workflow. The App key is read only in those two caller-owned jobs, as the `private-key` input of the pinned action; they have no checkout or `run:` step and no `env:`, `container:` or `services:`, and no call passes `secrets:`. `cascade-gates.yml` posts `cascade/freshness` and `cascade/settled` on every PR through the reusable `cascade-gates.yml`. Every cascade reference (the two actions, the two reusable workflows, and the `ref:` of the resolver checkout in `cascade-task.yml`) names the same full `.github` `main` commit SHA with the comment `# .github main` (owner decision 24 for the actions; the join-release-cascade change extended it to the two reusable workflows and the resolver checkout). A `.github` change reaches the library only through a `ci(deps): pin the cascade to .github <sha7>` PR that moves all five together (`.github` README "Pinning and bumps"; `RELEASING.md` "Moving the cascade pin"); Dependabot ignores them. `task cascade:wiring:check` (`.tasks/cascade/wiring-check.sh`, part of `task check` and a step of `Go tests`) refuses any other shape: one SHA and the pin comment everywhere, the exact keys, permissions, `runs-on: ubuntu-latest` and inputs of the two key-holding jobs, no workflow-level `env` in `release.yml`, and the exact dry-run expressions; it guards against mistakes, and review plus the `main` ruleset guard against a deliberate edit. Repo variables steer it: the receiver stays a dry run until `CASCADE_DRY_RUN` is `false` (GitHub compares it case-insensitively), `CASCADE_NOTIFY=off` stops the release job's dispatch, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set whether those two statuses warn or fail.
 
 Workflow security (security pass of 2026-10-04, `openspec/changes/archive/2026-10-04-harden-release-workflows`): the only workflow here that reads `RELEASE_APP_PRIVATE_KEY` is `release.yml`'s `release-please` job, which declares `environment: release` (an Environment that admits `main` only), holds no `GITHUB_TOKEN` grant, and mints an App token scoped to this repo with `contents` and `pull-requests` write. The Environment keeps the key from other branches only once the organization secret of the same name no longer reaches the library: until the owner stores the key in `release` and removes the library from the organization secret (or deletes it), a workflow on any branch that skips the Environment can still read it. Every workflow declares `permissions:` (`release.yml` `{}` with per-job grants; `api-diff.yml`, `consumer-build.yml`, `cue.yml`, `lint.yml` and `test.yml` `contents: read`), so the repo default token can be read-only, and every checkout here sets `persist-credentials: false`. `lint.yml` installs golangci-lint from its release archive checked against the sha256 in the step's `env`; a bump moves `GOLANGCI_LINT_VERSION` and `GOLANGCI_LINT_SHA256` together. `.github/CODEOWNERS` puts `.github/`, `.tasks/`, the Taskfiles, the release-please config and manifest, and `.cascade-frozen` under code-owner review.
 
 Consumer build (owner decision j4, `openspec/changes/archive/2026-10-05-add-consumer-build-job`): `consumer-build.yml` runs `Consumer build (cli)` and `Consumer build (opm-operator)` on a same-repo pull request that touches `opm/**`, `go.mod`, `go.sum`, the workflow or `.tasks/consumer-build.sh`; fork PRs skip it, and nothing runs it under `pull_request_target`. Each job clones the consumer at `main`, installs the Go its `go.mod` names, and runs `.tasks/consumer-build.sh` with `GOTOOLCHAIN=local`: `go work init <consumer> <library>` in a directory under `$RUNNER_TEMP`, then `go build ./...` and `go vet ./...` in the consumer with `GOWORK` pointing there, against the PR's merge commit. No `replace`, `go.work` or `go.work.sum` lands in either checkout; the script compares both trees' `git status --porcelain` with a snapshot taken before the build and fails if either changed. The jobs are not required checks: a consumer break turns its job red without blocking a merge, and the job summary names the consumer commit, the failing step and the compiler's error lines (which name the broken symbol). Read a red run as: this PR changes API that the consumer's `main` still uses. Deprecate it instead (a `Deprecated:` comment, the API kept) and remove it in a later change once both consumers have migrated. A red run can also come from the consumer's own `main` (check the commit in the summary) or, at `go work init`, from a library `go` line above the consumer's. To run it locally, clone the consumer and run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <consumer-checkout> . [<work-dir>]` from the repo root; a library worktree with uncommitted edits is fine. `task consumer-build:test` (in `task check` and the `Go tests` job) tests the script offline against synthetic git repos, including a pipefail mutant and a mutant per tree check, each of which must fail.
 
-API diff (owner decision j4 of the beta.1 walkthrough): `api-diff.yml` runs `task api:diff` (`.tasks/api-diff.sh`) on every pull request that touches Go code, the module files, `Taskfile.yml` or the check itself. It compares the exported API at the base release tag with the pull request head using `apidiff`. The base tag is the nearest `v[0-9]*` tag reachable from the pull request's base commit, never the highest tag, so `v0.7.0` does not decide while the beta line runs. An incompatible change the base commit already carries since that tag is listed as inherited and never charged to the pull request. The tag alone sets the outcome. A prerelease tag warns and passes: each new change is a warning annotation, and the job summary says it needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). A release tag, from GA on, fails: the summary says a breaking change is MAJOR (CONSTITUTION VI) and needs a migration fragment per `migrations/README.md` (ADR-004). A failure of the check itself (tool build, no reachable tag) is red in both modes (exit 2), and `BASE=<tag>` works only locally. In CI the base commit is the first parent of the checked-out merge commit. The tool is built from the tools module `.tasks/apidiff/`, whose committed `go.sum` the build verifies with `-mod=readonly`; the library's `go.mod` does not require it. Its pin is the newest `golang.org/x/exp` whose `go` directive does not exceed the library's, moved by hand (Dependabot does not watch it). The job is not a required status check. A release-cascade core move changes the `schema.DefaultSchemaModule` constant, which `apidiff` counts as incompatible; one fixed allow line in the script's `ALLOW` array (a literal prefix for that value change only, supervisor decision SD17) lists it as allowed and never charges it. `task api:diff:test` (`.tasks/api-diff-test.sh`, part of `task check` and the `Go tests` job) tests the split, the modes and the exit codes offline against `.tasks/apidiff/testdata`, and runs the script end to end with `APIDIFF_BIN` (ignored in CI) set to the stub tool there. The route for a deliberate break after GA is an open point for GA (`openspec/changes/archive/2026-10-05-add-api-diff-check/design.md`).
+API diff (owner decision j4 of the beta.1 walkthrough): `api-diff.yml` runs `task api:diff` (`.tasks/api-diff.sh`) on every pull request that touches Go code, the module files, `Taskfile.yml` or the check itself. It compares the exported API at the base release tag with the pull request head using `apidiff`. The base tag is the nearest `v[0-9]*` tag reachable from the pull request's base commit, never the highest tag, so `v0.7.0` does not decide while the beta line runs. An incompatible change the base commit already carries since that tag is listed as inherited and never charged to the pull request. The tag alone sets the outcome. A prerelease tag warns and passes: each new change is a warning annotation, and the job summary says it needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). A release tag, from GA on, fails: the summary says a breaking change is MAJOR (CONSTITUTION VI) and needs a migration fragment per `migrations/README.md` (ADR-004). A failure of the check itself (tool build, no reachable tag) is red in both modes (exit 2), and `BASE=<tag>` works only locally. In CI the base commit is the first parent of the checked-out merge commit. The tool is built from the tools module `.tasks/apidiff/`, whose committed `go.sum` the build verifies with `-mod=readonly`; the library's `go.mod` does not require it. Its pin is the newest `golang.org/x/exp` whose `go` directive does not exceed the library's, moved by hand (Dependabot does not watch it). The job is not a required status check. A release-cascade core move changes the `schema.DefaultSchemaModule` constant, which `apidiff` counts as incompatible; one fixed allow line in the script's `ALLOW` array (a literal prefix that matches that value change and nothing else) lists it as allowed and never charges it. `task api:diff:test` (`.tasks/api-diff-test.sh`, part of `task check` and the `Go tests` job) tests the split, the modes and the exit codes offline against `.tasks/apidiff/testdata`, and runs the script end to end with `APIDIFF_BIN` (ignored in CI) set to the stub tool there. The route for a deliberate break after GA is an open point for GA (`openspec/changes/archive/2026-10-05-add-api-diff-check/design.md`).
 
 ### Flow test
 
@@ -327,37 +305,33 @@ task cue:test:flow                              # acquire→render integration t
 
 ## Coding Standards
 
-### Kernel API surface
+### Kernel API and render pipeline
 
-`*kernel.Kernel` is the single entry point. One render verb maps to the frontend's render / apply / dry-run subcommands:
+The kernel's surface and the render pipeline are specified in godoc. Edit the godoc;
+do not restate it here:
 
-- `Kernel.Render` — the single-build render path (0019:D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew, LocalReplacements}`; a dry run discards `Compiled`.
+- Verbs, the one-tier surface, the `WithRegistry` mapping, the shares-nothing context
+  rule, goroutine safety and values validation: the `opm/kernel` package doc
+  (`opm/kernel/doc.go`).
+- The render steps, the gate and its cause order: the `Kernel.Render` doc, the package
+  doc § Rendering, and the `RenderError` doc.
+- Staging, promotion, coverage, skew and local replacements: the
+  `opm/internal/renderstage` package doc. The glue's matching shape is the header of
+  `opm/internal/renderstage/render.cue.tmpl`.
+- `*kernel.Compiled` as terminal output with no platform-native identity: the
+  `Compiled` doc. Don't push platform-native identity into the kernel.
 
-Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache and the compilation of file-backed values sources included. The Kernel holds no `cue.Context` and exposes none (ADR-007): every verb creates a context for the call, builds in it and returns, an artifact's `Package` pins the context that built it for as long as the caller holds the artifact, and the cross-artifact verbs read only `Metadata` and `Source` from their inputs, with one exception: `Render` reads whether the platform's `Package` carries `#contracts.providedBy` (the core floor), a read-only lookup with no unification or fill, so artifacts still cross Kernels and one acquired platform may be shared by concurrent renders. A `kernel.Source` is `{Origin, Data []byte}`, bound to no context: `LoadSourceFromFile` / `LoadSourceFromBytes` parse and evaluate nothing, and each verb compiles the sources it receives with `cue.Filename(Origin)` in the context of the schema they meet (a file-backed origin through cue/load at the file's directory, under the kernel's registry mapping like every other load, with the top-level `values:` unwrap applied there). Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, and `AcquireInstanceFromDir` checks the package's own `values` the same way on every acquire (with or without sources), both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+Facts for maintainers that no godoc carries:
 
-`*kernel.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
-
-### Render pipeline (per instance)
-
-```text
-Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
-Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
-Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements, SkipUnprovided})
-        core floor             platform Package lacks #contracts.providedBy (core < 2.0.0-alpha.12) → PlatformCoreTooOldError, nothing staged
-        renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
-                               overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
-                               inputs' own local-module.cue replacements promoted under LocalReplacements (platform whole, instance on
-                               instance-only paths) onto Staged.Replacements, refused without the opt-in
-                               coverage invariant: every OPM-namespace path either input requires is promoted
-                               skew rows (D7/D18) → warn or refuse per SkewPolicy
-                               SkipUnprovided written into the glue as a literal (the skip decision is made in the build)
-        renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)
-        decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
-        gateErrors             collisions | unresolved | overSubscribed | unmatched | not routable → *RenderError (skipped rows and omitted components arrive already filtered)
-        decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
-```
-
-Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder. The single-provider guard computes no count of its own: it reads core's `#contracts.providedBy` (providers per registry entry, path plus major) and `overSubscribed`. The glue also reads core's collision report (`#contracts.collisions` and `collidingEntries`, keys more than one enabled registry entry defines; guarded on presence, since an older core cannot evaluate a colliding platform) and `routable`, and emits both as diagnostics. These are the fields `Platform.Contracts()` decodes, so a render refuses on a collision or an over-subscription exactly when the platform inventory reads not routable, and the kernel decides from the decoded rows and `routable`, never from the module's `gate`. `opm/kernel/render_inventory_parity_test.go` is the tripwire over every served platform.
+- The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value
+  tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and the
+  free-function entry points (`compile.CompileModuleInstance`,
+  `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone, and
+  `opm/kernel/kernel_test.go` pins their absence. Do not bring any of them back, and do
+  not add a standalone `opm/validate/` package: validation is `ValidateConfigDetailed`.
+- `opm/kernel/render_inventory_parity_test.go` is the tripwire that a render refuses on
+  a collision or an over-subscription exactly when `Platform.Contracts()` reads not
+  routable, over every served platform.
 
 ### OPM schema versioning
 
@@ -389,6 +363,21 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 **Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
 
 **Commit attribution: plain co-author line only.** The single permitted (optional) form is `Co-Authored-By: Claude <noreply@anthropic.com>` — never a `Claude-Session:` trailer, a claude.ai session URL, a "Generated with …" footer, or any embellished variant. See the Attribution section at the top of this file.
+
+### Where a statement lives
+
+Each statement has one home, and every other copy links to it (owner decision c4 of the
+beta.1 walkthrough; openspec `kernel-runtime`, "Each runtime contract has one home"):
+
+- A runtime contract goes in the godoc of the package, type or function that owns it.
+- Rationale goes in an ADR under `adr/`.
+- A SHALL requirement goes in an `openspec/specs` capability.
+- `README.md`, `AGENTS.md` and `docs/getting-started.md` link to those homes. They may
+  keep a short orientation sentence that names the home, never a second statement of
+  the contract.
+- A source is one a reader can open: an owner decision by its walkthrough id, an ADR, an
+  enhancement decision (`0012:D3`), a pull request or an archived change. Never a
+  decision recorded only in an agent session.
 
 ### Enhancement references in comments
 
