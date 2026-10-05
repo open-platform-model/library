@@ -26,7 +26,7 @@ package and handed to the same plan.
 The pieces the plan stands on have shipped in library v1.0.0-beta.6: `inventory.Entry` and
 `inventory.StaleSet` (`opm/k8s/inventory`), `ownership.CanDelete` and `ownership.SafetyExcluded`
 (`opm/k8s/ownership`), and `object.Sort` with `object.Descending` (`opm/k8s/object`). This change
-is the library half of f2. The frontends adopt it in their own changes.
+is the library half of the 0012:D4 deletion protocol. The frontends adopt it in their own changes.
 
 ## What Changes
 
