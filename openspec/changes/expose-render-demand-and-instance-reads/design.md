@@ -153,6 +153,14 @@ known list on a plain error. The operator already does this today when the rende
   render returns a result, the implementer stops before section 2 and reports to the supervisor,
   because the demand would then be looser than `demand.go`.
 
+**Spike results (section 1, at the base).** `no_resources` renders through a struct-literal
+instance and refuses with a plain error, `match.verdicts.web._resFqns: undefined field: #resources`,
+behind "a matching verdict did not evaluate". `bad_traits` (`#traits: "not-a-trait-map"`) is
+refused by `AcquireInstanceFromDir` (core's `#TraitMap` conflicts). A struct-literal instance that
+skips acquisition also fails the build with a plain error, because core's derived `components`
+does not evaluate. A top-level conflicting `#traits` therefore never reaches a successful render,
+and the guard's looseness against `demand.go` is unreachable. The field's godoc says so.
+
 The spike in section 1 checks the first point. It renders a test-only instance whose component has
 no `#resources`, using a `*module.Instance` struct literal whose `Source` names a plain CUE package
 that is not a core `#ModuleInstance`. `Render` reads only `Source` and `Metadata.Name`, so the
@@ -331,7 +339,24 @@ refuses where the walk would have.
 
 ## Measurements
 
-Filled in by tasks 1.1 and 4.1.
+memprobe: a scratchpad copy of `claude-stuff/kernel-plan-beta1/memprobe` (the g4 copy with the
+`MODULE` and `CASES` knobs), its `replace` naming this worktree,
+`CASES="r1-nil r2-nil" RUNS=5 MODULE=fixtures/cert_manager`, platform `two`, go1.26.5, 16 CPUs.
+Each cell is the median of 5 runs, one process per run, `GOGC` and `GOMEMLIMIT` unset. Heap and RSS
+in MiB, CPU in seconds. The host was shared (load average about 20 at the base run).
+
+### Before
+
+Base: `a774337` (code at `origin/main` `a8bfc76`; the branch adds only planning files).
+
+| Case | render_peak_heap | render_peak_live | vmhwm | user_s |
+| --- | --- | --- | --- | --- |
+| cert_manager `r1-nil` | 291.4 | 232.3 | 349.4 | 2.56 |
+| cert_manager `r2-nil` | 443.9 | 343.2 | 558.2 | 3.55 |
+
+### After
+
+Filled in by task 4.1.
 
 ## Verification
 

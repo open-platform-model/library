@@ -24,8 +24,11 @@ thing that differs between them:
 | `optional_unprovided` | on `platform_providers`: the snapshot trait made effectively optional at the attachment site: renders with an unhandled-trait entry and no skipped row, with or without the switch |
 | `skipped_beside_refused` | on `platform_providers`: `app` attaches the unprovided snapshot trait, sibling `vault` the label-less archive trait: under the switch, refused on the archive row alone with the snapshot row readable as skipped |
 | `omitted_refused` | on `platform_providers`: `ledger` is omitted for the unprovided ledger resource and also attaches the advisory sidecar, the catalog-fulfilled backup and the label-less archive trait, beside `web` with the sidecar: under the switch, only `web` stays on the unhandled-trait table, and backup and archive still refuse |
+| `no_resources` | NOT a `#ModuleInstance`: a plain package whose component carries no `#resources`, rendered through a struct-literal instance: the render refuses with a plain error, never reading the component as one with no demand |
+| `bad_traits` | a component whose `#traits` is a top-level conflict: acquisition refuses it, and a struct-literal instance that skips acquisition fails the build with a plain error |
 
-Consumed on-disk (subpackage acquisition through `Kernel.AcquireInstanceFromDir`);
+Consumed on-disk (subpackage acquisition through `Kernel.AcquireInstanceFromDir`,
+or a struct-literal `*module.Instance` whose `Source` names the package);
 never published; not discovered by the repo's CUE tasks.
 
 ## Platforms (`testdata/render/platform*`)
