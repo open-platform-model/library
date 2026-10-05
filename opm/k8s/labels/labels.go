@@ -28,7 +28,8 @@ const (
 
 	// ComponentName records the module component that produced a rendered
 	// object; its value is the component name. Core's CUE stamps it at
-	// render. Inventory reads it to keep a component rename safe.
+	// render. Inventory records it on each entry as provenance; the stale set
+	// ignores it.
 	ComponentName = "component.opmodel.dev/name"
 
 	// ModuleInstanceName is the name of the module instance an object
@@ -44,6 +45,16 @@ const (
 	// object belongs to, used to discover its objects. Core's CUE stamps it
 	// at render.
 	ModuleInstanceUUID = "module-instance.opmodel.dev/uuid"
+)
+
+// Annotation keys.
+const (
+	// AnnotationAdopt is the adopt annotation: a user sets it on an existing
+	// live object to hand that object to a module instance whose apply would
+	// otherwise refuse it. Its value is the adopting instance's
+	// [ModuleInstanceUUID] value. No OPM runtime writes it; a user writes it
+	// by hand (0012:D8:R6).
+	AnnotationAdopt = "opmodel.dev/adopt"
 )
 
 // IsOPMManagedBy reports whether a managed-by label value identifies an OPM
