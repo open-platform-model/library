@@ -216,3 +216,51 @@ may tighten the cli.
   improvement of the built-spec check, listed as a follow-up.
 - [The new check costs one unify-and-validate per instance] → no extra build; small next to
   the build itself.
+
+## Downstream survey
+
+Run 2026-10-05 against fresh clones of `main`: cli `cd10f2d`, opm-operator `c303a46`,
+modules `eb4cb97`, opm-modules `f16a187`. Every target ran once on this change's kernel and
+once on the library at `origin/main` `88afdfb` (`git archive`), through a scratch program in
+a `go.work`. Registries: `opmodel.dev` and `testing.opmodel.dev` from GHCR,
+`jacero.se` from `ghcr.io/emil-jacero`, and a second pass with `testing.opmodel.dev` from
+the workspace's local registry for the cli and operator fixtures.
+
+**Newly refused: none found.** Every target gave the same result on both kernels.
+
+- Module `debugValues` through `SynthesizeInstance`, accepted on both: cli 10 (the
+  templates, `tests/fixtures`, the render and `instinit` testdata, the integration and e2e
+  testdata modules), modules 8, opm-modules 12, opm-operator 7 (the six
+  `test/fixtures/modules` and `modules/opm_operator`, the last synthesized under the name
+  and namespace its own guard requires, `opm-operator` in `opm-operator-system`).
+- Instance packages through `AcquireInstanceFromDir`, accepted on both: cli 3
+  (`examples/instances/podinfo`, `internal/workflow/render/testdata/skip-unprovided/instance`,
+  `tests/e2e/testdata/operator-owned`), opm-operator 4 (`test/fixtures/modulepackages/*`).
+  modules and opm-modules hold no instance package; the one directory each that mentions
+  `#ModuleInstance` is a module (`ErrWrongKind`, skipped).
+- opm-operator ModuleInstance CRs with `spec.values` through `SynthesizeInstance`, the
+  module acquired from its registry: 7 accepted on both (`config/samples` hello and the six
+  `test/fixtures/modules/*/moduleinstance.yaml`).
+- Consumer build: cli and opm-operator build and vet against this tree
+  (`.tasks/consumer-build.sh`, `GOTOOLCHAIN=local`).
+- Consumer tests through the same `GOWORK`: cli `go test ./internal/... ./pkg/... ./hack/...`
+  and opm-operator `go test ./internal/...` (the controller suite on envtest 1.36, 240 of
+  240 specs) fail identically on both kernels. The only failures, in cli `hack/docskit-dump`
+  (the pin reads `(devel)` under a `go.work`) and `internal/kubernetes` (the weight table
+  that library #214 changed), predate this change.
+
+Not reached, on both kernels alike: cli `tests/e2e/testdata/vet-errors/*` (refused by
+design, a vet fixture), cli `tests/e2e/testdata/operator-owned` as a module (it is an
+instance), opm-operator `hack/operator-module` (build constraints exclude every file), and
+the opm-operator sample `config/samples/opmodel.dev_v1alpha1_moduleinstance_jellyfin.yaml`
+(`opmodel.dev/modules/jellyfin@v1` no longer resolves; jellyfin moved to `jacero.se`). The
+kind cluster suites of cli and opm-operator were not run.
+
+Follow-ups in their own repos:
+
+- opm-operator: after a library release with this change, delete the module renderer's
+  `ValidateConfigDetailed` pre-check (`internal/render/kernel_module_renderer.go`) and, if
+  nothing else calls it, `cueFindings`; compare the status wording.
+- opm-operator: the jellyfin sample names a module path that no longer resolves.
+- library: attribute the built-spec refusal of a non-concrete value a source wrote to the
+  source's `Origin` instead of the rendered values file (Risks).

@@ -92,14 +92,14 @@ This section lands tests that pass on `origin/main` and pin the gap.
 
 ## 3. Downstream survey (no library code; design RC5)
 
-- [ ] 3.1 `task api:diff`: nothing listed under the files this change touches.
-- [ ] 3.2 Consumer build: fresh clones of cli and opm-operator `main` in the scratchpad,
+- [x] 3.1 `task api:diff`: nothing listed under the files this change touches.
+- [x] 3.2 Consumer build: fresh clones of cli and opm-operator `main` in the scratchpad,
       `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <work-dir>` for each.
       Verify: both green. Through the same `GOWORK`, run the cli tests
       `go test ./internal/workflow/render/... ./internal/cmdutil/... ./internal/cmd/...`
       and the operator tests `go test ./internal/render/...`, and compare any failure with
       the same run against the library at `origin/main`.
-- [ ] 3.3 Instance survey: a scratch Go program (scratchpad, `go.work` with this worktree,
+- [x] 3.3 Instance survey: a scratch Go program (scratchpad, `go.work` with this worktree,
       never committed), run once against this worktree and once against the library at
       `origin/main`, with the workspace registry env. It runs every module's `debugValues`
       through `SynthesizeInstance` (modules, opm-modules, the cli and operator testdata
@@ -109,7 +109,7 @@ This section lands tests that pass on `origin/main` and pin the gap.
       clones or `git archive`, never another session's worktree). For each ModuleInstance
       CR fixture with `spec.values` in opm-operator, it runs those values through
       `SynthesizeInstance` where the module resolves from GHCR.
-- [ ] 3.4 Write a "Downstream survey" section in design.md: every instance this newly
+- [x] 3.4 Write a "Downstream survey" section in design.md: every instance this newly
       refuses (repo, path, the unset field), or "none found", plus what was not reachable.
       List the operator pre-validate deletion and any fixture fix as follow-ups in their
       own repos. Then `openspec validate refuse-unset-required-config --strict` and
