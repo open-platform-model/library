@@ -81,7 +81,7 @@ enhancement reference.
 
 ## 3. The apply verdict and the adopt override (ownership; design OW3, OW4, OW6)
 
-- [ ] 3.1 `opm/k8s/ownership/apply.go`: `ApplyRefusal` and its three constants, `ApplyInput`,
+- [x] 3.1 `opm/k8s/ownership/apply.go`: `ApplyRefusal` and its three constants, `ApplyInput`,
       `ApplyVerdict` (`Allowed`) and `CanApply` in the OW3 order. Admission lifts
       `foreign-object` only, under the OW4 UUID condition. Messages are worded as in OW6. The
       ownership refusals end with the remedy `annotate it opmodel.dev/adopt=<instance uuid>`,
@@ -89,7 +89,7 @@ enhancement reference.
       object from module instance `<other uuid>`. A blank (empty or whitespace) annotation
       counts as none. A wrong-valued annotation adds that it names another instance. An empty
       `InstanceUUID` gets no remedy. Verify: `go vet ./opm/k8s/...` clean.
-- [ ] 3.2 `apply_test.go`: one table covering every scenario of "The apply verdict refuses
+- [x] 3.2 `apply_test.go`: one table covering every scenario of "The apply verdict refuses
       terminating, foreign and other-instance objects" and "The adopt annotation is the only
       override and the refusal names it". It also covers the three apply scenarios of "The
       operator install admission lifts only a proven object's ownership refusal". The proven
@@ -103,7 +103,7 @@ enhancement reference.
       enhancement id (`0012:`). Add the three refusal literals to the reason test, and the
       deep-equal `Live` check. Verify: `go test ./opm/k8s/ownership -count=1` green;
       `go test -race ./opm/k8s/... -count=1` green.
-- [ ] 3.3 `task check` green, then commit
+- [x] 3.3 `task check` green, then commit
       `feat(k8s): add the apply verdict with the adopt override`. The body names the three
       refusals, the adopt key, and that admission lifts only `foreign-object`.
 
