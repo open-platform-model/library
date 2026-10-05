@@ -87,16 +87,16 @@ report it. Do not implement a fallback that keeps a temporary directory.
 
 ## 4. Full suite, consumers, api diff and memprobe
 
-- [ ] 4.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity`, `TestRender_SharedPlatformConcurrentRenders`, `TestRender_SharedPlatformConcurrentRendersCold`, `TestRender_ConcurrentKernelsShareNothing` and the flow test must run, not skip. Record the result in design.md "Verification".
-- [ ] 4.2 Run the consumer build against fresh clones of cli `main` and opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`); both must build and vet. Also run, against this tree, with a `replace` in a scratch copy that is never committed:
+- [x] 4.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity`, `TestRender_SharedPlatformConcurrentRenders`, `TestRender_SharedPlatformConcurrentRendersCold`, `TestRender_ConcurrentKernelsShareNothing` and the flow test must run, not skip. Record the result in design.md "Verification".
+- [x] 4.2 Run the consumer build against fresh clones of cli `main` and opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`); both must build and vet. Also run, against this tree, with a `replace` in a scratch copy that is never committed:
   - the cli unit packages that construct a Kernel (`internal/config`, `internal/workflow/render`, `internal/cmd/module`, `internal/cmd/instance`);
   - the opm-operator `internal/render`, `internal/controller` and `internal/platform` unit tests;
   - the opm-operator registry-backed `test/integration/reconcile` specs (`platform_transient_failure`, `platform_recovery`, `concurrent_render`), with `LOCAL_REGISTRY` set so they run rather than skip. The transient-failure spec constructs its Kernel and then points `CUE_CACHE_DIR` at an empty directory, which is the per-operation cache-directory read this change must keep.
 
   Cluster suites run only under `flock <session scratchpad>/kind-opm-dev.lock`. Record the consumer commits and results in design.md "Verification".
-- [ ] 4.3 Run `task api:diff`. It must charge no incompatible change to this branch (every changed signature is under `opm/internal/`). Record the output in design.md "Verification".
-- [ ] 4.4 Memprobe (`claude-stuff/kernel-plan-beta1/memprobe`, outside the repo). Copy it to the session scratchpad, point the copy's `replace` first at a clean checkout of `origin/main` and then at this worktree, and run the render case of each with `RUNS=3`. Quote the median heap and peak RSS for one render, before and after, in design.md "Verification". Claim no saving unless the numbers show one beyond run-to-run noise. Skip this task with a one-line note if the memprobe module cache is cold and offline.
-- [ ] 4.5 `task check` green, then commit `chore(openspec): record stage-render-in-memory-and-share-registry verification`.
+- [x] 4.3 Run `task api:diff`. It must charge no incompatible change to this branch (every changed signature is under `opm/internal/`). Record the output in design.md "Verification".
+- [x] 4.4 Memprobe (`claude-stuff/kernel-plan-beta1/memprobe`, outside the repo). Copy it to the session scratchpad, point the copy's `replace` first at a clean checkout of `origin/main` and then at this worktree, and run the render case of each with `RUNS=3`. Quote the median heap and peak RSS for one render, before and after, in design.md "Verification". Claim no saving unless the numbers show one beyond run-to-run noise. Skip this task with a one-line note if the memprobe module cache is cold and offline.
+- [x] 4.5 `task check` green, then commit `chore(openspec): record stage-render-in-memory-and-share-registry verification`.
 
 ## 5. Verify and archive
 

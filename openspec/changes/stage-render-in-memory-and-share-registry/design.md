@@ -378,4 +378,39 @@ CUE. Not caching any error past its operation keeps today's per-operation recove
 
 ## Verification
 
-Filled in by section 4.
+Run on 2026-10-05 against `origin/main` `84b71ac`, branch head after section 3 (`6764b2e`).
+
+- **Full suite (4.1).** `OPM_FLOW_TEST_FORCE=1 go test -race -count=1 -v ./opm/...` with an
+  absolute private `TMPDIR`: exit 0, 600 top-level tests passed, none skipped, no race report.
+  Ran and passed: `TestParity_ShippedCatalog`, `TestParity_ShippedCatalogDiscriminated`,
+  `TestParity_Probes`, `TestRender_InventoryParity`, `TestRender_SharedPlatformConcurrentRenders`,
+  `TestRender_SharedPlatformConcurrentRendersCold`, `TestRender_ConcurrentKernelsShareNothing`,
+  and the flow tests (`TestFlow_WebApp_OnOpmPlatform`, `TestFlow_ImportedModule_SynthToRender`,
+  `TestFlow_ImportedModule_CatalogSubpackageImport_SynthToRender`). No test needed a change for
+  the environment-read rule: the suite was green after section 3 with no fix.
+- **Consumers (4.2).** Fresh clones of cli `main` `e5b8c50` and opm-operator `main` `2fe3c66`,
+  `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <work dir>`: both build and vet
+  against this tree. Through the same `go.work` (nothing written into either checkout):
+  - cli `internal/config`, `internal/workflow/render`, `internal/cmd/module`,
+    `internal/cmd/instance`: pass.
+  - opm-operator `internal/render`, `internal/controller`, `internal/platform`: pass.
+  - opm-operator `test/integration/reconcile` (envtest, run under the cluster lock), with the GHCR
+    mapping as `CUE_REGISTRY`, an empty `CUE_CACHE_DIR` and `OPM_TEST_REGISTRY_FORCE=1` so no
+    registry-backed spec can skip: 70 passed, 0 failed, 1 skipped (a spec owned by another
+    change). Among them "Platform transient registry failure (registry-backed) recovers from a
+    transient registry failure on the same reconciler", "Platform build recovery
+    (registry-backed)" and both concurrent-render specs.
+- **API diff (4.3).** `task api:diff`: "This change adds no incompatible change since
+  v1.0.0-beta.6."
+- **Memprobe (4.4).** The harness copied to the session scratchpad, built once against an export
+  of `origin/main` `84b71ac` and once against this worktree, case `-scenario render -n 1
+  -hold=true -platform two` (one cert-manager render, 42 objects), three runs each, medians in
+  MiB:
+
+  | | render peak heap | render peak live | apply retained | peak RSS (VmHWM) | render wall (ms) |
+  | --- | --- | --- | --- | --- | --- |
+  | before | 291.9 | 232.6 | 225.8 | 349.8 | 489 |
+  | after | 295.8 | 238.1 | 225.8 | 350.1 | 481 |
+
+  The differences are inside run-to-run spread (render peak heap ranged 272.9 to 296.7 before and
+  291.6 to 307.6 after). No memory saving is claimed, as the proposal says.
