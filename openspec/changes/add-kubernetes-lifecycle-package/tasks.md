@@ -45,7 +45,8 @@ Commits:
         rules 1 to 3 and its Deletion plans consequence, ADR-011 item 6, and 0012:D4 (cited once).
       Verify: `go build ./opm/k8s/...` is clean.
 - [ ] 1.2 Write `opm/k8s/lifecycle/plan.go`.
-      - Declare `Policy`, `Step`, `DeletionPlan` and `NewDeletionPlan` as in LC1.
+      - Declare `Policy`, `Step`, `DeletionPlan` (unexported fields) and `NewDeletionPlan`, plus
+        the `Steps` (a copy), `Policy`, `OwnerUUID` and `Len` accessors, as in LC1.
       - `NewDeletionPlan` copies the entries and sorts them with `object.Sort(..., object.Descending)`.
         The `gvkOf` function reads the entry's group, version and kind.
       - It marks a step `ownership.SkipSafetyExcluded` where `ownership.SafetyExcluded` holds.
@@ -54,11 +55,14 @@ Commits:
       - Declare `ActionKind` with its four constants, `Action`, `Event`, `Awaiting`, `Result`,
         `FailureClass`, `Outcome` and `State` (with the LC4 JSON tags), and `Advance`.
       - `Advance` follows the LC2 transition. It builds the `ownership.Object` from the step's
-        entry, and the `CanDelete` input carries `plan.OwnerUUID`.
+        entry, and the `CanDelete` input carries `plan.OwnerUUID()`.
       - It classifies errors with `apierrors.IsNotFound`, `IsForbidden` and `IsConflict`.
       - A `delete` names `metav1.DeletePropagationForeground` and `verdict.Preconditions()`.
-      - It returns the three LC2 mismatch errors. Each one returns the input state unchanged and
-        the zero `Action`.
+      - A live object that answers the wrong step (an identity field it sets differs) records a
+        `failed` outcome of class `error` naming both objects, and the next step's action follows.
+      - It returns the three LC2 state errors (next out of range, awaiting at the end, unknown
+        awaiting). Each one returns the input state unchanged and the zero `Action`.
+      - Each call appends only the outcomes of the steps it finished, in step order.
       - It never appends to the input state's `Outcomes` backing array: copy before appending, so
         a caller's earlier state value stays valid.
       Verify: `go vet ./opm/k8s/...` is clean.
@@ -72,13 +76,17 @@ Commits:
           `apierrors.NewNotFound`, `NewForbidden`, `NewConflict` and `NewInternalError`, one of
           them wrapped with `%w`;
         - every scenario of "The deletion state is a serialisable value the caller owns";
-        - a dry-run run that answers every `delete` with `Event{}`.
+        - a dry-run run that answers every `delete` with `Event{}`;
+        - one call that records both a failure and a safety-excluded skip, asserting the two
+          appended outcomes in step order.
+      - `TestStateJSONGolden` marshals a state with every field set and compares the bytes with
+        the literal in the spec scenario "The JSON encoding is fixed".
       - The JSON round-trip test drives the same plan to done with an in-memory state and with a
         state re-decoded from `json.Marshal` before every call, and asserts equal action sequences
         and final states. The idempotence test calls `Advance` twice on equal inputs at every
         step.
       - A "drive to done" helper asserts the four action kinds, that every non-done action's
-        `Step` and `Entry` match `plan.Steps`, and that `done` names step -1. It also asserts that
+        `Step` and `Entry` match `plan.Steps()`, and that `done` names step -1. It also asserts that
         `Advance` did not change the live object (deep-equal against a copy).
       - `purity_test.go` covers both purity scenarios: the direct-imports check with `go list`
         or `go/build`, and a `go/parser` walk for `*ast.GoStmt`.
@@ -126,7 +134,9 @@ Commits:
         (read, delete with Foreground and a UID precondition, skip, done), the caller-owned JSON
         `State` and `MayReleaseHold` with its seven reasons.
       - `CONSTITUTION.md` Principle III: the sentence "Its packages today are ..." gains
-        `opm/k8s/lifecycle` (the deletion plan, its transition and the hold verdict).
+        `opm/k8s/lifecycle` (the deletion plan, its transition and the hold verdict), and the
+        trailing clause "the rest arrive in later changes" is dropped, since every package
+        ADR-011 item 1 lists now exists.
       - `adr/011-kubernetes-tier-beside-the-kernel.md` Status: append "Amended 2026-10-05 by
         `add-kubernetes-lifecycle-package`: `opm/k8s/lifecycle` holds the deletion plan, built
         from inventory entries in descending kind weight, the one-action transition, with
@@ -136,8 +146,8 @@ Commits:
       each edit; the layout block is still one code fence; `task docs:bundle:check` is green.
 - [ ] 3.2 Run the whole-tree checks on the final code.
       - `task check`.
-      - `task api:diff` against `origin/main`. It reports only additions, all in
-        `opm/k8s/lifecycle`.
+      - `task api:diff`. Expected: it charges no incompatible entry to this change (base tag
+        v1.0.0-beta.6; it lists incompatible changes only).
       - `openspec validate add-kubernetes-lifecycle-package --strict`.
       Then run the consumer check, which is not committed. Clone cli and opm-operator fresh at
       their `origin/main` into the scratch dir, and run `.tasks/consumer-build.sh` against this

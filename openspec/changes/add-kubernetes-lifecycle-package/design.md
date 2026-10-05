@@ -38,8 +38,10 @@ The operator's `handleDeletion` branches, in this order:
    clear the inventory and remove the finalizer.
 4. The ServiceAccount is missing, without the annotation: stall (`DeletionSAMissing`) and hold.
 5. Any other impersonation error: stall (`ImpersonationFailed`) and hold.
-6. The prune returned an error that is Forbidden: stall and hold.
-7. The prune returned any other error: return the error and hold. The controller requeues.
+6. The prune returned an error that is Forbidden while the operator impersonates
+   (`effectiveSA != "" && isForbidden(err)`): stall and hold.
+7. The prune returned any other error, including a Forbidden one without impersonation: return
+   the error and hold. The controller requeues.
 8. Otherwise: remove the finalizer.
 
 ## Goals / Non-Goals
@@ -87,23 +89,47 @@ type Step struct {
 }
 
 type DeletionPlan struct {
-    OwnerUUID string
-    Policy    Policy
-    Steps     []Step
+    ownerUUID string
+    policy    Policy
+    steps     []Step
 }
 
 func NewDeletionPlan(entries []inventory.Entry, policy Policy, ownerUUID string) DeletionPlan
+func (p DeletionPlan) Steps() []Step     // a copy, in deletion order
+func (p DeletionPlan) Policy() Policy
+func (p DeletionPlan) OwnerUUID() string
+func (p DeletionPlan) Len() int
 ```
+
+The plan's fields are unexported, so `NewDeletionPlan` is its only constructor. A frontend cannot
+build a plan literal in inventory order and bypass the defined order of 0012:D1:R6. `Steps`
+returns a copy, so a frontend can list the plan before it acts but cannot reorder it. The zero
+`DeletionPlan` is a plan with no steps and a policy that does not prune.
 
 `NewDeletionPlan` copies `entries` and never changes the caller's slice. It sorts the copy with
 `object.Sort(steps, gvkOf, object.Descending)`, where `gvkOf` reads the entry's group, version and
 kind. It sets `Skip = ownership.SkipSafetyExcluded` on each step where
 `ownership.SafetyExcluded(group, kind)` holds, so every frontend lists those steps as left behind
-without a live read. Duplicate entries are kept: the second read of an object finds it absent and
-skips it as `already-absent`. An empty or nil `entries` gives a plan with no steps.
+without a live read. Duplicate entries are kept. The duplicate is read again, and is either
+skipped as `already-absent` or, when the first Foreground DELETE left it lingering with a
+`foregroundDeletion` finalizer, deleted again, which is harmless. An empty or nil `entries` gives a
+plan with no steps.
 
 Uninstall passes the persisted inventory. A prune passes `inventory.StaleSet(previous, current)`.
 There is one constructor and no separate prune plan.
+
+The zero `Policy{}` does not prune: `Advance` then names `done` on its first call and nothing is
+read or deleted. Each caller therefore states its policy:
+
+- The operator's instance deletion passes `Prune: spec.prune` and `ForceOrphan` from the
+  `opm.dev/force-delete-orphan` annotation.
+- The operator's prune on reconcile runs only when `spec.prune` is true today, and passes
+  `Prune: spec.prune`.
+- The cli's `opm instance delete` and the cli's stale-set prune after an apply pass
+  `Prune: true`. The cli has no `spec.prune` input on those paths, and 0012:OQ5/OQ6 stay open.
+
+A scenario pins the footgun: a plan with `Prune: false` over a non-empty stale set names `done` and
+deletes nothing.
 
 **Rationale**: the order is a value the frontend can show before it acts, it is computed once, and
 it comes from the one weight table (0012:D5).
@@ -126,7 +152,7 @@ contract's `action: "delete" | "skip"` literal style.
 type ActionKind string
 
 const (
-    ActionRead   ActionKind = "read"   // GET plan.Steps[Step].Entry; feed back Event{Live} or Event{Err}
+    ActionRead   ActionKind = "read"   // GET plan.Steps()[Step].Entry; feed back Event{Live} or Event{Err}
     ActionDelete ActionKind = "delete" // DELETE it with Propagation and Preconditions; feed back Event{Err}
     ActionSkip   ActionKind = "skip"   // report Skip and Message; the state has already moved on
     ActionDone   ActionKind = "done"
@@ -134,7 +160,7 @@ const (
 
 type Action struct {
     Kind          ActionKind
-    Step          int             // index into plan.Steps; -1 for done
+    Step          int             // index into plan.Steps(); -1 for done
     Entry         inventory.Entry // zero for done
     Propagation   metav1.DeletionPropagation // delete only: Foreground
     Preconditions *metav1.Preconditions      // delete only: UID, from ownership.CanDelete
@@ -153,7 +179,7 @@ func Advance(plan DeletionPlan, state State, ev Event) (State, Action, error)
 The transition works like this:
 
 - **The state awaits nothing.** `ev` is ignored.
-  - If `!plan.Policy.Prune`, or every step is finished, the action is `done`.
+  - If `!plan.Policy().Prune`, or every step is finished, the action is `done`.
   - Otherwise look at step `state.Next`. A step marked safety-excluded records a `skipped`
     outcome, moves `Next` on, and names `skip` with the `CanDelete` message for that object. Any
     other step sets the state to await a read and names `read`.
@@ -162,7 +188,7 @@ The transition works like this:
   - If `ev.Err` is any other error, the step records a `failed` outcome and moves on, and
     `Advance` names the next step's action.
   - Otherwise `ownership.CanDelete` judges the step with `Object` from the entry, `Live`, and
-    `InstanceUUID: plan.OwnerUUID`. A skip records a `skipped` outcome, moves on and names `skip`.
+    `InstanceUUID: plan.OwnerUUID()`. A skip records a `skipped` outcome, moves on and names `skip`.
     A proceed sets the state to await a delete and names `delete`, with
     `Propagation: metav1.DeletePropagationForeground` and `Preconditions: verdict.Preconditions()`.
 - **The state awaits a delete.**
@@ -177,14 +203,34 @@ A `skip` action is only a report: the returned state has already moved past the 
 running a dry run feeds `Event{}` back to a `delete` without performing it. That records
 `deleted`, and the frontend words its own dry-run line.
 
-`Advance` returns an error only when the inputs cannot belong together:
+**A live object that answers the wrong step.** When the state awaits a read and `ev.Live` names a
+different object than the step, the step records a `failed` outcome with class `error` and a
+message naming both identities, nothing is deleted, and `Advance` names the next step's action.
+Accepting the answer would let a frontend delete an object the verdict never judged. Refusing it
+with an error would wedge the plan: the frontend loop could never move past that step, and one odd
+entry would block the deletion of every other object in the instance.
 
-- `state.Next` is outside `0..len(plan.Steps)`;
-- the state awaits something while `Next == len(plan.Steps)`;
-- an `ev.Live` names a different group, kind, namespace or name than the step it answers.
+The comparison checks each identity field the live object sets: group and kind when its
+`apiVersion`/`kind` are set, namespace when it is set, and the name. An empty live field
+contradicts nothing. This matters in practice. `inventory.NewEntry` and the operator's own entry
+constructor copy `metadata.namespace` as rendered, with no scope normalisation, while the
+controller-runtime client returns a cluster-scoped object with no namespace. A typed client
+decoded into `unstructured` may also leave `TypeMeta` empty. Neither is a different object, and
+neither is treated as one.
 
-On an error, `Advance` returns the input state unchanged and no action. Accepting a mismatched
-answer would let a frontend delete an object the verdict never judged.
+**Outcomes the frontend reports.** Each call appends, in step order, the outcomes of the steps it
+finished, and only those. One call can finish two steps: a failed read of step `i` followed by a
+safety-excluded step `i+1`. A frontend reports the outcomes appended since the state it passed in
+(`after.Outcomes[len(before.Outcomes):]`). The library never rewrites an earlier outcome. This is
+how the cli keeps its per-resource errors and the operator its joined error from one rule.
+
+`Advance` returns an error only when the state cannot belong to the plan:
+
+- `state.Next` is outside `0..plan.Len()`;
+- the state awaits something while `Next == plan.Len()`;
+- `state.Awaiting` is not one of the three defined values.
+
+On an error, `Advance` returns the input state unchanged and the zero action.
 
 **Rationale**: every branch the frontend loop would otherwise hold (order, guard, propagation,
 precondition, NotFound handling) is decided once. The frontend's loop is a switch over four kinds,
@@ -211,12 +257,15 @@ It also records the error text as `Message`. NotFound is never a failure.
 
 **Rationale**: one classification, in one place, over the error both frontends already hold.
 
-### LC4: The state is a JSON value the caller owns, and the operator rebuilds it each pass
+### LC4: The state is a JSON value the caller owns
 
 **Context**: 0012:D4:R5 requires a written-out state to advance identically to one held in memory.
-The operator's reconcile is level-triggered. Persisting the state would need a new
-ModuleInstance and ModulePackage status field, and nothing needs one: after a pass, a deleted
-object reads as absent, so a fresh plan over the same inventory converges on the next pass.
+0012:D4 says the operator carries the state across reconciles. Because the state is serialisable,
+a controller can carry it. Whether the operator does is op-f2's choice, not this package's. op-f2
+plans to rebuild it each pass from `status.inventory` plus the live objects, with no new CRD field
+(ADR-008, Deletion plans): the reconcile is level-triggered, and after a pass a deleted object
+reads as absent, so a fresh plan over the same inventory converges on the next pass. The library
+requirement stays neutral between the two.
 
 **Decision**:
 
@@ -240,9 +289,10 @@ type Outcome struct {
 
 The zero `State` is the start. The live object is never part of the state: `Advance` judges it in
 the same call it arrives in. The state carries struct tags, while `inventory.Entry` deliberately
-does not. The difference is that the state is the library's own value, and R5 needs one encoding.
-The JSON encoding is SemVer surface. The operator does not store it (op-f2 rebuilds it per
-reconcile from `status.inventory` plus the live objects), and the cli holds it in memory.
+does not. The difference is that the state is the library's own value, and 0012:D4:R5 needs one
+encoding. The JSON encoding is SemVer surface, and a golden test pins it: it marshals a state with
+every field set and compares the bytes with a literal, so renaming a tag fails a check (`task
+api:diff` checks Go API only). The cli holds the state in memory for one command.
 
 **Rationale**: the state contains only data, so it survives a round trip (ADR-008 trade-off). The
 round-trip test advances an in-memory state and a JSON-copied state through the same events after
@@ -281,11 +331,11 @@ func MayReleaseHold(plan DeletionPlan, state State, in HoldInput) HoldVerdict
 
 `MayReleaseHold` checks these in order and stops at the first match:
 
-1. `!plan.Policy.Prune` releases with `prune-disabled`.
+1. `!plan.Policy().Prune` releases with `prune-disabled`.
 2. A plan with no steps releases with `inventory-empty`.
-3. `IdentityMissing` with `plan.Policy.ForceOrphan` releases with `force-orphan`.
+3. `IdentityMissing` with `plan.Policy().ForceOrphan` releases with `force-orphan`.
 4. `IdentityMissing` or `IdentityFailed` holds with `identity-unavailable`.
-5. A plan that is not finished (`Next < len(Steps)` or the state awaits something) holds with
+5. A plan that is not finished (`Next < plan.Len()` or the state awaits something) holds with
    `cleanup-incomplete`.
 6. Any `forbidden` outcome holds with `cleanup-forbidden`.
 7. Any other `failed` outcome holds with `cleanup-incomplete`.
@@ -297,8 +347,17 @@ decision covers.
 
 A frontend without impersonation passes `IdentityAvailable`. A prune never calls `MayReleaseHold`.
 
-**Rationale**: each operator branch is one case, in the operator's own precedence. Forbidden wins
-over other failures, as the operator's `isForbidden` check on the joined error does. The inputs are
+**Forbidden without impersonation.** The operator stalls on a Forbidden prune only while it
+impersonates (Context, branch 6). Without a ServiceAccount, a Forbidden error falls to branch 7 and
+requeues with backoff. `MayReleaseHold` returns `cleanup-forbidden` whatever the identity source,
+because the verdict is only whether the hold may come off, and in both branches it may not. How a
+frontend surfaces a hold (stall, or return an error and requeue) stays frontend policy. op-f2 keeps
+the requeue when it does not impersonate and stalls only when it does, so the verdict changes no
+operator behaviour here. If op-f2 chooses otherwise, that is a behaviour change it carries with a
+release note, like the order and propagation changes.
+
+**Rationale**: each operator branch maps to one case, in the operator's own precedence. Forbidden
+wins over other failures, as the operator's `isForbidden` check on the joined error does. The inputs are
 the policy, the outcome and whether the caller could act as the deleting identity. None of them
 names a finalizer or a frontend.
 
@@ -349,5 +408,11 @@ after the package clause, as in `opm/k8s/ownership/doc.go`.
 - **The JSON state is a public encoding.** A later change to it is a SemVer event. No frontend
   stores it today, which keeps the cost of that low.
 - **`Advance` returns an error.** A pure step function with an error return is slightly more API
-  than ADR-008's sketch. The alternative is to silently accept an answer about a different object,
-  which could delete an unjudged object.
+  than ADR-008's sketch. The error is kept for a state that cannot belong to the plan, which is a
+  frontend bug. A live object answering the wrong step is a recorded failure instead, so it never
+  wedges the plan and is never deleted.
+- **A mismatched live object holds the finalizer.** Its step is recorded as failed, so
+  `MayReleaseHold` holds with `cleanup-incomplete` until the frontend reads the right object. That
+  is deliberate: an object the verdict never judged is not counted as cleaned up. The lenient
+  comparison (an empty live field contradicts nothing) keeps the known benign differences out of
+  this path.

@@ -2,7 +2,7 @@
 
 ### Requirement: The deletion plan orders inventory entries by kind-class delete order
 
-The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. The plan SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Every CustomResourceDefinition and Namespace entry, as the tier's safety exclusion matches them, SHALL be marked safety-excluded in the plan before any live object is read. Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the persisted inventory, and a prune builds it from the stale set the inventory package computes, through the same constructor. Source: 0012:D4, 0012:D1:R3/R6, ADR-008 (Deletion plans).
+The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. The plan SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Every CustomResourceDefinition and Namespace entry, as the tier's safety exclusion matches them, SHALL be marked safety-excluded in the plan before any live object is read. Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the persisted inventory, and a prune builds it from the stale set the inventory package computes, through the same constructor. The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the transition a plan in another order, and the plan's steps SHALL be readable as a copy. Source: 0012:D4, 0012:D1:R3/R6, ADR-008 (Deletion plans).
 
 #### Scenario: Entries are ordered for deletion
 
@@ -24,6 +24,11 @@ The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a 
 
 - **WHEN** the stale set of a previous and a current inventory is passed to the plan constructor
 - **THEN** the plan's steps are exactly the stale entries, in kind-class delete order
+
+#### Scenario: Changing the listed steps does not change the plan
+
+- **WHEN** a caller reorders the steps it read from a plan
+- **THEN** the plan's own steps keep their deletion order
 
 ### Requirement: The deletion transition names one action per call
 
@@ -56,6 +61,12 @@ The deletion transition SHALL take the plan, the caller's state and the outcome 
 - **THEN** the action is done
 - **AND** no read or delete is named for any step
 
+#### Scenario: A prune built with the zero policy deletes nothing
+
+- **WHEN** a plan is built from a non-empty stale set with a policy whose `Prune` is false
+- **THEN** the first action is done
+- **AND** the state records no outcome
+
 #### Scenario: The transition names only reads, deletions, skips and done
 
 - **WHEN** a plan over a mixed inventory is advanced to done through every outcome kind
@@ -64,7 +75,7 @@ The deletion transition SHALL take the plan, the caller's state and the outcome 
 
 ### Requirement: Action outcomes are classified by the library
 
-The caller SHALL hand back the raw error of each read or delete, and the library SHALL classify it with `k8s.io/apimachinery`'s API error helpers, which see through wrapping. A NotFound read, or a read that returns no object, SHALL count as already absent, and SHALL be skipped as `already-absent`. A NotFound delete SHALL be skipped as `already-absent`. A successful delete SHALL record the step as deleted. Any other error SHALL record the step as failed, with the failure class `forbidden`, `conflict` or `error` and the error's text. A failure SHALL NOT stop the plan: the next step's action SHALL follow. Source: 0012:D1:R1, 0012:D4:R1.
+The caller SHALL hand back the raw error of each read or delete, and the library SHALL classify it with `k8s.io/apimachinery`'s API error helpers, which see through wrapping. A NotFound read, or a read that returns no object, SHALL count as already absent, and SHALL be skipped as `already-absent`. A NotFound delete SHALL be skipped as `already-absent`. A successful delete SHALL record the step as deleted. Any other error SHALL record the step as failed, with the failure class `forbidden`, `conflict` or `error` and the error's text. A live object handed back for a read that names a different object than the step, in any identity field the live object sets, SHALL NOT be judged or deleted: the step SHALL be recorded as failed with class `error` and a message naming both objects. A failure SHALL NOT stop the plan: the next step's action SHALL follow. Each call SHALL append, in step order, the outcomes of the steps it finished and only those, and SHALL NOT change an earlier outcome, so a frontend reports the outcomes appended since the state it passed in. Source: 0012:D1:R1, 0012:D4:R1.
 
 #### Scenario: A gone object is already absent
 
@@ -93,9 +104,27 @@ The caller SHALL hand back the raw error of each read or delete, and the library
 - **WHEN** the read of the first of two steps fails with an Internal error
 - **THEN** the next action reads the second step
 
+#### Scenario: A live object for another step is not deleted
+
+- **WHEN** the state awaits the read of `Deployment/app/web` and the live object handed back is `Deployment/app/api`
+- **THEN** no delete is named for either object
+- **AND** the step is recorded as failed with failure class `error`
+- **AND** the next action names the next step
+
+#### Scenario: An empty live namespace or kind is not a mismatch
+
+- **WHEN** the step is a ClusterRole recorded with a namespace, and the live object handed back has no namespace and no `apiVersion` or `kind`
+- **THEN** the live object is judged for the step
+
+#### Scenario: One call can finish two steps
+
+- **WHEN** the read of a Deployment step fails with an Internal error and the next step is a Namespace
+- **THEN** that call appends a failed outcome for the Deployment and then a skipped outcome for the Namespace, in that order
+- **AND** the action is a skip naming the Namespace step
+
 ### Requirement: The deletion state is a serialisable value the caller owns
 
-The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan or the live object handed back names a different object than the step being read. Source: 0012:D4:R5, ADR-008 rule 2.
+The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies beyond the plan's end, it awaits something after the last step, or what it awaits is not a defined value. The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: 0012:D4:R5, ADR-008 rule 2.
 
 #### Scenario: A round-tripped state advances identically
 
@@ -108,15 +137,20 @@ The deletion state SHALL be a plain value with a defined JSON encoding, holding 
 - **WHEN** the same plan, state and outcome are advanced twice
 - **THEN** both calls return equal states and equal actions
 
-#### Scenario: A live object for another step is refused
-
-- **WHEN** the state awaits the read of `Deployment/app/web` and the live object handed back is `Deployment/app/api`
-- **THEN** the transition returns an error and the input state unchanged
-
 #### Scenario: A state past the plan is refused
 
 - **WHEN** the state's next step is beyond the plan's last step
 - **THEN** the transition returns an error
+
+#### Scenario: A state awaiting something after the last step is refused
+
+- **WHEN** the state's next step equals the number of steps and the state awaits a read
+- **THEN** the transition returns an error and the input state unchanged
+
+#### Scenario: The JSON encoding is fixed
+
+- **WHEN** a state with a next step, an awaited read and a failed outcome carrying every field is written to JSON
+- **THEN** the bytes equal `{"next":2,"awaiting":"read","outcomes":[{"step":0,"result":"failed","failure":"forbidden","message":"denied"},{"step":1,"result":"skipped","skip":"already-absent","message":"gone"}]}`
 
 ### Requirement: The hold verdict is decided from the policy and the plan's outcome
 
@@ -155,8 +189,8 @@ The library SHALL decide whether an instance's deletion hold may be released fro
 
 #### Scenario: Force-orphan does not lift a failed cleanup
 
-- **WHEN** the policy sets force-orphan, the identity is available, and the finished plan has a failed step
-- **THEN** the verdict is a hold
+- **WHEN** the policy sets force-orphan, the identity is available, and the finished plan has a step failed with class `error`
+- **THEN** the verdict is hold with reason `cleanup-incomplete`
 
 #### Scenario: A finished plan with skips releases
 

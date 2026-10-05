@@ -38,11 +38,15 @@ is the library half of f2. The frontends adopt it in their own changes.
     by `object.Sort` Descending (stable), and marks each CustomResourceDefinition and Namespace
     step safety-excluded up front (`ownership.SafetyExcluded`). An instance's uninstall builds it
     from the persisted inventory. A prune builds it from `inventory.StaleSet(previous, current)`.
-    Nothing renders, and no plan is stored.
+    Nothing renders, and no plan is stored. The plan's fields are unexported, so this is its only
+    constructor and no frontend can hand `Advance` a plan in another order. Each caller states its
+    policy: the operator passes `spec.prune` and the force-orphan annotation, and the cli's
+    instance delete and its stale-set prune pass `Prune: true`.
   - `State`: a JSON-serialisable value the caller owns. It records the next step, what the state
-    awaits and one outcome per finished step. The operator rebuilds it on every reconcile from
-    `status.inventory` plus the live objects and stores it nowhere, so no CRD field is added. The
-    cli holds it in memory for one command.
+    awaits and one outcome per finished step. Because it is serialisable, a controller can carry
+    it across reconciles (0012:D4:R5). op-f2 plans to rebuild it each pass from
+    `status.inventory` plus the live objects, with no new CRD field (ADR-008, Deletion plans). The
+    cli holds it in memory for one command. A golden test pins its JSON encoding.
   - `Advance(plan, state, event) (State, Action, error)`: one action per call. An action is one
     of these four:
     - `read` (the caller GETs the step's object and feeds back the object, its absence or the
@@ -54,11 +58,16 @@ is the library half of f2. The frontends adopt it in their own changes.
     The per-object decision is `ownership.CanDelete`. The library classifies the caller's raw
     error with `k8s.io/apimachinery/pkg/api/errors`: NotFound means already absent, and Forbidden,
     Conflict (a failed precondition) and other errors are recorded failures. A failure does not
-    stop the plan: the next step still runs, as both frontends behave today. When
-    `Policy.Prune` is false, the first call names `done` and no object is read or deleted.
+    stop the plan: the next step still runs, as both frontends behave today. A live object that
+    answers the wrong step is a recorded failure, never deleted and never a wedge. Each call
+    appends the outcomes of the steps it finished, in step order, and a frontend reports the
+    outcomes appended since the state it passed in. When `Policy.Prune` is false, the first call
+    names `done` and no object is read or deleted.
   - `MayReleaseHold(plan, state, HoldInput) HoldVerdict`: release or hold, with the contract's
-    `#HoldVerdict` reason and a library-worded message. It reproduces every branch of the
-    operator's `handleDeletion`:
+    `#HoldVerdict` reason and a library-worded message. It maps every branch of the operator's
+    `handleDeletion` to a verdict. The operator stalls on a Forbidden prune only while it
+    impersonates and otherwise requeues; both are a hold, and how a hold is surfaced stays
+    frontend policy (design LC5):
     - release when pruning is disabled (`prune-disabled`);
     - release when the inventory is empty (`inventory-empty`);
     - release when the deleting identity is missing and force-orphan is set (`force-orphan`);
@@ -86,7 +95,11 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   their prune-on-reconcile paths run a short loop around `Advance` with the impersonated client,
   and `MayReleaseHold` decides when the finalizer comes off. That moves the operator's delete order
   to descending weight and its propagation from Background to Foreground. Both are behaviour
-  changes, and op-f2 carries the release note. The cli change (cli-f2) replaces the body of
+  changes, and op-f2 carries the release note. `MayReleaseHold` returns `cleanup-forbidden` for a
+  Forbidden failure whatever the identity source, while today's operator stalls only when it
+  impersonates and requeues otherwise. op-f2 keeps that split (stall when impersonating, requeue
+  when not), so the verdict alone changes no operator behaviour there; if op-f2 chooses
+  otherwise, it carries that change in the same release note. The cli change (cli-f2) replaces the body of
   `kubernetes.Delete` and its stale-set prune with the same loop. Each frontend keeps its own
   status messages, events, dry-run reporting and exit codes.
 - **Hook semantics.** No step a module declares runs as part of deletion (0012:D4:R6). The rest of
@@ -97,6 +110,11 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   choose the `spec.prune` default, and it does not make the cli claim a hold.
 - **A resourceVersion precondition.** The delete action carries the UID precondition only, as
   `ownership.DeleteVerdict.Preconditions` does.
+- **The conformance test.** The 0012 contract's `#Conformance` property (executed ⊆ authorised:
+  no delete the plan did not name) is asserted by a shared test in library, and 0012 graduation
+  needs it. It needs a delete loop to observe, so it lands with the frontend loops in op-f2 and
+  cli-f2, or in a later library test-helper change they call. This change ships no loop and does
+  not deliver it.
 - **The operator install's admitted deletions** (0012:D8:R7). They act on objects outside the
   inventory, so they are not inventory steps. The install calls `ownership.CanDelete` with `Admit`
   directly, as it does today.
