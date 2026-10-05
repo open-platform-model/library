@@ -111,8 +111,8 @@ printed before. `Status` is not in the owner's wording. It is added because the 
 needs the 5xx answer as data. A `FetchError` built by hand states its own status, and one that
 `Classify` builds records the status it found, from the typed chain or from the text.
 
-A `FetchError` with a nil `Err` is a caller bug. `Error()` then returns the kind's name, so it
-never panics.
+A `FetchError` with a nil `Err` is a caller bug. `Error()` then returns `registry fetch failed:`
+and the kind's name, so it never panics.
 
 CUE's registry client decides one case before `Classify` sees it. In CUE v0.17.1
 `modregistry.Client.GetModule` (`mod/modregistry/client.go:248-250`) runs `isNotExist`

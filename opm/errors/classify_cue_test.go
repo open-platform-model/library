@@ -238,6 +238,12 @@ func cueForms() []cueForm {
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/next@v0"))
 		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, classified{}},
+		// An author defect cue/load reports is not a fetch failure.
+		{"load/syntax-error", func(t *testing.T) error {
+			src := mainModule(t, "", "test.example/unused@v0")
+			require.NoError(t, os.WriteFile(filepath.Join(src.Root, "main.cue"), []byte("package main\n\nx: {\n"), 0o644))
+			return loadMain(t, registrytest.UnreachableRegistry(t), src)
+		}, observed{contains: []string{"expected '}', found 'EOF'"}}, classified{}},
 		// A published archive that does not unzip.
 		{"load/corrupt-archive", func(t *testing.T) error {
 			reg := rawRegistry(t, func(r ociregistry.Interface) {
