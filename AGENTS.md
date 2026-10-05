@@ -161,12 +161,12 @@ migrations/                   Per-change migration fragments + policy (README.md
 
 The kernel accepts exactly:
 
-| Artifact         | Schema (`v1alpha2`)  | Go type              |
-| ---------------- | -------------------- | -------------------- |
-| `Module`         | `#Module`            | `*module.Module`     |
-| `ModuleInstance`  | `#ModuleInstance`     | `*module.Instance`    |
-| `Platform`       | `#Platform`          | `*platform.Platform` |
-| `Catalog`        | `#Catalog`           | `*catalog.Catalog`   |
+| Artifact         | Schema (`opmodel.dev/core@v2`) | Go type              |
+| ---------------- | ------------------------------ | -------------------- |
+| `Module`         | `#Module`                      | `*module.Module`     |
+| `ModuleInstance` | `#ModuleInstance`              | `*module.Instance`   |
+| `Platform`       | `#Platform`                    | `*platform.Platform` |
+| `Catalog`        | `#Catalog`                     | `*catalog.Catalog`   |
 
 `Catalog` is the fourth, admitted by **ADR-009** on stated terms: the kernel acquires, reads and derives; every verdict about what it reads stays with the caller. A catalog is never rendered. ADR-009 also states, in writing, the four-part test a FIFTH kind must pass — do not add one without meeting it there.
 
@@ -355,9 +355,9 @@ Inside the build the glue (`render.cue.tmpl`) unifies each component with every 
 
 ### OPM schema versioning
 
-The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version: `opmodel.dev/core@v2` for the floating major, `opmodel.dev/core@v2.X.Y[-pre]` for a pinned release.
+The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version. The default loader pins an exact release, `opmodel.dev/core@v2.X.Y[-pre]` (`schema.DefaultSchemaModule`); the bare major `opmodel.dev/core@v2` is opt-in and resolves to the highest published release of that major.
 
-Operators wanting reproducibility pin the schema version explicitly:
+A consumer that wants its own pin, or the bare major, passes its own loader, for example:
 
 ```go
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.2"}))
@@ -365,7 +365,7 @@ k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/co
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).
 
-A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, additive schema changes are absorbed transparently by floating-major resolution.
+A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the core release the schema cache loads and a generated platform module pins; synthesis takes only its major for the core import) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue.
 
 Two independent compat tracks, never confuse:
 
