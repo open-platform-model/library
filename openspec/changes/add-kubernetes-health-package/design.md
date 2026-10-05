@@ -23,7 +23,7 @@ The source file uses five kind constants (`kindDeployment`, `kindStatefulSet`,
 **Non-Goals:**
 - Any frontend edit.
 - New or changed evaluation rules.
-- A stalled-rollout verdict (HP4).
+- A stalled-rollout status value (HP4 adds a predicate instead).
 - Fetching, waiting or polling.
 
 ## Research & Decisions
@@ -92,28 +92,43 @@ object must stay the same when it adopts the package.
 **Rationale**: A new rule is a behaviour change for the cli's `instance status`. If op-f5 or a
 module author needs one, it is its own change with its own test.
 
-### HP4: The progress-deadline distinction is not decided here
+### HP4: A `ProgressDeadlineExceeded` predicate tells a stall apart
 
-**Context**: op-f5 must stop fast requeues when a rollout has stalled, and the plan names
-`ProgressDeadlineExceeded` as the signal. `Evaluate` folds that case into `NotReady`, so the
-status alone cannot tell "still rolling out" from "stalled".
+**Context**: op-f5 must stop fast requeues when a rollout has stalled: its plan entry requires
+that `ProgressDeadlineExceeded` leads to Healthy=False with a reason and that fast requeues
+stop. `Evaluate` folds that case into `NotReady`, so the status alone cannot tell "still
+rolling out" from "stalled". op-f5 gates on the library release that follows this change.
 **Explored**: (a) a new status value, which changes the cli's output; (b) an additive exported
-predicate in `opm/k8s/health`, such as one that reports whether a Deployment's Progressing
-condition carries `ProgressDeadlineExceeded`; (c) op-f5 reads the condition itself.
-**Decision**: None of them in this change. (a) breaks the verbatim move. (b) and (c) are op-f5's
-design choice, and (b) is a small additive change to this package that op-f5 can propose with
-its own test. The unexported condition reader moves as it is, so (b) needs no rework.
-**Rationale**: The owner decided a verbatim move here and left the operator's requeue policy to
-op-f5. Adding API now would guess at a caller that has not been designed.
+predicate in `opm/k8s/health`; (c) op-f5 reads the Progressing condition itself.
+**Decision**: (b), in this change:
+
+```go
+// ProgressDeadlineExceeded reports whether obj is a Deployment whose controller has
+// observed its current generation and reports the rollout stalled: a Progressing
+// condition with the reason ProgressDeadlineExceeded.
+func ProgressDeadlineExceeded(obj *unstructured.Unstructured) bool
+```
+
+It reads through the moved `getConditions` and `generationObserved`, and `Evaluate` is
+unchanged (it still returns `NotReady` for such a Deployment). The generation check keeps a
+condition left over from the previous rollout from reporting a fresh apply as stalled before the
+controller has seen it. Any other kind returns false.
+**Rationale**: (a) breaks the verbatim move. (c) puts a readiness rule back into a frontend,
+against ADR-011 items 1 and 3 and the owner's f5 decision ("Evaluator moves to
+opm/k8s/health"). (b) proposed later by op-f5 would add a second library release before op-f5
+could start. The predicate is one function and one test; the requeue policy that reads it stays
+op-f5's.
 
 ### HP5: Tests are the cli's, moved; the package is internal-tested
 
 **Context**: The cli's tests are in package `kubernetes` and use unexported helpers
 (`makeResource`, `makeWorkload`).
 **Decision**: Move them into `opm/k8s/health/health_test.go`, package `health`, renamed to
-the new identifiers, with every case and expectation unchanged. Add `TestStatusStrings` (the
+the new identifiers, with every case and expectation unchanged. The cli's task-number header
+comment is dropped, and its issue reference is spelled `cli#228` so it does not read as a
+library issue. Add `TestStatusStrings` (the
 seven literals), `TestAggregate` (all healthy, one unhealthy plus missing, empty, `Applied`
-counted healthy, unhealthy only) and the HP2 equivalence test. testify is already a library
+counted healthy, unhealthy only), the HP2 equivalence test and `TestProgressDeadlineExceeded` (HP4). testify is already a library
 test dependency, and the tier's allow list covers non-test files only.
 **Rationale**: The cli's tests are the evidence that the behaviour did not change in the move.
 
@@ -121,8 +136,9 @@ test dependency, and the tier's allow list covers non-test files only.
 
 - [The cli and the library copy drift before cli-f5 lands] → cli-f5 deletes the cli copy with
   no alias in the release that adopts the package. Until then, a fix to either copy is ported
-  to the other by hand. Record the cli source commit in the package doc so the drift can be
-  checked.
+  to the other by hand. The cli source commit is recorded in a maintainer comment in `doc.go`,
+  separate from the package doc (which opm-docs publishes and which keeps no maintainer
+  pointers), so the drift can be checked.
 - [Pure evaluation of a stale read] → `Evaluate` judges the object it is given. A frontend
   that reads through a cache right after an apply can get the object as it was before the
   apply, whose `metadata.generation` the controller has already observed, and `Evaluate` then

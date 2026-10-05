@@ -42,10 +42,17 @@ when it adopts the package.
     views evaluate each object for display, and the operator will evaluate each inventory
     object once. `QuickInstanceHealth(resources, n)` equals `Aggregate` over `Evaluate` of each
     resource with the same `n`.
+  - `ProgressDeadlineExceeded(*unstructured.Unstructured) bool`, new and additive (design HP4):
+    true for a Deployment whose controller has observed its current generation and whose
+    Progressing condition carries the reason `ProgressDeadlineExceeded`. `Evaluate` folds that
+    case into `NotReady`; the predicate lets the operator's Healthy condition tell a stalled
+    rollout from one still in progress without reading the condition itself.
   - The package is pure: the caller fetches the live objects with its own client and passes
     them in. Nothing in it reads a cluster, waits or polls (ADR-008 rule 1, ADR-011 item 4).
   - The cli's table tests move with it as the library's tests, plus a test for `Aggregate`'s
     three outcomes and one that pins the seven status strings.
+- **Lint**: a strict depguard rule holds the non-test files of `opm/k8s/health` to the
+  standard library and `k8s.io/apimachinery`, like the one for `opm/k8s/labels`.
 - **Docs**: the `opm/k8s/` package lists in `README.md`, `AGENTS.md` and `CONSTITUTION.md`
   gain `health`. The ADR-011 Status records that the readiness evaluator arrived.
 - **Spec**: `kubernetes-tier` gains the readiness requirement.
@@ -68,9 +75,10 @@ SemVer class: MINOR. Release class of the PR: `feat`.
 - **New evaluation rules.** No kind is added or re-judged. A ReplicaSet or
   ReplicationController rendered by a module still falls to the condition rule and reports
   `Applied`, as in the cli today (design HP3).
-- **A stalled-rollout verdict.** `Evaluate` reports a Deployment past its progress deadline
-  as `NotReady`, the same string as one still rolling out. op-f5 needs to tell the two apart
-  to stop fast requeues. This change does not decide where that check lives (design HP4).
+- **A stalled-rollout status value.** `Evaluate` still reports a Deployment past its progress
+  deadline as `NotReady`, the same string as one still rolling out, because a new value would
+  change the cli's output. The stall is told apart by the separate
+  `ProgressDeadlineExceeded` predicate (design HP4); the requeue policy that uses it is op-f5's.
 - **The CRD `Established` wait** the cli added in cli#289. It is a separate predicate in the
   cli's `wait.go`, not part of this evaluator.
 
@@ -88,7 +96,7 @@ None.
 ## Impact
 
 - Packages: new `opm/k8s/health`. No existing package changes.
-- Repo files: `README.md`, `AGENTS.md`, `CONSTITUTION.md`,
+- Repo files: `.golangci.yml` (one depguard rule), `README.md`, `AGENTS.md`, `CONSTITUTION.md`,
   `adr/011-kubernetes-tier-beside-the-kernel.md`. `go.mod` and `go.sum` do not change:
   `k8s.io/apimachinery` is already required.
 - Downstream: cli and opm-operator compile unchanged against this tree; the consumer-build job
