@@ -163,16 +163,19 @@ The fallback is today's, whole and first, and the author-defect forms come after
    - `cannot find module providing package ` → `ResolutionImportUnprovided`. Step 1 has already
      taken the exact-version form, so whatever reaches this step carries at most a major version;
    - `ambiguous import: ` → `ResolutionImportAmbiguous`;
-   - `cannot parse module file` → `ResolutionModuleFileInvalid`.
+   - `cannot parse module file`, or cue/build's `import failed: ` followed directly by a
+     module coordinate at an exact version and `: ` (`import failed: P@vX.Y.Z: `) →
+     `ResolutionModuleFileInvalid`. The first is graph expansion's form; the second is the direct
+     import path's form, which section 1 found (see "Spike findings").
 
    When one text carries several author-defect forms, the first in this order decides. A test pins
    the order with one constructed text.
 
-If a dependency's module file fails to parse on the direct import path rather than in graph
-expansion, the text could read `cannot fetch P@V: cannot parse module file from P@V: ...`. Under
-this order it stays `FetchOther`, as today, so no `*FetchError` answer changes and the release
-stays `feat` with no behaviour change to name. Section 1 measures whether CUE v0.17.1 produces that
-form at all and records the answer under "Spike findings".
+Section 1 measured the direct import path for a dependency whose module file does not parse:
+CUE v0.17.1 does not say `cannot fetch P@V: cannot parse module file`. It says
+`import failed: P@vX.Y.Z: <parse error>`, which `Classify` returns unchanged today. So typing it
+moves no `*FetchError` answer, and the order question the plan review raised does not arise. A
+`cannot fetch ` text stays `FetchOther` whatever it carries.
 
 `Classify` is still applied only to load errors, never to an evaluation error (#205 D4). A
 conflict message can quote an author's own strings, and the text fallback must never see one.
@@ -265,6 +268,9 @@ failure a failure to find, choose or read the module that provides an imported p
   own files.
 - An import cycle (`import cycle not allowed`): the imports all resolved; their structure is the
   defect.
+- The main module's own `cue.mod/module.cue` failing its schema: the library checks it before
+  any import resolves, and the text is the module file's evaluation error alone (`bogus: field
+  not allowed`, section 1), with no structural form to match without reading author content.
 - A syntax error, and every evaluation error (#205 D4).
 
 Each is an author defect in package content, no retry cures it, and none of them sits in a cli or
@@ -272,16 +278,42 @@ operator text match. A later change can type them additively if a consumer needs
 
 ## Spike findings
 
-(Section 1 writes this.)
+Measured against the embedded CUE v0.17.1 in `classify_cue_test.go` (section 1). "Today" is the
+answer at `88afdfb`.
+
+| Case | Text (the part that decides) | Today | After this change |
+| --- | --- | --- | --- |
+| `standalone/unprovided-import` | `cannot find module providing package test.example/other@v0` (a major version only) | unchanged | `ResolutionImportUnprovided` |
+| `load/ambiguous-import` | `ambiguous import: found package spike.example/main/dep in multiple locations:` | unchanged | `ResolutionImportAmbiguous` |
+| `load/malformed-dependency-module-file-direct` | `import failed: test.example/dep@v0.0.2: bogus: field not allowed`; no `cannot fetch `, no `cannot parse module file` | unchanged | `ResolutionModuleFileInvalid` |
+| `load/malformed-main-module-file` | `loading module package from <dir> (.): bogus: field not allowed`; no `cannot parse module file` | unchanged | unchanged ("Where resolution ends") |
+| `load/corrupt-archive-beside-unprovided-import` | `cannot fetch test.example/dep@v0.0.2: unzip ...: zip: not a valid zip file`; the undeclared import's error is not in the text | `FetchOther` | `FetchOther` |
+
+- The ambiguous form is real, so `ResolutionImportAmbiguous` stays.
+- The direct-path module-file form comes from `cue/load/modfilecache.go:53`
+  (`fmt.Errorf("%v: %v", mv, err)`), reached from `newInstance` (`cue/load/import.go:426`), and
+  cue/build wraps it as `import failed` (`cue/build/import.go:103`). At that site the only other
+  failures are `no location for P@V` and a file read error, neither of which starts with a
+  coordinate and `: `. The import-failed form with a file position
+  (`import failed: <file>:3:8: cannot find package`) does not match it, because the position
+  follows the version.
+- The main module's malformed `module.cue` does not carry `cannot parse module file`, so the
+  matched text comes only from fetched modules, and the risk that the kind also covers the main
+  module's file is dropped. The spec keeps "a dependency's published module file".
+- A directory load with a corrupt dependency archive and an undeclared import in another file
+  reports only the fetch failure: cue/load stops there. The constructed mixed text (both forms in
+  one string) is pinned in `TestClassify_Resolution`, and stays `FetchOther`.
+- `CUE errors.Error()` of a list is the first error's message only, so the text fallback reads the
+  first error of a list. That is today's behaviour and this change keeps it.
 
 ## Risks / Trade-offs
 
 - [A CUE bump rewords a form] → `classify_cue_test.go` fails on the bump. A CUE move reaches
   frontends only through a library release (workspace `RELEASING.md`), so the test runs first.
-- [`cannot parse module file` also covers the main module's own `module.cue`] → in CUE v0.17.1
-  the matched text `cannot parse module file from %v` comes only from `mod/modcache/fetch.go:77`,
-  which reads fetched modules. Section 1 records what a malformed main `module.cue` says. If it
-  carries the text, the spec and the kind doc widen to name it; if not, this risk is dropped.
+- [The direct-path module-file form is matched by its prefix] → `import failed: P@vX.Y.Z: ` is a
+  shape cue/load and cue/build compose, not a message. A CUE bump that changes either fails
+  `load/malformed-dependency-module-file-direct` first, and the text after the prefix (the
+  author's module file content) is never read.
 - [A caller compared `Classify(err)` with `err` to detect "unrecognised"] → that caller now sees
   a new value for these forms. Neither frontend does this; the cli checks for a `*FetchError`.
 - [An error list with an unprovided import and a fetch failure reads as a fetch failure] → this is

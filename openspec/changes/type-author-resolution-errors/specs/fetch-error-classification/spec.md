@@ -51,7 +51,7 @@
 2. The author-defect forms, in this order:
    - `cannot find module providing package` followed by a path without an exact version, which is `ResolutionImportUnprovided`;
    - `ambiguous import`, which is `ResolutionImportAmbiguous`;
-   - `cannot parse module file`, which is `ResolutionModuleFileInvalid`.
+   - `cannot parse module file`, or `import failed: ` followed directly by a module coordinate at an exact version and `: `, which is `ResolutionModuleFileInvalid`.
 
 `cannot expand module graph` SHALL NOT be matched on its own, because it wraps both fetch failures and a malformed dependency's module file. It classifies through the form it carries. A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version changes one.
 
@@ -79,6 +79,11 @@
 
 - **WHEN** `Classify` receives a `cue/load` error saying the module graph cannot be expanded because a published dependency's module file does not parse
 - **THEN** it returns a `*ResolutionError` of kind `ResolutionModuleFileInvalid`, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A dependency module file that does not parse on the direct import path is a typed author defect
+
+- **WHEN** `Classify` receives a `cue/load` error for a directly imported, declared dependency whose published module file does not parse
+- **THEN** it returns a `*ResolutionError` of kind `ResolutionModuleFileInvalid`, and no `*FetchError` is in the chain
 
 #### Scenario: An ambiguous import is a typed author defect
 
