@@ -135,6 +135,29 @@ func TestCanDelete(t *testing.T) {
 			want: ownership.SkipAlreadyAbsent,
 		},
 		{
+			name: "an object annotated for another instance is left in place",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InstanceUUID: thisUUID},
+			want: ownership.SkipAdoptedElsewhere, contains: []string{"Deployment/web/api", "module instance " + otherUUID},
+		},
+		{
+			name: "an annotation naming this instance changes nothing on delete",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(append(opm, adopt(" "+thisUUID))...), InstanceUUID: thisUUID},
+		},
+		{
+			name: "a blank annotation passes the adoption comparison",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(append(opm, adopt(" "))...), InstanceUUID: thisUUID},
+		},
+		{
+			name: "an empty instance UUID skips an annotated object",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), adopt(otherUUID))},
+			want: ownership.SkipAdoptedElsewhere,
+		},
+		{
+			name: "admission never deletes an object another instance is adopting",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), adopt(otherUUID)), InstanceUUID: thisUUID, Admit: true},
+			want: ownership.SkipAdoptedElsewhere,
+		},
+		{
 			name: "admission never lifts owner-mismatch",
 			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
 			want: ownership.SkipOwnerMismatch,
@@ -202,6 +225,14 @@ func TestSkipReasonLiterals(t *testing.T) {
 	assert.Equal(t, ownership.SkipReason("already-absent"), ownership.SkipAlreadyAbsent)
 	assert.Equal(t, ownership.SkipReason("not-opm-managed"), ownership.SkipNotOPMManaged)
 	assert.Equal(t, ownership.SkipReason("owner-mismatch"), ownership.SkipOwnerMismatch)
+	assert.Equal(t, ownership.SkipReason("adopted-elsewhere"), ownership.SkipAdoptedElsewhere)
+}
+
+// TestSkipMessageWording pins the adopted-elsewhere skip wording both
+// frontends print.
+func TestSkipMessageWording(t *testing.T) {
+	got := ownership.CanDelete(ownership.DeleteInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InstanceUUID: thisUUID})
+	assert.Equal(t, "Deployment/web/api is being adopted by module instance u-1, not this one; left in place", got.Message)
 }
 
 // assertCleanMessage checks that a message names no override and carries no

@@ -1,0 +1,9 @@
+# Implements the library half of the 0012:D8 amendment for enhancements#103
+# (an instance refuses an object in its inventory that another instance
+# adopted). The decision is deliberately not claimed: 0012:D8 is delivered
+# only once both frontends consult these verdicts on every apply, prune and
+# delete path, so the claim belongs to their ownership adoption changes.
+implements:
+  - enhancement: "0012"
+    decisions: []
+    resolves: []

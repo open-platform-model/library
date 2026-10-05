@@ -47,12 +47,62 @@ func TestCanApply(t *testing.T) {
 			want: ownership.RefuseTerminating, contains: []string{"Namespace/opm-operator-system"},
 		},
 		{
-			name: "an inventoried object is not judged for ownership",
+			name: "a terminating object annotated for another instance is refused as terminating",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID), terminating())...), InInventory: true, InstanceUUID: thisUUID},
+			want: ownership.RefuseTerminating,
+		},
+		{
+			name: "an inventoried foreign object is applied",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("helm")), InInventory: true, InstanceUUID: thisUUID},
 		},
 		{
-			name: "an inventoried object annotated for another instance still applies",
+			name: "an inventoried object of this instance is applied",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(opm...), InInventory: true, InstanceUUID: thisUUID},
+		},
+		{
+			name: "an inventoried object annotated for another instance is refused",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InInventory: true, InstanceUUID: thisUUID},
+			want: ownership.RefuseAdoptedElsewhere,
+			contains: []string{
+				"module instance " + otherUUID, "drops it from its inventory",
+				"to take it back, annotate it " + adoptKey + "=" + thisUUID,
+			},
+		},
+		{
+			name: "an inventoried object labelled for another instance without an annotation is applied",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-controller"), uuid(otherUUID)), InInventory: true, InstanceUUID: thisUUID},
+		},
+		{
+			name: "an inventoried object the adopter has taken is refused",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-controller"), uuid(otherUUID), adopt(otherUUID)), InInventory: true, InstanceUUID: thisUUID},
+			want: ownership.RefuseAdoptedElsewhere,
+		},
+		{
+			name:        "a handed-over object stays adopted-elsewhere after the adopter applies",
+			in:          ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-controller"), uuid(otherUUID), adopt(" "+otherUUID+"\n")), InstanceUUID: thisUUID},
+			want:        ownership.RefuseAdoptedElsewhere,
+			contains:    []string{"was adopted by module instance " + otherUUID, "to let this instance take it back, annotate it " + adoptKey + "=" + thisUUID},
+			notContains: []string{"remove it from module instance"},
+		},
+		{
+			name: "an annotation naming this instance takes an inventoried object back",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-controller"), uuid(otherUUID), adopt(" "+thisUUID+"\n")), InInventory: true, InstanceUUID: thisUUID},
+		},
+		{
+			name: "an empty instance UUID applies an inventoried object",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID), adopt(otherUUID)), InInventory: true},
+		},
+		{
+			name:        "a dropped object is not taken back on the next apply",
+			in:          ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InstanceUUID: thisUUID},
+			want:        ownership.RefuseAdoptedElsewhere,
+			contains:    []string{"module instance " + otherUUID, "does not apply it", adoptKey + "=" + thisUUID},
+			notContains: []string{"drops it from its inventory"},
+		},
+		{
+			name: "an empty instance UUID refuses an annotated object outside the inventory",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), adopt(otherUUID))},
+			want: ownership.RefuseAdoptedElsewhere, notContains: []string{"annotate it"},
 		},
 		{
 			name:        "a foreign object outside the inventory is refused",
@@ -113,7 +163,7 @@ func TestCanApply(t *testing.T) {
 		},
 		{
 			name: "an annotation naming another instance does not lift other-instance",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID), adopt(otherUUID)), InstanceUUID: thisUUID},
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID), adopt("u-7")), InstanceUUID: thisUUID},
 			want: ownership.RefuseOtherInstance, contains: []string{"names another instance"},
 		},
 		{
@@ -142,6 +192,11 @@ func TestCanApply(t *testing.T) {
 			name: "an admitted object carrying another identity is refused",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
 			want: ownership.RefuseForeignObject,
+		},
+		{
+			name: "admission never lifts the adopted-elsewhere refusal",
+			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), adopt(otherUUID)), InstanceUUID: thisUUID, Admit: true},
+			want: ownership.RefuseAdoptedElsewhere,
 		},
 		{
 			name: "admission never lifts other-instance",
@@ -181,6 +236,7 @@ func TestApplyRefusalLiterals(t *testing.T) {
 	assert.Equal(t, ownership.ApplyRefusal("terminating"), ownership.RefuseTerminating)
 	assert.Equal(t, ownership.ApplyRefusal("foreign-object"), ownership.RefuseForeignObject)
 	assert.Equal(t, ownership.ApplyRefusal("other-instance"), ownership.RefuseOtherInstance)
+	assert.Equal(t, ownership.ApplyRefusal("adopted-elsewhere"), ownership.RefuseAdoptedElsewhere)
 }
 
 // TestRefusalMessageWording pins the wording both frontends print, so a change
@@ -194,4 +250,16 @@ func TestRefusalMessageWording(t *testing.T) {
 
 	term := ownership.CanApply(ownership.ApplyInput{Object: deployment, Live: liveDeployment(terminating())})
 	assert.Equal(t, "Deployment/web/api is being deleted; wait for the deletion to finish, then apply again", term.Message)
+
+	inventoried := ownership.CanApply(ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InInventory: true, InstanceUUID: thisUUID})
+	assert.Equal(t, "Deployment/web/api was adopted by module instance u-1; this instance no longer applies it and drops it from its inventory; to take it back, annotate it opmodel.dev/adopt=u-9", inventoried.Message)
+
+	outside := ownership.CanApply(ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID))...), InstanceUUID: thisUUID})
+	assert.Equal(t, "Deployment/web/api is being adopted by module instance u-1; this instance does not apply it; to let this instance take it over, annotate it opmodel.dev/adopt=u-9", outside.Message)
+
+	handedOver := ownership.CanApply(ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-controller"), uuid(otherUUID), adopt(otherUUID)), InstanceUUID: thisUUID})
+	assert.Equal(t, "Deployment/web/api was adopted by module instance u-1; this instance does not apply it; to let this instance take it back, annotate it opmodel.dev/adopt=u-9", handedOver.Message)
+
+	noUUID := ownership.CanApply(ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), adopt(otherUUID))})
+	assert.Equal(t, "Deployment/web/api is being adopted by module instance u-1; this instance does not apply it", noUUID.Message)
 }
