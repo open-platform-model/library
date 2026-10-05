@@ -27,7 +27,7 @@ Commit rules:
 
 - [ ] 1.1 Run `task -x deps:cascade` in the worktree.
       - It finds `../.github` through the common git dir. If it does not, pass `CASCADE_RESOLVER=/var/home/emil/dev/open-platform-model/.github/.github/scripts/cascade/cascade-resolve.sh`.
-      - Expect exit 0, one `need-human-review` warning for the loader in `.git/cascade/warnings`, and these edits and no others:
+      - Expect exit 0, one `need-human-review` warning for the loader in `$(git rev-parse --absolute-git-dir)/cascade/warnings` (in a worktree `.git` is a file), and these edits and no others:
         - `opm/schema/loader.go:43` reads `"opmodel.dev/core@v2.0.0-beta.4"`;
         - 35 `cue.mod/module.cue` core pins move to `v2.0.0-beta.4`: `testdata/cue.mod`, every `testdata/render` tree including the 14 registry modules, and the four `CUE_MODULE_GLOBS` modules;
         - the `OCILoader` examples in `docs/getting-started.md` and `AGENTS.md`.
@@ -47,20 +47,4 @@ Commit rules:
 - [ ] 1.5 Commit `fix(deps): bump core to v2.0.0-beta.4`, the title `task -x deps:cascade:title` prints. The body says, in two or three lines:
       - every core pin and the docs examples move to the first core that binds attachment keys to `metadata.fqn` (owner decision j3);
       - every library fixture passes it with no edit;
-      - the opm catalog stays at `v4.6.0`.
-
-## 2. Pin j3 on the served fixtures (testdata, kernel; design "How to keep j3 checked in the library", spec "Served fixtures refuse a mis-keyed attachment")
-
-- [ ] 2.1 Add `testdata/render/scenarios/short_key/instance.cue` (`package short_key`).
-      - It is a `c.#ModuleInstance` shaped like `bad_traits`: metadata name `short-key-demo`, namespace `default`, and `#module` `short_key` at `testing.opmodel.dev/library-render/scenarios/short_key@v0` `0.1.0`.
-      - It has one component `web` with `#resources: container: cat.#ContainerResource` and `spec: container: image: "nginx:1.27"`.
-      - A comment above the map says the key is deliberately the short name, so core refuses it. The comment has no enhancement reference: it is a fixture.
-      - Add the row to the table in `testdata/render/scenarios/README.md`: "a component attaching the container resource under the short key `container`: acquisition refuses it on core's key-equals-fqn rule, and a struct-literal instance fails the build with a plain error".
-- [ ] 2.2 Add `TestRender_ShortAttachmentKeyRefuses` to `opm/kernel/render_test.go`, after `TestRender_ComponentWithConflictingTraitsRefuses`, in the same shape:
-      - `k.AcquireInstanceFromDir(ctx, renderFixtureDir(t, "scenarios", "short_key"))` errors, and the message contains `#resources.container` and `metadata.fqn`;
-      - `k.Render` of `scenarioLiteralInstance(t, "short_key")` on `acquireRenderPlatform(t, k, "platform")` errors, returns a nil result, and is not a `*kernel.RenderError`.
-      - The doc comment says what the test pins (core binds keys to `metadata.fqn`; the served fixtures resolve such a core) and spells no release.
-      - If the struct-literal render behaves differently, for example as a diagnostics row, assert what the kernel does. Update the ADDED scenario in this change's spec delta to match, and note it for the PR body.
-- [ ] 2.3 Negative check, not committed: set `testdata/render/scenarios/cue.mod/module.cue` back to `v2.0.0-beta.3`. Confirm that the acquisition assertion of 2.2 fails because acquisition succeeds, then restore the pin.
-- [ ] 2.4 `go test ./opm/kernel -run 'TestRender_' -count=1 -race` is green, and `task check` is green.
-- [ ] 2.5 Commit `test(kernel): refuse a short attachment key on the served fixtures`.
+      - the opm catalog stays at `v4.6.0`, and no parity literal exists to move (`opm/kernel/parity_harness_test.go:157` reads the catalog build from `testdata/parity/cue.mod`).

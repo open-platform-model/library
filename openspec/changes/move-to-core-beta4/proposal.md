@@ -18,12 +18,13 @@ The release cascade would make this move itself (`task -x deps:cascade`, a `fix(
   - The two `OCILoader` examples in `docs/getting-started.md` and `AGENTS.md`.
 
   The opm catalog stays at `v4.6.0`, the newest published build.
+- **No parity literal moves.** The shipped parity group reads its catalog build from `testdata/parity/cue.mod` (`shippedCatalogVersion`, `opm/kernel/parity_harness_test.go:157`), so no core or catalog literal is left in the test, and a core-only move leaves the catalog pin at `v4.6.0`.
 - **Every library fixture is re-vetted against beta.4.** With the pins at beta.4, `go test ./...` passes with no fixture edit, and `task cue:vet` passes over the `CUE_MODULE_GLOBS` modules. Every attachment and catalog member map in `testdata/` is already keyed `(X.metadata.fqn): X`, so no library fixture has a short key to fix. The design records the probe.
-- **A served scenario pins j3 at the library's front door.** A new render scenario, `short_key`, attaches the fixture container resource under the short key `container:`. A kernel test asserts three things. `AcquireInstanceFromDir` refuses it, and the error names the attachment path and `metadata.fqn`. A struct-literal instance that skips acquisition fails the render with a plain error, not a diagnostics row. The scenario resolves core through the shared `testdata/render/scenarios/cue.mod`, so the test also fails if the served fixtures ever fall back below the first core that binds keys. A probe at beta.3 accepted the same package.
-- **The `DefaultSchemaModule constant` requirement stops naming a release as the current default.** Its body still says "At this change that is `opmodel.dev/core@v2.0.0-beta.1`", which has been stale since beta.2. The same requirement says a default move edits only the constant and the fixture pins, and the cascade bot never edits a spec. So the body now names no current release. It records the floor that matters instead: the default is no older than `2.0.0-beta.4`, the first core that binds attachment keys. All seven scenarios are kept verbatim.
+- **The `DefaultSchemaModule constant` requirement stops naming a release as the current default.** Its body still says "At this change that is `opmodel.dev/core@v2.0.0-beta.1`", which has been stale since beta.2. The same requirement says a default move edits only the constant and the fixture pins, and the cascade bot never edits a spec. So the body now names no current release: the constant is the only record of it. No floor is added, because nothing in this change could test one. All seven scenarios are kept verbatim.
 
 Not in this change:
 
+- A served `short_key` scenario and kernel test that would keep j3 checked in the library. The move ships as the plain cascade diff; such a standing check would be its own change.
 - `schema.ProvidesSince` (`"2.0.0-beta.3"`), the `.cascade-frozen` older-core literals, the `api-diff` test fixtures (`.tasks/apidiff/testdata`) and the `deps-cascade` and `cascade-wiring` spec examples. Each names a fixed past release on purpose, so none of them is a current pin.
 - Republishing `modules/opm_platform` at the new pin (`task cue:publish:smart`). Publishing is a separate maintainer step, as it was for the beta.2 and beta.3 moves.
 - The two decision citations in the API-diff paragraph of `AGENTS.md` and in `openspec/specs/api-diff-check/spec.md` that the repo cannot resolve. The comment-pass change (`one-home-per-contract-comment-pass`) owns them.
@@ -38,12 +39,11 @@ None.
 ### Modified Capabilities
 
 - `schema-dispatch`:
-  - "DefaultSchemaModule constant" no longer names a current release and records the beta.4 floor (MODIFIED; every scenario kept).
-  - "Served fixtures refuse a mis-keyed attachment" (ADDED): one scenario, backed by the `short_key` test.
+  - "DefaultSchemaModule constant" no longer names a current release (MODIFIED; every scenario kept).
 
 ## Impact
 
-**SemVer: PATCH.** Release class `fix(deps)`. `AGENTS.md`, "OPM schema versioning", says a `DefaultSchemaModule` move goes in the cascade's `fix(deps)` PR, and "Commit style" lists `cue.mod` bumps as `deps`/`fix(deps)`. The PR title is the cascade's own: `fix(deps): bump core to v2.0.0-beta.4`. No Go type or signature changes. The `api-diff` check lists the constant's value change on its fixed allow line, so the change is not charged as incompatible.
+**SemVer: PATCH.** Release class `fix(deps)`. `AGENTS.md`, "OPM schema versioning", says a `DefaultSchemaModule` move goes in the cascade's `fix(deps)` PR, and "Commit style" lists `cue.mod` bumps as `deps`/`fix(deps)`. The PR title is the cascade's own: `fix(deps): bump core to v2.0.0-beta.4`. No Go type or signature changes, and no Go file but the constant. The `api-diff` check lists the constant's value change on its fixed allow line, so the change is not charged as incompatible.
 
 **Behaviour that consumers can see.** The CUE break is core's. Its `BREAKING CHANGE:` footer in core's CHANGELOG is the migration note: key each entry as `(X.metadata.fqn): X`. In the library, three things change:
 
@@ -53,7 +53,7 @@ None.
 
 The re-vet found no published or fleet module that is mis-keyed. The PR body names this so the release notes carry it, without a `BREAKING CHANGE:` footer: the library API does not break, and the CUE rule belongs to core.
 
-**Affected files:** `opm/schema/loader.go` (the constant only), 35 `cue.mod/module.cue` pins, `docs/getting-started.md`, `AGENTS.md`, the new `testdata/render/scenarios/short_key/` package, `testdata/render/scenarios/README.md`, and one test in `opm/kernel/render_test.go`.
+**Affected files:** `opm/schema/loader.go` (the constant only), 35 `cue.mod/module.cue` pins, `docs/getting-started.md` and `AGENTS.md`.
 
 **Downstream consumers:**
 
@@ -62,4 +62,4 @@ The re-vet found no published or fleet module that is mis-keyed. The PR body nam
 | cli, opm-operator | Nothing to compile. They pick up beta.4 as their default schema when they move to the next library release (release PR #192, held for after round 3). The consumer-build script runs against fresh clones of both `main` branches as a check. |
 | Module authors | Nothing, unless a module keys an attachment by a short name. Core's j3 migration note covers that case. |
 
-**Principle VII:** the change adds no Go code outside one test. It adds one fixture package and no new tool.
+**Principle VII:** the change adds no code, no fixture and no tool.
