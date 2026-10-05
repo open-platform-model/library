@@ -31,3 +31,8 @@
 // reports a DELETE that fails its precondition as left behind or to retry,
 // never as deleted.
 package ownership
+
+// Maintainer pointers, kept out of the package doc because it publishes into
+// the Library reference: the purity rule follows ADR-008 (the kernel plans,
+// the caller runs) and the package's place follows ADR-011 (the Kubernetes
+// tier beside the kernel).

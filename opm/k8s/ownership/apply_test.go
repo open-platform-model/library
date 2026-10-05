@@ -98,6 +98,10 @@ func TestCanApply(t *testing.T) {
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("helm"), adopt(thisUUID)), InstanceUUID: thisUUID},
 		},
 		{
+			name: "an adopt value with surrounding whitespace is trimmed",
+			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("helm"), adopt(" "+thisUUID+"\n")), InstanceUUID: thisUUID},
+		},
+		{
 			name: "adoption lifts an other-instance refusal",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID), adopt(thisUUID)), InstanceUUID: thisUUID},
 		},

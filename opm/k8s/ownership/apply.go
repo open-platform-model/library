@@ -105,14 +105,11 @@ func refuse(r ApplyRefusal, msg string) ApplyVerdict {
 	return ApplyVerdict{Refuse: r, Message: msg}
 }
 
-// adoptAnnotation returns the live object's adopt annotation, "" when it has
-// none or its value is blank.
+// adoptAnnotation returns the live object's adopt annotation with
+// surrounding whitespace trimmed, "" when it has none or its value is blank.
+// A UUID never contains whitespace, so trimming loses no safety.
 func adoptAnnotation(live *unstructured.Unstructured) string {
-	v := live.GetAnnotations()[labels.AnnotationAdopt]
-	if strings.TrimSpace(v) == "" {
-		return ""
-	}
-	return v
+	return strings.TrimSpace(live.GetAnnotations()[labels.AnnotationAdopt])
 }
 
 // adoptsAnother words an adopt annotation that did not lift the refusal,

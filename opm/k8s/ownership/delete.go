@@ -38,8 +38,8 @@ type DeleteInput struct {
 	// earlier operator release's install manifest. It lifts the
 	// not-opm-managed skip for a Deployment of apps and a RoleBinding or
 	// ClusterRoleBinding of rbac.authorization.k8s.io, the kinds the
-	// operator install may delete outside the inventory, when the live
-	// object carries no UUID label or InstanceUUID (0012:D8:R6/R7). It lifts
+	// operator install may delete outside the inventory, and only when the
+	// live object carries no UUID label at all (0012:D8:R6/R7). It lifts
 	// nothing else. The library cannot check the proof.
 	Admit bool
 }
@@ -82,7 +82,7 @@ func (v DeleteVerdict) Preconditions() *metav1.Preconditions {
 // object OPM does not manage skips, unless admitted; a live object whose UUID
 // label and the instance's UUID are both set and differ skips as another
 // instance's; otherwise it proceeds. An object already being deleted
-// proceeds, since deleting it again changes nothing (0012:D1:R4).
+// proceeds, since deleting it again changes nothing.
 func CanDelete(in DeleteInput) DeleteVerdict {
 	obj := in.Object
 	if SafetyExcluded(obj.Group, obj.Kind) {
@@ -106,11 +106,14 @@ func skip(r SkipReason, msg string) DeleteVerdict {
 
 // admittedForDelete reports whether the install admission lifts the
 // not-opm-managed skip: the caller admitted the object, it is of a kind the
-// operator install may delete outside the inventory, and it carries no other
-// instance's UUID.
+// operator install may delete outside the inventory, and it carries no OPM
+// instance identity at all. This is narrower than apply-side admission, which
+// also admits an object carrying this instance's UUID: a deletion outside the
+// inventory is for proven objects only, and a proven object carries no
+// instance identity (0012:D8:R6/R7).
 func admittedForDelete(in DeleteInput) bool {
 	return in.Admit && installDeletable(in.Object.Group, in.Object.Kind) &&
-		carriesNoOtherIdentity(in.Live, in.InstanceUUID)
+		liveUUID(in.Live) == ""
 }
 
 // installDeletable reports whether the operator install may delete an object

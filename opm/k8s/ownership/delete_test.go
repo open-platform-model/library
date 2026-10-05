@@ -87,8 +87,17 @@ func TestCanDelete(t *testing.T) {
 			in:   ownership.DeleteInput{Object: roleBind, Live: live("rbac.authorization.k8s.io/v1", "RoleBinding", "opm-operator-system", "leader"), InstanceUUID: thisUUID, Admit: true},
 		},
 		{
-			name: "a proven earlier ClusterRoleBinding carrying this instance's UUID may be deleted",
+			name: "a proven earlier ClusterRoleBinding may be deleted",
+			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
+		},
+		{
+			name: "an admitted object carrying this instance's UUID is not deleted",
 			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", uuid(thisUUID)), InstanceUUID: thisUUID, Admit: true},
+			want: ownership.SkipNotOPMManaged,
+		},
+		{
+			name: "a Namespace of another group is no protected kind",
+			in:   ownership.DeleteInput{Object: ownership.Object{Group: "example.com", Kind: "Namespace", Name: "team-a"}, Live: live("example.com/v1", "Namespace", "", "team-a", append(opm, uid("u-ns"))...), InstanceUUID: thisUUID},
 		},
 		{
 			name: "an admitted object carrying another identity is not deleted",
@@ -142,6 +151,8 @@ func TestCanDelete(t *testing.T) {
 			assert.Equal(t, tt.want == "", got.Proceed())
 			if tt.want == "" {
 				assert.Empty(t, got.Message)
+				assert.Equal(t, tt.in.Live.GetUID(), got.UID)
+				assert.Equal(t, tt.in.Live.GetResourceVersion(), got.ResourceVersion)
 			} else {
 				assert.NotEmpty(t, got.Message)
 				assert.Empty(t, got.UID)
