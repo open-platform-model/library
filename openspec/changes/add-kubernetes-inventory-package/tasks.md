@@ -54,20 +54,20 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 2. Entries and the component-blind stale set (opm/k8s/inventory, opm/k8s/labels; design KI1, KI2, KI3)
 
-- [ ] 2.1 `opm/k8s/inventory/doc.go`: the package's place in the tier (ADR-011). It covers what
+- [x] 2.1 `opm/k8s/inventory/doc.go`: the package's place in the tier (ADR-011). It covers what
       it holds (entries, the stale set, the two digests) and that it owns no wire shape:
       frontends map `Entry` to their CRD or record. It also says that the stale set is
       component-blind (0012:D7, cited once at the package) and that both digests are stored
       values, whose encodings change only under a new tag line with a migration note in each
       frontend.
-- [ ] 2.2 `opm/k8s/inventory/entry.go`: `Entry`, `NewEntry`, `SameObject` per KI2 and KI1.
+- [x] 2.2 `opm/k8s/inventory/entry.go`: `Entry`, `NewEntry`, `SameObject` per KI2 and KI1.
       `stale.go`: `StaleSet` per KI3, with a map keyed by an unexported identity struct and
       iteration over `previous`. Verify: `go vet ./opm/k8s/...` clean; `task lint` green (the
       existing tier allow list admits the imports with no rule change).
-- [ ] 2.3 `opm/k8s/labels/labels.go`: the `ComponentName` doc comment's last sentence becomes
+- [x] 2.3 `opm/k8s/labels/labels.go`: the `ComponentName` doc comment's last sentence becomes
       "Inventory records it on each entry as provenance; the stale set ignores it." Doc
       comment only.
-- [ ] 2.4 Tests:
+- [x] 2.4 Tests:
       - `entry_test.go`: the scenarios "An entry reads the object's identity and component",
         "A core-group, cluster-scoped object without the label" and "The entry type carries no
         tags" (reflect: six string fields, empty `Tag`); a `SameObject` table showing that
@@ -88,7 +88,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         with the package).
 
       Verify: `go test ./opm/k8s/inventory -count=1` green.
-- [ ] 2.5 `task check` green, then commit
+- [x] 2.5 `task check` green, then commit
       `feat(k8s): add opm/k8s/inventory entries and the component-blind stale set`.
 
 ## 3. The canonical inventory digest (opm/k8s/inventory; design KI4, KI7)
