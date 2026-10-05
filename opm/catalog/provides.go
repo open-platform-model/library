@@ -105,6 +105,8 @@ func (c *Catalog) pinsCoreBeforeProvides() (bool, error) {
 	if version == "" {
 		return false, nil
 	}
+	// Defensive: Requires reads the file through the module-file parser,
+	// which already refuses a version that is not canonical SemVer.
 	cmp, err := modversion.Compare(version, schema.ProvidesSince)
 	if err != nil {
 		return false, fmt.Errorf("reading the catalog's core pin %s: %w", modversion.CorePath, err)

@@ -18,9 +18,9 @@ import (
 // authors one, and the value carries no Source: Provides then runs the
 // deprecated fold, and the first table here pins the fold's behaviour —
 // ordering, deduplication, the empty set, the skipped fulfilments — without
-// paying a registry resolution per case. That the paths agree with the shape core actually publishes is
-// pinned end to end by the acquisition tests in opm/kernel, which build real
-// #Catalog artifacts against core.
+// paying a registry resolution per case. That the paths agree with the shape
+// core actually publishes is pinned end to end by the acquisition tests in
+// opm/kernel, which build real #Catalog artifacts against core.
 func newCatalog(t *testing.T, body string) *catalog.Catalog {
 	t.Helper()
 	v := cuecontext.New().CompileString(body)
@@ -216,6 +216,20 @@ func TestCatalog_Provides_DecodesCoreField(t *testing.T) {
 			assert.Contains(t, err.Error(), "provides")
 		})
 	}
+
+	// The shared #transformers check: core guards each demand map with
+	// `!= _|_`, so a #transformers that does not evaluate could leave a
+	// well-formed `provides` behind. The decode path must still report it.
+	t.Run("a #transformers that does not evaluate is reported over a present field", func(t *testing.T) {
+		// newCatalog refuses a value that does not evaluate, so build it here.
+		v := cuecontext.New().CompileString(catalogBody("#transformers: x: kind: 1 & 2\nprovides: []\n"))
+		c, err := catalog.NewCatalogFromValue(v)
+		require.NoError(t, err)
+		got, err := c.Provides()
+		require.Error(t, err)
+		assert.Nil(t, got, "no partial set is returned")
+		assert.Contains(t, err.Error(), "#transformers did not evaluate")
+	})
 }
 
 // providerModFile is a catalog module file committing to core at version,
@@ -274,11 +288,15 @@ provides: ["` + restoreTrait + `"]
 		})
 	}
 
-	t.Run("a core pin that is not a version is reported", func(t *testing.T) {
+	// The module file reader already refuses a core version that is not
+	// canonical SemVer, so this case fails inside Requires; the version
+	// comparison after it is a defensive branch no module file reaches.
+	t.Run("a module file whose core pin is not a version is reported", func(t *testing.T) {
 		c := withModFile(t, body, providerModFile("not-a-version"))
 		got, err := c.Provides()
 		require.Error(t, err)
 		assert.Nil(t, got, "no partial set is returned")
+		assert.Contains(t, err.Error(), "core pin")
 	})
 
 	t.Run("a committed module file that cannot be read is reported", func(t *testing.T) {

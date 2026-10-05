@@ -60,7 +60,8 @@ type parityTransformer struct {
 }
 
 // contractFQN keys a demand by the contract's own metadata.fqn, so the core
-// release that binds member keys to metadata.fqn (SD13) leaves it valid.
+// release that binds member keys to metadata.fqn (owner decision j3, beta.1
+// walkthrough) leaves it valid.
 func contractFQN(arm, name string) string {
 	kind := "traits"
 	if strings.HasSuffix(arm, "Resources") {
@@ -125,8 +126,10 @@ func writeParityCatalogDir(t *testing.T, coreVersion, body string) string {
 }
 
 // assertParity requires the catalog to carry core's provides, already sorted
-// and free of duplicates, and asserts Provides (which decodes it) equals the
-// deprecated fold over the same #transformers. It returns the answer.
+// and free of duplicates. It asserts that core's field equals the deprecated
+// fold over the same #transformers, and that Provides returns the field, so a
+// Provides that never decodes cannot pass by comparing the fold with itself.
+// It returns the answer.
 func assertParity(t *testing.T, cat *catalog.Catalog) []string {
 	t.Helper()
 	field := cat.Package.LookupPath(schema.CatalogProvides)
@@ -142,7 +145,22 @@ func assertParity(t *testing.T, cat *catalog.Catalog) []string {
 	require.NoError(t, err)
 	fold, err := catalog.ProvidesFold(cat)
 	require.NoError(t, err)
-	assert.Equal(t, fold, got, "core's provider set and the fallback agree element for element")
+	require.NotNil(t, raw, "core's provides decodes to a list")
+	assert.Equal(t, fold, raw, "core's provider set and the fallback agree element for element")
+	assert.Equal(t, raw, got, "Provides returns core's provider set")
+
+	// On core's own output the field and the fold are equal, so the checks
+	// above cannot tell a Provides that decodes from one that always folds.
+	// The same catalog with its #transformers dropped can: under its real
+	// committed core pin, Provides must still answer core's field.
+	stripped, err := catalog.NewCatalogFromValue(cat.Package.Context().CompileString("{}").
+		FillPath(schema.Metadata, cat.Package.LookupPath(schema.Metadata)).
+		FillPath(schema.CatalogProvides, field))
+	require.NoError(t, err)
+	stripped.Source = cat.Source
+	fromField, err := stripped.Provides()
+	require.NoError(t, err)
+	assert.Equal(t, raw, fromField, "Provides reads core's field, not #transformers")
 	return got
 }
 
