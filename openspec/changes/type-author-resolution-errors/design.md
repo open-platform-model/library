@@ -321,4 +321,50 @@ answer at `88afdfb`.
 
 ## Verification
 
-(Section 4 writes this.)
+Run on 2026-10-05 against branch head `b08cf1c` (sections 1-3), base `origin/main` `88afdfb`, with
+Go 1.26.5, an absolute private `TMPDIR` and the worktree's own copy of the main checkout's
+`.cue-cache`.
+
+- **Full suite (4.1).** `OPM_FLOW_TEST_FORCE=1 go test -race -count=1 -v ./opm/...`: exit 0, 24 packages ok, no data race and no skipped test. `TestParity_ShippedCatalog`, `TestParity_ShippedCatalogDiscriminated`, `TestParity_Probes`, `TestRender_InventoryParity` and the `TestFlow_*` tests ran and passed.
+- **Consumer builds (4.2).** `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> <worktree> <workdir>`,
+  unpatched: cli `cd10f2d2` builds and vets; opm-operator `c303a460` builds and vets.
+- **API diff (4.2).** `task api:diff` against `v1.0.0-beta.6`: "This change adds no incompatible
+  change" (the 13 listed entries are inherited `opm/k8s/object` weights, not charged). `apidiff`
+  run without `-incompatible` between `origin/main` and the work tree lists only compatible
+  additions: `ResolutionError`, `ResolutionKind`, `ResolutionOther`, `ResolutionImportUnprovided`,
+  `ResolutionImportAmbiguous` and `ResolutionModuleFileInvalid` in `opm/errors`.
+- **cli replacement proof (4.3).** In a scratch clone of cli `cd10f2d2`:
+  - `internal/publish/compat.go` `unprovidedImport` became
+    `errors.As(liberrors.Classify(err), &re) && re.Kind == liberrors.ResolutionImportUnprovided`,
+    with no text match;
+  - `internal/config/platform.go` `platformBuildHint` replaced
+    `strings.Contains(msg, "cannot find package")` and
+    `strings.Contains(msg, "cannot expand module graph")` with "the chain holds a `*FetchError` or
+    a `*ResolutionError`".
+
+  `consumer-build.sh` built and vetted that patched clone (its `_test.go` files included). Under
+  `GOWORK=<workdir>/go.work`:
+  - `go test ./internal/publish/ -run 'TestLoadPublishedPackage_Pinned|TestUnprovidedImport_RegistryFailureIsNotAbsent|TestProbedPackageAbsent|TestCompatScan|TestGateCompat'`:
+    pass, all 18 rows of `TestLoadPublishedPackage_Pinned` unchanged (both unprovided-import rows
+    still read `absent`, every registry-failure row still `connectivity`);
+  - `go test ./internal/config/ -run 'TestPlatformBuildHint|TestBuildPlatformModule'`: pass,
+    all five `TestPlatformBuildHint_Pinned` rows unchanged;
+  - `go test ./internal/cuemod/ -run 'TestIsConnectivityError|TestIsVersionNotHeld'`: pass;
+  - the three packages whole (`./internal/publish/ ./internal/config/ ./internal/cuemod/`): pass.
+
+  Nothing was committed to the cli, and the clones were removed. One hint changes with no pin
+  row: a directly imported dependency whose module file does not parse
+  (`import failed: P@vX.Y.Z: ...`) carried neither matched text, so it got the default hint; with
+  the types it gets the "Pin a published build" hint, which fits it better. The cli change should
+  pin that row.
+
+### Frontend follow-ups (4.4)
+
+- cli: `compat.go` `unprovidedImport` moves onto `Kind == ResolutionImportUnprovided`, and the two
+  import matches of `platform.go` `platformBuildHint` (`cannot find package`,
+  `cannot expand module graph`) move onto "a `*FetchError` or a `*ResolutionError` in the chain",
+  both proved above. This drops both text matches 0021's delivery log records. The `#registry`
+  match is an evaluation error outside 0021:D8:R12; the cli can drop it by reading the CUE error
+  path, with no library work.
+- opm-operator: `*ResolutionError` names the stall reason and condition message only. It is not
+  added to `isTerminalCause`, so any `*FetchError` in a joined chain still retries.
