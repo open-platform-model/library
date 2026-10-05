@@ -178,20 +178,22 @@ func Classify(err error) error {
 5. `net.Error` (which covers `*url.Error`, `*net.OpError` and `*net.DNSError`) → `FetchUnreachable`.
 
 `classifyText` is the one text fallback in the library. It matches only the forms that section 1
-pins against CUE v0.17.1, in this order, so the most specific form wins:
+pins against CUE v0.17.1 (Spike findings), in this order, so the most specific form wins:
 
 1. `cannot do HTTP request` → `FetchUnreachable` (the OCI client's transport prefix);
-2. the 401 and 403 forms the spike records → `FetchUnauthorized`;
-3. `cannot find module providing package` or `module not found`, and the forms the spike records
-   for a 404 → `FetchNotFound`;
-4. the 5xx status prefix, if the spike shows that a flattened 5xx keeps it → `FetchOther` with that
-   `Status`;
-5. `cannot fetch ` → `FetchOther`.
+2. an HTTP status as the OCI client writes it, `: <code> <status text>: ` with the status text
+   `net/http` gives that code (`: 401 Unauthorized: `, `: 503 Service Unavailable: `). 401 or 403
+   → `FetchUnauthorized`, 404 → `FetchNotFound`, any other code from 400 up → `FetchOther`.
+   `Status` is the code, so a flattened 5xx stays transient;
+3. `module not found` or `cannot find module providing package` → `FetchNotFound` (a flattened 403
+   or 404 tag lookup reads `module not found`);
+4. `cannot fetch ` → `FetchOther` (what is left is a fetch with an unrecognised cause, such as a
+   published archive that does not unzip).
 
 `cannot expand module graph` is not matched on its own. `modpkgload/import.go:164` formats it with
 `%v` around any requirements-graph error, a malformed `module.cue` in a published dependency
 included, which is a defect rather than a fetch. It classifies only through the fetch form it
-carries (steps 1-5 match anywhere in the text), and the spike records a malformed-dependency case
+carries (steps 1-4 match anywhere in the text), and the spike records a malformed-dependency case
 that stays unclassified.
 
 The tidy forms the cli's `IsConnectivityError` reads come from `cmd/cue`'s own printer, not from
@@ -321,7 +323,46 @@ section 2 starts.
 
 ## Spike findings
 
-To be filled in by section 1.
+Measured against CUE v0.17.1 and pinned by `opm/errors/classify_cue_test.go`
+(`TestCUEFailureForms`). Each failure was driven through `loader.FetchArtifact` (a direct
+`reg.Fetch`) and through `loader.LoadDir` on a directory module requiring the failing dependency,
+against a local registry only and a fresh module cache.
+
+| Failure | `FetchArtifact` (typed chain) | `LoadDir` (text only) |
+| --- | --- | --- |
+| version absent | `modregistry.ErrNotFound`; `module P@V: module not found` | `cannot fetch P@V: module P@V: module not found` |
+| import no dependency provides | | `cannot find module providing package P` |
+| unreachable (refused) | `net.Error`; `cannot do HTTP request: ... connection refused` | `cannot fetch P@V: module P@V: cannot do HTTP request: ...` |
+| 401 | `HTTPError` 401, `ErrUnauthorized`; `401 Unauthorized: unauthorized: ...` | `...: 401 Unauthorized: ...` |
+| 403 | `modregistry.ErrNotFound`, no `HTTPError`; `module not found` | `...: module not found` |
+| 404 | `modregistry.ErrNotFound`; `module not found` | `...: module not found` |
+| 429 | `HTTPError` 429; `429 Too Many Requests: ...` | `...: 429 Too Many Requests: ...` |
+| 500, 503 | `HTTPError` 500/503; `503 Service Unavailable: non-JSON error response ...` | `...: 503 Service Unavailable: ...` |
+| expired deadline | `net.Error` and `context.DeadlineExceeded`; `cannot do HTTP request: ... context deadline exceeded` | not drivable (no context) |
+| cancelled context | `net.Error` and `context.Canceled`; `cannot do HTTP request: ... context canceled` | not drivable |
+| dependency module file does not parse | | `cannot expand module graph: P@V: cannot parse module file from P@V: bogus: field not allowed` |
+| published archive does not unzip | | `cannot fetch P@V: unzip ...: zip: not a valid zip file` |
+
+The schema `OCILoader` loads a standalone package by `path@version`, and that path keeps the typed
+chain: an unreachable registry gives a `net.Error` behind `cannot fetch ...: cannot do HTTP
+request`, and a 503 gives an `HTTPError` with status 503.
+
+The answers to the three open questions:
+
+- The `%w` at `modpkgload/import.go:212` does not survive into `instances[0].Err` of a directory
+  load: the instance error carries the text only. It does survive the standalone-package load the
+  schema loader makes.
+- A flattened 401, 429 and 5xx keep the OCI client's `<code> <status text>: ` form, so the status
+  can be read from the text. A 403 never reaches the text as a 403: CUE's registry client turns it
+  into `module not found` before anything is flattened. A 401 is therefore always told apart from a
+  404.
+- A load against an unreachable registry says `cannot do HTTP request`, through both paths.
+
+The `cue mod tidy` forms of the same CUE version (run once with `cue` v0.17.1, not in the suite):
+an unreachable registry gives `failed to resolve "P": module M: cannot do HTTP request: ...`, a
+registry answering 404 to everything gives `cannot find module providing package P`, and 401 and
+503 give `module M: 401 Unauthorized: ...` and `module M: 503 Service Unavailable: ...`. These are
+the forms the text fallback already matches; the cli's own tidy tests stay their pin (D3).
 
 ## Risks / Trade-offs
 
