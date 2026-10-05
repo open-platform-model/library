@@ -236,6 +236,10 @@ property and names that condition. Section 1 of tasks.md writes
 the kernel test first, because the premise ("the two frontends render the same instance into
 objects that differ in exactly one label value", ADR-011 Context) has not been tested before.
 
+Spike result: confirmed at library `ca7c56b` for both cases (the render fixture's three
+objects and the shipped catalog's six); a second render as `opm-cli` instead of
+`opm-controller` fails the managed-by assertion, so the test can fail.
+
 **Rationale**: It keeps the fence as the spec states it and still tests both halves of the
 claim on real code.
 

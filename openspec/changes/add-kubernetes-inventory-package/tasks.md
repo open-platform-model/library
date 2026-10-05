@@ -20,7 +20,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 1. Spike: a runtime name reaches only the managed-by value (kernel test; design KI6)
 
-- [ ] 1.1 `opm/kernel/render_runtime_name_test.go`, `TestRender_RuntimeNameReachesOnlyManagedBy`.
+- [x] 1.1 `opm/kernel/render_runtime_name_test.go`, `TestRender_RuntimeNameReachesOnlyManagedBy`.
       Reuse the render fixture helpers of `TestRender_HappyOnDiskInputs` (`newRenderKernel`,
       `acquireRenderPlatform(t, k, "platform")`, `acquireRenderInstance(t, k, "instance")`).
       Render twice, with `RuntimeName` `opm-cli` and `opm-controller`. For each compiled
@@ -45,11 +45,11 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       `go test ./opm/kernel -run TestRender_RuntimeNameReachesOnlyManagedBy -count=1` green.
       Negative check, not committed: render the second time with `opm-cli` instead of
       `opm-controller` and confirm that the managed-by assertion fails.
-- [ ] 1.2 If 1.1 shows that the runtime name reaches anything beyond the managed-by value,
+- [x] 1.2 If 1.1 shows that the runtime name reaches anything beyond the managed-by value,
       stop. Write the finding into design.md KI5/KI6 and report it, because 0012:D6's premise
       would then be false. Otherwise add one sentence under KI6: "Spike result: confirmed at
       `<commit>`".
-- [ ] 1.3 `task check` green, then commit
+- [x] 1.3 `task check` green, then commit
       `test(kernel): pin that the runtime name reaches only the managed-by label`.
 
 ## 2. Entries and the component-blind stale set (opm/k8s/inventory, opm/k8s/labels; design KI1, KI2, KI3)
