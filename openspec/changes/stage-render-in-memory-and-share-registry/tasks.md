@@ -85,6 +85,11 @@ report it. Do not implement a fallback that keeps a temporary directory.
   - the AGENTS.md layout line for `internal/cueenv`.
 - [x] 3.7 `task check` green, then commit `refactor(kernel): share one registry client per kernel`.
 
+- [x] 3.8 Code review fixes:
+  - `RenderRoot` and `sourcetree.SyntheticRoot`'s base become package variables computed by `sourcetree.VolumeRoot` (`filepath.Abs` of the separator-rooted name), with tests that both are `filepath.IsAbs`; `task vet` also runs `GOOS=windows go vet ./opm/...`.
+  - `Stage` refuses when `os.Lstat(RenderRoot)` finds anything, with an error naming the path; a test points the root at an existing directory holding an injected `.cue` file, and at a plain file.
+  - `TestRegistryClient_OperationsOnOneKernelBuildOne` asserts that each verb is one more operation through the shared client with calls on it, and that the registry acquire's build after the fetch resolves the module's dependencies through it; `TestRegistryClient_FileBackedValuesResolveThroughTheClient` asserts a values file's registry import resolves through it. Mutants that drop the client from synthesis, from `compileSource`, from `acquireDir` and from `loader.LoadDir` each fail one of them.
+
 ## 4. Full suite, consumers, api diff and memprobe
 
 - [x] 4.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity`, `TestRender_SharedPlatformConcurrentRenders`, `TestRender_SharedPlatformConcurrentRendersCold`, `TestRender_ConcurrentKernelsShareNothing` and the flow test must run, not skip. Record the result in design.md "Verification".
@@ -100,6 +105,6 @@ report it. Do not implement a fallback that keeps a temporary directory.
 
 ## 5. Verify and archive
 
-- [ ] 5.1 Run `openspec verify` for `stage-render-in-memory-and-share-registry` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
+- [x] 5.1 Run `openspec verify` for `stage-render-in-memory-and-share-registry` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
 - [ ] 5.2 At PR time, not in the implement stage: run `openspec archive stage-render-in-memory-and-share-registry --yes`, then check that `openspec validate --specs --strict` passes, that `single-build-render` carries "Each render is its own in-memory build in its own context" and "A render writes no staging file", and that `kernel-runtime` carries "One registry client per Kernel".
 - [ ] 5.3 Run the gates green, then commit `chore(openspec): archive stage-render-in-memory-and-share-registry` (the archive rides the implementing PR).

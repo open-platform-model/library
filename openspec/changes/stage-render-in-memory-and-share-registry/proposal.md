@@ -26,8 +26,10 @@ and is not in this one.
 ## What Changes
 
 - **In-memory render staging.** `renderstage.Stage` no longer takes a directory. It stages the
-  render module under a fixed synthetic root that never exists on disk, `/opm-render`
-  (`renderstage.RenderRoot`). The three generated files go into `Staged.Overlay` next to the
+  render module under a fixed synthetic root, `/opm-render` (`renderstage.RenderRoot`; on
+  Windows it carries the current volume, and so does `sourcetree.SyntheticRoot` now). `Stage`
+  refuses when anything exists at that root on disk, since cue/load would read it beneath the
+  overlay. The three generated files go into `Staged.Overlay` next to the
   re-keyed overlay-mode inputs. An on-disk input is still referenced in place through its
   `local-module.cue` replacement. The 0019:D13 tripwire re-parses the `module.cue` bytes that the
   overlay serves, not the in-memory list. `Build` keeps `Dir = ModuleRoot = staged.Dir` and needs

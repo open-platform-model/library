@@ -64,8 +64,14 @@ replacements, cue/load wraps the given registry in a per-load replacing registry
 
 ### D1. The render module is staged under a fixed synthetic root
 
-`renderstage` gains the constant `RenderRoot`, the absolute path `/opm-render` built with the OS
-separator, like `sourcetree.SyntheticRoot`. `Stage` loses its `dir` parameter:
+`renderstage` gains the package variable `RenderRoot`: `filepath.Abs` of the separator-rooted
+`opm-render`, so it is `/opm-render` on Unix and carries the current volume on Windows, where a
+separator-rooted path without a volume is not absolute and cue/load refuses every overlay key
+under it. `sourcetree.SyntheticRoot` gets the same treatment through the shared helper
+`sourcetree.VolumeRoot`; before this change it was not absolute on Windows either. `Stage`
+refuses with an error naming the path when `os.Lstat(RenderRoot)` finds anything, because
+cue/load merges a real directory's entries into the overlay; a test points the root at an
+existing directory holding an injected `.cue` file. `Stage` loses its `dir` parameter:
 
 ```go
 func Stage(instance, platform *module.Source, runtimeName string, opts StageOptions) (*Staged, error)
@@ -362,9 +368,10 @@ CUE. Not caching any error past its operation keeps today's per-operation recove
   `ModuleVersions`.
 - **A fixed root shared with the host filesystem.** cue/load reads a file the overlay does not
   carry from disk beneath the overlay root. A real `/opm-render` directory holding `.cue` files
-  could therefore leak into the render package. `sourcetree.SyntheticRoot` (`/opm-registry-module`)
-  has had the same exposure since `add-registry-module-loader`. A test pins that a render with no
-  such directory reads nothing from disk. Detecting a hostile host directory is out of scope.
+  could therefore leak into the render package, so `Stage` refuses when anything exists at
+  `RenderRoot` (a check-then-build window remains; a host that can create the directory between
+  the two can also edit the inputs). `sourcetree.SyntheticRoot` (`/opm-registry-module`) has had
+  the same exposure since `add-registry-module-loader` and is not guarded by this change.
 - **Sharing one client across concurrent operations.** The resolver (`registries` under a
   mutex) and the transport (`initOnce`, `loginsMu`, `mu`) are built for shared use. Each
   operation's module cache is its own, and concurrent operations share only the on-disk cache, as

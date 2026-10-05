@@ -6,8 +6,13 @@ A `Kernel` SHALL own one registry client, meaning the resolver and the OCI trans
 
 #### Scenario: Operations on one Kernel build one client
 
-- **WHEN** one Kernel acquires a module from the registry, acquires a platform from a directory, synthesizes an instance with a file-backed values source and renders it
-- **THEN** the registry client is constructed exactly once, and the render build and the fetch both resolve through it
+- **WHEN** one Kernel acquires a module from the registry, acquires a platform from a directory, synthesizes an instance and renders it
+- **THEN** the registry client is constructed exactly once, and each of the four is one operation that resolves through it: the registry acquire both for its fetch and for the build after it, the platform acquire for its catalog dependencies, the synthesis for the module's dependencies, and the render build
+
+#### Scenario: A file-backed values source resolves through the client
+
+- **WHEN** a values file whose module imports a package served only by the Kernel's registry is compiled by a Kernel verb
+- **THEN** the import resolves through that Kernel's registry client
 
 #### Scenario: Construction builds no client
 
