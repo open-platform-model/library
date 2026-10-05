@@ -19,7 +19,7 @@ The library SHALL keep one kind-class apply order (a CustomResourceDefinition be
 
 ### Requirement: Deletion plans come from the inventory and the live objects
 
-An instance's deletion plan (uninstall) SHALL be built from the persisted inventory plus the live objects in the cluster. Building it SHALL NOT need a render and SHALL NOT read a plan stored at apply time. A prune's stale set SHALL be computed by the inventory package and handed to the same plan. ADR-008 SHALL record this, and SHALL record that planning from a render and lifecycle transition detection (install, upgrade, reconfigure, no-op, uninstall) are deferred to the lifecycle hook work of enhancement 0009. This deferral does not touch the deletion step transition, which the tier owns as part of the deletion sequence. Source: ADR-008 (owner decision 2026-10-03); the deletion protocol is 0012:D4.
+An instance's deletion plan (uninstall) SHALL be built from the persisted inventory plus the live objects in the cluster. Building it SHALL NOT need a render and SHALL NOT read a plan stored at apply time. A prune's stale set SHALL be computed by the inventory package and handed to the same plan. ADR-008 SHALL record this, and SHALL record that planning from a render and lifecycle transition detection (install, upgrade, reconfigure, no-op, uninstall) are deferred to the lifecycle hook work of enhancement 0009. This deferral does not touch the deletion step transition, which the tier owns as part of the deletion sequence. Source: ADR-008 (ADR-013, decision j5); the deletion protocol is 0012:D4.
 
 #### Scenario: ADR-008 records the deletion-plan source
 

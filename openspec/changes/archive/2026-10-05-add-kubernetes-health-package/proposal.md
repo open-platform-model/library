@@ -7,7 +7,7 @@ StatefulSet or DaemonSet has rolled out, when a Job is complete, what a Persiste
 phase means, and when a custom resource is ready. The operator has none: it sets Ready=True
 once the apply succeeds and never looks at rollout state.
 
-The owner decided task f5 in the beta-1 kernel-plan walkthrough (2026-10-02/03): "Evaluator
+The owner decided this as ADR-013, decision f5: "Evaluator
 moves to opm/k8s/health (pure, frontend fetches objects); CLI switches. Operator adds a separate
 Healthy condition (requeue until rolled out); Ready keeps meaning applied for now; whether Ready
 requires Healthy decided later." This change is the library half. The operator's Healthy

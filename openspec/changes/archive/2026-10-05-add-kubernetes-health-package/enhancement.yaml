@@ -1,4 +1,4 @@
-# Implements part of enhancement 0012 (library half of walkthrough task f5).
+# Implements part of enhancement 0012 (library half of ADR-013, decision f5).
 # Decisions are deliberately not claimed: 0012:D3 places readiness evaluation
 # in the tier, but it is delivered only once both frontends use the package
 # (ADR-011 item 3), so the claim belongs to the later adoption changes.

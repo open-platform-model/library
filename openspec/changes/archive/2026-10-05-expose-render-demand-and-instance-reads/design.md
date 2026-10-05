@@ -53,7 +53,7 @@ rides on both `RenderResult.Diagnostics` (`:106-115`) and `RenderError.Diagnosti
 - Any operator or cli change. Those are op-i3g2 and cli-d2-accessors.
 - A richer per-component demand row. 0013:D24 asks for a list, and a sibling field can be added
   later without breaking this one.
-- Deprecating any read path. `Package` stays public (owner, d2).
+- Deprecating any read path. `Package` stays public (ADR-013, decision d2).
 
 ## Decisions
 
@@ -325,7 +325,7 @@ is one lookup and one decode of a small struct.
 
 ### Fail-closed boundary of the demand
 
-**Context**: Owner i3: the library "fails closed itself". The operator walk refuses on a bottom
+**Context**: ADR-013, decision i3: the library "fails closed itself". The operator walk refuses on a bottom
 `#traits` (`Exists()` then `Fields()`).
 
 **Explored**: The matcher's unguarded `#resources` read and its `!= _|_` guard on `#traits`, and

@@ -1,6 +1,6 @@
 name: Consumer build
 
-# Owner decision j4 (kernel plan walkthrough, 2026-10-03): build and vet the
+# ADR-013, decision j4: build and vet the
 # library's consumers, cli and opm-operator, at their main against this PR,
 # through a go.work in a throwaway directory, never a replace in a tracked
 # go.mod. Not a required check: a red run warns, it never blocks a merge. The

@@ -99,7 +99,7 @@ they adopt anyway (ADR-011 item 3, no aliases), so the rename costs them nothing
 
 ### KO3: Resource wraps the kernel's value; constructors replace the adapters
 
-**Context**: Owner g1: "e2 ships alone; opm/k8s/object.Resource wraps the Value for now".
+**Context**: ADR-013, decision g1: "e2 ships alone; opm/k8s/object.Resource wraps the Value for now".
 **Decision**:
 
 ```go
@@ -181,7 +181,7 @@ its signature holds.
 
 ### KO5: The weight table is ported unchanged from the cli
 
-**Context**: Owner e5. The supervisor note requires that the order match what cli#289 (a1) and
+**Context**: ADR-013, decision e5. The order must match what cli#289 (a1) and
 the operator use today, and that the cli copy be cited.
 **Decision**: Copy `cli/pkg/resourceorder/weights.go` and `sort.go` at cli `origin/main`
 `0b37e3f2` (last touched by `75e5f268`, cli#289) into `opm/k8s/object`, values unchanged:

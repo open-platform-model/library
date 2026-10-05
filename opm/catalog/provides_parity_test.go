@@ -61,8 +61,8 @@ type parityTransformer struct {
 }
 
 // contractFQN keys a demand by the contract's own metadata.fqn, so the core
-// release that binds member keys to metadata.fqn (owner decision j3, beta.1
-// walkthrough) leaves it valid.
+// release that binds member keys to metadata.fqn (ADR-013, decision j3) leaves
+// it valid.
 func contractFQN(arm, name string) string {
 	kind := "traits"
 	if strings.HasSuffix(arm, "Resources") {

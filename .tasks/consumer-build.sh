@@ -7,9 +7,9 @@ set -euo pipefail
 # version in their go.mod. This script points one consumer at a library tree
 # through a go.work written in a throwaway work directory and selected with
 # GOWORK, then runs `go build ./...` and `go vet ./...` in the consumer. No
-# replace, go.work or go.work.sum is written into either checkout (owner
-# decision j4, kernel plan walkthrough 2026-10-03). .github/workflows/
-# consumer-build.yml runs it once per consumer on a library pull request.
+# replace, go.work or go.work.sum is written into either checkout
+# (ADR-013, decision j4). .github/workflows/consumer-build.yml runs it once per
+# consumer on a library pull request.
 #
 # Usage:
 #   bash .tasks/consumer-build.sh <consumer-dir> <library-dir> [<work-dir>]

@@ -17,8 +17,8 @@ object and whether they may delete one. The two judgements differ, and each has 
   predecessor.
 
 Enhancement 0012 makes this one verdict that both frontends consult (0012:D1:R4/R7, 0012:D4:R1/R2,
-0012:D8, merged in enhancements#88). The owner decided task e4 in the beta-1 kernel-plan
-walkthrough (2026-10-03): "opm/k8s/ownership CanApply/CanDelete (pure verdicts with reasons)
+0012:D8, merged in enhancements#88). The owner decided this as
+ADR-013, decision e4: "opm/k8s/ownership CanApply/CanDelete (pure verdicts with reasons)
 used on every apply/prune/delete path in both frontends. Apply guard runs on every apply for
 objects not already in the instance inventory. Override = per-object adopt annotation on the
 existing object (e.g. `opmodel.dev/adopt: <instance-uuid>`) [...]". 0012:D8 leaves the

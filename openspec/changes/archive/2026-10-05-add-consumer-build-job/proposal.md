@@ -1,6 +1,6 @@
 ## Why
 
-The library has two consumers, cli and opm-operator, and today nothing in library CI tells a PR author that a change breaks them. A break surfaces only after a release, when the deps cascade bumps the pin in a consumer and its build fails there. Owner decision j4 (kernel plan walkthrough, 2026-10-03): "Consumer builds (cli + operator against the library PR head, replace in a throwaway workspace) run in library CI as a non-required job, after the prepare-release-cascade branches merge." That gate is met: the join-release-cascade PRs have merged in all five repos (library#180 among them), and the workflow hardening of library#181, whose rules every new workflow must follow, has merged too.
+The library has two consumers, cli and opm-operator, and today nothing in library CI tells a PR author that a change breaks them. A break surfaces only after a release, when the deps cascade bumps the pin in a consumer and its build fails there. ADR-013, decision j4: "Consumer builds (cli + operator against the library PR head, replace in a throwaway workspace) run in library CI as a non-required job, after the prepare-release-cascade branches merge." That gate is met: the join-release-cascade PRs have merged in all five repos (library#180 among them), and the workflow hardening of library#181, whose rules every new workflow must follow, has merged too.
 
 ## What Changes
 
@@ -10,7 +10,7 @@ The library has two consumers, cli and opm-operator, and today nothing in librar
 - The job is non-required: it never blocks a merge. It goes red when a consumer breaks. Under SD1 (deprecate, then remove) a red run means the PR changes API that a consumer's `main` still uses: deprecate it instead, or hold the removal until both consumers have migrated.
 - `AGENTS.md` describes the job in a paragraph after "Workflow security", and that paragraph's `contents: read` list names `consumer-build.yml`.
 
-Not in this change: running the consumers' test suites (cli's need a kind cluster), the API-diff check (its own change, add-api-diff-check), the Dependabot `cuelang.org/go` ignores in cli and opm-operator, and the `RELEASING.md` rule for `cuelang.org/go`, all of which the same decision j4 assigns elsewhere. One Taskfile task is added: `consumer-build:test` runs `.tasks/consumer-build-test.sh`, which tests the script offline against synthetic git repos (a passing consumer, a renamed symbol, a stray file in each checkout, a non-git consumer, and mutants for pipefail and each tree check); `task check` runs it.
+Not in this change: running the consumers' test suites (cli's need a kind cluster), the API-diff check (its own change, add-api-diff-check), the Dependabot `cuelang.org/go` ignores in cli and opm-operator, and the `RELEASING.md` rule for `cuelang.org/go`, all of which the same ADR-013, decision j4 assigns elsewhere. One Taskfile task is added: `consumer-build:test` runs `.tasks/consumer-build-test.sh`, which tests the script offline against synthetic git repos (a passing consumer, a renamed symbol, a stray file in each checkout, a non-git consumer, and mutants for pipefail and each tree check); `task check` runs it.
 
 ## Capabilities
 

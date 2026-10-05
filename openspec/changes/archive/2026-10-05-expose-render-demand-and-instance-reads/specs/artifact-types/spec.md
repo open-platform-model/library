@@ -181,6 +181,6 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 
 ### Requirement: Instance exposes its components and config schema
 
-**Reason**: It said that the instance exposes no accessor over the module-metadata projection. The owner's walkthrough decision d2 adds `ModuleMetadata()` and `Values()` for frontends, so the requirement's name and that clause no longer hold.
+**Reason**: It said that the instance exposes no accessor over the module-metadata projection. ADR-013, decision d2 adds `ModuleMetadata()` and `Values()` for frontends, so the requirement's name and that clause no longer hold.
 
 **Migration**: It is re-added as "Instance exposes its components, config schema, values and module metadata", with every scenario kept. A caller that read `inst.Package.LookupPath(schema.Module)` for module metadata, or `schema.Values` for values, can call the accessors. The raw reads keep working, because `Package` stays public.

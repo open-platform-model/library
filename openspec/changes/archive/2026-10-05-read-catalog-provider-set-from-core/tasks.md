@@ -67,7 +67,7 @@ Commit rules:
 
       Verify: `go test ./opm/catalog -count=1` green.
 - [x] 2.5 `opm/catalog/provides_parity_test.go` (package `catalog_test`): `TestCatalog_Provides_ParityWithFold`, over the two fixture groups in design PS7.
-      - Group 1: the unit provider shapes rebuilt as `c.#Catalog` directories pinned at `registrytest.DefaultCoreVersion` and acquired with `AcquireCatalogFromDir`. Key every member and demand by its `metadata.fqn` (owner decision j3).
+      - Group 1: the unit provider shapes rebuilt as `c.#Catalog` directories pinned at `registrytest.DefaultCoreVersion` and acquired with `AcquireCatalogFromDir`. Key every member and demand by its `metadata.fqn` (ADR-013, decision j3).
       - Group 2: every `testdata/render/registry` catalog, served with `registrytest.NewRegistryFromDir` and acquired from the registry.
       - Each subtest requires `provides` to exist and the decoded field to be sorted and unique already, then asserts that the decoded field equals `catalog.ProvidesFold` and that `Provides()` returns the field. On core's own output field and fold are equal, so it also rebuilds the catalog from its metadata and `provides` alone, keeps its real `Source`, and asserts `Provides()` still returns the field: a `Provides()` forced to always fold fails there.
       - At least one group-2 answer is non-empty.

@@ -15,7 +15,7 @@ The cli reads three instance and module sub-values raw because the artifacts exp
 for them: the instance's embedded module metadata (`schema.Module`), its merged values
 (`schema.Values`) and the module's `debugValues` (`schema.DebugValues`).
 
-The owner decided both in the kernel checklist walkthrough:
+The owner decided both (ADR-013, decisions d2 and i3):
 
 - i3: "Kernel export only (no operator stop-gap). Library exports contract demand as typed data in
   0013:D24 shape, fails closed itself; operator drops demand.go walk. ... fail-open stays until

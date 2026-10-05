@@ -21,7 +21,7 @@ Commit rules:
 
 - No body line starts with `word(`, and no bare at-sign appears.
 - The only trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
-- Decisions are cited as `NNNN:Dn` or as an owner decision by its walkthrough id (`owner decision j3`). Never cite a bare `Dn` or an identifier the repo cannot resolve.
+- Decisions are cited as `NNNN:Dn` or as a walkthrough decision through ADR-013 (`ADR-013, decision j3`). Never cite a bare `Dn` or an identifier the repo cannot resolve.
 
 ## 1. Pin core v2.0.0-beta.4 (schema, testdata, docs examples; design "Which tool makes the move", "Whether any library fixture is mis-keyed")
 
@@ -35,7 +35,7 @@ Commit rules:
       - Fallback, only if the resolver cannot run: edit the constant by hand, run `DEFAULT_CORE=v2.0.0-beta.4 task cue:deps:update`, then edit the `testdata/cue.mod` and `testdata/render` pins and the two docs examples as text.
       - Verify: `git grep -n 'v2.0.0-beta.3' -- '*module.cue' opm/schema/loader.go docs/getting-started.md AGENTS.md` prints nothing. `git diff --stat` touches no `*_test.go`, no `.cascade-frozen` file, no `.tasks/` file, no spec and no doc comment.
 - [x] 1.2 Check the derived pins: `go test ./opm/internal/registrytest ./opm/schema ./opm/internal/loader ./opm/helper/platformmodule -count=1` is green. `registrytest.DefaultCoreVersion` and `schema.DefaultSchemaVersion()` now read `v2.0.0-beta.4`.
-- [x] 1.3 Re-vet every library fixture against beta.4 (owner decision j3):
+- [x] 1.3 Re-vet every library fixture against beta.4 (ADR-013, decision j3):
       - `task test` is green, including the shipped parity group and the kernel render suite over every `testdata/render` scenario, platform and registry module. Confirm with `go test -v ./opm/kernel -run 'TestParity_Shipped' -count=1` that the shipped group ran rather than skipped.
       - `task cue:vet` is green over the `CUE_MODULE_GLOBS` modules.
       - `grep -rnE '#(resources|traits|blueprints):' --include=*.cue testdata modules`, then read each map. Every entry is keyed `(X.metadata.fqn): X`, or the map is empty.
@@ -45,6 +45,6 @@ Commit rules:
       - Run `task api:diff`. Its Allowed section shows `./opm/schema.DefaultSchemaModule: value changed from ... to "opmodel.dev/core@v2.0.0-beta.4"`, and it charges no incompatible change to this branch.
       - Clone fresh `cli` and `opm-operator` at `main` into the scratch dir. From the worktree root, run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <work-dir>` for each. Both are green, and the commits are recorded for the PR body.
 - [x] 1.5 Commit `fix(deps): bump core to v2.0.0-beta.4`, the title `task -x deps:cascade:title` prints. The body says, in two or three lines:
-      - every core pin and the docs examples move to the first core that binds attachment keys to `metadata.fqn` (owner decision j3);
+      - every core pin and the docs examples move to the first core that binds attachment keys to `metadata.fqn` (ADR-013, decision j3);
       - every library fixture passes it with no edit;
       - the opm catalog stays at `v4.6.0`, and no parity literal exists to move (`opm/kernel/parity_harness_test.go:157` reads the catalog build from `testdata/parity/cue.mod`).

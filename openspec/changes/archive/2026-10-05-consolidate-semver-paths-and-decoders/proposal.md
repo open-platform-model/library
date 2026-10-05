@@ -1,7 +1,7 @@
 ## Why
 
-The beta-1 kernel-plan walkthrough (owner, 2026-10-02/03) found the same small things written
-several times across the library, and two defects hiding in the copies. Items b3, b4 and b5 were
+The owner's review recorded in ADR-013 found the same small things written
+several times across the library, and two defects hiding in the copies. ADR-013, decisions b3, b4 and b5 were
 decided as one consolidation change; the supervisor folded in one follow-up from the wave-1
 review (x1).
 
@@ -119,5 +119,5 @@ None.
 - Ordering (wave-2 serialization): this change merges before lib-b1g2 and lib-d1d3 (they gate on
   it), lib-e2e5 (go.mod), lib-h4 (`platform.go`), lib-i3d2 (`module.go`) and lib-g5a (`serveDir`
   in `stage.go`).
-- No `enhancement.yaml`: the decisions come from the beta-1 kernel-plan walkthrough, not from an
+- No `enhancement.yaml`: the decisions are ADR-013, decisions b3, b4 and b5, not an
   enhancement.

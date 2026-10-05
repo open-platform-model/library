@@ -1,13 +1,13 @@
 # api-diff-check Specification
 
 ## Purpose
-Show every pull request the incompatible changes it makes to the library's exported `opm/` Go API since the last release tag, so a breaking change cannot land unnoticed: the check warns while the base tag is a prerelease and fails once it is a release (owner decision j4 of the beta.1 walkthrough), never charges a pull request with breaks already on the base branch or with the release cascade's core-pin move, and builds its tool from a checksum committed in this repository.
+Show every pull request the incompatible changes it makes to the library's exported `opm/` Go API since the last release tag, so a breaking change cannot land unnoticed: the check warns while the base tag is a prerelease and fails once it is a release (ADR-013, decision j4), never charges a pull request with breaks already on the base branch or with the release cascade's core-pin move, and builds its tool from a checksum committed in this repository.
 
 ## Requirements
 
 ### Requirement: Pull requests show breaking changes to the public API
 
-A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. A value change of `schema.DefaultSchemaModule`, which the release cascade makes on every core move, SHALL be listed as allowed through one fixed line prefix and SHALL NOT count either. Source: owner decision j4 (beta.1 walkthrough).
+A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. A value change of `schema.DefaultSchemaModule`, which the release cascade makes on every core move, SHALL be listed as allowed through one fixed line prefix and SHALL NOT count either. Source: ADR-013, decision j4.
 
 #### Scenario: A pull request removes an exported function
 
@@ -41,7 +41,7 @@ A pull request that changes Go code or the module files SHALL run a check that c
 
 ### Requirement: The base tag decides between warning and failing
 
-The check SHALL derive its outcome from the base release tag alone: when the tag has a prerelease suffix it SHALL warn and pass, and when the tag is a release it SHALL fail on any incompatible change of the pull request. In both modes it SHALL name the base tag and each change. In warn mode it SHALL state that a breaking change needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010); in fail mode it SHALL state that a breaking change is MAJOR and needs a migration fragment per `migrations/README.md` (ADR-004). No repository variable or input SHALL change the mode in CI. A failure of the check itself (a tool build error, no reachable tag) SHALL fail the job in both modes. Source: owner decision j4 (beta.1 walkthrough); ADR-010; ADR-004; CONSTITUTION VI.
+The check SHALL derive its outcome from the base release tag alone: when the tag has a prerelease suffix it SHALL warn and pass, and when the tag is a release it SHALL fail on any incompatible change of the pull request. In both modes it SHALL name the base tag and each change. In warn mode it SHALL state that a breaking change needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010); in fail mode it SHALL state that a breaking change is MAJOR and needs a migration fragment per `migrations/README.md` (ADR-004). No repository variable or input SHALL change the mode in CI. A failure of the check itself (a tool build error, no reachable tag) SHALL fail the job in both modes. Source: ADR-013, decision j4; ADR-010; ADR-004; CONSTITUTION VI.
 
 #### Scenario: A breaking change on the beta line
 

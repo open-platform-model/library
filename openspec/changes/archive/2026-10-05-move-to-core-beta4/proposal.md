@@ -1,6 +1,6 @@
 ## Why
 
-The owner decided j3 in the beta-1 kernel-plan walkthrough (2026-10-02/03):
+The owner decided this as ADR-013, decision j3:
 
 > j3: Bind attachment map keys to metadata.fqn on all five maps (component #resources/#traits/#blueprints and the catalog.cue member maps), as a hard vet error. Breaking core beta tightening: rewrite core's short-key pins and re-vet catalog_opm and the module fleet first (owner sign-off if a published catalog member is mis-keyed, 0021:D7 R5).
 

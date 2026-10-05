@@ -2,7 +2,7 @@
 
 `Catalog.Provides()` (`opm/catalog/provides.go`) derives the provider-fulfilled contracts a catalog implements by walking its `#transformers` in Go. The same rule was written twice more in core: once in `#Platform.#contracts._providerSet` and once again by the operator's 0015:D11 claim check, which compares a `TransformerRegistration`'s claimed `provides` against `Provides()`. ADR-012 (`adr/012-matching-stays-in-the-library-glue.md`) lets one derived rule at a time move into core, with a parity test, and names the per-catalog provider set as the next one.
 
-The owner decided h2 in the beta-1 kernel-plan walkthrough (2026-10-02/03, `claude-stuff/kernel-plan-beta1/walkthrough-decisions.md`):
+The owner decided this as ADR-013, decision h2:
 
 > h2: Core gains a per-catalog provider set (additive core release); Provides() decodes it and falls back to the deprecated Go fold for older catalogs; the fallback is removed before GA, after catalog_opm is republished.
 
@@ -56,4 +56,4 @@ None.
   - catalog_opm republished against core `v2.0.0-beta.3`, a separate catalog_opm change; until it ships, every published opm catalog takes the deprecated fold;
   - the operator's old-catalog test, a separate opm-operator change;
   - the later change that deletes `providesFold` before GA.
-- No `enhancement.yaml`. The decision comes from the beta-1 kernel-plan walkthrough, not from an enhancement. The 0015:D11 claim check is unchanged, and this change logs no delivery against it.
+- No `enhancement.yaml`. The decision is ADR-013, decision h2, not an enhancement decision. The 0015:D11 claim check is unchanged, and this change logs no delivery against it.

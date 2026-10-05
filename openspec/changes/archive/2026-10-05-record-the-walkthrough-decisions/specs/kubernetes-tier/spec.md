@@ -1,4 +1,14 @@
-## ADDED Requirements
+## MODIFIED Requirements
+
+### Requirement: Deletion plans come from the inventory and the live objects
+
+An instance's deletion plan (uninstall) SHALL be built from the persisted inventory plus the live objects in the cluster. Building it SHALL NOT need a render and SHALL NOT read a plan stored at apply time. A prune's stale set SHALL be computed by the inventory package and handed to the same plan. ADR-008 SHALL record this, and SHALL record that planning from a render and lifecycle transition detection (install, upgrade, reconfigure, no-op, uninstall) are deferred to the lifecycle hook work of enhancement 0009. This deferral does not touch the deletion step transition, which the tier owns as part of the deletion sequence. Source: ADR-008; ADR-013, decision j5; the deletion protocol is 0012:D4.
+
+#### Scenario: ADR-008 records the deletion-plan source
+
+- **WHEN** a developer reads `adr/008-kernel-plans-caller-runs.md`
+- **THEN** it states that an instance's deletion plan (uninstall) is built from the persisted inventory plus the live objects, with no render and no stored plan, and that a prune's stale set is computed by the inventory package and handed to the same plan
+- **AND** it lists planning from a render and lifecycle transition detection among the questions it does not decide, deferred to the 0009 hook work, distinct from the deletion step transition the tier owns
 
 ### Requirement: Readiness evaluation is a pure function over fetched objects
 

@@ -21,7 +21,7 @@ The directory acquire verbs read their tree more than once, and the build and th
 - `sourcetree.OverlayFromDir` (`opm/internal/sourcetree/sourcetree.go:114-134`) hand-writes a
   `filepath.WalkDir` that `OverlayFromFS` (`:143-170`) already does over any `fs.FS`.
 
-Owner decisions from the beta-1 kernel-plan walkthrough (2026-10-02/03):
+Owner decisions (ADR-013, decisions b2 and b5):
 
 - b2: "Full version — Source-taking LoadDir, one acquireDir helper (keep platform on-disk vs
   overlay stamping difference), read overlay first and build from it, include b5 os.DirFS
@@ -106,5 +106,5 @@ None.
 - Downstream: none. cli and opm-operator call only the exported verbs.
 - Sequencing: this change is the head of the library acquire chain (b2, then b1+g2, then
   d1+d3, then g5 part A). Each later change rebases on it before merge.
-- No `enhancement.yaml`: the decisions come from the beta-1 kernel-plan walkthrough, not
-  from an enhancement entry.
+- No `enhancement.yaml`: the decisions are ADR-013, decisions b2 and b5, not
+  an enhancement entry.

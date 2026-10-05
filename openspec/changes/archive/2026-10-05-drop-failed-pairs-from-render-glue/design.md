@@ -35,7 +35,7 @@ an error, not for a non-concrete output.
 - The two candidate rungs are evaluated only for candidates. Every verdict, and the order of every
   verdict list, stays as it is.
 - The memory and CPU effect is measured before and after with the same harness and recorded here.
-- The operator memory measurement the walkthrough asked for ("before and after j2, nil-out, shared
+- The operator memory measurement ADR-013, decision g1 asked for ("before and after j2, nil-out, shared
   limit and g4") is recorded here too, as memprobe's operator columns against the wave-1 baseline
   (see "Operator memory package").
 
@@ -295,7 +295,7 @@ read 18.2 s at base in the full-case run (load above 50), against 9.8 s in the p
 
 ### Operator memory package
 
-The walkthrough's operator measurement ("before and after j2, nil-out, shared limit and g4"), as
+The operator measurement of ADR-013, decision g1 ("before and after j2, nil-out, shared limit and g4"), as
 memprobe's operator columns on cert_manager, all seven cases, 5 runs each, medians in MiB. memprobe
 models the nil-out (`*-nil` cases against `*-hold`) and the shared limit (`r1` against `r2`: one
 render slot against two) itself, so those two are read across rows rather than across columns.

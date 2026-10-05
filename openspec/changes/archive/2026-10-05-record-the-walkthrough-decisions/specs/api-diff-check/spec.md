@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Pull requests show breaking changes to the public API
 
@@ -57,22 +57,3 @@ The check SHALL derive its outcome from the base release tag alone: when the tag
 
 - **WHEN** no `v[0-9]*` tag is reachable from the base commit, as in a shallow clone
 - **THEN** the job fails and says to fetch the tags, in warn mode too
-
-### Requirement: The check runs read-only with a committed tool checksum
-
-The check's workflow SHALL declare `permissions: contents: read`, SHALL check out with `persist-credentials: false`, and SHALL pin every action by full commit SHA. The diff tool SHALL be built from a tools module in this repository whose committed `go.sum` the Go toolchain verifies before building, at one exact version, and the library's own `go.mod` SHALL NOT require the tool. The check SHALL NOT be a required status check by this change. The same check SHALL run locally through `task api:diff`, with an optional `BASE` tag override that CI ignores. Source: supervisor note on library#181; workflow-hardening.
-
-#### Scenario: A same-repo pull request runs the check
-
-- **WHEN** a pull request from a branch in this repository runs the check
-- **THEN** the job holds a `contents: read` token and `.git/config` carries no credential
-
-#### Scenario: A tampered tool module
-
-- **WHEN** a module the tool build needs does not match the hash in the committed `go.sum`
-- **THEN** the build fails and no comparison runs
-
-#### Scenario: A maintainer checks a release-tag base locally
-
-- **WHEN** a maintainer runs `task api:diff BASE=v0.7.0`
-- **THEN** the check runs in fail mode, because `v0.7.0` is a release tag
