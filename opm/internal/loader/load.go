@@ -18,9 +18,8 @@ import (
 // added here once rather than at every [LoadDir] call site.
 type Options struct {
 	// Env is the environment slice load.Config consults: the CUE_REGISTRY
-	// override the kernel plumbs through [cueenv.Override], never os.Setenv,
-	// so a load is safe under concurrency. Nil reads the process environment
-	// unchanged.
+	// override the kernel builds with [cueenv.Override], which owns the
+	// concurrency rule. Nil reads the process environment unchanged.
 	Env []string
 }
 

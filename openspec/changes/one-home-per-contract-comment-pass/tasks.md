@@ -11,13 +11,13 @@ Depends on: nothing unmerged. Merges after the other round-3 library changes, by
 
 ## 2. One home per runtime contract in godoc
 
-- [ ] 2.1 `opm/kernel/acquire.go`: in the `loadEnv` doc (`:31-34`), say the mapping is applied through `cueenv.Override` and drop "never os.Setenv". In the exported verb docs (`:89-92` module, `:219-224` catalog, `:255-258` platform), the registry sentence becomes "The registry mapping is the kernel's ([WithRegistry])". The package doc already states that it is never written to the environment, so the verb docs do not repeat it. Check the instance verb and the registry verbs for the same phrase.
-- [ ] 2.2 `opm/internal/loader/load.go:19-24` (`Options.Env`): link `[cueenv.Override]` for the rule; drop "never os.Setenv".
-- [ ] 2.3 Confirm that the `opm/internal/cueenv` package doc and the `opm/kernel` package doc § Surface each state the env rule in full (D1). Add the missing clause to its home if either does not.
-- [ ] 2.4 `opm/kernel/render.go:306-316`: reflow the `Render` doc paragraph to about 75 columns with the same words (`gofmt` keeps it). Check that "whose references the kernel drops when Render returns" still reads as holder-bounded.
-- [ ] 2.5 D5: move the ADR pointers out of the package docs of `opm/k8s/object` (`doc.go:3`, `:13`), `opm/k8s/labels` (`doc.go:11`) and `opm/helper/objectset` (`doc.go:31`). Each gets one non-doc comment after the package clause, in the shape of `opm/kernel/doc.go:290-293`.
-- [ ] 2.6 Verify: `grep -rn 'os.Setenv' --include='*.go' opm | grep -v _test.go` lists only the `cueenv` package doc and the `OCILoader` doc. No package doc of an exported package under `opm/` contains `ADR-`; check with `go doc` on each package or with a grep over the comment block above each `package` clause. Run `task docs:bundle` and read `out/library/` for the touched packages.
-- [ ] 2.7 Gates green, then commit `docs(kernel): link restated contracts to their godoc homes`.
+- [x] 2.1 `opm/kernel/acquire.go`: in the `loadEnv` doc (`:31-34`), say the mapping is applied through `cueenv.Override` and drop "never os.Setenv". In the exported verb docs (`:89-92` module, `:219-224` catalog, `:255-258` platform), the registry sentence becomes "The registry mapping is the kernel's ([WithRegistry])". The package doc already states that it is never written to the environment, so the verb docs do not repeat it. Check the instance verb and the registry verbs for the same phrase.
+- [x] 2.2 `opm/internal/loader/load.go:19-24` (`Options.Env`): link `[cueenv.Override]` for the rule; drop "never os.Setenv".
+- [x] 2.3 Confirm that the `opm/internal/cueenv` package doc and the `opm/kernel` package doc § Surface each state the env rule in full (D1). Add the missing clause to its home if either does not.
+- [x] 2.4 `opm/kernel/render.go:306-316`: reflow the `Render` doc paragraph to about 75 columns with the same words (`gofmt` keeps it). Check that "whose references the kernel drops when Render returns" still reads as holder-bounded.
+- [x] 2.5 D5: move the ADR pointers out of the package docs of `opm/k8s/object` (`doc.go:3`, `:13`), `opm/k8s/labels` (`doc.go:11`) and `opm/helper/objectset` (`doc.go:31`). Each gets one non-doc comment after the package clause, in the shape of `opm/kernel/doc.go:290-293`.
+- [x] 2.6 Verify: `grep -rn 'os.Setenv' --include='*.go' opm | grep -v _test.go` lists only the `cueenv` package doc and the `OCILoader` doc. No package doc of an exported package under `opm/` contains `ADR-`; check with `go doc` on each package or with a grep over the comment block above each `package` clause. Run `task docs:bundle` and read `out/library/` for the touched packages.
+- [x] 2.7 Gates green, then commit `docs(kernel): link restated contracts to their godoc homes`.
 
 ## 3. Prose copies become links
 

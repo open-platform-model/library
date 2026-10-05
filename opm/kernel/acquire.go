@@ -29,8 +29,9 @@ import (
 const valuesFileName = "opm-values.cue"
 
 // loadEnv is the environment slice every kernel load consults: the kernel's
-// [WithRegistry] mapping applied through load.Config.Env, never os.Setenv.
-// Nil when no mapping was configured, so the load reads the process
+// [WithRegistry] mapping applied through load.Config.Env by
+// [cueenv.Override], which owns the rule that the process environment is
+// never written. Nil when no mapping was configured, so the load reads the process
 // environment unchanged.
 func (k *Kernel) loadEnv() []string {
 	return cueenv.Override(k.registry, "")
@@ -87,9 +88,8 @@ func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version
 //
 // The package is built in a [cue.Context] created for the call; Module.Package
 // keeps it alive for as long as the caller holds the module. The registry
-// mapping is the kernel's ([WithRegistry]), applied via the load
-// configuration's environment and never os.Setenv. The caller's directory is
-// never written to.
+// mapping is the kernel's ([WithRegistry]). The caller's directory is never
+// written to.
 //
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial module is returned.
@@ -219,9 +219,7 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 // The package is built in a [cue.Context] created for the call;
 // Catalog.Package keeps it alive for as long as the caller holds the
 // catalog. The registry mapping for the catalog's own imports is the
-// kernel's ([WithRegistry]), applied via the load configuration's
-// environment and never os.Setenv. The caller's directory is never written
-// to.
+// kernel's ([WithRegistry]). The caller's directory is never written to.
 //
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial catalog is returned.
@@ -254,8 +252,7 @@ func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*cata
 // Platform.Package, which keeps the call's [cue.Context] alive for as long
 // as the caller holds the platform; the kernel retains nothing. The registry
 // mapping used for the platform's catalog imports is the kernel's
-// ([WithRegistry]), applied via the load configuration's environment and
-// never os.Setenv; the verb takes no per-call override.
+// ([WithRegistry]); the verb takes no per-call override.
 //
 // Loader failures propagate unchanged (missing directory, no package, or a
 // shape-gate sentinel such as [oerrors.ErrWrongKind]); no partial platform is
