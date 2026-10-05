@@ -210,10 +210,7 @@ Two independent knobs — do not conflate them:
 The schema cache contract is godoc: `schema.Cache` (one memoized load per cache into a
 private context, the on-disk cache two caches share, no package-level singleton),
 `kernel.New` (no load at construction, and which calls load) and `Kernel.SchemaCache`
-(one cache per Kernel for its lifetime). The default loader resolves the exact release
-`schema.DefaultSchemaModule` pins against `CUE_REGISTRY`; only a loader that pins no
-exact release (a bare-major `OCILoader`, or any other `Loader`) makes synthesis load
-it. Edit the godoc; do not restate it here. Facts the godoc does not carry:
+(one cache per Kernel for its lifetime). Edit the godoc; do not restate it here. Facts the godoc does not carry:
 
 - The calls that load the schema are the consumers' own: the cli publish gate and the
   operator's startup smoke check call `SchemaCache().Get`.

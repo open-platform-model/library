@@ -1,8 +1,8 @@
 // Package object turns the kernel's compiled output into Kubernetes objects
 // and holds the Kubernetes facts about them that every frontend shares. It is
-// part of the Kubernetes tier beside the kernel: the kernel never
-// imports it, a depguard rule in .golangci.yml keeps it that way, and a
-// frontend that applies to Kubernetes uses it instead of a copy of its own.
+// part of the Kubernetes tier beside the kernel: the kernel never imports it,
+// a depguard rule in .golangci.yml keeps it that way, and a frontend that
+// applies to Kubernetes uses it instead of a copy of its own.
 //
 // [Resource] wraps one [kernel.Compiled]: the rendered CUE value with its
 // instance, component and transformer provenance, and best-effort accessors

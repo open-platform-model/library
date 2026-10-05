@@ -38,7 +38,7 @@ k := kernel.New()
 
 `kernel.New` accepts functional options (`WithSchemaLoader`, `WithRegistry`). None are required. `WithRegistry` sets the ONE registry mapping every kernel operation resolves through; the [`opm/kernel` package documentation](../opm/kernel/doc.go) lists the operations, and without the option the kernel inherits the process `CUE_REGISTRY`.
 
-The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCache().Get()` triggers one `OCILoader.Load` call; subsequent calls on the same Kernel reuse the cached value. Long-running consumers (operators, servers) MUST keep the Kernel alive across operations to preserve memoization. No kernel verb loads the schema on a pinned kernel (the default): `SynthesizeInstance` reads the core import major off the pin, and acquisition and `Render` resolve core through the module's own `cue.mod` inside the build. Only a loader that pins no exact release (a bare-major `OCILoader` such as `opmodel.dev/core@v2`, or any other `Loader`) makes synthesis load the schema to learn the release.
+Each Kernel owns one schema cache for its lifetime; the godoc of [`kernel.New`](../opm/kernel/kernel.go) and [`Kernel.SchemaCache`](../opm/kernel/kernel.go) states when the schema loads and that the cache lives as long as its Kernel.
 
 ### Pin a specific schema version
 
