@@ -31,7 +31,10 @@ drops its last text match.
   - `ResolutionModuleFileInvalid`: a dependency's published module file does not parse;
   - `ResolutionOther`, the zero value. `Classify` never builds it.
 - `Classify` also recognises these forms and returns them wrapped in a `*ResolutionError`. A fetch
-  form anywhere in the same text still wins, so a registry failure never reads as an author defect.
+  form anywhere in the same text still wins, the generic `cannot fetch ` included, so a registry
+  failure never reads as an author defect and no text that is a `*FetchError` today stops being
+  one. When one text carries several author-defect forms, the order is unprovided, then ambiguous,
+  then module file.
   It stays idempotent for a chain that already holds either type. A syntax error, a conflict and
   every other error it does not recognise still come back unchanged.
 - No library call site changes: every site that returns a `cue/load` resolution failure already
@@ -43,13 +46,19 @@ drops its last text match.
 Not in this change:
 
 - The cli and operator moves onto the new type. Each is a frontend change on the first library
-  release that carries this one. Section 4 proves that the cli's `unprovidedImport` can be replaced
-  by `Kind == ResolutionImportUnprovided` with every pinned exit code unchanged. It runs the cli's
-  pinning tests against this branch through a temporary Go workspace, and nothing is committed to
-  the cli. The operator adds `*ResolutionError` to its terminal causes.
+  release that carries this one. Section 4 proves that both cli text matches 0021's delivery log
+  records can be replaced by the types with every pinned answer unchanged: `compat.go`
+  `unprovidedImport` by `Kind == ResolutionImportUnprovided`, and the `cannot find package` and
+  `cannot expand module graph` matches of `platform.go` `platformBuildHint` by any `*FetchError`
+  or `*ResolutionError`. It runs the cli's pinning tests against this branch through
+  `.tasks/consumer-build.sh`, and nothing is committed to the cli. The operator uses
+  `*ResolutionError` only to say why it stalls; it does not add it to its terminal causes, so a
+  `*FetchError` anywhere in the chain still retries.
 - The cli's `#registry` hint match in `internal/config/platform.go`. That matches an evaluation
   error (the platform author's own field), not a fetch or resolution failure, so 0021:D8:R12 does
-  not cover it.
+  not cover it. The cli can drop it by reading the CUE error path, with no library work.
+- Load failures that are package-content defects rather than import resolution (design.md
+  "Where resolution ends"). They stay unchanged.
 - Telling the three unprovided-import causes apart. See design.md D2.
 
 ## Capabilities
@@ -72,7 +81,11 @@ None.
 - Behaviour: an error `Classify` used to return unchanged as an author defect now comes back with
   one `*ResolutionError` link around it. `Error()` text is identical, `errors.As` on the cause
   (CUE error lists included) still matches, and no `*FetchError` or `ErrTransient` answer
-  changes. A caller that compared `Classify(err) == err` for these forms sees a different value.
-  No frontend does: the cli's `unprovidedImport` checks only for a `*FetchError`.
+  changes: every text that is a `*FetchError` today, a mixed error list with a `cannot fetch `
+  error beside an unprovided import included, stays one. A caller that compared
+  `Classify(err) == err` for these forms sees a different value. No frontend does: the cli's
+  `unprovidedImport` checks only for a `*FetchError`.
 - Downstream: neither frontend needs a code change to keep building or to keep its exit codes.
-- SemVer: MINOR (additive). Release class `feat`. Completes 0021:D8:R12 on the library side.
+- SemVer: MINOR (additive). Release class `feat`. Completes 0021:D8:R12 on the library side for
+  the resolution failures design.md lists; "Where resolution ends" lists the load failures it
+  leaves as they are, and why.

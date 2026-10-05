@@ -18,7 +18,7 @@ returned unchanged:
 
 `opm/kernel/fetch_classify_test.go` `TestFetchClassify_UnresolvableImportStaysPlain` (`:118-139`)
 pins the first two through `AcquireModuleFromDir`, and `opm/errors/classify_test.go`
-`TestClassify_UnrecognisedIsUnchanged` (`:43-62`) pins the constructed forms.
+`TestClassify_UnrecognisedIsUnchanged` (`:41-59`) pins the constructed forms.
 
 **Where CUE produces them.** `internal/mod/modpkgload/import.go` (CUE v0.17.1):
 `ImportMissingError.Error()` (`:414-416`) is `cannot find module providing package ` + path,
@@ -37,7 +37,7 @@ place, `classifyText`.
   `*FetchError` and the text holds `cannot find module providing package`. Its caller
   `loadPublishedPackage` (`:242-254`) reads that as "absent" (found=false). Every other
   unrecognised failure is a `*ConnectivityError` (exit 3). The pins are
-  `internal/publish/registryfailure_pin_test.go` `TestLoadPublishedPackage_Pinned` (`:114-163`;
+  `internal/publish/registryfailure_pin_test.go` `TestLoadPublishedPackage_Pinned` (`:114-153`;
   the rows "import its dependency does not provide" and "import of a missing own-path package"
   read `absent`) and `TestUnprovidedImport_RegistryFailureIsNotAbsent` (`:216-225`). The second
   test drives `unprovidedImport` with constructed text, and an unprovided-import text that also
@@ -48,7 +48,8 @@ place, `classifyText`.
   change.
 - opm-operator `internal/reconcile/resolution.go` `IsTransientFailure` (`:70-76`) retries any
   `*FetchError` and treats everything else, the unclassified author defects included, as
-  terminal. It cannot say why: no type tells an import defect from a syntax error.
+  terminal. It cannot say why: no type tells an import defect from a syntax error. Its
+  `isTerminalCause` runs before the `*FetchError` check.
 
 ## Goals / Non-Goals
 
@@ -58,8 +59,10 @@ place, `classifyText`.
   kind by `re.Kind`, with no text matching (0021:D8:R12).
 - Every `*FetchError` and `ErrTransient` answer stays as it is, and every message stays
   byte-identical.
-- The cli's `unprovidedImport` can become `Kind == ResolutionImportUnprovided` with its pinned
-  exit codes unchanged. Section 4 proves this against the cli's own pin tests.
+- Both cli text matches the 0021 delivery log records can move onto the types with their pinned
+  answers unchanged: `unprovidedImport` becomes `Kind == ResolutionImportUnprovided`, and the
+  two import matches of `platformBuildHint` become "any `*FetchError` or `*ResolutionError`".
+  Section 4 proves both against the cli's own pin tests.
 
 **Non-Goals:**
 
@@ -79,7 +82,7 @@ const (
     ResolutionOther             ResolutionKind = iota // zero value; Classify never builds it
     ResolutionImportUnprovided                        // no module of the build provides an imported package
     ResolutionImportAmbiguous                         // more than one module of the build provides it
-    ResolutionModuleFileInvalid                       // a module file the resolution reads does not parse
+    ResolutionModuleFileInvalid                       // a dependency's published module file does not parse
 )
 
 func (k ResolutionKind) String() string // "other", "import unprovided", "import ambiguous", "module file invalid"
@@ -99,7 +102,11 @@ retry an author defect. It has no `Is` method, so `errors.Is(err, ErrTransient)`
 it. The name follows the 0021:D8:R12 wording "fetch or resolution failure". The operator already
 uses "typed resolution error" for its own identity and render-gate causes
 (`isTypedResolutionError`). The library type does not change that function. When the operator
-adopts it, it adds `*ResolutionError` to `isTerminalCause`.
+adopts it, it uses `*ResolutionError` only for its stall reason and condition message. It must
+not add it to `isTerminalCause`: that check runs before the `*FetchError` check, so a
+kernel-joined error holding a `*ResolutionError` from one site and a `*FetchError` from another
+would stall instead of retrying. These errors are already terminal there, because the operator
+does not classify them as transient.
 
 `ResolutionOther` exists so that a zero `ResolutionError{}` built by hand does not claim a kind
 it was never given, which mirrors `FetchOther`.
@@ -135,33 +142,37 @@ func Classify(err error) error {
     if errors.As(err, new(*FetchError)) || errors.As(err, new(*ResolutionError)) { return err }
     if errors.Is(err, context.Canceled) { return err }
     if kind, status, ok := classifyTyped(err); ok { return &FetchError{...} }
-    if kind, status, ok := classifyFetchText(msg); ok { return &FetchError{...} }   // steps 1-3 of today's fallback
+    if kind, status, ok := classifyText(msg); ok { return &FetchError{...} }   // today's fallback, unchanged
     if kind, ok := classifyResolutionText(msg); ok { return &ResolutionError{Kind: kind, Err: err} }
-    if strings.Contains(msg, textCannotFetch) { return &FetchError{Kind: FetchOther, Err: err} }
     return err
 }
 ```
 
-The fallback is today's order, with the author-defect forms placed between the specific fetch
-forms and the generic `cannot fetch `:
+The fallback is today's, whole and first, and the author-defect forms come after it:
 
-1. The fetch forms, unchanged: `cannot do HTTP request`, an HTTP status, `module not found`, and
-   `cannot find module providing package P@vX.Y.Z`. Any fetch form anywhere in the text wins. A
-   CUE error list may carry one error per failed import, and a registry failure in it is the one a
-   retry may cure. This is also exactly the guard the cli's
-   `TestUnprovidedImport_RegistryFailureIsNotAbsent` pins.
-2. The author-defect forms:
+1. The fetch forms, unchanged and in today's order: `cannot do HTTP request`, an HTTP status,
+   `module not found`, `cannot find module providing package P@vX.Y.Z`, and the generic
+   `cannot fetch `. Any fetch form anywhere in the text wins. A CUE error list may carry one error
+   per failed import, and a registry failure in it is the one a retry may cure. This is also
+   exactly the guard the cli's `TestUnprovidedImport_RegistryFailureIsNotAbsent` pins. Because
+   the whole fetch fallback runs first, every text that is a `*FetchError` today stays one: a
+   directory load whose list holds `cannot fetch m@v0.0.1: ...: zip: not a valid zip file` beside
+   `cannot find module providing package a.b/c` is `FetchOther`, as today, and the cli and the
+   operator keep their answers for it (retry, exit 3).
+2. The author-defect forms, in this order:
    - `cannot find module providing package ` → `ResolutionImportUnprovided`. Step 1 has already
      taken the exact-version form, so whatever reaches this step carries at most a major version;
    - `ambiguous import: ` → `ResolutionImportAmbiguous`;
    - `cannot parse module file` → `ResolutionModuleFileInvalid`.
-3. `cannot fetch ` → `FetchOther`, unchanged.
 
-The author-defect forms come before `cannot fetch ` on purpose. If a dependency's module file
-fails to parse on the direct import path rather than in graph expansion, the text could read
-`cannot fetch P@V: cannot parse module file from P@V: ...`. That is the same defect, and it must
-read the same way. Section 1 measures whether CUE v0.17.1 produces that form. Either way the order
-keeps the two consistent.
+   When one text carries several author-defect forms, the first in this order decides. A test pins
+   the order with one constructed text.
+
+If a dependency's module file fails to parse on the direct import path rather than in graph
+expansion, the text could read `cannot fetch P@V: cannot parse module file from P@V: ...`. Under
+this order it stays `FetchOther`, as today, so no `*FetchError` answer changes and the release
+stays `feat` with no behaviour change to name. Section 1 measures whether CUE v0.17.1 produces that
+form at all and records the answer under "Spike findings".
 
 `Classify` is still applied only to load errors, never to an evaluation error (#205 D4). A
 conflict message can quote an author's own strings, and the text fallback must never see one.
@@ -184,22 +195,26 @@ The cli's text match must be replaceable with its exit codes unchanged, and the 
 tests are the proof. Section 4 does this without committing to
 the cli:
 
-1. Clone cli `main` into the scratch directory.
-2. Replace the body of `unprovidedImport` with
-   `errors.As(liberrors.Classify(err), &re) && re.Kind == liberrors.ResolutionImportUnprovided`.
-   Point the comment's last paragraph at the type.
-3. Run `go work init <clone> <library worktree>` in a scratch directory, the same setup
-   `.tasks/consumer-build.sh` uses.
-4. Under `GOWORK` and an absolute `TMPDIR`, run
-   `go test ./internal/publish/ -run 'TestLoadPublishedPackage_Pinned|TestUnprovidedImport_RegistryFailureIsNotAbsent|TestProbedPackageAbsent|TestCompatScan|TestGateCompat'`
-   and `go test ./internal/cuemod/ -run 'TestIsConnectivityError|TestIsVersionNotHeld'`.
+1. Clone cli `main` and opm-operator `main` into the scratch directory, and run
+   `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> <worktree> <workdir>` for each,
+   unpatched. Both must build and vet.
+2. In a second cli clone, replace the body of `unprovidedImport` with
+   `errors.As(liberrors.Classify(err), &re) && re.Kind == liberrors.ResolutionImportUnprovided`,
+   and point the comment's last paragraph at the type. Replace the `cannot find package` and
+   `cannot expand module graph` matches of `platformBuildHint` with "the chain holds a
+   `*FetchError` or a `*ResolutionError`" (`errors.As` on the error as it arrives, since the kernel
+   verb already classified it).
+3. Run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <patched clone> <worktree> <workdir>`, so
+   the script builds and vets the patched cli, its `_test.go` files included.
+4. Under `GOWORK=<workdir>/go.work` and an absolute `TMPDIR`, run
+   `go test ./internal/publish/ -run 'TestLoadPublishedPackage_Pinned|TestUnprovidedImport_RegistryFailureIsNotAbsent|TestProbedPackageAbsent|TestCompatScan|TestGateCompat'`,
+   `go test ./internal/config/ -run 'TestPlatformBuildHint|TestBuildPlatformModule'` and
+   `go test ./internal/cuemod/ -run 'TestIsConnectivityError|TestIsVersionNotHeld'`.
 
 These are unit tests with in-process registries, not the cluster suites. Every row must pass
-unchanged, and the result goes into "Verification". `consumer-build.sh` itself then builds and vets
-both consumers at `main`, unpatched, against the branch. The same scratch clone also tries the
-`platformBuildHint` replacement (any `*FetchError` or `*ResolutionError` in place of the
-`cannot find package` and `cannot expand module graph` matches) against the cli's hint pins
-(`internal/config/platform_hint_pin_test.go`), and records the result. That replacement is the cli change's to decide.
+unchanged, and both runs go into "Verification". The `platformBuildHint` replacement is required,
+not tried: if a hint row fails, section 1 pins the form it meets untyped, and section 2 or 3 types
+it in this change, so the cli can drop both matches on this library release.
 
 ## Research & Decisions
 
@@ -237,6 +252,24 @@ second is an ambiguous import. The third is a malformed module file reached thro
 **Decision**: Section 1 drives each through the embedded CUE and pins what it sees, before any
 code changes. Its findings go under "Spike findings" below.
 
+### Where resolution ends
+
+0021:D8:R12 asks for each fetch or resolution failure by type. This change counts as a resolution
+failure a failure to find, choose or read the module that provides an imported package. These
+`cue/load` failures are not resolution failures, and `Classify` keeps returning them unchanged:
+
+- `no files in package directory` (the cli pins it for a directory whose only `.cue` file
+  cue/load ignores): the package was found, and the provider resolved; its content is what the
+  load cannot use.
+- A package-name mismatch (`found packages a (a.cue) and b (b.cue)`): a defect in the package's
+  own files.
+- An import cycle (`import cycle not allowed`): the imports all resolved; their structure is the
+  defect.
+- A syntax error, and every evaluation error (#205 D4).
+
+Each is an author defect in package content, no retry cures it, and none of them sits in a cli or
+operator text match. A later change can type them additively if a consumer needs it.
+
 ## Spike findings
 
 (Section 1 writes this.)
@@ -245,9 +278,10 @@ code changes. Its findings go under "Spike findings" below.
 
 - [A CUE bump rewords a form] → `classify_cue_test.go` fails on the bump. A CUE move reaches
   frontends only through a library release (workspace `RELEASING.md`), so the test runs first.
-- [`cannot parse module file` also covers the main module's own `module.cue`] → that is an author
-  defect as well, and the kind doc says "a module file the resolution reads". Section 1 records
-  the form either way.
+- [`cannot parse module file` also covers the main module's own `module.cue`] → in CUE v0.17.1
+  the matched text `cannot parse module file from %v` comes only from `mod/modcache/fetch.go:77`,
+  which reads fetched modules. Section 1 records what a malformed main `module.cue` says. If it
+  carries the text, the spec and the kind doc widen to name it; if not, this risk is dropped.
 - [A caller compared `Classify(err)` with `err` to detect "unrecognised"] → that caller now sees
   a new value for these forms. Neither frontend does this; the cli checks for a `*FetchError`.
 - [An error list with an unprovided import and a fetch failure reads as a fetch failure] → this is

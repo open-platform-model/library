@@ -43,16 +43,15 @@
 
 ### Requirement: Classify recognises fetch failures and author-defect resolution failures, and leaves every other error unchanged
 
-`opm/errors` SHALL export `Classify(err error) error`. It SHALL return nil for nil. It SHALL return `err` unchanged when the chain already holds a `*FetchError` or a `*ResolutionError`, when the chain holds `context.Canceled`, and when it recognises nothing. It SHALL return a `*FetchError` that wraps `err` for a failed registry interaction: a fetch that got no response, a registry answer that refused or did not hold what was asked for, or a fetched archive that could not be used. It SHALL return a `*ResolutionError` that wraps `err` for an author-defect resolution failure that no failed registry interaction caused. When the text carries both a fetch form and an author-defect form, the fetch form SHALL win, so a registry failure never reads as an author defect. Source: 0021:D8:R12.
+`opm/errors` SHALL export `Classify(err error) error`. It SHALL return nil for nil. It SHALL return `err` unchanged when the chain already holds a `*FetchError` or a `*ResolutionError`, when the chain holds `context.Canceled`, and when it recognises nothing. It SHALL return a `*FetchError` that wraps `err` for a failed registry interaction: a fetch that got no response, a registry answer that refused or did not hold what was asked for, or a fetched archive that could not be used. It SHALL return a `*ResolutionError` that wraps `err` for an author-defect resolution failure that no failed registry interaction caused. When the text carries both a fetch form and an author-defect form, the fetch form SHALL win, the generic `cannot fetch` form included, so a registry failure never reads as an author defect and no text that classified as a `*FetchError` before stops being one. When the text carries several author-defect forms, the first in the order of step 2 below SHALL decide. Source: 0021:D8:R12.
 
 `Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. Only when no typed cause is found SHALL it match text. The text fallback SHALL be the only place in the library that matches the text of a registry or `cue/load` error. It SHALL cover the forms the embedded CUE version produces when `cue/load` flattens a failure, in this order:
 
-1. The fetch forms. These are `cannot do HTTP request`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. They also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). Only a standalone `path@version` load produces that last form, after it asks the registry for that version.
-2. The author-defect forms:
+1. The fetch forms. These are `cannot do HTTP request`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. They also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). Only a standalone `path@version` load produces that form, after it asks the registry for that version. Last among them is `cannot fetch`, which is `FetchOther`.
+2. The author-defect forms, in this order:
    - `cannot find module providing package` followed by a path without an exact version, which is `ResolutionImportUnprovided`;
    - `ambiguous import`, which is `ResolutionImportAmbiguous`;
    - `cannot parse module file`, which is `ResolutionModuleFileInvalid`.
-3. `cannot fetch`, which is `FetchOther`.
 
 `cannot expand module graph` SHALL NOT be matched on its own, because it wraps both fetch failures and a malformed dependency's module file. It classifies through the form it carries. A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version changes one.
 
@@ -81,10 +80,25 @@
 - **WHEN** `Classify` receives a `cue/load` error saying the module graph cannot be expanded because a published dependency's module file does not parse
 - **THEN** it returns a `*ResolutionError` of kind `ResolutionModuleFileInvalid`, and `errors.Is(err, ErrTransient)` is false
 
+#### Scenario: An ambiguous import is a typed author defect
+
+- **WHEN** `Classify` receives a `cue/load` error saying an imported package is found in more than one module of the build
+- **THEN** it returns a `*ResolutionError` of kind `ResolutionImportAmbiguous`, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: The first author-defect form decides
+
+- **WHEN** `Classify` receives a text that carries an unprovided import, an ambiguous import and an unparsable module file, and no fetch form
+- **THEN** it returns a `*ResolutionError` of kind `ResolutionImportUnprovided`
+
 #### Scenario: A registry failure beside an unprovided import is a fetch failure
 
 - **WHEN** `Classify` receives an error whose text says no module provides a package and also carries `cannot do HTTP request` or a 503 status
 - **THEN** it returns a `*FetchError`, and no `*ResolutionError`
+
+#### Scenario: An archive that does not unzip beside an unprovided import stays a fetch failure
+
+- **WHEN** `Classify` receives a CUE error list holding `cannot fetch m@v0.0.1: unzip ...: zip: not a valid zip file` and `cannot find module providing package a.b/c`
+- **THEN** it returns a `*FetchError` of kind `FetchOther`, and no `*ResolutionError`
 
 #### Scenario: Cancellation is not a fetch failure
 
