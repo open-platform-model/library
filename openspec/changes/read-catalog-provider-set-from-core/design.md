@@ -77,7 +77,7 @@ func (c *Catalog) Provides() ([]string, error) {
 	if err := field.Decode(&fqns); err != nil {
 		return nil, fmt.Errorf("reading catalog %s: %w", schema.CatalogProvides, err)
 	}
-	return normalise(fqns), nil // sorted, deduplicated, non-nil
+	return sortedUnique(fqns), nil // sorted, deduplicated, non-nil
 }
 ```
 
