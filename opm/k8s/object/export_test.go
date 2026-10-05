@@ -29,6 +29,10 @@ func exportFixtures(t *testing.T) []*object.Resource {
 
 // TestExport_OneExportFeedsEveryConsumer covers the kubernetes-tier scenario
 // "One export feeds every consumer of the object".
+// That each resource is exported from CUE exactly once is not observable from
+// the returned values (a second export yields equal bytes); it rests on the
+// code of Export, which calls MarshalJSON once and decodes Object from those
+// bytes.
 func TestExport_OneExportFeedsEveryConsumer(t *testing.T) {
 	in := exportFixtures(t)
 
@@ -152,4 +156,14 @@ func TestExportStep_String(t *testing.T) {
 	assert.Equal(t, "cue export", object.ExportMarshal.String())
 	assert.Equal(t, "json decode", object.ExportDecode.String())
 	assert.Equal(t, "ExportStep(7)", object.ExportStep(7).String())
+}
+
+func TestExport_ResourceWithoutValue(t *testing.T) {
+	in := append(exportFixtures(t)[:1], &object.Resource{Component: "x"})
+	_, err := object.Export(in)
+	var ee *object.ExportError
+	require.True(t, errors.As(err, &ee))
+	assert.Equal(t, 1, ee.Index)
+	assert.Equal(t, object.ExportMarshal, ee.Step)
+	assert.Equal(t, "<no value>", ee.Resource)
 }

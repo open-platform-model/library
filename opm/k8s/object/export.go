@@ -79,12 +79,15 @@ var errNotObject = errors.New("the exported JSON is not an object")
 //
 // Export never changes or drops its input. The caller drops its Resources
 // after the export to release the CUE build they pin. A nil Resource in the
-// input fails at [ExportMarshal].
+// input, or one with no CUE value, fails at [ExportMarshal].
 func Export(resources []*Resource) ([]Exported, error) {
 	out := make([]Exported, len(resources))
 	for i, r := range resources {
 		if r == nil {
 			return nil, &ExportError{Index: i, Resource: "<nil>", Step: ExportMarshal, Err: errors.New("nil resource")}
+		}
+		if !r.Value.Exists() {
+			return nil, &ExportError{Index: i, Resource: "<no value>", Step: ExportMarshal, Err: errors.New("resource has no value")}
 		}
 		b, err := r.MarshalJSON()
 		if err != nil {

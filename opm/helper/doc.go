@@ -52,5 +52,6 @@
 // never a one-off addition.
 package helper
 
-// The Kubernetes tier, opm/k8s/, and objectset's move into it are ADR-011. The umbrella design of this tier is legacy:001
+// The Kubernetes tier, opm/k8s/, and objectset's deprecated copy are
+// ADR-011 (item 9). The umbrella design of this tier is legacy:001
 // (kernel-redesign-around-platform).

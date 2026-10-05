@@ -117,7 +117,11 @@ linters:
             - "!**/*_test.go"
           allow:
             - $gostd
-            - cuelang.org/go/cue
+            # depguard matches allow entries by prefix: the "$" form admits
+            # cuelang.org/go/cue alone and the "/" form its subpackages, so
+            # cuelang.org/go/cuego and other siblings stay refused.
+            - cuelang.org/go/cue$
+            - cuelang.org/go/cue/
             - k8s.io/apimachinery
             - github.com/open-platform-model/library/opm
         # The kernel imports no Kubernetes package (ADR-011, 0012:D3). Only
