@@ -2,7 +2,7 @@
 
 A frontend cannot tell why a registry fetch or a dependency resolution failed without reading the
 error's text. The library wraps every such failure in a plain `fmt.Errorf`
-(`opm/internal/loader/registry.go:94-103`, `opm/internal/loader/load.go:108-109`,
+(`opm/internal/loader/registry.go:101-103`, `opm/internal/loader/load.go:108-109`,
 `opm/internal/renderstage/stage.go:215-216`, `opm/schema/loader.go:162-163`,
 `opm/helper/platformmodule/closure.go:101-103`), and `cue/load` flattens the cause of a failed
 import into a string before the library sees it. So the cli carries three text probes
@@ -40,14 +40,14 @@ change:
     flattens, and a test pins those forms against the embedded CUE version. A context cancellation
     and any error it does not recognise come back unchanged and are never transient.
 - The library applies `Classify` where a fetch or resolution failure leaves it. That is the
-  registry fetch and the registry resolver in `FetchArtifact` (with `Coordinate` set), the
-  `cue/load` resolution error in `loader.LoadDir` (which covers every acquire verb and the synth
-  build), the render module load, the schema `OCILoader` load and the platform-module dependency
-  closure. Every wrap keeps its message text, and every existing `errors.Is` sentinel still matches.
+  registry fetch in `FetchArtifact` (with `Coordinate` set), the `cue/load` resolution error in
+  `loader.LoadDir` (which covers every acquire verb and the synth build), the load of a file-backed
+  values source (`opm/kernel/source_loader.go`), the render module load, the schema `OCILoader`
+  load and the platform-module dependency closure. Every wrap keeps its message text, and every existing `errors.Is` sentinel still matches.
 - Each of the five verbs checks `ctx.Err()` at entry and between its stages, and returns the bare
   context error. `FetchArtifact` checks after the registry fetch, and `Render` checks after the
-  build. The godoc says that cancellation lands between stages: a running `cue/load` or build is
-  not interrupted.
+  build. The `opm/kernel` package doc says, once, that cancellation lands between stages: a
+  running `cue/load` or build is not interrupted.
 - `go.mod`: `cuelabs.dev/go/oci/ociregistry` moves from indirect to direct (same version, pinned by
   `cuelang.org/go`).
 - Specs: a new `fetch-error-classification` capability, and an ADDED cancellation requirement in
@@ -80,8 +80,9 @@ Not in this change:
 ## Impact
 
 - Packages: `opm/errors` (new `fetch.go`, `classify.go`, package doc), `opm/internal/loader`
-  (`registry.go`, `load.go`), `opm/internal/renderstage` (`stage.go`), `opm/kernel` (`acquire.go`, `synth.go`, `render.go`, `doc.go`),
-  `opm/schema` (`loader.go`), `opm/helper/platformmodule` (`closure.go`), `opm/internal/registrytest`
+  (`registry.go`, `load.go`), `opm/internal/renderstage` (`stage.go`), `opm/kernel` (`acquire.go`,
+  `synth.go`, `render.go`, `source_loader.go`, `doc.go`), `opm/schema` (`loader.go`, `cache.go`
+  godoc), `opm/helper/platformmodule` (`closure.go`), `opm/internal/registrytest`
   (a registry that answers every request with one status). `opm/errors` gains its first imports
   outside the standard library: `cuelang.org/go/mod/modregistry` and
   `cuelabs.dev/go/oci/ociregistry`. Both are already in every consumer's module graph.

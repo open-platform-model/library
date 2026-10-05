@@ -7,16 +7,21 @@ plain `fmt.Errorf`:
 
 | Site | Call | Wrap |
 | --- | --- | --- |
-| `opm/internal/loader/registry.go:94-96` | `modconfig.NewRegistry` | `building module registry resolver: %w` |
 | `opm/internal/loader/registry.go:101-103` | `reg.Fetch(ctx, mv)` | `fetching %s %s: %w` |
 | `opm/internal/loader/load.go:108-109` | `load.Instances` → `instances[0].Err` | `loading %s package from %s (%s): %w` |
+| `opm/kernel/source_loader.go:110-111` | `load.Instances` → `instances[0].Err` for a file-backed values source | returned raw (no wrap) |
 | `opm/internal/renderstage/stage.go:215-216` | the render module load | `loading the render module: %w` (then `building render module: %w`, `opm/kernel/render.go:411`) |
 | `opm/schema/loader.go:162-163` | the schema `OCILoader` load | `schema OCILoader: loading %q: %w` |
 | `opm/helper/platformmodule/closure.go:101-103` | `ModFileSource.ModFile` | `resolving dependency %s: %w` |
 
 `loader.LoadDir` is the one build step behind every directory acquire verb, the registry verbs
 (through `FetchArtifact`) and the synth build (`opm/internal/synth/instance.go:191`). Classifying
-there covers all of them.
+there covers all of them. `compileSource` (`opm/kernel/source_loader.go`) is the other `cue/load`
+call a kernel verb makes: it loads every file-backed values source, and a values file may import a
+registry module through `WithRegistry` (`opm/kernel/doc.go` Surface). `AcquireInstanceFromDir` and
+`SynthesizeInstance` reach it through `mergeSources`, and `ValidateConfigDetailed` reaches it
+directly. The two `modconfig.NewRegistry` calls (`registry.go:94-96`,
+`platformmodule/closure.go:43-50`) only parse configuration and are not fetch sites (D4).
 
 **What survives from CUE v0.17.1.** A direct `reg.Fetch` keeps a typed chain:
 `mod/modregistry/client.go:48` exports `ErrNotFound` and wraps it with `%w` (`:243-250`). The
@@ -78,8 +83,8 @@ type FetchKind int
 
 const (
     FetchOther        FetchKind = iota // a fetch or resolution failure of no narrower kind
-    FetchNotFound                      // the module, version or package is absent
-    FetchUnauthorized                  // the registry refused the credentials (401) or the access (403)
+    FetchNotFound                      // the module, version or package is absent (a 403 on a tag lookup too, see below)
+    FetchUnauthorized                  // the registry refused the credentials (401), or a 403 whose HTTPError survives
     FetchUnreachable                   // no HTTP response: refused, DNS, TLS, timeout, deadline
 )
 
@@ -109,6 +114,14 @@ needs the 5xx answer as data. A `FetchError` built by hand states its own status
 A `FetchError` with a nil `Err` is a caller bug. `Error()` then returns the kind's name, so it
 never panics.
 
+CUE's registry client decides one case before `Classify` sees it. In CUE v0.17.1
+`modregistry.Client.GetModule` (`mod/modregistry/client.go:248-250`) runs `isNotExist`
+(`:566-583`), which treats any 403 answer, like any 404, as not-exist and returns
+`module %v: %w` around `modregistry.ErrNotFound`. The `HTTPError` leaves the chain there. So a 403
+on a tag lookup classifies as `FetchNotFound`, which is also what the cli's `check.go` probe does
+today (its text `not found` gives `ErrNotPublished`). `FetchUnauthorized` covers a 401, and a 403
+only where an `HTTPError` with that status survives in the chain.
+
 ### D2. Which kinds are transient, and how each cli site keeps its exit code
 
 `ErrTransient` is network-level only. It holds when the registry could not be reached (no HTTP
@@ -131,6 +144,13 @@ connectivity, and `FetchUnreachable` keeps that. A 5xx answer is `FetchOther`. T
 probe says today (an answer, not connectivity), even though it is transient. The cli change pins
 each row with a test. This library change pins the kind for each failure form (D3, section 3).
 
+One case is not exact. Today a cancelled request counts as connectivity: `*url.Error{Err:
+context.Canceled}` satisfies `net.Error` (`connectivity.go:22-25`). `Classify` passes
+`context.Canceled` through unchanged (D3), so `Kind == FetchUnreachable` is false for a Ctrl-C'd
+tidy or fetch. The cli row that adopts `IsConnectivityError` keeps parity with
+`Kind == FetchUnreachable || errors.Is(err, context.Canceled)`, or records the change for
+cancellation and accepts it.
+
 ### D3. How `Classify` decides
 
 ```go
@@ -149,7 +169,9 @@ func Classify(err error) error {
 
 1. `context.DeadlineExceeded` → `FetchUnreachable`;
 2. `ociregistry.HTTPError` in the chain: 404 → `FetchNotFound`, 401 or 403 → `FetchUnauthorized`,
-   anything else → `FetchOther`. `Status` is the code;
+   anything else → `FetchOther`. `Status` is the code. A 403 on a tag lookup never reaches this
+   step with its `HTTPError`: CUE's registry client has already turned it into
+   `modregistry.ErrNotFound` (D1), so step 3 makes it `FetchNotFound`;
 3. `modregistry.ErrNotFound`, `ociregistry.ErrNameUnknown`, `ErrManifestUnknown` or
    `ErrBlobUnknown` → `FetchNotFound`;
 4. `ociregistry.ErrUnauthorized` or `ErrDenied` → `FetchUnauthorized`;
@@ -164,7 +186,20 @@ pins against CUE v0.17.1, in this order, so the most specific form wins:
    for a 404 → `FetchNotFound`;
 4. the 5xx status prefix, if the spike shows that a flattened 5xx keeps it → `FetchOther` with that
    `Status`;
-5. `cannot fetch ` or `cannot expand module graph` → `FetchOther`.
+5. `cannot fetch ` → `FetchOther`.
+
+`cannot expand module graph` is not matched on its own. `modpkgload/import.go:164` formats it with
+`%v` around any requirements-graph error, a malformed `module.cue` in a published dependency
+included, which is a defect rather than a fetch. It classifies only through the fetch form it
+carries (steps 1-5 match anywhere in the text), and the spike records a malformed-dependency case
+that stays unclassified.
+
+The tidy forms the cli's `IsConnectivityError` reads come from `cmd/cue`'s own printer, not from
+`cue/load`. Driving `cmd/cue/cmd` in a library test would add its command-line dependencies to
+`go.mod`, so the library pins only the `cue/load` and `reg.Fetch` forms. The spike records the
+tidy forms once (by running the same-version `cue mod tidy`), and the cli's behavioural tests
+`TestIsConnectivityError_UnreachableRegistry` and `TestIsConnectivityError_RegistryAnswered` stay
+as the pin of the tidy forms when the cli moves onto `Classify`.
 
 A test in `opm/errors` (`classify_cue_test.go`) produces each form through the embedded CUE and
 asserts the kind. It fails when a CUE bump changes a form, which is the signal to update the
@@ -181,12 +216,17 @@ never transient. Whether the operator retries it is the operator's policy.
 `Classify` wraps the cause at the sites in the Context table, inside the existing `%w`:
 
 - `FetchArtifact`: the `reg.Fetch` error, with `Coordinate` set to the canonical `mv.String()`
-  (D5), and the `modconfig.NewRegistry` error (a bad `CUE_REGISTRY` stays unrecognised and
-  unchanged; an auth-config failure that is a `net.Error` does not occur there);
+  (D5);
 - `loader.LoadDir`: `instances[0].Err` only;
+- `compileSource` (`opm/kernel/source_loader.go`): `instances[0].Err` of a file-backed values
+  source only, never the `v.Err()` after its build;
 - `renderstage.Build`: `instances[0].Err` only;
 - `schema.OCILoader.Load`: `instances[0].Err` only;
 - `platformmodule.Closure`: the `ModFile` error.
+
+Neither `modconfig.NewRegistry` call (`FetchArtifact`, `platformmodule.NewRegistry`) is
+classified. It parses `CUE_REGISTRY` and the auth configuration and dials nothing, so its error is
+a configuration error `Classify` would leave unchanged anyway.
 
 It is never applied to an evaluation error (`val.Err()` after `BuildInstance`, the shape gate,
 `processInstance`). An evaluation error can carry an author's own strings in its message (a
@@ -220,12 +260,16 @@ caller bug that does not depend on time, and both checks do no work.
 `acquireDir` gains a `ctx` parameter. `ValidateConfigDetailed` is not one of the five verbs and is
 unchanged.
 
-The godoc gets one paragraph in `opm/kernel/doc.go` (a "# Cancellation" section), and one
-sentence on each of the five verbs, `AcquireModuleFromRegistry`, `AcquireCatalogFromRegistry` and
-`Render`: "ctx is checked at entry and between stages; a running load or build is not interrupted,
-so cancellation lands at the next stage boundary." The `Surface` list and the three code
-examples stay as they are (`kernel-runtime` "The kernel package doc renders its verb list and
-examples").
+The contract lives once, in a "# Cancellation" section of `opm/kernel/doc.go`: ctx is checked at
+entry and between stages; a running load or build is not interrupted, so cancellation lands at the
+next stage boundary. The verbs carry no copy of it; a runtime contract has one home, the owning
+package's godoc. The `Surface` list and the three code examples stay as they are
+(`kernel-runtime` "The kernel package doc renders its verb list and examples").
+
+A registry verb checks after `reg.Fetch` returns, but a cancellation that `reg.Fetch` itself
+observes on a cold cache comes back wrapped (`fetching %s %s: ... context canceled`). Only the
+verb's own checks return the bare context error; a cancellation seen inside the fetch still
+satisfies `errors.Is(err, context.Canceled)`.
 
 ### D7. `opm/errors` imports CUE's registry packages
 
@@ -262,13 +306,15 @@ two publish probes, which treat every answer other than not-found as connectivit
 **Decision**: `ErrTransient` holds for no HTTP response, an expired deadline and a 5xx answer.
 Not for 404, 401/403, 429 or any unrecognised error.
 **Rationale**: These are the cases where the same request can succeed later with nothing changed
-by a person. The operator's retry policy still sees every `*FetchError` and can retry more widely.
+by a person (on the same Kernel only when no cache memoized the failure; see Risks). The operator's retry policy still sees every `*FetchError` and can retry more widely.
 
 ### Spike before code
 
 **Context**: Three forms are unverified: whether the `%w` at `modpkgload/import.go:212` survives
 into `instances[0].Err`, what a flattened 401/403 and 5xx look like, and whether a load against an
-unreachable registry reports `cannot do HTTP request`.
+unreachable registry reports `cannot do HTTP request`. A deadline that expires during a fetch
+cannot be driven through `cue/load` (it takes no context), so the deadline case is an
+already-expired deadline on `FetchArtifact` only.
 **Decision**: Section 1 drives each failure through the real loaders against a local status
 registry and pins what it sees. The findings are written under "Spike findings" below before
 section 2 starts.
@@ -291,6 +337,13 @@ To be filled in by section 1.
 - [A pre-cancelled context now fails a call that used to complete] → Both frontends pass live
   contexts. The behaviour is the documented contract of a context parameter.
 - [`opm/errors` grows a CUE dependency] → Both modules are already required. D7 records why.
+- [`schema.Cache` memoizes a transient schema-load error] → `Cache` caches errors too and never
+  retries a load (`opm/schema/cache.go:17-23`). An `OCILoader` failure that is now marked
+  `ErrTransient` stays cached in the Kernel's cache, so retrying on the same Kernel cannot succeed
+  (a bare-major `resolveCoreVersion`, the cli's `SchemaCache().Get()`, the operator's startup
+  check). This change keeps `Cache`'s behaviour and says it in the `ErrTransient` and `Cache`
+  godoc: a memoized error keeps its classification, and a retry needs a fresh `Cache` (a fresh
+  Kernel). Whether `Cache` should stop memoizing transient errors is an owner question, left open.
 
 ## Verification
 
