@@ -1,0 +1,8 @@
+# Implements part of enhancement 0012 (the library half of the deletion protocol).
+# Decisions are deliberately not claimed: 0012:D4, and the deletion halves of
+# 0012:D1:R1/R2/R5/R6, are delivered only once both frontends' delete paths
+# run this protocol, so the claim belongs to their adoption changes.
+implements:
+  - enhancement: "0012"
+    decisions: []
+    resolves: []
