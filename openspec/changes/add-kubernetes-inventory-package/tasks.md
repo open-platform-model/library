@@ -155,7 +155,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 5. Docs say what exists, and whole-tree checks (README, AGENTS, CONSTITUTION, ADR-011; design KI8)
 
-- [ ] 5.1 Locate every edit by text, not by line number:
+- [x] 5.1 Locate every edit by text, not by line number:
       - `README.md`: the Layout tree gains a `k8s/inventory/` row; the Helper boundary
         paragraph's "Its packages are ..." sentence names `opm/k8s/inventory` (entries, the
         component-blind stale set and the inventory and render digests).
@@ -171,9 +171,10 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         0012:D7)." The date is the day the sentence is written; 6.1 sets it to the day of
         the archive commit, since sibling changes edit the same Status line and merge in
         an order this plan does not know.
+
       Verify: no file still lists the tier as `labels` and `object` alone; the layout
       block is still one code fence; `task docs:bundle:check` green.
-- [ ] 5.2 Whole-tree checks on the final code:
+- [x] 5.2 Whole-tree checks on the final code:
       - `task check`;
       - `go test -race ./opm/k8s/... -count=1`;
       - `task api:diff` reports only additions (the new package);
@@ -182,7 +183,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       Consumer check, not committed: run `.tasks/consumer-build.sh` against fresh clones of
       cli and opm-operator at their `origin/main` (both must build and vet against this tree).
       Verify: all green.
-- [ ] 5.3 `task check` green, then commit
+- [x] 5.3 `task check` green, then commit
       `docs(k8s): record the opm/k8s/inventory package`.
 
 ## 6. Archive (at PR time)
