@@ -124,7 +124,7 @@ Commits:
 
 ## 3. Docs and whole-tree checks (README, AGENTS, CONSTITUTION, ADR-011)
 
-- [ ] 3.1 Find every edit by its text, not by line number.
+- [x] 3.1 Find every edit by its text, not by line number.
       - `README.md` § Helper boundary: the sentence listing the tier's packages gains
         `opm/k8s/lifecycle`, the deletion plan, its transition and the hold verdict. The Layout
         tree gains a `k8s/lifecycle/` row.
@@ -144,7 +144,7 @@ Commits:
         verdict (0012:D4)."
       Verify: `grep -n "k8s/lifecycle" README.md AGENTS.md CONSTITUTION.md adr/011-*.md` shows
       each edit; the layout block is still one code fence; `task docs:bundle:check` is green.
-- [ ] 3.2 Run the whole-tree checks on the final code.
+- [x] 3.2 Run the whole-tree checks on the final code.
       - `task check`.
       - `task api:diff`. Expected: it charges no incompatible entry to this change (base tag
         v1.0.0-beta.6; it lists incompatible changes only).
@@ -153,7 +153,7 @@ Commits:
       their `origin/main` into the scratch dir, and run `.tasks/consumer-build.sh` against this
       tree for each. Both must build and vet. Record the two heads for the report.
       Verify: every check is green.
-- [ ] 3.3 Run `task check` until green, then commit
+- [x] 3.3 Run `task check` until green, then commit
       `docs(k8s): list opm/k8s/lifecycle in the tier docs`.
 
 ## 4. Archive (at PR time)
