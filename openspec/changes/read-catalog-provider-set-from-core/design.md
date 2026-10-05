@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md, Why. Line numbers are at library `origin/main` `a8bfc76` (#183, after wave-2 round 1). Design-local decisions are numbered PS1 to PS7 so they collide with no other numbering.
+See proposal.md, Why. Line numbers are at library `origin/main` `a8bfc76` (#183). Design-local decisions are numbered PS1 to PS7 so they collide with no other numbering.
 
 Core's half is core#120 (`517ae7ba`), released as core `v2.0.0-beta.3`. In `src/catalog.cue`, `#Catalog` gains:
 
@@ -37,7 +37,7 @@ Today's fold, `opm/catalog/provides.go:44-107` (with `collectProviders`), walks 
 
 - Removing the fold. That is a later change, before GA, after catalog_opm is republished.
 - Any change to `Provides()`'s signature or result, or to the operator's 0015:D11 claim check.
-- Republishing catalog_opm (cat-h2-republish) and the operator's old-catalog test (the operator half of h2).
+- Republishing catalog_opm and the operator's old-catalog test; each is a separate change in its own repo.
 - A floor. An old catalog is answered, not refused.
 
 ## Decisions
@@ -105,7 +105,7 @@ Through real core, a demand entry's `fulfilment` defaults to `"catalog"`, so a n
 
 ### PS5: The fold is kept unexported and marked Deprecated
 
-`collectProviders` and the walk move into `providesFold` in the same file. Its doc comment opens with a `Deprecated:` paragraph. That paragraph says it is the fallback for catalogs built against a core older than `schema.ProvidesSince`. It also says the fold is removed before GA, after catalog_opm is republished against a core that derives `provides`, and that `Provides()` is the entry point. The function is unexported, so the paragraph does not mark any public API; it records the removal condition at the code. No exported symbol is removed or renamed (SD1).
+`collectProviders` and the walk move into `providesFold` in the same file. Its doc comment opens with a `Deprecated:` paragraph. That paragraph says it is the fallback for catalogs built against a core older than `schema.ProvidesSince`. It also says the fold is removed before GA, after catalog_opm is republished against a core that derives `provides`, and that `Provides()` is the entry point. The function is unexported, so the paragraph does not mark any public API; it records the removal condition at the code. No exported symbol is removed or renamed.
 
 The schema paths the fold reads (`schema.Transformers`, `RequiredResources`, `RequiredTraits`, `Fulfilment`) are exported. Their doc comment in `opm/schema/paths.go:61-71` changes from "Their one reader is (*catalog.Catalog).Provides" to "the deprecated fallback inside it". They stay; deleting them is the fold-removal change's decision.
 
@@ -140,14 +140,17 @@ const ProvidesSince = "2.0.0-beta.3"
   - an unsorted, duplicated field comes back sorted and deduplicated;
   - `provides: []` gives a non-nil empty slice;
   - `provides: [string]` errors with a nil result and names `provides`;
-  - `provides: "x"` errors the same way.
+  - `provides: "x"` errors the same way;
+  - a `#transformers` that does not evaluate, next to a well-formed `provides: []`, errors with a nil result (the shared check).
 - **Parity** goes in a new `opm/catalog/provides_parity_test.go` (package `catalog_test`, test name `TestCatalog_Provides_ParityWithFold`). It acquires real catalogs through `kernel.Kernel`; an external test package may import `opm/kernel`, and depguard fences only `opm/helper` and `opm/k8s` from the kernel tier. Each subtest:
   - requires that the catalog's `provides` exists;
   - requires that the decoded field is already sorted and free of duplicates;
-  - asserts `Provides()` equals `ProvidesFold`.
+  - asserts the decoded field equals `ProvidesFold` (core's rule and the fold agree);
+  - asserts `Provides()` returns the decoded field;
+  - rebuilds the catalog from its `metadata` and `provides` alone, keeping its real `Source` (so the committed core pin routes it), and asserts `Provides()` still returns the field. On core's output the field and the fold are equal, so only this check fails for a `Provides()` that always folds.
 
   The fixtures are:
-  1. the unit table's provider shapes, rebuilt as `c.#Catalog` packages pinned at `registrytest.DefaultCoreVersion` and acquired from a directory. Every member and every demand key is keyed by its `metadata.fqn`, so the core-j3 bump that binds those keys to `metadata.fqn` (SD13) stays green. They cover both demand arms, a catalog-fulfilled demand, an optional demand, one contract required by two transformers, no transformers, and a transformer with no demand maps. Where a literal shape does not unify with core's `#ComponentTransformer`, it is adjusted to the nearest valid shape that keeps what the case is about. The adjustment is noted in the case name.
+  1. the unit table's provider shapes, rebuilt as `c.#Catalog` packages pinned at `registrytest.DefaultCoreVersion` and acquired from a directory. Every member and every demand key is keyed by its `metadata.fqn`, so the core bump that binds those keys to `metadata.fqn` (owner decision j3) stays green. They cover both demand arms, a catalog-fulfilled demand, an optional demand, one contract required by two transformers, no transformers, and a transformer with no demand maps. Where a literal shape does not unify with core's `#ComponentTransformer`, it is adjusted to the nearest valid shape that keeps what the case is about. The adjustment is noted in the case name.
   2. every committed `testdata/render/registry` catalog (each directory whose package embeds `c.#Catalog`), served by `registrytest.NewRegistryFromDir` and acquired by path and version. Several of them define provider-fulfilled contracts (`cat`, `maj`, `providers`) and some transformers require them, so the set includes both empty and non-empty answers. The test requires at least one non-empty answer among them, so the fixture tree cannot drift into covering only the empty case.
 - **Old catalog** goes in the same file (`TestCatalog_Provides_OldCatalogFallsBackToFold`). It uses a provider catalog directory whose `cue.mod` pins core `v2.0.0-beta.2`, a literal older than `schema.ProvidesSince` (asserted with `modversion.Compare`). Two cases:
   - the catalog authors nothing extra. The acquired package has no `provides`, and `Provides()` returns the expected FQNs and equals `ProvidesFold`;

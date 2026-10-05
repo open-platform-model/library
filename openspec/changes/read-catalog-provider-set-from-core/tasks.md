@@ -58,7 +58,8 @@ Commit rules:
       - `provides: []` gives a non-nil empty slice;
       - `provides: [string]` errors with a nil result and a message containing `provides`;
       - a wrongly typed `provides` errors the same way;
-      - age rule, offline, over a `Source` with a temp-dir module file: an old core pin with an authored `provides` gets the fold; a current pin decodes the field; an unparseable module file errors; an invalid core version errors.
+      - a `#transformers` that does not evaluate errors with a nil result even when a well-formed `provides` is present (the shared check);
+      - age rule, offline, over a `Source` with a temp-dir module file: an old core pin with an authored `provides` gets the fold; a current pin decodes the field; an unparseable module file errors; a module file whose core pin is not a version errors (the module-file reader refuses it, so the later version comparison is a defensive branch).
 
       Update the comment on `newCatalog`: the literal table pins the fallback because its values carry no `provides`. Spec scenarios: "Core's provider set is read when the catalog carries it" and "An unreadable provider set is reported".
 
@@ -66,9 +67,9 @@ Commit rules:
 
       Verify: `go test ./opm/catalog -count=1` green.
 - [x] 2.5 `opm/catalog/provides_parity_test.go` (package `catalog_test`): `TestCatalog_Provides_ParityWithFold`, over the two fixture groups in design PS7.
-      - Group 1: the unit provider shapes rebuilt as `c.#Catalog` directories pinned at `registrytest.DefaultCoreVersion` and acquired with `AcquireCatalogFromDir`. Key every member and demand by its `metadata.fqn` (SD13, core-j3).
+      - Group 1: the unit provider shapes rebuilt as `c.#Catalog` directories pinned at `registrytest.DefaultCoreVersion` and acquired with `AcquireCatalogFromDir`. Key every member and demand by its `metadata.fqn` (owner decision j3).
       - Group 2: every `testdata/render/registry` catalog, served with `registrytest.NewRegistryFromDir` and acquired from the registry.
-      - Each subtest requires `provides` to exist and the decoded field to be sorted and unique already, then asserts `Provides()` equals `catalog.ProvidesFold`.
+      - Each subtest requires `provides` to exist and the decoded field to be sorted and unique already, then asserts that the decoded field equals `catalog.ProvidesFold` and that `Provides()` returns the field. On core's own output field and fold are equal, so it also rebuilds the catalog from its metadata and `provides` alone, keeps its real `Source`, and asserts `Provides()` still returns the field: a `Provides()` forced to always fold fails there.
       - At least one group-2 answer is non-empty.
       - Gated like the kernel's registry tests: skip under `-short`, and skip when GHCR is unreachable unless `OPM_FLOW_TEST_FORCE=1`.
       - Spec scenario: "Core's provider set and the fallback agree".
