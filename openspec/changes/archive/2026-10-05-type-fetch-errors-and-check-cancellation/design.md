@@ -427,6 +427,9 @@ Recorded on 2026-10-05 against `origin/main` `ca7c56b`.
   allowed core-pin value change the base already carries. The new `opm/errors` symbols are
   additions, which the check does not list.
 - `task check` is green after every section.
+- After the code review fixes (post-build checks, unresolvable imports left unclassified), the
+  full suite, `task check`, `task api:diff` and both consumer builds (cli `bd4d1a7`, opm-operator
+  `53ccaab`) ran green again on 2026-10-05.
 
 **The cli sites and the kind each moves onto** (D2), for the cli change that adopts `Classify` on
 the first library release carrying this one:

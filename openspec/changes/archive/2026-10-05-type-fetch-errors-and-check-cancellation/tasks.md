@@ -54,8 +54,8 @@ the files it names with `git add <file>`.
 ## 6. Verify and archive
 
 - [x] 6.1 Run `openspec verify` for `type-fetch-errors-and-check-cancellation` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
-- [ ] 6.2 At PR time, not in the implement stage: run `openspec archive type-fetch-errors-and-check-cancellation --yes`. Verify the following:
+- [x] 6.2 At PR time, not in the implement stage: run `openspec archive type-fetch-errors-and-check-cancellation --yes`. Verify the following:
   - the new main spec `fetch-error-classification` exists, and its Purpose is edited to a real sentence (archive writes a placeholder);
   - `kernel-runtime` carries "Kernel verbs check cancellation at entry and between stages";
   - `openspec validate --specs --strict` passes.
-- [ ] 6.3 Run the gates green, then commit `chore(openspec): archive type-fetch-errors-and-check-cancellation` (the archive rides the implementing PR).
+- [x] 6.3 Run the gates green, then commit `chore(openspec): archive type-fetch-errors-and-check-cancellation` (the archive rides the implementing PR).
