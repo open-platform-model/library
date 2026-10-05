@@ -1,7 +1,7 @@
 ## Why
 
 The owner's review recorded in ADR-013 found the same small things written
-several times across the library, and two defects hiding in the copies. Items b3, b4 and b5 were
+several times across the library, and two defects hiding in the copies. ADR-013, decisions b3, b4 and b5 were
 decided as one consolidation change; the supervisor folded in one follow-up from the wave-1
 review (x1).
 

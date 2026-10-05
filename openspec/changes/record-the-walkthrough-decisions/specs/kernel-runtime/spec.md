@@ -31,5 +31,5 @@ Each runtime contract of the library SHALL be stated in the doc comment of the p
 
 #### Scenario: No walkthrough id without ADR-013
 
-- **WHEN** a developer runs `git grep -nE "[Oo]wner('s)? (walkthrough )?decisions? [a-j][1-5]\b|walkthrough (decisions?|tasks?) [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]" -- . ':!openspec/changes' ':!adr/013-*'` and `git grep -nE "\b(decisions?|tasks?) [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*' | grep -v 'ADR-013, decisions\? '`
+- **WHEN** a developer runs `git grep -nE "[Oo]wner('s)? (walkthrough )?([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|walkthrough ([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|(walkthrough|checklist) items? [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]" -- . ':!openspec/changes' ':!adr/013-*'` and `git grep -nE "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*' | sed -E 's/ADR-013, decisions? [a-j][1-5]((, | and )[a-j][1-5])*//g' | grep -E "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b"`
 - **THEN** both print nothing

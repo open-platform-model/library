@@ -5,11 +5,11 @@ Depends on: nothing unmerged. Merges last among the round-8 library changes (pro
 The walkthrough-id check used below (design.md, decision 3), two commands that each print nothing when the tree is clean:
 
 ```
-git grep -nE "[Oo]wner('s)? (walkthrough )?decisions? [a-j][1-5]\b|walkthrough (decisions?|tasks?) [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]" -- . ':!openspec/changes' ':!adr/013-*'
-git grep -nE "\b(decisions?|tasks?) [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*' | grep -v 'ADR-013, decisions\? '
+git grep -nE "[Oo]wner('s)? (walkthrough )?([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|walkthrough ([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b|(walkthrough|checklist) items? [a-j][1-5]\b|(beta\.1|kernel[ -]plan) walkthrough|owner decision 2026-10-0[23]" -- . ':!openspec/changes' ':!adr/013-*'
+git grep -nE "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b" -- . ':!openspec/changes' ':!adr/013-*' | sed -E 's/ADR-013, decisions? [a-j][1-5]((, | and )[a-j][1-5])*//g' | grep -E "\b([Dd]ecisions?|[Tt]asks?|[Ii]tems?) [a-j][1-5]\b"
 ```
 
-The check is not wired into `task check`; library#198, which tracks the ungated one-home checks, should also cover it.
+The check is not wired into `task check`; library#198, which tracks the ungated one-home checks, should also cover it (task 5.4).
 
 ## 1. ADR-013 (adr)
 
@@ -47,3 +47,4 @@ The check is not wired into `task check`; library#198, which tracks the ungated 
 - [ ] 5.1 The repo's verify skill (`openspec verify`) reports no CRITICAL finding.
 - [ ] 5.2 `openspec archive record-the-walkthrough-decisions -y`, then the walkthrough-id check (without the `openspec/specs` exclusion) prints nothing and `openspec validate --all --strict` passes. The archive rides the PR.
 - [ ] 5.3 Commit `chore(openspec): archive record-the-walkthrough-decisions`.
+- [ ] 5.4 Comment once on library#198 with both walkthrough-id commands and the ADR-013 id-resolution check, and ask that its body cite `ADR-013, decision c4` in place of its bare walkthrough id.
