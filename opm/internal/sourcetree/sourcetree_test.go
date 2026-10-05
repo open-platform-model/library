@@ -4,7 +4,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -140,8 +142,56 @@ func TestOverlayFromDir_CueFilesOnly(t *testing.T) {
 	assert.Equal(t, "package m\n", string(overlay[filepath.Join(src.Root, "module.cue")]),
 		"entries are the file's bytes")
 
-	_, err = OverlayFromDir(filepath.Join(src.Root, "absent"))
+	absent := filepath.Join(src.Root, "absent")
+	_, err = OverlayFromDir(absent)
 	require.Error(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), "reading module tree "+absent+": "), "got %v", err)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+// A symlinked .cue file is read through the link under its own key; a
+// symlinked directory is not descended into.
+func TestOverlayFromDir_Symlinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	src := diskSource(t, "", map[string]string{
+		"cue.mod/module.cue": modFile,
+		"real/target.cue":    "package m\n\nx: 1\n",
+	})
+	require.NoError(t, os.Symlink(filepath.Join(src.Root, "real", "target.cue"), filepath.Join(src.Root, "link.cue")))
+	require.NoError(t, os.Symlink(filepath.Join(src.Root, "real"), filepath.Join(src.Root, "linkdir")))
+
+	overlay, err := OverlayFromDir(src.Root)
+	require.NoError(t, err)
+	want := []string{
+		filepath.Join(src.Root, "cue.mod", "module.cue"),
+		filepath.Join(src.Root, "link.cue"),
+		filepath.Join(src.Root, "real", "target.cue"),
+	}
+	assert.Equal(t, want, sortedKeys(overlay), "the linked file is keyed by its own path, the linked directory is skipped")
+	assert.Equal(t, "package m\n\nx: 1\n", string(overlay[filepath.Join(src.Root, "link.cue")]))
+}
+
+// A root that is itself a symlink to a directory is walked through the link,
+// with every key under the root as given.
+func TestOverlayFromDir_SymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	src := diskSource(t, "", map[string]string{
+		"cue.mod/module.cue": modFile,
+		"module.cue":         "package m\n",
+	})
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(src.Root, link))
+
+	overlay, err := OverlayFromDir(link)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		filepath.Join(link, "cue.mod", "module.cue"),
+		filepath.Join(link, "module.cue"),
+	}, sortedKeys(overlay))
 }
 
 func TestOverlayFromFS_RekeysUnderSyntheticRoot(t *testing.T) {

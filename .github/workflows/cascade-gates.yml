@@ -26,7 +26,7 @@ jobs:
     permissions:
       statuses: write
       actions: write
-    uses: open-platform-model/.github/.github/workflows/cascade-gates.yml@7b9ad1bea132f7a3f053a5db61ac3933b59ee226 # .github main
+    uses: open-platform-model/.github/.github/workflows/cascade-gates.yml@6938f8e0247e019cb0c2db13fff5b7b558a6b67d # .github main
     with:
       g2-mode: ${{ vars.CASCADE_G2_MODE || 'warn' }}
       g3-mode: ${{ vars.CASCADE_G3_MODE || 'warn' }}

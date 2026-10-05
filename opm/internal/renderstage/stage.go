@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
@@ -240,7 +239,7 @@ func serveDir(dir, name string, src *module.Source, overlay map[string][]byte) (
 	root := filepath.Clean(src.Root)
 	for key, data := range src.Overlay {
 		rel, err := filepath.Rel(root, key)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if err != nil || !filepath.IsLocal(rel) {
 			return "", fmt.Errorf("overlay entry %s is outside the source root %s", key, root)
 		}
 		overlay[filepath.Join(target, rel)] = data

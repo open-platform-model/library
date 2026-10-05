@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/helper/platformmodule"
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -75,7 +76,7 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 func writeCatalogPlatform(t *testing.T, dir, catPath, version string) string {
 	t.Helper()
 	platDir := filepath.Join(dir, "platform")
-	dep := catPath + "@" + registrytest.Major(version)
+	dep := catPath + "@" + modversion.Major(version)
 	files, err := platformmodule.Generate(platformmodule.Input{
 		Name:       "hermetic",
 		Type:       "kubernetes",
@@ -110,7 +111,7 @@ func writeImportedInstance(t *testing.T, root, modulePath, modPath, version, nam
 	t.Helper()
 	var deps strings.Builder
 	fmt.Fprintf(&deps, "\t\"opmodel.dev/core@v2\": v: %q\n", registrytest.DefaultCoreVersion)
-	fmt.Fprintf(&deps, "\t%q: v: %q\n", modPath+"@"+registrytest.Major(version), "v"+version)
+	fmt.Fprintf(&deps, "\t%q: v: %q\n", modPath+"@"+modversion.Major(version), "v"+version)
 	for p, v := range extraDeps {
 		fmt.Fprintf(&deps, "\t%q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 	}
@@ -135,7 +136,7 @@ metadata: {
 
 #module: opmModule
 values: %s
-`, modPath+"@"+registrytest.Major(version), name, namespace, values))
+`, modPath+"@"+modversion.Major(version), name, namespace, values))
 	return filepath.Join(root, "instance")
 }
 
@@ -145,7 +146,7 @@ values: %s
 func synthesizeInstance(t *testing.T, k *kernel.Kernel, modPath, version, name string) *module.Instance {
 	t.Helper()
 	ctx := context.Background()
-	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+registrytest.Major(version), "v"+version)
+	mod, err := k.AcquireModuleFromRegistry(ctx, modPath+"@"+modversion.Major(version), "v"+version)
 	require.NoErrorf(t, err, "acquiring served module %s", modPath)
 	require.True(t, mod.HasSource(), "acquired module must carry staged source")
 	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
@@ -196,7 +197,7 @@ debugValues: {}
 		}
 	}
 }
-`, modPath+"@"+registrytest.Major(version), version,
+`, modPath+"@"+modversion.Major(version), version,
 		containerFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, containerFQN,
 		configFQN, catPath+"/resources", registrytest.ContractAPIVersion, version, configFQN)
 }

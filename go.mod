@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	cuelang.org/go v0.17.1
-	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/stretchr/testify v1.12.1
+	golang.org/x/mod v0.39.0
 )
 
 require (

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // WriteTo places the generated files under dir, creating parent directories
@@ -19,7 +18,9 @@ func (f Files) WriteTo(dir string) error {
 	paths := make(map[string]string, len(f))
 	for name := range f {
 		rel := filepath.Clean(filepath.FromSlash(name))
-		if filepath.IsAbs(rel) || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		// IsLocal refuses an absolute or escaping name; "." is local but names
+		// the module directory itself, which is not a file to write.
+		if !filepath.IsLocal(rel) || rel == "." {
 			return fmt.Errorf("refusing to write %q outside the module directory", name)
 		}
 		paths[name] = filepath.Join(dir, rel)

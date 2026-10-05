@@ -11,12 +11,14 @@ import (
 	"testing"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
@@ -395,7 +397,8 @@ func overlayKeys(t *testing.T, src *module.Source) []string {
 // root, and HasSource() true so the module is a SynthesizeInstance input.
 func TestKernel_AcquireModuleFromDir_CarriesOverlaySource(t *testing.T) {
 	root := writeTempModuleRoot(t, "", acquireModuleFixture)
-	// A non-.cue sibling must not enter the overlay: cue/load does not read it.
+	// A non-.cue sibling must not enter the overlay: the overlay carries .cue
+	// files only, and an embedded data file is read from disk beneath it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("not cue"), 0o644))
 
 	k := kernel.New()
@@ -429,6 +432,49 @@ func TestKernel_AcquireModuleFromDir_Subpackage(t *testing.T) {
 	assert.Equal(t, root, mod.Source.Root)
 	assert.Equal(t, "sub", mod.Source.Pkg)
 	assert.Equal(t, []string{"cue.mod/module.cue", "sub/module.cue"}, overlayKeys(t, mod.Source))
+}
+
+// artifact-types spec, "Module and catalog are built from the overlay they
+// carry", at the verb: a subdirectory package is loaded as "./<pkg>" under
+// the module root it stamps, so a load error names the root and the package.
+// A build from the package directory on disk would name "<root>/sub (.)".
+// A build error still names the package directory.
+func TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot(t *testing.T) {
+	const unresolvable = "package mod\n\nimport \"example.com/modules/demo/missing\"\n\nx: missing.y\n"
+	const conflicting = "package mod\n\nx: 1\nx: 2\n"
+
+	k := kernel.New()
+	ctx := context.Background()
+	verbs := []struct {
+		label   string
+		acquire func(dir string) (bool, error)
+	}{
+		{"module", func(dir string) (bool, error) {
+			mod, err := k.AcquireModuleFromDir(ctx, dir)
+			return mod != nil, err
+		}},
+		{"catalog", func(dir string) (bool, error) {
+			cat, err := k.AcquireCatalogFromDir(ctx, dir)
+			return cat != nil, err
+		}},
+	}
+
+	for _, v := range verbs {
+		t.Run(v.label+"/load error", func(t *testing.T) {
+			root := writeTempModuleRoot(t, "sub", unresolvable)
+			got, err := v.acquire(filepath.Join(root, "sub"))
+			require.Error(t, err)
+			assert.False(t, got)
+			assert.True(t, strings.HasPrefix(err.Error(), "loading "+v.label+" package from "+root+" (./sub): "), "got %v", err)
+		})
+		t.Run(v.label+"/build error", func(t *testing.T) {
+			root := writeTempModuleRoot(t, "sub", conflicting)
+			got, err := v.acquire(filepath.Join(root, "sub"))
+			require.Error(t, err)
+			assert.False(t, got)
+			assert.True(t, strings.HasPrefix(err.Error(), "building "+v.label+" package from "+filepath.Join(root, "sub")+": "), "got %v", err)
+		})
+	}
 }
 
 // A relative directory path is stamped as its absolute form.
@@ -698,4 +744,167 @@ func hasErrorPath(err error, path string) bool {
 		}
 	}
 	return false
+}
+
+// artifact-types spec, "A missing directory fails before any tree read" and
+// "A file path is refused as not a directory": every directory verb checks
+// the path first, so the text is the stat check's and never the walker's.
+func TestKernel_AcquireFromDir_PathErrors(t *testing.T) {
+	k := kernel.New()
+	ctx := context.Background()
+	extra := mustSource(t, k, "/values/extra.cue", `tag: "v1"`)
+
+	verbs := []struct {
+		name    string
+		label   string
+		acquire func(dir string) (any, error)
+	}{
+		{"module", "module", func(dir string) (any, error) {
+			mod, err := k.AcquireModuleFromDir(ctx, dir)
+			if mod == nil {
+				return nil, err
+			}
+			return mod, err
+		}},
+		{"catalog", "catalog", func(dir string) (any, error) {
+			cat, err := k.AcquireCatalogFromDir(ctx, dir)
+			if cat == nil {
+				return nil, err
+			}
+			return cat, err
+		}},
+		{"platform", "platform", func(dir string) (any, error) {
+			plat, err := k.AcquirePlatformFromDir(ctx, dir)
+			if plat == nil {
+				return nil, err
+			}
+			return plat, err
+		}},
+		{"instance", "instance", func(dir string) (any, error) {
+			inst, err := k.AcquireInstanceFromDir(ctx, dir)
+			if inst == nil {
+				return nil, err
+			}
+			return inst, err
+		}},
+		{"instance with values", "instance", func(dir string) (any, error) {
+			inst, err := k.AcquireInstanceFromDir(ctx, dir, extra)
+			if inst == nil {
+				return nil, err
+			}
+			return inst, err
+		}},
+	}
+
+	for _, v := range verbs {
+		t.Run(v.name+"/missing directory", func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "nope")
+			got, err := v.acquire(dir)
+			require.Error(t, err)
+			assert.Nil(t, got)
+			assert.True(t, strings.HasPrefix(err.Error(), `accessing `+v.label+` directory "`+dir+`": `), "got %v", err)
+			assert.True(t, errors.Is(err, fs.ErrNotExist), "got %v", err)
+			assert.NotContains(t, err.Error(), "reading module tree")
+		})
+		t.Run(v.name+"/regular file", func(t *testing.T) {
+			file := filepath.Join(t.TempDir(), "file.cue")
+			require.NoError(t, os.WriteFile(file, []byte("package x\n"), 0o644))
+			got, err := v.acquire(file)
+			require.Error(t, err)
+			assert.Nil(t, got)
+			assert.Equal(t, v.label+` path "`+file+`" is not a directory`, err.Error())
+		})
+	}
+}
+
+// artifact-types spec, "A module embedding a non-CUE file acquires from a
+// directory": the embed attribute reads the data file beside the package,
+// whether the package is the module root or a subdirectory, and the stamped
+// overlay still carries .cue files only.
+func TestKernel_AcquireModuleFromDir_EmbedsNonCUEFile(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"cue.mod/module.cue": "module: \"example.com/modules/demo@v0\"\nlanguage: version: \"v0.17.0\"\n",
+		"module.cue": `@extern(embed)
+
+package mod
+
+kind: "Module"
+metadata: {
+	name:       "demo"
+	modulePath: "example.com/modules/demo@v0"
+	version:    "0.1.0"
+}
+data: _ @embed(file="data.json")
+`,
+		"data.json": `{"greeting": "hello"}`,
+		"sub/module.cue": `@extern(embed)
+
+package sub
+
+kind: "Module"
+metadata: {
+	name:       "demo-sub"
+	modulePath: "example.com/modules/demo@v0"
+	version:    "0.1.0"
+}
+data: _ @embed(file="d.json")
+`,
+		"sub/d.json": `{"greeting": "from sub"}`,
+	}
+	for rel, body := range files {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(body), 0o644))
+	}
+
+	k := kernel.New()
+	ctx := context.Background()
+
+	mod, err := k.AcquireModuleFromDir(ctx, root)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", lookupString(t, mod.Package, "data.greeting"))
+	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue", "sub/module.cue"}, overlayKeys(t, mod.Source))
+
+	sub, err := k.AcquireModuleFromDir(ctx, filepath.Join(root, "sub"))
+	require.NoError(t, err)
+	assert.Equal(t, "from sub", lookupString(t, sub.Package, "data.greeting"))
+	assert.Equal(t, "sub", sub.Source.Pkg)
+	assert.Equal(t, []string{"cue.mod/module.cue", "module.cue", "sub/module.cue"}, overlayKeys(t, sub.Source))
+}
+
+// The Source a directory verb describes builds from the .cue bytes it read,
+// so a later edit on disk does not reach the build. The verb-level wiring is
+// TestKernel_AcquireFromDir_SubpackageBuildsFromTheStampedRoot.
+func TestDirSource_BuildsFromTheBytesReadFirst(t *testing.T) {
+	root := writeTempModuleRoot(t, "", acquireModuleFixture)
+	src, err := kernel.DirSourceForTest(root)
+	require.NoError(t, err)
+	require.NotNil(t, src.Overlay)
+
+	edited := strings.Replace(acquireModuleFixture, `version:    "0.1.0"`, `version:    "9.9.9"`, 1)
+	require.NotEqual(t, acquireModuleFixture, edited)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "module.cue"), []byte(edited), 0o644))
+
+	val, err := loader.LoadDir(cuecontext.New(), src, loader.Options{}, loader.ModuleSpec)
+	require.NoError(t, err)
+	assert.Equal(t, "0.1.0", lookupString(t, val, "metadata.version"), "the bytes read first win over the later disk edit")
+}
+
+// artifact-types spec, "Values attribution reuses the authored read": when
+// the author's directory holds its own opm-values.cue, the layered build
+// replaces it with the rendered file, and a conflicting source is still
+// attributed to its Origin.
+func TestKernel_AcquireInstanceFromDir_WithSources_ConflictAttributedOverAuthoredValuesFile(t *testing.T) {
+	k := newRenderKernel(t)
+	dir := copyRenderInstance(t, "instance_partial")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "opm-values.cue"),
+		[]byte("package instance\n\nvalues: image: \"nginx:1.27\"\n"), 0o644))
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
+		mustSource(t, k, "/values/prod.cue", `image: "nginx:1.28"`))
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.Contains(t, err.Error(), "image")
+	assert.True(t, positionsName(err, "/values/prod.cue"), "no position names the source: %v", err)
 }

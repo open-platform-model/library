@@ -303,6 +303,30 @@ func TestRender_AlternativesArriveInLadderOrder(t *testing.T) {
 	assert.Empty(t, d.Disqualified, "an empty bucket has no disqualified candidates")
 }
 
+// The always-unify rows of one component follow the platform's transformer
+// order, not the order the candidate walk reached them in (design D3 of
+// drop-failed-pairs-from-render-glue): narrow-transformer is reached first,
+// through the component's first resource, but deployment-transformer and
+// service-transformer come before it in the catalog.
+func TestRender_UnifyRowsFollowTransformerOrder(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "unify_order")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+
+	containerFQN := renderCatPath + "/resources/container@v1"
+	assert.Equal(t, []oerrors.UnifyRefusal{
+		{Component: "twice", Transformer: renderTxPath + "/deployment-transformer@0.1.0", Conflicts: []string{containerFQN}},
+		{Component: "twice", Transformer: renderTxPath + "/service-transformer@0.1.0", Conflicts: []string{containerFQN}},
+		{Component: "twice", Transformer: renderTxPath + "/narrow-transformer@0.1.0", Conflicts: []string{renderCatPath + "/resources/narrow@v1"}},
+	}, rerr.Diagnostics.Unify, "rows follow #transformers order, not candidate order")
+}
+
 func TestRender_DisqualifiedCandidateIsData(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
@@ -476,7 +500,36 @@ func TestRender_FailingPairIsDataBesideHealthy(t *testing.T) {
 	require.ErrorAs(t, err, &terr)
 	assert.Equal(t, "crash", terr.Component)
 	assert.Equal(t, brokenTx, terr.Transformer)
+	// The conflict sits inside the output (metadata.namespace), and the cause
+	// is the pair's own CUE error at the output's path: an error nested in
+	// the output surfaces through the output value's Err().
+	assert.Contains(t, terr.Cause.Error(), `rendered."crash :: `+brokenTx+`".output`)
+	assert.NotEqual(t, "transformer output is an error", terr.Cause.Error())
 	assert.NotContains(t, err.Error(), `component "web"`)
+}
+
+// A gate refusal still names the failed pairs: the failing pair of a
+// component that matched is reported on the diagnostics beside the refusal
+// of another component's unresolved demand, and the refusal is the gate's
+// alone.
+func TestRender_FailedPairsReportedOnGateRefusal(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := acquireRenderInstance(t, k, "scenarios", "failing_beside_refused")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assertGateAgrees(t, built, true)
+	var rerr *kernel.RenderError
+	require.ErrorAs(t, err, &rerr)
+	var unresolved *oerrors.UnresolvedDemandsError
+	require.ErrorAs(t, err, &unresolved, "the cause is the gate's")
+	require.Len(t, unresolved.Demands, 1)
+	assert.Equal(t, "orphan", unresolved.Demands[0].Component)
+	var terr *oerrors.TransformError
+	assert.False(t, errors.As(err, &terr), "the gate refuses before the pair outputs are decoded")
+	assert.Equal(t, []kernel.RenderPair{{Component: "crash", Transformer: renderTxPath + "/broken-transformer@0.1.0"}},
+		rerr.Diagnostics.FailedPairs, "the failing pair is named on the refusal")
 }
 
 func TestRender_Skew_NewerModuleWarnsByDefault(t *testing.T) {

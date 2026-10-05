@@ -95,7 +95,7 @@ After writing the render module's dependency list, the kernel SHALL verify that 
 
 ### Requirement: Version skew is detected from the two committed resolutions and the response is caller-configured
 
-For each OPM-namespace path, the kernel SHALL compare the instance module's `cue.mod` requirement against the platform module's tidied entry (never the render module's promoted list). When the instance requires a NEWER build than the platform carries, the configured policy decides: warn-and-render (the default when no policy is supplied) marks that path's resolved-versions row as newer and proceeds; refuse fails the render before evaluation. A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity. The kernel SHALL NOT render the skew as a message string; a frontend formats the row.
+For each OPM-namespace path, the kernel SHALL compare the instance module's `cue.mod` requirement against the platform module's tidied entry (never the render module's promoted list). When the instance requires a NEWER build than the platform carries, the configured policy decides: warn-and-render (the default when no policy is supplied) marks that path's resolved-versions row as newer and proceeds; refuse fails the render before evaluation. Newer and older SHALL follow SemVer 2 precedence, prerelease builds included (`2.0.0-beta.2` is older than `2.0.0-beta.10`, which is older than `2.0.0`). A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity. The kernel SHALL NOT render the skew as a message string; a frontend formats the row.
 
 #### Scenario: Newer module warns and renders by default
 
@@ -111,6 +111,11 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 - **WHEN** the instance requires `1.1.0` and the platform carries `1.2.0`
 - **THEN** the render proceeds, the resolved-versions row for that path is present in the result's diagnostics, and it is not marked newer
+
+#### Scenario: Prerelease builds compare by SemVer precedence
+
+- **WHEN** the skew comparison compares an instance requiring `2.0.0-beta.10` of a path against a platform carrying `2.0.0-beta.2`, and against a platform carrying `2.0.0`
+- **THEN** the row against `2.0.0-beta.2` is marked newer and the row against `2.0.0` is not
 
 ### Requirement: Each render is its own build in its own context
 
@@ -128,7 +133,9 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 ### Requirement: Matching runs inside the build with verdicts as data
 
-The generated glue SHALL express matching over the platform's derived `#composedTransformers` with the verdicts as data fields the kernel decodes into the structured diagnostic types without deriving, joining, grouping or re-sorting them: the matched pair set; every unresolved demand with the same-base alternatives the platform implements (sorted in the build on the `alpha < beta < GA`, then major, then minor apiVersion ladder), its unprovided marker, and each disqualified candidate with the FQNs it conflicted at; every demand skipped under the caller's switch (see "A caller may skip unprovided provider-fulfilled demands"); every candidate the always-unify rung refused, with its conflicting FQNs; every unmatched component with every candidate the demand walk reached for it and, for a predicate refusal, the required labels the component lacked or carried with a different value; the unhandled-trait table; the over-subscription rows. Matching semantics are those of the render-parity oracle: with the skip switch off, the pair set the glue reports SHALL equal the pair set plain predicate matching over the same inputs produces (`render-parity`, "Matched pair sets agree"); with it on, the reported pair set SHALL be that set minus every pair of an omitted component. The always-unify rung SHALL be plain unification with no provenance exclusion. The fail-closed demand gate SHALL hold: an unresolved demand that was not skipped, or an unmatched component that was not omitted, refuses the render while the diagnostics remain readable and decoded; an effectively-optional unhandled trait is reported on the diagnostics' unhandled-trait table; an unhandled trait with an UNSTATED optional posture refuses as a build error naming the trait's own `optional` field.
+The generated glue SHALL express matching over the platform's derived `#composedTransformers` with the verdicts as data fields the kernel decodes into the structured diagnostic types without deriving, joining, grouping or re-sorting them: the matched pair set; every unresolved demand with the same-base alternatives the platform implements (sorted in the build on the `alpha < beta < GA`, then major, then minor apiVersion ladder), its unprovided marker, and each disqualified candidate with the FQNs it conflicted at; every demand skipped under the caller's switch (see "A caller may skip unprovided provider-fulfilled demands"); every candidate the always-unify rung refused, with its conflicting FQNs; every unmatched component with every candidate the demand walk reached for it and, for a predicate refusal, the required labels the component lacked or carried with a different value; the unhandled-trait table; the over-subscription rows. The always-unify and predicate rungs SHALL be evaluated only for a component's candidates (the transformers the demand walk reached for it), never for every transformer on the platform. Matching semantics are those of the render-parity oracle: with the skip switch off, the pair set the glue reports SHALL equal the pair set plain predicate matching over the same inputs produces (`render-parity`, "Matched pair sets agree"); with it on, the reported pair set SHALL be that set minus every pair of an omitted component. The always-unify rung SHALL be plain unification with no provenance exclusion. The fail-closed demand gate SHALL hold: an unresolved demand that was not skipped, or an unmatched component that was not omitted, refuses the render while the diagnostics remain readable and decoded; an effectively-optional unhandled trait is reported on the diagnostics' unhandled-trait table; an unhandled trait with an UNSTATED optional posture refuses as a build error naming the trait's own `optional` field.
+
+Failed pairs are not a glue verdict. The glue SHALL unify each matched pair's transform once, in `rendered`, and SHALL NOT evaluate it a second time for diagnostics. The kernel SHALL name the failed pairs on `RenderDiagnostics.FailedPairs`, in pair order, from each matched pair's rendered output: a pair is listed when its output's `Value.Err()` is non-nil, wherever inside the output the error arises, and including an output whose root is itself incomplete (its value cannot be resolved to a struct or a list). An output whose root is a struct or a list whose only defect is non-concrete fields SHALL NOT be listed; the per-pair concreteness check refuses it. The kernel SHALL fill `FailedPairs` on every `RenderError` raised after the build, a gate refusal included, and SHALL leave it empty on a successful render.
 
 #### Scenario: Verdicts decode beside a failing gate
 
@@ -154,6 +161,11 @@ The generated glue SHALL express matching over the platform's derived `#composed
 
 - **WHEN** the skip switch is on and a component is omitted for an unprovided resource demand while its other resources match transformers
 - **THEN** the reported pair set carries no pair of that component, and no rendered output is decoded for it
+
+#### Scenario: Failed pairs are reported on a gate refusal
+
+- **WHEN** one component's demand is unresolved, so the gate refuses the render, while another component's matched pair has a transformer whose output conflicts
+- **THEN** `Render` fails with a `RenderError` whose cause is the gate's, and its diagnostics' `FailedPairs` names the conflicting pair and no other
 
 ### Requirement: Rendered output decodes with provenance and per-pair concreteness
 
