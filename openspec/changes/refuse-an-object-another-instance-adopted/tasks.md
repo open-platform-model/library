@@ -4,7 +4,7 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 
 ## 1. ownership: refuse an inventoried object another instance adopted
 
-- [ ] 1.1 `opm/k8s/ownership/apply.go`: add `RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"`
+- [x] 1.1 `opm/k8s/ownership/apply.go`: add `RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"`
   with a doc line (design AD1). Reorder `CanApply` as design AD2 shows: the "adopt annotation
   names this instance" check moves above the inventory check; inside the inventory, an empty
   instance UUID applies (AD3), a non-blank annotation or another instance's live UUID label
@@ -12,15 +12,15 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   annotation refuses as `adopted-elsewhere` (AD4). Add the two messages of design AD6 (a helper
   that picks the annotation's value, else the live UUID label, as the other instance). Rewrite the
   `CanApply` doc's order to match, and cite `0012:D8:R8` once at the symbol.
-- [ ] 1.2 `opm/k8s/ownership/apply.go`: the `ApplyInput.InInventory` doc says an inventoried object
+- [x] 1.2 `opm/k8s/ownership/apply.go`: the `ApplyInput.InInventory` doc says an inventoried object
   is judged only for another instance's adoption, and that a frontend drops an object refused as
   `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal.
-- [ ] 1.3 `opm/k8s/ownership/doc.go`: replace the sentence "An object still in another instance's
+- [x] 1.3 `opm/k8s/ownership/doc.go`: replace the sentence "An object still in another instance's
   inventory moves only after that instance stops rendering it, since that instance applies it
   again for as long as it holds it." with how the hand-over now ends: the instance that held the
   object refuses it as `adopted-elsewhere`, drops it from its inventory and leaves it in place;
   annotating it back for that instance reverses the hand-over.
-- [ ] 1.4 `opm/k8s/ownership/apply_test.go`: in `TestCanApply`, replace the case "an inventoried
+- [x] 1.4 `opm/k8s/ownership/apply_test.go`: in `TestCanApply`, replace the case "an inventoried
   object annotated for another instance still applies" with the refusing case, and add one case
   per new scenario of the ADDED apply requirement (another instance's UUID label in the inventory,
   the annotation naming this instance over another's UUID label with surrounding whitespace, an
@@ -36,7 +36,7 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   no UUID label, annotation `u-1`): no `annotate it` remedy. Add a test that the
   `ApplyInput.InInventory` doc and the package doc state the frontend's part (drop from the
   next inventory, never delete for that refusal).
-- [ ] 1.5 `go test -race -count=1 ./opm/k8s/...` green, then `task check` green. Commit
+- [x] 1.5 `go test -race -count=1 ./opm/k8s/...` green, then `task check` green. Commit
   `feat(k8s): refuse an inventoried object another instance adopted`.
 
 ## 2. ownership: leave an object another instance is adopting in place on delete

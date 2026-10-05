@@ -1,7 +1,11 @@
 package ownership_test
 
 import (
+	"go/ast"
 	"go/build"
+	"go/parser"
+	"go/token"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,5 +49,37 @@ func TestImportsNoClockEnvOrLogger(t *testing.T) {
 	require.NoError(t, err)
 	for _, forbidden := range []string{"os", "time", "log", "log/slog"} {
 		assert.NotContains(t, pkg.Imports, forbidden)
+	}
+}
+
+// TestDocsStateTheFrontendsPartOfTheHandOver checks that the two docs a
+// frontend author reads say what to do with an inventoried object refused as
+// adopted-elsewhere: drop it from the next inventory and never delete it for
+// that refusal. The library cannot check the frontend, so it checks the docs.
+func TestDocsStateTheFrontendsPartOfTheHandOver(t *testing.T) {
+	fset := token.NewFileSet()
+	docFile, err := parser.ParseFile(fset, "doc.go", nil, parser.ParseComments)
+	require.NoError(t, err)
+	applyFile, err := parser.ParseFile(fset, "apply.go", nil, parser.ParseComments)
+	require.NoError(t, err)
+
+	packageDoc := docFile.Doc.Text()
+	var inInventoryDoc string
+	ast.Inspect(applyFile, func(n ast.Node) bool {
+		ts, ok := n.(*ast.TypeSpec)
+		if !ok || ts.Name.Name != "ApplyInput" {
+			return true
+		}
+		for _, field := range ts.Type.(*ast.StructType).Fields.List {
+			if len(field.Names) == 1 && field.Names[0].Name == "InInventory" {
+				inInventoryDoc = field.Doc.Text()
+			}
+		}
+		return false
+	})
+	for name, doc := range map[string]string{"package doc": packageDoc, "ApplyInput.InInventory doc": inInventoryDoc} {
+		flat := strings.Join(strings.Fields(doc), " ")
+		assert.Contains(t, flat, "drops an object refused as adopted-elsewhere from the inventory it records next", name)
+		assert.Contains(t, flat, "never deletes the object for that refusal", name)
 	}
 }
