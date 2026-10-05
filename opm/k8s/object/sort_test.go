@@ -83,10 +83,10 @@ func TestSortApplyOrder(t *testing.T) {
 		{schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, "ns"},
 		{gvkCRD, "crd"},
 		{schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"}, "widget"},
-		{schema.GroupVersionKind{Version: "v1", Kind: "PersistentVolumeClaim"}, "pvc"},
+		{gvkConfigMap, "cm"},
 	}
 	Sort(in, itemGVK, Ascending)
-	assert.Equal(t, []string{"crd", "ns", "pvc", "deploy", "widget"}, names(in))
+	assert.Equal(t, []string{"crd", "ns", "cm", "deploy", "widget"}, names(in))
 }
 
 // TestSortDeleteOrder covers the kubernetes-tier scenario "Delete order is

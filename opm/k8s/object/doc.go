@@ -20,8 +20,10 @@
 //
 // [Weight] is the kind-class order every Kubernetes frontend applies by:
 // definitions before their users on apply, the reverse on delete (0012:D5).
-// [Sort] orders by it, and [Stages] cuts an apply set into the stages an
-// apply engine that re-sorts within a call can take one at a time.
+// It agrees with the staged apply order of Flux's ssa package wherever Flux
+// orders two kinds, so an engine that applies through Flux only refines it.
+// [Sort] orders by it, and [Stages] cuts an apply set into stages: the cluster
+// definitions, then one stage per weight.
 //
 // [Duplicates] finds rendered objects that share one Kubernetes apply
 // identity, so a runtime can refuse the render instead of letting the last

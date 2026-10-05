@@ -63,9 +63,10 @@ func TestStagesNoClusterDefinitions(t *testing.T) {
 
 // TestStagesOneWeightPerStage checks that every stage after the definitions
 // holds a single weight, and that kinds of equal weight keep their input
-// order. The operator submits one stage per Flux ApplyAll call, so Flux's
-// re-sort within a call can refine the library's order and never contradict
-// it (0012:D4, ADR-011).
+// order. The weight table never contradicts Flux's staged apply order
+// (flux_order_test.go), so an engine that re-sorts with Flux's order can take
+// the whole set or any one stage in a call and only refine the library's
+// order (0012:D5:R1).
 func TestStagesOneWeightPerStage(t *testing.T) {
 	sts := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	widget := schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"}

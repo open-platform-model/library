@@ -23,11 +23,12 @@ type Stage[T any] struct {
 // items, in ascending weight. Order within a stage is the stable sort order.
 // The input slice is not reordered, and no stage is empty.
 //
-// The definition stage spans two weights, -100 and 0. It is still safe to
-// submit in one call to an engine that re-sorts with Flux's order, which also
-// puts a CustomResourceDefinition before a Namespace. Every later stage holds
-// one weight, so an engine that re-sorts within a call can refine the
-// library's order and never contradict it (0012:D4).
+// The definition stage spans two weights, -100 and 0, and Flux's order also
+// puts a CustomResourceDefinition before a Namespace. The [Weight] table
+// agrees with the staged apply order of Flux's ssa package wherever that
+// orders two kinds, so an engine that re-sorts with Flux's order can take the
+// whole set or any one stage in a call and only refine the library's order,
+// never contradict it (0012:D5:R1).
 func Stages[T any](items []T, gvkOf func(T) schema.GroupVersionKind) []Stage[T] {
 	sorted := make([]T, len(items))
 	copy(sorted, items)
