@@ -14,15 +14,10 @@ import (
 //
 // A Source is in one of two modes:
 //
-//   - Overlay mode (Overlay non-empty): the tree lives in memory, keyed under
-//     the deterministic synthetic Root. This is how a module fetched from a
-//     registry is staged (Kernel.AcquireModuleFromRegistry) and how a
-//     synthesized instance is staged inside its module's tree
-//     (Kernel.SynthesizeInstance), and how a module acquired from a
-//     directory is staged (Kernel.AcquireModuleFromDir).
+//   - Overlay mode (Overlay non-empty): the tree lives in memory as bytes,
+//     keyed under Root.
 //   - On-disk mode (Overlay nil): the tree lives at Root on the real
-//     filesystem. This is how an artifact acquired from a directory is
-//     described (Kernel.AcquirePlatformFromDir, Kernel.AcquireInstanceFromDir).
+//     filesystem.
 //
 // It exists so an artifact can be RE-USED as the input of a follow-on build:
 // a module acquired from the registry becomes the main module of the synth
@@ -31,14 +26,28 @@ import (
 // as a package by a later render build. Carrying the staged source on the
 // artifact avoids a second fetch or a second directory load.
 //
-// Source is carried by Module (registry path only), Instance (synthesis and
-// directory acquire) and Platform (directory acquire; platform.Source is an
-// alias of this type). It is nil for artifacts constructed from a bare value
-// (e.g. a unit-test CompileString).
+// The kernel stamps a Source on each artifact it acquires or synthesizes:
+//
+//   - Module: overlay mode, from the registry
+//     (Kernel.AcquireModuleFromRegistry, keyed under a deterministic
+//     synthetic Root) and from a directory (Kernel.AcquireModuleFromDir).
+//   - Instance: overlay mode from synthesis (Kernel.SynthesizeInstance,
+//     staged inside its module's tree); from a directory
+//     (Kernel.AcquireInstanceFromDir), on-disk mode, or overlay mode when
+//     values sources are supplied.
+//   - Platform: on-disk mode, from a directory
+//     (Kernel.AcquirePlatformFromDir).
+//   - Catalog: overlay mode, from the registry and from a directory
+//     (Kernel.AcquireCatalogFromRegistry, Kernel.AcquireCatalogFromDir).
+//
+// platform.Source and catalog.Source are aliases of this type. Source is nil
+// for an artifact constructed from a bare value (e.g. a unit-test
+// CompileString).
 type Source struct {
 	// Root is the absolute module root of the tree: the load.Config.ModuleRoot
-	// a consumer builds against. In overlay mode it is the synthetic root every
-	// Overlay key sits under; in on-disk mode it is a real directory.
+	// a consumer builds against. In overlay mode every Overlay key sits under
+	// it, and it need not exist on disk (a registry fetch keys its tree under a
+	// synthetic root); in on-disk mode it is a real directory.
 	Root string
 
 	// Pkg is the package directory relative to Root that holds the artifact's
@@ -52,8 +61,8 @@ type Source struct {
 	// Bytes, not cue/load's opaque source interface: every overlay the library
 	// builds starts as bytes, and a consumer that materializes the tree — or
 	// hands it to cue/load — should not have to recover them by reflection.
-	// The kernel wraps them with load.FromBytes at the one place it calls
-	// cue/load with an overlay.
+	// The kernel wraps them with load.FromBytes wherever it hands an overlay
+	// to cue/load.
 	Overlay map[string][]byte
 }
 

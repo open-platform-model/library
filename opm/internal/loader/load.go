@@ -90,9 +90,8 @@ func LoadDir(cueCtx *cue.Context, src *opmmodule.Source, opts Options, spec Arti
 		if rel != "" && rel != "." {
 			pkg = "./" + rel
 		}
-		// The one place the library hands cue/load an overlay: the staged tree
-		// travels as bytes on module.Source and is wrapped here, so no caller
-		// deals in load.Source.
+		// The staged tree travels as bytes on module.Source and is wrapped
+		// here for this build, so no caller of LoadDir deals in load.Source.
 		cfg.Dir = src.Root
 		cfg.ModuleRoot = src.Root
 		cfg.Overlay = make(map[string]load.Source, len(src.Overlay))

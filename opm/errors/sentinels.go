@@ -50,7 +50,7 @@ var (
 
 	// ErrSchemaUnavailable marks a schema resolution that surfaces no core
 	// release to derive the synthesized package's core import major from (a
-	// bare-major loader whose load reports no version). A pinned loader never
+	// loader that pins no exact release, whose load reports no version). A pinned loader never
 	// produces it: the release is read off the pin without a load.
 	ErrSchemaUnavailable = errors.New("instance synthesis: schema unavailable")
 )

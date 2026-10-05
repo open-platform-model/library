@@ -208,7 +208,7 @@ Two independent knobs — do not conflate them:
 ### Schema cache lifetime contract
 
 The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
-`opmodel.dev/core@v2` against `CUE_REGISTRY`) and memoized in a
+the exact release `schema.DefaultSchemaModule` pins against `CUE_REGISTRY`) and memoized in a
 `*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
 
 - **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
@@ -225,9 +225,9 @@ The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
 - **No kernel verb loads the schema on a pinned kernel.** The default loader
   pins an exact release (`schema.DefaultSchemaModule`), and
   `SynthesizeInstance` reads the core import major off that pin
-  (`OCILoader.PinnedVersion`) with no load; only a bare-major loader
-  (`opmodel.dev/core@v2`) makes synthesis resolve the release through the
-  cache. The callers that still load it are the consumers' own: the cli
+  (`OCILoader.PinnedVersion`) with no load; only a loader that
+  pins no exact release (a bare-major `OCILoader`, or any other `Loader`)
+  makes synthesis resolve the release through the cache. The callers that still load it are the consumers' own: the cli
   publish gate and the operator's startup smoke check call
   `SchemaCache().Get` for their own reasons. Acquisition and `Render` never
   read the cache: the module's own `cue.mod` resolves core inside the build.

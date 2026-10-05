@@ -8,8 +8,8 @@
 //
 // # Path inventory
 //
-// CUE paths are exported as package-level cue.Path variables (Metadata,
-// Components, Values, Config, Module, DebugValues).
+// CUE paths are exported as package-level cue.Path variables; the comment
+// on the var block lists every path and its readers.
 // Callers use schema.X verbatim — there is no Paths() accessor, no struct,
 // no lookup. The inventory is exactly what Go code reads: matching and
 // execution happen inside the render build, in CUE, and read nothing by

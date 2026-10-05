@@ -90,7 +90,8 @@ type InstanceInput struct {
 // The synthesized package imports core at the major of the kernel's schema
 // release: read from the configured [schema.OCILoader] when it pins an exact
 // release (the default), with no schema load, and resolved through the
-// kernel's schema cache when it names a bare major. The release the import
+// kernel's schema cache when the loader pins no exact release (a bare-major
+// OCILoader, or any other [schema.Loader]). The release the import
 // resolves to inside the build is the one the module's own cue.mod pins.
 //
 // The build runs in a [cue.Context] created for the call and reads only the
