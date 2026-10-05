@@ -48,6 +48,11 @@ importer, because `go mod tidy` drops a requirement nothing imports. Section 1 c
 pin: it runs golangci-lint 2.8.0 from a scratch install against the raised directive. If 2.8.0
 refuses, `lint.yml` moves to 2.11.3, the cli's pin, with the sha256 from that release's
 `checksums.txt`, both values together as the step's comment requires.
+**Outcome (section 1)**: golangci-lint 2.8.0 (built with go1.25.5) refuses the raised
+directive ("the Go language version (go1.25) used to build golangci-lint is lower than the
+targeted Go version (1.26.0)"), so `lint.yml` moves to 2.11.3 with the sha256 of
+`golangci-lint-2.11.3-linux-amd64.tar.gz` from that release's checksums file, checked against
+the downloaded archive.
 **Rationale**: This matches both frontends, so the floor costs neither of them anything. It is
 an assumption until section 1 has run, so section 1 is the spike.
 
@@ -295,6 +300,15 @@ both bite), and that `$gostd` works in this golangci-lint version.
 The spec states this as a MODIFIED of the existing requirement "The Kubernetes tier imports no
 cluster client or controller framework", which already named the allowed set, rather than a
 second requirement owning the same rule.
+**Outcome (section 1)**: every matching rule applies and `$gostd` works in golangci-lint
+2.11.3. Depguard names the first rule that refuses an import, one finding per import. In a
+non-test tier file `opm/internal/modversion` is refused by the lax `k8s-tier-imports-no-runtime`
+although the strict list's library prefix admits it, and `k8s.io/client-go` and
+`github.com/google/uuid` are refused by `k8s-tier-allow-list`. In a tier test file, outside the
+strict list, `k8s.io/client-go` and `k8s.io/utils` are refused by
+`k8s-tier-imports-only-apimachinery` and `opm/helper` by `k8s-tier-imports-no-runtime`.
+`opm/k8s/labels` refuses `k8s.io/apimachinery`. apimachinery, `cuelang.org/go/cue` and
+`opm/kernel` pass in `opm/k8s/object`, and `strings` passes in `opm/k8s/labels`.
 **Rationale**: The list is four entries and costs one lint rule. Without it, a new third-party
 import into a mandatory tier, which reaches every Kubernetes frontend's module graph, depends on
 a reviewer noticing.

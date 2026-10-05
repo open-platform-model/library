@@ -89,6 +89,37 @@ linters:
               desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; client-go stays with the frontends (ADR-011)
             - pkg: sigs.k8s.io
               desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the operator (ADR-011)
+        # The label vocabulary is dependency-free (kubernetes-tier spec, "The
+        # label vocabulary names labels and never stamps them"): it names and
+        # recognises label keys and values, so the standard library is all it
+        # needs, and a frontend can import it without pulling apimachinery or
+        # CUE. Test files may use testify.
+        k8s-labels-imports-only-stdlib:
+          list-mode: strict
+          files:
+            - "**/opm/k8s/labels/**"
+            - "!**/*_test.go"
+          allow:
+            - $gostd
+        # ADR-011 item 2 left one question to add-kubernetes-object-packages:
+        # whether a strict allow list for the tier pays. It does. The tier is
+        # mandatory for every Kubernetes frontend, so each third-party import
+        # here lands in the cli's and the operator's module graphs; this list
+        # refuses one before a reviewer has to notice it. The broad library
+        # prefix is safe because the deny rules above still refuse
+        # opm/internal and opm/helper, leaving the kernel's exported packages
+        # and the tier's own siblings. Test files stay outside the list (they
+        # use testify) and are still covered by the deny rules.
+        k8s-tier-allow-list:
+          list-mode: strict
+          files:
+            - "**/opm/k8s/**"
+            - "!**/*_test.go"
+          allow:
+            - $gostd
+            - cuelang.org/go/cue
+            - k8s.io/apimachinery
+            - github.com/open-platform-model/library/opm
         # The kernel imports no Kubernetes package (ADR-011, 0012:D3). Only
         # opm/k8s may reach k8s.io/apimachinery. Once the first tier package
         # adds apimachinery to go.mod, nothing but this rule stops a kernel

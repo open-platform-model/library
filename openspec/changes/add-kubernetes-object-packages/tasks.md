@@ -20,21 +20,21 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 1. Spike: Go 1.26.0 floor, lint pin and the tier allow list (go.mod, lint; design KO1, KO9)
 
-- [ ] 1.1 `go.mod`: `go 1.26.0` (SD10). `go mod tidy` leaves the requirements otherwise
+- [x] 1.1 `go.mod`: `go 1.26.0` (SD10). `go mod tidy` leaves the requirements otherwise
       unchanged, because apimachinery arrives in section 3 with its first importer. Verify:
       `go build ./... && go vet ./...` clean.
-- [ ] 1.2 Lint pin probe, not committed. Install golangci-lint `2.8.0` from its release
+- [x] 1.2 Lint pin probe, not committed. Install golangci-lint `2.8.0` from its release
       archive into the scratch dir, with the sha256 check `lint.yml` uses, and run it against
       the tree. If it refuses the Go 1.26 target, set `lint.yml` `GOLANGCI_LINT_VERSION` to
       `2.11.3` (the cli's pin) and `GOLANGCI_LINT_SHA256` to the
       `golangci-lint-2.11.3-linux-amd64.tar.gz` line of that release's `checksums.txt`, both in
       one edit. If 2.8.0 accepts it, leave `lint.yml` alone. Record the outcome as one sentence
       under KO1 in design.md. Verify: the pinned version runs `task lint` green.
-- [ ] 1.3 `.golangci.yml`: add `k8s-labels-imports-only-stdlib` and `k8s-tier-allow-list` as
+- [x] 1.3 `.golangci.yml`: add `k8s-labels-imports-only-stdlib` and `k8s-tier-allow-list` as
       design KO9 describes (strict mode, `!**/*_test.go`). Each comment says what the rule
       keeps out and why, and the allow-list comment cites ADR-011 item 2's question as
       answered. Verify: `task lint` green on the tree as it is (no `opm/k8s` files yet).
-- [ ] 1.4 Mutation checks, not committed. Create scratch files under `opm/k8s/labels/` and
+- [x] 1.4 Mutation checks, not committed. Create scratch files under `opm/k8s/labels/` and
       `opm/k8s/object/` with `package` lines only, then confirm that `task lint`:
       - fails for `opm/k8s/labels` importing `k8s.io/apimachinery/pkg/runtime/schema`;
       - fails for `opm/k8s/object` importing `github.com/google/uuid` (allow list);
@@ -47,7 +47,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       Delete the scratch files. Record the outcome in design KO9: either "every matching rule
       applies and `$gostd` works in <version>" or the adjusted rule shape. Verify: `git status`
       shows no scratch file left.
-- [ ] 1.5 `task check` green, then commit
+- [x] 1.5 `task check` green, then commit
       `build: raise the Go floor to 1.26.0 and fence the tier's imports`. The body names the
       lint pin outcome and the two new depguard rules.
 
