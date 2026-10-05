@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-03). Records the owner's answer to where the matching algorithm lives, given in the beta.1 kernel plan walkthrough. Leaves 0019:D10 and 0019:D17 (workspace root, `enhancements/archive/0019/03-decisions.md`) standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
+Accepted (2026-10-03). Records ADR-013, decision d5: where the matching algorithm lives. Leaves 0019:D10 and 0019:D17 (workspace root, `enhancements/archive/0019/03-decisions.md`) standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
 
 ## Context
 

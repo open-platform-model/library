@@ -20,13 +20,13 @@ The check is not wired into `task check`; library#198, which tracks the ungated 
 
 ## 2. Cite ADR-013 (library sweep)
 
-- [ ] 2.1 `AGENTS.md`: `:297` "owner decision j4" and `:299` "owner decision j4 of the beta.1 walkthrough" become `ADR-013, decision j4`; `:370-371` "owner decision c4 of the beta.1 walkthrough" becomes `ADR-013, decision c4`; `:379` "an owner decision by its walkthrough id" becomes "a decision ADR-013 records, cited as `ADR-013, decision <id>`", matching the MODIFIED `kernel-runtime` requirement.
-- [ ] 2.2 `.github/workflows/consumer-build.yml:3` and `.tasks/consumer-build.sh:10-11`: the comment cites `ADR-013, decision j4` in place of the owner decision and walkthrough date. Comment lines only.
-- [ ] 2.3 `adr/012-matching-stays-in-the-library-glue.md:5`: "Records the owner's answer to where the matching algorithm lives, given in the beta.1 kernel plan walkthrough" becomes "Records ADR-013, decision d5: where the matching algorithm lives." The rest of the Status line stays.
-- [ ] 2.4 `opm/catalog/provides_parity_test.go:64-65`: "(owner decision j3, beta.1 walkthrough)" becomes "(ADR-013, decision j3)", rewrapped. Comment lines only.
-- [ ] 2.5 `openspec/specs/api-diff-check/spec.md:4` (Purpose, in place per design.md decision 4): "(owner decision j4 of the beta.1 walkthrough)" becomes "(ADR-013, decision j4)". No other main-spec line is edited by hand.
-- [ ] 2.6 Verify: the walkthrough-id check with `':!openspec/specs'` added to both commands prints nothing. Without that exclusion it prints only the main-spec lines this change's deltas replace (`consumer-build` four, `api-diff-check` two, `kernel-runtime` one, `kubernetes-tier` two). `git grep -n 'by its walkthrough id' -- . ':!openspec/changes'` prints only the `kernel-runtime` main-spec line.
-- [ ] 2.7 Gates green, then commit `docs: cite ADR-013 for the kernel-plan walkthrough decisions`.
+- [x] 2.1 `AGENTS.md`: `:297` "owner decision j4" and `:299` "owner decision j4 of the beta.1 walkthrough" become `ADR-013, decision j4`; `:370-371` "owner decision c4 of the beta.1 walkthrough" becomes `ADR-013, decision c4`; `:379` "an owner decision by its walkthrough id" becomes "a decision ADR-013 records, cited as `ADR-013, decision <id>`", matching the MODIFIED `kernel-runtime` requirement.
+- [x] 2.2 `.github/workflows/consumer-build.yml:3` and `.tasks/consumer-build.sh:10-11`: the comment cites `ADR-013, decision j4` in place of the owner decision and walkthrough date. Comment lines only.
+- [x] 2.3 `adr/012-matching-stays-in-the-library-glue.md:5`: "Records the owner's answer to where the matching algorithm lives, given in the beta.1 kernel plan walkthrough" becomes "Records ADR-013, decision d5: where the matching algorithm lives." The rest of the Status line stays.
+- [x] 2.4 `opm/catalog/provides_parity_test.go:64-65`: "(owner decision j3, beta.1 walkthrough)" becomes "(ADR-013, decision j3)", rewrapped. Comment lines only.
+- [x] 2.5 `openspec/specs/api-diff-check/spec.md:4` (Purpose, in place per design.md decision 4): "(owner decision j4 of the beta.1 walkthrough)" becomes "(ADR-013, decision j4)". No other main-spec line is edited by hand.
+- [x] 2.6 Verify: the walkthrough-id check with `':!openspec/specs'` added to both commands prints nothing. Without that exclusion it prints only the main-spec lines this change's deltas replace (`consumer-build` four, `api-diff-check` two, `kernel-runtime` one, `kubernetes-tier` two). `git grep -n 'by its walkthrough id' -- . ':!openspec/changes'` prints only the `kernel-runtime` main-spec line.
+- [x] 2.7 Gates green, then commit `docs: cite ADR-013 for the kernel-plan walkthrough decisions`.
 
 ## 3. Cite ADR-013 (archived changes)
 

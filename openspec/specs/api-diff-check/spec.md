@@ -1,7 +1,7 @@
 # api-diff-check Specification
 
 ## Purpose
-Show every pull request the incompatible changes it makes to the library's exported `opm/` Go API since the last release tag, so a breaking change cannot land unnoticed: the check warns while the base tag is a prerelease and fails once it is a release (owner decision j4 of the beta.1 walkthrough), never charges a pull request with breaks already on the base branch or with the release cascade's core-pin move, and builds its tool from a checksum committed in this repository.
+Show every pull request the incompatible changes it makes to the library's exported `opm/` Go API since the last release tag, so a breaking change cannot land unnoticed: the check warns while the base tag is a prerelease and fails once it is a release (ADR-013, decision j4), never charges a pull request with breaks already on the base branch or with the release cascade's core-pin move, and builds its tool from a checksum committed in this repository.
 
 ## Requirements
 
