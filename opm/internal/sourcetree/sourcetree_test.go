@@ -306,6 +306,24 @@ func TestCheckRootAbsent(t *testing.T) {
 			assert.Contains(t, err.Error(), "test root "+root+" exists on disk; the test module is served from memory under it")
 		})
 	}
+
+	// Fail closed: a parent the check cannot search makes Lstat fail with
+	// something other than not-exist, and that refuses rather than passes.
+	t.Run("unsearchable parent", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits do not deny search on Windows")
+		}
+		if os.Geteuid() == 0 {
+			t.Skip("root ignores directory permission bits")
+		}
+		locked := filepath.Join(t.TempDir(), "locked")
+		require.NoError(t, os.Mkdir(locked, 0o755))
+		require.NoError(t, os.Chmod(locked, 0))
+		t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+		err := CheckRootAbsent("test root", "test module", filepath.Join(locked, "root"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "checking that the test root")
+	})
 }
 
 // IsSynthetic is true only for a path directly under SyntheticBase, which is

@@ -338,6 +338,9 @@ func useSyntheticBase(t *testing.T) {
 // refusal came from the root and nothing else.
 func assertSyntheticRootRefused(t *testing.T, root, pkg string, fetch func() (cue.Value, *opmmodule.Source, error)) {
 	t.Helper()
+	// The injected file declares the build's own package, so with the guard
+	// disabled its field joins the fetched value; the refusal is what keeps
+	// it out.
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "injected.cue"), []byte("package "+pkg+"\ninjected: true\n"), 0o644))
 
