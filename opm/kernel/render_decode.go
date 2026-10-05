@@ -89,9 +89,10 @@ func decodeRenderDiagnostics(built cue.Value, rows []ResolvedVersion, replacemen
 		ResolvedVersions: rows,
 		Replacements:     replacements,
 	}
-	// An instance with no components decodes an empty list as nil; report
-	// it as empty so a caller writing it to status never alternates between
-	// absent and empty.
+	// Defensive: cue decodes `[]` to a non-nil empty slice today, and this
+	// keeps the empty-not-nil promise independent of that behaviour, so a
+	// caller writing the field to status never alternates between absent
+	// and empty.
 	diag.RequiredContracts = g.RequiredContracts
 	if diag.RequiredContracts == nil {
 		diag.RequiredContracts = []string{}

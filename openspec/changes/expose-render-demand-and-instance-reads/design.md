@@ -203,8 +203,8 @@ cli-d2-accessors maps nil to the zero metadata, as its missing-`#module` path do
 // ModuleMetadata returns the metadata of the module this instance was
 // built from, decoded from the embedded #module on Package. It returns nil
 // for a nil receiver, an instance with no #module, or metadata that does
-// not decode. Each call decodes afresh, and the result is a cache like
-// Metadata: Package wins when they disagree.
+// not decode. Each call decodes afresh from Package; the returned struct
+// is a copy, and mutating it does not change Package.
 func (r *Instance) ModuleMetadata() *ModuleMetadata
 ```
 
@@ -239,9 +239,9 @@ func (m *Module) DebugValues() cue.Value
 
 Both mirror `Components()` and `ConfigSchema()`. They return `cue.Value` on the artifact, as the
 existing accessors do. 0021:D8:R11 (no `cue.Value` in public output) is about render output, and
-these accessors are not on `RenderResult`. There is no `Module.InitValues()` (SD9).
+these accessors are not on `RenderResult`. There is no `Module.InitValues()`: d2 names `debugValues` only.
 
-### D8. Spec and docs folds (SD14)
+### D8. Spec and docs folds
 
 - In artifact-types, the scenario "NewInstanceFromValue success path" repeats the scenario "No
   instance constructor": the same WHEN, and a THEN that differs only in wording. Removing a scenario under MODIFIED is refused by
@@ -269,8 +269,8 @@ these accessors are not on `RenderResult`. There is no `Module.InitValues()` (SD
   head run back to back before it is reported.
 - **Errored `#traits` is not fail-closed** (design D3). It matches the matcher, and it is stated in the
   field's godoc.
-- **Merge order.** lib-d1d3 also edits `render.go`, in disjoint hunks. lib-h4 rebases onto this
-  change (SD14). Whichever of this change and lib-d1d3 merges second takes the merge.
+- **Merge order.** lib-d1d3 also edits `render.go`, in disjoint hunks. lib-h4 is ordered after this
+  change. Whichever of this change and lib-d1d3 merges second takes the merge.
 - **Demand absent on plain errors** (design D2). This is unchanged for the operator, which already keeps
   its last status on those paths. op-i3g2 must keep doing that.
 

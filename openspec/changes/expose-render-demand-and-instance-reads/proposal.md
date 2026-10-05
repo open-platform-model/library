@@ -23,8 +23,8 @@ The owner decided both in the kernel checklist walkthrough:
 - d2: "Additive accessors now (Instance module metadata, merged values, Module debugValues),
   bundled with the i3 demand export in one library change ... Package stays public."
 
-Supervisor decision SD9 adds no `Module.InitValues()` accessor, because d2 names `debugValues`
-only. SD14 folds two spec and docs fixes into this change: the duplicate artifact-types scenario
+There is no `Module.InitValues()` accessor, because d2 names `debugValues` only. Two spec and
+docs fixes from the beta.1 kernel plan's gate review are folded into this change: the duplicate artifact-types scenario
 "NewInstanceFromValue success path" and the README's `debugValues` migration line.
 
 ## What Changes
@@ -59,7 +59,7 @@ Not in this change:
   prove the secret-source case end to end.
 - The operator migration off `demand.go` (op-i3g2) and the cli migration onto the accessors
   (cli-d2-accessors). Until the operator migrates, its walk stays fail-open.
-- `Module.InitValues()` (SD9).
+- `Module.InitValues()` (d2 names `debugValues` only).
 - `opm/schema` paths for a component's `#resources` and `#traits`. The plan entry listed them, but
   no Go code reads them: the glue reads both in CUE, and the operator drops its walk. The
   `schema-dispatch` spec removes a path with no reader and names `ComponentResources` and

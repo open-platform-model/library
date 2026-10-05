@@ -86,8 +86,8 @@ func (r *Instance) Values() cue.Value {
 //
 // It returns nil for a nil receiver, an instance with no #module, or
 // metadata that does not decode. The decode is all or nothing: there is no
-// partial result. Each call decodes afresh, and like Metadata the result is
-// a cache: Package wins when they disagree.
+// partial result. Each call decodes afresh from Package; the returned struct
+// is a copy, and mutating it does not change Package.
 func (r *Instance) ModuleMetadata() *ModuleMetadata {
 	if r == nil {
 		return nil

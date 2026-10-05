@@ -32,7 +32,7 @@ const (
 // renderDemand renders the fixture at parts on platformDir and returns the
 // demand from whichever of RenderResult and *RenderError came back. ok is
 // false when the render returned a plain error, which carries no demand.
-func renderDemand(t *testing.T, k *kernel.Kernel, platformDir string, skip bool, parts ...string) (demand []string, res *kernel.RenderResult, err error, ok bool) {
+func renderDemand(t *testing.T, k *kernel.Kernel, platformDir string, skip bool, parts ...string) (demand []string, res *kernel.RenderResult, ok bool, err error) {
 	t.Helper()
 	plat := acquireRenderPlatform(t, k, platformDir)
 	inst := acquireRenderInstance(t, k, parts...)
@@ -40,20 +40,20 @@ func renderDemand(t *testing.T, k *kernel.Kernel, platformDir string, skip bool,
 		Instance: inst, Platform: plat, RuntimeName: "rt", SkipUnprovided: skip,
 	})
 	if res != nil {
-		return res.Diagnostics.RequiredContracts, res, err, true
+		return res.Diagnostics.RequiredContracts, res, true, err
 	}
 	var rerr *kernel.RenderError
 	if errors.As(err, &rerr) {
-		return rerr.Diagnostics.RequiredContracts, nil, err, true
+		return rerr.Diagnostics.RequiredContracts, nil, true, err
 	}
-	return nil, nil, err, false
+	return nil, nil, false, err
 }
 
 // "Demand on a successful render" and "A component without traits": web and
 // worker share the container key, worker attaches no #traits at all.
 func TestRenderDemand_SuccessSortedAndDeduplicated(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, res, err, ok := renderDemand(t, k, "platform", false, "scenarios", "shared_demand")
+	demand, res, ok, err := renderDemand(t, k, "platform", false, "scenarios", "shared_demand")
 	require.NoError(t, err, "an absent #traits does not fail the render")
 	require.True(t, ok)
 	require.NotNil(t, res)
@@ -64,7 +64,7 @@ func TestRenderDemand_SuccessSortedAndDeduplicated(t *testing.T) {
 // The happy-path instance reports its two components' keys.
 func TestRenderDemand_HappyPathInstance(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, _, err, ok := renderDemand(t, k, "platform", false, "instance")
+	demand, _, ok, err := renderDemand(t, k, "platform", false, "instance")
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Equal(t, []string{configMapsFQN, containerFQN, exposeFQN}, demand)
@@ -73,7 +73,7 @@ func TestRenderDemand_HappyPathInstance(t *testing.T) {
 // "No components".
 func TestRenderDemand_NoComponentsIsEmptyNotNil(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, res, err, ok := renderDemand(t, k, "platform", false, "scenarios", "empty")
+	demand, res, ok, err := renderDemand(t, k, "platform", false, "scenarios", "empty")
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.NotNil(t, res)
@@ -85,7 +85,7 @@ func TestRenderDemand_NoComponentsIsEmptyNotNil(t *testing.T) {
 // keys that did resolve.
 func TestRenderDemand_OnRenderError(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, res, err, ok := renderDemand(t, k, "platform", false, "scenarios", "missing")
+	demand, res, ok, err := renderDemand(t, k, "platform", false, "scenarios", "missing")
 	require.Error(t, err)
 	assert.Nil(t, res)
 	require.True(t, ok, "the gate's refusal is a *RenderError carrying the demand, got: %v", err)
@@ -96,7 +96,7 @@ func TestRenderDemand_OnRenderError(t *testing.T) {
 // omitted for its unprovided resource, and its keys stay on the demand.
 func TestRenderDemand_OmittedComponentCounts(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, res, err, ok := renderDemand(t, k, "platform_providers", true, "scenarios", "unprovided")
+	demand, res, ok, err := renderDemand(t, k, "platform_providers", true, "scenarios", "unprovided")
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.NotNil(t, res)
@@ -114,7 +114,7 @@ func TestRenderDemand_OmittedComponentCounts(t *testing.T) {
 // the refusal carries the trait key.
 func TestRenderDemand_TraitsOnlyComponent(t *testing.T) {
 	k := newRenderKernel(t)
-	demand, _, err, ok := renderDemand(t, k, "platform", false, "scenarios", "traits_only")
+	demand, _, ok, err := renderDemand(t, k, "platform", false, "scenarios", "traits_only")
 	require.Error(t, err)
 	require.True(t, ok, "the refusal is a *RenderError, got: %v", err)
 	assert.Equal(t, []string{sidecarFQN}, demand)
@@ -214,7 +214,7 @@ func TestRenderDemand_ParityWithOperatorWalk(t *testing.T) {
 			inst := acquireRenderInstance(t, k, f.parts...)
 			want, err := walkDeclaredContracts(inst)
 			require.NoError(t, err)
-			got, _, rerr, ok := renderDemand(t, k, f.platform, false, f.parts...)
+			got, _, ok, rerr := renderDemand(t, k, f.platform, false, f.parts...)
 			require.True(t, ok, "the render reaches its diagnostics, got: %v", rerr)
 			assert.Equal(t, want, got)
 		})

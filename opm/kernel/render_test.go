@@ -1224,6 +1224,23 @@ func TestRender_ComponentWithoutResourcesRefuses(t *testing.T) {
 	assert.Contains(t, err.Error(), "#resources")
 }
 
+// The demand reads #resources unguarded on its own account, not only
+// because the matcher does: on the built value, diagnostics.requiredContracts
+// for a component with no #resources is not concrete. If the demand guarded
+// the read, the list would evaluate (to empty) and the render would read the
+// component as one with no demand (fail-closed, 0013:D24).
+func TestRenderDemand_ComponentWithoutResourcesFailsClosed(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := scenarioLiteralInstance(t, "no_resources")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	require.True(t, built.Exists(), "the refusal comes from the build, so the built value is kept")
+	demand := built.LookupPath(cue.ParsePath("diagnostics.requiredContracts"))
+	assert.Error(t, demand.Validate(cue.Concrete(true)), "the demand fails closed on a component without #resources")
+}
+
 // A component whose #traits is a top-level conflict never reaches a
 // successful render. Acquisition refuses it, and a struct-literal instance
 // that skips acquisition fails the build with a plain error. The glue's
