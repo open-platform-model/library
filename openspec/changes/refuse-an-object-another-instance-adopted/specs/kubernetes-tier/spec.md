@@ -244,9 +244,9 @@ The deletion transition SHALL take the plan, the caller's state and the outcome 
 
 ### Requirement: The apply verdict refuses terminating, foreign, other-instance and adopted-elsewhere objects
 
-The apply verdict SHALL decide in this order and stop at the first match. When there is no live object, it SHALL apply. When the live object has a deletion timestamp, it SHALL refuse as `terminating`, whether or not the object is in the instance's recorded inventory, and nothing SHALL lift that refusal. When the live object's adopt annotation equals the non-empty instance UUID, it SHALL apply. When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL apply; when its adopt annotation is non-blank, or its live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply. Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL refuse as `foreign-object`, unless the operator install admission lifts it; when the live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `other-instance`; when the adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply. Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non-empty live UUID or non-blank adopt annotation SHALL then count as another instance's. Source: 0012:D8:R1/R2/R5, 0012:D8:R8 (enhancements#103), 0012:D1:R7, 0012:D4:R2.
+The apply verdict SHALL decide in this order and stop at the first match. When there is no live object, it SHALL apply. When the live object has a deletion timestamp, it SHALL refuse as `terminating`, whether or not the object is in the instance's recorded inventory, and nothing SHALL lift that refusal. When the live object's adopt annotation equals the non-empty instance UUID, it SHALL apply. When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL apply; when its adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects. Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL refuse as `foreign-object`, unless the operator install admission lifts it; when the adopt annotation is non-blank and equals the live UUID label, it SHALL refuse as `adopted-elsewhere`, since the instance it names completed the hand-over; when the live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `other-instance`; when the adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply. Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non-empty live UUID or non-blank adopt annotation SHALL then count as another instance's. Source: 0012:D8:R1/R2/R5, 0012:D8:R8 (enhancements#103), 0012:D1:R7, 0012:D4:R2.
 
-The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, or its UUID label names when the annotation is blank, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: 0012:D8:R3, 0012:D8:R8 (enhancements#103).
+The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: 0012:D8:R3, 0012:D8:R8 (enhancements#103).
 
 #### Scenario: A new object is applied
 
@@ -274,10 +274,15 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 - **THEN** the verdict refuses as `adopted-elsewhere`
 - **AND** the message is `Deployment/web/api was adopted by module instance u-1; this instance no longer applies it and drops it from its inventory; to take it back, annotate it opmodel.dev/adopt=u-9`
 
-#### Scenario: An inventoried object another instance has taken is refused
+#### Scenario: An inventoried object labelled for another instance without an annotation is applied
 
 - **WHEN** the object is in the instance's recorded inventory and its live UUID label is `u-1`, with no adopt annotation, for instance UUID `u-9`
-- **THEN** the verdict refuses as `adopted-elsewhere` and the message names module instance `u-1`
+- **THEN** the verdict applies
+
+#### Scenario: An inventoried object the adopter has taken is refused
+
+- **WHEN** the object is in the instance's recorded inventory, its live UUID label is `u-1`, and its adopt annotation is `u-1`, for instance UUID `u-9`
+- **THEN** the verdict refuses as `adopted-elsewhere`
 
 #### Scenario: An annotation naming this instance takes an inventoried object back
 
@@ -297,6 +302,17 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 #### Scenario: Another instance's object outside the inventory is refused
 
 - **WHEN** the object is outside the inventory, OPM-managed, and its UUID label differs from the instance UUID
+- **THEN** the verdict refuses as `other-instance`
+
+#### Scenario: A handed-over object stays adopted-elsewhere after the adopter applies
+
+- **WHEN** the object is outside the inventory, OPM-managed, its live UUID label is `u-1`, and its adopt annotation is `u-1`, for instance UUID `u-9`
+- **THEN** the verdict refuses as `adopted-elsewhere`, not `other-instance`
+- **AND** the message is `Deployment/web/api was adopted by module instance u-1; this instance does not apply it; to let this instance take it back, annotate it opmodel.dev/adopt=u-9`
+
+#### Scenario: An annotation naming another instance than the label keeps other-instance
+
+- **WHEN** the object is outside the inventory, OPM-managed, its live UUID label is `u-1`, and its adopt annotation is `u-7`, for instance UUID `u-9`
 - **THEN** the verdict refuses as `other-instance`
 
 #### Scenario: A dropped object is not taken back on the next apply

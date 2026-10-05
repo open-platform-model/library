@@ -8,8 +8,9 @@ caller of `CanDelete` with a live object).
 
 The contract is enhancement 0012:D8:R1 to R7 as merged, plus the amendment the owner chose for
 enhancements#103: "the apply guard also refuses an in-inventory object whose live adopt
-annotation or UUID label names another instance; A drops it from its next inventory. Extends
-0012:D8."
+annotation names another instance; A drops it from its next inventory. Extends 0012:D8." The
+owner first selected "adopt annotation or UUID label" and narrowed it to the annotation only, so
+that a module-path move, which changes the instance UUID, keeps working.
 
 ## Goals / Non-Goals
 
@@ -32,7 +33,7 @@ annotation or UUID label names another instance; A drops it from its next invent
 ### AD1: One new reason, `adopted-elsewhere`, on both verdicts
 
 **Context**: The owner's selection names the case "an in-inventory object whose live adopt
-annotation or UUID label names another instance". A frontend has to tell it apart from the
+annotation names another instance". A frontend has to tell it apart from the
 other refusals, because only this one asks it to drop the object from its inventory.
 **Explored**: Reusing `other-instance`. It already means "outside the inventory, belongs to
 another instance", and both frontends will treat it as "leave the inventory as it is". Making it
@@ -60,10 +61,10 @@ if annotation != "" && in.InstanceUUID != "" && annotation == in.InstanceUUID {
 if in.InInventory {
     if in.InstanceUUID == "" { apply }     // AD3
     if annotation != ""                    { refuse adopted-elsewhere }   // names another instance
-    if u := liveUUID(in.Live); u != "" && u != in.InstanceUUID { refuse adopted-elsewhere }
-    apply
+    apply                                  // a UUID label alone never refuses here
 }
 if !opmManaged(live) && !admitted          { refuse foreign-object }     // unchanged
+if annotation != "" && annotation == liveUUID(live) { refuse adopted-elsewhere } // completed hand-over
 if u := liveUUID(live); u != "" && u != in.InstanceUUID { refuse other-instance } // unchanged
 if annotation != ""                        { refuse adopted-elsewhere }   // AD4
 apply
@@ -76,6 +77,18 @@ the inventory: the annotation is the user's latest word on who holds the object.
 annotates the object back for A makes A apply it, and B, which now holds it in its inventory,
 refuses it as `adopted-elsewhere` and drops it. Taking an object back is the same act as handing
 it over.
+
+Inside the inventory a UUID label naming another instance does not refuse. The instance UUID is
+SHA1 of registry path, name and namespace, so pointing an instance at a moved module path keeps
+its inventory but changes its UUID; refusing on the old label would drop every one of its own
+objects. B can relabel an object only after an annotation naming B, so the annotation already
+covers every real hand-over.
+
+Outside the inventory, once B has applied the object its annotation and UUID label both name B.
+That is the completed hand-over, and it refuses as `adopted-elsewhere` ahead of
+`other-instance`, so A's frontend, which treats `adopted-elsewhere` as non-fatal, does not fail
+A's apply for as long as A's module still renders the object. An annotation that differs from
+the label keeps `other-instance`.
 **Rationale**: The existing reasons keep precedence outside the inventory (AD4), and
 `terminating` stays first, so no input the main spec covers changes outcome except the one
 scenario this change reverses.
@@ -83,14 +96,11 @@ scenario this change reverses.
 ### AD3: An empty instance UUID applies inside the inventory
 
 **Context**: The main spec makes an empty instance UUID fail closed outside the inventory: it
-never matches an annotation, and any live UUID counts as another instance's. Applying that inside
-the inventory would refuse every inventoried object that carries a UUID label, including the
-instance's own.
+never matches an annotation. Applying that inside the inventory would refuse every inventoried
+object that carries any adopt annotation, including one the instance itself was adopted by.
 **Explored**: Failing closed inside the inventory too. A refusal there asks the frontend to drop
-the object from its inventory. The dropped object then lands in the stale set, and `CanDelete`
-with an empty instance UUID does not compare the UUID label, so an own object refused only for
-its UUID label (no annotation, so AD5 does not skip it) is deleted by the prune. Failing closed would turn a missing identity into the deletion of the
-instance's own objects.
+the object from its inventory, so a missing identity would make the instance let go of its own
+annotated objects.
 **Decision**: With an empty instance UUID an inventoried object that is not terminating applies,
 as it does today.
 **Rationale**: "Names another instance" needs an instance to compare against. Where refusing
@@ -142,12 +152,13 @@ is a skipped outcome, and the hold verdict releases over skipped steps.
 <obj> was adopted by module instance <other>; this instance no longer applies it and drops it from its inventory; to take it back, annotate it opmodel.dev/adopt=<this>
 ```
 
-where `<other>` is the annotation's value when it is non-blank, and otherwise the live UUID
-label's. The remedy clause is left out when the instance UUID is empty, as `adoptRemedy` does
+where `<other>` is the annotation's value. The remedy clause is left out when the instance UUID is empty, as `adoptRemedy` does
 today. For the outside-the-inventory case (AD4) the frontend has nothing to drop, so the message
 reads `<obj> is being adopted by module instance <other>; this instance does not apply it`, and
 its remedy is the one the `foreign-object` message uses: `; to let this instance take it over,
-annotate it opmodel.dev/adopt=<this>`. The delete skip message is
+annotate it opmodel.dev/adopt=<this>`. For the completed hand-over outside the inventory the
+message reads `<obj> was adopted by module instance <other>; this instance does not apply it;
+to let this instance take it back, annotate it opmodel.dev/adopt=<this>`. The delete skip message is
 `<obj> is being adopted by module instance <other>, not this one; left in place`. No message
 names a flag or an enhancement reference. A test pins each wording, as `TestRefusalMessageWording`
 does today.
@@ -173,17 +184,6 @@ resolves once the amendment merges.
 - **A stale annotation.** An adopt annotation is never removed by OPM. An object adopted into A
   keeps `opmodel.dev/adopt=<A>`; B can take it only by changing the annotation, which is the
   deliberate act the guard asks for.
-- **An instance whose UUID changes keeps an inventory of objects labelled with the old UUID.**
-  The UUID is SHA1 of registry path, name and namespace, and the operator's ModuleInstance does
-  not make the module path immutable. Pointing an instance at a moved module path keeps its
-  status inventory but changes its UUID. Today its objects re-apply and relabel. Under the
-  in-inventory UUID-label branch each is refused as `adopted-elsewhere` and dropped, the prune
-  skips each as `owner-mismatch`, and the next apply refuses each as `other-instance`, until
-  each object is annotated `opmodel.dev/adopt=<new UUID>` by hand. The branch is kept because
-  the owner's decision names it ("live adopt annotation or UUID label names another
-  instance"); limiting the in-inventory refusal to the annotation is the alternative, and B can
-  relabel an object only after an annotation naming B, so the label branch catches only a
-  removed annotation or a legacy double inventory. Raised with the owner.
 - **An annotation naming a nonexistent or mistyped UUID.** A refuses the object and drops it,
   every apply refuses it for as long as A renders it, and prune and uninstall skip it (the hold
   still releases). The object is left orphaned with A's label. Remedy: re-annotate it with A's

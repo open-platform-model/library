@@ -7,10 +7,11 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 - [x] 1.1 `opm/k8s/ownership/apply.go`: add `RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"`
   with a doc line (design AD1). Reorder `CanApply` as design AD2 shows: the "adopt annotation
   names this instance" check moves above the inventory check; inside the inventory, an empty
-  instance UUID applies (AD3), a non-blank annotation or another instance's live UUID label
-  refuses as `adopted-elsewhere`; outside the inventory, after `other-instance`, a non-blank
-  annotation refuses as `adopted-elsewhere` (AD4). Add the two messages of design AD6 (a helper
-  that picks the annotation's value, else the live UUID label, as the other instance). Rewrite the
+  instance UUID applies (AD3), a non-blank annotation refuses as `adopted-elsewhere` and a UUID
+  label alone never does; outside the inventory, an annotation equal to the live UUID label (the
+  completed hand-over) refuses as `adopted-elsewhere` ahead of `other-instance`, and after
+  `other-instance` a non-blank annotation refuses as `adopted-elsewhere` (AD2, AD4). Add the
+  messages of design AD6, naming the annotation's value as the other instance. Rewrite the
   `CanApply` doc's order to match, and cite `0012:D8:R8` once at the symbol.
 - [x] 1.2 `opm/k8s/ownership/apply.go`: the `ApplyInput.InInventory` doc says an inventoried object
   is judged only for another instance's adoption, and that a frontend drops an object refused as
@@ -22,8 +23,10 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   annotating it back for that instance reverses the hand-over.
 - [x] 1.4 `opm/k8s/ownership/apply_test.go`: in `TestCanApply`, replace the case "an inventoried
   object annotated for another instance still applies" with the refusing case, and add one case
-  per new scenario of the ADDED apply requirement (another instance's UUID label in the inventory,
-  the annotation naming this instance over another's UUID label with surrounding whitespace, an
+  per new scenario of the ADDED apply requirement (another instance's UUID label in the inventory
+  without an annotation applies, the adopter's label and annotation in the inventory refuse, the
+  completed hand-over outside the inventory refuses as `adopted-elsewhere`, an annotation that
+  differs from the label keeps `other-instance`, the annotation naming this instance over another's UUID label with surrounding whitespace, an
   empty instance UUID inside the inventory, the dropped object outside the inventory with this
   instance's UUID label, a terminating object annotated for another instance, an inventoried
   object of this instance with no annotation, an admitted foreign object outside the inventory
@@ -31,7 +34,7 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   the inventory). Rename
   "an inventoried object is not judged for ownership" to "an inventoried foreign object is
   applied" and keep its input. Extend `TestApplyRefusalLiterals` with `adopted-elsewhere`.
-  Extend `TestRefusalMessageWording` with both `adopted-elsewhere` messages, verbatim (other
+  Extend `TestRefusalMessageWording` with the three `adopted-elsewhere` messages, verbatim (other
   instance `u-1`), and the outside-inventory message with an empty instance UUID (OPM-managed,
   no UUID label, annotation `u-1`): no `annotate it` remedy. Add a test that the
   `ApplyInput.InInventory` doc and the package doc state the frontend's part (drop from the
@@ -62,17 +65,17 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 
 ## 3. docs: package map, layout and ADR-011
 
-- [ ] 3.1 Merge gate: this change merges only after the enhancements PR that adds 0012:D8:R8 and
+- [x] 3.1 Merge gate: this change merges only after the enhancements PR that adds 0012:D8:R8 and
   the `adopted-elsewhere` literal to `#ApplyRefusalReason` and `#SkipReason` in
   `0012/contracts/contracts.cue` has merged. Before merging, check the merged requirement number;
   if it is not `R8`, correct every `0012:D8:R8` in this change's code, docs and spec delta, then
-  run the gates again. Until then the PR body states the gate.
+  run the gates again. The PR body states the gate.
 - [x] 3.2 `AGENTS.md` § Repository Layout, the `ownership/` line: `CanDelete` also skips
   adopted-elsewhere; `CanApply` also refuses adopted-elsewhere, inside the inventory (the frontend
   drops it from its next inventory) and outside it. `README.md` lists no reasons; leave it.
 - [x] 3.3 `adr/011-kubernetes-tier-beside-the-kernel.md`: append to the Status paragraph
   "Amended 2026-10-05 by `refuse-an-object-another-instance-adopted` (0012:D8:R8): `CanApply`
-  refuses as `adopted-elsewhere` an object another instance adopted, inside the inventory too, and
+  refuses as `adopted-elsewhere` an object whose adopt annotation names another instance, inside the inventory too, and
   the frontend drops it from its next inventory; `CanDelete` leaves an object annotated for
   another instance in place." (with the number from 3.1).
 - [x] 3.4 `task api:diff` reports no incompatible change (two added constants only), and the
@@ -83,7 +86,7 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 
 ## 4. openspec: verify and archive
 
-- [ ] 4.1 `openspec verify` (the opsx:verify skill) reports no CRITICAL finding.
-- [ ] 4.2 At PR time, after the 3.1 gate: `openspec archive refuse-an-object-another-instance-adopted --yes`,
+- [x] 4.1 `openspec verify` (the opsx:verify skill) reports no CRITICAL finding.
+- [x] 4.2 At PR time, after the 3.1 gate: `openspec archive refuse-an-object-another-instance-adopted --yes`,
   then `task openspec:check` and `openspec validate --all --strict` green.
-- [ ] 4.3 Commit `chore(openspec): archive refuse-an-object-another-instance-adopted`.
+- [x] 4.3 Commit `chore(openspec): archive refuse-an-object-another-instance-adopted`.
