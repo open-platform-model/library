@@ -7,7 +7,7 @@ Show every pull request the incompatible changes it makes to the library's expor
 
 ### Requirement: Pull requests show breaking changes to the public API
 
-A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. A value change of `schema.DefaultSchemaModule`, which the release cascade makes on every core move, SHALL be listed as allowed through one fixed line prefix and SHALL NOT count either. Source: owner decision j4 (beta.1 walkthrough); supervisor decision SD17.
+A pull request that changes Go code or the module files SHALL run a check that compares the exported API of the module's non-internal packages under `opm/` at the base release tag with the API at the pull request head, and SHALL list every incompatible change the comparison reports. The base release tag SHALL be the nearest tag matching `v[0-9]*` reachable from the pull request's base commit, not the highest version tag in the repository. An incompatible change that the base commit already carries relative to that tag SHALL be listed as inherited and SHALL NOT count as a change of the pull request. A value change of `schema.DefaultSchemaModule`, which the release cascade makes on every core move, SHALL be listed as allowed through one fixed line prefix and SHALL NOT count either. Source: owner decision j4 (beta.1 walkthrough).
 
 #### Scenario: A pull request removes an exported function
 
@@ -65,7 +65,7 @@ The check SHALL derive its outcome from the base release tag alone: when the tag
 
 ### Requirement: The check runs read-only with a committed tool checksum
 
-The check's workflow SHALL declare `permissions: contents: read`, SHALL check out with `persist-credentials: false`, and SHALL pin every action by full commit SHA. The diff tool SHALL be built from a tools module in this repository whose committed `go.sum` the Go toolchain verifies before building, at one exact version, and the library's own `go.mod` SHALL NOT require the tool. The check SHALL NOT be a required status check by this change. The same check SHALL run locally through `task api:diff`, with an optional `BASE` tag override that CI ignores. Source: supervisor note on library#181; workflow-hardening.
+The check's workflow SHALL declare `permissions: contents: read`, SHALL check out with `persist-credentials: false`, and SHALL pin every action by full commit SHA. The diff tool SHALL be built from a tools module in this repository whose committed `go.sum` the Go toolchain verifies before building, at one exact version, and the library's own `go.mod` SHALL NOT require the tool. The check SHALL NOT be a required status check by this change. The same check SHALL run locally through `task api:diff`, with an optional `BASE` tag override that CI ignores. Source: library#181 (the workflow hardening pass); workflow-hardening.
 
 #### Scenario: A same-repo pull request runs the check
 
