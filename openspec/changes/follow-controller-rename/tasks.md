@@ -1,8 +1,8 @@
 ## 1. ci: build opm-controller as a consumer
 
-- [ ] 1.1 `.github/workflows/consumer-build.yml`: matrix value, step name, `if:` and checkout `repository:` name `opm-controller`; the header comment follows. Keep the literal checkout form.
-- [ ] 1.2 `.tasks/consumer-build.sh` comments name `opm-controller`. Leave `.tasks/cascade/wiring-check.sh` (the `.github` copy) untouched.
-- [ ] 1.3 `bash .tasks/consumer-build-test.sh` and `task cascade:wiring:check` pass; `task check` green, then commit `ci(consumer-build): build opm-controller in place of opm-operator`.
+- [x] 1.1 `.github/workflows/consumer-build.yml`: matrix value, step name, `if:` and checkout `repository:` name `opm-controller`; the header comment follows. Keep the literal checkout form.
+- [x] 1.2 `.tasks/consumer-build.sh` comments name `opm-controller`. Leave `.tasks/cascade/wiring-check.sh` (the `.github` copy) untouched.
+- [x] 1.3 `bash .tasks/consumer-build-test.sh` and `task cascade:wiring:check` pass; `task check` green, then commit `ci(consumer-build): build opm-controller in place of opm-operator`.
 
 ## 2. Godoc, lint messages and tests name the controller
 
