@@ -29,7 +29,7 @@ Commits:
 
 ## 1. The deletion plan and its transition (lifecycle; design LC1, LC2, LC3, LC4, LC6, LC7)
 
-- [ ] 1.1 Write `opm/k8s/lifecycle/doc.go`.
+- [x] 1.1 Write `opm/k8s/lifecycle/doc.go`.
       - The package doc covers five points:
         - the plan is built from inventory entries (the persisted inventory for an uninstall, the
           inventory package's stale set for a prune) and is ordered for deletion;
@@ -44,14 +44,14 @@ Commits:
       - After the package clause, add a non-doc comment with the maintainer pointers: ADR-008
         rules 1 to 3 and its Deletion plans consequence, ADR-011 item 6, and 0012:D4 (cited once).
       Verify: `go build ./opm/k8s/...` is clean.
-- [ ] 1.2 Write `opm/k8s/lifecycle/plan.go`.
+- [x] 1.2 Write `opm/k8s/lifecycle/plan.go`.
       - Declare `Policy`, `Step`, `DeletionPlan` (unexported fields) and `NewDeletionPlan`, plus
         the `Steps` (a copy), `Policy`, `OwnerUUID` and `Len` accessors, as in LC1.
       - `NewDeletionPlan` copies the entries and sorts them with `object.Sort(..., object.Descending)`.
         The `gvkOf` function reads the entry's group, version and kind.
       - It marks a step `ownership.SkipSafetyExcluded` where `ownership.SafetyExcluded` holds.
       Verify: `go vet ./opm/k8s/...` is clean.
-- [ ] 1.3 Write `opm/k8s/lifecycle/advance.go`.
+- [x] 1.3 Write `opm/k8s/lifecycle/advance.go`.
       - Declare `ActionKind` with its four constants, `Action`, `Event`, `Awaiting`, `Result`,
         `FailureClass`, `Outcome` and `State` (with the LC4 JSON tags), and `Advance`.
       - `Advance` follows the LC2 transition. It builds the `ownership.Object` from the step's
@@ -66,7 +66,7 @@ Commits:
       - It never appends to the input state's `Outcomes` backing array: copy before appending, so
         a caller's earlier state value stays valid.
       Verify: `go vet ./opm/k8s/...` is clean.
-- [ ] 1.4 Write the tests.
+- [x] 1.4 Write the tests.
       - `plan_test.go` covers every scenario of "The deletion plan orders inventory entries by
         kind-class delete order". The stale-set scenario calls `inventory.StaleSet` and hands the
         result to `NewDeletionPlan`.
@@ -92,7 +92,7 @@ Commits:
         or `go/build`, and a `go/parser` walk for `*ast.GoStmt`.
       Verify: `go test ./opm/k8s/lifecycle -count=1` and
       `go test -race ./opm/k8s/... -count=1` are green.
-- [ ] 1.5 Run `task check` until green, then commit
+- [x] 1.5 Run `task check` until green, then commit
       `feat(k8s): add opm/k8s/lifecycle with the deletion plan and its transition`. The body says
       four things: the plan is ordered descending by kind weight, with CRD and Namespace steps
       marked up front; every delete is Foreground with a UID precondition; the library classifies
