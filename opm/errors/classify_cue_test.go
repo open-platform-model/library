@@ -282,14 +282,15 @@ func cueForms() []cueForm {
 		{"load/500", statusLoad(500), observed{contains: []string{": 500 Internal Server Error: "}}, kindOf(oerrors.FetchOther, 500, true)},
 		{"load/503", statusLoad(503), observed{contains: []string{": 503 Service Unavailable: "}}, kindOf(oerrors.FetchOther, 503, true)},
 		// A published dependency whose module file does not parse: the
-		// module graph cannot be expanded, and no fetch form is inside.
+		// module graph cannot be expanded, and no fetch form is inside. It
+		// is ResolutionModuleFileInvalid.
 		{"load/malformed-dependency-module-file", func(t *testing.T) error {
 			reg := rawRegistry(t, func(r ociregistry.Interface) {
 				pushRaw(t, r, "test.example/dep", depVersion,
 					[]byte(depModFile+"bogus: 1\ndeps: \"test.example/next@v0\": v: \"v0.0.1\"\n"), []byte("unused"))
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/next@v0"))
-		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, classified{}},
+		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
 		// The same defect reached on the direct import path: cue/load reads
 		// the fetched dependency's own module file and prefixes the parse
 		// error with the module's coordinate. Neither "cannot fetch" nor
@@ -301,7 +302,7 @@ func cueForms() []cueForm {
 					zipOf(t, map[string]string{"cue.mod/module.cue": bad, "dep.cue": "package dep\n\ny: 1\n"}))
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
-		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, classified{}},
+		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
 		// The main module's own module file is checked before any import
 		// resolves: the text is the module file's evaluation error alone.
 		{"load/malformed-main-module-file", func(t *testing.T) error {
@@ -322,7 +323,7 @@ func cueForms() []cueForm {
 			addFile(t, src, "cue.mod/module.cue", "module: \"spike.example/main@v0\"\nlanguage: version: \"v0.17.0\"\ndeps: \"spike.example/main/dep@v0\": v: \"v0.0.1\"\n")
 			addFile(t, src, "dep/dep.cue", "package dep\n\ny: 2\n")
 			return loadMain(t, reg.Host()+"+insecure", src)
-		}, observed{contains: []string{"ambiguous import: found package spike.example/main/dep in multiple locations"}}, classified{}},
+		}, observed{contains: []string{"ambiguous import: found package spike.example/main/dep in multiple locations"}}, resolutionOf(oerrors.ResolutionImportAmbiguous)},
 		// An author defect cue/load reports is not a fetch failure.
 		{"load/syntax-error", func(t *testing.T) error {
 			src := mainModule(t, "", "test.example/unused@v0")

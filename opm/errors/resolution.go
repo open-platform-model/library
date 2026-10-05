@@ -18,13 +18,29 @@ const (
 	// lists no version of the imported module, which is an unpublished or
 	// mistyped import. None of them is transient: no retry cures it.
 	ResolutionImportUnprovided
+
+	// ResolutionImportAmbiguous is an imported package that more than one
+	// module of the build provides, such as the main module holding a
+	// directory at the path a declared dependency also provides.
+	ResolutionImportAmbiguous
+
+	// ResolutionModuleFileInvalid is a dependency whose published module
+	// file does not parse, met while the module graph is expanded or while a
+	// directly imported dependency is read. Its version is immutable, so no
+	// retry cures it: the import has to move to another version.
+	ResolutionModuleFileInvalid
 )
 
-// String returns the kind's name: "other" or "import unprovided".
+// String returns the kind's name: "other", "import unprovided", "import
+// ambiguous" or "module file invalid".
 func (k ResolutionKind) String() string {
 	switch k {
 	case ResolutionImportUnprovided:
 		return "import unprovided"
+	case ResolutionImportAmbiguous:
+		return "import ambiguous"
+	case ResolutionModuleFileInvalid:
+		return "module file invalid"
 	default:
 		return "other"
 	}

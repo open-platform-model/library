@@ -117,7 +117,23 @@ const (
 	// the build provides an imported package. textVersionNotProvided takes
 	// the exact-version form first, as a fetch failure.
 	textImportUnprovided = "cannot find module providing package "
+	// textImportAmbiguous is modpkgload's AmbiguousImportError: more than
+	// one module of the build provides an imported package.
+	textImportAmbiguous = "ambiguous import: "
+	// textModuleFileUnparsed is modcache's prefix for a fetched module file
+	// that does not parse, which graph expansion wraps.
+	textModuleFileUnparsed = "cannot parse module file"
 )
+
+// textImportedModuleFileUnparsed matches the direct import path's form of a
+// dependency module file that does not parse: cue/load prefixes the parse
+// error with the module's coordinate (cue/load modfilecache.go), and
+// cue/build wraps it as "import failed". At that site nothing else starts
+// with a coordinate, and the file-position form of an import failure
+// ("import failed: <file>:3:8: ...") has the position after the version, so
+// it never matches. The text after the coordinate is the author's module
+// file content and is never read.
+var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+@v[0-9]+\.[0-9]+\.[0-9]+[^\s:]*: `)
 
 // textStatus matches an HTTP status as the OCI client writes a registry's
 // error answer: ": 503 Service Unavailable: ". The status text must be the
@@ -140,8 +156,8 @@ var textVersionNotProvided = regexp.MustCompile(`cannot find module providing pa
 // before classifyResolutionText, so a fetch form anywhere in the text wins.
 // It does not match cue/load's "cannot expand module graph" on its own: that
 // prefix also wraps a published dependency whose module file does not parse,
-// which is a defect and not a fetch, so it classifies only through the form
-// it carries.
+// which is an author defect (ResolutionModuleFileInvalid) and not a fetch, so
+// it classifies only through the form it carries.
 func classifyText(msg string) (FetchKind, int, bool) {
 	if strings.Contains(msg, textUnreachable) {
 		return FetchUnreachable, 0, true
@@ -163,10 +179,16 @@ func classifyText(msg string) (FetchKind, int, bool) {
 }
 
 // classifyResolutionText is the author-defect half of the text fallback. It
-// runs only when classifyText found no fetch form.
+// runs only when classifyText found no fetch form. When a text carries
+// several author-defect forms, the first in this order decides.
 func classifyResolutionText(msg string) (ResolutionKind, bool) {
-	if strings.Contains(msg, textImportUnprovided) {
+	switch {
+	case strings.Contains(msg, textImportUnprovided):
 		return ResolutionImportUnprovided, true
+	case strings.Contains(msg, textImportAmbiguous):
+		return ResolutionImportAmbiguous, true
+	case strings.Contains(msg, textModuleFileUnparsed), textImportedModuleFileUnparsed.MatchString(msg):
+		return ResolutionModuleFileInvalid, true
 	}
 	return 0, false
 }

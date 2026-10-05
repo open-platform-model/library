@@ -46,8 +46,10 @@ func TestClassify_UnrecognisedIsUnchanged(t *testing.T) {
 	for _, err := range []error{
 		errors.New("main.cue:3:1: expected operand, found '}'"),
 		errors.New("a: conflicting values 1 and 2"),
-		errors.New("cannot expand module graph: test.example/dep@v0.0.2: cannot parse module file from test.example/dep@v0.0.2: bogus: field not allowed"),
 		errors.New("listening on port 401 Unauthorized"),
+		// An import failure with a file position after the version is not
+		// the direct-path module-file form.
+		errors.New(`import failed: /c/mod/extract/test.example/dep@v0.0.2/dep.cue:3:8: expected operand, found '}'`),
 		errors.New("x: 999 Bogus Status: y"),
 		errors.New("x: 404 Something Else: y"),
 	} {
@@ -73,6 +75,14 @@ func TestClassify_Resolution(t *testing.T) {
 		{"unprovided import", `main.cue:3:8: cannot find package "a.b/c": cannot find module providing package a.b/c`, oerrors.ResolutionImportUnprovided},
 		{"unprovided import at a major version", `main.cue:3:8: cannot find package "a.b/c@v1": cannot find module providing package a.b/c@v1`, oerrors.ResolutionImportUnprovided},
 		{"the cli's unprovided form", unprovided, oerrors.ResolutionImportUnprovided},
+		{"ambiguous import", "main.cue:3:8: cannot find package \"a.b/c\": ambiguous import: found package a.b/c in multiple locations:\n\ta.b@v0 (c)\n\ta.b/c@v0 v0.0.1 (.)", oerrors.ResolutionImportAmbiguous},
+		{"module file in graph expansion", "cannot expand module graph: test.example/dep@v0.0.2: cannot parse module file from test.example/dep@v0.0.2: bogus: field not allowed", oerrors.ResolutionModuleFileInvalid},
+		{"module file on the direct import path", "loading module package from /d (.): import failed: test.example/dep@v0.0.2: bogus: field not allowed", oerrors.ResolutionModuleFileInvalid},
+		{"module file at a prerelease", "import failed: test.example/dep@v1.0.0-beta.1: bogus: field not allowed", oerrors.ResolutionModuleFileInvalid},
+		// The first author-defect form in the order unprovided, ambiguous,
+		// module file decides.
+		{"several author-defect forms", "ambiguous import: x\ncannot parse module file from m@v0.0.1: y\n" + unprovided, oerrors.ResolutionImportUnprovided},
+		{"ambiguous before module file", "cannot parse module file from m@v0.0.1: y\nambiguous import: x", oerrors.ResolutionImportAmbiguous},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			assertResolution(t, errors.New(c.msg), c.kind)
@@ -90,6 +100,9 @@ func TestClassify_Resolution(t *testing.T) {
 	}{
 		{"unprovided beside unreachable", unprovided + ": cannot do HTTP request: dial tcp: connection refused", oerrors.FetchUnreachable, 0, true},
 		{"unprovided beside 503", unprovided + ": GET /v2/x: 503 Service Unavailable: busy", oerrors.FetchOther, 503, true},
+		{"graph expansion carrying unreachable", "cannot expand module graph: m@v0.0.1: cannot do HTTP request: dial tcp: connection refused", oerrors.FetchUnreachable, 0, true},
+		// The generic fetch form runs before the author-defect forms too.
+		{"module file behind cannot fetch", "cannot fetch m@v0.0.1: cannot parse module file from m@v0.0.1: bogus: field not allowed", oerrors.FetchOther, 0, false},
 		{"archive that does not unzip beside unprovided", "cannot fetch m@v0.0.1: unzip /c/m.zip: zip: not a valid zip file\n" + `main.cue:3:8: cannot find package "a.b/c": cannot find module providing package a.b/c`, oerrors.FetchOther, 0, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {

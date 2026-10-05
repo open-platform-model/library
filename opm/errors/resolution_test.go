@@ -51,4 +51,6 @@ func TestResolutionError_CUEListStaysReachable(t *testing.T) {
 func TestResolutionKind_String(t *testing.T) {
 	assert.Equal(t, "other", oerrors.ResolutionOther.String())
 	assert.Equal(t, "import unprovided", oerrors.ResolutionImportUnprovided.String())
+	assert.Equal(t, "import ambiguous", oerrors.ResolutionImportAmbiguous.String())
+	assert.Equal(t, "module file invalid", oerrors.ResolutionModuleFileInvalid.String())
 }
