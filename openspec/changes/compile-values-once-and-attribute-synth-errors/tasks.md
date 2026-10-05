@@ -60,29 +60,29 @@ Tests only. Every one passes on `origin/main` before any code moves.
 
 ## 2. Compile each values source once per call (kernel; design CV1, CV5)
 
-- [ ] 2.1 `opm/kernel/validate.go`: add `validateCompiled(schema, values, requireConcrete)`
+- [x] 2.1 `opm/kernel/validate.go`: add `validateCompiled(schema, values, requireConcrete)`
       with the no-values and missing-schema short-circuit. `validateSources` becomes
       `compileSources` plus `validateCompiled`, with its signature and the
       `validate_internal_test.go` pins unchanged. Rewrite only the lines of the
       `validateSources` doc comment that name its internal callers, which are now
       `ValidateConfigDetailed` only.
-- [ ] 2.2 `opm/kernel/acquire.go`: `mergeSources` returns `(compiled []cue.Value, merged
+- [x] 2.2 `opm/kernel/acquire.go`: `mergeSources` returns `(compiled []cue.Value, merged
       cue.Value, err error)`. `loadInstanceWithValues` returns the compiled slice as a
       fourth result, and `AcquireInstanceFromDir` holds it (nil on the no-values branch).
       `checkInstanceValues(spec, compiled)` calls `validateCompiled(configSchema, compiled,
       false)`. `attributeValuesError(cueCtx, authored, compiled)` drops its
       `compileSources` call and its `compiling values sources` error branch. Rewrite the
       doc-comment lines these signatures make false.
-- [ ] 2.3 `opm/kernel/synth.go`: take `compiled` from `mergeSources` and run the post-build
+- [x] 2.3 `opm/kernel/synth.go`: take `compiled` from `mergeSources` and run the post-build
       check as `validateCompiled(configSchema, compiled, false)`. The error framing is
       unchanged.
-- [ ] 2.4 Verify (CV5): `grep -n 'compileSources(' opm/kernel/*.go | grep -v _test` shows
+- [x] 2.4 Verify (CV5): `grep -n 'compileSources(' opm/kernel/*.go | grep -v _test` shows
       the definition plus exactly two calls, in `mergeSources` and `validateSources`.
       `grep -n 'validateSources(' opm/kernel/*.go | grep -v _test` shows only the
       definition and `ValidateConfigDetailed`. `go test ./opm/kernel -count=1` green,
       including the section 1 tests unchanged, `LayeredSourcesUnifyInOrder`,
       `ViolationAttributedToSource` and the `WithSources_ConflictAttributed` family.
-- [ ] 2.5 `task check` green, then commit
+- [x] 2.5 `task check` green, then commit
       `perf(kernel): compile each values source once per call`.
 
 ## 3. Attribute a synthesized instance's values conflict to its source (kernel; design CV2, CV3)

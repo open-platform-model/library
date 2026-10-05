@@ -123,7 +123,7 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 
 	cueCtx := cuecontext.New()
 	env := k.loadEnv()
-	merged, err := mergeSources(cueCtx, in.Values, env)
+	compiled, merged, err := mergeSources(cueCtx, in.Values, env)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
@@ -141,14 +141,14 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
 	}
 
-	// The build merged the sources into `values`; check them against the
-	// module's #config the way layered validation does, so a type or
-	// constraint violation is reported at the source's own positions. This is
-	// the same pass Kernel.AcquireInstanceFromDir runs over its extra values;
-	// concreteness of the whole instance is enforced by processInstance
-	// afterwards.
+	// The build merged the sources into `values`; check the values the merge
+	// compiled against the module's #config the way layered validation does,
+	// so a type or constraint violation is reported at the source's own
+	// positions. This is the same pass Kernel.AcquireInstanceFromDir runs over
+	// its extra values; concreteness of the whole instance is enforced by
+	// processInstance afterwards.
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	if _, vErr := validateSources(configSchema, in.Values, env, false); vErr != nil {
+	if _, vErr := validateCompiled(configSchema, compiled, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
 	}
 
