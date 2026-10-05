@@ -39,7 +39,7 @@ read once. This change only changes how it gets the compiled values.
 
 - **Compile once (b1).** `mergeSources` returns the compiled values as well as the merged
   value. The post-build check and the failure-path attribution of both verbs validate those
-  compiled values (through the existing unexported `validateValues`) instead of compiling the
+  compiled values (through a new unexported `validateCompiled`, which is `validateSources` without the compile) instead of compiling the
   sources again. Each source is compiled exactly once per call. `ValidateConfigDetailed` and
   its internal `validateSources` keep their signatures and behaviour.
 - **Synthesis attributes a values conflict that fails its build (g2).** When `synth.Instance`
@@ -47,7 +47,7 @@ read once. This change only changes how it gets the compiled values.
   without the rendered values file. This is the mirror of the authored package that
   `AcquireInstanceFromDir` rebuilds. It is built in the same call context, through the same
   `synth.Instance`. The values the merge compiled are validated against the `#config` of that
-  build, with the same pass and the same concreteness mode as `AcquireInstanceFromDir`. On a
+  build, with the same pass as `AcquireInstanceFromDir`, and on both verbs without requiring concreteness, so a missing field never replaces the real build error. On a
   values error it returns `Kernel.SynthesizeInstance: instance "<name>": <error>`, with
   positions that name each source's `Origin`. Otherwise (no values, the rebuild fails too, or
   the values are clean) it returns the build error unchanged. The schema is never read from
@@ -60,7 +60,10 @@ Not **BREAKING** for the API: every changed function is unexported. Behaviour ch
 `SynthesizeInstance` callers: a values source that violates `#config` where a component
 consumes the value now fails with the source-attributed values error, framed
 `Kernel.SynthesizeInstance: instance "<name>": …`. Before, it failed with the build error
-positioned in the synthesized package. The squash body states this.
+positioned in the synthesized package. On both verbs the failure-path attribution no longer
+requires concreteness: a layered `AcquireInstanceFromDir` build that fails while the values
+leave a required field unset used to report that missing field (with no source position) in
+place of the build error; it now returns the build error. The squash body states both.
 
 SemVer class: PATCH. Release class of the PR title: `fix`. g2 corrects the attribution users
 see, which outweighs b1's internal saving.

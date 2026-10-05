@@ -926,3 +926,20 @@ func TestKernel_AcquireInstanceFromDir_WithSources_BuildFailingViolation(t *test
 	assert.True(t, strings.HasPrefix(err.Error(), `Kernel.AcquireInstanceFromDir: instance "myrel": `), "framing: %v", err)
 	assert.True(t, positionsName(err, "/values/bad.cue"), "no position names the source: %v", err)
 }
+
+// instance-synthesis spec, "Failure-path attribution does not require
+// concreteness on either path": the layered build fails for a reason the
+// values do not explain while they leave a required field unset, so the build
+// error comes back rather than a missing-field message.
+func TestKernel_AcquireInstanceFromDir_WithSources_IncompleteValuesKeepBuildError(t *testing.T) {
+	k, _, modPath := publishSynthModuleAt(t, "demo", "0.1.0", incompleteStackBody)
+	dir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, "0.1.0",
+		"myrel", "default", "{}", nil)
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir,
+		mustSource(t, k, "/values/clean.cue", `replicas: 2`))
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.NotContains(t, err.Error(), `instance "myrel": `)
+	assert.NotContains(t, err.Error(), "incomplete value")
+}

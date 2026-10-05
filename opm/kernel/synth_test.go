@@ -437,6 +437,13 @@ func TestKernel_SynthesizeInstance_BuildFailingViolation(t *testing.T) {
 const failingComponentBody = "#ctx: _\n#config: {replicas: int | *1}\ndebugValues: {}\n" +
 	"#components: foo: {metadata: name: \"foo\", _n: #ctx.instance.namespace & \"elsewhere\"}\n"
 
+// incompleteStackBody is a module with a required #config field and a
+// component that fails the build for any replicas value of 5 or less, so
+// values `replicas: 2` are clean but incomplete and the build fails for a
+// reason the values do not explain.
+const incompleteStackBody = "#config: {image: string, replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & >5}\n"
+
 // kernel-runtime spec, "A build failure with clean values is returned
 // unchanged": a build that fails for a reason other than the values keeps
 // its own error, not the instance-framed values error.
@@ -447,6 +454,10 @@ func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) 
 		// values succeeds; the clean values then explain nothing.
 		"the values-free build succeeds": "#config: {replicas: int | *1}\ndebugValues: {}\n" +
 			"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & >5}\n",
+		// The values leave a required field unset. The attribution does not
+		// require concreteness, so the missing field does not replace the
+		// real build error.
+		"the values are clean but incomplete": incompleteStackBody,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -461,6 +472,7 @@ func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) 
 			require.Error(t, err)
 			assert.Nil(t, inst)
 			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.Contains(t, err.Error(), "instance synthesis: building instance package")
 			assert.NotContains(t, err.Error(), `instance "myrel": `)
 		})
 	}
@@ -482,6 +494,7 @@ func TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, inst)
 			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.Contains(t, err.Error(), "instance synthesis: building instance package")
 			assert.NotContains(t, err.Error(), `instance "myrel": `)
 		})
 	}

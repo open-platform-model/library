@@ -90,7 +90,7 @@ Tests only. Every one passes on `origin/main` before any code moves.
 - [x] 3.1 `opm/kernel/acquire.go`: extract `valuesConflict(authored cue.Value, compiled
       []cue.Value) error` from `attributeValuesError`. It reads `#module.#config` off
       `authored`, prepends `authored`'s own `values` when it exists, and calls
-      `validateCompiled(configSchema, all, true)`. It returns the raw CUE error or nil.
+      `validateCompiled(configSchema, all, false)` (see 3.7). It returns the raw CUE error or nil.
       `attributeValuesError` keeps its framing and calls it.
 - [x] 3.2 `opm/kernel/synth.go`: when `synth.Instance` fails and `merged.Exists()`, call
       `synth.Instance` again in the same `cueCtx` with the same input and `Values` zero. If
@@ -123,6 +123,15 @@ Tests only. Every one passes on `origin/main` before any code moves.
       (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> .`). Then `task check` green
       (it includes the consumer-build script tests and the cascade wiring check), and commit
       `fix(kernel): attribute a synthesized instance's values conflict to its source`.
+
+- [x] 3.7 Review follow-up: the failure-path attribution validates without concreteness on
+      both verbs (design CV3). Add a third subtest to
+      `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged` (a module with a
+      required `image: string` and a component requiring `#config.replicas & >5`, values
+      `replicas: 2`) and the acquire twin
+      `TestKernel_AcquireInstanceFromDir_WithSources_IncompleteValuesKeepBuildError`; both
+      return the build error. The "unchanged" tests also assert the build error text. Verify:
+      both new tests fail with `requireConcrete` true and pass with false.
 
 ## 4. Verify
 

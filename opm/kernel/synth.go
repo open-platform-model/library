@@ -81,7 +81,8 @@ type InstanceInput struct {
 // to the sources the way [Kernel.AcquireInstanceFromDir] attributes it: the
 // package is built again in the call's context without the rendered values
 // file, and the values already compiled are checked against that build's
-// #config with concreteness enforced. A values error is returned framed
+// #config without requiring concreteness (concreteness is enforced on a
+// build that succeeds). A values error is returned framed
 // `instance "<name>": …` at the sources' own positions; in every other case
 // (no values, the values-free build fails too, or the values are clean) the
 // build error is returned unchanged.

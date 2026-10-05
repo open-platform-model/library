@@ -142,18 +142,23 @@ extra build, and only on a failure path that already ended in an error. The plan
 reading (ConfigSchema from the Module) is departed from on purpose; plan review confirmed
 this.
 
-### CV3. Same concreteness mode as the acquire path
+### CV3. Failure-path attribution does not require concreteness, on both verbs
 
-**Context**: `attributeValuesError` validates with `requireConcrete` true. A build that fails
-for a reason unrelated to values, while the values are also incomplete, is then reported as
-the missing values rather than the build error.
-**Explored**: `requireConcrete` false for synthesis only. That would make the two paths
-differ, against g2's "mirrors" and the instance-synthesis requirement that values
-attribution is identical.
-**Decision**: one helper, one mode (true) for both verbs, as today on the acquire path. The
-masking case is recorded as an open point for the supervisor, not changed here.
-**Rationale**: the owner decided "mirror". Changing the acquire path's mode is a behaviour
-change no decision covers.
+**Context**: `attributeValuesError` validated with `requireConcrete` true. A build that fails
+for a reason unrelated to values, while the values are also incomplete, was then reported as
+the missing values (an `incomplete value` message with no source position) rather than the
+build error. Code review reproduced this on the synthesis path too once it mirrored the
+acquire path.
+**Explored**: `requireConcrete` false for synthesis only (the two paths would differ, against
+"mirrors"); keeping true but returning the attribution only when a position names a source
+(more code for the same effect).
+**Decision**: one helper, `requireConcrete` false, for both verbs. The supervisor settled this
+during review of this change. The success path already validates the sources without
+concreteness and `processInstance` enforces concreteness on the built spec, so nothing that
+was refused before is now accepted; only the error a failed build reports changes.
+**Rationale**: on a failed build the real build error must not be replaced by a missing-field
+message with no position. A values conflict (type, constraint, disallowed key) is still found
+without concreteness.
 
 ### CV4. Tests: a component that consumes the value
 
@@ -219,11 +224,11 @@ says so), so a test seam would cost more than it proves.
 - [Error text drift] → success-path and non-values failure text is unchanged. Only a values
   conflict that fails the synth build changes, which is the point of g2. The squash body says
   so for the operator's op-i3g2 comparison.
-- [CV3 masking] → open point, unchanged from today's acquire behaviour.
+- [Acquire-path error text] → a layered acquire whose build fails while the values are
+  incomplete now returns the build error instead of the missing-field error. The squash body
+  says so.
 
 ## Open Points
 
 - CV2 departs from the plan entry's `in.Module.ConfigSchema()` reading, for the context and
   Package-read reasons above. Review should confirm.
-- CV3: both attribution paths require concreteness, so incomplete values can mask an
-  unrelated build error. Raise this with the owner only if a frontend reports it.

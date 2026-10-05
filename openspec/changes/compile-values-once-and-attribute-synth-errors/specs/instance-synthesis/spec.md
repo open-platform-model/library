@@ -14,3 +14,8 @@ The kernel SHALL evaluate a synthesized instance package (in-memory overlay insi
 
 - **WHEN** the same violating values source (a value that breaks `#config` at a path a component consumes) is supplied once to `SynthesizeInstance` for a module and once to `AcquireInstanceFromDir` for an instance package of that module
 - **THEN** both calls fail with a values error framed `instance "<name>": …` whose positions name the source's `Origin`, and neither returns an instance
+
+#### Scenario: Failure-path attribution does not require concreteness on either path
+
+- **WHEN** a build fails for a reason the values do not explain, while the values leave a required `#config` field unset, through either `SynthesizeInstance` or `AcquireInstanceFromDir`
+- **THEN** the call returns its build error, not a missing-field error framed `instance "<name>": …`

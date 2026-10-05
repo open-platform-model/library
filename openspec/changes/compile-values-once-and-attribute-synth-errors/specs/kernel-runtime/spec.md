@@ -4,7 +4,7 @@
 
 The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in InstanceInput) (*module.Instance, error)`, where `InstanceInput` is declared in `opm/kernel` and carries `Module *module.Module` (required, source-carrying), `Name string` (required), `Namespace string` (required), `Values []Source` (optional; empty means "no values supplied"), `Labels map[string]string` and `Annotations map[string]string` (optional). It SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. The synthesized package imports `core` at the major of the kernel's schema release (read from the loader's pin with no schema load when it names an exact release, resolved through the schema cache otherwise); the release that import resolves to comes from the module's own `cue.mod/module.cue`. The build SHALL run in a context the method creates and releases; the method SHALL NOT consult any additional values source.
 
-When the build fails and the call's merged values exist, the method SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: it SHALL build the synthesized package again in the same context without the rendered values file, take `#config` from that build (never from the module's `Package`), and validate the values it already compiled against it with concreteness enforced. A values error SHALL be returned framed `Kernel.SynthesizeInstance: instance "<name>": …`, with positions that name each violating source's `Origin`. In every other case (no values, the values-free build also fails, or the values are clean) the method SHALL return the original build error unchanged.
+When the build fails and the call's merged values exist, the method SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: it SHALL build the synthesized package again in the same context without the rendered values file, take `#config` from that build (never from the module's `Package`), and validate the values it already compiled against it without concreteness (a field the values leave unset is not a conflict; concreteness is enforced on a build that succeeds). A values error SHALL be returned framed `Kernel.SynthesizeInstance: instance "<name>": …`, with positions that name each violating source's `Origin`. In every other case (no values, the values-free build also fails, or the values are clean) the method SHALL return the original build error unchanged.
 
 A missing required input SHALL fail with an error wrapping the corresponding `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`); a module without staged source SHALL fail wrapping `ErrMissingSource`; a module whose `Source.Pkg` is non-empty SHALL fail with an error stating that a synthesizable module is its module's root package.
 
@@ -36,6 +36,11 @@ A missing required input SHALL fail with an error wrapping the corresponding `op
 
 - **WHEN** `k.SynthesizeInstance(ctx, in)` is called with values that satisfy the module's `#config` against a module whose own component fails to evaluate
 - **THEN** the returned error is the build error framed `Kernel.SynthesizeInstance: …`, not framed `instance "<name>": …`, and no instance is returned
+
+#### Scenario: Incomplete values do not mask a build failure
+
+- **WHEN** `k.SynthesizeInstance(ctx, in)` is called with values `replicas: 2` against a module whose `#config` also has a required `image: string` and whose component requires `#config.replicas & >5`, so the build fails
+- **THEN** the returned error is the build error framed `Kernel.SynthesizeInstance: …`, not a missing-field error framed `instance "<name>": …`, and no instance is returned
 
 #### Scenario: SynthesizeInstance surfaces synth errors before validation
 

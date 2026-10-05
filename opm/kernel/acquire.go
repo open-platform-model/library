@@ -431,11 +431,12 @@ func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sou
 // The sources' values (compiled once by [mergeSources], in the context the
 // spec was built in; nil when the call passed none) are checked first, on
 // their own, so their errors name each source's Origin rather than the
-// rendered overlay file the build merged them through. The built `values` is checked second: with the sources
-// already clean, any disallowed key left in it comes from the package's own
-// files, whose positions the built value keeps. Concreteness is not asserted
-// (requireConcrete false): valid but incomplete values pass here and are
-// held to concreteness by the instance processing step afterwards.
+// rendered overlay file the build merged them through. The built `values` is
+// checked second: with the sources already clean, any disallowed key left in
+// it comes from the package's own files, whose positions the built value
+// keeps. Concreteness is not asserted (requireConcrete false): valid but
+// incomplete values pass here and are held to concreteness by the instance
+// processing step afterwards.
 func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
 	if _, err := validateCompiled(configSchema, compiled, false); err != nil {
@@ -456,8 +457,8 @@ func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
 // authored Source (the overlay already read for the layered build, without
 // the rendered values file), unifies the package's own values with the
 // sources' values (compiled once by [mergeSources], in that same context)
-// and validates the result against the module's #config exactly as
-// [Kernel.ValidateConfigDetailed] does, so a conflict is reported at
+// and validates the result against the module's #config without requiring
+// concreteness (see [valuesConflict]), so a conflict is reported at
 // positions attributable to the source (its Origin) rather than at the
 // rendered overlay file. It returns nil when the failure is not a values
 // problem (the caller then reports the build error itself).
@@ -478,8 +479,11 @@ func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.S
 // package on the synthesis path), and compiled the call's values, compiled
 // once in the context authored was built in. It unifies authored's own
 // values with compiled and validates the result against authored's #config
-// with concreteness enforced. It returns the raw CUE error, or nil when the
-// values are clean or there is nothing to check.
+// without requiring concreteness: a field the values leave unset is not a
+// conflict, and a missing-field message with no source position must never
+// replace the real build error. Concreteness is enforced by the instance
+// processing step on a build that succeeds. It returns the raw CUE error, or
+// nil when the values are clean or there is nothing to check.
 func valuesConflict(authored cue.Value, compiled []cue.Value) error {
 	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
 	all := make([]cue.Value, 0, len(compiled)+1)
@@ -487,7 +491,7 @@ func valuesConflict(authored cue.Value, compiled []cue.Value) error {
 		all = append(all, own)
 	}
 	all = append(all, compiled...)
-	_, err := validateCompiled(configSchema, all, true)
+	_, err := validateCompiled(configSchema, all, false)
 	return err
 }
 
