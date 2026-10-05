@@ -61,6 +61,11 @@ jobs:
           yq --version | grep -q mikefarah || { echo "mikefarah yq v4 is required" >&2; exit 1; }
           task -x deps:cascade:test
 
+      # Offline: .tasks/consumer-build.sh (run by consumer-build.yml) against
+      # synthetic git repos, including the pipefail and the two tree-check mutants.
+      - name: Consumer build script tests (offline)
+        run: task consumer-build:test
+
       # Offline tests of the API diff script (.tasks/api-diff-test.sh):
       # fixture diffs, no network, no Go build.
       - name: API diff script tests

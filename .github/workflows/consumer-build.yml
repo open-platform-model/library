@@ -1,0 +1,83 @@
+name: Consumer build
+
+# Owner decision j4 (kernel plan walkthrough, 2026-10-03): build and vet the
+# library's consumers, cli and opm-operator, at their main against this PR,
+# through a go.work in a throwaway directory, never a replace in a tracked
+# go.mod. Not a required check: a red run warns, it never blocks a merge. The
+# paths filter is safe only because of that (a required check a filter skips
+# stalls the PR).
+on:
+  pull_request:
+    paths:
+      - "opm/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/consumer-build.yml"
+      - ".tasks/consumer-build.sh"
+
+# Read-only: the consumers are public and cloned with this token; no step
+# pushes, publishes or calls the GitHub API.
+permissions:
+  contents: read
+
+# Workflow level, so a new push cancels the whole old run; a job-level group
+# without the matrix value would make the two consumer legs cancel each other.
+concurrency:
+  group: consumer-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Consumer build (${{ matrix.consumer }})
+    # Same-repo PRs only; never pull_request_target.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        consumer: [cli, opm-operator]
+    steps:
+      # The checkout default for pull_request: the PR's merge commit, as in
+      # test.yml.
+      - name: Clone the library
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: library
+          persist-credentials: false
+
+      # One literal checkout per consumer: the cascade wiring check refuses a
+      # repository input that is an expression (it could name .github).
+      - name: Clone cli at main
+        if: matrix.consumer == 'cli'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-platform-model/cli
+          ref: main
+          path: consumer
+          persist-credentials: false
+
+      - name: Clone opm-operator at main
+        if: matrix.consumer == 'opm-operator'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-platform-model/opm-operator
+          ref: main
+          path: consumer
+          persist-credentials: false
+
+      # The Go the consumer's go.mod names; GOTOOLCHAIN=local below keeps it.
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: consumer/go.mod
+          # Off: a pull_request-only workflow never writes a main-scoped
+          # entry, so every PR would save cold entries against the repo's
+          # cache quota and could evict test.yml's main-scoped Go cache.
+          cache: false
+
+      - name: Build and vet ${{ matrix.consumer }} against this library
+        env:
+          GOTOOLCHAIN: local
+          CONSUMER_NAME: ${{ matrix.consumer }}
+        run: bash library/.tasks/consumer-build.sh consumer library "$RUNNER_TEMP/consumer-build"

@@ -200,6 +200,11 @@ tasks:
     cmds:
       - bash .tasks/opm-docs.sh pin-check
 
+  consumer-build:test:
+    desc: Test .tasks/consumer-build.sh offline against synthetic git repos (pass, renamed symbol, stray file, non-git, and its two mutants)
+    cmds:
+      - bash .tasks/consumer-build-test.sh
+
   cascade:wiring:check:
     desc: Check the release-cascade caller workflows offline (.github README, "The wiring check"; CI adds --pin-on-main)
     cmds:
@@ -215,7 +220,7 @@ tasks:
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check and the api:diff tests
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the api:diff tests and the consumer-build script tests
     cmds:
       - task: fmt
       - task: vet
@@ -223,6 +228,7 @@ tasks:
       - task: test
       - task: docs:bundle:check
       - task: cascade:wiring:check
+      - task: consumer-build:test
       - task: api:diff:test
 
   check:fast:
