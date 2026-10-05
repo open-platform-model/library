@@ -48,7 +48,7 @@ Each Kernel owns one schema cache for its lifetime; the godoc of [`kernel.New`](
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-beta.3",
+    Module: "opmodel.dev/core@v2.0.0-beta.4",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
