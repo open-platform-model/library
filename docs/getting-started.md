@@ -48,7 +48,7 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCach
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-beta.2",
+    Module: "opmodel.dev/core@v2.0.0-beta.3",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):

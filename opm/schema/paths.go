@@ -6,7 +6,7 @@ import "cuelang.org/go/cue"
 // decoding, instance processing, the loaders' identity reads, the
 // instance's components and #config accessors, the platform's on-demand
 // contract inventory, the render's core floor and the catalog's on-demand
-// provider-set derivation. This is the whole inventory. Matching and
+// provider set. This is the whole inventory. Matching and
 // execution read nothing by path from Go: the render build imports the
 // instance and the platform as packages and the generated glue reads
 // `components`, `#composedTransformers` and `#contracts` in CUE
@@ -63,12 +63,18 @@ var (
 	// read RELATIVE to a transformer and to one of its demand entries, not
 	// from an artifact root: the provider-fulfilled set a catalog implements
 	// is the fold of every contract those two demand maps require whose
-	// value carries fulfilment "provider". Their one reader is
-	// (*catalog.Catalog).Provides, on demand.
+	// value carries fulfilment "provider". Their one reader is the
+	// deprecated fallback inside (*catalog.Catalog).Provides, on demand,
+	// for a catalog built against a core older than [ProvidesSince].
 	Transformers      = cue.MakePath(cue.Def("transformers"))
 	RequiredResources = cue.ParsePath("requiredResources")
 	RequiredTraits    = cue.ParsePath("requiredTraits")
 	Fulfilment        = cue.ParsePath("fulfilment")
+
+	// CatalogProvides is #Catalog.provides: the provider-fulfilled
+	// contracts the catalog implements, sorted and deduplicated, derived by
+	// core since [ProvidesSince]. (*catalog.Catalog).Provides decodes it.
+	CatalogProvides = cue.ParsePath("provides")
 
 	// Module-internal field. DebugValues is a Module field — NOT a separate
 	// kernel artifact. Frontends that want a debug overlay read it through
@@ -92,3 +98,10 @@ const ProvidedBySince = "2.0.0-alpha.12"
 // between [ProvidedBySince] and this release decodes an absent report as no
 // collision.
 const CollisionsSince = "2.0.0-alpha.13"
+
+// ProvidesSince is the first core release deriving #Catalog.provides
+// ([CatalogProvides]), without the "v" prefix. It decides which path
+// (*catalog.Catalog).Provides takes for a catalog whose committed core pin
+// is known, and tests use it. It is never a floor: a catalog built against
+// an older core is answered through the deprecated fold, not refused.
+const ProvidesSince = "2.0.0-beta.3"
