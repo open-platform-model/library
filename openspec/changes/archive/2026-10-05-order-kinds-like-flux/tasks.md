@@ -53,7 +53,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 2. adr, docs: record the new order
 
-- [x] 2.1 `adr/011-kubernetes-tier-beside-the-kernel.md`: item 1 no longer says the table is
+- [x] 2.1 `adr/011-kubernetes-tier-beside-the-kernel.md`: item 7 no longer says the table is
   ported unchanged from the cli; it says the table was ported from the cli's
   `pkg/resourceorder` and then aligned with Flux's staged apply order wherever Flux orders two
   kinds, with every kind Flux leaves to its alphabetical tie-break at one weight, so the

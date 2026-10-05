@@ -61,7 +61,7 @@ so Flux only ever refines the library order.
 - **Delete order is the reverse and follows.** `Sort(…, Descending)` and `lifecycle.NewDeletionPlan`
   now delete webhook configurations first and the class kinds just before ClusterRoles, Namespaces
   and CustomResourceDefinitions.
-- **Records.** ADR-011 item 1 and its Status record that the table no longer matches the cli's
+- **Records.** ADR-011 item 7 and its Status record that the table no longer matches the cli's
   ported values and why. The `opm/k8s/object` docs and the `AGENTS.md` layout line say the table
   agrees with Flux's staged apply. The kubernetes-tier spec replaces the "differences are recorded"
   requirement with "the table never contradicts Flux's staged apply order", and its "Apply stages
