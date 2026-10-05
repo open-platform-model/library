@@ -46,10 +46,22 @@ jobs:
           path: library
           persist-credentials: false
 
-      - name: Clone ${{ matrix.consumer }} at main
+      # One literal checkout per consumer: the cascade wiring check refuses a
+      # repository input that is an expression (it could name .github).
+      - name: Clone cli at main
+        if: matrix.consumer == 'cli'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: open-platform-model/${{ matrix.consumer }}
+          repository: open-platform-model/cli
+          ref: main
+          path: consumer
+          persist-credentials: false
+
+      - name: Clone opm-operator at main
+        if: matrix.consumer == 'opm-operator'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-platform-model/opm-operator
           ref: main
           path: consumer
           persist-credentials: false
