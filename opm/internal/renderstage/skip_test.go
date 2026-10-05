@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/module"
@@ -66,7 +67,7 @@ func buildScenario(t *testing.T, scenario, platformDir string, skip bool) (cue.V
 	staged, err := Stage(inst, plat, "rt", StageOptions{SkipUnprovided: skip})
 	require.NoError(t, err)
 
-	built, err := Build(cuecontext.New(), staged, nil)
+	built, err := Build(cuecontext.New(), staged, loader.Options{})
 	require.NoError(t, err)
 
 	dv := built.LookupPath(cue.ParsePath("diagnostics"))

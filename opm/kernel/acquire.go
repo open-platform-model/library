@@ -28,13 +28,31 @@ import (
 // on-disk file of the same path).
 const valuesFileName = "opm-values.cue"
 
-// loadEnv is the environment slice every kernel load consults: the kernel's
+// loadEnv is the environment slice a kernel load consults when the Kernel
+// has no registry client (a Kernel not built by [New]): the kernel's
 // [WithRegistry] mapping applied through load.Config.Env by
 // [cueenv.Override], which owns the rule that the process environment is
 // never written. Nil when no mapping was configured, so the load reads the
 // process environment unchanged.
 func (k *Kernel) loadEnv() []string {
 	return cueenv.Override(k.registry, "")
+}
+
+// loadOptions starts one kernel operation and returns the load settings
+// every load and fetch of that operation passes on. On a Kernel built by
+// [New] they carry one operation of the Kernel's shared registry client: the
+// client itself (resolver and transport, built on first use) under a module
+// cache of this operation's own, and the environment slice that operation
+// read. On any other Kernel (the zero value) they carry only the
+// environment and leave Registry unset, so cue/load builds its own registry
+// for each load as before; a nil pointer never reaches the interface field.
+// Each verb calls it once.
+func (k *Kernel) loadOptions() loader.Options {
+	if k.registryClient == nil {
+		return loader.Options{Env: k.loadEnv()}
+	}
+	op := k.registryClient.Operation()
+	return loader.Options{Env: op.Env(), Registry: op}
 }
 
 // AcquireModuleFromRegistry loads a #Module published in an OCI registry by
@@ -51,7 +69,7 @@ func (k *Kernel) loadEnv() []string {
 // value reads Module.Package, which keeps the call's runtime alive for as
 // long as the caller holds the module.
 func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version string) (*module.Module, error) {
-	val, src, err := loader.FetchModule(ctx, cuecontext.New(), modPath, version, k.loadEnv())
+	val, src, err := loader.FetchModule(ctx, cuecontext.New(), modPath, version, k.loadOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +173,7 @@ func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirP
 	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
-	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, spec)
+	val, err := loader.LoadDir(cueCtx, src, k.loadOptions(), spec)
 	if err != nil {
 		return cue.Value{}, nil, err
 	}
@@ -197,7 +215,7 @@ func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirP
 // caller's.
 func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, version string) (*catalog.Catalog, error) {
 	// The catalog kind and the fetch routine it shares with modules are ADR-009.
-	val, src, err := loader.FetchArtifact(ctx, cuecontext.New(), modPath, version, k.loadEnv(), loader.CatalogSpec)
+	val, src, err := loader.FetchArtifact(ctx, cuecontext.New(), modPath, version, k.loadOptions(), loader.CatalogSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -374,13 +392,13 @@ func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, val
 // both values paths run: the extra sources of [Kernel.AcquireInstanceFromDir]
 // and InstanceInput.Values on [Kernel.SynthesizeInstance], each in the
 // context of the build the merged value is rendered into, and each
-// file-backed source through env, the kernel's registry mapping
-// ([Kernel.loadEnv]). The compiled values live in that same context, so the
+// file-backed source through opts, the operation's load settings
+// ([Kernel.loadOptions]). The compiled values live in that same context, so the
 // checks after the build validate them as they are, with no second compile.
 // An empty stack, or one whose sources carry no values, merges to the zero
 // value with no error — the "no values supplied" path.
-func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (compiled []cue.Value, merged cue.Value, err error) {
-	compiled, err = compileSources(cueCtx, sources, env)
+func mergeSources(cueCtx *cue.Context, sources []Source, opts loader.Options) (compiled []cue.Value, merged cue.Value, err error) {
+	compiled, err = compileSources(cueCtx, sources, opts)
 	if err != nil {
 		return nil, cue.Value{}, fmt.Errorf("compiling values sources: %w", err)
 	}
@@ -412,7 +430,8 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, cueCtx *cue.Context
 		return cue.Value{}, nil, nil, err
 	}
 
-	compiled, merged, err := mergeSources(cueCtx, sources, k.loadEnv())
+	opts := k.loadOptions()
+	compiled, merged, err := mergeSources(cueCtx, sources, opts)
 	if err != nil {
 		return cue.Value{}, nil, nil, fmt.Errorf("%s: %w", verb, err)
 	}
@@ -438,9 +457,9 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, cueCtx *cue.Context
 	}
 	src := &module.Source{Root: authored.Root, Pkg: authored.Pkg, Overlay: overlay}
 
-	spec, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
+	spec, err := loader.LoadDir(cueCtx, src, opts, loader.InstanceSpec)
 	if err != nil {
-		if vErr := k.attributeValuesError(cueCtx, authored, compiled); vErr != nil {
+		if vErr := attributeValuesError(cueCtx, opts, authored, compiled); vErr != nil {
 			return cue.Value{}, nil, nil, vErr
 		}
 		return cue.Value{}, nil, nil, err
@@ -490,9 +509,10 @@ func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
 // concreteness (see [valuesConflict]), so a conflict is reported at
 // positions attributable to the source (its Origin) rather than at the
 // rendered overlay file. It returns nil when the failure is not a values
-// problem (the caller then reports the build error itself).
-func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.Source, compiled []cue.Value) error {
-	authored, err := loader.LoadDir(cueCtx, authoredSrc, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
+// problem (the caller then reports the build error itself). opts are the
+// load settings of the operation whose build failed.
+func attributeValuesError(cueCtx *cue.Context, opts loader.Options, authoredSrc *module.Source, compiled []cue.Value) error {
+	authored, err := loader.LoadDir(cueCtx, authoredSrc, opts, loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}

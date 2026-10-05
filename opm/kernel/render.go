@@ -9,7 +9,6 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
@@ -399,7 +398,7 @@ func (k *Kernel) render(ctx context.Context, in RenderInput) (cue.Value, *Render
 	}
 
 	// One build, one context, dropped with the render (0019:D8).
-	built, err := renderstage.Build(cuecontext.New(), staged, cueenv.Override(k.registry, ""))
+	built, err := renderstage.Build(cuecontext.New(), staged, k.loadOptions())
 	if err != nil {
 		return none, nil, fmt.Errorf("building render module: %w", err)
 	}

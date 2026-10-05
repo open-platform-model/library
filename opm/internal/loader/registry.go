@@ -25,11 +25,11 @@ import (
 // only the shape refusal, and a kernel that refuses on something no
 // requirement describes is worse than an unchecked coordinate. Generalizing
 // the check is its own change.
-func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string) (cue.Value, *opmmodule.Source, error) {
+func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts Options) (cue.Value, *opmmodule.Source, error) {
 	// FetchArtifact canonicalises the version itself and keeps the caller's
 	// spelling in its parse error; the identity check names the canonical
 	// coordinate, the tag that was fetched.
-	val, src, err := FetchArtifact(ctx, cueCtx, modPath, version, env, ModuleSpec)
+	val, src, err := FetchArtifact(ctx, cueCtx, modPath, version, opts, ModuleSpec)
 	if err != nil {
 		return cue.Value{}, nil, err
 	}
@@ -78,11 +78,19 @@ func FetchModule(ctx context.Context, cueCtx *cue.Context, modPath, version stri
 // and the kernel holds no second fetch path (ADR-009). spec is the only thing
 // that differs between them.
 //
-// env is the environment slice the fetch resolver and the load both consult —
-// the kernel's CUE_REGISTRY mapping via [cueenv.Override], nil to read the
-// process environment unchanged. The process environment is never mutated.
-// Parse failures on caller input are wrapped rather than panicked.
-func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version string, env []string, spec ArtifactSpec) (cue.Value, *opmmodule.Source, error) {
+// opts carries the load settings ([Options]). With opts.Registry set, the
+// fetch and the build after it both resolve through it; the kernel passes
+// one operation's registry, so the Kernel's shared client is used and the
+// fetch is cached for that operation only. A registry that has an
+// Init() error method (a [cueenv.Operation]) is set up before the fetch, and
+// its error is reported as a construction failure. With no registry, a
+// client is built for the call from opts.Env (the kernel's CUE_REGISTRY
+// mapping via [cueenv.Override], nil to read the process environment
+// unchanged). Either way a construction failure reads
+// `building module registry resolver: <cause>` and is not classified. The
+// process environment is never mutated. Parse failures on caller input are
+// wrapped rather than panicked.
+func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version string, opts Options, spec ArtifactSpec) (cue.Value, *opmmodule.Source, error) {
 	// The parse error names the version as the caller wrote it; everything
 	// after it uses the canonical form, which is the tag fetched.
 	canonical := modversion.Canonical(version)
@@ -91,9 +99,17 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 		return cue.Value{}, nil, fmt.Errorf("parsing artifact version %s@%s: %w", modPath, version, err)
 	}
 
-	reg, err := modconfig.NewRegistry(&modconfig.Config{Env: env})
-	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("building module registry resolver: %w", err)
+	reg := opts.Registry
+	if reg == nil {
+		built, err := modconfig.NewRegistry(&modconfig.Config{Env: opts.Env})
+		if err != nil {
+			return cue.Value{}, nil, fmt.Errorf("building module registry resolver: %w", err)
+		}
+		reg = built
+	} else if setup, ok := reg.(interface{ Init() error }); ok {
+		if err := setup.Init(); err != nil {
+			return cue.Value{}, nil, fmt.Errorf("building module registry resolver: %w", err)
+		}
 	}
 
 	// Fetch downloads if necessary and returns the extracted artifact's source
@@ -131,7 +147,7 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	// FS-pinning; registry_internal_test.go pins the negative result. The
 	// add-registry-module-loader change records the measurement.
 	src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}
-	val, err := LoadDir(cueCtx, src, Options{Env: env}, spec)
+	val, err := LoadDir(cueCtx, src, opts, spec)
 	if err != nil {
 		return cue.Value{}, nil, err
 	}

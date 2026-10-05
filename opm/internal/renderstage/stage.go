@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue/load"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -182,22 +183,27 @@ func Stage(instance, platform *module.Source, runtimeName string, opts StageOpti
 }
 
 // Build evaluates the staged render module exactly once in cueCtx and returns
-// the built value. env is the environment slice cue/load consults (nil for
-// the process environment). Staged.Overlay (the generated module and the
+// the built value. opts carries the load settings: Env, the environment
+// slice cue/load consults (nil for the process environment), and Registry,
+// the registry the build resolves its dependencies through (nil lets
+// cue/load build one from Env). Staged.Overlay (the generated module and the
 // overlay-mode inputs) is handed to cue/load as load.Config.Overlay, so the
 // main module and those replacement directories are served from memory and
 // nothing under Staged.Dir needs to exist on disk. A load failure (an import that does not resolve,
 // a malformed module file) is returned as an error; an evaluation error on
 // the built value is NOT, because the fail-closed gate is one such error and
 // the kernel reads `diagnostics` beside it.
-func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error) {
+func Build(cueCtx *cue.Context, staged *Staged, opts loader.Options) (cue.Value, error) {
 	if cueCtx == nil || staged == nil {
 		return cue.Value{}, errors.New("build needs a context and a staged module")
 	}
 	cfg := &load.Config{
 		Dir:        staged.Dir,
 		ModuleRoot: staged.Dir,
-		Env:        env,
+		Env:        opts.Env,
+	}
+	if opts.Registry != nil {
+		cfg.Registry = opts.Registry
 	}
 	if len(staged.Overlay) > 0 {
 		cfg.Overlay = make(map[string]load.Source, len(staged.Overlay))

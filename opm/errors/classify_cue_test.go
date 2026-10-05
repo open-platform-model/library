@@ -144,7 +144,7 @@ func mainModule(t *testing.T, version, importPath string) *opmmodule.Source {
 
 func fetchDep(ctx context.Context, t *testing.T, registry, version string) error {
 	t.Helper()
-	_, _, err := loader.FetchArtifact(ctx, cuecontext.New(), depPath, version, env(t, registry), loader.ModuleSpec)
+	_, _, err := loader.FetchArtifact(ctx, cuecontext.New(), depPath, version, loader.Options{Env: env(t, registry)}, loader.ModuleSpec)
 	return err
 }
 

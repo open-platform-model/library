@@ -46,7 +46,7 @@ report it. Do not implement a fallback that keeps a temporary directory.
 
 ## 3. cueenv, loader, synth, kernel: one registry client per Kernel
 
-- [ ] 3.1 `opm/internal/cueenv`: add `Registry` (`NewRegistry(mapping)`), holding only the resolver and transport (`*modregistry.Client`), and `Operation` (`(*Registry).Operation()`, with `Env()`, `Init()` and the four `modconfig.CachedRegistry` methods), which wraps the shared client in a fresh `modcache.New` over the cache directory read from that operation's environment (design D3). Client construction is lazy, under a mutex. Success is kept; a construction error is returned to that call and not kept. A failed `Fetch`, `ModFile` or `ModuleVersions` drops the shared client; `FetchFromCache` errors do not. Unit tests, with a counting constructor through the unexported field:
+- [x] 3.1 `opm/internal/cueenv`: add `Registry` (`NewRegistry(mapping)`), holding only the resolver and transport (`*modregistry.Client`), and `Operation` (`(*Registry).Operation()`, with `Env()`, `Init()` and the four `modconfig.CachedRegistry` methods), which wraps the shared client in a fresh `modcache.New` over the cache directory read from that operation's environment (design D3). Client construction is lazy, under a mutex. Success is kept; a construction error is returned to that call and not kept. A failed `Fetch`, `ModFile` or `ModuleVersions` drops the shared client; `FetchFromCache` errors do not. Unit tests, with a counting constructor through the unexported field:
   - one construction across many operations;
   - an error, then a retry that succeeds;
   - concurrent first use constructs once;
@@ -55,17 +55,17 @@ report it. Do not implement a fallback that keeps a temporary directory.
   - each operation reads `CUE_CACHE_DIR` when it starts.
 
   Add `./opm/internal/cueenv/...` to the `-race` line of `Taskfile.yml` `test` and remove it from the plain line.
-- [ ] 3.2 `opm/internal/loader`:
+- [x] 3.2 `opm/internal/loader`:
   - `Options` gains `Registry modconfig.Registry`; `LoadDir` sets `cfg.Registry`.
   - `FetchArtifact` and `FetchModule` take `opts Options` in place of `env []string`. A given registry is used for the fetch and passed on to `LoadDir`. With none, a client is built as today. A given registry with an `Init() error` method whose `Init` fails is reported as `building module registry resolver: %w`, unclassified, before the fetch.
   - Update the docs and the loader tests' call sites.
-- [ ] 3.3 `opm/internal/renderstage.Build` takes `loader.Options` and sets `Env` and `Registry`. In `opm/internal/synth`, `Input.Env` becomes `Input.Load loader.Options`, and `Instance` passes it to `LoadDir`. Update the call sites in the tests.
-- [ ] 3.4 `opm/kernel`:
+- [x] 3.3 `opm/internal/renderstage.Build` takes `loader.Options` and sets `Env` and `Registry`. In `opm/internal/synth`, `Input.Env` becomes `Input.Load loader.Options`, and `Instance` passes it to `LoadDir`. Update the call sites in the tests.
+- [x] 3.4 `opm/kernel`:
   - `Kernel` gains the unexported `*cueenv.Registry` field, set in `New` from `k.registry`.
   - Add `loadOptions()`, which starts one operation: `{Env: op.Env(), Registry: op}`, or `{Env: k.loadEnv()}` with no registry on a Kernel not built by `New` (never a typed-nil interface). Each verb calls it once and routes every `LoadDir`, `FetchModule`, `FetchArtifact`, `renderstage.Build` and `synth.Input` call of that verb through the result.
   - `compileSource`, `compileSources`, `mergeSources` and `validateSources` take `loader.Options`, and the file-backed load sets `cfg.Registry` when it is set.
   - `kernel.New` still constructs no client.
-- [ ] 3.5 `opm/kernel` tests. In `export_test.go` add `(*Kernel).SetRegistryHooksForTest`, which installs a counting constructor (wrapping the real one) on the Kernel's `cueenv.Registry` and a per-operation wrapper that counts the calls each operation makes through the client. Add tests for:
+- [x] 3.5 `opm/kernel` tests. In `export_test.go` add `(*Kernel).SetRegistryHooksForTest`, which installs a counting constructor (wrapping the real one) on the Kernel's `cueenv.Registry` and a per-operation wrapper that counts the calls each operation makes through the client. Add tests for:
   - "Operations on one Kernel build one client": a registry module acquire, a platform directory acquire, a synthesis with a file-backed values source and a render, giving one construction, and `Fetch` calls seen from both the fetch and the render build;
   - "Construction builds no client";
   - "A failed construction is retried": a failing constructor, then a succeeding one;
@@ -77,13 +77,13 @@ report it. Do not implement a fallback that keeps a temporary directory.
   - a zero `Kernel` value still renders (no typed-nil registry reaches cue/load).
 
   Audit every test that sets `CUE_REGISTRY` or `CUE_CACHE_DIR` after it constructs a Kernel that has already run an operation. Planning found none. Fix any that the suite shows.
-- [ ] 3.6 Docs in this section (design D5, section 3 list):
+- [x] 3.6 Docs in this section (design D5, section 3 list):
   - the `Kernel` type and `New` docs: one client (resolver and transport), built on first use, its scope, a fresh module cache per operation, which parts of the environment are read when the client is built and which at each operation, and that no failure is remembered past its operation;
   - the `WithRegistry` doc;
   - the `cueenv` package doc;
   - the `loader.Options`, `LoadDir`, `FetchArtifact` and `synth.Input` docs;
   - the AGENTS.md layout line for `internal/cueenv`.
-- [ ] 3.7 `task check` green, then commit `refactor(kernel): share one registry client per kernel`.
+- [x] 3.7 `task check` green, then commit `refactor(kernel): share one registry client per kernel`.
 
 ## 4. Full suite, consumers, api diff and memprobe
 

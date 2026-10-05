@@ -44,7 +44,9 @@
 // registry module) included; no verb takes a per-call override. Absent the
 // option, every operation inherits the process CUE_REGISTRY and applies no
 // default; the mapping is plumbed into the operation's load configuration and
-// never written back to the environment.
+// never written back to the environment. Every operation resolves through the
+// Kernel's one registry client, under a module cache of that operation's own,
+// so no fetch failure outlives the operation that saw it (see [Kernel]).
 //
 // # Every operation shares nothing
 //

@@ -9,6 +9,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
+	"cuelang.org/go/mod/modconfig"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	opmmodule "github.com/open-platform-model/library/opm/module"
@@ -19,8 +20,18 @@ import (
 type Options struct {
 	// Env is the environment slice load.Config consults: the CUE_REGISTRY
 	// override the kernel builds with [cueenv.Override], which owns the
-	// concurrency rule. Nil reads the process environment unchanged.
+	// concurrency rule. Nil reads the process environment unchanged. cue/load
+	// reads it only to build a registry of its own, so it is inert when
+	// Registry is set; the kernel passes the slice its operation was started
+	// with, so both agree.
 	Env []string
+
+	// Registry is the registry every load and fetch given these options
+	// resolves through. The kernel sets it to one operation's registry
+	// ([cueenv.Registry.Operation]): the Kernel's shared client under a module
+	// cache of that operation's own. Nil lets cue/load (or [FetchArtifact])
+	// build one for the call from Env, as before the kernel shared a client.
+	Registry modconfig.Registry
 }
 
 // CheckDir reports whether dir exists and is a directory, in the words every
@@ -59,7 +70,8 @@ func CheckDir(dir string, spec ArtifactSpec) error {
 //     catalog acquired from a directory, a values-layered instance package and
 //     a synthesized instance package are all built.
 //
-// opts carries the load settings ([Options]). A nil src, or one with no Root,
+// opts carries the load settings ([Options]): its Registry, when set, is
+// the load's load.Config.Registry. A nil src, or one with no Root,
 // is a caller bug and is refused with a plain error.
 //
 // Keeping this routine single-sourced guarantees an overlay-built artifact and
@@ -73,6 +85,9 @@ func LoadDir(cueCtx *cue.Context, src *opmmodule.Source, opts Options, spec Arti
 	rel := strings.TrimPrefix(src.Pkg, "./")
 
 	cfg := &load.Config{Env: opts.Env}
+	if opts.Registry != nil {
+		cfg.Registry = opts.Registry
+	}
 	// pkgDir is the package directory in both modes, so a build or gate error
 	// names the package that failed. root is the directory the load is
 	// reported against: the package directory on disk, the module root in

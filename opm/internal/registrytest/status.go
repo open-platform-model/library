@@ -5,7 +5,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -52,4 +55,36 @@ func UnreachableRegistry(t *testing.T) string {
 	addr := l.Addr().String()
 	require.NoError(t, l.Close(), "release the loopback port")
 	return addr + "+insecure"
+}
+
+// RefuseFirst returns mapping with prefix routed through a proxy in front of
+// the host mapping names for it: the proxy answers the first refusals
+// requests with 503 Service Unavailable and forwards every later one. It
+// exists to pin that a transient registry failure is not remembered past the
+// operation that saw it. mapping is one the constructors here return
+// ("<prefix>=<host>+insecure,..."); the proxy is closed at test end. It sets
+// no environment.
+func RefuseFirst(t *testing.T, mapping, prefix string, refusals int) string {
+	t.Helper()
+	first, rest, _ := strings.Cut(mapping, ",")
+	host, ok := strings.CutPrefix(first, prefix+"=")
+	require.True(t, ok, "mapping %q routes %s first", mapping, prefix)
+	host = strings.TrimSuffix(host, "+insecure")
+	target, err := url.Parse("http://" + host)
+	require.NoError(t, err)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	var seen atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if seen.Add(1) <= int64(refusals) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	routed := prefix + "=" + strings.TrimPrefix(srv.URL, "http://") + "+insecure"
+	if rest != "" {
+		routed += "," + rest
+	}
+	return routed
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
@@ -237,7 +238,7 @@ func TestStageBuild_OverlayInstanceServedFromMemory(t *testing.T) {
 
 	// Build with the process environment: the registry helper set
 	// CUE_REGISTRY and CUE_CACHE_DIR for this test.
-	built, err := Build(cuecontext.New(), staged, nil)
+	built, err := Build(cuecontext.New(), staged, loader.Options{})
 	require.NoError(t, err, "cue/load serves the replacement directory from the overlay")
 	require.NoError(t, built.Err())
 
@@ -576,7 +577,7 @@ deps: {
 		RenderFileName: string(glue),
 	})
 
-	built, err := Build(cuecontext.New(), &Staged{Dir: dir}, nil)
+	built, err := Build(cuecontext.New(), &Staged{Dir: dir}, loader.Options{})
 	require.NoError(t, err, "cue/load serves both replacement directories inside the one build")
 	require.NoError(t, built.Err())
 
@@ -630,7 +631,7 @@ func TestStageBuild_RenderModuleServedFromMemory(t *testing.T) {
 		assert.Equal(t, RenderRoot, staged.Dir)
 		assertAbsent(t, RenderRoot)
 
-		built, err := Build(cuecontext.New(), staged, nil)
+		built, err := Build(cuecontext.New(), staged, loader.Options{})
 		require.NoError(t, err, "cue/load serves the whole render module from the overlay")
 		require.NoError(t, built.Err())
 		assert.Equal(t, []string{"config", "web"}, componentNames(t, built))
@@ -652,7 +653,7 @@ func TestStageBuild_RenderModuleServedFromMemory(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				built, err := Build(cuecontext.New(), staged, nil)
+				built, err := Build(cuecontext.New(), staged, loader.Options{})
 				if err == nil {
 					err = built.Err()
 				}
@@ -715,7 +716,7 @@ deps: {
 		filepath.Join(RenderRoot, RenderFileName): glue,
 	}
 
-	built, err := Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, nil)
+	built, err := Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, loader.Options{})
 	require.NoError(t, err, "cue/load serves the replacement directories with the main module in memory")
 	require.NoError(t, built.Err())
 	deployment := renderedOutput(t, built, "web", "testing.opmodel.dev/library-render/cat/transformers/deployment-transformer@0.1.0")
@@ -727,7 +728,7 @@ deps: {
 	// Negative control: without the overlay's local-module.cue the
 	// instance import has nowhere to resolve from.
 	delete(overlay, filepath.Join(RenderRoot, "cue.mod", "local-module.cue"))
-	_, err = Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, nil)
+	_, err = Build(cuecontext.New(), &Staged{Dir: RenderRoot, Overlay: overlay}, loader.Options{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "testing.opmodel.dev/library-render/instance@v0")
 	assertAbsent(t, RenderRoot)

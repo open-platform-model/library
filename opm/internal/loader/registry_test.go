@@ -52,7 +52,7 @@ func TestFetchModule_HappyPathAndTransitiveDeps(t *testing.T) {
 
 	val, src, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.NoError(t, err)
 
 	// The staged tree comes back as the artifact Source type, overlay mode.
@@ -93,7 +93,7 @@ func TestFetchModule_OverlayCarriesCueFilesOnly(t *testing.T) {
 
 	_, src, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.NoError(t, err)
 	require.NotNil(t, src)
 
@@ -121,7 +121,7 @@ func TestFetchModule_WrongKind(t *testing.T) {
 
 	val, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 	assert.False(t, val.Exists(), "wrong-kind load returns a zero value")
 	assert.True(t, errors.Is(err, oerrors.ErrWrongKind), "want ErrWrongKind, got %v", err)
@@ -140,7 +140,7 @@ func TestFetchModule_MissingRequiredField(t *testing.T) {
 
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "want ErrMissingRequiredField, got %v", err)
 }
@@ -159,7 +159,7 @@ func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
@@ -185,7 +185,7 @@ func TestFetchModule_IdentityMajorFreeDeclarationRefused(t *testing.T) {
 
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err, "a major-free declaration cannot equal the fetched path")
 
 	var ie oerrors.IdentityError
@@ -209,7 +209,7 @@ func TestFetchModule_IdentityVersionMismatch(t *testing.T) {
 
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
@@ -232,7 +232,7 @@ func TestFetchModule_IdentityVersionMismatchBareFetch(t *testing.T) {
 
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), modPath+"@v0", "0.0.1",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
 	var ie oerrors.IdentityError
@@ -250,7 +250,7 @@ func TestFetchModule_Unresolvable(t *testing.T) {
 
 	val, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), "test.example/does/not/exist@v0", "v9.9.9",
-		cueenv.Override(reg, ""))
+		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 	assert.False(t, val.Exists(), "unresolvable load returns a zero value")
 	assert.Equal(t, envBefore, os.Getenv("CUE_REGISTRY"))
@@ -264,7 +264,7 @@ func TestFetchModule_Unresolvable(t *testing.T) {
 func TestFetchModule_BadVersionWrapped(t *testing.T) {
 	_, _, err := loader.FetchModule(
 		context.Background(), cuecontext.New(), "test.example/x@v0", "not-a-version",
-		nil)
+		loader.Options{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing artifact version test.example/x@v0@not-a-version:")
 }
@@ -282,11 +282,11 @@ func TestFetchModule_BareVersion(t *testing.T) {
 		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"0.0.2\"}\n",
 	}
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
-	env := cueenv.Override(reg, "")
+	opts := loader.Options{Env: cueenv.Override(reg, "")}
 
-	bareVal, bareSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "0.0.2", env)
+	bareVal, bareSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "0.0.2", opts)
 	require.NoError(t, err, "a bare version is accepted")
-	prefVal, prefSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2", env)
+	prefVal, prefSrc, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2", opts)
 	require.NoError(t, err, "a v-prefixed version is accepted")
 
 	assert.Equal(t, "0.0.2", lookupString(t, bareVal, "metadata.version"))
@@ -306,11 +306,11 @@ func TestFetchArtifact_CatalogBareVersion(t *testing.T) {
 		Body: registrytest.BuildCatalog(catPath, "1.0.0"),
 	}
 	reg := registrytest.NewCatalogRegistry(t, cat)
-	env := cueenv.Override(reg, "")
+	opts := loader.Options{Env: cueenv.Override(reg, "")}
 
-	bareVal, bareSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "1.0.0", env, loader.CatalogSpec)
+	bareVal, bareSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "1.0.0", opts, loader.CatalogSpec)
 	require.NoError(t, err, "a bare version is accepted")
-	prefVal, prefSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "v1.0.0", env, loader.CatalogSpec)
+	prefVal, prefSrc, err := loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "v1.0.0", opts, loader.CatalogSpec)
 	require.NoError(t, err, "a v-prefixed version is accepted")
 
 	assert.Equal(t, "1.0.0", lookupString(t, bareVal, "metadata.version"))
