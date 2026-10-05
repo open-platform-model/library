@@ -25,7 +25,7 @@ Commit rules:
 
 ## 1. Pin core v2.0.0-beta.4 (schema, testdata, docs examples; design "Which tool makes the move", "Whether any library fixture is mis-keyed")
 
-- [ ] 1.1 Run `task -x deps:cascade` in the worktree.
+- [x] 1.1 Run `task -x deps:cascade` in the worktree.
       - It finds `../.github` through the common git dir. If it does not, pass `CASCADE_RESOLVER=/var/home/emil/dev/open-platform-model/.github/.github/scripts/cascade/cascade-resolve.sh`.
       - Expect exit 0, one `need-human-review` warning for the loader in `$(git rev-parse --absolute-git-dir)/cascade/warnings` (in a worktree `.git` is a file), and these edits and no others:
         - `opm/schema/loader.go:43` reads `"opmodel.dev/core@v2.0.0-beta.4"`;
@@ -34,17 +34,17 @@ Commit rules:
       - If `opmodel.dev/catalogs/opm@v4` moves too (a catalog release published since planning), revert that move: keep `v4.6.0`, record it, and leave it to the cascade.
       - Fallback, only if the resolver cannot run: edit the constant by hand, run `DEFAULT_CORE=v2.0.0-beta.4 task cue:deps:update`, then edit the `testdata/cue.mod` and `testdata/render` pins and the two docs examples as text.
       - Verify: `git grep -n 'v2.0.0-beta.3' -- '*module.cue' opm/schema/loader.go docs/getting-started.md AGENTS.md` prints nothing. `git diff --stat` touches no `*_test.go`, no `.cascade-frozen` file, no `.tasks/` file, no spec and no doc comment.
-- [ ] 1.2 Check the derived pins: `go test ./opm/internal/registrytest ./opm/schema ./opm/internal/loader ./opm/helper/platformmodule -count=1` is green. `registrytest.DefaultCoreVersion` and `schema.DefaultSchemaVersion()` now read `v2.0.0-beta.4`.
-- [ ] 1.3 Re-vet every library fixture against beta.4 (owner decision j3):
+- [x] 1.2 Check the derived pins: `go test ./opm/internal/registrytest ./opm/schema ./opm/internal/loader ./opm/helper/platformmodule -count=1` is green. `registrytest.DefaultCoreVersion` and `schema.DefaultSchemaVersion()` now read `v2.0.0-beta.4`.
+- [x] 1.3 Re-vet every library fixture against beta.4 (owner decision j3):
       - `task test` is green, including the shipped parity group and the kernel render suite over every `testdata/render` scenario, platform and registry module. Confirm with `go test -v ./opm/kernel -run 'TestParity_Shipped' -count=1` that the shipped group ran rather than skipped.
       - `task cue:vet` is green over the `CUE_MODULE_GLOBS` modules.
       - `grep -rnE '#(resources|traits|blueprints):' --include=*.cue testdata modules`, then read each map. Every entry is keyed `(X.metadata.fqn): X`, or the map is empty.
       - If anything is mis-keyed, key it by `(X.metadata.fqn)` in this section and list it in the commit body.
-- [ ] 1.4 Run the gates on the moved tree:
+- [x] 1.4 Run the gates on the moved tree:
       - `task check` is green: fmt, vet, lint, test, docs bundle check, cascade wiring check, api-diff test and consumer-build test.
       - Run `task api:diff`. Its Allowed section shows `./opm/schema.DefaultSchemaModule: value changed from ... to "opmodel.dev/core@v2.0.0-beta.4"`, and it charges no incompatible change to this branch.
       - Clone fresh `cli` and `opm-operator` at `main` into the scratch dir. From the worktree root, run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <work-dir>` for each. Both are green, and the commits are recorded for the PR body.
-- [ ] 1.5 Commit `fix(deps): bump core to v2.0.0-beta.4`, the title `task -x deps:cascade:title` prints. The body says, in two or three lines:
+- [x] 1.5 Commit `fix(deps): bump core to v2.0.0-beta.4`, the title `task -x deps:cascade:title` prints. The body says, in two or three lines:
       - every core pin and the docs examples move to the first core that binds attachment keys to `metadata.fqn` (owner decision j3);
       - every library fixture passes it with no edit;
       - the opm catalog stays at `v4.6.0`, and no parity literal exists to move (`opm/kernel/parity_harness_test.go:157` reads the catalog build from `testdata/parity/cue.mod`).
