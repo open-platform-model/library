@@ -110,8 +110,17 @@ func TestDuplicates_ValueWithoutNameIsSkipped(t *testing.T) {
 		metadata: labels: tier: "core"
 	`)
 
+	// A second nameless value of the same apiVersion and kind: if nameless
+	// values were keyed, these two would form a row with an empty name.
+	namelessCopy := compiled(t, "platform-copy", "…/platform@1.0.0", `
+		apiVersion: "opmodel.dev/v1alpha2"
+		kind:       "Platform"
+		metadata: labels: tier: "edge"
+	`)
+
 	rows := object.Duplicates([]*kernel.Compiled{
 		nameless,
+		namelessCopy,
 		registration(t, "registration"),
 		registration(t, "registration-copy"),
 	})
@@ -120,7 +129,28 @@ func TestDuplicates_ValueWithoutNameIsSkipped(t *testing.T) {
 	assert.Equal(t, "TransformerRegistration", rows[0].Identity.Kind)
 	for _, p := range rows[0].Producers {
 		assert.NotEqual(t, "platform", p.Component)
+		assert.NotEqual(t, "platform-copy", p.Component)
 	}
+}
+
+func TestDuplicates_OneNameInTwoNamespacesStaysDistinct(t *testing.T) {
+	configMapIn := func(component, namespace string) *kernel.Compiled {
+		return compiled(t, component, "…/configmap@1.0.0", `
+			apiVersion: "v1"
+			kind:       "ConfigMap"
+			metadata: {
+				name:      "x"
+				namespace: "`+namespace+`"
+			}
+		`)
+	}
+
+	rows := object.Duplicates([]*kernel.Compiled{
+		configMapIn("a", "a"),
+		configMapIn("b", "b"),
+	})
+
+	assert.Empty(t, rows)
 }
 
 func TestDuplicateIdentitiesError_NamesTheIdentityOnceAndBothComponents(t *testing.T) {

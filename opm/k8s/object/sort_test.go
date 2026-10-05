@@ -1,6 +1,7 @@
 package object
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -95,4 +96,43 @@ func TestSortDeleteOrder(t *testing.T) {
 	in := []item{{svc, "svc-a"}, {gvkDeployment, "deploy"}, {svc, "svc-b"}}
 	Sort(in, itemGVK, Descending)
 	assert.Equal(t, []string{"deploy", "svc-a", "svc-b"}, names(in))
+}
+
+// largeMixed returns 40 items, 25 ConfigMaps cm-00..cm-24 interleaved with 15
+// Deployments d-00..d-14, with the names in input order per kind. The size is
+// above the length at which Go's sort stops using insertion sort (12), so an
+// unstable sort reorders equal weights and these tests see it.
+func largeMixed() []item {
+	var in []item
+	cm, d := 0, 0
+	for i := 0; i < 40; i++ {
+		if i%8 == 1 || i%8 == 4 || i%8 == 6 {
+			in = append(in, item{gvkDeployment, fmt.Sprintf("d-%02d", d)})
+			d++
+		} else {
+			in = append(in, item{gvkConfigMap, fmt.Sprintf("cm-%02d", cm)})
+			cm++
+		}
+	}
+	return in
+}
+
+func seq(prefix string, n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("%s-%02d", prefix, i)
+	}
+	return out
+}
+
+// TestSortStableOnLargeInput pins the "stable sort" of the kubernetes-tier
+// spec on an input large enough that sort.Slice would reorder equal weights.
+func TestSortStableOnLargeInput(t *testing.T) {
+	asc := largeMixed()
+	Sort(asc, itemGVK, Ascending)
+	assert.Equal(t, append(seq("cm", 25), seq("d", 15)...), names(asc))
+
+	desc := largeMixed()
+	Sort(desc, itemGVK, Descending)
+	assert.Equal(t, append(seq("d", 15), seq("cm", 25)...), names(desc))
 }
