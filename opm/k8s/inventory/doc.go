@@ -16,6 +16,10 @@
 // version of its group, is the same object and never stale. [SameObject] is
 // that comparison on its own.
 //
+// [Digest] is the inventory digest: a hash of the entries' field values in a
+// canonical encoding, the same in every frontend whatever wire shape it
+// stores the entries in.
+//
 // The inventory digest and the render digest are stored values: each frontend
 // records them and compares a later value against them. Their encodings are
 // versioned by a tag line at the start of the hashed bytes, and change only

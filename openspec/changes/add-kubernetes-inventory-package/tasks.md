@@ -93,12 +93,12 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 3. The canonical inventory digest (opm/k8s/inventory; design KI4, KI7)
 
-- [ ] 3.1 `opm/k8s/inventory/digest.go`: `Digest` per KI4: copy, sort with
+- [x] 3.1 `opm/k8s/inventory/digest.go`: `Digest` per KI4: copy, sort with
       `slices.SortFunc` and `cmp.Compare` on the six keys, write the tag line and the
       length-prefixed fields into a `sha256` hash with `binary.BigEndian.AppendUint64` and
       explicit field writes, and return `"sha256:" + hex.EncodeToString`. No `fmt` of
       structs, no JSON, no map. Verify: `go vet ./opm/k8s/...` clean.
-- [ ] 3.2 `digest_test.go`:
+- [x] 3.2 `digest_test.go`:
       - the scenario "The encoding is the one defined": hand-written expected bytes for the
         KI7 inventory fixture, built in the test with its own helpers, and a committed golden
         hex constant whose comment says that changing it changes every frontend's stored
@@ -113,7 +113,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
       Verify: `go test ./opm/k8s/inventory -count=1` green. Negative check, not committed:
       swapping `Version` and `Component` in the write order fails the encoding test.
-- [ ] 3.3 `task check` green, then commit `feat(k8s): add the canonical inventory digest`.
+- [x] 3.3 `task check` green, then commit `feat(k8s): add the canonical inventory digest`.
       The body says that the digest replaces both frontends' `ComputeDigest` when they adopt
       it, and that their stored values change once then (0012:D7:R4).
 

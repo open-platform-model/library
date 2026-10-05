@@ -31,7 +31,7 @@ func TestPackage_ExportsExactlyItsSurface(t *testing.T) {
 		got = append(got, exportedNames(file)...)
 	}
 	slices.Sort(got)
-	assert.Equal(t, []string{"Entry", "NewEntry", "SameObject", "StaleSet"}, got)
+	assert.Equal(t, []string{"Digest", "Entry", "NewEntry", "SameObject", "StaleSet"}, got)
 }
 
 func exportedNames(file *ast.File) []string {
