@@ -38,7 +38,7 @@ enhancement reference.
 
 ## 2. opm/k8s/ownership: SafetyExcluded and the delete verdict (design OW2, OW5, OW6, OW7, OW8)
 
-- [ ] 2.1 `opm/k8s/ownership/doc.go`. The package doc covers four things:
+- [x] 2.1 `opm/k8s/ownership/doc.go`. The package doc covers four things:
       - pure verdicts over inputs the caller reads with its own client, with no cluster I/O,
         clock or logging, stated in its own words with no ADR or other maintainer pointer (the
         doc publishes into the Library reference);
@@ -47,7 +47,7 @@ enhancement reference.
       - that a refusal or skip message is the library's wording for both frontends;
       - that a frontend reports a failed DELETE precondition as left behind or to retry, never
         as deleted.
-- [ ] 2.2 `opm/k8s/ownership/ownership.go`: `Object` and its `String`
+- [x] 2.2 `opm/k8s/ownership/ownership.go`: `Object` and its `String`
       (`Kind/namespace/name`, or `Kind/name` when cluster-scoped), and `SafetyExcluded(group,
       kind)` with group and kind constants for the two protected kinds. `delete.go`:
       `SkipReason` and its four constants, `DeleteInput`, `DeleteVerdict` (`Proceed`,
@@ -57,7 +57,7 @@ enhancement reference.
       `InstanceUUID`, and only for `apps` Deployment and `rbac.authorization.k8s.io`
       RoleBinding and ClusterRoleBinding). It reads the managed-by and UUID label keys and `IsOPMManagedBy`
       from `opm/k8s/labels`, never a literal. Verify: `go vet ./opm/k8s/...` clean.
-- [ ] 2.3 Tests:
+- [x] 2.3 Tests:
       - `ownership_test.go`: the `SafetyExcluded` table, both scenarios of "Safety-excluded
         kinds match on group and kind", plus `Kind` and `Kind/namespace/name` strings for
         `Object`.
@@ -74,7 +74,7 @@ enhancement reference.
         `log` or `log/slog` (scenario "The package imports no clock, environment or logger").
 
       Verify: `go test ./opm/k8s/ownership -count=1` green.
-- [ ] 2.4 `task check` green, then commit
+- [x] 2.4 `task check` green, then commit
       `feat(k8s): add opm/k8s/ownership with the delete verdict`. The body says that a proceed
       verdict carries the judged UID and resourceVersion, and that the precondition is UID
       only.
