@@ -2,7 +2,7 @@
 
 ADR-011 placed the Kubernetes decisions OPM makes in a tier beside the kernel, `opm/k8s/`, and
 fenced it in lint before any package existed. This change lands the first two packages. Both
-come from the beta-1 kernel-plan walkthrough (owner, 2026-10-02/03), where they are tasks e2
+come from the owner's decisions recorded as ADR-013, decisions e2
 and e5:
 
 - **e2.** The cli and the operator each carry a `pkg/core` package. Both copies are
@@ -16,7 +16,7 @@ and e5:
   The later g1 decision is: "e2 ships alone; opm/k8s/object.Resource wraps the Value for now"
   (the JSON-bytes switch, g1, is deferred).
 - **e5.** The kind-class weight table exists only in `cli/pkg/resourceorder`. Since cli#289
-  (walkthrough task a1, `75e5f268`) the cli applies by it. The operator applies through Flux's
+  (ADR-013, decision a1, `75e5f268`) the cli applies by it. The operator applies through Flux's
   own staging and has no copy. The owner decided: "Weight table moves from
   cli/pkg/resourceorder to opm/k8s/object with e2". This is the library half. The frontends
   delete their copies in their own adoption changes.

@@ -2,7 +2,7 @@
 
 The cli and the operator each carry their own inventory code. Each has an entry type, an entry
 constructor from a live object, a stale-set function, an inventory digest and a render digest.
-The beta-1 kernel-plan walkthrough (owner, 2026-10-03, task e3) decided where that code goes:
+The owner (ADR-013, decision e3) decided where that code goes:
 
 > opm/k8s/inventory holds one Entry, one stale-set function, the render and inventory digests.
 > Inventory digest hashes a NEW canonical field-by-field encoding (independent of JSON tags);
@@ -53,8 +53,8 @@ Three defects in today's copies show why one definition is needed. Checked at cl
   - `Digest([]Entry) string` is the inventory digest, `sha256:<hex>`. It hashes a versioned
     canonical encoding. The encoding is a tag line, then each entry, sorted, with each field
     length-prefixed in a fixed order. It depends only on field values and not on input order
-    or on any serialisation (0012:D7:R2/R3). The name drops the stutter of the walkthrough's
-    working name `InventoryDigest`.
+    or on any serialisation (0012:D7:R2/R3). The name drops the stutter of the working name
+    `InventoryDigest` (ADR-013, decision e3).
   - `RenderDigest([]object.Exported) (string, error)` is the render digest, `sha256:<hex>`. It
     takes the one export `opm/k8s/object.Export` already makes, so it reads no CUE value. A
     caller can drop its Resources first, and the cli no longer exports twice. It decodes each

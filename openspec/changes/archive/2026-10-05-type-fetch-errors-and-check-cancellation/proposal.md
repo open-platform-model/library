@@ -18,7 +18,7 @@ A caller that cancels still pays for every stage. 0009:D9, as amended on 2026-10
 context checks at a verb's entry and between its stages to land on their own. Cancellation inside a
 stage stays with 0009.
 
-The owner decided both in the beta.1 kernel checklist walkthrough, and bundled them into one library
+The owner decided both (ADR-013, decisions d1 and d3), and bundled them into one library
 change:
 
 - d1: "Sentinel ErrTransient + typed *FetchError (errors.Is/As); export opmerrors.Classify(err) for

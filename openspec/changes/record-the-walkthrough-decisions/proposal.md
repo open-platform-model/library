@@ -52,4 +52,4 @@ None.
 - `adr/013-kernel-plan-walkthrough-decisions.md` (new), `adr/012-matching-stays-in-the-library-glue.md` (Status line).
 - `AGENTS.md`, `.github/workflows/consumer-build.yml`, `.tasks/consumer-build.sh` (comment line), `opm/catalog/provides_parity_test.go` (comment lines).
 - `openspec/specs/api-diff-check/spec.md` (Purpose, in place); four main specs through archive.
-- Citation words in archived changes under `openspec/changes/archive/` (about 28 files).
+- Citation words in archived changes under `openspec/changes/archive/` (39 files).

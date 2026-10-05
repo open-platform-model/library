@@ -20,7 +20,7 @@ it for `Roots`. The registry verbs are the one entry that still demands a single
 their doc comments (`opm/kernel/acquire.go:39-40, 130-131`) say `"v4.3.0"` while the operator
 says `"1.0.0"`.
 
-Owner decision (walkthrough item i1, 2026-10-02): normalise in the kernel, so both `1.0.0` and
+Owner decision (ADR-013, decision i1): normalise in the kernel, so both `1.0.0` and
 `v1.0.0` are accepted, through one shared `canonicalVersion` helper. This change is the library
 half. Supervisor triage (2026-10-03) widened it to the platform build too: `platformmodule.Generate`
 stamps the registry entry's version bare, so both spellings pass acceptance and the platform build.
@@ -32,7 +32,7 @@ library release.
 - **One shared canonicalisation helper.** `platformmodule.canonicalVersion` moves to a new
   internal package, `opm/internal/modversion`, as `Canonical(v string) string`, with the same
   behaviour: a bare SemVer gains the `v` prefix; an already-prefixed or empty string comes back
-  unchanged. `platformmodule.Roots` and its tests call it. A later change (walkthrough item b3)
+  unchanged. `platformmodule.Roots` and its tests call it. A later change (ADR-013, decision b3)
   reuses this package for the library's other version helpers.
 - **The registry verbs accept both spellings.** `loader.FetchArtifact` canonicalises the version
   before `module.NewVersion`, and `loader.FetchModule` canonicalises the version it hands the
@@ -92,5 +92,5 @@ None.
   one (before, that platform failed to build).
 - Downstream: opm-operator's `TransformerRegistration` claims start resolving once it bumps to
   the release carrying this fix. The cli passes `v`-prefixed versions and is unaffected.
-- No `enhancement.yaml`: the owner decision comes from the beta-1 kernel-plan walkthrough, not
-  from an enhancement decision.
+- No `enhancement.yaml`: the owner decision is ADR-013, decision i1, not
+  an enhancement decision.

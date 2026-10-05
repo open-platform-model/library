@@ -1,6 +1,6 @@
 ## Why
 
-The library's public Go surface (`opm/`, `opm/internal/` excluded) is a contract with two frontends and with every embedder outside the workspace (Principle VI). Nothing checks it today: a breaking change is caught only if its author remembers the `feat!` commit and the `BREAKING CHANGE:` footer that carry the migration note on the beta line (ADR-010). The owner decided task j4 of the beta.1 walkthrough (2026-10-03): "Library API-diff check warns until GA and blocks after." The supervisor added (wave 2 notes) that it is a non-required job, that the release cascade's `DefaultSchemaModule` value change goes on a fixed allow line (SD17), that it follows the workflow-hardening rules library#181 merged, and that the AGENTS.md hunk is coordinated with `add-consumer-build-job`.
+The library's public Go surface (`opm/`, `opm/internal/` excluded) is a contract with two frontends and with every embedder outside the workspace (Principle VI). Nothing checks it today: a breaking change is caught only if its author remembers the `feat!` commit and the `BREAKING CHANGE:` footer that carry the migration note on the beta line (ADR-010). The owner decided this as ADR-013, decision j4: "Library API-diff check warns until GA and blocks after." The supervisor added (wave 2 notes) that it is a non-required job, that the release cascade's `DefaultSchemaModule` value change goes on a fixed allow line (SD17), that it follows the workflow-hardening rules library#181 merged, and that the AGENTS.md hunk is coordinated with `add-consumer-build-job`.
 
 ## What Changes
 

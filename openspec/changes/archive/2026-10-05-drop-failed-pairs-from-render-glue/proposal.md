@@ -25,11 +25,11 @@ The same glue also evaluates the always-unify rung (`_unify`, `:176-192`) and th
 transformers the demand walk reaches, `_candidates`, `:224-231`) are ever read. Keying the two rungs on
 the candidates saves another 0.3-0.4 s of CPU per cert-manager render on a two-catalog platform.
 
-The owner decided this in the kernel checklist walkthrough (task g4): measure first, on a
+The owner decided this as ADR-013, decision g4: measure first, on a
 multi-component and a cert-manager-sized module, then drop `failedPairs` from the glue and fill
 `FailedPairs` in Go, on the gate-refusal path too, and key the matching rungs on candidates. The
 parity harness must keep the verdicts identical. It lands before any other change to
-`decodeRendered` or `render.go`. The same walkthrough asked for an operator memory measurement before
+`decodeRendered` or `render.go`. ADR-013, decision g1 asked for an operator memory measurement before
 and after this fix ("before and after j2, nil-out, shared limit and g4"). design.md records
 memprobe's operator columns for the wave-1 baseline, this change's base and its head.
 

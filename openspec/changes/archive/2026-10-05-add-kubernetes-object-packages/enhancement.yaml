@@ -1,4 +1,4 @@
-# Implements part of enhancement 0012 (library half of walkthrough tasks e2 and e5).
+# Implements part of enhancement 0012 (library half of ADR-013, decisions e2 and e5).
 # Decisions are deliberately not claimed: 0012:D3, 0012:D5 and 0012:D6 are
 # delivered only once both frontends adopt these packages (ADR-011 item 3),
 # so the claim belongs to the later adoption and removal changes.

@@ -1,6 +1,6 @@
 ## Context
 
-Core `v2.0.0-beta.4` adds owner decision j3: the key of each entry in a component's `#resources`, `#traits` and `#blueprints`, and in a `#Catalog`'s member maps, must equal the member's `metadata.fqn`. A mismatch is a vet error. The library pins core at `v2.0.0-beta.3` in one Go constant (`schema.DefaultSchemaModule`) and in the `cue.mod` of every served fixture. The `schema-dispatch` spec requires all of these to name the same release, and requires a default move to edit only the constant and those pins.
+Core `v2.0.0-beta.4` adds ADR-013, decision j3: the key of each entry in a component's `#resources`, `#traits` and `#blueprints`, and in a `#Catalog`'s member maps, must equal the member's `metadata.fqn`. A mismatch is a vet error. The library pins core at `v2.0.0-beta.3` in one Go constant (`schema.DefaultSchemaModule`) and in the `cue.mod` of every served fixture. The `schema-dispatch` spec requires all of these to name the same release, and requires a default move to edit only the constant and those pins.
 
 This change is the release cascade's core move, made by hand because the receiver runs in dry-run.
 

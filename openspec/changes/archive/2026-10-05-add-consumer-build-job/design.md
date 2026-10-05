@@ -6,7 +6,7 @@ cli (`go 1.26.0`) and opm-operator (`go 1.26.2`) both require `github.com/open-p
 
 **Goals:** a library PR author sees, on the PR, whether cli and opm-operator still compile and vet against the PR's merge commit, and which symbol broke if not; no `replace` reaches a tracked file; the required job and G1 are untouched; the workflow meets the library#181 rules.
 
-**Non-Goals:** consumer tests, e2e or lint; the consumers' `//go:build ignore` programs; fork PRs; running on `main` pushes; making the job required; the rest of decision j4 (API diff, Dependabot ignores, `RELEASING.md`).
+**Non-Goals:** consumer tests, e2e or lint; the consumers' `//go:build ignore` programs; fork PRs; running on `main` pushes; making the job required; the rest of ADR-013, decision j4 (API diff, Dependabot ignores, `RELEASING.md`).
 
 ## Decisions
 

@@ -25,7 +25,7 @@ The two kernel verbs that take values sources compile each source more than once
   around it with a `ValidateConfigDetailed` pre-validate before every synthesis
   (`opm-operator` `internal/render/kernel_module_renderer.go:167-168`).
 
-Owner decisions from the beta-1 kernel-plan walkthrough (2026-10-02/03):
+Owner decisions (ADR-013, decisions b1 and g2):
 
 - b1: "Compile values once; land after b2 (same function), bundled with g2 in one library
   change."
@@ -102,5 +102,5 @@ None.
 - Sequencing: library acquire chain b2 (merged) -> this change -> d1+d3 -> g5 part A. The
   consolidate change (library #184, `validate.go` `walkDisallowed`) is merged. d1+d3 rebases
   on this change.
-- No `enhancement.yaml`: the decisions come from the beta-1 kernel-plan walkthrough, not
-  from an enhancement entry.
+- No `enhancement.yaml`: the decisions are ADR-013, decisions b1 and g2, not
+  an enhancement entry.

@@ -4,7 +4,7 @@ See proposal.md, Why. Design-local decisions are numbered KI1 to KI8 so they col
 other numbering. Line references are at library `origin/main` `ca7c56b` (after
 add-kubernetes-object-packages, library#196), cli `origin/main` `bd4d1a7c` and opm-operator
 `origin/main` `dd0d798`, all fetched 2026-10-05. Evidence is the owner's beta-1 plan
-decision for this work (task e3 of the beta-1 kernel checklist), with the frontend code
+decision for this work (ADR-013, decision e3), with the frontend code
 re-read at those heads. Since the owner's decision, the cli's `pkg/inventory/entry.go` has
 gained `K8sIdentity`, `IdentityOf` and `AdmitSet` (the operator-install admission). They are
 not part of this change (proposal, Not in this change). The digest and stale-set code it describes is unchanged.

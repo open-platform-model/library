@@ -30,9 +30,9 @@ The check is not wired into `task check`; library#198, which tracks the ungated 
 
 ## 3. Cite ADR-013 (archived changes)
 
-- [ ] 3.1 In every file under `openspec/changes/archive/` that the walkthrough-id check (both commands, run over `openspec/changes/archive` instead of `.`) prints, the citation cites ADR-013: "owner decision j4 (beta.1 walkthrough)", "walkthrough task f5", "owner decision 2026-10-03" and the bare "decision d2" or "task e3" become `ADR-013, decision <id>`; a sentence that names the beta-1 kernel-plan walkthrough without an id names ADR-013 instead; an out-of-repo log path is dropped. Only citation words change: no requirement, scenario, task box state or rationale changes, and no archived file is moved or deleted.
-- [ ] 3.2 Verify: both commands, run over `openspec/changes/archive`, print nothing; `git diff --stat origin/main -- openspec/changes/archive` touches only files the 3.1 check printed; `openspec validate --all --strict` passes.
-- [ ] 3.3 Gates green, then commit `docs(openspec): cite ADR-013 in the archived changes`.
+- [x] 3.1 In every file under `openspec/changes/archive/` that the walkthrough-id check (both commands, run over `openspec/changes/archive` instead of `.`) prints, the citation cites ADR-013: "owner decision j4 (beta.1 walkthrough)", "walkthrough task f5", "owner decision 2026-10-03" and the bare "decision d2" or "task e3" become `ADR-013, decision <id>`; a sentence that names the walkthrough without an id, or in another wording ("walkthrough item i1", "the kernel checklist walkthrough"), names ADR-013 instead; an out-of-repo log path is dropped. Only citation words change: no requirement, scenario, task box state or rationale changes, and no archived file is moved or deleted.
+- [x] 3.2 Verify: both commands, run over `openspec/changes/archive`, print nothing except `2026-10-02-prepare-release-cascade/proposal.md:35`, whose "owner decision 2026-10-02" is a release-cascade decision that cites `RELEASING.md`, not a walkthrough id; `git grep -niE walkthrough -- openspec/changes/archive` shows no citation of the walkthrough that names neither ADR-013 nor a change name; `git diff --stat origin/main -- openspec/changes/archive` touches only files the 3.1 check printed; `openspec validate --all --strict` passes.
+- [x] 3.3 Gates green, then commit `docs(openspec): cite ADR-013 in the archived changes`.
 
 ## 4. Absorb main and sweep again
 
