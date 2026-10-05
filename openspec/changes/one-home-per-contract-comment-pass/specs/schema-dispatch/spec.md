@@ -4,7 +4,7 @@
 
 **Reason**: Two of its scenarios give the default as the bare major `"opmodel.dev/core@v2"`, and one ("Default resolves within the v2 major") is false by name: the default loader pins an exact release (`schema.DefaultSchemaModule`) and the bare major is opt-in. OpenSpec refuses a MODIFIED that drops a scenario, so the requirement is re-added under a new name.
 
-**Migration**: Replaced by "Single OPM schema, externally resolved and pinned by default", which keeps the requirement body and three scenarios verbatim, renames "Schema resolved via module identifier" with the default corrected, and replaces "Default resolves within the v2 major" with "Default resolves the pinned release" and "Bare major resolves within the v2 major (opt-in)".
+**Migration**: Replaced by "Single OPM schema, externally resolved and pinned by default", which keeps the requirement body, adding one sentence that the default is the exact pin and the bare major opt-in, and keeps three scenarios verbatim, renames "Schema resolved via module identifier" with the default corrected, and replaces "Default resolves within the v2 major" with "Default resolves the pinned release" and "Bare major resolves within the v2 major (opt-in)".
 
 ## ADDED Requirements
 
@@ -112,3 +112,22 @@ The paths the retired Go matcher, executor and context builder read (`Registry`,
 
 - **WHEN** a frontend calls `Instance.Values()`, `Instance.ModuleMetadata()` or `Module.DebugValues()`
 - **THEN** each reads its field through the matching inventory path: `schema.Values`; `schema.Module`, then `schema.Metadata`; `schema.DebugValues`
+
+### Requirement: Cache exposes the resolved schema version
+
+`(*Cache).ResolvedVersion() string` SHALL return the schema module version that the underlying Loader resolved during the first successful Load (e.g., `"v2.0.0-alpha.4"` when a bare-major `opmodel.dev/core@v2` loader resolved to `v2.0.0-alpha.4`). Before the first successful Load, `ResolvedVersion()` SHALL return the empty string.
+
+#### Scenario: ResolvedVersion is empty before Get
+
+- **WHEN** `cache.ResolvedVersion()` is called before any `cache.Get`
+- **THEN** it returns `""`
+
+#### Scenario: ResolvedVersion returns the resolved tag after Get
+
+- **WHEN** `cache.Get()` succeeds against `opmodel.dev/core@v2` resolving to `v2.0.0-alpha.4`
+- **THEN** `cache.ResolvedVersion()` returns `"v2.0.0-alpha.4"`
+
+#### Scenario: ResolvedVersion stays empty after failed Load
+
+- **WHEN** `cache.Get()` returns an error on first call
+- **THEN** subsequent `cache.ResolvedVersion()` calls return `""`

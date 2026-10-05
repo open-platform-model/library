@@ -8,9 +8,10 @@
 // frontend writes itself are the ones on its own bookkeeping objects, such as
 // the cli's inventory Secret; each constant's doc says who writes it.
 //
-// It is part of the Kubernetes tier beside the kernel and imports nothing outside the
-// Go standard library, which a depguard rule in .golangci.yml enforces, so a
-// frontend can read the vocabulary without the rest of the tier.
+// It is part of the Kubernetes tier beside the kernel and imports nothing
+// outside the Go standard library, which a depguard rule in .golangci.yml
+// enforces, so a frontend can read the vocabulary without the rest of the
+// tier.
 package labels
 
 // Design record behind the package doc above, for maintainers: the

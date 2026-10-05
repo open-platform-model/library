@@ -89,6 +89,7 @@ The same pass corrects the sites that say only a bare-major loader makes synthes
 
 - **schema-dispatch "Single OPM schema, externally resolved, with no apiVersion field".** REMOVED, and ADDED as "Single OPM schema, externally resolved and pinned by default". "Default resolves within the v2 major" is false by name: the default resolves exactly `DefaultSchemaModule`. The new requirement keeps "No in-tree schema source", "Evaluated module has no apiVersion field" and "Caller-pinned earlier major still loads" verbatim. It renames "Schema resolved via module identifier" to "Schema resolved via the default module identifier" (default `schema.DefaultSchemaModule`). It replaces the false scenario with "Default resolves the pinned release" and "Bare major resolves within the v2 major (opt-in)", which carries the prerelease-ordering clause.
 - **schema-dispatch "A pinned schema release is known without a load".** MODIFIED. The last sentence reads "a kernel whose loader pins no exact release (a bare-major `OCILoader`, or any `Loader` that is not an `OCILoader`) SHALL resolve the release through its schema cache". All four scenarios are kept. No scenario is added for a custom loader: no test backs one today, and adding a test is outside a comment-only change.
+- **schema-dispatch "Cache exposes the resolved schema version".** MODIFIED. Its example said "when the default `opmodel.dev/core@v2` resolved"; it now reads "when a bare-major `opmodel.dev/core@v2` loader resolved". All three scenarios are kept.
 - **schema-dispatch "Path inventory exposed as package-level vars".** MODIFIED, keeping the requirement name and its three scenario names, so the citations of the name in `openspec/specs/artifact-types/spec.md` and `opm/kernel/render_demand_test.go` stay valid. The scenario "Matcher and transformer paths are gone" drops `Transformers` from its list; the name still reads true, because it refers to the matcher's `Transformer*` paths. The body lists all fifteen exported paths with their readers, as checked by grep at ca7c56b:
   - `ContractsProvidedBy` has one Go reader by variable, the `Kernel.Render` core-floor presence check. `Platform.Contracts()` decodes the same field relative to `schema.Contracts`, by name.
   - `ContractsCollisions` and `ContractsCollidingEntries` are read in Go only by tests. They name fields `Platform.Contracts()` reads relative to `schema.Contracts` and the glue reads in CUE, and they document the collision report (the archived refuse-colliding-contracts change records them as documentation and test paths). The removal sentence is qualified to match: a path no kernel code reads, by variable or relative to an inventory path, is removed.
@@ -115,7 +116,7 @@ The same pass corrects the sites that say only a bare-major loader makes synthes
 - A runtime contract goes in the godoc of the package that owns it.
 - Rationale goes in an ADR.
 - A SHALL requirement goes in an `openspec/specs` capability.
-- `README.md`, `AGENTS.md` and `docs/` link to those homes. They may keep a short orientation sentence, but never a second statement of the contract.
+- `README.md`, `AGENTS.md` and `docs/getting-started.md` link to those homes. They may keep a short orientation sentence, but never a second statement of the contract.
 
 The kernel-runtime ADDED requirement is the SHALL form of the same rule.
 

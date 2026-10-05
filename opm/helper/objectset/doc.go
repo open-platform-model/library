@@ -28,10 +28,10 @@
 // operator before it builds inventory entries.
 //
 // Deprecated: the check's home is opm/k8s/object in the Kubernetes tier,
-// which carries the same exported names, signatures,
-// behaviour and error wording. This copy is frozen and stays only until both
-// the cli and the operator have moved their imports, so their library bump
-// keeps compiling; a later change removes it.
+// which carries the same exported names, signatures, behaviour and error
+// wording. This copy is frozen and stays only until both the cli and the
+// operator have moved their imports, so their library bump keeps compiling;
+// a later change removes it.
 package objectset
 
 // Design record behind the package doc above, for maintainers: the move of

@@ -40,7 +40,7 @@ None.
 
 ### Modified Capabilities
 
-- `schema-dispatch`: corrects the default-resolution scenarios (the default is an exact pin, the bare major opt-in), corrects which loaders resolve the core release through the cache, and names the full path inventory and its readers, including `Instance.Values`, `Instance.ModuleMetadata` and `Module.DebugValues`.
+- `schema-dispatch`: corrects the default-resolution scenarios and the `ResolvedVersion` example (the default is an exact pin, the bare major opt-in), corrects which loaders resolve the core release through the cache, and names the full path inventory and its readers, including `Instance.Values`, `Instance.ModuleMetadata` and `Module.DebugValues`.
 - `kernel-runtime`: states the holder-bounded context lifetime accurately in the goroutine-safety contract, and adds the rule that each runtime contract has one home and that other copies link to it.
 - `api-diff-check`: the `Source:` lines cite the owner decision and the PR, not a supervisor decision.
 - `cascade-wiring`: the pin requirement's `Source:` line cites the change and contract version that extended owner decision 24, not "the supervisor".

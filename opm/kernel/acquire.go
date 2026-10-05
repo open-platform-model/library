@@ -31,8 +31,8 @@ const valuesFileName = "opm-values.cue"
 // loadEnv is the environment slice every kernel load consults: the kernel's
 // [WithRegistry] mapping applied through load.Config.Env by
 // [cueenv.Override], which owns the rule that the process environment is
-// never written. Nil when no mapping was configured, so the load reads the process
-// environment unchanged.
+// never written. Nil when no mapping was configured, so the load reads the
+// process environment unchanged.
 func (k *Kernel) loadEnv() []string {
 	return cueenv.Override(k.registry, "")
 }

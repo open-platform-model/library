@@ -371,8 +371,9 @@ beta.1 walkthrough; openspec `kernel-runtime`, "Each runtime contract has one ho
 - A runtime contract goes in the godoc of the package, type or function that owns it.
 - Rationale goes in an ADR under `adr/`.
 - A SHALL requirement goes in an `openspec/specs` capability.
-- `README.md`, `AGENTS.md` and `docs/` link to those homes. They may keep a short
-  orientation sentence that names the home, never a second statement of the contract.
+- `README.md`, `AGENTS.md` and `docs/getting-started.md` link to those homes. They may
+  keep a short orientation sentence that names the home, never a second statement of
+  the contract.
 - A source is one a reader can open: an owner decision by its walkthrough id, an ADR, an
   enhancement decision (`0012:D3`), a pull request or an archived change. Never a
   decision recorded only in an agent session.
