@@ -1,10 +1,3 @@
-// Maintainer note, kept out of the published package doc: the evaluator was
-// ported from the cli's internal/kubernetes/health.go at cli commit bd4d1a7c
-// under ADR-011, with its rules and status strings unchanged. Until the cli
-// deletes its copy, a fix to either copy is ported to the other by hand. The
-// status strings are the cli's `opm instance status -o json|yaml` output, so
-// changing one is a breaking change (feat!).
-
 // Package health judges whether Kubernetes objects have become ready (0012:D3).
 //
 // [Evaluate] returns a [Status] for one object: whether a Deployment,
@@ -26,3 +19,11 @@
 // The status strings are stable output: frontends print them and serialise
 // them, so a value never changes spelling.
 package health
+
+// Maintainer note, kept out of the package doc because it publishes into the
+// Library reference: the evaluator was ported from the cli's
+// internal/kubernetes/health.go at cli commit bd4d1a7c under ADR-011, with its
+// rules and status strings unchanged. Until the cli deletes its copy, a fix to
+// either copy is ported to the other by hand. The status strings are the cli's
+// `opm instance status -o json|yaml` output, so changing one is a breaking
+// change (feat!).
