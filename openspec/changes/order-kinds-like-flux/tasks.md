@@ -15,8 +15,10 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   committed list and `TestFluxOrderContradictions`. Add `TestWeightNeverContradictsFlux`
   (`contradictions(Weight)` is empty) and `TestFluxComparisonCatchesAContradiction` (Deployment
   moved below Service reports `apps/Deployment` vs `/Service`; an `autoscaling`
-  HorizontalPodAutoscaler weighed above a `batch` Job reports that pair). Keep
-  `TestFluxOrderDefinitionStage`. Run it once against the old table to confirm it fails, and
+  HorizontalPodAutoscaler weighed above a `batch` Job reports that pair). Rewrite
+  `TestFluxOrderDefinitionStage` over `apiextensions.k8s.io/v1 CustomResourceDefinition` and the
+  core `v1` Namespace with `fluxLess` and `Weight`, and delete the group-less `libraryWeight`
+  helper. Run it once against the old table to confirm it fails, and
   that its failure lists the webhook, class, quota and tie-break pairs.
 - [ ] 1.2 `opm/k8s/object/weights.go`: set the values of design D1; add `WeightClass`,
   `WeightResourceQuota` and `WeightLimitRange`; set `WeightStorageClass = WeightClass` and the
@@ -43,7 +45,9 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   deletion" keeps its expected order).
 - [ ] 1.5 `opm/k8s/object/stages.go`, `opm/k8s/object/stages_test.go` and `opm/k8s/object/doc.go`: the comments that say the table
   was ported unchanged, or that a frontend submits one stage per Flux call, now say the table
-  agrees with Flux's staged apply, so a frontend can hand Flux the whole set. Comment text only.
+  agrees with Flux's staged apply, so a frontend can hand Flux the whole set or any stage in one
+  call. Comment text only; the spec's "Apply stages follow the weight table" carries the same
+  rationale through its MODIFIED delta.
 - [ ] 1.6 `go test -race -count=1 ./opm/k8s/...` green, then `task check` green. Commit
   `fix(k8s): order kinds as flux's staged apply does`.
 
@@ -69,7 +73,8 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 ## 3. openspec: deltas
 
 - [ ] 3.1 Confirm the `kubernetes-tier` delta: the MODIFIED "One weight table orders apply and
-  delete" keeps all three main-spec scenarios by name, the REMOVED requirement carries Reason and
+  delete" keeps all three main-spec scenarios by name, the MODIFIED "Apply stages follow the
+  weight table" keeps its three, the REMOVED requirement carries Reason and
   Migration, and every new scenario has a test from section 1. Run
   `openspec validate order-kinds-like-flux --strict` green.
 - [ ] 3.2 Tick every task in this file and commit

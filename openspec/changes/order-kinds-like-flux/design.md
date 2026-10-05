@@ -19,8 +19,9 @@ What Flux v0.77.0 does, read from `ssa@v0.77.0/manager_apply.go`, `sort.go` and 
    - the rest.
 2. `ApplyAll` sorts its stage with `SortableUnstructureds`. The comparison is the
    `ReconcileOrder` rank of the kind name (the `First` list ranks `-23..-1`, the `Last` list
-   `1..2`, every other kind 0), then the API group, then the kind, then namespace and name. Flux's
-   comment says the unlisted-kind tie-break exists "to provide determinism". The dry-runs run
+   `1..2`, every other kind 0), then the API group, then the kind, then namespace and name. Two
+   kinds of equal rank (in practice two kinds Flux does not list) are therefore ordered
+   alphabetically by group and then kind. The dry-runs run
    concurrently; the applies run one by one in sorted order.
 
 `First` is CustomResourceDefinition, Namespace, ClusterRole, ClusterClass, RuntimeClass,
@@ -71,10 +72,11 @@ New weights (the constant names of existing kinds are unchanged; `*` marks a new
 | 1000 | every kind Flux does not list: PersistentVolume, PersistentVolumeClaim, DaemonSet, ReplicaSet, Job, Ingress, NetworkPolicy, HorizontalPodAutoscaler, VerticalPodAutoscaler, custom resources (`WeightDefault`; `WeightPersistentVolume`, `WeightPVC`, `WeightDaemonSet`, `WeightJob`, `WeightIngress`, `WeightNetworkPolicy`, `WeightHPA`, `WeightVPA` take this value) |
 | 2000 | MutatingWebhookConfiguration, ValidatingWebhookConfiguration (`WeightWebhook`) |
 
-Where Flux ranks two kinds apart, the library weighs them the same way round or equal. Where Flux
-only tie-breaks (two unlisted kinds; ConfigMap before Secret; Role before RoleBinding; the class
-kinds among themselves; Mutating before Validating), the library weighs them equal, so Flux's
-tie-break refines and cannot contradict.
+Where Flux ranks two kinds apart, the library weighs them the same way round or equal: a tie is
+not a contradiction, so ConfigMap and Secret, Role and RoleBinding, the class kinds among
+themselves, and the mutating and validating webhook configurations share a weight although Flux
+ranks them apart. Only kinds Flux does not list are ordered by its group-and-kind fallback; the
+library weighs them all equal, so that fallback refines and cannot contradict.
 
 ### D2. Lookup mirrors Flux's stage predicates
 
@@ -103,6 +105,13 @@ ClusterRoleBinding. Weight 6 ties it with the classes and keeps it before 7, whi
 place that contradicts nothing. Its weight today is the definition's own (-100, 0 or 5), which
 puts it ahead of things Flux applies first.
 
+The core Namespace is matched on group and kind in any version, as `Stages` already matches it
+for its definition stage. Flux's `IsNamespace` also requires apiVersion exactly `v1`, so a core
+Namespace of another version would be in Flux's last stage while the library weighs it 0. That is
+a deliberate gap: no such version exists, and keying the weight on `v1` alone would make `Weight`
+and the definition stage of `Stages` disagree with each other. The guard compares group and kind,
+so it does not see the gap.
+
 The `Class` suffix rule is case-sensitive, as Flux's `strings.HasSuffix(kind, "Class")` is. It
 sends a custom class kind (Karpenter's `EC2NodeClass`, for example) to weight 6, where Flux applies
 it, instead of 1000 after the workloads.
@@ -126,7 +135,9 @@ then kind. `contradictions(weight func(schema.GroupVersionKind) int)` returns ev
 Service and asserts the pair is reported, so the guard cannot pass vacuously; a second case weighs
 an `autoscaling` HorizontalPodAutoscaler above a `batch` Job and asserts that pair is reported, so
 the tie-break is proven to count.
-`TestFluxOrderDefinitionStage` stays.
+`TestFluxOrderDefinitionStage` is rewritten over `apiextensions.k8s.io/v1 CustomResourceDefinition`
+and the core `v1` Namespace with `fluxLess` and `Weight`; the group-less `libraryWeight` helper
+goes, since a group-less CustomResourceDefinition is no longer a definition.
 
 ### D4. Delete order follows without code
 
@@ -141,8 +152,9 @@ the deletion of the objects it guards. Class kinds are deleted after everything 
 **Context**: Flux's comparison is total: two kinds it does not list are still ordered, by API group
 and then kind. The library could treat that tie-break as an order to agree with, or ignore it.
 
-**Explored**: `ssa@v0.77.0/sort.go` (`IsLessThan`, `computeKind2index` and its comment "In some cases
-order just specified to provide determinism"); the old `flux_order_test.go`, which counted rank
+**Explored**: `ssa@v0.77.0/sort.go` (`IsLessThan`, which falls back to group and then kind when two
+ranks are equal, and `computeKind2index`, whose comment on the `ReconcileOrder` list says that in
+some cases the order is specified just to provide determinism); the old `flux_order_test.go`, which counted rank
 differences only; 0012:D5:R1 ("An engine's own staging may refine it within a stage and never
 contradicts it"). The operator applies the whole set in one `ApplyAllStaged`, so every unlisted
 kind meets every other one inside one Flux sort.
@@ -202,3 +214,7 @@ only real moves.
   the version; the operator's bump must update them, and the guard then shows any new
   contradiction.
 - [The cli's `order_parity_test.go` fails on the bump] → by design; the bump PR edits it.
+- [Delete order moves too: PersistentVolumeClaims, PersistentVolumes, Jobs, DaemonSets, Ingresses
+  and autoscalers are now deleted before Deployments, StatefulSets and PodDisruptionBudgets] → a
+  claim then sits Terminating under `pvc-protection` until its Pods go. The cli's delete does not
+  wait between stages, so this only shows in its output.

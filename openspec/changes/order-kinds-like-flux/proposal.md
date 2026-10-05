@@ -21,8 +21,9 @@ disagrees with Flux on many pairs. `opm/k8s/object/flux_order_test.go` records t
   Flux puts CronJob right after StatefulSet and PodDisruptionBudget right after CronJob.
 - Every kind Flux does not list (PersistentVolume, PersistentVolumeClaim, DaemonSet, ReplicaSet,
   Job, Ingress, NetworkPolicy, the autoscalers, every custom resource) is one group to Flux, after
-  all the kinds it lists and before the webhooks, ordered by API group and kind only "to provide
-  determinism" (Flux's own comment). The library spreads those kinds over weights 20 to 1000, so
+  all the kinds it lists and before the webhooks. Among themselves Flux orders them by API group
+  and then by kind name, an alphabetical fallback. The library spreads those kinds over weights 20
+  to 1000, so
   Flux's alphabetical order among them contradicts the library wherever the groups sort the other
   way (an `autoscaling` HorizontalPodAutoscaler before a `batch` Job, a custom resource of group
   `acme.io` before an `apps` DaemonSet).
@@ -62,9 +63,13 @@ so Flux only ever refines the library order.
 - **Records.** ADR-011 item 1 and its Status record that the table no longer matches the cli's
   ported values and why. The `opm/k8s/object` docs and the `AGENTS.md` layout line say the table
   agrees with Flux's staged apply. The kubernetes-tier spec replaces the "differences are recorded"
-  requirement with "the table never contradicts Flux's staged apply order".
+  requirement with "the table never contradicts Flux's staged apply order", and its "Apply stages
+  follow the weight table" now says a frontend may hand Flux the whole set or any one stage, because
+  the table never contradicts Flux.
 
-Release note (for the PR body and the changelog): the kind-class apply order now agrees with Flux's
+Release note (for this PR body and for the changelog entry of the cli PR that takes this release;
+release-please writes only a fix commit's title into the library CHANGELOG): the kind-class apply
+order now agrees with Flux's
 staged apply. Moved kinds: MutatingWebhookConfiguration and ValidatingWebhookConfiguration (now
 after custom resources); PriorityClass, RuntimeClass, IngressClass, GatewayClass, ClusterClass,
 VolumeSnapshotClass and StorageClass (now right after ClusterRoles, as is any kind whose name ends
@@ -72,7 +77,8 @@ in `Class`); ClusterRoleBinding (now after the class kinds); ResourceQuota (now 
 ServiceAccounts); LimitRange (now after Services, before Deployments); CronJob and
 PodDisruptionBudget (now right after StatefulSets); PersistentVolume, PersistentVolumeClaim,
 DaemonSet, ReplicaSet, Job, Ingress, NetworkPolicy and the pod autoscalers (now with the custom
-resources, after PodDisruptionBudgets). Delete order is the reverse. A frontend that applies,
+resources, after PodDisruptionBudgets); a kind named CustomResourceDefinition, Namespace or
+ClusterRole outside its canonical group (now with the class kinds). Delete order is the reverse. A frontend that applies,
 prunes or deletes through `opm/k8s/object` or `opm/k8s/lifecycle` (the cli) changes its order when
 it takes this release.
 
@@ -94,9 +100,15 @@ None.
   `object.Sort` and needs no code change; its tests are re-run.
 - Public API: additive. New constants `WeightClass`, `WeightResourceQuota` and `WeightLimitRange`;
   no exported name is renamed or removed. The values of thirteen existing constants change, which
-  `task api:diff` lists as "value changed" entries (warn mode on the `v1.0.0-beta.6` base). No
-  consumer reads a weight's number: the cli calls `object.Weight` and `object.Sort`, the operator
-  calls neither.
+  `task api:diff` lists as "value changed" entries (warn mode on the beta base). No consumer's
+  non-test code reads a weight's number: the cli calls `object.Weight` and `object.Sort`, the
+  operator calls neither.
+- api:diff advice: the job summary says each of those thirteen "value changed" warnings needs a
+  `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). This change deliberately keeps the
+  release class `fix` against that advice: the constants must track the table, keeping their old
+  values would make them state an order the library no longer applies, and their only contract is
+  the relative order. For the same reason these warnings are not counted as a breaking change for
+  the three quiet betas of 0021:D8:R14; the owner confirms that reading on the PR.
 - SemVer: PATCH, release class `fix`. The values are ranks whose only contract is the relative
   order, and the order is corrected to the one the operator's engine already applies by and
   0012:D5:R1 requires of both frontends.
@@ -107,4 +119,6 @@ None.
 - opm-operator: nothing changes at its `main` today. It applies through Flux, which orders the set,
   and it calls neither `object.Sort` nor `opm/k8s/lifecycle`. A parity test there can assert that
   Flux's comparison never contradicts `object.Weight`.
-- No enhancement.yaml: this corrects the delivered table of 0012:D5 and delivers no new decision.
+- `enhancement.yaml` links this change to enhancement 0012 like the earlier library slices of it,
+  with no decision claimed: 0012:D5 is delivered only once both frontends adopt the Kubernetes tier
+  (ADR-011 item 3), and this change corrects the table they will adopt.

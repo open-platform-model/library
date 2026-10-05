@@ -45,6 +45,25 @@ The library SHALL keep one kind-class weight table in `opm/k8s/object`, and it S
 - **WHEN** the weights of kind `Namespace` in group `example.com` and of `rbac.authorization.k8s.io/v1beta1 ClusterRole` are looked up
 - **THEN** the first is 6 and the second is 5
 
+### Requirement: Apply stages follow the weight table
+
+The library SHALL provide a function that returns a sorted copy of an apply set cut into stages. The first stage holds the cluster definitions, which are every CustomResourceDefinition of `apiextensions.k8s.io` and every Namespace of the core group, and is marked as such. It is omitted when there are none. After it comes one stage per distinct weight of the remaining objects, in ascending weight. Order within a stage SHALL be the stable sort order. The input SHALL NOT be reordered, and no stage SHALL be empty. Because the weight table never contradicts Flux's staged apply order, a frontend whose apply engine is Flux's staged apply MAY submit the whole set or any one stage in one call: the engine then only refines the library's order. Source: 0012:D4, 0012:D5.
+
+#### Scenario: Stages for a typical module
+
+- **WHEN** a CustomResourceDefinition, a Namespace, a ConfigMap, a Secret, a Deployment and a Service are staged
+- **THEN** the stages are the cluster definitions (the CustomResourceDefinition and the Namespace), then the ConfigMap and the Secret, then the Service, then the Deployment
+
+#### Scenario: A Namespace kind in another group is not a cluster definition
+
+- **WHEN** an object of kind `Namespace` in group `example.com` is staged beside a core Namespace
+- **THEN** only the core Namespace is in the cluster-definition stage
+
+#### Scenario: No cluster definitions, no definition stage
+
+- **WHEN** a set holding only a Deployment and a Service is staged
+- **THEN** two stages are returned, neither marked as cluster definitions
+
 ## REMOVED Requirements
 
 ### Requirement: Differences from Flux's apply order are recorded
