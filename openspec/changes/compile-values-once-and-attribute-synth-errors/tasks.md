@@ -23,20 +23,30 @@ Tests only. Every one passes on `origin/main` before any code moves.
 
 - [ ] 1.1 `opm/kernel/synth_test.go`: `TestKernel_SynthesizeInstance_BuildFailingViolation`
       publishes a synth module (`publishSynthModule`) whose `#config` declares
-      `replicas: int | *1` and whose one component has a field that reads `#config.replicas`.
-      Use the smallest component shape core accepts, copied from an existing synth or render
-      fixture. Synthesize with `Values: []kernel.Source{mustSource(t, k, "/values/bad.cue",
+      `replicas: int | *1` and whose one component reads it through a hidden field,
+      `_r: #config.replicas & int` (a component's `spec` is closed over its resources, so a
+      hidden field is the smallest shape core accepts). Synthesize with `Values: []kernel.Source{mustSource(t, k, "/values/bad.cue",
       `replicas: "three"`)}`. Assert an error, a nil instance and `replicas` in the message.
       First confirm the failure comes from `synth.Instance`, not from the post-build check:
       the message must not start `Kernel.SynthesizeInstance: instance "`. Write in design.md
       CV4 which file today's positions name (expected: the synthesized `values.cue`). If the
       build does not fail, change the component until it does. Do not continue with a
       fixture whose build passes.
-- [ ] 1.2 Same file: `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged`, a module
-      whose component fails on its own (for example a field set to two conflicting
-      literals), fed a clean `replicas: 2`. Assert the error is framed
-      `Kernel.SynthesizeInstance: ` and does not contain `instance "myrel": `. It must hold
-      before and after.
+- [ ] 1.2 Same file: `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged`, with two
+      subtests. Each must hold before and after section 3.
+      - **The component fails for every instance.** The module declares `#ctx: _` at file
+        level (so the body can reference core's `#ctx`) and a component field
+        `_n: #ctx.instance.namespace & "elsewhere"`. The module acquires cleanly, but every
+        instance build in namespace `default` fails, including the rebuild with no values. A
+        component field set to two conflicting literals does not work: the module's own root
+        then fails and acquisition refuses it before `SynthesizeInstance` runs. Fed a clean
+        `replicas: 2`, assert the error is framed `Kernel.SynthesizeInstance: ` and does not
+        contain `instance "myrel": `.
+      - **The values-free rebuild succeeds and the values are clean.** A component field
+        `_r: #config.replicas & >5`, fed `replicas: 2`. The build fails (`2 & >5`). Without
+        values, `int | *1 & >5` is only incomplete, so the rebuild succeeds; the values are
+        clean against `#config`, so the original build error comes back. Assert the same
+        framing as the first subtest.
 - [ ] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory whose
       module component consumes `#config.replicas`, acquired with the same bad source.
       Assert it fails with positions naming `/values/bad.cue` and the message framed
@@ -93,8 +103,8 @@ Tests only. Every one passes on `origin/main` before any code moves.
 - [ ] 3.4 Tests. Tighten 1.1 to assert the `Kernel.SynthesizeInstance: instance "myrel": `
       prefix and that a position names `/values/bad.cue` (`positionsName`). 1.2 must stay
       green unchanged. Add `TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged`: the
-      1.2 module (its component fails on its own) synthesized with no values, and again with
-      one empty-`Data` source. Both return the build error framed `Kernel.SynthesizeInstance: `
+      module of 1.2's first subtest (its component fails for every instance, the rebuild
+      included) synthesized with no values, and again with one empty-`Data` source. Both return the build error framed `Kernel.SynthesizeInstance: `
       without `instance "myrel": `, because there are no merged values to attribute. Add the instance-synthesis scenario test: the 1.1 and 1.3
       fixtures together, asserting both verbs name `/values/bad.cue` under their own
       `instance "<name>": ` framing. Extend `TestKernel_SynthesizeInstance_BuildsInItsOwnContext`
@@ -103,8 +113,13 @@ Tests only. Every one passes on `origin/main` before any code moves.
 - [ ] 3.5 Cross-cutting checks: `go test -race ./opm/kernel -count=1`, the parity tests
       (`go test ./opm/kernel -run Parity -count=1`) and `task cue:test:flow`. Verify: all
       green (the flow test may skip when the registry is unreachable; say so if it does).
-- [ ] 3.6 `task check` green (it includes api-diff, consumer-build and the cascade wiring
-      check; api-diff must report no exported change), then commit
+- [ ] 3.6 `task api:diff` lists nothing under the files this change touches (it compares
+      the exported `opm/` API against the last release tag; `task check` runs only
+      `api:diff:test`, the offline fixture test of the script). The PR's api-diff CI job,
+      against the PR base, is the gate after that. Run the consumer-build script locally
+      against fresh clones of cli and opm-operator main
+      (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> .`). Then `task check` green
+      (it includes the consumer-build script tests and the cascade wiring check), and commit
       `fix(kernel): attribute a synthesized instance's values conflict to its source`.
 
 ## 4. Verify

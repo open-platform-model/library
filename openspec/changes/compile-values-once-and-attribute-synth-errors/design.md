@@ -101,13 +101,15 @@ attribution (no Package read)". The plan entry proposed `in.Module.ConfigSchema(
 supervisor read that as consistent with "no Package read", because no spec exists on the
 failure path, and asked review to confirm it.
 **Explored**:
-1. `in.Module.ConfigSchema()`. It is `Package.LookupPath(#config)`, so it is a Package read.
-   It is also wrong on its own terms. `Package` lives in the acquiring call's context, while
-   the compiled values live in the synth call's `cueCtx`. Unifying values from two runtimes
-   is invalid in CUE. `SynthesizeInstance`'s godoc and the kernel-runtime scenario
-   "SynthesizeInstance uses the Kernel's cue.Context" promise that the module's `Package` is
-   never touched, so a module acquired by another Kernel is a valid input. Compiling the
-   values again in the module's context would undo b1 and still read `Package`.
+1. `in.Module.ConfigSchema()`. It is `Package.LookupPath(#config)`
+   (`opm/module/module.go:30-35`), so it is a Package read, which g2 rules out in so many
+   words. It would also break two promises the code already makes: the `SynthesizeInstance`
+   godoc says the method reads the module's Metadata and Source, "never its Package"
+   (`synth.go:84-86`), and the kernel-runtime spec rules out unifying values across calls
+   (the build "SHALL run in a context the method creates and releases"). CUE itself would
+   allow the unification: since cuelang.org/go v0.17, values from different contexts may be
+   combined (`cue/context.go:61-63`). The reason to refuse is the owner's rule and the two
+   promises, not CUE.
 2. Rebuild the synthesized package without the values file in `cueCtx`
    (`synth.Instance(cueCtx, coreVersion, input with Values zero)`). Read
    `#module.#config` off that build and validate the compiled values against it. This is
@@ -134,10 +136,11 @@ check on any required `#config` field. If the rebuild fails, return the original
 run `valuesConflict` and frame a hit as `Kernel.SynthesizeInstance: instance %q: %w` with
 `in.Name`, which is the name the spec would carry. Every other outcome returns the original
 `Kernel.SynthesizeInstance: <build error>` unchanged.
-**Rationale**: it follows the owner's two words, "mirrors" and "no Package read", literally.
-It needs no cross-context value. It costs one extra build, and only on a failure path that
-already ended in an error. The supervisor's reading (ConfigSchema from the Module) is
-departed from on purpose, for the context reason above. Review should confirm this.
+**Rationale**: it follows the owner's two words, "mirrors" and "no Package read", literally,
+and keeps the godoc's "never its Package" and the per-call context rule true. It costs one
+extra build, and only on a failure path that already ended in an error. The plan entry's
+reading (ConfigSchema from the Module) is departed from on purpose; plan review confirmed
+this.
 
 ### CV3. Same concreteness mode as the acquire path
 
@@ -157,19 +160,33 @@ change no decision covers.
 **Context**: the existing `TestKernel_SynthesizeInstance_ViolationAttributedToSource` builds
 successfully, because no component reads `replicas`. It exercises the post-build check, not
 the failure path. g2 needs a fixture whose build fails.
-**Decision**: a synth module fixture with a component whose field reads `#config.replicas`
-(declared `int`), fed `replicas: "three"` from a `Source` with Origin `/values/bad.cue`.
-Section 1 adds the test with the assertions that hold today: an error, no instance, and the
-path `replicas` named. It records in this file which file today's positions name. Section 3
+**Decision**: a synth module fixture with a component that reads `#config.replicas` through
+a hidden field (`_r: #config.replicas & int`; a component's `spec` is closed over its
+resources, so a hidden field is the smallest shape core accepts), fed `replicas: "three"`
+from a `Source` with Origin `/values/bad.cue`. Section 1 adds the test with the assertions
+that hold today: an error, no instance, and the path `replicas` named. Before this change
+the build error is framed `Kernel.SynthesizeInstance: instance synthesis: building instance
+package from …/opm-synth-instance: unifiedModule.#components.foo._r: conflicting values …`,
+and no position names the source (recorded when section 1 ran; see task 1.1). Section 3
 tightens the test to assert that a position names `/values/bad.cue` and that the message
-reads `Kernel.SynthesizeInstance: instance "myrel": `. A second test keeps a clean value but
-makes a component fail on its own (a conflicting literal in the component). It asserts that
-the build error comes back unchanged (no `instance "<name>":` framing). The instance-synthesis
-scenario gets a test that feeds the same violating fixture through both verbs and asserts
-that both name the source's Origin. The fixture is the module published as an in-memory
-registry module and authored as a directory instance importing it, as the existing parity
-fixtures do. If that cannot be done cheaply, it uses two fixtures with the same component
-shape.
+reads `Kernel.SynthesizeInstance: instance "myrel": `.
+
+The build-error-unchanged tests need failures that do not come from the values:
+
+- A component that fails for every instance: the module declares `#ctx: _` and a component
+  field `_n: #ctx.instance.namespace & "elsewhere"`. It acquires cleanly and fails every
+  instance build in namespace `default`, the values-free rebuild included. A component field
+  set to two conflicting literals does not work: the module's root fails, so acquisition
+  refuses it. A failure that depends on values does not work either for this case: without
+  values, `#config.replicas & >5` is only incomplete, so the rebuild succeeds.
+- That second shape is the other branch: `_r: #config.replicas & >5` fed a clean
+  `replicas: 2` fails the build, the rebuild succeeds, the values are clean, and the original
+  error comes back.
+
+The first module is also the no-values case. The instance-synthesis scenario gets a test that
+feeds the violating fixture through both verbs and asserts that both name the source's
+Origin: the module is published to an in-memory registry and authored as a directory
+instance importing it (`writeImportedInstance`), as the parity probe fixtures do.
 **Rationale**: the failure path is otherwise uncovered. Pinning first keeps section 1 green
 on `origin/main`.
 
@@ -182,8 +199,9 @@ not compiles); deleting the origin file between compiles (not observable: a miss
 falls back to compiling `Data` as bytes).
 **Decision**: no runtime counter. The compile count is checked by reading the diff: after the
 change, `compileSources` is reached from `mergeSources` (once per verb call) and from
-`validateSources` (only `ValidateConfigDetailed`). The kernel-runtime requirement states it,
-and the verify step checks it with `grep`.
+`validateSources` (only `ValidateConfigDetailed`). The verify step checks it with `grep`.
+The spec gains no normative sentence for it: a SHALL that no scenario exercises would stay
+green while a refactor breaks it, so compile-once stays a design property of this change.
 **Rationale**: b1's value is the simpler code path. Its run-time gain is small (the research
 says so), so a test seam would cost more than it proves.
 

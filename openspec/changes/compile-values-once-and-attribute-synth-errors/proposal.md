@@ -74,9 +74,8 @@ None.
 ### Modified Capabilities
 
 - `kernel-runtime`: `Kernel.SynthesizeInstance method` states the failure-path attribution
-  and gains two scenarios. `Tier-2 validation runs where values are applied` states that
-  each source is compiled once per call and that the post-build check and the failure-path
-  attribution reuse those values.
+  and gains two scenarios. Compile-once (b1) adds no spec text: no scenario can observe it,
+  so design CV5 records it and the verify step checks it by reading the code.
 - `instance-synthesis`: `Instance construction shares one evaluate-and-shape-gate with the
   file loader` gains a scenario showing that a values conflict that fails the build is
   attributed identically on both paths.
