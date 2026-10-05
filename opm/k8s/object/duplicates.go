@@ -1,4 +1,4 @@
-package objectset
+package object
 
 import (
 	"fmt"
@@ -14,9 +14,6 @@ import (
 // no namespace. A Kubernetes apply addresses an object by group, kind,
 // namespace and name, so two identities that differ only in the version part
 // of APIVersion address one object; [Duplicates] matches them on the group.
-//
-// Deprecated: use opm/k8s/object.Identity, which behaves identically. This copy
-// stays until both frontends have migrated, then it is removed.
 type Identity struct {
 	APIVersion string
 	Kind       string
@@ -38,9 +35,6 @@ func (i Identity) String() string {
 // rendered object, with that object's own apiVersion. Within one row the
 // producers' APIVersion values differ when one object was rendered under two
 // versions of its group.
-//
-// Deprecated: use opm/k8s/object.Producer, which behaves identically. This copy
-// stays until both frontends have migrated, then it is removed.
 type Producer struct {
 	Component   string
 	Transformer string
@@ -55,9 +49,6 @@ func (p Producer) String() string {
 // Duplicate is one apply identity that two or more rendered objects share,
 // with every producer of it in render order. Identity is the first-rendered
 // object's, its APIVersion verbatim.
-//
-// Deprecated: use opm/k8s/object.Duplicate, which behaves identically. This copy
-// stays until both frontends have migrated, then it is removed.
 type Duplicate struct {
 	Identity  Identity
 	Producers []Producer
@@ -73,9 +64,6 @@ type Duplicate struct {
 // is not a Kubernetes object and is skipped; nothing else about the objects
 // is validated. A render whose objects all have distinct identities returns
 // no rows.
-//
-// Deprecated: use opm/k8s/object.Duplicates, which behaves identically. This
-// copy stays until both frontends have migrated, then it is removed.
 func Duplicates(compiled []*kernel.Compiled) []Duplicate {
 	order := make([]key, 0, len(compiled))
 	first := make(map[key]Identity, len(compiled))
@@ -163,11 +151,7 @@ func stringAt(v cue.Value, selectors ...string) string {
 
 // DuplicateIdentitiesError is the refusal a runtime raises from the rows
 // [Duplicates] returned, before apply. The kernel never returns it: it is
-// raised by the frontend that calls the helper.
-//
-// Deprecated: use opm/k8s/object.DuplicateIdentitiesError, which behaves
-// identically. This copy stays until both frontends have migrated, then it is
-// removed.
+// raised by the frontend that calls the check.
 type DuplicateIdentitiesError struct {
 	Duplicates []Duplicate
 }

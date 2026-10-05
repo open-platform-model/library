@@ -1,9 +1,4 @@
-# duplicate-object-identities Specification
-
-## Purpose
-The opt-in check between render and apply that finds rendered objects sharing one Kubernetes apply identity, so a runtime refuses the render before the last write silently wins (enhancement 0015 D15 and D12).
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Duplicate rendered identities are detected with their producers
 
@@ -80,6 +75,8 @@ A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treat
 
 - **WHEN** a render produces two objects with one identity
 - **THEN** `Render` returns both in `Compiled` with no error, and only a caller of the check learns of the collision
+
+## ADDED Requirements
 
 ### Requirement: The helper copy is deprecated and kept until both frontends migrate
 

@@ -26,4 +26,10 @@
 // returned and before any wrapping that would lose the provenance fields: the
 // CLI in its render workflow, so build refuses what apply would, and the
 // operator before it builds inventory entries.
+//
+// Deprecated: the check's home is opm/k8s/object in the Kubernetes tier
+// (ADR-011 item 9), which carries the same exported names, signatures,
+// behaviour and error wording. This copy is frozen and stays only until both
+// the cli and the operator have moved their imports, so their library bump
+// keeps compiling; a later change removes it.
 package objectset

@@ -40,6 +40,9 @@ frozen:
   - path: opm/schema/loader_test.go
     pins: ["opmodel.dev/core@v2"]
     reason: "Only the PinnedVersion parse-table rows are frozen; the default-pin assertions check shape and spell no release."
+  - path: opm/k8s/object/duplicates_test.go
+    pins: ["opmodel.dev/catalogs/opm@v4"]
+    reason: "A synthetic transformer id on an in-memory value, never resolved; ported whole from opm/helper/objectset/objectset_test.go."
   - path: opm/catalog/provides_parity_test.go
     pins: ["opmodel.dev/core@v2"]
     reason: "Builds a catalog against core v2.0.0-beta.2, the release before #Catalog.provides, so the old core is the point."
