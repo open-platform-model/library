@@ -32,6 +32,14 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         index (kubernetes-tier scenario "The two runtimes digest one render equally", first
         half).
 
+      A second case, `TestRender_RuntimeNameReachesOnlyManagedBy_ShippedCatalog`, makes the
+      same two renders and the same assertions on the shipped-catalog parity instance and
+      platform that `TestParity_ShippedCatalog` uses (`testdata/parity/instance`,
+      `testdata/parity/opm_platform`), with the same gating: it skips under `-short` and when
+      GHCR is unreachable. Core hands `#context.#runtimeName` to every transformer, so whether
+      the name reaches anything but the label depends on the catalog; this case checks the
+      catalog the frontends ship.
+
       The doc comment says the test is half of the cross-runtime parity proof, and the
       `opm/k8s/inventory` render-digest tests are the other half (design KI6). Verify:
       `go test ./opm/kernel -run TestRender_RuntimeNameReachesOnlyManagedBy -count=1` green.
@@ -73,6 +81,11 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         `ComputeStaleSet` + `ApplyComponentRenameSafetyCheck` composition as a local oracle
         over a mixed fixture (renames, version moves, removals) and asserts `StaleSet` equals
         it. This is the "no behaviour change" claim of 0012:D7.
+      - `surface_test.go`: the scenario "The package exports no other comparison". It parses
+        the package's non-test files with `go/parser` and asserts that the exported top-level
+        identifiers are exactly `Entry`, `NewEntry`, `SameObject`, `StaleSet`, `Digest` and
+        `RenderDigest` (the last two are listed only from section 4 on, so the test grows
+        with the package).
 
       Verify: `go test ./opm/k8s/inventory -count=1` green.
 - [ ] 2.5 `task check` green, then commit
@@ -92,7 +105,9 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         digest and needs a new tag line and a migration note;
       - "Input order does not matter" (every permutation of the fixture);
       - "Every field counts" (a table that edits each of the six fields once, plus one entry
-        added and one removed);
+        added, one removed, and one row where a byte moves across a field boundary: group
+        `ab` and kind `` against group `a` and kind `b`, the case the length prefixes exist
+        for);
       - "Empty and nil inventories agree";
       - input unchanged after the call.
 
@@ -110,7 +125,9 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       `SetEscapeHTML(false)` into a buffer per object. The sort keys are read from the decoded
       map (group split from `apiVersion` at the last `/`), with `bytes.Compare` as the
       tie-break. It hashes the tag line and each buffer. Errors read
-      `render digest: object <i>: <cause>`. It never writes to `Exported.JSON` or
+      `render digest: object <i>: <cause>`; a decode that yields a nil map (the literal
+      `null`) is an error too. A missing or non-string sort field reads as `""`. It never
+      writes to `Exported.JSON` or
       `Exported.Object`. Verify: `go vet ./opm/k8s/...` clean.
 - [ ] 4.2 `render_digest_test.go`, with fixtures built through `object.Export` from CUE
       literals (as `opm/k8s/object/export_test.go` does), so the digest is tested on real
@@ -124,8 +141,8 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         render fixture and a committed golden hex constant, with the same comment as in 3.2;
       - "The input is not changed" (deep-equal copies of `JSON` and `Object` before and
         after);
-      - "A malformed object fails with its position" (a list and invalid JSON at index 1,
-        built as hand-made `Exported` values);
+      - "A malformed object fails with its position" (a list, `null` and invalid JSON at
+        index 1, built as hand-made `Exported` values);
       - input order does not matter; the empty and nil sets both hash the tag line alone.
 
       Verify: `go test ./opm/k8s/inventory -count=1` green. Negative check, not committed:
@@ -149,10 +166,11 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       - `CONSTITUTION.md` Principle III: "Its packages today are ..." names
         `opm/k8s/inventory`.
       - `adr/011-kubernetes-tier-beside-the-kernel.md` Status: one sentence, "Amended
-        2026-10-05 by add-kubernetes-inventory-package: `opm/k8s/inventory` holds the entry,
+        <date> by `add-kubernetes-inventory-package`: `opm/k8s/inventory` holds the entry,
         the component-blind stale set and the inventory and render digests (0012:D6,
-        0012:D7)."
-
+        0012:D7)." The date is the day the sentence is written; 6.1 sets it to the day of
+        the archive commit, since sibling changes edit the same Status line and merge in
+        an order this plan does not know.
       Verify: no file still lists the tier as `labels` and `object` alone; the layout
       block is still one code fence; `task docs:bundle:check` green.
 - [ ] 5.2 Whole-tree checks on the final code:
@@ -169,8 +187,9 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 6. Archive (at PR time)
 
-- [ ] 6.1 `openspec archive add-kubernetes-inventory-package --yes` on this branch, so the
-      archive rides the implementing PR. Verify: the main `kubernetes-tier` spec carries the
+- [ ] 6.1 Set the ADR-011 amendment date to today and rebase the Status sentence after any
+      sibling amendment that merged first. `openspec archive add-kubernetes-inventory-package
+      --yes` on this branch, so the archive rides the implementing PR. Verify: the main `kubernetes-tier` spec carries the
       four requirements and `openspec validate --all --strict` passes. `enhancement.yaml`
       claims no decision, so the delivery log runs with an empty claim or is skipped.
 - [ ] 6.2 Commit `chore(openspec): archive add-kubernetes-inventory-package`.

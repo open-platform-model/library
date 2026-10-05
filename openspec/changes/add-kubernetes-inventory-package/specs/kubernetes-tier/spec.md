@@ -38,6 +38,11 @@ The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. It SH
 - **WHEN** the previous inventory holds objects A, B, C and D in that order and the current inventory holds only B
 - **THEN** the stale set is A, C, D in that order
 
+#### Scenario: The package exports no other comparison
+
+- **WHEN** a test lists the exported identifiers of `opm/k8s/inventory`
+- **THEN** they are exactly `Entry`, `NewEntry`, `SameObject`, `StaleSet`, `Digest` and `RenderDigest`
+
 #### Scenario: Nothing stale is an empty list, not nil
 
 - **WHEN** the previous inventory is empty, or every previous object is in the current inventory
@@ -59,7 +64,7 @@ The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the f
 
 #### Scenario: Every field counts
 
-- **WHEN** one entry of an inventory changes in exactly one of its six fields, or an entry is added or removed
+- **WHEN** one entry of an inventory changes in exactly one of its six fields, or an entry is added or removed, or a byte moves from one field to the next (group `ab` and kind `` against group `a` and kind `b`)
 - **THEN** the digest differs from the original inventory's
 
 #### Scenario: Empty and nil inventories agree
@@ -69,11 +74,11 @@ The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the f
 
 ### Requirement: The render digest ignores only the managed-by label value
 
-The library SHALL provide, in `opm/k8s/inventory`, one render digest over the objects that `opm/k8s/object`'s export returns, of the form `sha256:` followed by 64 lowercase hex digits. It SHALL read only each object's exported JSON, never a CUE value, so a caller may release its build before digesting. For each object it SHALL decode the JSON keeping every number's literal, replace the value of the label `app.kubernetes.io/managed-by` with the empty string when `metadata.labels` holds that key, and encode the result as JSON with object keys sorted and no HTML escaping, ending with a newline. It SHALL hash the tag line `opm-render-v1` with a newline, followed by the encoded objects in order of group (from `apiVersion`), kind, namespace and name, with the encoded bytes as the final tie-break. For one render, the cli (`opm-cli`) and the operator (`opm-controller`) SHALL compute the same digest. Two object sets that differ in any other label, in whether the managed-by label is present, or in any other content of any object SHALL produce different digests. The empty set SHALL hash the tag line alone. An object whose JSON does not decode to a single JSON object SHALL fail with an error naming its position. The function SHALL leave its input unchanged. A change to this encoding SHALL use a new tag line. Source: 0012:D6:R2/R3, 0012:D1:R1.
+The library SHALL provide, in `opm/k8s/inventory`, one render digest over the objects that `opm/k8s/object`'s export returns, of the form `sha256:` followed by 64 lowercase hex digits. It SHALL read only each object's exported JSON, never a CUE value, so a caller may release its build before digesting. For each object it SHALL decode the JSON keeping every number's literal, replace the value of the label `app.kubernetes.io/managed-by` with the empty string when `metadata.labels` holds that key, and encode the result as JSON with object keys sorted and no HTML escaping, ending with a newline. It SHALL hash the tag line `opm-render-v1` with a newline, followed by the encoded objects in order of group (from `apiVersion`), kind, namespace and name, with the encoded bytes as the final tie-break. Two exported object sets that differ only in the value of the managed-by label SHALL produce the same digest. The cli (`opm-cli`) and the operator (`opm-controller`) therefore compute the same digest for one render as long as the catalogs pass `#runtimeName` only through `#context.labels`, which is the case the kernel test checks on the library's render fixture and on the shipped catalog. Two object sets that differ in any other label, in whether the managed-by label is present, or in any other content of any object SHALL produce different digests. The empty set SHALL hash the tag line alone. An object whose JSON does not decode to a single JSON object SHALL fail with an error naming its position. The function SHALL leave its input unchanged. A change to this encoding SHALL use a new tag line. Source: 0012:D6:R2/R3, 0012:D1:R1.
 
 #### Scenario: The two runtimes digest one render equally
 
-- **WHEN** the kernel renders one instance with runtime name `opm-cli` and again with `opm-controller`
+- **WHEN** the kernel renders one instance with runtime name `opm-cli` and again with `opm-controller`, for the library's render fixture and for the shipped-catalog parity instance
 - **THEN** each rendered object's managed-by label value is that render's runtime name, and the two renders are equal object by object once that one value is blanked
 - **AND** two exported object sets that differ only in the managed-by label value have equal render digests
 
@@ -104,5 +109,5 @@ The library SHALL provide, in `opm/k8s/inventory`, one render digest over the ob
 
 #### Scenario: A malformed object fails with its position
 
-- **WHEN** the second object in the list carries JSON that is a list, or that is not valid JSON
+- **WHEN** the second object in the list carries JSON that is a list, that is `null`, or that is not valid JSON
 - **THEN** the render digest fails with an error naming position 1

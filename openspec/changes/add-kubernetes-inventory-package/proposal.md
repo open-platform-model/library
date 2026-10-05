@@ -131,7 +131,10 @@ None.
   frontends today, so this is a note for the adoption changes. It is not a defect of this one.
 - Parallel work: lib-e4 and lib-f5 are written beside this change and edit the same docs
   lines (the tier's package list in `README.md`, `AGENTS.md` and `CONSTITUTION.md`, and the
-  ADR-011 Status). The second of them to merge rebases its docs section.
+  ADR-011 Status). The second of them to merge rebases its docs section. lib-e4 also edits
+  `opm/k8s/labels/labels.go` (a new `AnnotationAdopt` block) where this change edits the
+  `ComponentName` doc comment; the hunks are far apart and are expected to merge on their
+  own.
 - `enhancement.yaml` declares 0012 and claims no decision. 0012:D6 and 0012:D7 are delivered
   only once both frontends compute through this package (0012:D1, ADR-011 item 3). The claim
   belongs to the adoption changes, and under-claiming is the safe direction.

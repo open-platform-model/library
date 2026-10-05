@@ -46,6 +46,13 @@ anyway. The inventory digest is `Digest` and not `InventoryDigest`, because
 `inventory.InventoryDigest` stutters. `RenderDigest` keeps its name, since `inventory.Digest`
 would not say which digest it is.
 
+A test lists the package's exported identifiers and pins these six, so a later exported
+comparison fails a test and not only review.
+
+`ownership.Object` (add-kubernetes-ownership-package, written beside this change) is the
+tier's exported four-field identity value. This change keeps its own key unexported, and a
+later change may express `SameObject` over `ownership.Object`. No API change here.
+
 **Rationale**: Principle VII. Each symbol has a consumer in both frontends' adoption changes.
 `SameObject` is the stale set's relation, made public so a frontend that needs "is this the
 same object" (the cli's prune and existence checks) asks the same question.
@@ -146,9 +153,10 @@ definition and not of an encoder (0012:D7, Alternatives).
 
 ### KI5: The render digest re-decodes the export, blanks one value and hashes sorted-key JSON
 
-**Context**: 0012:D6:R2/R3. The input has to be the one export `object.Export` makes (wave-1
-operator memory rule). The operator exports once inside its render slot and then drops the CUE
-values.
+**Context**: 0012:D6:R2/R3. The input has to be the one export `object.Export` makes. Its doc
+comment (`opm/k8s/object/export.go`) states the rule: "The caller drops its Resources after
+the export to release the CUE build they pin." The operator renders inside a bounded render
+slot and drops the CUE values when it leaves it.
 
 **Decision**:
 
@@ -162,7 +170,8 @@ For each `Exported` it:
 1. Decodes `JSON` again with `json.Decoder.UseNumber`, so every number keeps the literal CUE
    emitted. `Exported.Object` is not reused: it was decoded into `float64`, which merges
    integers above 2^53 and would let two different renders share a digest (R3). Trailing data
-   after the object, a non-object value and invalid JSON are errors naming the object's index.
+   after the object, a non-object value (the literal `null` included, which decodes to a nil
+   map without an error) and invalid JSON are errors naming the object's index.
    `object.Export` never produces them, but a hand-built `Exported` can.
 2. If `metadata` is an object, `metadata.labels` is an object and it holds the key
    `app.kubernetes.io/managed-by` (`labels.ManagedBy`), it replaces that value with the empty
@@ -174,7 +183,8 @@ For each `Exported` it:
 
 It then sorts the encoded objects by group (from `apiVersion`, empty for the core group), kind,
 `metadata.namespace` and `metadata.name`, read from the decoded object, with the encoded bytes
-as the final tie-break. It hashes `"opm-render-v1\n"` followed by each encoded object. An empty
+as the final tie-break. A sort field that is missing or not a string reads as `""`; the byte
+tie-break keeps the order deterministic then too. It hashes `"opm-render-v1\n"` followed by each encoded object. An empty
 render hashes the tag line alone. It never changes `objs`, its `JSON` or its `Object`.
 
 **Explored**: Hashing the CUE-order JSON as today. Rejected: the managed-by value cannot be
@@ -208,11 +218,21 @@ Not possible: Go's internal rule keeps `opm/internal/registrytest` out of reach.
   each object's managed-by label value is its runtime name. It asserts that, with that one
   value blanked, the two renders are deep-equal object by object. The label key is a string
   literal in the test, since the kernel may not import `opm/k8s/labels`.
+  A second case renders the shipped-catalog parity instance (`testdata/parity/instance`
+  against `testdata/parity/opm_platform`, the inputs of `TestParity_ShippedCatalog`) the same
+  two ways, with the same assertions and the same GHCR gating. Core passes
+  `#context.#runtimeName` to every transformer (core `src/transformer.cue`), so whether the name
+  reaches only the label is a property of the catalog, not of the kernel. Today
+  `catalog_opm`'s transformers reach it only through `#context.labels` into `metadata.labels`;
+  selectors and pod templates use the component labels.
 - `opm/k8s/inventory` tests assert that `RenderDigest` is equal for two object sets that
   differ only in the managed-by value, and different for every other change (KI7).
 
 Together: a runtime name changes only that value, and the digest ignores only that value, so
-the two runtimes' digests of one render are equal (0012:D6:R2). Section 1 of tasks.md writes
+the two runtimes' digests of one render are equal (0012:D6:R2). The tier owns only the second
+half. The first half holds for the catalogs the kernel test renders, and a catalog that wrote
+`#runtimeName` anywhere but `#context.labels` would break it. The spec states the tier's
+property and names that condition. Section 1 of tasks.md writes
 the kernel test first, because the premise ("the two frontends render the same instance into
 objects that differ in exactly one label value", ADR-011 Context) has not been tested before.
 
@@ -257,9 +277,8 @@ recorded in inventory entries as provenance and that the stale set ignores it.
   flips the runtime name does not move the digest. That is intended (ADR-011 Trade-off). The
   test "another label counts" pins that nothing else is ignored.
 - **The render digest decodes each object a second time.** The cost is one JSON decode per
-  object at digest time, on bytes the caller already holds. Rendered objects are small (the
-  wave-1 memory measurements put render output under 1 MB for the largest fixture). The peak
-  stays the CUE evaluation.
+  object at digest time, on bytes the caller already holds. Rendered objects are small next to
+  the CUE build that produced them, so the peak stays the CUE evaluation.
 - **Digest values change once in both frontends.** This is decided (0012:D7, Alternatives).
   The adoption changes carry the migration note. The operator applies every instance once after
   its upgrade, bounded by the shared render slots.
