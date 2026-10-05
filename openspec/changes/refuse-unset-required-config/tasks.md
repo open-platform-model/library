@@ -20,10 +20,7 @@ reason is needed, never an RCn, task or section number.
 
 ## 1. Spike: pin the gap and the CUE positions (kernel tests; design RC1, RC2)
 
-design.md carries two unverified assumptions (RC2: unifying the compiled sources again
-changes no value and adds their positions; RC1: the new check fires only for instances
-accepted today). This section lands tests that pass on `origin/main` and records what they
-show.
+This section lands tests that pass on `origin/main` and pin the gap.
 
 - [ ] 1.1 `opm/kernel/synth_test.go`: publish a synth module (`publishSynthModule`) whose
       `#config` declares `replicas: int | *1`, `image: string`, `tag!: string`,
@@ -33,48 +30,39 @@ show.
       2 turns it into a refusal), while `ValidateConfigDetailed(mod.ConfigSchema(), …)`
       refuses `image`, `tag` and `any`. If the build fails or the synthesis is refused, fix
       the fixture before going on.
-- [ ] 1.2 Same fixture, internal test (`process_internal_test.go` or
-      `validate_internal_test.go`, package `kernel`): build the spec through the kernel,
-      then validate `#module.#config` unified with the spec's `values` under
-      `cue.Concrete(true)`, once alone and once with the compiled sources unified in. Record
-      in design.md (RC2, a "Spike result" paragraph): the error paths CUE reports, the
-      positions of each finding (the `#config` declaration, and for a source writing
-      `image: string`, whether `/values/a.cue` appears), and whether the two forms refuse
-      the same fields. If the double unification changes a result, RC2 falls back to the
-      built `values` alone; write that down.
+- [x] 1.2 Probe the paths and positions CUE reports for each unification order (a scratch
+      test, not committed) and record the result in design.md, RC2 "Spike result". Done
+      while applying the plan review: `values & #config` is the chosen order; the compiled
+      sources add no position.
 - [ ] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory of
-      the same module (written under `t.TempDir()`, importing the module 1.1 publishes, or
-      a `renderFixtureDir` copy if one already has an unread required field) with its own
-      `values: {replicas: 2}`: accepted today with and without a trailing source.
+      the same module (`writeImportedInstance`, importing the module 1.1 publishes) with its
+      own `values: {replicas: 2}`: accepted today with and without a trailing source that
+      sets `opt`.
 - [ ] 1.4 `task check` green, then commit
       `test(kernel): pin instances that leave an unread config value unset`.
 
 ## 2. Refuse an unset required config value in instance processing (kernel; design RC1 to RC4)
 
-- [ ] 2.1 `opm/kernel/process.go`: `processInstance(spec, compiled []cue.Value)` runs the
-      existing `spec.Validate(cue.Concrete(true))` first, unchanged, then the required-config
-      check of RC1 (`#module.#config` off the spec, unified with the spec's `values` and,
-      per the section 1 result, the compiled sources, validated with `cue.Concrete(true)`),
-      framed `instance %q: not fully concrete: %w`. Skip when `#config` or `values` does not
-      exist. Rewrite the `processInstance` doc comment to state both checks and that the
-      second refuses a value no component reads.
-- [ ] 2.2 `opm/kernel/synth.go` passes `compiled`; `opm/kernel/acquire.go` passes
-      `compiled` (nil on the no-sources branch). `valuesConflict` and both post-build
-      per-source checks stay without concreteness. Update the `SynthesizeInstance`,
-      `AcquireInstanceFromDir` and `InstanceInput.Values` godoc sentences this makes
-      incomplete, and the values paragraph of `opm/kernel/doc.go` (one sentence: both verbs
-      refuse a required `#config` value the values leave unset, read or not). Check
-      `docs/getting-started.md` line 105 and `README.md` still hold; edit only a sentence
-      that became false.
+- [ ] 2.1 `opm/kernel/process.go`: `processInstance(spec)` runs the existing
+      `spec.Validate(cue.Concrete(true))` first, unchanged, then the required-config check
+      of RC1 (the spec's `values` unified with `#module.#config`, both off the spec,
+      validated with `cue.Concrete(true)`), framed `instance %q: not fully concrete: %w`.
+      Skip when `#config` or `values` does not exist. Rewrite the `processInstance` doc
+      comment to state both checks and that the second refuses a value no component reads.
+- [ ] 2.2 Update the `SynthesizeInstance`, `AcquireInstanceFromDir` and
+      `InstanceInput.Values` godoc sentences this makes incomplete, and the values paragraph
+      of `opm/kernel/doc.go` (one sentence: both verbs refuse a required `#config` value the
+      values leave unset, read or not). `valuesConflict` and both post-build per-source
+      checks stay without concreteness. Check `docs/getting-started.md` and `README.md`
+      still hold; edit only a sentence that became false.
 - [ ] 2.3 Tests. Turn 1.1 and 1.3 into refusals: no instance, framing
       `Kernel.SynthesizeInstance: instance "myrel": not fully concrete: ` and
-      `Kernel.AcquireInstanceFromDir: instance "<name>": not fully concrete: `, the messages
-      name `image`, `tag` and `any` and not `opt` or `replicas`, and a position names the
-      module's `#config` declaration. Add: optional-and-defaulted-only succeeds on both
-      verbs; a source writing `image: string` is refused with a position naming its
-      `Origin` (or, if section 1 fell back, the test asserts what RC2 records); the parity
-      table of RC3 (`TestKernel_SynthesizeInstance_RequiredConfigMatchesValidateConfigDetailed`),
-      each case asserting `SynthesizeInstance` refuses exactly when
+      `Kernel.AcquireInstanceFromDir: instance "<name>": not fully concrete: `, error paths
+      `values.image`, `values.tag` and `values.any` and none for `opt` or `replicas`, and a
+      position naming the module's `#config` declaration for `image` and `tag`. Add:
+      optional-and-defaulted-only succeeds on both verbs; the parity table of RC3
+      (`TestKernel_SynthesizeInstance_RequiredConfigMatchesValidateConfigDetailed`), each
+      row asserting `SynthesizeInstance` refuses exactly when
       `ValidateConfigDetailed(mod.ConfigSchema(), []Source{src})` does.
 - [ ] 2.4 Unchanged behaviour: `TestKernel_AcquireInstanceFromDir_NonConcreteRejected`,
       `TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires`,
@@ -82,34 +70,39 @@ show.
       `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged` (its required-`image`
       subtest included) and
       `TestKernel_AcquireInstanceFromDir_WithSources_IncompleteValuesKeepBuildError` pass
-      without edits. If any other existing test or fixture under `testdata/` relied on an
-      unread required field staying unset, give the fixture the value or a default and say
-      why in the commit body; never loosen the check.
+      without edits. Add one test that tells the two checks apart for the `replicas: >=1`
+      own-values case: the error is at `values.replicas`, positioned in the package's
+      `values.cue`, and carries no finding positioned at the module's `#config` declaration
+      file. If any other existing test or fixture under `testdata/` relied on an unread
+      required field staying unset, give the fixture the value or a default and say why in
+      the commit body; never loosen the check.
 - [ ] 2.5 `go test -race ./opm/kernel -count=1`, the parity tests
       (`go test ./opm/kernel -run Parity -count=1`) and `task cue:test:flow` (it may skip
       when the registry is unreachable; say so if it does). Then `task check` green, and
-      commit `fix(kernel): refuse an instance that leaves a required config value unset`,
-      whose body states the behaviour change: an `AcquireInstanceFromDir` or
-      `SynthesizeInstance` call accepted before, because no component read the unset value,
-      is now refused.
+      commit `fix(kernel)!: refuse an instance that leaves a required config value unset`
+      with a `BREAKING CHANGE:` footer: an `AcquireInstanceFromDir` or `SynthesizeInstance`
+      call accepted before, because no component read the unset value, is now refused; the
+      remedy is to set the value, give the field a default, or mark it optional with `?`.
 
 ## 3. Downstream survey (no library code; design RC5)
 
 - [ ] 3.1 `task api:diff`: nothing listed under the files this change touches.
 - [ ] 3.2 Consumer build: fresh clones of cli and opm-operator `main` in the scratchpad,
-      `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> .` for each. Verify: both
-      green.
+      `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <work-dir>` for each.
+      Verify: both green. Through the same `GOWORK`, run the cli tests
+      `go test ./internal/workflow/render/... ./internal/cmdutil/... ./internal/cmd/...`
+      and the operator tests `go test ./internal/render/...`, and compare any failure with
+      the same run against the library at `origin/main`.
 - [ ] 3.3 Instance survey: a scratch Go program (scratchpad, `go.work` with this worktree,
-      never committed) that calls `AcquireInstanceFromDir` on every directory holding a
-      `kind: "ModuleInstance"` package in cli, opm-operator, modules and opm-modules at
-      their `origin/main` (fresh clones or `git archive`, never another session's
-      worktree), with the workspace registry env. Run the same program against the library
-      at `origin/main` to separate new refusals from instances refused already. For each
-      ModuleInstance CR fixture with `spec.values` in opm-operator, run its values through
-      `SynthesizeInstance` where the module resolves from GHCR. Where cheap, run the
-      operator's registry-backed integration specs that synthesize fixture instances with
-      a `replace` to this worktree in a scratch copy, under the flock and context rules in
-      the workspace guide.
+      never committed), run once against this worktree and once against the library at
+      `origin/main`, with the workspace registry env. It runs every module's `debugValues`
+      through `SynthesizeInstance` (modules, opm-modules, the cli and operator testdata
+      modules, opm-operator `modules/opm_operator`) and calls `AcquireInstanceFromDir` on
+      every package directory that references `#ModuleInstance` (skipping `ErrWrongKind`)
+      in cli, opm-operator, modules and opm-modules, all at their `origin/main` (fresh
+      clones or `git archive`, never another session's worktree). For each ModuleInstance
+      CR fixture with `spec.values` in opm-operator, it runs those values through
+      `SynthesizeInstance` where the module resolves from GHCR.
 - [ ] 3.4 Write a "Downstream survey" section in design.md: every instance this newly
       refuses (repo, path, the unset field), or "none found", plus what was not reachable.
       List the operator pre-validate deletion and any fixture fix as follow-ups in their
@@ -117,7 +110,7 @@ show.
       `task check` green, and commit
       `chore(openspec): record the downstream survey for refuse-unset-required-config`.
 
-## 4. Verify
+## 4. Verify and hand over
 
 - [ ] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
 - [ ] 4.2 `openspec validate refuse-unset-required-config --strict` passes.
@@ -126,3 +119,9 @@ show.
       `openspec validate --all --strict`, then commit
       `chore(openspec): archive refuse-unset-required-config`. There is no
       `enhancement.yaml`, so no delivery log runs.
+- [ ] 4.4 Open the PR titled
+      `fix(kernel)!: refuse an instance that leaves a required config value unset`. Its
+      body records the owner's settlement of library#211 (the kernel refuses an unset
+      required `#config` value on both instance verbs; the operator then deletes its
+      pre-check), says `Closes #211`, and carries the `BREAKING CHANGE:` footer of 2.5 in
+      the squash body. No line of the body starts with `word(`.

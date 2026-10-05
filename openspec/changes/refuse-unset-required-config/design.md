@@ -9,7 +9,8 @@ with any other numbering. Locations are at `origin/main` `88afdfb`:
 - `opm/kernel/process.go` `processInstance(spec)`: `spec.Validate(cue.Concrete(true))`,
   framed `instance %q: not fully concrete: %w`, then metadata decoding. Both verbs call it
   last. `Validate` does not descend into definitions, so `#module.#config` is never checked
-  here.
+  here; it does descend into `values`, so a value the instance's values carry in a
+  non-concrete form is refused here already.
 - `opm/kernel/synth.go` `SynthesizeInstance`: `mergeSources` returns `compiled` and
   `merged`; after a successful build, `validateCompiled(configSchema, compiled, false)` with
   `configSchema` read off the built spec (`#module.#config`); then `processInstance(spec)`.
@@ -26,27 +27,21 @@ with any other numbering. Locations are at `origin/main` `88afdfb`:
   (or `{}`) as one source, then `ValidateConfigDetailed(mod.ConfigSchema(), sources)` before
   `SynthesizeInstance`. This is the check the kernel takes over.
 
-A probe with the cue v0.17.1 CLI over `#config: {replicas: int | *1, image: string, tag!:
-string, opt?: string, any: _}` unified with `{replicas: 2}` reports, under concreteness:
-`any: incomplete value _`, `image: incomplete value string` (at the `image` declaration)
-and `tag: field is required but not present` (at the `tag` declaration). `opt` and
-`replicas` pass. Section 1 confirms the same through the kernel and records the exact paths
-and positions.
-
 ## Goals / Non-Goals
 
 **Goals:** both instance verbs refuse an instance whose effective values leave a required
-`#config` value unset, whether or not a component reads it; the refused set equals what
-`ValidateConfigDetailed(#config, values)` refuses for the same values; the refusal sits at
-the field's `#config` position, and at the source's `Origin` where a source wrote the
-non-concrete value; every error the two verbs return today for an instance they refuse
-today stays the same.
+`#config` value unset, whether or not a component reads it; the refused set equals what the
+operator's `ValidateConfigDetailed(#config, values)` pre-check plus `SynthesizeInstance`
+refuse today for the same values; the refusal sits at the field's `#config` declaration
+where CUE has a position for it, under the path `values.<field>`; every error the two verbs
+return today for an instance they refuse today stays the same.
 
 **Non-Goals:** deleting the operator's pre-validate (an operator change after the library
 release); typing values errors (the kernel returns CUE's error tree, config-validation "No
 Custom Validation Error Types"); changing `ValidateConfigDetailed`; changing the
-failure-path attribution of library #197; rewording the path CUE reports (`#module.#config`
-prefix, RC4).
+failure-path attribution of library #197; attributing the existing built-spec refusal of a
+non-concrete value a source wrote to that source's `Origin` (it is reported at the rendered
+values file today and stays so; see Risks).
 
 ## Research & Decisions
 
@@ -61,32 +56,31 @@ Implementations Live on Kernel").
 so it would flag a field the package's own `values` set, and with no sources it never runs.
 It also changes the error of instances refused today: the render fixture test "a bare
 constraint is not a values error" (`acquire_test.go`) expects `not fully concrete`.
-**Decision**: (c). `processInstance(spec, compiled)` runs the existing
-`spec.Validate(cue.Concrete(true))` first, unchanged, then validates
-`#module.#config` (read off `spec`) unified with the spec's `values` and the call's
-compiled sources, with concreteness, and frames a failure the same way:
+**Decision**: (c). `processInstance(spec)` runs the existing
+`spec.Validate(cue.Concrete(true))` first, unchanged, then validates the spec's `values`
+unified with `#module.#config` (both read off `spec`) with concreteness, and frames a
+failure the same way:
 
 ```go
-func processInstance(spec cue.Value, compiled []cue.Value) (*module.Instance, error) {
+func processInstance(spec cue.Value) (*module.Instance, error) {
 	name := bestEffortInstanceName(spec)
 	if err := spec.Validate(cue.Concrete(true)); err != nil {
 		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
 	}
-	if err := requiredConfigSet(spec, compiled); err != nil {
+	if err := requiredConfigSet(spec); err != nil {
 		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
 	}
 	// metadata decoding unchanged
 }
 
-// requiredConfigSet: #config & values & compiled..., under cue.Concrete(true).
-func requiredConfigSet(spec cue.Value, compiled []cue.Value) error {
+// requiredConfigSet: values & #config, under cue.Concrete(true).
+func requiredConfigSet(spec cue.Value) error {
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
 	built := spec.LookupPath(schema.Values)
 	if !configSchema.Exists() || !built.Exists() {
 		return nil
 	}
-	return configSchema.Unify(unifyValues(append([]cue.Value{built}, compiled...))).
-		Validate(cue.Concrete(true))
+	return built.Unify(configSchema).Validate(cue.Concrete(true))
 }
 ```
 
@@ -96,47 +90,72 @@ second keeps every error of an instance refused today: a non-concrete value a co
 reads, or a non-concrete `values` field, still fails the spec check first with the same
 text. The new check fires only for an instance the kernel accepts today.
 
-### RC2. Effective values, not sources alone
+### RC2. Effective values, in the order values then `#config`
 
 **Context**: on the acquire path the instance's values are the package's own `values` plus
-the trailing sources; on the synthesis path they are the merged sources only.
-**Decision**: validate against the built spec's `values` (which already carries every
-source through the rendered values file), with the compiled sources unified in as well.
-**Rationale**: the built `values` is what the instance deploys, on both verbs. Unifying the
-compiled sources again changes no value (they are already conjuncts of `values`) but adds
-their `Origin` positions to an error about a value a source wrote, the attribution the
-owner asked for "where possible". A field nobody wrote has no source position; its
-position is its `#config` declaration, as CUE reports it. Section 1 verifies both claims;
-if the double unification changes a result or a position, the spike records it and the
-check falls back to the built `values` alone.
+the trailing sources; on the synthesis path they are the merged sources only. The plan
+first had the compiled sources unified in again, to add their `Origin` positions.
+**Decision**: validate the built spec's `values` (which already carries every source
+through the rendered values file) unified with `#config`, in that order, and nothing else.
+The compiled sources are not passed in.
+**Rationale**: the built `values` is what the instance deploys, on both verbs. A CUE error
+carries the position of one conjunct, and which one depends on the unification order. The
+probe below shows the compiled sources add nothing the check can use: a field this check
+refuses is one the values do not carry at all, so no source wrote it and there is no
+`Origin` to name; a value a source wrote in a non-concrete form is refused by the built-spec
+check before this one runs. Putting `values` first gives the path `values.<field>`, the
+same path the kernel's disallowed-field errors use, instead of `#module.#config.<field>`.
 
-### RC3. Same refused set as `ValidateConfigDetailed`
+**Spike result** (cue v0.17.1, through the kernel, module `#config: {replicas: int | *1,
+image: string, tag!: string, opt?: string, any: _}` with one component reading only
+`replicas`, synthesized with the source `replicas: 2` at `/values/a.cue`; recorded before
+the check existed, when the synthesis still succeeded):
+
+| Unification | `image` | `tag` | `any` |
+| --- | --- | --- | --- |
+| `#config & values` | `#module.#config.image`, declaration | `#module.#config.tag`, declaration | `#module.#config.any`, no position |
+| `#config & (values & sources)` | same as above | same | same |
+| `sources & values & #config` | `image`, declaration | `tag`, declaration | `any`, no position |
+| `values & #config` (chosen) | `values.image`, declaration | `values.tag`, declaration | `values.any`, no position |
+| `ValidateConfigDetailed` | `#config.image`, declaration | `#config.tag`, declaration | `#config.any`, no position |
+
+The messages are `incomplete value string`, `field is required but not present` and
+`incomplete value _`. `opt` and `replicas` pass in every form. All forms refuse the same
+three fields. With the source `replicas: 2` plus `image: string`, the synthesis was refused
+by the existing built-spec check at `values.image`, positioned in the synthesized package's
+rendered `values.cue`, never at `/values/a.cue`, so no new-check finding can carry a source
+`Origin`.
+
+### RC3. Same refused set as the operator's pre-check plus synthesis
 
 **Context**: the operator deletes its pre-validate only if the kernel refuses at least what
 it refuses.
 **Decision**: the concreteness rule is the one `validateValues(…, true)` applies
 (`schema.Unify(merged).Validate(cue.Concrete(true))`). The disallowed-field walk and type
 checks are not repeated here: the post-build per-source checks have already run them on
-both verbs, and the spec check covers what the build reads. A parity test runs the
-operator's shape, `ValidateConfigDetailed(mod.ConfigSchema(), []Source{src})`, and
-`SynthesizeInstance` with the same source over a table of values (all set, an unread
-`string` unset, an unread `foo!` unset, an unread `_` unset, an optional field unset, a
-defaulted field unset, a read field unset) and asserts that each refuses exactly when the
-other does.
+both verbs, a build-failing violation is attributed by `valuesConflict`, and the spec check
+covers what the build reads. A parity test runs the operator's shape,
+`ValidateConfigDetailed(mod.ConfigSchema(), []Source{src})`, and `SynthesizeInstance` with
+the same source over a table of values: all set, an unread `string` unset, an unread `foo!`
+unset, an unread `_` unset, an optional field unset, a defaulted field unset, a read field
+unset, a disallowed key, a type mismatch on an unread field, a constraint violation on a
+read field, and the operator's `{}` no-values source. Each row asserts that
+`SynthesizeInstance` refuses exactly when `ValidateConfigDetailed` refuses.
 **Rationale**: the parity is the condition for the operator's deletion, so it is pinned by
 a test, not by argument.
 
 The no-values synthesis path is unchanged: with an empty `Values` the values path stays
 `_`, the spec check refuses it as today, and the operator's `{}` source reaches the new
-check as one compiled value.
+check as `{}`, so `#config` defaults apply and only fields with no default are refused.
 
 ### RC4. Error shape and framing
 
 **Context**: the refusal must be readable at the field's position and walkable by
 frontends.
 **Decision**: return CUE's error tree unchanged, wrapped as
-`Kernel.<Verb>: instance "<name>": not fully concrete: <cue error>`. CUE names the path as
-reached from the spec (`#module.#config.<field>`); the kernel does not rewrite it.
+`Kernel.<Verb>: instance "<name>": not fully concrete: <cue error>`. The path is
+`values.<field>` (RC2); the kernel does not rewrite it. A field declared `_` carries no
+position, because CUE has none for it; it is identified by its path.
 **Rationale**: config-validation "No Custom Validation Error Types": the kernel returns
 CUE-native errors and frontends own presentation. The `not fully concrete` frame keeps one
 wording for every concreteness refusal of the two verbs (artifact-types "Validation
@@ -147,16 +166,20 @@ compares the wording and decides whether its status message needs a prefix.
 
 ### RC5. Downstream survey decides nothing in the library
 
-**Context**: the supervisor asked for a list of instances in the cli and operator fixtures
-and the module fleets that this newly refuses.
+**Context**: the settlement of library#211 asks for a survey of the instances in the cli
+and operator fixtures and the module fleets that this newly refuses.
 **Decision**: section 3 builds a scratch program (in the session scratchpad, never
-committed) in a `go.work` with this worktree, which runs every on-disk `ModuleInstance`
-package found in cli, opm-operator, modules and opm-modules (at their `origin/main`, from
-fresh clones or `git archive`, never another session's worktree) through
-`AcquireInstanceFromDir` and reports each refusal. It also runs
-`.tasks/consumer-build.sh` against fresh clones of cli and opm-operator, and the
-operator's registry-backed integration specs that synthesize fixture instances, where that
-is cheap. Findings go into a "Downstream survey" section of this file.
+committed) in a `go.work` with this worktree, and the same program in a `go.work` with the
+library at `origin/main`, so new refusals separate from old ones. The program runs every
+module's `debugValues` through `SynthesizeInstance` (modules, opm-modules, the cli and
+operator testdata modules, opm-operator `modules/opm_operator`), and calls
+`AcquireInstanceFromDir` on every package directory that references `#ModuleInstance`
+(skipping `ErrWrongKind`) in cli, opm-operator, modules and opm-modules, all at their
+`origin/main` (fresh clones or `git archive`, never another session's worktree). It also
+runs `.tasks/consumer-build.sh` against fresh clones of cli and opm-operator, and the cli
+tests `go test ./internal/workflow/render/... ./internal/cmdutil/... ./internal/cmd/...`
+and the operator tests `go test ./internal/render/...` through the same `GOWORK` that
+script writes. Findings go into a "Downstream survey" section of this file.
 **Rationale**: a newly refused fixture is a fix in its own repo (set the value, or give it
 a default), not a reason to loosen the kernel. The owner chose the refusal knowing it
 may tighten the cli.
@@ -164,10 +187,15 @@ may tighten the cli.
 ## Risks / Trade-offs
 
 - [A cli user's instance directory that rendered yesterday is refused] → it is the owner's
-  chosen correction; the release note names it and the error names the field and its
-  `#config` position.
+  chosen correction; the release note (the `BREAKING CHANGE:` footer) names it and the
+  error names the field and, where CUE has one, its `#config` position.
 - [A `#config` field typed `_` or a bare type with no default that the author meant as
   optional] → the author marks it optional (`foo?:`) or gives it a default; the operator
   already refuses such instances.
+- [A `_` field is reported with no position] → its path names it; CUE records no position
+  for `_`, and the kernel does not invent one.
+- [A non-concrete value a source wrote is reported at the rendered values file, not the
+  source] → unchanged by this change; attributing it to the source is a separate
+  improvement of the built-spec check, listed as a follow-up.
 - [The new check costs one unify-and-validate per instance] → no extra build; small next to
   the build itself.
