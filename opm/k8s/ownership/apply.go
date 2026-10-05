@@ -69,21 +69,20 @@ type ApplyVerdict struct {
 // Allowed reports whether the object may be applied.
 func (v ApplyVerdict) Allowed() bool { return v.Refuse == "" }
 
-// CanApply decides whether a frontend may apply over one object. It checks,
-// in order, and stops at the first match: a missing live object applies; a
-// live object being deleted is refused, in the inventory or not, adopted or
-// not; an object whose adopt annotation ([labels.AnnotationAdopt])
-// names this instance applies, in the inventory or not. In the instance's
-// inventory: with no instance UUID it applies; an adopt annotation naming
-// another instance is refused as adopted-elsewhere; otherwise it applies,
-// whatever its UUID label says. Outside it: a live object OPM does not manage
-// is refused; a live object whose adopt annotation and UUID
-// label name the same other instance is refused as adopted-elsewhere, since
-// that instance completed the hand-over; a live object carrying another
-// instance's UUID is refused as other-instance; an adopt annotation naming
-// another instance is refused as adopted-elsewhere; otherwise it applies
-// (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
-// is the only override, and a refusal message names it with the UUID to set
+// CanApply decides whether a frontend may apply over one object. It checks, in
+// order, and stops at the first match: a missing live object applies; a live
+// object being deleted is refused, in the inventory or not, adopted or not; an
+// object whose adopt annotation ([labels.AnnotationAdopt]) names this instance
+// applies, in the inventory or not. In the instance's inventory: with no
+// instance UUID it applies; an adopt annotation naming another instance is
+// refused as adopted-elsewhere; otherwise it applies, whatever its UUID label
+// says. Outside it: a live object OPM does not manage is refused; a live
+// object whose adopt annotation and UUID label name the same other instance is
+// refused as adopted-elsewhere, since that instance completed the hand-over; a
+// live object carrying another instance's UUID is refused as other-instance;
+// an adopt annotation naming another instance is refused as adopted-elsewhere;
+// otherwise it applies (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation is
+// the only override, and a refusal message names it with the UUID to set
 // (0012:D8:R3).
 func CanApply(in ApplyInput) ApplyVerdict {
 	if in.Live == nil {
