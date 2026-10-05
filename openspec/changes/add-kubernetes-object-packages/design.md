@@ -42,7 +42,7 @@ opm-operator `go.mod:21`), declares `go 1.26.0`. The library declares `go 1.25.0
 operator `go 1.26.2`. CI's `lint.yml` installs golangci-lint `2.8.0`. golangci-lint refuses to
 lint a module whose `go` directive is newer than the Go it was built with, and 2.8.0 predates
 Go 1.26. The cli's CI pins `v2.11.3`.
-**Decision**: Supervisor decision SD10 applies: `go 1.26.0` and `k8s.io/apimachinery v0.36.4`.
+**Decision**: `go 1.26.0` and `k8s.io/apimachinery v0.36.4`, matching both frontends.
 The directive moves in section 1, and apimachinery arrives in section 3 with its first
 importer, because `go mod tidy` drops a requirement nothing imports. Section 1 checks the lint
 pin: it runs golangci-lint 2.8.0 from a scratch install against the raised directive. If 2.8.0
@@ -197,9 +197,9 @@ deliberate. The file header comment cites the source commit once.
 **Rationale**: "Matches what cli#289 uses" holds by construction. The operator has no table of
 its own today (0012:D5 deleted it). It uses Flux's order, which KO7 documents.
 
-### KO6: Stages cut an apply set by the order (SD11)
+### KO6: Stages cut an apply set by the order
 
-**Context**: SD11 says the operator applies one library weight group per fluxssa `ApplyAll`,
+**Context**: The operator applies one library weight group per fluxssa `ApplyAll` (0012:D4, ADR-011),
 because Flux re-sorts every call with its own table (ssa v0.77.0 `manager_apply.go:207`). The
 cli's apply has two stages: the cluster definitions (`IsProtectedKind`: a
 CustomResourceDefinition in `apiextensions.k8s.io`, a Namespace in the core group), an
@@ -220,7 +220,7 @@ func Stages[T any](items []T, gvkOf func(T) schema.GroupVersionKind) []Stage[T]
 ```
 
 The definition stage spans two weights, -100 (CustomResourceDefinition) and 0 (Namespace), so
-it is not one library weight group in SD11's literal sense. It is still safe to hand to one
+it is not one library weight group in the literal sense. It is still safe to hand to one
 `ApplyAll` call, because Flux v0.77.0 ranks CustomResourceDefinition before Namespace too
 (`sort.go` `ReconcileOrder.First[0]` and `[1]`), so Flux's re-sort inside the call keeps the
 library's order. `flux_order_test.go` asserts that this pair is no contradiction.
@@ -230,7 +230,7 @@ group is not one. It still takes the kind-only fallback weight 0 in its weight s
 definition stage also holds ClusterRoles. The library's does not, because the cli's does not.
 A ClusterRole lands in the weight-5 stage that follows. The operator's adoption change decides
 whether it waits on that stage. Deletion uses `Sort(..., Descending)` and needs no stages.
-**Rationale**: SD11 needs exactly this cut. The cli can flatten every stage after the first and
+**Rationale**: The per-call apply needs exactly this cut. The cli can flatten every stage after the first and
 keep its two-stage apply. One function then defines "stage" for both frontends.
 
 ### KO7: The Flux comparison is a documentation test, not a dependency
@@ -251,7 +251,7 @@ Known members include PersistentVolume and PersistentVolumeClaim after Deploymen
 library, and the webhook configurations last in Flux but at 500, before custom resources at
 1000, in the library (the custom resource ranks 0 in Flux, between the two). It also asserts that
 CustomResourceDefinition before Namespace is no contradiction, the pair KO6's definition stage
-rests on. The test decides nothing. Under SD11 these contradictions cannot appear
+rests on. The test decides nothing. With one library stage per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011), these contradictions cannot appear
 inside one `ApplyAll` call, because each call holds a single weight.
 **Outcome (section 4)**: the committed list holds 196 pairs over a 35-kind universe. It is
 grouped by cause with one comment per group (the early `*Class`, ResourceQuota and LimitRange
@@ -263,8 +263,8 @@ review without importing the engine.
 
 ### KO8: Duplicates is copied into the tier; the helper copy is deprecated and frozen
 
-**Context**: ADR-011 item 9 says objectset moves. SD1 forbids deleting it while the frontends
-import it. The fences forbid forwarding in either direction. `opm/helper` may not import
+**Context**: ADR-011 item 9 says objectset moves. The library rule deprecate, then remove: the library never removes API a frontend imports at `main` (AGENTS.md, Consumer build paragraph) forbids
+deleting it while the frontends import it. The fences forbid forwarding in either direction. `opm/helper` may not import
 `opm/k8s` (rule `nothing-imports-k8s-tier`), and `opm/k8s` may not import `opm/helper` (rule
 `k8s-tier-imports-no-runtime`). Test files are included in both rules.
 **Decision**: Copy `objectset.go` into `opm/k8s/object/duplicates.go`. The exported names and
@@ -283,9 +283,12 @@ The ported test carries the same synthetic transformer id
 (`opmodel.dev/catalogs/opm/transformer-registration-transformer@4.4.0`) as the helper test, so
 `opm/k8s/object/duplicates_test.go` gets its own `.cascade-frozen` entry with the pin
 `opmodel.dev/catalogs/opm@v4`, appended at the end of the file.
-**Rationale**: Two identical copies for one release window is the price of SD1. The copy is
-mechanical and the identical test suites pin it. No cross-package parity test is possible,
-because the fences forbid it.
+**Rationale**: Two identical copies for one release window is the price of deprecate, then remove. The copy is
+mechanical and the identical test suites pin it.
+**Outcome (code review)**: a committed parity test, `opm/k8s/object/objectset_parity_test.go`,
+runs the duplicates fixtures through both homes and compares rows field by field and the
+error text. It imports `opm/helper/objectset` under a `//nolint:depguard,staticcheck` that
+names its removal, and is deleted together with objectset.
 
 ### KO9: A strict import allow list for the tier pays
 
@@ -296,7 +299,9 @@ allow list pays."
 - `k8s-labels-imports-only-stdlib`: strict, files `**/opm/k8s/labels/**` except `_test.go`,
   allow `$gostd`.
 - `k8s-tier-allow-list`: strict, files `**/opm/k8s/**` except `_test.go`, allow `$gostd`,
-  `cuelang.org/go/cue`, `k8s.io/apimachinery` and `github.com/open-platform-model/library/opm`.
+  `cuelang.org/go/cue$` and `cuelang.org/go/cue/` (the package and its subpackages, since
+  depguard matches by prefix and a bare entry would admit `cuelang.org/go/cuego`),
+  `k8s.io/apimachinery` and `github.com/open-platform-model/library/opm`.
 
 The existing deny rules still refuse `opm/internal`, `opm/helper`, Flux and every other
 Kubernetes module, so the broad library prefix admits only the kernel's exported packages and
@@ -322,10 +327,10 @@ a reviewer noticing.
 
 ### KO10: The deprecation is a real marker, and its lint cost is stated
 
-**Context**: SD1 says the API is "Deprecated". Both frontends enable staticcheck with every
+**Context**: Deprecate, then remove marks the API "Deprecated". Both frontends enable staticcheck with every
 check on (cli `.golangci.yml` `checks: [all, -ST1000, -ST1003]`, operator default), and SA1019
 reports imports of a deprecated package.
-**Decision**: Use the standard `Deprecated:` paragraph, as SD1 says. Both frontends run a
+**Decision**: Use the standard `Deprecated:` paragraph. Both frontends run a
 full golangci-lint with staticcheck on every PR (the cli through golangci-lint-action with no
 `only-new-issues`), so the cascade's library bump PR in each frontend would turn lint red. Each
 frontend's bump PR therefore carries the mechanical import swap `opm/helper/objectset` to
@@ -342,7 +347,7 @@ operator measured with `--no-config`, because its config needs the custom logche
 Swapping the import path and the package qualifier in a scratch clone is 13 lines in 4 files
 per frontend; both then vet and staticcheck reports 0 issues in the touched packages.
 **Rationale**: A prose-only "superseded" note would avoid the lint finding but would not be the
-deprecation SD1 asks for. The bump still compiles without the swap, which is SD1's purpose; the
+deprecation the rule asks for. The bump still compiles without the swap, which is the rule's purpose; the
 swap keeps the bump PR's lint green too.
 
 ### KO11: The docs say what exists
@@ -354,10 +359,10 @@ swap keeps the bump PR's lint green too.
 They locate edits by text, because lib-c2 moved lines. Every layout and list that names
 `objectset` marks it Deprecated with its replacement. `AGENTS.md` adds `k8s` to the commit scopes and one bullet under "CUE toolchain
 pin": `k8s.io/apimachinery` in `go.mod` (v0.36.4) is, by MVS, every embedder's apimachinery
-floor, like `cuelang.org/go`. It states no bump policy (SD24). The ADR-011 Status gains an
+floor, like `cuelang.org/go`. It states no bump policy (the owner has decided none). The ADR-011 Status gains an
 "Amended 2026-10-05 by add-kubernetes-object-packages" sentence covering three things:
 - the first packages are `labels` and `object`;
-- item 9 is carried out as copy, deprecate, then remove (SD1);
+- item 9 is carried out as copy, deprecate, then remove;
 - item 2's allow-list question is answered.
 
 The `kernel.Compiled` doc comment ("each consumer wraps *Compiled in its own resource type")
@@ -374,7 +379,8 @@ names `opm/k8s/object.Resource` as the Kubernetes wrapper. That is prose only, w
 - **Go floor 1.26.0** shuts out an embedder on Go 1.25. Mitigation: the only embedders are on
   1.26. 0012:D2 accepted the apimachinery floor.
 - **Weight-table contradictions with Flux** stay (KO7). Mitigation: they are documented and
-  pinned, and SD11 keeps any one `ApplyAll` call within a single weight.
+  pinned, and the operator's per-stage apply keeps any one `ApplyAll` call within a single weight
+  (0012:D4, ADR-011).
 - **Export holds all JSON and objects at once.** The operator already holds both. The peak is
   the CUE build, not these bytes (j2/g1 research: bytes under 1 MB, the build up to GBs).
 

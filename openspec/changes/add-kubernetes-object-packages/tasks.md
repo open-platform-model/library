@@ -20,7 +20,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 1. Spike: Go 1.26.0 floor, lint pin and the tier allow list (go.mod, lint; design KO1, KO9)
 
-- [x] 1.1 `go.mod`: `go 1.26.0` (SD10). `go mod tidy` leaves the requirements otherwise
+- [x] 1.1 `go.mod`: `go 1.26.0`, the floor both frontends declare. `go mod tidy` leaves the requirements otherwise
       unchanged, because apimachinery arrives in section 3 with its first importer. Verify:
       `go build ./... && go vet ./...` clean.
 - [x] 1.2 Lint pin probe, not committed. Install golangci-lint `2.8.0` from its release
@@ -138,7 +138,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       Verify: `go test ./opm/k8s/object -count=1` green.
 - [x] 4.4 `task check` green, then commit
       `feat(k8s): add the kind-class weight table and apply stages`. The body cites the cli
-      source commit and says that SD11's per-weight-group apply reads `Stages`.
+      source commit and says that the operator's per-stage apply (one stage per Flux `ApplyAll`) reads `Stages`.
 
 ## 5. Duplicate identities in the tier; the helper copy deprecated (object, helper/objectset, kernel tests; design KO8, KO10)
 
@@ -149,7 +149,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       `opmodel.dev/catalogs/opm@v4` at the end of `.cascade-frozen`. Verify: `go test ./opm/k8s/object -count=1` green; a scripted diff
       of the two implementation files and of the two test files, after normalising package
       and import names, is empty (duplicate-object-identities scenario "Both homes agree on a
-      render"; not committed).
+      render"; committed as `objectset_parity_test.go`, deleted with objectset).
 - [x] 5.2 `opm/helper/objectset`: add a `Deprecated: use opm/k8s/object.<Name>` paragraph to
       the package doc and to each exported symbol (`Identity`, `Producer`, `Duplicate`,
       `Duplicates`, `DuplicateIdentitiesError`), with no code change (scenario "The deprecated
@@ -186,7 +186,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
         block (the `k8s/` row becomes `k8s/labels/` and `k8s/object/` rows, and
         `helper/objectset/` is marked Deprecated with its replacement); `k8s` in the commit
         scopes; one bullet under "CUE toolchain pin" on the apimachinery MVS floor (no bump
-        policy, SD24).
+        policy; the owner has decided none).
       - `CONSTITUTION.md` Principle III: "`opm/k8s/` (planned)" becomes the tier as it now
         exists; the helper list that names objectset marks it Deprecated.
 
@@ -195,7 +195,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       shows no line presenting it as current; the layout block is still one code fence.
 - [x] 6.2 `adr/011-kubernetes-tier-beside-the-kernel.md`: one Status sentence, "Amended
       2026-10-05 by add-kubernetes-object-packages", covering the first packages `labels` and
-      `object`, item 9 carried out as copy, deprecate, then remove (SD1), and item 2's
+      `object`, item 9 carried out as copy, deprecate, then remove, and item 2's
       allow-list question answered yes. Item 2's "held by review until..." sentence is
       rewritten to the rule as it now stands. `opm/helper/doc.go`: the objectset bullet says
       it is Deprecated in favour of `opm/k8s/object`, and "opm/k8s/ (planned)" loses
