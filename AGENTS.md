@@ -207,39 +207,19 @@ Two independent knobs — do not conflate them:
 
 ### Schema cache lifetime contract
 
-The OPM core schema is fetched at runtime via `opm/schema.OCILoader` (resolves
-the exact release `schema.DefaultSchemaModule` pins against `CUE_REGISTRY`) and memoized in a
-`*schema.Cache` owned by each `*kernel.Kernel`. Lifetime rules:
+The schema cache contract is godoc: `schema.Cache` (one memoized load per cache into a
+private context, the on-disk cache two caches share, no package-level singleton),
+`kernel.New` (no load at construction, and which calls load) and `Kernel.SchemaCache`
+(one cache per Kernel for its lifetime). The default loader resolves the exact release
+`schema.DefaultSchemaModule` pins against `CUE_REGISTRY`; only a loader that pins no
+exact release (a bare-major `OCILoader`, or any other `Loader`) makes synthesis load
+it. Edit the godoc; do not restate it here. Facts the godoc does not carry:
 
-- **One Cache per Kernel.** Constructing two Kernels creates two Caches; they
-  share the on-disk CUE module cache (`$CUE_CACHE_DIR`, by default
-  `~/.cache/cuelang/mod/`) but not the in-process memoized `cue.Value`.
-- **Long-running consumers (operator, server) MUST keep the Kernel alive
-  across operations.** The schema fetch happens once per Kernel-instance on
-  first `Cache.Get()`, into a private `cue.Context` the cache creates and
-  never exposes; subsequent calls return the cached value with no registry
-  round-trip. `Get` takes no context: a caller that must compile against the
-  schema (the cli publish gate) uses the returned value's `Context()`. The
-  cache is the one long-lived evaluation state a Kernel owns; every verb
-  builds in a context of its own (ADR-007).
-- **No kernel verb loads the schema on a pinned kernel.** The default loader
-  pins an exact release (`schema.DefaultSchemaModule`), and
-  `SynthesizeInstance` reads the core import major off that pin
-  (`OCILoader.PinnedVersion`) with no load; only a loader that
-  pins no exact release (a bare-major `OCILoader`, or any other `Loader`)
-  makes synthesis resolve the release through the cache. The callers that still load it are the consumers' own: the cli
-  publish gate and the operator's startup smoke check call
-  `SchemaCache().Get` for their own reasons. Acquisition and `Render` never
-  read the cache: the module's own `cue.mod` resolves core inside the build.
-- **Short-lived consumers (CLI, tests) pay one fetch per cold disk cache,
-  then hit the warm CUE cache.** A repeated CLI invocation in the same
-  process tree gets the same disk cache; a fresh checkout (or a deleted
-  `$CUE_CACHE_DIR`) re-fetches once.
-- The library auto-applies no `CUE_REGISTRY` default. Frontends (CLI,
-  operator) MUST set `CUE_REGISTRY` (e.g. to `schema.PublicRegistry`,
-  which maps `opmodel.dev` → `ghcr.io/open-platform-model`) before the
-  first schema-touching Kernel call. Tests use the workspace-local cache
-  via `opm/internal/schematest`.
+- The calls that load the schema are the consumers' own: the cli publish gate and the
+  operator's startup smoke check call `SchemaCache().Get`.
+- Frontends set `CUE_REGISTRY` (the library applies no default, `opm/schema` package
+  doc); tests use the workspace-local cache through `opm/internal/schematest` (see
+  "Test module cache: two tiers").
 
 ### Render contract
 
@@ -324,37 +304,33 @@ task cue:test:flow                              # acquire→render integration t
 
 ## Coding Standards
 
-### Kernel API surface
+### Kernel API and render pipeline
 
-`*kernel.Kernel` is the single entry point. One render verb maps to the frontend's render / apply / dry-run subcommands:
+The kernel's surface and the render pipeline are specified in godoc. Edit the godoc;
+do not restate it here:
 
-- `Kernel.Render` — the single-build render path (0019:D9, ADR-005): stages instance + platform Sources into a generated render module, builds once in a per-render `cue.Context`, decodes verdicts (`RenderDiagnostics`) and output (`[]*kernel.Compiled`); `SkewPolicy` picks warn (default) or refuse on module-newer-than-platform catalog skew. `RenderInput` is `{Instance, Platform, RuntimeName, Skew, LocalReplacements}`; a dry run discards `Compiled`.
+- Verbs, the one-tier surface, the `WithRegistry` mapping, the shares-nothing context
+  rule, goroutine safety and values validation: the `opm/kernel` package doc
+  (`opm/kernel/doc.go`).
+- The render steps, the gate and its cause order: the `Kernel.Render` doc, the package
+  doc § Rendering, and the `RenderError` doc.
+- Staging, promotion, coverage, skew and local replacements: the
+  `opm/internal/renderstage` package doc. The glue's matching shape is the header of
+  `opm/internal/renderstage/render.cue.tmpl`.
+- `*kernel.Compiled` as terminal output with no platform-native identity: the
+  `Compiled` doc. Don't push platform-native identity into the kernel.
 
-Everything before `Render` produces its inputs, and every one of them is an acquire verb: `AcquirePlatformFromDir` (platform module, Source stamped; the module is hand-written or generated from coordinates by `opm/helper/platformmodule`), `AcquireInstanceFromDir(ctx, dir, values ...Source)` (validated instance, Source stamped; trailing values sources are layered onto the on-disk package as an overlay built in one pass, turning its Source to overlay mode), `SynthesizeInstance(ctx, kernel.InstanceInput{…, Values []Source})`, and `AcquireModuleFromRegistry` / `AcquireModuleFromDir` (the module a synthesized instance imports, staged as a byte overlay either way). No verb takes a per-call registry or load-options argument: `WithRegistry` is the one mapping, the schema cache and the compilation of file-backed values sources included. The Kernel holds no `cue.Context` and exposes none (ADR-007): every verb creates a context for the call, builds in it and returns, an artifact's `Package` pins the context that built it for as long as the caller holds the artifact, and the cross-artifact verbs read only `Metadata` and `Source` from their inputs, with one exception: `Render` reads whether the platform's `Package` carries `#contracts.providedBy` (the core floor), a read-only lookup with no unification or fill, so artifacts still cross Kernels and one acquired platform may be shared by concurrent renders. A `kernel.Source` is `{Origin, Data []byte}`, bound to no context: `LoadSourceFromFile` / `LoadSourceFromBytes` parse and evaluate nothing, and each verb compiles the sources it receives with `cue.Filename(Origin)` in the context of the schema they meet (a file-backed origin through cue/load at the file's directory, under the kernel's registry mapping like every other load, with the top-level `values:` unwrap applied there). Values are validated where they are applied: both instance paths check their sources against the module's `#config` at the sources' own positions after the build, and `AcquireInstanceFromDir` checks the package's own `values` the same way on every acquire (with or without sources), both assert concreteness on the built spec through the kernel-internal instance processing step, and `Render` renders the instance as processed with no validation pass of its own. The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`, the `NewModuleFromValue` / `NewPlatformFromValue` wrappers) and the free-function entry points (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone; `opm/kernel/kernel_test.go` pins their absence. A caller that wants an acquired artifact's raw value reads its `Package` field; one holding a value it built itself calls `module.NewModuleFromValue` / `platform.NewPlatformFromValue` directly. There is no standalone `opm/validate/` package; validation lives on the `Kernel` as one primitive (`ValidateConfigDetailed`; a single value is a one-element `[]Source`, and there is no partial-mode entry), composed with the `ConfigSchema()` accessors on `*module.Module` / `*module.Instance`.
+Facts for maintainers that no godoc carries:
 
-`*kernel.Compiled` is terminal output — platform identity for compiled output is the frontend's concern (each consumer wraps it in its own resource type). Don't push platform-native identity into the kernel.
-
-### Render pipeline (per instance)
-
-```text
-Kernel.AcquirePlatformFromDir                                → *platform.Platform (Source: module root + package dir)
-Kernel.AcquireInstanceFromDir | Kernel.SynthesizeInstance    → *module.Instance   (concrete, metadata decoded; Source stamped)
-Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacements, SkipUnprovided})
-        core floor             platform Package lacks #contracts.providedBy (core < 2.0.0-alpha.12) → PlatformCoreTooOldError, nothing staged
-        renderstage.Stage      write cue.mod (promoted from both inputs, D13), local-module.cue directory replacements, render.cue glue
-                               overlay-mode inputs re-keyed under the staging dir onto Staged.Overlay, never written
-                               inputs' own local-module.cue replacements promoted under LocalReplacements (platform whole, instance on
-                               instance-only paths) onto Staged.Replacements, refused without the opt-in
-                               coverage invariant: every OPM-namespace path either input requires is promoted
-                               skew rows (D7/D18) → warn or refuse per SkewPolicy
-                               SkipUnprovided written into the glue as a literal (the skip decision is made in the build)
-        renderstage.Build      one cue/load build in a fresh cue.Context (registry mapping via load.Config.Env, overlay inputs via load.Config.Overlay)
-        decodeRenderDiagnostics  diagnostics.* → RenderDiagnostics (rows as emitted; no join, group or re-sort)
-        gateErrors             collisions | unresolved | overSubscribed | unmatched | not routable → *RenderError (skipped rows and omitted components arrive already filtered)
-        decodeRendered         rendered → []*kernel.Compiled with Instance/Component/Transformer FQN provenance
-```
-
-Inside the build the glue (`render.cue.tmpl`) unifies each component with every candidate transformer (`#moduleInstance`, `#component`, `#context` enter by unification, not `FillPath`), computes the demand buckets, the label predicate, the always-unify rung and the unprovided / skipped split as CUE comprehensions, and exposes `diagnostics` and `rendered` for the decoder. The single-provider guard computes no count of its own: it reads core's `#contracts.providedBy` (providers per registry entry, path plus major) and `overSubscribed`. The glue also reads core's collision report (`#contracts.collisions` and `collidingEntries`, keys more than one enabled registry entry defines; guarded on presence, since an older core cannot evaluate a colliding platform) and `routable`, and emits both as diagnostics. These are the fields `Platform.Contracts()` decodes, so a render refuses on a collision or an over-subscription exactly when the platform inventory reads not routable, and the kernel decides from the decoded rows and `routable`, never from the module's `gate`. `opm/kernel/render_inventory_parity_test.go` is the tripwire over every served platform.
+- The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value
+  tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and the
+  free-function entry points (`compile.CompileModuleInstance`,
+  `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone, and
+  `opm/kernel/kernel_test.go` pins their absence. Do not bring any of them back, and do
+  not add a standalone `opm/validate/` package: validation is `ValidateConfigDetailed`.
+- `opm/kernel/render_inventory_parity_test.go` is the tripwire that a render refuses on
+  a collision or an over-subscription exactly when `Platform.Contracts()` reads not
+  routable, over every served platform.
 
 ### OPM schema versioning
 
@@ -386,6 +362,20 @@ Conventional Commits v1: `type(scope): description` — lowercase, imperative mo
 **Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
 
 **Commit attribution: plain co-author line only.** The single permitted (optional) form is `Co-Authored-By: Claude <noreply@anthropic.com>` — never a `Claude-Session:` trailer, a claude.ai session URL, a "Generated with …" footer, or any embellished variant. See the Attribution section at the top of this file.
+
+### Where a statement lives
+
+Each statement has one home, and every other copy links to it (owner decision c4 of the
+beta.1 walkthrough; openspec `kernel-runtime`, "Each runtime contract has one home"):
+
+- A runtime contract goes in the godoc of the package, type or function that owns it.
+- Rationale goes in an ADR under `adr/`.
+- A SHALL requirement goes in an `openspec/specs` capability.
+- `README.md`, `AGENTS.md` and `docs/` link to those homes. They may keep a short
+  orientation sentence that names the home, never a second statement of the contract.
+- A source is one a reader can open: an owner decision by its walkthrough id, an ADR, an
+  enhancement decision (`0012:D3`), a pull request or an archived change. Never a
+  decision recorded only in an agent session.
 
 ### Enhancement references in comments
 

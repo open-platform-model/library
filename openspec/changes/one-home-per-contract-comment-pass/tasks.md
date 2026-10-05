@@ -21,12 +21,12 @@ Depends on: nothing unmerged. Merges after the other round-3 library changes, by
 
 ## 3. Prose copies become links
 
-- [ ] 3.1 `AGENTS.md` § Schema cache lifetime contract (`:208-242`), § Kernel API surface and § Render pipeline (`:327-357`): apply D4. The schema cache section becomes pointers to the `schema.Cache`, `kernel.New` and `Kernel.SchemaCache` docs plus its maintainer-only facts, and names the exact default pin. They become pointers to the godoc homes (the `opm/kernel` package doc, `Kernel.Render`, `RenderError`, `Compiled`, and the `opm/internal/renderstage` package doc), plus the maintainer-only bullets (the absence test in `opm/kernel/kernel_test.go`, and no reintroduced verbs). Before deleting a claim, find it in its home. If it is missing, add it to that godoc in this commit.
-- [ ] 3.2 `AGENTS.md`: add the "Where a statement lives" subsection (D8) beside "Enhancement references in comments".
-- [ ] 3.3 `README.md` § Render (`:66-86`): replace it with the D4 orientation paragraph and a link to `go doc ./opm/kernel`. Remove the pipeline block. Keep one sentence on concurrency and its link.
-- [ ] 3.4 `docs/getting-started.md`: in the `RenderError` code comment (`:220-228`), replace the cause-order list with a pointer to the `RenderError` doc. The `WithRegistry` paragraph (`:39`) keeps its first sentence and links to the `opm/kernel` package doc.
-- [ ] 3.5 Verify: `grep -n 'ContractCollisionsError' README.md AGENTS.md docs/getting-started.md` finds no ordered cause list. Each removed AGENTS/README claim is in the godoc (spot-check with `go doc ./opm/kernel`).
-- [ ] 3.6 Gates green, then commit `docs: link the render contract instead of restating it`.
+- [x] 3.1 `AGENTS.md` § Schema cache lifetime contract (`:208-242`), § Kernel API surface and § Render pipeline (`:327-357`): apply D4. The schema cache section becomes pointers to the `schema.Cache`, `kernel.New` and `Kernel.SchemaCache` docs plus its maintainer-only facts, and names the exact default pin. They become pointers to the godoc homes (the `opm/kernel` package doc, `Kernel.Render`, `RenderError`, `Compiled`, and the `opm/internal/renderstage` package doc), plus the maintainer-only bullets (the absence test in `opm/kernel/kernel_test.go`, and no reintroduced verbs). Before deleting a claim, find it in its home. If it is missing, add it to that godoc in this commit.
+- [x] 3.2 `AGENTS.md`: add the "Where a statement lives" subsection (D8) beside "Enhancement references in comments".
+- [x] 3.3 `README.md` § Render (`:66-86`): replace it with the D4 orientation paragraph and a link to `go doc ./opm/kernel`. Remove the pipeline block. Keep one sentence on concurrency and its link.
+- [x] 3.4 `docs/getting-started.md`: in the `RenderError` code comment (`:220-228`), replace the cause-order list with a pointer to the `RenderError` doc. The `WithRegistry` paragraph (`:39`) keeps its first sentence and links to the `opm/kernel` package doc.
+- [x] 3.5 Verify: `grep -n 'ContractCollisionsError' README.md AGENTS.md docs/getting-started.md` finds no ordered cause list. Each removed AGENTS/README claim is in the godoc (spot-check with `go doc ./opm/kernel`).
+- [x] 3.6 Gates green, then commit `docs: link the render contract instead of restating it`.
 
 ## 4. Sources a reader can open
 
