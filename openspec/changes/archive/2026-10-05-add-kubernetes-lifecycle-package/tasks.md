@@ -158,11 +158,11 @@ Commits:
 
 ## 4. Archive (at PR time)
 
-- [ ] 4.1 First merge `origin/main` into the branch, because a parallel library change may touch the same doc lines.
+- [x] 4.1 First merge `origin/main` into the branch, because a parallel library change may touch the same doc lines.
       Then run `openspec archive add-kubernetes-lifecycle-package --yes` on this branch, so the
       archive rides the implementing PR. If `origin/main` moves after the archive, merge it again
       and re-run the archive step.
       Skip the delivery log; the claim belongs to the frontends' adoption changes.
       Verify: the `kubernetes-tier` main spec carries the six new requirements, and
       `openspec validate --all --strict` passes.
-- [ ] 4.2 Commit `chore(openspec): archive add-kubernetes-lifecycle-package`.
+- [x] 4.2 Commit `chore(openspec): archive add-kubernetes-lifecycle-package`.
