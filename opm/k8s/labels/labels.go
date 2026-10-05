@@ -28,7 +28,8 @@ const (
 
 	// ComponentName records the module component that produced a rendered
 	// object; its value is the component name. Core's CUE stamps it at
-	// render. Inventory reads it to keep a component rename safe.
+	// render. Inventory records it on each entry as provenance; the stale set
+	// ignores it.
 	ComponentName = "component.opmodel.dev/name"
 
 	// ModuleInstanceName is the name of the module instance an object
