@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.0.0-beta.5](https://github.com/open-platform-model/library/compare/v1.0.0-beta.4...v1.0.0-beta.5) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** bump core to v2.0.0-beta.4 ([#206](https://github.com/open-platform-model/library/issues/206))
+
+### Features
+
+* **catalog:** read the provider set core derives for a catalog ([#195](https://github.com/open-platform-model/library/issues/195)) ([893c670](https://github.com/open-platform-model/library/commit/893c670bb12ad71d58a2f0b20908dfedc2545b24))
+* **k8s:** add the opm/k8s/labels and opm/k8s/object packages ([#196](https://github.com/open-platform-model/library/issues/196)) ([ca7c56b](https://github.com/open-platform-model/library/commit/ca7c56b69b21ffe283747b5dc1dcd6f9f88a8ffc))
+* **render:** report every contract a render requires and add instance reads ([#194](https://github.com/open-platform-model/library/issues/194)) ([e34ea0a](https://github.com/open-platform-model/library/commit/e34ea0a85c0ebbd51359ecb374128b8d1942cc9c))
+
+
+### Bug Fixes
+
+* consolidate version helpers, path checks and metadata decoders ([#184](https://github.com/open-platform-model/library/issues/184)) ([e636384](https://github.com/open-platform-model/library/commit/e636384b5298acf64f3698fbdf66ff813d0e5ae2))
+* **deps:** bump core to v2.0.0-beta.4 ([#206](https://github.com/open-platform-model/library/issues/206)) ([d12c26e](https://github.com/open-platform-model/library/commit/d12c26e847c769dc3f61f7493b76d2ad8ff33e95))
+* **kernel:** attribute synthesized values conflicts to their source ([#197](https://github.com/open-platform-model/library/issues/197)) ([83eda8c](https://github.com/open-platform-model/library/commit/83eda8c3536bb2667dc724bfd14cded004741fe4))
+
+
+### Performance Improvements
+
+* **render:** drop failed pairs from the render glue ([#186](https://github.com/open-platform-model/library/issues/186)) ([66e5b32](https://github.com/open-platform-model/library/commit/66e5b3235821c2f121f17c4f93bcac6b78436a73))
+
+
+### Code Refactoring
+
+* **kernel:** acquire directories from one read of the tree ([#188](https://github.com/open-platform-model/library/issues/188)) ([222e948](https://github.com/open-platform-model/library/commit/222e9484f7e2a2e5464b9112d0383539c3438088))
+
 ## [1.0.0-beta.4](https://github.com/open-platform-model/library/compare/v1.0.0-beta.3...v1.0.0-beta.4) (2026-10-04)
 
 
