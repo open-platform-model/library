@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/mod/modconfig"
 	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/modregistry"
@@ -21,6 +22,8 @@ import (
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
+	opmmodule "github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/platform"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -63,30 +66,59 @@ func (p *clientProbe) operations() []int64 {
 	return calls
 }
 
+// last returns the operation that most recently started using the client.
+func (p *clientProbe) last(t *testing.T) *countingRegistry {
+	t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	require.NotEmpty(t, p.ops, "no operation used the shared client")
+	return p.ops[len(p.ops)-1]
+}
+
 // countingRegistry counts every call one operation makes through its
-// registry.
+// registry and records the module paths those calls named.
 type countingRegistry struct {
 	modconfig.CachedRegistry
 	calls atomic.Int64
+
+	mu    sync.Mutex
+	paths map[string]bool
+}
+
+func (c *countingRegistry) record(path string) {
+	c.calls.Add(1)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.paths == nil {
+		c.paths = map[string]bool{}
+	}
+	c.paths[path] = true
+}
+
+// named reports whether a call of this operation named the module path.
+func (c *countingRegistry) named(path string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.paths[path]
 }
 
 func (c *countingRegistry) ModFile(ctx context.Context, mv module.Version) (*modfile.File, error) {
-	c.calls.Add(1)
+	c.record(mv.Path())
 	return c.CachedRegistry.ModFile(ctx, mv)
 }
 
 func (c *countingRegistry) Fetch(ctx context.Context, mv module.Version) (module.SourceLoc, error) {
-	c.calls.Add(1)
+	c.record(mv.Path())
 	return c.CachedRegistry.Fetch(ctx, mv)
 }
 
 func (c *countingRegistry) ModuleVersions(ctx context.Context, mpath string) ([]string, error) {
-	c.calls.Add(1)
+	c.record(mpath)
 	return c.CachedRegistry.ModuleVersions(ctx, mpath)
 }
 
 func (c *countingRegistry) FetchFromCache(mv module.Version) (module.SourceLoc, error) {
-	c.calls.Add(1)
+	c.record(mv.Path())
 	return c.CachedRegistry.FetchFromCache(mv)
 }
 
@@ -99,15 +131,6 @@ func probedRenderKernel(t *testing.T, fail func(n int64) bool) (*kernel.Kernel, 
 	return k, p
 }
 
-// writeProbeValuesFile writes a values file to a directory of its own and returns
-// its path, for a file-backed Source.
-func writeProbeValuesFile(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "values.cue")
-	require.NoError(t, os.WriteFile(path, []byte("values: {image: \"nginx:1.27\", replicas: 3}\n"), 0o644))
-	return path
-}
-
 // kernel-runtime "Construction builds no client".
 func TestRegistryClient_ConstructionBuildsNone(t *testing.T) {
 	k := kernel.New(kernel.WithRegistry("example.com=localhost:5000+insecure"))
@@ -118,35 +141,83 @@ func TestRegistryClient_ConstructionBuildsNone(t *testing.T) {
 }
 
 // kernel-runtime "Operations on one Kernel build one client": a registry
-// acquire, a platform directory acquire, a synthesis with a file-backed
-// values source and a render construct the client once, and the fetch and
-// the render build both resolve through it.
+// acquire, a platform directory acquire, a synthesis and a render each start
+// one operation that resolves through the shared client, which is
+// constructed once. The registry acquire's build after the fetch resolves
+// the module's dependencies through the same operation, so the client
+// reaches the directory load, not only the fetch.
 func TestRegistryClient_OperationsOnOneKernelBuildOne(t *testing.T) {
 	k, p := probedRenderKernel(t, nil)
 	ctx := context.Background()
 
-	mod, err := k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
-	require.NoError(t, err)
-	afterFetch := p.operations()
-	require.Len(t, afterFetch, 1, "the registry acquire is one operation")
-	assert.Positive(t, afterFetch[0], "the fetch resolved through the shared client")
+	// step runs one verb and asserts it started exactly one more operation
+	// through the shared client, which made at least one call.
+	step := func(what string, verb func() error) *countingRegistry {
+		t.Helper()
+		before := len(p.operations())
+		require.NoError(t, verb(), what)
+		ops := p.operations()
+		require.Len(t, ops, before+1, "%s is one more operation through the shared client", what)
+		assert.Positive(t, ops[len(ops)-1], "%s resolved through the shared client", what)
+		return p.last(t)
+	}
 
-	plat, err := k.AcquirePlatformFromDir(ctx, renderFixtureDir(t, "platform"))
-	require.NoError(t, err)
+	var mod *opmmodule.Module
+	acquire := step("the registry acquire", func() (err error) {
+		mod, err = k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
+		return err
+	})
+	assert.True(t, acquire.named(renderModPath+"@v0"), "the fetch went through the shared client")
+	assert.True(t, acquire.named(renderCatPath+"@v0"), "the build after the fetch resolved the module's dependencies through the shared client")
 
-	values, err := k.LoadSourceFromFile(writeProbeValuesFile(t))
-	require.NoError(t, err)
-	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{Module: mod, Name: "web-synth", Namespace: "default", Values: []kernel.Source{values}})
-	require.NoError(t, err)
+	var plat *platform.Platform
+	step("the platform directory acquire", func() (err error) {
+		plat, err = k.AcquirePlatformFromDir(ctx, renderFixtureDir(t, "platform"))
+		return err
+	})
 
-	beforeRender := len(p.operations())
-	_, err = k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
-	require.NoError(t, err)
-	ops := p.operations()
-	require.Len(t, ops, beforeRender+1, "the render build is one more operation through the client")
-	assert.Positive(t, ops[len(ops)-1], "the render build resolved its dependencies through the shared client")
+	var inst *opmmodule.Instance
+	step("the synthesis", func() (err error) {
+		inst, err = k.SynthesizeInstance(ctx, kernel.InstanceInput{
+			Module: mod, Name: "web-synth", Namespace: "default",
+			Values: []kernel.Source{mustSource(t, k, "values.cue", `{image: "nginx:1.27", replicas: 3}`)},
+		})
+		return err
+	})
+
+	step("the render build", func() error {
+		_, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+		return err
+	})
 
 	assert.Equal(t, int64(1), p.constructions.Load(), "one client for every operation")
+}
+
+// kernel-runtime "Operations on one Kernel build one client", for
+// file-backed values sources: a values file importing a package served only
+// by the Kernel's registry resolves that import through the operation's
+// shared client.
+func TestRegistryClient_FileBackedValuesResolveThroughTheClient(t *testing.T) {
+	defaultsPath := registrytest.UniquePath(t, "defaults")
+	mapping := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{{
+		Path: defaultsPath, Version: "0.0.1",
+		File: "package defaults\n\nsentinel: \"from-registry\"\n",
+	}}, nil)
+	k := kernel.New(kernel.WithRegistry(mapping))
+	p := &clientProbe{}
+	p.install(k)
+
+	src, err := k.LoadSourceFromFile(writeValuesModule(t, defaultsPath+"@v0", "v0.0.1"))
+	require.NoError(t, err)
+	configSchema := cuecontext.New().CompileString(`{ sentinel: string }`)
+	require.NoError(t, configSchema.Err())
+
+	merged, err := k.ValidateConfigDetailed(configSchema, []kernel.Source{src})
+	require.NoError(t, err)
+	assert.Equal(t, "from-registry", lookupString(t, merged, "sentinel"))
+	require.Len(t, p.operations(), 1, "the values compilation is one operation through the shared client")
+	assert.True(t, p.last(t).named(defaultsPath+"@v0"), "the import resolved through the shared client")
+	assert.Equal(t, int64(1), p.constructions.Load())
 }
 
 // kernel-runtime "A failed construction is retried" and "A construction
