@@ -1,8 +1,7 @@
 // Package inventory is the record of the objects an instance owns, as every
 // Kubernetes frontend compares and digests it. It is part of the Kubernetes
-// tier beside the kernel (ADR-011): the kernel never imports it, a depguard
-// rule in .golangci.yml keeps it that way, and a frontend that applies to
-// Kubernetes uses it instead of a copy of its own.
+// tier beside the kernel: the kernel never imports it, and a frontend that
+// applies to Kubernetes uses it instead of a copy of its own.
 //
 // [Entry] is one owned object: its group, kind, namespace and name, which
 // identify it, plus the API version and the component that produced it, which
@@ -27,3 +26,7 @@
 // versioned by a tag line at the start of the hashed bytes, and change only
 // under a new tag line, with a migration note in each frontend.
 package inventory
+
+// Maintainer pointers, kept out of the package doc: the tier is ADR-011
+// (adr/011-kubernetes-tier-beside-the-kernel.md), and a depguard rule in
+// .golangci.yml keeps every kernel package from importing it.
