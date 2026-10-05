@@ -23,6 +23,12 @@ const (
 	// RefuseOtherInstance: the live object outside the inventory belongs to
 	// another module instance.
 	RefuseOtherInstance ApplyRefusal = "other-instance"
+	// RefuseAdoptedElsewhere: the live object's adopt annotation names
+	// another module instance, which is taking the object over or has taken
+	// it. A frontend never fails the apply on this refusal, in the inventory
+	// or outside it; it drops an inventoried object refused for this from
+	// its next inventory and never deletes it.
+	RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"
 )
 
 // ApplyInput is what [CanApply] judges.
@@ -33,17 +39,27 @@ type ApplyInput struct {
 	// CanApply does not change it.
 	Live *unstructured.Unstructured
 	// InInventory reports whether the object is in the applying instance's
-	// recorded inventory. Only objects outside it are judged for ownership.
+	// recorded inventory. An inventoried object is judged only for an adopt
+	// annotation naming another instance; a UUID label naming another
+	// instance alone does not refuse it, so the instance's objects still
+	// apply after its UUID changes, except an object whose adopt annotation
+	// still names the old UUID, which must be re-annotated with the new one.
+	// A frontend never fails the apply on an adopted-elsewhere refusal: it
+	// drops an inventoried object refused for that from the inventory it
+	// records next, keeps applying the instance's other objects, and never
+	// deletes the object for that refusal.
 	InInventory bool
 	// InstanceUUID is the applying instance's UUID, from the render. Empty
-	// matches no adopt annotation, and every non-empty live UUID then counts
-	// as another instance's.
+	// matches no adopt annotation. Outside the inventory every non-empty
+	// live UUID and every non-blank adopt annotation then counts as another
+	// instance's; inside it the object applies, since there is no identity to
+	// compare against.
 	InstanceUUID string
 	// Admit is set only for an object the caller has proven came from an
 	// earlier operator release's install manifest. It lifts the
 	// foreign-object refusal when the live object carries no UUID label or
-	// InstanceUUID (0012:D8:R6). It lifts nothing else. The library cannot
-	// check the proof.
+	// InstanceUUID (0012:D8:R6). It lifts nothing else, adopted-elsewhere
+	// included. The library cannot check the proof.
 	Admit bool
 }
 
@@ -62,12 +78,19 @@ func (v ApplyVerdict) Allowed() bool { return v.Refuse == "" }
 // CanApply decides whether a frontend may apply over one object. It checks,
 // in order, and stops at the first match: a missing live object applies; a
 // live object being deleted is refused, in the inventory or not, adopted or
-// admitted; an object in the instance's inventory applies; an object whose
-// adopt annotation ([labels.AnnotationAdopt]) names this instance applies; a
-// live object OPM does not manage is refused, unless admitted; a live object
-// carrying another instance's UUID is refused; otherwise it applies
-// (0012:D8:R1/R2/R5). The adopt annotation is the only override, and a
-// refusal message names it with the UUID to set (0012:D8:R3).
+// admitted; an object whose adopt annotation ([labels.AnnotationAdopt])
+// names this instance applies, in the inventory or not. In the instance's
+// inventory: with no instance UUID it applies; an adopt annotation naming
+// another instance is refused as adopted-elsewhere; otherwise it applies,
+// whatever its UUID label says. Outside it: a live object OPM does not manage
+// is refused, unless admitted; a live object whose adopt annotation and UUID
+// label name the same other instance is refused as adopted-elsewhere, since
+// that instance completed the hand-over; a live object carrying another
+// instance's UUID is refused as other-instance; an adopt annotation naming
+// another instance is refused as adopted-elsewhere; otherwise it applies
+// (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
+// is the only override, and a refusal message names it with the UUID to set
+// (0012:D8:R3).
 func CanApply(in ApplyInput) ApplyVerdict {
 	if in.Live == nil {
 		return ApplyVerdict{}
@@ -76,22 +99,50 @@ func CanApply(in ApplyInput) ApplyVerdict {
 	if in.Live.GetDeletionTimestamp() != nil {
 		return refuse(RefuseTerminating, obj+" is being deleted; wait for the deletion to finish, then apply again")
 	}
-	if in.InInventory {
-		return ApplyVerdict{}
-	}
 	annotation := adoptAnnotation(in.Live)
 	if annotation != "" && in.InstanceUUID != "" && annotation == in.InstanceUUID {
 		return ApplyVerdict{}
+	}
+	if in.InInventory {
+		return judgeInventoried(in, obj, annotation)
 	}
 	if !opmManaged(in.Live) && !admittedForApply(in) {
 		return refuse(RefuseForeignObject, obj+" exists and is not managed by OPM"+
 			adoptsAnother(annotation)+adoptRemedy("to let this instance take it over,", in.InstanceUUID))
 	}
-	if u := liveUUID(in.Live); u != "" && u != in.InstanceUUID {
+	u := liveUUID(in.Live)
+	if annotation != "" && annotation == u {
+		return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+annotation+
+			"; this instance does not apply it"+adoptRemedy("to let this instance take it back,", in.InstanceUUID))
+	}
+	if u != "" && u != in.InstanceUUID {
 		return refuse(RefuseOtherInstance, obj+" belongs to module instance "+u+
 			adoptsAnother(annotation)+adoptRemedy("to move it to this instance, remove it from module instance "+u+", then", in.InstanceUUID))
 	}
+	if annotation != "" {
+		return refuse(RefuseAdoptedElsewhere, obj+" is being adopted by module instance "+annotation+
+			"; this instance does not apply it"+adoptRemedy("to let this instance take it over,", in.InstanceUUID))
+	}
 	return ApplyVerdict{}
+}
+
+// judgeInventoried judges an object in the instance's inventory whose adopt
+// annotation does not name this instance. With no instance UUID nothing can
+// name another instance, so it applies: refusing would drop the object from
+// the inventory, and the prune would then delete the instance's own object.
+// Otherwise an adopt annotation naming another instance refuses it as
+// adopted-elsewhere. A UUID label naming another instance alone does not, so
+// an instance whose UUID changed (a module moved to a new path) keeps
+// applying and relabels its own objects, except an object it once adopted:
+// that object's annotation still names the old UUID and refuses it until it
+// is re-annotated with the new one.
+func judgeInventoried(in ApplyInput, obj, annotation string) ApplyVerdict {
+	if in.InstanceUUID == "" || annotation == "" {
+		return ApplyVerdict{}
+	}
+	return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+annotation+
+		"; this instance no longer applies it and drops it from its inventory"+
+		adoptRemedy("to take it back,", in.InstanceUUID))
 }
 
 // admittedForApply reports whether the install admission lifts the

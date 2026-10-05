@@ -22,6 +22,9 @@ const (
 	SkipNotOPMManaged SkipReason = "not-opm-managed"
 	// SkipOwnerMismatch: the live object belongs to another module instance.
 	SkipOwnerMismatch SkipReason = "owner-mismatch"
+	// SkipAdoptedElsewhere: the live object's adopt annotation names another
+	// module instance, which is taking the object over.
+	SkipAdoptedElsewhere SkipReason = "adopted-elsewhere"
 )
 
 // DeleteInput is what [CanDelete] judges.
@@ -32,7 +35,9 @@ type DeleteInput struct {
 	// nothing. CanDelete does not change it.
 	Live *unstructured.Unstructured
 	// InstanceUUID is the deleting instance's UUID. Empty disables the owner
-	// comparison, as does a live object without a UUID label.
+	// comparison, as does a live object without a UUID label. Empty never
+	// matches an adopt annotation, so any non-blank adopt annotation then
+	// names another instance.
 	InstanceUUID string
 	// Admit is set only for an object the caller has proven came from an
 	// earlier operator release's install manifest. It lifts the
@@ -40,7 +45,8 @@ type DeleteInput struct {
 	// ClusterRoleBinding of rbac.authorization.k8s.io, the kinds the
 	// operator install may delete outside the inventory, and only when the
 	// live object carries no UUID label at all (0012:D8:R6/R7). It lifts
-	// nothing else. The library cannot check the proof.
+	// nothing else, adopted-elsewhere included. The library cannot check the
+	// proof.
 	Admit bool
 }
 
@@ -81,8 +87,11 @@ func (v DeleteVerdict) Preconditions() *metav1.Preconditions {
 // the live object; a missing live object skips as already absent; a live
 // object OPM does not manage skips, unless admitted; a live object whose UUID
 // label and the instance's UUID are both set and differ skips as another
-// instance's; otherwise it proceeds. An object already being deleted
-// proceeds, since deleting it again changes nothing.
+// instance's; a live object whose adopt annotation (opmodel.dev/adopt)
+// is set and does not name this instance skips as adopted elsewhere, so an
+// instance never deletes an object it let go of (0012:D8:R8); otherwise it
+// proceeds. An object already being deleted proceeds, since deleting it again
+// changes nothing.
 func CanDelete(in DeleteInput) DeleteVerdict {
 	obj := in.Object
 	if SafetyExcluded(obj.Group, obj.Kind) {
@@ -96,6 +105,9 @@ func CanDelete(in DeleteInput) DeleteVerdict {
 	}
 	if u := liveUUID(in.Live); u != "" && in.InstanceUUID != "" && u != in.InstanceUUID {
 		return skip(SkipOwnerMismatch, obj.String()+" belongs to module instance "+u+", not this one; left in place")
+	}
+	if a := adoptAnnotation(in.Live); a != "" && a != in.InstanceUUID {
+		return skip(SkipAdoptedElsewhere, obj.String()+" is being adopted by module instance "+a+", not this one; left in place")
 	}
 	return DeleteVerdict{UID: in.Live.GetUID(), ResourceVersion: in.Live.GetResourceVersion()}
 }

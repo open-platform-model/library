@@ -1,6 +1,7 @@
 package errors_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -34,8 +35,9 @@ import (
 
 // This file pins the forms in which the embedded CUE (v0.17.1) reports a
 // registry fetch or a dependency resolution failure, as the library's own
-// sites receive them. Classify's text fallback matches exactly these forms,
-// so a CUE bump that changes one fails here first.
+// sites receive them, and Classify's answer for each: a *FetchError, a
+// *ResolutionError, or the error unchanged. Classify's text fallback matches
+// exactly these forms, so a CUE bump that changes one fails here first.
 //
 // Every case resolves against a local registry only (no catch-all mapping,
 // so nothing dials a public registry) and a fresh module cache, so a warm
@@ -54,6 +56,7 @@ const (
 // observed is what a failure's chain carries, beside its text.
 type observed struct {
 	contains []string // substrings the text carries
+	lacks    []string // substrings the text does not carry
 	status   int      // ociregistry.HTTPError status, 0 when none survives
 	notFound bool     // modregistry.ErrNotFound in the chain
 	netErr   bool     // a net.Error in the chain
@@ -117,6 +120,28 @@ func pushRaw(t *testing.T, r ociregistry.Interface, repo, tag string, modFile, z
 	require.NoError(t, err)
 }
 
+// zipOf builds a module archive holding files.
+func zipOf(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for name, data := range files {
+		f, err := w.Create(name)
+		require.NoError(t, err)
+		_, err = f.Write([]byte(data))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	return buf.Bytes()
+}
+
+// addFile writes one more file into a directory module.
+func addFile(t *testing.T, src *opmmodule.Source, name, data string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(src.Root, name)), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(src.Root, name), []byte(data), 0o644))
+}
+
 func rawRegistry(t *testing.T, fill func(r ociregistry.Interface)) string {
 	t.Helper()
 	r := ocimem.New()
@@ -140,6 +165,21 @@ func mainModule(t *testing.T, version, importPath string) *opmmodule.Source {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(modFile), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.cue"), []byte("package main\n\nimport d \""+importPath+"\"\n\nx: d.y\n"), 0o644))
 	return &opmmodule.Source{Root: dir}
+}
+
+// replacedMain writes a main module requiring test.example/dep and importing
+// importPath, with cue.mod/local-module.cue replacing the dependency by a
+// local directory whose module file does not parse.
+func replacedMain(t *testing.T, importPath string) *opmmodule.Source {
+	t.Helper()
+	dep := t.TempDir()
+	bad := depModFile + "bogus: 1\n"
+	require.NoError(t, os.MkdirAll(filepath.Join(dep, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dep, "cue.mod", "module.cue"), []byte(bad), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dep, "dep.cue"), []byte("package dep\n\ny: 1\n"), 0o644))
+	src := mainModule(t, depVersion, importPath)
+	addFile(t, src, "cue.mod/local-module.cue", "deps: \""+depPath+"\": replaceWith: \""+filepath.ToSlash(dep)+"\"\n")
+	return src
 }
 
 func fetchDep(ctx context.Context, t *testing.T, registry, version string) error {
@@ -173,16 +213,22 @@ type cueForm struct {
 }
 
 // classified is Classify's answer for a form; the zero value means
-// "returned unchanged".
+// "returned unchanged". ok is a *FetchError of kind, status and transient;
+// a non-zero resolution is a *ResolutionError of that kind.
 type classified struct {
-	ok        bool
-	kind      oerrors.FetchKind
-	status    int
-	transient bool
+	ok         bool
+	kind       oerrors.FetchKind
+	status     int
+	transient  bool
+	resolution oerrors.ResolutionKind
 }
 
 func kindOf(kind oerrors.FetchKind, status int, transient bool) classified {
 	return classified{ok: true, kind: kind, status: status, transient: transient}
+}
+
+func resolutionOf(kind oerrors.ResolutionKind) classified {
+	return classified{resolution: kind}
 }
 
 func cueForms() []cueForm {
@@ -231,16 +277,16 @@ func cueForms() []cueForm {
 		// author defect no registry interaction failed: an import the main
 		// module does not declare, a package missing from the main module's
 		// own path, or one missing from a declared dependency that was
-		// fetched. None is classified.
+		// fetched. Each is ResolutionImportUnprovided.
 		{"load/undeclared-import", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "", "test.example/other@v0"))
-		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/own-path-missing-package", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, "", "spike.example/main/missing"))
-		}, observed{contains: []string{"cannot find module providing package spike.example/main/missing"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package spike.example/main/missing"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/dependency-missing-package", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, depVersion, "test.example/dep/missing"))
-		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/unreachable", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "cannot do HTTP request", "connection refused"}}, kindOf(oerrors.FetchUnreachable, 0, true)},
@@ -251,14 +297,59 @@ func cueForms() []cueForm {
 		{"load/500", statusLoad(500), observed{contains: []string{": 500 Internal Server Error: "}}, kindOf(oerrors.FetchOther, 500, true)},
 		{"load/503", statusLoad(503), observed{contains: []string{": 503 Service Unavailable: "}}, kindOf(oerrors.FetchOther, 503, true)},
 		// A published dependency whose module file does not parse: the
-		// module graph cannot be expanded, and no fetch form is inside.
+		// module graph cannot be expanded, and no fetch form is inside. It
+		// is ResolutionModuleFileInvalid.
 		{"load/malformed-dependency-module-file", func(t *testing.T) error {
 			reg := rawRegistry(t, func(r ociregistry.Interface) {
 				pushRaw(t, r, "test.example/dep", depVersion,
 					[]byte(depModFile+"bogus: 1\ndeps: \"test.example/next@v0\": v: \"v0.0.1\"\n"), []byte("unused"))
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/next@v0"))
-		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, classified{}},
+		}, observed{contains: []string{"cannot expand module graph: ", "cannot parse module file", "bogus: field not allowed"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		// The same defect reached on the direct import path: cue/load reads
+		// the fetched dependency's own module file and prefixes the parse
+		// error with the module's coordinate. Neither "cannot fetch" nor
+		// "cannot parse module file" is in it.
+		{"load/malformed-dependency-module-file-direct", func(t *testing.T) error {
+			bad := depModFile + "bogus: 1\n"
+			reg := rawRegistry(t, func(r ociregistry.Interface) {
+				pushRaw(t, r, "test.example/dep", depVersion, []byte(bad),
+					zipOf(t, map[string]string{"cue.mod/module.cue": bad, "dep.cue": "package dep\n\ny: 1\n"}))
+			})
+			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
+		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		// The same defect in a local replacement directory
+		// (cue.mod/local-module.cue replaceWith): on the direct import path
+		// the text names the replaced coordinate exactly as for a published
+		// dependency, and graph expansion reports it as a module file in a
+		// replacement directory. Both are ResolutionModuleFileInvalid.
+		{"load/malformed-replacement-module-file-direct", func(t *testing.T) error {
+			return loadMain(t, registrytest.UnreachableRegistry(t), replacedMain(t, "test.example/dep"))
+		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: ", "bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		{"load/malformed-replacement-module-file", func(t *testing.T) error {
+			return loadMain(t, registrytest.UnreachableRegistry(t), replacedMain(t, "test.example/next@v0"))
+		}, observed{contains: []string{"cannot parse module file in replacement directory: ", "bogus: field not allowed"}, lacks: []string{"cannot fetch "}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		// The main module's own module file is checked before any import
+		// resolves: the text is the module file's evaluation error alone.
+		{"load/malformed-main-module-file", func(t *testing.T) error {
+			src := mainModule(t, "", "test.example/unused@v0")
+			addFile(t, src, "cue.mod/module.cue", "module: \"spike.example/main@v0\"\nlanguage: version: \"v0.17.0\"\nbogus: 1\n")
+			return loadMain(t, registrytest.UnreachableRegistry(t), src)
+		}, observed{contains: []string{"bogus: field not allowed"}, lacks: []string{"cannot parse module file", "import failed"}}, classified{}},
+		// The main module and a declared dependency both provide the
+		// imported package.
+		{"load/ambiguous-import", func(t *testing.T) error {
+			reg, err := modregistrytest.New(fstest.MapFS{
+				"spike.example_main_dep_v0.0.1/cue.mod/module.cue": &fstest.MapFile{Data: []byte("module: \"spike.example/main/dep@v0\"\nlanguage: version: \"v0.17.0\"\n")},
+				"spike.example_main_dep_v0.0.1/dep.cue":            &fstest.MapFile{Data: []byte("package dep\n\ny: 1\n")},
+			}, "")
+			require.NoError(t, err)
+			t.Cleanup(reg.Close)
+			src := mainModule(t, "", "spike.example/main/dep")
+			addFile(t, src, "cue.mod/module.cue", "module: \"spike.example/main@v0\"\nlanguage: version: \"v0.17.0\"\ndeps: \"spike.example/main/dep@v0\": v: \"v0.0.1\"\n")
+			addFile(t, src, "dep/dep.cue", "package dep\n\ny: 2\n")
+			return loadMain(t, reg.Host()+"+insecure", src)
+		}, observed{contains: []string{"ambiguous import: found package spike.example/main/dep in multiple locations"}}, resolutionOf(oerrors.ResolutionImportAmbiguous)},
 		// An author defect cue/load reports is not a fetch failure.
 		{"load/syntax-error", func(t *testing.T) error {
 			src := mainModule(t, "", "test.example/unused@v0")
@@ -272,6 +363,17 @@ func cueForms() []cueForm {
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "zip: not a valid zip file"}}, kindOf(oerrors.FetchOther, 0, false)},
+		// A second file imports a module the main module does not declare.
+		// cue/load stops at the failed fetch, so only the fetch form is in
+		// the text, and it stays a fetch failure.
+		{"load/corrupt-archive-beside-unprovided-import", func(t *testing.T) error {
+			reg := rawRegistry(t, func(r ociregistry.Interface) {
+				pushRaw(t, r, "test.example/dep", depVersion, []byte(depModFile), []byte("not a zip"))
+			})
+			src := mainModule(t, depVersion, "test.example/dep")
+			addFile(t, src, "a.cue", "package main\n\nimport o \"test.example/other@v0\"\n\nz: o.z\n")
+			return loadMain(t, reg, src)
+		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "zip: not a valid zip file"}, lacks: []string{"cannot find module providing package"}}, kindOf(oerrors.FetchOther, 0, false)},
 
 		// A standalone path@version load asks the registry for that exact
 		// version, so "cannot find module providing package P@V" there is
@@ -283,6 +385,18 @@ func cueForms() []cueForm {
 		{"standalone/absent-package", func(t *testing.T) error {
 			return loadStandalone(t, servedDep(t), "test.example/dep/missing@v0.0.2")
 		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing@v0.0.2"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		// A published package whose import no module of its build provides:
+		// the import path carries at most a major version, so the
+		// exact-version form does not match.
+		{"standalone/unprovided-import", func(t *testing.T) error {
+			reg, err := modregistrytest.New(fstest.MapFS{
+				"test.example_dep_v0.0.2/cue.mod/module.cue": &fstest.MapFile{Data: []byte(depModFile)},
+				"test.example_dep_v0.0.2/dep.cue":            &fstest.MapFile{Data: []byte("package dep\n\nimport o \"test.example/other@v0\"\n\ny: o.z\n")},
+			}, "")
+			require.NoError(t, err)
+			t.Cleanup(reg.Close)
+			return loadStandalone(t, reg.Host()+"+insecure", "test.example/dep@v0.0.2")
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}, lacks: []string{"test.example/other@v0."}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"standalone/404", func(t *testing.T) error {
 			return loadStandalone(t, registrytest.NewStatusRegistry(t, 404), "test.example/dep@v0.0.2")
 		}, observed{contains: []string{"cannot find module providing package test.example/dep@v0.0.2"}}, kindOf(oerrors.FetchNotFound, 0, false)},
@@ -314,15 +428,18 @@ func TestCUEFailureForms(t *testing.T) {
 			for _, s := range f.want.contains {
 				assert.Contains(t, err.Error(), s)
 			}
-			got.contains = f.want.contains
+			for _, s := range f.want.lacks {
+				assert.NotContains(t, err.Error(), s)
+			}
+			got.contains, got.lacks = f.want.contains, f.want.lacks
 			assert.Equal(t, f.want, got, "typed chain of %q", err.Error())
 		})
 	}
 }
 
 // TestClassify_CUEFailureForms pins Classify's answer for each form the
-// embedded CUE produces: its kind, its status and whether it is transient,
-// or that it comes back unchanged.
+// embedded CUE produces: a fetch failure's kind, status and whether it is
+// transient, a resolution failure's kind, or that it comes back unchanged.
 func TestClassify_CUEFailureForms(t *testing.T) {
 	for _, f := range cueForms() {
 		t.Run(f.name, func(t *testing.T) {
@@ -331,6 +448,16 @@ func TestClassify_CUEFailureForms(t *testing.T) {
 			got := oerrors.Classify(err)
 			assert.Equal(t, err.Error(), got.Error(), "the message is unchanged")
 			var fe *oerrors.FetchError
+			var re *oerrors.ResolutionError
+			if f.class.resolution != oerrors.ResolutionOther {
+				require.True(t, errors.As(got, &re), "a resolution failure: %q", err.Error())
+				assert.Equal(t, f.class.resolution, re.Kind)
+				assert.False(t, errors.As(got, &fe), "no *FetchError")
+				assert.NotErrorIs(t, got, oerrors.ErrTransient)
+				assert.ErrorIs(t, got, err, "the cause stays reachable")
+				return
+			}
+			assert.False(t, errors.As(got, &re), "no *ResolutionError: %q", err.Error())
 			if !f.class.ok {
 				assert.Same(t, err, got, "returned unchanged")
 				assert.False(t, errors.As(got, &fe))

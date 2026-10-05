@@ -13,22 +13,26 @@ import (
 	"cuelang.org/go/mod/modregistry"
 )
 
-// Classify recognises a registry fetch or dependency resolution failure and
-// returns it wrapped in a [*FetchError]. It takes the raw errors the CUE
-// module machinery returns: a registry fetch (mod/modconfig, mod/modregistry),
-// a cue/load instance error, and the output of `cue mod tidy`.
+// Classify recognises a registry fetch failure and returns it wrapped in a
+// [*FetchError], and an author-defect resolution failure and returns it
+// wrapped in a [*ResolutionError]. It takes the raw errors the CUE module
+// machinery returns: a registry fetch (mod/modconfig, mod/modregistry), a
+// cue/load instance error, and the output of `cue mod tidy`.
 //
 // It returns nil for nil. It returns err unchanged when the chain already
-// holds a *FetchError (so classifying twice changes nothing), when the chain
-// holds context.Canceled (the caller's cancellation is not a fetch failure),
-// and when it recognises nothing, so an author defect (a syntax error, a
-// conflict) is never wrapped and never transient.
+// holds a *FetchError or a *ResolutionError (so classifying twice changes
+// nothing), when the chain holds context.Canceled (the caller's cancellation
+// is not a fetch failure), and when it recognises nothing, so any other
+// author defect (a syntax error, a conflict) is never wrapped and never
+// transient.
 //
 // It reads the typed chain first: context.DeadlineExceeded, an
 // ociregistry.HTTPError status, modregistry.ErrNotFound, the ociregistry
 // not-found, unauthorized and denied codes, and net.Error. Only when no typed
 // cause is found does it match text, because cue/load flattens the cause of a
-// failed import into a string. That text fallback is the only place in the
+// failed import into a string. The fetch forms are matched first, so a
+// registry failure anywhere in the text never reads as an author defect; the
+// author-defect forms only after. That text fallback is the only place in the
 // library that matches the text of a registry or cue/load error. Source:
 // 0021:D8:R12.
 func Classify(err error) error {
@@ -36,7 +40,8 @@ func Classify(err error) error {
 		return nil
 	}
 	var fe *FetchError
-	if errors.As(err, &fe) {
+	var re *ResolutionError
+	if errors.As(err, &fe) || errors.As(err, &re) {
 		return err
 	}
 	if errors.Is(err, context.Canceled) {
@@ -45,8 +50,12 @@ func Classify(err error) error {
 	if kind, status, ok := classifyTyped(err); ok {
 		return &FetchError{Kind: kind, Status: status, Err: err}
 	}
-	if kind, status, ok := classifyText(err.Error()); ok {
+	msg := err.Error()
+	if kind, status, ok := classifyText(msg); ok {
 		return &FetchError{Kind: kind, Status: status, Err: err}
+	}
+	if kind, ok := classifyResolutionText(msg); ok {
+		return &ResolutionError{Kind: kind, Err: err}
 	}
 	return err
 }
@@ -90,7 +99,7 @@ func kindOfStatus(status int) FetchKind {
 }
 
 // The text forms the embedded CUE (v0.17.1) produces when it flattens a fetch
-// failure into a string. Each is pinned by TestCUEFailureForms and
+// or resolution failure into a string. Each is pinned by TestCUEFailureForms and
 // TestClassify_CUEFailureForms in classify_cue_test.go, which drive the
 // embedded CUE; a CUE bump that changes one fails there, and this list moves
 // with it.
@@ -104,7 +113,30 @@ const (
 	// textCannotFetch is cue/load's prefix around a fetch whose cause is
 	// none of the above.
 	textCannotFetch = "cannot fetch "
+	// textImportUnprovided is modpkgload's ImportMissingError: no module of
+	// the build provides an imported package. textVersionNotProvided takes
+	// the exact-version form first, as a fetch failure.
+	textImportUnprovided = "cannot find module providing package "
+	// textImportAmbiguous is modpkgload's AmbiguousImportError: more than
+	// one module of the build provides an imported package.
+	textImportAmbiguous = "ambiguous import: "
+	// textModuleFileUnparsed is the prefix graph expansion wraps around a
+	// dependency module file that does not parse: modcache's for a fetched
+	// one, and modpkgload's "... in replacement directory" for a local
+	// replacement.
+	textModuleFileUnparsed = "cannot parse module file"
 )
+
+// textImportedModuleFileUnparsed matches the direct import path's form of a
+// dependency module file that does not parse: cue/load prefixes the parse
+// error with the module's coordinate (cue/load modfilecache.go), and
+// cue/build wraps it as "import failed". A local replacement directory's
+// module file that does not parse takes the same form, naming the replaced
+// coordinate. At that site nothing else starts with a coordinate, and the
+// file-position form of an import failure ("import failed: <file>:3:8: ...")
+// has the position after the version, so it never matches. The text after the coordinate is the author's module
+// file content and is never read.
+var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+@v[0-9]+\.[0-9]+\.[0-9]+[^\s:]*: `)
 
 // textStatus matches an HTTP status as the OCI client writes a registry's
 // error answer: ": 503 Service Unavailable: ". The status text must be the
@@ -114,18 +146,21 @@ var textStatus = regexp.MustCompile(`(?:^|: )([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -
 // textVersionNotProvided matches cue/load's "cannot find module providing
 // package P" only where P names an exact version, which is a standalone
 // path@version load (the schema loader's): there the registry was asked for
-// that version and it does not provide the package. In a directory load the
-// same words report an import of the main module's own path that does not
-// exist, or an import no declared dependency provides. Both are author
-// defects that no registry interaction failed, and an import path carries
-// at most a major version, so they never match.
+// that version and it does not provide the package, a fetch failure.
+// Elsewhere the same words report an import no module of the build provides
+// (a package missing from the main module's own path, an undeclared module,
+// a package missing from a declared dependency). An import path carries at
+// most a major version, so those never match here; classifyResolutionText
+// types them as ResolutionImportUnprovided.
 var textVersionNotProvided = regexp.MustCompile(`cannot find module providing package \S+@v[0-9]+\.[0-9]+\.[0-9]+`)
 
-// classifyText is the text fallback, most specific form first. It
-// recognises only a failed registry interaction. It does not match cue/load's
-// "cannot expand module graph" on its own: that prefix also wraps a published
-// dependency whose module file does not parse, which is a defect and not a
-// fetch, so it classifies only through the fetch form it carries.
+// classifyText is the fetch half of the text fallback, most specific form
+// first. It recognises only a failed registry interaction, and it runs
+// before classifyResolutionText, so a fetch form anywhere in the text wins.
+// It does not match cue/load's "cannot expand module graph" on its own: that
+// prefix also wraps a dependency whose module file does not parse,
+// which is an author defect (ResolutionModuleFileInvalid) and not a fetch, so
+// it classifies only through the form it carries.
 func classifyText(msg string) (FetchKind, int, bool) {
 	if strings.Contains(msg, textUnreachable) {
 		return FetchUnreachable, 0, true
@@ -144,4 +179,19 @@ func classifyText(msg string) (FetchKind, int, bool) {
 		return FetchOther, 0, true
 	}
 	return 0, 0, false
+}
+
+// classifyResolutionText is the author-defect half of the text fallback. It
+// runs only when classifyText found no fetch form. When a text carries
+// several author-defect forms, the first in this order decides.
+func classifyResolutionText(msg string) (ResolutionKind, bool) {
+	switch {
+	case strings.Contains(msg, textImportUnprovided):
+		return ResolutionImportUnprovided, true
+	case strings.Contains(msg, textImportAmbiguous):
+		return ResolutionImportAmbiguous, true
+	case strings.Contains(msg, textModuleFileUnparsed), textImportedModuleFileUnparsed.MatchString(msg):
+		return ResolutionModuleFileInvalid, true
+	}
+	return 0, false
 }

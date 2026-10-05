@@ -20,9 +20,19 @@
 // [labels.AnnotationAdopt], which a user sets on the live object with the
 // adopting instance's UUID as its value; a refusal message names it and the
 // UUID to set. An object being deleted is refused on every apply, and nothing
-// lifts that. An object still in another instance's inventory moves only
-// after that instance stops rendering it, since that instance applies it
-// again for as long as it holds it.
+// lifts that.
+//
+// Inside the inventory the apply verdict judges only an adopt annotation
+// naming another instance; a UUID label alone never refuses an inventoried
+// object. When a user annotates an object for another instance, the instance
+// that held it refuses it. A frontend drops an object refused as
+// adopted-elsewhere from the inventory it records next, keeps applying the
+// instance's other objects, and never deletes the object for that refusal.
+// After the adopting instance applies it, the instance that let go of it
+// still sees adopted-elsewhere, not other-instance. The delete verdict leaves
+// an object annotated for another instance in place, so the instance that let
+// go of it never prunes it. Annotating the object back for the instance that
+// held it reverses the hand-over.
 //
 // A proceed verdict from [CanDelete] carries the UID and resourceVersion of
 // the live object it judged, and [DeleteVerdict.Preconditions] turns the UID

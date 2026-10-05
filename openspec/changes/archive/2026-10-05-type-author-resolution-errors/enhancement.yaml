@@ -1,0 +1,6 @@
+# Under-claimed on purpose. 0021:D8 is a set of GA exit criteria. This change
+# completes R12 on the library side: author-defect resolution failures are
+# typed too. The cli and operator moves onto the new type follow on the next
+# library release, so no D8 requirement is claimed as delivered here.
+implements:
+  - enhancement: "0021"

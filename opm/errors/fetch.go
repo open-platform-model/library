@@ -15,12 +15,13 @@ import "errors"
 // a retry needs a fresh Cache (a fresh Kernel). Source: 0021:D8:R12.
 var ErrTransient = errors.New("transient registry failure")
 
-// FetchKind says which kind of registry fetch or dependency resolution
-// failure a [*FetchError] reports.
+// FetchKind says which kind of registry fetch failure a [*FetchError]
+// reports. An author-defect resolution failure is a [*ResolutionError] and
+// has a [ResolutionKind] instead.
 type FetchKind int
 
 const (
-	// FetchOther is a fetch or resolution failure of no narrower kind: a
+	// FetchOther is a failed registry interaction of no narrower kind: a
 	// registry answer other than 401, 403 and 404 (a 429 or a 5xx, whose
 	// code is in [FetchError.Status]), or a fetch whose cause the library
 	// does not recognise, such as a published archive that does not unzip.
@@ -30,9 +31,11 @@ const (
 	// asked for: it does not hold the tag, or the version a path@version
 	// load names does not provide the package. CUE's registry client reports
 	// a 403 answer to a tag lookup as not found too, so that case is
-	// FetchNotFound. An import no module provides in a directory load (an
+	// FetchNotFound. An import no module of the build provides (an
 	// undeclared dependency, or a package missing from the module's own
-	// path) is an author defect, not a FetchError.
+	// path or from a declared dependency) is an author defect, a
+	// [*ResolutionError] of kind [ResolutionImportUnprovided], not a
+	// FetchError.
 	FetchNotFound
 
 	// FetchUnauthorized is a registry that refused the credentials (401),
@@ -60,10 +63,12 @@ func (k FetchKind) String() string {
 	}
 }
 
-// FetchError is a registry fetch or dependency resolution failure, typed so
-// a caller branches on it without reading message text (0021:D8:R12). The
-// library builds it through [Classify] at every site where such a failure
-// leaves it, inside the site's existing wrap.
+// FetchError is a failed registry interaction, during a fetch or during
+// dependency resolution, typed so a caller branches on it without reading
+// message text (0021:D8:R12). An author-defect resolution failure, which no
+// registry interaction caused, is a [*ResolutionError] instead. The library
+// builds both through [Classify] at every site where such a failure leaves
+// it, inside the site's existing wrap.
 //
 // Its message is the cause's message, unchanged, and it unwraps to the
 // cause, so errors.Is and errors.As on the cause (a CUE error list
