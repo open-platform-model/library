@@ -335,6 +335,12 @@ their tests). `Duplicates`, `Duplicate`, `Identity`, `Producer` and
 `DuplicateIdentitiesError` keep their names and signatures, so the swap is the import line
 and the package qualifier. cli-e2e5 and op-e2e5 still do the rest of the adoption. Section 5
 measures the SA1019 count against both frontends as evidence.
+**Outcome (section 5)**: against this tree, cli `1338e700` and opm-operator `9b83611` both build
+and vet through `.tasks/consumer-build.sh`. staticcheck reports 12 SA1019 findings in each, all
+on `opm/helper/objectset` (the import and each use in the four files named above; the
+operator measured with `--no-config`, because its config needs the custom logcheck plugin).
+Swapping the import path and the package qualifier in a scratch clone is 13 lines in 4 files
+per frontend; both then vet and staticcheck reports 0 issues in the touched packages.
 **Rationale**: A prose-only "superseded" note would avoid the lint finding but would not be the
 deprecation SD1 asks for. The bump still compiles without the swap, which is SD1's purpose; the
 swap keeps the bump PR's lint green too.

@@ -142,7 +142,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 5. Duplicate identities in the tier; the helper copy deprecated (object, helper/objectset, kernel tests; design KO8, KO10)
 
-- [ ] 5.1 `opm/k8s/object/duplicates.go`: copy of `opm/helper/objectset/objectset.go` with the
+- [x] 5.1 `opm/k8s/object/duplicates.go`: copy of `opm/helper/objectset/objectset.go` with the
       same exported names, signature and wording. Move the objectset package doc's content
       into the `object` package doc's duplicates paragraph. `duplicates_test.go`: the helper
       test, ported whole. Append an entry for `opm/k8s/object/duplicates_test.go` with the pin
@@ -150,7 +150,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       of the two implementation files and of the two test files, after normalising package
       and import names, is empty (duplicate-object-identities scenario "Both homes agree on a
       render"; not committed).
-- [ ] 5.2 `opm/helper/objectset`: add a `Deprecated: use opm/k8s/object.<Name>` paragraph to
+- [x] 5.2 `opm/helper/objectset`: add a `Deprecated: use opm/k8s/object.<Name>` paragraph to
       the package doc and to each exported symbol (`Identity`, `Producer`, `Duplicate`,
       `Duplicates`, `DuplicateIdentitiesError`), with no code change (scenario "The deprecated
       home says where to go"). Add `//nolint:staticcheck // SA1019: the deprecated copy is
@@ -159,7 +159,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       `objectset_test.go` needs none (staticcheck exempts a package's own external test
       package). Verify: `task lint` green, and with the nolints in
       `flow_integration_test.go` removed it reports SA1019 (not committed).
-- [ ] 5.3 Whole-tree checks on the final code:
+- [x] 5.3 Whole-tree checks on the final code:
       - `task check`;
       - `go test -race ./opm/k8s/... -count=1`;
       - `openspec validate add-kubernetes-object-packages --strict`.
@@ -170,7 +170,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       each frontend's `golangci-lint run --enable-only staticcheck` against this tree and
       record the SA1019 findings count per frontend for the report (design KO10). Verify:
       both builds green and the counts recorded.
-- [ ] 5.4 `task check` green, then commit
+- [x] 5.4 `task check` green, then commit
       `feat(k8s): move duplicate identity detection into opm/k8s/object`. The body says that
       `opm/helper/objectset` stays, deprecated, until both frontends migrate.
 

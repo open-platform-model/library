@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/helper/objectset"
+	"github.com/open-platform-model/library/opm/helper/objectset" //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -162,7 +162,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 
 		// The shipped catalog's outputs are distinct at apply identity: two
 		// objects sharing one would reach apply as two writes to one object.
-		assert.Empty(t, objectset.Duplicates(res.Compiled),
+		assert.Empty(t, objectset.Duplicates(res.Compiled), //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
 			"the shipped fixture must not render two objects with one apply identity")
 	})
 
