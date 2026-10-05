@@ -31,7 +31,9 @@ var errNotObject = errors.New("the JSON is not an object")
 // For each object it decodes the JSON again, keeping every number's literal,
 // sets the value of the labels.ManagedBy label to "" when metadata.labels
 // holds that key, and encodes the result as JSON with sorted object keys, no
-// HTML escaping and a trailing newline. It hashes "opm-render-v1\n" followed
+// HTML escaping and a trailing newline. Strings are written as Go's
+// encoding/json Encoder writes them with HTML escaping off: U+2028, U+2029
+// and control characters as \u escapes, invalid UTF-8 as U+FFFD. It hashes "opm-render-v1\n" followed
 // by the encoded objects, sorted by group (from apiVersion), kind,
 // metadata.namespace and metadata.name, with the encoded bytes as the final
 // tie-break. A sort field that is missing or not a string reads as "".

@@ -3,8 +3,9 @@
 See proposal.md, Why. Design-local decisions are numbered KI1 to KI8 so they collide with no
 other numbering. Line references are at library `origin/main` `ca7c56b` (after
 add-kubernetes-object-packages, library#196), cli `origin/main` `bd4d1a7c` and opm-operator
-`origin/main` `dd0d798`, all fetched 2026-10-05. Evidence comes from the wave-2 research entry
-e3 (`claude-stuff/kernel-plan-beta1/wave2-plan-result.json`), re-checked at those heads. Since
+`origin/main` `dd0d798`, all fetched 2026-10-05. Evidence is the owner's beta-1 plan
+decision for this work (task e3 of the beta-1 kernel checklist), with the frontend code
+re-read at those heads. Since
 that research, the cli's `pkg/inventory/entry.go` has gained `K8sIdentity`, `IdentityOf` and
 `AdmitSet` (the operator-install admission). They are not part of this change (proposal, Not in
 this change). The digest and stale-set code it describes is unchanged.
@@ -251,10 +252,15 @@ literals). It compares `"sha256:" + hex(sha256(expected))` with the function's r
 assertion pins the hex string itself, as a committed constant. The fixtures:
 
 - Inventory: a core-group, cluster-scoped entry with empty `Group` and `Namespace` (the case
-  where the frontends disagree today), a namespaced `apps` entry, and one entry with an empty
-  `Component`, given out of order.
-- Render: a Deployment with a managed-by label and an integer above 2^53, a core-group
-  Service, and a cluster-scoped Namespace, given out of order.
+  where the frontends disagree today), a namespaced `apps` entry, one entry with an empty
+  `Component`, two `apps` entries whose namespace order and name order disagree, and two
+  entries with one identity whose component order and version order disagree, given out of
+  order. The pairs make every comparison in the sort decide an order somewhere, so a reorder
+  of the sort fields changes the golden value. A repeated entry is its own table row.
+- Render: a Deployment with a managed-by label, an integer above 2^53 and a U+2028 in an
+  annotation (which pins Go's string escaping), a core-group Service, a cluster-scoped
+  Namespace, and two Services whose namespace order and name order disagree, given out of
+  order.
 
 Behaviour tests, one per spec scenario: order independence, sensitivity to each single field
 and to adding or removing an entry, managed-by value ignored, managed-by key presence counted,

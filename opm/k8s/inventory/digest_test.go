@@ -16,21 +16,28 @@ import (
 // frontend stores this kind of value. Changing it changes every stored
 // inventory digest: that needs a new tag line in the encoding and a migration
 // note in each frontend (0012:D7:R4), never only a new constant here.
-const goldenInventoryDigest = "sha256:90b487d9239e6086617007e049e5717dbbdb597f67a776d5dc86fd87b74ffc9e"
+const goldenInventoryDigest = "sha256:158edfa69b9bb18c545217d3ed867612cf12909f01dc07e082e0095a2d6eeb01"
 
-// The three entries of the encoding fixture (design KI7): a core-group,
+// The entries of the encoding fixture (design KI7): a core-group,
 // cluster-scoped entry with empty group and namespace, the case the two
 // frontends' JSON digests disagreed on; a namespaced apps entry; and an entry
-// with an empty component.
+// with an empty component. Two pairs pin the sort order between fields the
+// other entries never let decide: two Deployments whose namespace order and
+// name order disagree, and two Secrets with one identity whose component
+// order and version order disagree.
 var (
 	fixtureNamespace  = inventory.Entry{Kind: "Namespace", Name: "team", Version: "v1", Component: "ns"}
 	fixtureDeployment = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "team", Name: "web", Version: "v1", Component: "web"}
 	fixtureConfigMap  = inventory.Entry{Kind: "ConfigMap", Namespace: "team", Name: "app", Version: "v1"}
+	fixtureDeployAZ   = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "a", Name: "z", Version: "v1", Component: "web"}
+	fixtureDeployBY   = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "b", Name: "y", Version: "v1", Component: "web"}
+	fixtureSecretAV2  = inventory.Entry{Kind: "Secret", Namespace: "team", Name: "s", Version: "v2", Component: "a"}
+	fixtureSecretBV1  = inventory.Entry{Kind: "Secret", Namespace: "team", Name: "s", Version: "v1", Component: "b"}
 )
 
 // inventoryFixture is the fixture out of its sorted order.
 func inventoryFixture() []inventory.Entry {
-	return []inventory.Entry{fixtureDeployment, fixtureNamespace, fixtureConfigMap}
+	return []inventory.Entry{fixtureDeployment, fixtureSecretBV1, fixtureDeployBY, fixtureNamespace, fixtureSecretAV2, fixtureConfigMap, fixtureDeployAZ}
 }
 
 // lengthPrefixed writes the KI4 encoding of one field: its byte length as 8
@@ -57,11 +64,17 @@ func sha256Digest(b []byte) string {
 
 // kubernetes-tier: "The encoding is the one defined" (inventory digest).
 func TestDigest_EncodingIsTheOneDefined(t *testing.T) {
-	// Sorted by group, kind, namespace, name, component, version: the two
-	// core-group entries first (ConfigMap before Namespace), then apps.
+	// Sorted by group, kind, namespace, name, component, version: the
+	// core-group entries first (ConfigMap, Namespace, then the two Secrets by
+	// component, so v2 before v1), then apps (by namespace, so name z before
+	// name y).
 	want := []byte("opm-inventory-v1\n")
 	want = append(want, encodedEntry("", "ConfigMap", "team", "app", "v1", "")...)
 	want = append(want, encodedEntry("", "Namespace", "", "team", "v1", "ns")...)
+	want = append(want, encodedEntry("", "Secret", "team", "s", "v2", "a")...)
+	want = append(want, encodedEntry("", "Secret", "team", "s", "v1", "b")...)
+	want = append(want, encodedEntry("apps", "Deployment", "a", "z", "v1", "web")...)
+	want = append(want, encodedEntry("apps", "Deployment", "b", "y", "v1", "web")...)
 	want = append(want, encodedEntry("apps", "Deployment", "team", "web", "v1", "web")...)
 
 	got := inventory.Digest(inventoryFixture())
@@ -95,6 +108,9 @@ func TestDigest_EveryFieldCounts(t *testing.T) {
 		"component": edit(func(e *inventory.Entry) { e.Component = "api" }),
 		"added":     append(slices.Clone(base), inventory.Entry{Kind: "Service", Namespace: "team", Name: "web", Version: "v1"}),
 		"removed":   base[1:],
+		// Entries are not de-duplicated: a repeated entry is a different
+		// inventory (0012:D7:R3).
+		"duplicated": append(slices.Clone(base), base[0]),
 	}
 	for name, entries := range cases {
 		t.Run(name, func(t *testing.T) {
