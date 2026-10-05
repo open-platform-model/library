@@ -88,8 +88,8 @@ the inventory would refuse every inventoried object that carries a UUID label, i
 instance's own.
 **Explored**: Failing closed inside the inventory too. A refusal there asks the frontend to drop
 the object from its inventory. The dropped object then lands in the stale set, and `CanDelete`
-with an empty instance UUID compares neither the UUID label nor (AD5) the annotation, so the
-prune deletes it. Failing closed would turn a missing identity into the deletion of the
+with an empty instance UUID does not compare the UUID label, so an own object refused only for
+its UUID label (no annotation, so AD5 does not skip it) is deleted by the prune. Failing closed would turn a missing identity into the deletion of the
 instance's own objects.
 **Decision**: With an empty instance UUID an inventoried object that is not terminating applies,
 as it does today.
@@ -103,7 +103,9 @@ outside the inventory. If B has applied it, its UUID label is B's and `other-ins
 it. If B has not, its UUID label is still A's (or absent), the object is OPM-managed, and today
 the verdict applies it: A records it again and the fight resumes one apply later.
 **Decision**: After the `foreign-object` and `other-instance` checks, an object whose adopt
-annotation is non-blank and does not name this instance refuses as `adopted-elsewhere`. With an
+annotation is non-blank and does not name this instance refuses as `adopted-elsewhere`. That
+includes an object the operator install admission lifted past `foreign-object`: admission lifts
+`foreign-object` only, so it lifts neither the new refusal nor (AD5) the new skip. With an
 empty instance UUID any non-blank annotation counts as another instance's, as the live UUID does
 (outside the inventory a refusal drops nothing, so failing closed is safe there).
 **Rationale**: The annotation is a hand-over instruction for exactly this object; an instance
@@ -119,9 +121,14 @@ has applied the object, its UUID label is B's and `owner-mismatch` already skips
 not, the label is A's and the verdict proceeds: A deletes the object the user is handing to B.
 The same holds when A is deleted outright, or when A's module stops rendering the object.
 **Decision**: `CanDelete` checks, after `owner-mismatch` and before proceeding: when the live
-adopt annotation (trimmed) and the instance UUID are both non-empty and differ, skip as
-`adopted-elsewhere`. An empty instance UUID disables this comparison, as it disables the owner
-comparison today. An annotation naming this instance changes nothing.
+adopt annotation (trimmed) is non-blank and the instance UUID is empty or differs from it, skip
+as `adopted-elsewhere`. An annotation naming this instance changes nothing.
+**Explored**: Letting an empty instance UUID disable the comparison, as it disables the owner
+comparison. That deletes the object being handed over: a ModulePackage without a UUID holds X,
+the user annotates X for B and removes it from the module, and the prune deletes X. AD3's
+argument does not carry over: skipping on delete only leaves an object in place, an empty-UUID
+instance can never be the one an annotation names, and AD4 already treats any non-blank
+annotation as another instance's when the UUID is empty.
 **Rationale**: The owner's "A drops it from its next inventory" means A lets go of the object,
 not that A deletes it. Placing the check after `owner-mismatch` keeps that reason for every
 object that already carries another instance's label. The lifecycle needs no code change: a skip
@@ -150,8 +157,9 @@ does today.
 **Context**: The 0012:D8 amendment is written in parallel in the enhancements repo and not merged
 when this change is planned, so its requirement number is not yet fixed.
 **Decision**: The spec deltas and comments cite `0012:D8:R8`, the next free requirement number of
-0012:D8, together with enhancements#103. Task 3.1 checks the number against the merged
-amendment before the last commit and corrects every citation if it differs.
+0012:D8, together with enhancements#103. Task 3.1 is a hard merge gate: the library PR
+merges only after the amendment has merged, and every citation is corrected if its number
+differs.
 **Rationale**: A committed citation must resolve; the issue resolves now and the requirement
 resolves once the amendment merges.
 
@@ -165,6 +173,21 @@ resolves once the amendment merges.
 - **A stale annotation.** An adopt annotation is never removed by OPM. An object adopted into A
   keeps `opmodel.dev/adopt=<A>`; B can take it only by changing the annotation, which is the
   deliberate act the guard asks for.
+- **An instance whose UUID changes keeps an inventory of objects labelled with the old UUID.**
+  The UUID is SHA1 of registry path, name and namespace, and the operator's ModuleInstance does
+  not make the module path immutable. Pointing an instance at a moved module path keeps its
+  status inventory but changes its UUID. Today its objects re-apply and relabel. Under the
+  in-inventory UUID-label branch each is refused as `adopted-elsewhere` and dropped, the prune
+  skips each as `owner-mismatch`, and the next apply refuses each as `other-instance`, until
+  each object is annotated `opmodel.dev/adopt=<new UUID>` by hand. The branch is kept because
+  the owner's decision names it ("live adopt annotation or UUID label names another
+  instance"); limiting the in-inventory refusal to the annotation is the alternative, and B can
+  relabel an object only after an annotation naming B, so the label branch catches only a
+  removed annotation or a legacy double inventory. Raised with the owner.
+- **An annotation naming a nonexistent or mistyped UUID.** A refuses the object and drops it,
+  every apply refuses it for as long as A renders it, and prune and uninstall skip it (the hold
+  still releases). The object is left orphaned with A's label. Remedy: re-annotate it with A's
+  UUID, or remove the annotation and adopt it again.
 - **Two instances that both render the object, annotation naming B.** A refuses and leaves it,
   B applies it; stable. Annotation changed back to A: B refuses and drops, A applies; stable.
   There is no input under which both apply.
