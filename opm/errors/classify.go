@@ -120,18 +120,21 @@ const (
 	// textImportAmbiguous is modpkgload's AmbiguousImportError: more than
 	// one module of the build provides an imported package.
 	textImportAmbiguous = "ambiguous import: "
-	// textModuleFileUnparsed is modcache's prefix for a fetched module file
-	// that does not parse, which graph expansion wraps.
+	// textModuleFileUnparsed is the prefix graph expansion wraps around a
+	// dependency module file that does not parse: modcache's for a fetched
+	// one, and modpkgload's "... in replacement directory" for a local
+	// replacement.
 	textModuleFileUnparsed = "cannot parse module file"
 )
 
 // textImportedModuleFileUnparsed matches the direct import path's form of a
 // dependency module file that does not parse: cue/load prefixes the parse
 // error with the module's coordinate (cue/load modfilecache.go), and
-// cue/build wraps it as "import failed". At that site nothing else starts
-// with a coordinate, and the file-position form of an import failure
-// ("import failed: <file>:3:8: ...") has the position after the version, so
-// it never matches. The text after the coordinate is the author's module
+// cue/build wraps it as "import failed". A local replacement directory's
+// module file that does not parse takes the same form, naming the replaced
+// coordinate. At that site nothing else starts with a coordinate, and the
+// file-position form of an import failure ("import failed: <file>:3:8: ...")
+// has the position after the version, so it never matches. The text after the coordinate is the author's module
 // file content and is never read.
 var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+@v[0-9]+\.[0-9]+\.[0-9]+[^\s:]*: `)
 
@@ -155,7 +158,7 @@ var textVersionNotProvided = regexp.MustCompile(`cannot find module providing pa
 // first. It recognises only a failed registry interaction, and it runs
 // before classifyResolutionText, so a fetch form anywhere in the text wins.
 // It does not match cue/load's "cannot expand module graph" on its own: that
-// prefix also wraps a published dependency whose module file does not parse,
+// prefix also wraps a dependency whose module file does not parse,
 // which is an author defect (ResolutionModuleFileInvalid) and not a fetch, so
 // it classifies only through the form it carries.
 func classifyText(msg string) (FetchKind, int, bool) {

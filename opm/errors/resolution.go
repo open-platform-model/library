@@ -15,8 +15,9 @@ const (
 	// module's own path, an import of a module the main module does not
 	// declare, and an import of a package missing from a declared dependency
 	// that was fetched. `cue mod tidy` says the same against a registry that
-	// lists no version of the imported module, which is an unpublished or
-	// mistyped import. None of them is transient: no retry cures it.
+	// lists no version of the imported module. None of them is transient:
+	// the library cannot tell a late publish from a mistyped import here, so
+	// it never retries one.
 	ResolutionImportUnprovided
 
 	// ResolutionImportAmbiguous is an imported package that more than one
@@ -24,10 +25,14 @@ const (
 	// directory at the path a declared dependency also provides.
 	ResolutionImportAmbiguous
 
-	// ResolutionModuleFileInvalid is a dependency whose published module
-	// file does not parse, met while the module graph is expanded or while a
-	// directly imported dependency is read. Its version is immutable, so no
-	// retry cures it: the import has to move to another version.
+	// ResolutionModuleFileInvalid is a dependency whose module file does not
+	// parse, met while the module graph is expanded or while a directly
+	// imported dependency is read. The module file is a published one or
+	// the one in a local replacement directory (cue.mod/local-module.cue
+	// replaceWith); the error names the replaced coordinate either way. No
+	// retry cures it: a published version is immutable, so the import moves
+	// to another version, and a replacement directory's file is fixed in
+	// place.
 	ResolutionModuleFileInvalid
 )
 

@@ -50,6 +50,9 @@ func TestClassify_UnrecognisedIsUnchanged(t *testing.T) {
 		// An import failure with a file position after the version is not
 		// the direct-path module-file form.
 		errors.New(`import failed: /c/mod/extract/test.example/dep@v0.0.2/dep.cue:3:8: expected operand, found '}'`),
+		// The coordinate has to name an exact version, as cue/load writes
+		// it; a major-only path is not the direct-path module-file form.
+		errors.New("import failed: a.b/c@v0: x"),
 		errors.New("x: 999 Bogus Status: y"),
 		errors.New("x: 404 Something Else: y"),
 	} {

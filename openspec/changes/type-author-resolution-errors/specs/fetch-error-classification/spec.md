@@ -27,7 +27,7 @@
 
 ### Requirement: An author-defect resolution failure is a typed error
 
-`opm/errors` SHALL export `ResolutionKind` with the values `ResolutionOther`, `ResolutionImportUnprovided`, `ResolutionImportAmbiguous` and `ResolutionModuleFileInvalid`, and the type `*ResolutionError` with the fields `Kind` and `Err`. `ResolutionImportUnprovided` means no module of the build provides an imported package. It covers an import of a package missing from the main module's own path, an import of a module the main module does not declare, and an import of a package missing from a declared dependency that was fetched. `ResolutionImportAmbiguous` means more than one module of the build provides an imported package. `ResolutionModuleFileInvalid` means a dependency's published module file does not parse. `ResolutionOther` is the zero value, and `Classify` SHALL NOT build it. Source: 0021:D8:R12.
+`opm/errors` SHALL export `ResolutionKind` with the values `ResolutionOther`, `ResolutionImportUnprovided`, `ResolutionImportAmbiguous` and `ResolutionModuleFileInvalid`, and the type `*ResolutionError` with the fields `Kind` and `Err`. `ResolutionImportUnprovided` means no module of the build provides an imported package. It covers an import of a package missing from the main module's own path, an import of a module the main module does not declare, and an import of a package missing from a declared dependency that was fetched. `ResolutionImportAmbiguous` means more than one module of the build provides an imported package. `ResolutionModuleFileInvalid` means a dependency's module file does not parse, whether the dependency is published or served from a local replacement directory. `ResolutionOther` is the zero value, and `Classify` SHALL NOT build it. Source: 0021:D8:R12.
 
 `(*ResolutionError).Error()` SHALL return the text of `Err` unchanged, and `Unwrap` SHALL return `Err`. A `*ResolutionError` whose `Err` is nil SHALL NOT panic in `Error()`. A `*ResolutionError` SHALL NOT satisfy `errors.Is(err, ErrTransient)`, and `errors.As` SHALL NOT find a `*FetchError` through it unless its cause holds one.
 
@@ -77,12 +77,12 @@
 
 #### Scenario: A dependency whose module file does not parse is a typed author defect
 
-- **WHEN** `Classify` receives a `cue/load` error saying the module graph cannot be expanded because a published dependency's module file does not parse
+- **WHEN** `Classify` receives a `cue/load` error saying the module graph cannot be expanded because a dependency's module file does not parse, published or in a local replacement directory
 - **THEN** it returns a `*ResolutionError` of kind `ResolutionModuleFileInvalid`, and `errors.Is(err, ErrTransient)` is false
 
 #### Scenario: A dependency module file that does not parse on the direct import path is a typed author defect
 
-- **WHEN** `Classify` receives a `cue/load` error for a directly imported, declared dependency whose published module file does not parse
+- **WHEN** `Classify` receives a `cue/load` error for a directly imported, declared dependency whose module file does not parse, published or in a local replacement directory
 - **THEN** it returns a `*ResolutionError` of kind `ResolutionModuleFileInvalid`, and no `*FetchError` is in the chain
 
 #### Scenario: An ambiguous import is a typed author defect

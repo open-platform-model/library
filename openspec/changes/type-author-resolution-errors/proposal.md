@@ -28,7 +28,8 @@ drops its last text match.
   - `ResolutionImportUnprovided`: no module of the build provides an imported package. This
     covers the three cases from #205, which share one CUE form;
   - `ResolutionImportAmbiguous`: more than one module of the build provides an imported package;
-  - `ResolutionModuleFileInvalid`: a dependency's published module file does not parse;
+  - `ResolutionModuleFileInvalid`: a dependency's module file does not parse, whether the
+    dependency is published or served from a local replacement directory;
   - `ResolutionOther`, the zero value. `Classify` never builds it.
 - `Classify` also recognises these forms and returns them wrapped in a `*ResolutionError`. A fetch
   form anywhere in the same text still wins, the generic `cannot fetch ` included, so a registry
@@ -54,9 +55,10 @@ Not in this change:
   `.tasks/consumer-build.sh`, and nothing is committed to the cli. The operator uses
   `*ResolutionError` only to say why it stalls; it does not add it to its terminal causes, so a
   `*FetchError` anywhere in the chain still retries.
-- The cli's `#registry` hint match in `internal/config/platform.go`. That matches an evaluation
-  error (the platform author's own field), not a fetch or resolution failure, so 0021:D8:R12 does
-  not cover it. The cli can drop it by reading the CUE error path, with no library work.
+- The cli's `#registry` hint match in `internal/config/platform.go`. It matches an evaluation
+  error (the platform author's own field), not a fetch or resolution failure, so this change has
+  no library work for it. Under the strict reading the cli still drops it in the same follow-up,
+  by reading the CUE error path instead of the message text, so no text match remains.
 - Load failures that are package-content defects rather than import resolution (design.md
   "Where resolution ends"). They stay unchanged.
 - Telling the three unprovided-import causes apart. See design.md D2.

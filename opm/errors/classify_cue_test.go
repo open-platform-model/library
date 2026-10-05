@@ -167,6 +167,21 @@ func mainModule(t *testing.T, version, importPath string) *opmmodule.Source {
 	return &opmmodule.Source{Root: dir}
 }
 
+// replacedMain writes a main module requiring test.example/dep and importing
+// importPath, with cue.mod/local-module.cue replacing the dependency by a
+// local directory whose module file does not parse.
+func replacedMain(t *testing.T, importPath string) *opmmodule.Source {
+	t.Helper()
+	dep := t.TempDir()
+	bad := depModFile + "bogus: 1\n"
+	require.NoError(t, os.MkdirAll(filepath.Join(dep, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dep, "cue.mod", "module.cue"), []byte(bad), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dep, "dep.cue"), []byte("package dep\n\ny: 1\n"), 0o644))
+	src := mainModule(t, depVersion, importPath)
+	addFile(t, src, "cue.mod/local-module.cue", "deps: \""+depPath+"\": replaceWith: \""+filepath.ToSlash(dep)+"\"\n")
+	return src
+}
+
 func fetchDep(ctx context.Context, t *testing.T, registry, version string) error {
 	t.Helper()
 	_, _, err := loader.FetchArtifact(ctx, cuecontext.New(), depPath, version, loader.Options{Env: env(t, registry)}, loader.ModuleSpec)
@@ -303,6 +318,17 @@ func cueForms() []cueForm {
 			})
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		// The same defect in a local replacement directory
+		// (cue.mod/local-module.cue replaceWith): on the direct import path
+		// the text names the replaced coordinate exactly as for a published
+		// dependency, and graph expansion reports it as a module file in a
+		// replacement directory. Both are ResolutionModuleFileInvalid.
+		{"load/malformed-replacement-module-file-direct", func(t *testing.T) error {
+			return loadMain(t, registrytest.UnreachableRegistry(t), replacedMain(t, "test.example/dep"))
+		}, observed{contains: []string{"import failed: test.example/dep@v0.0.2: ", "bogus: field not allowed"}, lacks: []string{"cannot fetch ", "cannot parse module file"}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
+		{"load/malformed-replacement-module-file", func(t *testing.T) error {
+			return loadMain(t, registrytest.UnreachableRegistry(t), replacedMain(t, "test.example/next@v0"))
+		}, observed{contains: []string{"cannot parse module file in replacement directory: ", "bogus: field not allowed"}, lacks: []string{"cannot fetch "}}, resolutionOf(oerrors.ResolutionModuleFileInvalid)},
 		// The main module's own module file is checked before any import
 		// resolves: the text is the module file's evaluation error alone.
 		{"load/malformed-main-module-file", func(t *testing.T) error {

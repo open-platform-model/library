@@ -44,8 +44,8 @@ place, `classifyText`.
   carries `cannot do HTTP request` or a 503 must not read as absent.
 - cli `internal/config/platform.go:98-117` `platformBuildHint`: matches `cannot find package`
   (cue/load's prefix for every failed import) and `cannot expand module graph` to pick a hint,
-  never an exit code. It also matches `#registry`, which is an evaluation error and outside this
-  change.
+  never an exit code. It also matches `#registry`, an evaluation error: no library work, but the
+  cli follow-up drops it too by reading the CUE error path (see "Frontend follow-ups").
 - opm-operator `internal/reconcile/resolution.go` `IsTransientFailure` (`:70-76`) retries any
   `*FetchError` and treats everything else, the unclassified author defects included, as
   terminal. It cannot say why: no type tells an import defect from a syntax error. Its
@@ -66,9 +66,10 @@ place, `classifyText`.
 
 **Non-Goals:**
 
-- The frontend changes themselves (cli `compat.go` and `platform.go`, operator terminal causes).
+- The frontend changes themselves (cli `compat.go` and `platform.go`, operator stall reason).
 - Telling the three unprovided-import causes apart (D2).
 - Classifying evaluation errors (a conflict, a missing field, the platform `#registry` key check).
+  The cli reads the `#registry` check's CUE error path instead; that needs no library type.
 
 ## Decisions
 
@@ -82,7 +83,7 @@ const (
     ResolutionOther             ResolutionKind = iota // zero value; Classify never builds it
     ResolutionImportUnprovided                        // no module of the build provides an imported package
     ResolutionImportAmbiguous                         // more than one module of the build provides it
-    ResolutionModuleFileInvalid                       // a dependency's published module file does not parse
+    ResolutionModuleFileInvalid                       // a dependency's module file (published or local replacement) does not parse
 )
 
 func (k ResolutionKind) String() string // "other", "import unprovided", "import ambiguous", "module file invalid"
@@ -286,6 +287,8 @@ answer at `88afdfb`.
 | `standalone/unprovided-import` | `cannot find module providing package test.example/other@v0` (a major version only) | unchanged | `ResolutionImportUnprovided` |
 | `load/ambiguous-import` | `ambiguous import: found package spike.example/main/dep in multiple locations:` | unchanged | `ResolutionImportAmbiguous` |
 | `load/malformed-dependency-module-file-direct` | `import failed: test.example/dep@v0.0.2: bogus: field not allowed`; no `cannot fetch `, no `cannot parse module file` | unchanged | `ResolutionModuleFileInvalid` |
+| `load/malformed-replacement-module-file-direct` | `import failed: test.example/dep@v0.0.2: bogus: field not allowed` (a local replacement directory); no `cannot fetch `, no `cannot parse module file` | unchanged | `ResolutionModuleFileInvalid` |
+| `load/malformed-replacement-module-file` | `cannot parse module file in replacement directory: ...: bogus: field not allowed` | unchanged | `ResolutionModuleFileInvalid` |
 | `load/malformed-main-module-file` | `loading module package from <dir> (.): bogus: field not allowed`; no `cannot parse module file` | unchanged | unchanged ("Where resolution ends") |
 | `load/corrupt-archive-beside-unprovided-import` | `cannot fetch test.example/dep@v0.0.2: unzip ...: zip: not a valid zip file`; the undeclared import's error is not in the text | `FetchOther` | `FetchOther` |
 
@@ -294,12 +297,18 @@ answer at `88afdfb`.
   (`fmt.Errorf("%v: %v", mv, err)`), reached from `newInstance` (`cue/load/import.go:426`), and
   cue/build wraps it as `import failed` (`cue/build/import.go:103`). At that site the only other
   failures are `no location for P@V` and a file read error, neither of which starts with a
-  coordinate and `: `. The import-failed form with a file position
+  coordinate and `: `. A local replacement directory (`cue.mod/local-module.cue` `replaceWith`)
+  whose module file does not parse reaches the same site and takes the same form, naming the
+  replaced coordinate (`import failed: test.example/dep@v0.0.2: bogus: field not allowed`); graph
+  expansion reports it as `cannot parse module file in replacement directory: ...`. Both are a
+  dependency module file that does not parse, so both are `ResolutionModuleFileInvalid`, pinned
+  by `load/malformed-replacement-module-file-direct` and `load/malformed-replacement-module-file`. The import-failed form with a file position
   (`import failed: <file>:3:8: cannot find package`) does not match it, because the position
   follows the version.
 - The main module's malformed `module.cue` does not carry `cannot parse module file`, so the
-  matched text comes only from fetched modules, and the risk that the kind also covers the main
-  module's file is dropped. The spec keeps "a dependency's published module file".
+  matched text comes only from dependency module files (fetched or local replacement), and the
+  risk that the kind also covers the main module's file is dropped. The spec says "a dependency's
+  module file, published or in a local replacement directory".
 - A directory load with a corrupt dependency archive and an undeclared import in another file
   reports only the fetch failure: cue/load stops there. The constructed mixed text (both forms in
   one string) is pinned in `TestClassify_Resolution`, and stays `FetchOther`.
@@ -352,19 +361,26 @@ Go 1.26.5, an absolute private `TMPDIR` and the worktree's own copy of the main 
   - `go test ./internal/cuemod/ -run 'TestIsConnectivityError|TestIsVersionNotHeld'`: pass;
   - the three packages whole (`./internal/publish/ ./internal/config/ ./internal/cuemod/`): pass.
 
-  Nothing was committed to the cli, and the clones were removed. One hint changes with no pin
-  row: a directly imported dependency whose module file does not parse
-  (`import failed: P@vX.Y.Z: ...`) carried neither matched text, so it got the default hint; with
-  the types it gets the "Pin a published build" hint, which fits it better. The cli change should
-  pin that row.
+  Nothing was committed to the cli, and the clones were removed. Two hint answers change with no
+  pin row, and the cli follow-up pins both or decides each hint on purpose:
+  - Direct-path module file: a directly imported dependency whose module file does not parse
+    (`import failed: P@vX.Y.Z: ...`, published or local replacement) carried neither matched
+    text, so it got the default hint; with the types it gets the "Pin a published build" hint.
+  - Package qualifier: an import whose package name does not match
+    (`import failed: <file>:3:8: cannot find package "test.example/dep": no files in package
+    directory with package name "dep"`) matched `cannot find package` and got the "Pin a
+    published build" hint; it is neither type ("Where resolution ends"), so it now gets the
+    default hint. The other `cannot find package` forms listed there move the same way.
 
 ### Frontend follow-ups (4.4)
 
 - cli: `compat.go` `unprovidedImport` moves onto `Kind == ResolutionImportUnprovided`, and the two
   import matches of `platform.go` `platformBuildHint` (`cannot find package`,
   `cannot expand module graph`) move onto "a `*FetchError` or a `*ResolutionError` in the chain",
-  both proved above. This drops both text matches 0021's delivery log records. The `#registry`
-  match is an evaluation error outside 0021:D8:R12; the cli can drop it by reading the CUE error
-  path, with no library work.
+  both proved above. This drops both text matches 0021's delivery log records. Required in the
+  same change: the `#registry` match of `platform.go` moves off the message text onto the CUE
+  error path (the strict reading leaves no text match in the cli). It is an evaluation error, so
+  it needs no library work. The change pins the two hint rows above (direct-path module file,
+  package qualifier) or decides each hint on purpose.
 - opm-operator: `*ResolutionError` names the stall reason and condition message only. It is not
   added to `isTerminalCause`, so any `*FetchError` in a joined chain still retries.
