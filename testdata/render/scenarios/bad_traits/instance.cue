@@ -23,7 +23,7 @@ metadata: {
 		web: {
 			#resources: (cat.#ContainerResource.metadata.fqn): cat.#ContainerResource
 
-			// A top-level conflict: #traits exists but is bottom. The operator's
+			// A top-level conflict: #traits exists but is bottom. The controller's
 			// demand walk refuses it (Exists, then Fields errors); the glue's
 			// presence guard would drop it.
 			#traits: "not-a-trait-map"

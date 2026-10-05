@@ -16,7 +16,7 @@ import (
 // the package documentation.
 //
 // The Kernel owns exactly one [*schema.Cache] for its lifetime. Long-
-// running consumers (operator, server) keep one Kernel alive for the
+// running consumers (controller, server) keep one Kernel alive for the
 // process to reuse the in-process schema cache; constructing a fresh Kernel
 // per request pays the schema-fetch cost on every cold disk cache. The CUE
 // module cache on disk is shared across Kernels.

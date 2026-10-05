@@ -42,7 +42,7 @@
 // the rows into the refusal itself, worded once so every runtime says the
 // same thing. A runtime calls it between render and apply, on the
 // []*kernel.Compiled the kernel returned: the cli in its render workflow, so
-// build refuses what apply would, and the operator before it builds
+// build refuses what apply would, and the controller before it builds
 // inventory entries. The deprecated opm/helper/objectset holds an identical
 // copy until both frontends have moved here.
 package object

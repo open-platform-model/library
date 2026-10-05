@@ -12,10 +12,10 @@ import (
 )
 
 // fluxFirst and fluxLast are ReconcileOrder.First and .Last from
-// github.com/fluxcd/pkg/ssa v0.77.0 sort.go, the version the operator pins.
-// They are literals: Flux is the operator's engine and depguard keeps it out
-// of the library. Nothing here follows the operator's Flux pin: a planned
-// opm-operator test, comparing Flux's own staged order with object.Weight
+// github.com/fluxcd/pkg/ssa v0.77.0 sort.go, the version the controller pins.
+// They are literals: Flux is the controller's engine and depguard keeps it out
+// of the library. Nothing here follows the controller's Flux pin: a planned
+// opm-controller test, comparing Flux's own staged order with object.Weight
 // through the Flux module itself, is what catches a Flux bump that reorders
 // kinds. Update these literals when that test reports a new order.
 var (
@@ -208,7 +208,7 @@ func contradictions(weight func(schema.GroupVersionKind) int) []string {
 }
 
 // TestWeightNeverContradictsFlux is the guard of kubernetes-tier "The weight
-// table never contradicts Flux's staged apply order": the operator hands the
+// table never contradicts Flux's staged apply order": the controller hands the
 // whole set to Flux's ApplyAllStaged, which re-sorts it, so Flux may refine
 // the library's order and never contradict it (0012:D5:R1). A table edit, or
 // a change to the literals above, that reorders a pair fails here, naming

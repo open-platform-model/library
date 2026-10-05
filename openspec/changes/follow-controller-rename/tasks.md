@@ -6,10 +6,10 @@
 
 ## 2. Godoc, lint messages and tests name the controller
 
-- [ ] 2.1 Comments and godoc under `opm/` (`helper/objectset`, `helper/platformmodule`, `internal/loader`, `k8s/inventory`, `k8s/labels`, `k8s/object`, `k8s/ownership`, `kernel`, `platform`) say "controller" for the product and `opm-controller` for the repository; `opm/schema/loader.go`'s "Operators in restricted environments" stays.
-- [ ] 2.2 Test messages (`kernel/parity_harness_test.go`, `kernel/render_runtime_name_test.go`), the hold-message banned word in `k8s/lifecycle/hold_test.go` (`controller`), and the comment in `testdata/render/scenarios/bad_traits/instance.cue`.
-- [ ] 2.3 `.golangci.yml`: the header comment and the depguard `desc` messages say "the controller".
-- [ ] 2.4 `task check` green, then commit `docs: name the controller in godoc, lint messages and tests`.
+- [x] 2.1 Comments and godoc under `opm/` (`helper/objectset`, `helper/platformmodule`, `internal/loader`, `k8s/inventory`, `k8s/labels`, `k8s/object`, `k8s/ownership`, `kernel`, `platform`) say "controller" for the product and `opm-controller` for the repository; `opm/schema/loader.go`'s "Operators in restricted environments" stays.
+- [x] 2.2 Test messages (`kernel/parity_harness_test.go`, `kernel/render_runtime_name_test.go`), the hold-message banned word in `k8s/lifecycle/hold_test.go` (`controller`), and the comment in `testdata/render/scenarios/bad_traits/instance.cue`.
+- [x] 2.3 `.golangci.yml`: the header comment and the depguard `desc` messages say "the controller".
+- [x] 2.4 `task check` green, then commit `docs: name the controller in godoc, lint messages and tests`.
 
 ## 3. Prose and spec Purposes name the controller
 

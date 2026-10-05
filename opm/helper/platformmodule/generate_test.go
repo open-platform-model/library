@@ -22,10 +22,10 @@ const (
 	coreVersion = "v2.0.0-alpha.7"
 )
 
-// twoCatalogInput is the operator's sample Platform (two subscriptions, one
+// twoCatalogInput is the controller's sample Platform (two subscriptions, one
 // disabled) with the closure its module files resolve to. The golden
-// expectations in TestGenerate_TwoCatalogs are the operator generator's,
-// verbatim, so the operator's re-point onto this helper is a pure re-import.
+// expectations in TestGenerate_TwoCatalogs are the controller generator's,
+// verbatim, so the controller's re-point onto this helper is a pure re-import.
 func twoCatalogInput() Input {
 	return Input{
 		Name:       "cluster",
@@ -166,7 +166,7 @@ func TestGenerate_EmptyRegistry(t *testing.T) {
 }
 
 // The module path is caller input: the generated module declares whatever
-// identity the frontend owns (the operator's cluster path, the CLI's local
+// identity the frontend owns (the controller's cluster path, the CLI's local
 // path), byte-for-byte otherwise identical.
 func TestGenerate_ModulePathIsInput(t *testing.T) {
 	in := twoCatalogInput()

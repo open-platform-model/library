@@ -2,7 +2,7 @@
 // (cli 0b37e3f2, last changed by cli#289, 75e5f268), with GetWeight renamed
 // to Weight. Its values have since been aligned with the staged apply order of
 // Flux's ssa package (github.com/fluxcd/pkg/ssa v0.77.0, the version the
-// operator pins): the operator hands the whole set to Flux's ApplyAllStaged,
+// controller pins): the controller hands the whole set to Flux's ApplyAllStaged,
 // which re-sorts it, and 0012:D5:R1 lets that engine refine the library's
 // order and never contradict it. flux_order_test.go fails on any pair the two
 // orders put the opposite way round.

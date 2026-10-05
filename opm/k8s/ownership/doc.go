@@ -1,7 +1,7 @@
 // Package ownership decides, for one Kubernetes object at a time, whether a
 // frontend may apply over it ([CanApply]) and whether it may delete it
 // ([CanDelete]). The verdicts are the same for every frontend, so the cli and
-// the operator never judge ownership in code of their own.
+// the controller never judge ownership in code of their own.
 //
 // The verdicts are pure functions of explicit inputs. The caller reads the
 // live object with its own client and hands it in, nil when the read found

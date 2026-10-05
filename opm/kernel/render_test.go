@@ -162,7 +162,7 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 }
 
 // synthRenderInstance acquires the fixture module from the in-process registry
-// and synthesizes an overlay-mode instance from it (the CLI / operator path).
+// and synthesizes an overlay-mode instance from it (the CLI / controller path).
 func synthRenderInstance(t *testing.T, k *kernel.Kernel, version string) *module.Instance {
 	t.Helper()
 	ctx := context.Background()

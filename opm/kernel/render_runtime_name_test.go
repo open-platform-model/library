@@ -27,7 +27,7 @@ const (
 
 // TestRender_RuntimeNameReachesOnlyManagedBy is half of the cross-runtime
 // render-digest parity proof (0012:D6:R2). It renders one instance as the cli
-// and as the operator and shows that the two renders differ only in the
+// and as the controller and shows that the two renders differ only in the
 // managed-by label value. The other half is the opm/k8s/inventory render
 // digest tests, which show that the digest ignores exactly that value. The
 // fence keeps the two halves apart: a full render needs the in-process
@@ -90,7 +90,7 @@ func assertRuntimeNameReachesOnlyManagedBy(t *testing.T, k *kernel.Kernel, inst 
 		objA := decodeCompiled(t, a)
 		objB := decodeCompiled(t, b)
 		assert.Equal(t, runtimeCLI, blankManagedBy(t, objA, i), "object %d: the cli render stamps its runtime name", i)
-		assert.Equal(t, runtimeController, blankManagedBy(t, objB, i), "object %d: the operator render stamps its runtime name", i)
+		assert.Equal(t, runtimeController, blankManagedBy(t, objB, i), "object %d: the controller render stamps its runtime name", i)
 		assert.Equal(t, objA, objB, "object %d: with the managed-by value blanked, the two renders are equal", i)
 	}
 }
