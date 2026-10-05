@@ -159,10 +159,11 @@ func OverlayFromFS(fsys fs.FS, dir, keyRoot string) (map[string][]byte, error) {
 }
 
 // VolumeRoot returns the absolute path of the directory name directly
-// beneath the file-system root: /<name> on Unix and, on Windows, \\<name> on
-// the current volume (a separator-rooted path without a volume is not
-// absolute there, and cue/load refuses an overlay key that is not absolute).
-// It is computed once, into a package variable, by each caller.
+// beneath the file-system root: /<name> on Unix and C:\<name> on Windows,
+// where C: stands for the current volume (a separator-rooted path without a
+// volume is not absolute there, and cue/load refuses an overlay key that is
+// not absolute). It is computed once, into a package variable, by each
+// caller.
 func VolumeRoot(name string) string {
 	p := string(filepath.Separator) + name
 	if abs, err := filepath.Abs(p); err == nil {
@@ -171,19 +172,52 @@ func VolumeRoot(name string) string {
 	return p
 }
 
-// syntheticBase is the directory every [SyntheticRoot] lies under.
-var syntheticBase = VolumeRoot("opm-registry-module")
+// CheckRootAbsent refuses when anything exists at root, an in-memory build
+// root that must not exist on disk. cue/load serves load.Config.Overlay on
+// top of the real filesystem and merges a real directory's entries beneath
+// an overlay root into the load, so a stray .cue file there would join the
+// build. It returns nil when [os.Lstat] reports the path missing, and an
+// error naming role and root when it finds anything (a directory, a file, a
+// symlink, even a dangling one). served names what the build serves from
+// memory under root, for the message. Any other Lstat failure is wrapped.
+func CheckRootAbsent(role, served, root string) error {
+	_, err := os.Lstat(root)
+	switch {
+	case err == nil:
+		return fmt.Errorf("%s %s exists on disk; the %s is served from memory under it and the build would read what is there, so remove it", role, root, served)
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("checking that the %s %s is absent: %w", role, root, err)
+	}
+}
+
+// SyntheticBase is the directory every [SyntheticRoot] lies under:
+// /opm-registry-module on Unix, C:\opm-registry-module on Windows. It is a
+// variable only so a test can point it at an existing directory; nothing
+// else assigns it.
+var SyntheticBase = VolumeRoot("opm-registry-module")
+
+// IsSynthetic reports whether root is a [SyntheticRoot]: a path directly
+// under [SyntheticBase]. A root acquired from a directory is a real
+// directory and never reports true.
+func IsSynthetic(root string) bool {
+	return root != "" && filepath.Dir(root) == SyntheticBase
+}
 
 // SyntheticRoot returns a deterministic absolute path used as the in-memory
 // module root for the overlay. It is derived purely from path@version (no
 // randomness, no clock) so the load is reproducible, and is sanitized into a
 // single path segment so it never collides with real source on disk. The
 // version is canonicalised first, so a bare ("0.0.2") and a v-prefixed
-// ("v0.0.2") spelling of the same version give the same root.
+// ("v0.0.2") spelling of the same version give the same root. Nothing exists
+// at the root on disk. Because the path is predictable and cue/load merges a
+// real directory beneath an overlay root into the load, the registry acquire
+// and instance synthesis refuse ([CheckRootAbsent]) when something does.
 func SyntheticRoot(modPath, version string) string {
 	repl := strings.NewReplacer("/", "_", ":", "_", "@", "_", "+", "_")
 	safe := repl.Replace(modPath + "@" + modversion.Canonical(version))
-	return filepath.Join(syntheticBase, safe)
+	return filepath.Join(SyntheticBase, safe)
 }
 
 // ReadFile returns the contents of path inside src: the overlay entry in

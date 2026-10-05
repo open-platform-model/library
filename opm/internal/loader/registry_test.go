@@ -17,6 +17,8 @@ import (
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
+	opmmodule "github.com/open-platform-model/library/opm/module"
 )
 
 func lookupString(t *testing.T, v cue.Value, path string) string {
@@ -318,4 +320,87 @@ func TestFetchArtifact_CatalogBareVersion(t *testing.T) {
 	require.NotNil(t, bareSrc)
 	require.NotNil(t, prefSrc)
 	assert.Equal(t, prefSrc.Root, bareSrc.Root, "both spellings stage under the same synthetic root")
+}
+
+// useSyntheticBase points sourcetree.SyntheticBase at a test-owned directory
+// for the test's duration. Tests calling it must not run in parallel.
+func useSyntheticBase(t *testing.T) {
+	t.Helper()
+	saved := sourcetree.SyntheticBase
+	sourcetree.SyntheticBase = t.TempDir()
+	t.Cleanup(func() { sourcetree.SyntheticBase = saved })
+}
+
+// assertSyntheticRootRefused creates an existing synthetic root in two shapes
+// (a directory holding an injected .cue file of pkg, then a plain file),
+// asserts that fetch refuses both naming the path with no value and no source,
+// then removes the root and asserts that the same fetch succeeds, so the
+// refusal came from the root and nothing else.
+func assertSyntheticRootRefused(t *testing.T, root, pkg string, fetch func() (cue.Value, *opmmodule.Source, error)) {
+	t.Helper()
+	// The injected file declares the build's own package, so with the guard
+	// disabled its field joins the fetched value; the refusal is what keeps
+	// it out.
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "injected.cue"), []byte("package "+pkg+"\ninjected: true\n"), 0o644))
+
+	val, src, err := fetch()
+	require.Error(t, err, "a directory at the synthetic root is refused")
+	assert.Contains(t, err.Error(), "synthetic root "+root+" exists on disk")
+	assert.Nil(t, src, "a refused acquire returns no source")
+	assert.False(t, val.Exists(), "a refused acquire returns no value")
+
+	require.NoError(t, os.RemoveAll(root))
+	require.NoError(t, os.WriteFile(root, []byte("x"), 0o644))
+	val, src, err = fetch()
+	require.Error(t, err, "a plain file at the synthetic root is refused")
+	assert.Contains(t, err.Error(), "synthetic root "+root+" exists on disk")
+	assert.Nil(t, src)
+	assert.False(t, val.Exists())
+
+	require.NoError(t, os.Remove(root))
+	val, src, err = fetch()
+	require.NoError(t, err, "with nothing at the root the same fetch succeeds")
+	assert.NotNil(t, src)
+	assert.True(t, val.Exists())
+	assert.False(t, val.LookupPath(cue.ParsePath("injected")).Exists(), "nothing injected reached the value")
+}
+
+// registry-module-loading spec, "An existing synthetic root is refused": a
+// directory holding a .cue file of the module's package, or a plain file, at
+// the module version's synthetic root refuses the acquire, because cue/load
+// would merge the directory into the load.
+func TestFetchModule_RefusesAnExistingSyntheticRoot(t *testing.T) {
+	useSyntheticBase(t)
+	modPath := registrytest.UniquePath(t, "app") + "/hello"
+	mod := registrytest.ModuleFixture{
+		Path: modPath, Version: "0.0.2",
+		File: "package hello\nkind: \"Module\"\nmetadata: {name: \"hello\", modulePath: \"" + modPath + "@v0\", version: \"0.0.2\"}\n",
+	}
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{mod}, nil)
+	opts := loader.Options{Env: cueenv.Override(reg, "")}
+
+	root := sourcetree.SyntheticRoot(modPath+"@v0", "v0.0.2")
+	assertSyntheticRootRefused(t, root, "hello", func() (cue.Value, *opmmodule.Source, error) {
+		return loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.0.2", opts)
+	})
+}
+
+// registry-module-loading spec, "An existing synthetic root refuses a catalog
+// acquire": the refusal holds for the catalog spec through the same path.
+func TestFetchArtifact_CatalogRefusesAnExistingSyntheticRoot(t *testing.T) {
+	useSyntheticBase(t)
+	catPath := registrytest.UniquePath(t, "cat")
+	cat := registrytest.CatalogFixture{
+		Path: catPath, Version: "1.0.0",
+		Body: registrytest.BuildCatalog(catPath, "1.0.0"),
+	}
+	reg := registrytest.NewCatalogRegistry(t, cat)
+	opts := loader.Options{Env: cueenv.Override(reg, "")}
+
+	root := sourcetree.SyntheticRoot(catPath+"@v1", "v1.0.0")
+	pkg := filepath.Base(catPath)
+	assertSyntheticRootRefused(t, root, pkg, func() (cue.Value, *opmmodule.Source, error) {
+		return loader.FetchArtifact(context.Background(), cuecontext.New(), catPath+"@v1", "v1.0.0", opts, loader.CatalogSpec)
+	})
 }

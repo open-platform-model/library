@@ -1,7 +1,9 @@
 package synth_test
 
 import (
+	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,7 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/cueenv"
+	"github.com/open-platform-model/library/opm/internal/loader"
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
+	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -165,4 +171,53 @@ func TestInstance_FailureReturnsNoTree(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, oerrors.ErrMissingSource))
 	assert.Nil(t, src, "ErrMissingSource path must return no tree")
+}
+
+// instance-synthesis spec, "An existing synthetic root refuses a synthesis":
+// a module acquired from the registry keeps the synthetic root as its source
+// root, and synthesis builds beneath it after the acquire has returned. A
+// directory created there afterwards would join that build, so Instance
+// checks the root again and refuses, naming the path. Not parallel: it points
+// sourcetree.SyntheticBase at a test-owned directory.
+func TestInstance_RefusesAnExistingSyntheticRoot(t *testing.T) {
+	saved := sourcetree.SyntheticBase
+	sourcetree.SyntheticBase = t.TempDir()
+	t.Cleanup(func() { sourcetree.SyntheticBase = saved })
+
+	const snake = "web_app"
+	modPath := registrytest.UniquePath(t, "modules") + "/" + snake
+	file := "package " + snake + "\n\nimport core \"opmodel.dev/core@v2\"\n\ncore.#Module\n" +
+		"metadata: {name: \"" + snake + "\", modulePath: \"" + modPath + "@v0\", version: \"0.1.0\"}\n" +
+		"#config: {}\ndebugValues: {}\n#components: {}\n"
+	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{{Path: modPath, Version: "0.1.0", File: file}}, nil)
+	opts := loader.Options{Env: cueenv.Override(reg, "")}
+
+	// The root is absent, so the acquire succeeds.
+	val, src, err := loader.FetchModule(context.Background(), cuecontext.New(), modPath+"@v0", "v0.1.0", opts)
+	require.NoError(t, err)
+	mod, err := module.NewModuleFromValue(val)
+	require.NoError(t, err)
+	mod.Source = src
+	root := src.Root
+	require.True(t, sourcetree.IsSynthetic(root), "a registry-acquired module is staged under a synthetic root")
+
+	// Afterwards something creates the root, with a .cue file in the
+	// synthesized instance package's directory.
+	pkgDir := filepath.Join(root, "opm-synth-instance")
+	require.NoError(t, os.MkdirAll(pkgDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "injected.cue"), []byte("package instance\ninjected: true\n"), 0o644))
+
+	in := synth.Input{Module: mod, Name: "web-inst", Namespace: "default", Load: opts}
+	_, tree, err := synth.Instance(cuecontext.New(), coreVersion, in)
+	require.Error(t, err, "an existing synthetic root is refused at synthesis")
+	assert.Contains(t, err.Error(), "synthetic root "+root+" exists on disk")
+	assert.Nil(t, tree, "a refused synthesis returns no tree")
+
+	require.NoError(t, os.RemoveAll(root))
+	inst, tree, err := synth.Instance(cuecontext.New(), coreVersion, in)
+	require.NoError(t, err, "with nothing at the root the same synthesis succeeds")
+	require.NotNil(t, tree)
+	assert.Equal(t, root, tree.Root)
+	assert.True(t, inst.Exists())
+	assert.False(t, inst.LookupPath(cue.ParsePath("injected")).Exists(), "nothing injected reached the instance")
 }

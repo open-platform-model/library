@@ -276,3 +276,63 @@ func TestReadFile_OverlayAndDisk(t *testing.T) {
 	_, err = ReadFile(nil, "x")
 	require.Error(t, err)
 }
+
+// CheckRootAbsent passes a missing path and refuses anything that exists at
+// it, naming the role and the path: a directory holding a .cue file, a plain
+// file and a dangling symlink.
+func TestCheckRootAbsent(t *testing.T) {
+	base := t.TempDir()
+
+	absent := filepath.Join(base, "absent")
+	require.NoError(t, CheckRootAbsent("test root", "test module", absent))
+
+	dir := filepath.Join(base, "dir")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "injected.cue"), []byte("package x\n"), 0o644))
+	file := filepath.Join(base, "file")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o644))
+
+	cases := map[string]string{"directory": dir, "file": file}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(filepath.Join(base, "nowhere"), link); err == nil {
+		cases["dangling symlink"] = link
+	} else {
+		t.Logf("skipping the symlink case: %v", err)
+	}
+	for name, root := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := CheckRootAbsent("test root", "test module", root)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "test root "+root+" exists on disk; the test module is served from memory under it")
+		})
+	}
+
+	// Fail closed: a parent the check cannot search makes Lstat fail with
+	// something other than not-exist, and that refuses rather than passes.
+	t.Run("unsearchable parent", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits do not deny search on Windows")
+		}
+		if os.Geteuid() == 0 {
+			t.Skip("root ignores directory permission bits")
+		}
+		locked := filepath.Join(t.TempDir(), "locked")
+		require.NoError(t, os.Mkdir(locked, 0o755))
+		require.NoError(t, os.Chmod(locked, 0))
+		t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+		err := CheckRootAbsent("test root", "test module", filepath.Join(locked, "root"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "checking that the test root")
+	})
+}
+
+// IsSynthetic is true only for a path directly under SyntheticBase, which is
+// what SyntheticRoot returns; a directory-acquired root is not synthetic.
+func TestIsSynthetic(t *testing.T) {
+	root := SyntheticRoot("x.example/m@v0", "v0.1.0")
+	assert.True(t, IsSynthetic(root))
+	assert.False(t, IsSynthetic(SyntheticBase), "the base itself is not a synthetic root")
+	assert.False(t, IsSynthetic(filepath.Join(root, "opm-synth-instance")), "a path beneath a root is not a root")
+	assert.False(t, IsSynthetic(t.TempDir()), "a real directory is not a synthetic root")
+	assert.False(t, IsSynthetic(""))
+}

@@ -3,8 +3,6 @@ package renderstage
 import (
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 
 	"cuelang.org/go/cue"
@@ -95,7 +93,7 @@ func Stage(instance, platform *module.Source, runtimeName string, opts StageOpti
 		return nil, errors.New("runtime name must be non-empty")
 	}
 	root := RenderRoot
-	if err := checkRootAbsent(root); err != nil {
+	if err := sourcetree.CheckRootAbsent("render root", "render module", root); err != nil {
 		return nil, err
 	}
 
@@ -228,21 +226,6 @@ func Build(cueCtx *cue.Context, staged *Staged, opts loader.Options) (cue.Value,
 		return cue.Value{}, fmt.Errorf("loading the render module: %w", oerrors.Classify(instances[0].Err))
 	}
 	return cueCtx.BuildInstance(instances[0]), nil
-}
-
-// checkRootAbsent refuses when anything exists at root: cue/load reads a real
-// directory's entries beneath the overlay, so a stray file there would join
-// every render package.
-func checkRootAbsent(root string) error {
-	_, err := os.Lstat(root)
-	switch {
-	case err == nil:
-		return fmt.Errorf("render root %s exists on disk; the render module is served from memory under it and the build would read what is there, so remove it", root)
-	case errors.Is(err, fs.ErrNotExist):
-		return nil
-	default:
-		return fmt.Errorf("checking that the render root %s is absent: %w", root, err)
-	}
 }
 
 // serveDir returns the absolute directory cue/load serves src from: its own
