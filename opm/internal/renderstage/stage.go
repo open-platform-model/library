@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/load"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -213,7 +214,7 @@ func Build(cueCtx *cue.Context, staged *Staged, env []string) (cue.Value, error)
 		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in the render module, found %d", len(instances))
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, fmt.Errorf("loading the render module: %w", instances[0].Err)
+		return cue.Value{}, fmt.Errorf("loading the render module: %w", oerrors.Classify(instances[0].Err))
 	}
 	return cueCtx.BuildInstance(instances[0]), nil
 }

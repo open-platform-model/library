@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/schema"
@@ -232,4 +234,20 @@ func TestOCILoader_PinnedVersion(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// fetch-error-classification spec: the schema load classifies a fetch
+// failure inside its own wrap, so an unreachable registry is transient.
+func TestOCILoader_UnreachableRegistryIsTransient(t *testing.T) {
+	_, err := schema.OCILoader{
+		Module:   "opmodel.dev/core@v2.0.0",
+		Registry: registrytest.UnreachableRegistry(t),
+		CacheDir: schematest.IsolatedCacheDir(t),
+	}.Load(cuecontext.New())
+	require.Error(t, err)
+	var fe *oerrors.FetchError
+	require.True(t, errors.As(err, &fe), "a *FetchError in %q", err)
+	assert.Equal(t, oerrors.FetchUnreachable, fe.Kind)
+	assert.ErrorIs(t, err, oerrors.ErrTransient)
+	assert.True(t, strings.HasPrefix(err.Error(), `schema OCILoader: loading "opmodel.dev/core@v2.0.0": `), err.Error())
 }

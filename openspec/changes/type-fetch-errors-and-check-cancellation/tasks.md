@@ -22,9 +22,9 @@ the files it names with `git add <file>`.
 
 ## 3. Classify every fetch and resolution failure the library returns
 
-- [ ] 3.1 `opm/internal/loader/registry.go`: classify the `reg.Fetch` error inside its existing wrap (not the `modconfig.NewRegistry` error, design D4), setting `Coordinate` to `mv.String()` on a `*FetchError` (design D4, D5). `opm/internal/loader/load.go`: classify `instances[0].Err` only, not the build or gate errors.
-- [ ] 3.2 `opm/internal/renderstage/stage.go` (`Build`), `opm/schema/loader.go` (`OCILoader.Load`), `opm/helper/platformmodule/closure.go` (`Closure`) and `opm/kernel/source_loader.go` (`compileSource`, the `instances[0].Err` return only, never the `v.Err()` after the build): classify the load or `ModFile` error inside the existing wrap (`compileSource` returns it unwrapped, as today). Nothing else changes. Add to the `schema.Cache` godoc that a memoized load error keeps its classification and a retry needs a fresh `Cache`.
-- [ ] 3.3 Tests through the public verbs (`opm/kernel`, with `registrytest`):
+- [x] 3.1 `opm/internal/loader/registry.go`: classify the `reg.Fetch` error inside its existing wrap (not the `modconfig.NewRegistry` error, design D4), setting `Coordinate` to `mv.String()` on a `*FetchError` (design D4, D5). `opm/internal/loader/load.go`: classify `instances[0].Err` only, not the build or gate errors.
+- [x] 3.2 `opm/internal/renderstage/stage.go` (`Build`), `opm/schema/loader.go` (`OCILoader.Load`), `opm/helper/platformmodule/closure.go` (`Closure`) and `opm/kernel/source_loader.go` (`compileSource`, the `instances[0].Err` return only, never the `v.Err()` after the build): classify the load or `ModFile` error inside the existing wrap (`compileSource` returns it unwrapped, as today). Nothing else changes. Add to the `schema.Cache` godoc that a memoized load error keeps its classification and a retry needs a fresh `Cache`.
+- [x] 3.3 Tests through the public verbs (`opm/kernel`, with `registrytest`):
   - `AcquireModuleFromRegistry` and `AcquireCatalogFromRegistry` for an absent version: `FetchNotFound`, `Coordinate` is `path@vX.Y.Z`, and the message equals the one asserted at the base (copy today's text into the test before editing 3.1);
   - the same verbs against an unreachable registry (`FetchUnreachable`, transient) and a 401 registry (`FetchUnauthorized`, not transient, or the kind section 1 recorded);
   - `AcquireModuleFromDir` on a module whose dependency registry is unreachable: transient;
@@ -34,7 +34,7 @@ the files it names with `git add <file>`.
   - the render module load: `renderstage.Build` on a staged module whose dependency must come from an unreachable registry, with a fresh `CUE_CACHE_DIR`, is transient, and `Render`'s wrap keeps it (`errors.Is` through `building render module: %w`);
   - `schema.OCILoader.Load` against an unreachable registry (in `opm/schema`): transient;
   - `platformmodule.Closure` with a `ModFileSource` returning a constructed `ociregistry` 404: `FetchNotFound`.
-- [ ] 3.4 `go test ./...` with the existing error-text assertions unchanged (none may be edited to pass), then `task check` green, then commit `feat(kernel): classify every fetch and resolution failure`.
+- [x] 3.4 `go test ./...` with the existing error-text assertions unchanged (none may be edited to pass), then `task check` green, then commit `feat(kernel): classify every fetch and resolution failure`.
 
 ## 4. Check cancellation at entry and between stages
 

@@ -8,6 +8,8 @@ import (
 	"cuelang.org/go/mod/modconfig"
 	"cuelang.org/go/mod/modfile"
 	"cuelang.org/go/mod/module"
+
+	oerrors "github.com/open-platform-model/library/opm/errors"
 )
 
 // ModFileSource yields a published module's cue.mod/module.cue. It is the
@@ -100,7 +102,7 @@ func Closure(ctx context.Context, src ModFileSource, roots []Dep) ([]Dep, error)
 		queue = queue[1:]
 		mf, err := src.ModFile(ctx, mv)
 		if err != nil {
-			return nil, fmt.Errorf("resolving dependency %s: %w", mv, err)
+			return nil, fmt.Errorf("resolving dependency %s: %w", mv, oerrors.Classify(err))
 		}
 		for _, dep := range mf.DepVersions() {
 			if dep.IsLocal() {
