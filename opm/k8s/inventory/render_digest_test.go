@@ -17,13 +17,19 @@ import (
 // frontend stores this kind of value. Changing it changes every stored render
 // digest: that needs a new tag line in the encoding and a migration note in
 // each frontend, never only a new constant here.
-const goldenRenderDigest = "sha256:08ee7ae343d45ae939f98ff7328986866cc633c2c4f285b9917b658497fdfe68"
+const goldenRenderDigest = "sha256:8eeb7f870fb10c66f20a80503a00a36444087651ab87a2b0861fd65fcc21f1f0"
 
 // renderFixture describes the objects of the render encoding fixture (design
 // KI7): a Deployment carrying the managed-by label, an integer above 2^53 and
-// an annotation with U+2028 (which Go's encoder always escapes), a core-group
-// Service and a cluster-scoped Namespace, plus two Services whose namespace
-// order and name order disagree, so the fixture pins namespace before name.
+// an annotation with U+2028, a newline, U+0001 and U+007F (which pin how Go's
+// encoder writes strings), a core-group Service and a cluster-scoped
+// Namespace. Three more cases make each sort field decide an order that the
+// fields after it would decide the other way, so a sort with any two fields
+// swapped or any field dropped gives other bytes: a core ConfigMap in
+// namespace "z", whose kind order and namespace order disagree with the
+// Namespace's and the Services'; two Services whose namespace order and name
+// order disagree; and two Services in one namespace whose name order and
+// encoded-bytes order disagree.
 type renderFixture struct {
 	managedBy *string // nil: the Deployment carries no managed-by label
 	nameLabel string  // the Deployment's app.kubernetes.io/name value
@@ -52,7 +58,7 @@ func (f renderFixture) export(t *testing.T) []object.Exported {
 			%s
 			"app.kubernetes.io/name": %q
 		}
-		annotations: note: "a<b&c\u2028"
+		annotations: note: "a<b&c\u2028\n\u0001\u007f"
 	}
 	spec: {
 		replicas:                2
@@ -71,6 +77,9 @@ func (f renderFixture) export(t *testing.T) []object.Exported {
 		mk(`{apiVersion: "v1", kind: "Namespace", metadata: name: "team"}`),
 		mk(`{apiVersion: "v1", kind: "Service", metadata: {name: "y", namespace: "b"}}`),
 		mk(`{apiVersion: "v1", kind: "Service", metadata: {name: "z", namespace: "a"}}`),
+		mk(`{apiVersion: "v1", kind: "Service", metadata: {name: "m", namespace: "c", annotations: k: "b"}}`),
+		mk(`{apiVersion: "v1", kind: "ConfigMap", metadata: {name: "cfg", namespace: "z"}}`),
+		mk(`{apiVersion: "v1", kind: "Service", metadata: {name: "n", namespace: "c", annotations: k: "a"}}`),
 	})
 	require.NoError(t, err)
 	return out
@@ -123,17 +132,22 @@ func TestRenderDigest_LargeIntegersAreNotRounded(t *testing.T) {
 
 // kubernetes-tier: "The encoding is the one defined" (render digest).
 func TestRenderDigest_EncodingIsTheOneDefined(t *testing.T) {
-	// Sorted by group, kind, namespace, name: the core group first
-	// (Namespace before the Services, the Services by namespace, so name z
-	// before name y), then apps. Keys sorted, the managed-by value blanked,
-	// numbers as written, no HTML escaping, U+2028 escaped as Go's encoder
-	// writes it, one newline each.
+	// Sorted by group, kind, namespace, name: the core group first (the
+	// ConfigMap in namespace "z" before the cluster-scoped Namespace; the
+	// Services by namespace, so name z before name y, then by name, so
+	// annotation "b" before annotation "a"), then apps. Keys sorted, the
+	// managed-by value blanked, numbers as written, no HTML escaping, U+2028
+	// and U+0001 as \u escapes, the newline as \n, U+007F literal, one
+	// newline each.
 	want := []byte("opm-render-v1\n" +
+		`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cfg","namespace":"z"}}` + "\n" +
 		`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"team"}}` + "\n" +
 		`{"apiVersion":"v1","kind":"Service","metadata":{"name":"z","namespace":"a"}}` + "\n" +
 		`{"apiVersion":"v1","kind":"Service","metadata":{"name":"y","namespace":"b"}}` + "\n" +
+		`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"k":"b"},"name":"m","namespace":"c"}}` + "\n" +
+		`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"k":"a"},"name":"n","namespace":"c"}}` + "\n" +
 		`{"apiVersion":"v1","kind":"Service","metadata":{"name":"web","namespace":"team"},"spec":{"ports":[{"port":80}]}}` + "\n" +
-		`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"note":"a<b&c\u2028"},"labels":{"app.kubernetes.io/managed-by":"","app.kubernetes.io/name":"web"},"name":"web","namespace":"team"},"spec":{"progressDeadlineSeconds":9007199254740993,"replicas":2}}` + "\n")
+		`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"note":"a<b&c\u2028\n\u0001` + "\x7f" + `"},"labels":{"app.kubernetes.io/managed-by":"","app.kubernetes.io/name":"web"},"name":"web","namespace":"team"},"spec":{"progressDeadlineSeconds":9007199254740993,"replicas":2}}` + "\n")
 
 	got := renderDigest(t, defaultFixture("opm-cli").export(t))
 	assert.Equal(t, sha256Digest(want), got, "the digest hashes the encoding written out above")
@@ -181,7 +195,7 @@ func TestRenderDigest_MalformedObjectFailsWithItsPosition(t *testing.T) {
 func TestRenderDigest_InputOrderDoesNotMatter(t *testing.T) {
 	objs := defaultFixture("opm-cli").export(t)
 	want := renderDigest(t, objs)
-	for _, perm := range permutations(objs) {
+	for _, perm := range orders(objs) {
 		assert.Equal(t, want, renderDigest(t, perm))
 	}
 }

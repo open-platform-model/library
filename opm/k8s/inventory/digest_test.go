@@ -3,6 +3,7 @@ package inventory_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"math/rand/v2"
 	"slices"
 	"testing"
 
@@ -16,28 +17,39 @@ import (
 // frontend stores this kind of value. Changing it changes every stored
 // inventory digest: that needs a new tag line in the encoding and a migration
 // note in each frontend (0012:D7:R4), never only a new constant here.
-const goldenInventoryDigest = "sha256:158edfa69b9bb18c545217d3ed867612cf12909f01dc07e082e0095a2d6eeb01"
+const goldenInventoryDigest = "sha256:0d6041a9bb58abb677bac0d2ab3d0461dcebf9a6e8c5c325fbfc41f6cd46acc3"
 
 // The entries of the encoding fixture (design KI7): a core-group,
 // cluster-scoped entry with empty group and namespace, the case the two
 // frontends' JSON digests disagreed on; a namespaced apps entry; and an entry
-// with an empty component. Two pairs pin the sort order between fields the
-// other entries never let decide: two Deployments whose namespace order and
-// name order disagree, and two Secrets with one identity whose component
-// order and version order disagree.
+// with an empty component. Four pairs make each sort field decide an order
+// that the fields after it would decide the other way, so a sort with any
+// two fields swapped or any field dropped gives other bytes: two Deployments
+// whose namespace order and name order disagree; two ConfigMaps in one
+// namespace whose name order and component order disagree; two Secrets with
+// one identity whose component order and version order disagree; and two
+// Services that differ only in version, given in the wrong order.
 var (
 	fixtureNamespace  = inventory.Entry{Kind: "Namespace", Name: "team", Version: "v1", Component: "ns"}
 	fixtureDeployment = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "team", Name: "web", Version: "v1", Component: "web"}
 	fixtureConfigMap  = inventory.Entry{Kind: "ConfigMap", Namespace: "team", Name: "app", Version: "v1"}
 	fixtureDeployAZ   = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "a", Name: "z", Version: "v1", Component: "web"}
 	fixtureDeployBY   = inventory.Entry{Group: "apps", Kind: "Deployment", Namespace: "b", Name: "y", Version: "v1", Component: "web"}
+	fixtureConfigAZ   = inventory.Entry{Kind: "ConfigMap", Namespace: "team", Name: "a", Version: "v1", Component: "z"}
+	fixtureConfigBY   = inventory.Entry{Kind: "ConfigMap", Namespace: "team", Name: "b", Version: "v1", Component: "y"}
 	fixtureSecretAV2  = inventory.Entry{Kind: "Secret", Namespace: "team", Name: "s", Version: "v2", Component: "a"}
 	fixtureSecretBV1  = inventory.Entry{Kind: "Secret", Namespace: "team", Name: "s", Version: "v1", Component: "b"}
+	fixtureServiceV1  = inventory.Entry{Kind: "Service", Namespace: "team", Name: "web", Version: "v1", Component: "web"}
+	fixtureServiceV2  = inventory.Entry{Kind: "Service", Namespace: "team", Name: "web", Version: "v2", Component: "web"}
 )
 
-// inventoryFixture is the fixture out of its sorted order.
+// inventoryFixture is the fixture out of its sorted order. Each pair is given
+// in the order its tie-breaking field would not choose.
 func inventoryFixture() []inventory.Entry {
-	return []inventory.Entry{fixtureDeployment, fixtureSecretBV1, fixtureDeployBY, fixtureNamespace, fixtureSecretAV2, fixtureConfigMap, fixtureDeployAZ}
+	return []inventory.Entry{
+		fixtureDeployment, fixtureSecretBV1, fixtureServiceV2, fixtureConfigBY, fixtureDeployBY,
+		fixtureNamespace, fixtureSecretAV2, fixtureServiceV1, fixtureConfigMap, fixtureConfigAZ, fixtureDeployAZ,
+	}
 }
 
 // lengthPrefixed writes the KI4 encoding of one field: its byte length as 8
@@ -65,14 +77,19 @@ func sha256Digest(b []byte) string {
 // kubernetes-tier: "The encoding is the one defined" (inventory digest).
 func TestDigest_EncodingIsTheOneDefined(t *testing.T) {
 	// Sorted by group, kind, namespace, name, component, version: the
-	// core-group entries first (ConfigMap, Namespace, then the two Secrets by
-	// component, so v2 before v1), then apps (by namespace, so name z before
-	// name y).
+	// core-group entries first (the ConfigMaps by name, so component z
+	// before component y; Namespace; the two Secrets by component, so v2
+	// before v1; the two Services by version), then apps (by namespace, so
+	// name z before name y).
 	want := []byte("opm-inventory-v1\n")
+	want = append(want, encodedEntry("", "ConfigMap", "team", "a", "v1", "z")...)
 	want = append(want, encodedEntry("", "ConfigMap", "team", "app", "v1", "")...)
+	want = append(want, encodedEntry("", "ConfigMap", "team", "b", "v1", "y")...)
 	want = append(want, encodedEntry("", "Namespace", "", "team", "v1", "ns")...)
 	want = append(want, encodedEntry("", "Secret", "team", "s", "v2", "a")...)
 	want = append(want, encodedEntry("", "Secret", "team", "s", "v1", "b")...)
+	want = append(want, encodedEntry("", "Service", "team", "web", "v1", "web")...)
+	want = append(want, encodedEntry("", "Service", "team", "web", "v2", "web")...)
 	want = append(want, encodedEntry("apps", "Deployment", "a", "z", "v1", "web")...)
 	want = append(want, encodedEntry("apps", "Deployment", "b", "y", "v1", "web")...)
 	want = append(want, encodedEntry("apps", "Deployment", "team", "web", "v1", "web")...)
@@ -85,7 +102,7 @@ func TestDigest_EncodingIsTheOneDefined(t *testing.T) {
 // kubernetes-tier: "Input order does not matter".
 func TestDigest_InputOrderDoesNotMatter(t *testing.T) {
 	want := inventory.Digest(inventoryFixture())
-	for _, perm := range permutations(inventoryFixture()) {
+	for _, perm := range orders(inventoryFixture()) {
 		assert.Equal(t, want, inventory.Digest(perm), "%v", perm)
 	}
 }
@@ -106,7 +123,7 @@ func TestDigest_EveryFieldCounts(t *testing.T) {
 		"name":      edit(func(e *inventory.Entry) { e.Name = "api" }),
 		"version":   edit(func(e *inventory.Entry) { e.Version = "v2" }),
 		"component": edit(func(e *inventory.Entry) { e.Component = "api" }),
-		"added":     append(slices.Clone(base), inventory.Entry{Kind: "Service", Namespace: "team", Name: "web", Version: "v1"}),
+		"added":     append(slices.Clone(base), inventory.Entry{Kind: "Service", Namespace: "team", Name: "api", Version: "v1"}),
 		"removed":   base[1:],
 		// Entries are not de-duplicated: a repeated entry is a different
 		// inventory (0012:D7:R3).
@@ -147,17 +164,23 @@ func TestDigest_Form(t *testing.T) {
 	assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, got)
 }
 
-// permutations returns every order of in.
-func permutations[T any](in []T) [][]T {
-	if len(in) <= 1 {
-		return [][]T{slices.Clone(in)}
-	}
+// orders returns in, its reverse, every rotation of both, and 200 shuffles
+// from a fixed seed: enough orders to put every pair both ways round many
+// times, without the factorial cost of every permutation.
+func orders[T any](in []T) [][]T {
 	var out [][]T
-	for i := range in {
-		rest := append(slices.Clone(in[:i]), in[i+1:]...)
-		for _, p := range permutations(rest) {
-			out = append(out, append([]T{in[i]}, p...))
+	rev := slices.Clone(in)
+	slices.Reverse(rev)
+	for _, base := range [][]T{in, rev} {
+		for i := range base {
+			out = append(out, append(slices.Clone(base[i:]), base[:i]...))
 		}
+	}
+	r := rand.New(rand.NewPCG(1, 2))
+	for range 200 {
+		s := slices.Clone(in)
+		r.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
+		out = append(out, s)
 	}
 	return out
 }
