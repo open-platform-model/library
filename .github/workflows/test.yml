@@ -66,6 +66,11 @@ jobs:
       - name: Consumer build script tests (offline)
         run: task consumer-build:test
 
+      # Offline tests of the API diff script (.tasks/api-diff-test.sh):
+      # fixture diffs, no network, no Go build.
+      - name: API diff script tests
+        run: task api:diff:test
+
       # Offline: .opm-docs-version and every docs-kit publish.yml ref name the
       # same release. The bundle build itself is Docs / check (docs.yml).
       - name: Verify the docs-kit pins agree

@@ -187,11 +187,12 @@ func Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *mo
 	// step a directory-acquired instance runs; the instance package lives in a
 	// subdirectory of the module's staged root, with the module's own
 	// cue.mod/module.cue as the module file.
-	val, err := loader.LoadDir(cueCtx, moduleRoot, "./"+synthPkgDir, overlay, in.Env, loader.InstanceSpec)
+	src := &module.Source{Root: moduleRoot, Pkg: synthPkgDir, Overlay: overlay}
+	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: in.Env}, loader.InstanceSpec)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("instance synthesis: %w", err)
 	}
-	return val, &module.Source{Root: moduleRoot, Pkg: synthPkgDir, Overlay: overlay}, nil
+	return val, src, nil
 }
 
 // buildOverlay clones the acquired module's staged overlay and adds the

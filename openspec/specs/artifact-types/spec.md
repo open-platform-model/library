@@ -387,3 +387,47 @@ A directory-acquired artifact and a registry-acquired artifact SHALL be gated id
 
 - **WHEN** `Kernel.Render` stages an overlay-mode instance or platform
 - **THEN** `WriteTo` is not called and no entry of the overlay appears on disk
+
+### Requirement: Directory acquisition reads its tree once and builds from that read
+
+Every directory acquire verb (`AcquireModuleFromDir`, `AcquireCatalogFromDir`,
+`AcquirePlatformFromDir`, `AcquireInstanceFromDir`) SHALL check the directory before reading
+anything from it. A path that does not exist SHALL fail with `accessing <label> directory
+"<absolute path>"` wrapping the stat error (so it matches `fs.ErrNotExist`), and a path that
+is not a directory SHALL fail with `<label> path "<absolute path>" is not a directory`, where
+`<label>` is `module`, `catalog`, `platform` or `instance`. A verb that stamps its `Source` in
+overlay mode (`AcquireModuleFromDir`, `AcquireCatalogFromDir`, and `AcquireInstanceFromDir`
+with values sources) SHALL read the `.cue` files under the module root once, before the
+build, and SHALL build the package from that overlay, so `Package` and `Source.Overlay` come
+from the same read. When the layered instance build fails, the kernel SHALL attribute the
+failure to the values sources by building the authored package from the overlay already read.
+Platform acquisition and instance acquisition without values sources keep the on-disk mode
+their own requirements state. A package that embeds a non-CUE file stored beside it SHALL acquire from a directory as
+it does from disk, because files outside the overlay are read from the directory.
+
+#### Scenario: A missing directory fails before any tree read
+
+- **WHEN** a caller invokes any of the four directory acquire verbs on a path that does not exist
+- **THEN** the error reads `accessing <label> directory "<absolute path>": ...` with the verb's label and matches `fs.ErrNotExist`
+- **AND** it does not read `reading module tree`, and no artifact is returned
+
+#### Scenario: A file path is refused as not a directory
+
+- **WHEN** a caller invokes any of the four directory acquire verbs on the path of a regular file
+- **THEN** the error reads `<label> path "<absolute path>" is not a directory`, and no artifact is returned
+
+#### Scenario: Module and catalog are built from the overlay they carry
+
+- **WHEN** a caller acquires a module with `AcquireModuleFromDir` or a catalog with `AcquireCatalogFromDir`
+- **THEN** the package is built from the `.cue` bytes held in the returned `Source.Overlay`, read once before the build
+
+#### Scenario: Values attribution reuses the authored read
+
+- **WHEN** an instance acquired with values sources fails to build because a source conflicts with the package's values or the module's `#config`
+- **THEN** the error is attributed to the source, as before
+
+#### Scenario: A module embedding a non-CUE file acquires from a directory
+
+- **WHEN** a module package uses the embed attribute to embed a JSON file stored beside it, and a caller invokes `AcquireModuleFromDir` on its directory
+- **THEN** acquisition succeeds and `Package` carries the embedded data
+- **AND** `Source.Overlay` still holds only the `.cue` files under the module root

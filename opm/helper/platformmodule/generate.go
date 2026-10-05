@@ -16,13 +16,13 @@ import (
 // The fixed coordinates and file names of a generated platform module.
 const (
 	// CorePath is the major-qualified module path of the core schema the
-	// generated module embeds.
-	CorePath = "opmodel.dev/core@v2"
+	// generated module embeds: "opmodel.dev/core@v2".
+	CorePath = modversion.CorePath
 
 	// LanguageVersion is the generated module's declared CUE language
 	// version: the floor every published first-party module declares and the
-	// render build requires for cue.mod/local-module.cue.
-	LanguageVersion = "v0.17.0"
+	// render build requires for cue.mod/local-module.cue: "v0.17.0".
+	LanguageVersion = modversion.LanguageFloor
 
 	// ModuleFileName and PlatformFileName are the two files a generated
 	// module consists of, relative to the module directory.

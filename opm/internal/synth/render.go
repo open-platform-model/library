@@ -8,15 +8,9 @@ import (
 
 	"cuelang.org/go/cue/literal"
 
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/module"
 )
-
-// corePath is the module path of the OPM core schema the synthesized instance
-// imports. The import major is derived from the kernel's core release (the v2
-// line, schema.DefaultSchemaModule); the concrete core version the import
-// resolves to comes from the module's own cue.mod/module.cue, not from a
-// fabricated pin.
-const corePath = "opmodel.dev/core"
 
 // moduleImportPath returns the CUE registry module path — major suffix
 // included — the synthesized package imports the module by: the module's
@@ -47,7 +41,9 @@ func renderInstanceFile(in Input, coreVersion string) string {
 	var b strings.Builder
 	b.WriteString("package instance\n\n")
 	b.WriteString("import (\n")
-	fmt.Fprintf(&b, "\tcore %s\n", literal.String.Quote(corePath+"@"+major(coreVersion)))
+	// The import major comes from the core release the kernel resolved, not a
+	// fixed CorePath; the concrete version comes from the module's own cue.mod.
+	fmt.Fprintf(&b, "\tcore %s\n", literal.String.Quote(modversion.CoreModule+"@"+modversion.Major(coreVersion)))
 	fmt.Fprintf(&b, "\topmModule %s\n", literal.String.Quote(modImport))
 	b.WriteString(")\n\n")
 	b.WriteString("core.#ModuleInstance\n\n")
@@ -79,15 +75,4 @@ func writeStringMap(sb *strings.Builder, indent, field string, m map[string]stri
 		fmt.Fprintf(sb, "%s\t%s: %s\n", indent, literal.String.Quote(k), literal.String.Quote(m[k]))
 	}
 	fmt.Fprintf(sb, "%s}\n", indent)
-}
-
-// major returns the major-version selector (e.g. "v0") for a SemVer string in
-// either "0.1.0" or "v0.1.0" form. The synthesized import path and dep key are
-// major-qualified, matching CUE module-path conventions.
-func major(version string) string {
-	v := strings.TrimPrefix(version, "v")
-	if i := strings.IndexByte(v, '.'); i >= 0 {
-		v = v[:i]
-	}
-	return "v" + v
 }

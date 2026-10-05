@@ -118,6 +118,19 @@ linters:
               desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
             - pkg: sigs.k8s.io
               desc: Kubernetes code lives in opm/k8s; the opt-in helper tier imports no Kubernetes module (ADR-011)
+        # The library compares versions one way: opm/internal/modversion is
+        # the only importer of golang.org/x/mod/semver (the SemVer
+        # implementation CUE's own module code uses), and no second SemVer
+        # library comes back.
+        one-semver-implementation:
+          files:
+            - "**/opm/**"
+            - "!**/opm/internal/modversion/**"
+          deny:
+            - pkg: golang.org/x/mod/semver
+              desc: version helpers live in opm/internal/modversion; call modversion instead of importing x/mod/semver
+            - pkg: github.com/Masterminds/semver
+              desc: the library uses one SemVer implementation, golang.org/x/mod/semver, through opm/internal/modversion
         # No library package performs cluster I/O or carries a controller
         # framework (Principle IV, 0012:D2). The tier rule above already denies
         # these under opm/k8s; this one covers the kernel and the helper tier.

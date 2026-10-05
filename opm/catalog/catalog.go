@@ -80,7 +80,9 @@ type CatalogMetadata = schema.CatalogMetadata
 func NewCatalogFromValue(v cue.Value) (*Catalog, error) {
 	meta, err := decodeCatalogMetadata(v)
 	if err != nil {
-		return nil, fmt.Errorf("decoding catalog metadata: %w", err)
+		// The decoder's error already names the artifact; a second prefix
+		// would read "decoding catalog metadata: decoding catalog metadata: ...".
+		return nil, err
 	}
 	return &Catalog{
 		Metadata: meta,

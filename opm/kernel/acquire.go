@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -70,7 +71,10 @@ func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version
 // root (the nearest ancestor holding cue.mod/module.cue, the directory
 // itself when it is the root or when no ancestor holds one), Pkg the package
 // directory relative to it, and Overlay every .cue file under Root (the
-// module's own cue.mod/module.cue included) keyed by its absolute path.
+// module's own cue.mod/module.cue included) keyed by its absolute path. The
+// package is built from that overlay, so Package and Source.Overlay come
+// from one read of the tree; a non-CUE file the package embeds is read from
+// the directory beneath the overlay.
 //
 // Stamping the overlay is what makes the acquired module a valid
 // [Kernel.SynthesizeInstance] input ([module.Module.HasSource] reports true):
@@ -90,41 +94,64 @@ func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial module is returned.
 func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*module.Module, error) {
-	absDir, err := filepath.Abs(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: resolving module directory: %w", err)
-	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.ModuleSpec)
+	const verb = "Kernel.AcquireModuleFromDir"
+	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.ModuleSpec, true)
 	if err != nil {
 		return nil, err
 	}
 	mod, err := module.NewModuleFromValue(val)
 	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
-	}
-	src, err := overlaySourceForDir(absDir)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireModuleFromDir: %w", err)
+		return nil, fmt.Errorf("%s: %w", verb, err)
 	}
 	mod.Source = src
 	return mod, nil
 }
 
-// overlaySourceForDir describes the package at absDir as an OVERLAY-mode
-// Source: [sourceForDir]'s Root and Pkg, with every .cue file under Root read
-// into the overlay. It is the stamping both directory acquirers that return
-// an overlay-mode artifact share — the module's and the catalog's — so the
-// two cannot drift on what "acquired from a directory" stages. The instance
-// path does NOT use it: its overlay carries a rendered values file beside the
-// on-disk ones, so it builds its own.
-func overlaySourceForDir(absDir string) (*module.Source, error) {
-	src := sourceForDir(absDir)
-	overlay, err := sourcetree.OverlayFromDir(src.Root)
+// dirSource resolves dirPath, checks that it is a directory, and describes
+// the package in it as a Source: Root the enclosing module root and Pkg the
+// package directory relative to it ([sourceForDir]). With withOverlay it is
+// overlay mode, every .cue file under Root read once into Overlay; without,
+// it is on-disk mode (Overlay nil). The path check runs before anything else
+// touches the tree, so a missing directory or a file path fails with the
+// loader's path error ([loader.CheckDir]) rather than as an unreadable tree.
+func dirSource(verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool) (*module.Source, error) {
+	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
+		return nil, fmt.Errorf("%s: resolving %s directory: %w", verb, spec.Label, err)
+	}
+	if err := loader.CheckDir(absDir, spec); err != nil {
 		return nil, err
 	}
-	src.Overlay = overlay
+	src := sourceForDir(absDir)
+	if withOverlay {
+		overlay, err := sourcetree.OverlayFromDir(src.Root)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", verb, err)
+		}
+		src.Overlay = overlay
+	}
 	return src, nil
+}
+
+// acquireDir is the one read-then-build step every directory verb runs:
+// [dirSource] describes the directory, and the package is built in cueCtx
+// from that same Source, so an overlay-mode artifact's Package and
+// Source.Overlay come from one read. Which verb stamps which mode:
+//
+//   - module and catalog: overlay mode, built from the overlay they stamp;
+//   - platform, and an instance with no values sources: on-disk mode.
+//
+// A load or shape-gate error is returned unwrapped, as each verb reports it.
+func (k *Kernel) acquireDir(cueCtx *cue.Context, verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool) (cue.Value, *module.Source, error) {
+	src, err := dirSource(verb, dirPath, spec, withOverlay)
+	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, spec)
+	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	return val, src, nil
 }
 
 // AcquireCatalogFromRegistry loads a #Catalog published in an OCI registry by
@@ -181,7 +208,9 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 // root (the nearest ancestor holding cue.mod/module.cue, the directory
 // itself when it is the root or when no ancestor holds one), Pkg the package
 // directory relative to it, and Overlay every .cue file under Root (the
-// module's own cue.mod/module.cue included) keyed by its absolute path.
+// module's own cue.mod/module.cue included) keyed by its absolute path. As
+// for the module, the package is built from that overlay, so Package and
+// Source.Overlay come from one read of the tree.
 //
 // Overlay mode is what makes [catalog.Catalog.Requires] answer identically
 // whichever route acquired the catalog: the committed cue.mod/module.cue is
@@ -197,21 +226,14 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial catalog is returned.
 func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*catalog.Catalog, error) {
-	absDir, err := filepath.Abs(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: resolving catalog directory: %w", err)
-	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.CatalogSpec)
+	const verb = "Kernel.AcquireCatalogFromDir"
+	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.CatalogSpec, true)
 	if err != nil {
 		return nil, err
 	}
 	cat, err := catalog.NewCatalogFromValue(val)
 	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
-	}
-	src, err := overlaySourceForDir(absDir)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireCatalogFromDir: %w", err)
+		return nil, fmt.Errorf("%s: %w", verb, err)
 	}
 	cat.Source = src
 	return cat, nil
@@ -239,19 +261,16 @@ func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*cata
 // shape-gate sentinel such as [oerrors.ErrWrongKind]); no partial platform is
 // returned.
 func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*platform.Platform, error) {
-	absDir, err := filepath.Abs(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: resolving platform directory: %w", err)
-	}
-	val, err := loader.LoadDir(cuecontext.New(), absDir, ".", nil, k.loadEnv(), loader.PlatformSpec)
+	const verb = "Kernel.AcquirePlatformFromDir"
+	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.PlatformSpec, false)
 	if err != nil {
 		return nil, err
 	}
 	plat, err := platform.NewPlatformFromValue(val)
 	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquirePlatformFromDir: %w", err)
+		return nil, fmt.Errorf("%s: %w", verb, err)
 	}
-	plat.Source = sourceForDir(absDir)
+	plat.Source = src
 	return plat, nil
 }
 
@@ -299,27 +318,19 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 // sentinel); a non-concrete package surfaces the concreteness error, framed
 // `instance "<name>": …`. No partial instance is returned.
 func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, values ...Source) (*module.Instance, error) {
-	absDir, err := filepath.Abs(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: resolving instance directory: %w", err)
-	}
-
 	cueCtx := cuecontext.New()
 	var (
 		spec cue.Value
 		src  *module.Source
+		err  error
 	)
 	if len(values) == 0 {
-		spec, err = loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
-		if err != nil {
-			return nil, err
-		}
-		src = sourceForDir(absDir)
+		spec, src, err = k.acquireDir(cueCtx, "Kernel.AcquireInstanceFromDir", dirPath, loader.InstanceSpec, false)
 	} else {
-		spec, src, err = k.loadInstanceWithValues(cueCtx, absDir, values)
-		if err != nil {
-			return nil, err
-		}
+		spec, src, err = k.loadInstanceWithValues(cueCtx, dirPath, values)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if err := k.checkInstanceValues(spec, values); err != nil {
@@ -357,52 +368,45 @@ func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (cue.Valu
 	return merged, nil
 }
 
-// loadInstanceWithValues builds the on-disk instance package at absDir in
-// cueCtx with the unified values sources overlaid as a rendered package
-// file, and returns the built value with the overlay-mode Source the build
-// used.
-func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, absDir string, sources []Source) (cue.Value, *module.Source, error) {
-	info, err := os.Stat(absDir)
+// loadInstanceWithValues builds the instance package at dirPath in cueCtx
+// with the unified values sources layered on as a rendered package file. The
+// directory is read once into the authored overlay ([dirSource]); the build
+// runs from a copy of it plus the rendered values file, and the returned
+// overlay-mode Source is the one that build used. The authored overlay
+// itself is kept unchanged for attributing a failed build to the sources.
+func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sources []Source) (cue.Value, *module.Source, error) {
+	const verb = "Kernel.AcquireInstanceFromDir"
+	authored, err := dirSource(verb, dirPath, loader.InstanceSpec, true)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("accessing instance directory %q: %w", absDir, err)
-	}
-	if !info.IsDir() {
-		return cue.Value{}, nil, fmt.Errorf("instance path %q is not a directory", absDir)
+		return cue.Value{}, nil, err
 	}
 
 	merged, err := mergeSources(cueCtx, sources, k.loadEnv())
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("%s: %w", verb, err)
 	}
 
-	// The source's package directory (Root joined with Pkg) is absDir itself,
-	// the directory the rendered values file joins.
-	src := sourceForDir(absDir)
-	pkgName, err := sourcetree.PackageName(src)
+	pkgName, err := sourcetree.PackageName(authored)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w: %w", err, oerrors.ErrInvalidPackage)
+		return cue.Value{}, nil, fmt.Errorf("%s: %w: %w", verb, err, oerrors.ErrInvalidPackage)
 	}
 	rendered, err := valuesfile.Render(pkgName, merged)
 	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
+		return cue.Value{}, nil, fmt.Errorf("%s: %w", verb, err)
 	}
 
-	overlay, err := sourcetree.OverlayFromDir(src.Root)
-	if err != nil {
-		return cue.Value{}, nil, fmt.Errorf("Kernel.AcquireInstanceFromDir: %w", err)
-	}
+	// The rendered values file joins the package directory (Root joined with
+	// Pkg), replacing an authored file of the same name in the layered build
+	// only.
+	overlay := maps.Clone(authored.Overlay)
 	if rendered != nil {
-		overlay[filepath.Join(absDir, valuesFileName)] = rendered
+		overlay[filepath.Join(authored.Root, filepath.FromSlash(authored.Pkg), valuesFileName)] = rendered
 	}
-	src.Overlay = overlay
+	src := &module.Source{Root: authored.Root, Pkg: authored.Pkg, Overlay: overlay}
 
-	pkg := "."
-	if src.Pkg != "" {
-		pkg = "./" + src.Pkg
-	}
-	spec, err := loader.LoadDir(cueCtx, src.Root, pkg, overlay, k.loadEnv(), loader.InstanceSpec)
+	spec, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
-		if vErr := k.attributeValuesError(cueCtx, absDir, sources); vErr != nil {
+		if vErr := k.attributeValuesError(cueCtx, authored, sources); vErr != nil {
 			return cue.Value{}, nil, vErr
 		}
 		return cue.Value{}, nil, err
@@ -442,15 +446,16 @@ func (k *Kernel) checkInstanceValues(spec cue.Value, sources []Source) error {
 }
 
 // attributeValuesError explains a failed layered build in terms of the
-// values sources: it loads the package as authored in cueCtx, compiles the
-// sources in that same context, unifies the package's own values with them
-// and validates the result against the module's #config exactly as
-// [Kernel.ValidateConfigDetailed] does, so a conflict is reported at
-// positions attributable to the source (its Origin) rather than at the
-// rendered overlay file. It returns nil when the failure is not a values
+// values sources: it builds the package as authored in cueCtx from the
+// authored Source (the overlay already read for the layered build, without
+// the rendered values file), compiles the sources in that same context,
+// unifies the package's own values with them and validates the result
+// against the module's #config exactly as [Kernel.ValidateConfigDetailed]
+// does, so a conflict is reported at positions attributable to the source
+// (its Origin) rather than at the rendered overlay file. It returns nil when the failure is not a values
 // problem (the caller then reports the build error itself).
-func (k *Kernel) attributeValuesError(cueCtx *cue.Context, absDir string, sources []Source) error {
-	authored, err := loader.LoadDir(cueCtx, absDir, ".", nil, k.loadEnv(), loader.InstanceSpec)
+func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.Source, sources []Source) error {
+	authored, err := loader.LoadDir(cueCtx, authoredSrc, loader.Options{Env: k.loadEnv()}, loader.InstanceSpec)
 	if err != nil {
 		return nil
 	}

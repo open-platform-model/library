@@ -118,6 +118,18 @@ tasks:
     cmds:
       - go build ./...
 
+  api:diff:
+    desc: List incompatible changes to the exported opm/ API since the last release tag (warns on a prerelease tag, fails on a release; BASE=<tag> to pick one)
+    env:
+      BASE: '{{.BASE | default ""}}'
+    cmds:
+      - bash .tasks/api-diff.sh
+
+  api:diff:test:
+    desc: Test .tasks/api-diff.sh offline against fixture diffs (no network, no Go build)
+    cmds:
+      - bash .tasks/api-diff-test.sh
+
   ## Tests
 
   test:
@@ -208,7 +220,7 @@ tasks:
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, the docs bundle, cascade wiring and consumer-build script checks
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the api:diff tests and the consumer-build script tests
     cmds:
       - task: fmt
       - task: vet
@@ -217,14 +229,16 @@ tasks:
       - task: docs:bundle:check
       - task: cascade:wiring:check
       - task: consumer-build:test
+      - task: api:diff:test
 
   check:fast:
-    desc: Run fmt, vet, tests, and the docs bundle check (skip lint)
+    desc: Run fmt, vet, tests, the docs bundle check, and the api:diff tests (skip lint)
     cmds:
       - task: fmt
       - task: vet
       - task: test
       - task: docs:bundle:check
+      - task: api:diff:test
 
   ## Cleanup
 

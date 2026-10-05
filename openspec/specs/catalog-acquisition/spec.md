@@ -4,6 +4,7 @@
 Give the library a first-class primitive for reading a `#Catalog`: fetched from an OCI registry by `path@version`, or loaded from a directory. The kernel already owns module-acquisition plumbing (Principle V), and a catalog is a CUE module artifact carrying a different core kind, so the two paths differ only in the shape they gate to and the type they return. The capability also derives the provider-fulfilled contract set a catalog implements, because that set is a function of the catalog value and a core-defined concept, not a consumer's policy.
 
 This capability reads and derives. It renders no verdict: whether a derived set matches a claim, whether a version is compatible, and what any refusal says belong to the consumer (enhancement 0015 D8, D11, D12).
+
 ## Requirements
 
 ### Requirement: Catalog acquisition from a registry and from a directory
@@ -59,10 +60,15 @@ The catalog artifact SHALL expose the set of contracts it implements as a provid
 
 ### Requirement: The catalog's committed dependency requirements are readable
 
-The catalog artifact SHALL expose the requirements recorded in its own `cue.mod/module.cue`, as module path to version, so a consumer can compare them against another resolution without re-reading the artifact or reaching for CUE itself (enhancement 0015 D8, the committed-resolution comparison 0019 D18 defines). The library SHALL expose the requirements only; comparing them, and deciding what a mismatch means, belong to the consumer.
+The catalog artifact SHALL expose the requirements recorded in its own `cue.mod/module.cue`, as module path to version, so a consumer can compare them against another resolution without re-reading the artifact or reaching for CUE itself (0015:D8; the committed-resolution comparison 0019:D18 defines). The library SHALL expose the requirements only; comparing them, and deciding what a mismatch means, belong to the consumer. The module file SHALL be read and parsed by the same reader the render stage uses for its input modules, in either source mode, so a module file the render stage refuses (a dependency carrying `replaceWith`, an empty module path, a file that does not parse) is refused here too, with an error naming the catalog's `cue.mod/module.cue`. A dependency a local replacement serves may carry no version and maps to the empty string.
 
 #### Scenario: Declared requirements are readable off an acquired catalog
 
 - **WHEN** a catalog whose `cue.mod/module.cue` requires a core version and a catalog version is acquired
 - **THEN** both requirements are readable from the returned artifact, each as a path and a version
 - **AND** the library reports no verdict about whether either is acceptable
+
+#### Scenario: A module file the render stage would refuse is refused
+
+- **WHEN** an acquired catalog's `cue.mod/module.cue` lists a dependency that carries `replaceWith`
+- **THEN** reading its requirements fails with an error naming the catalog's `cue.mod/module.cue`, and no requirements are returned
