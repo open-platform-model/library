@@ -18,7 +18,9 @@
 //
 // [Digest] is the inventory digest: a hash of the entries' field values in a
 // canonical encoding, the same in every frontend whatever wire shape it
-// stores the entries in.
+// stores the entries in. [RenderDigest] is the render digest: a hash of the
+// objects [object.Export] returned, with the managed-by label's value left
+// out, so the cli and the operator digest one render equally (0012:D6).
 //
 // The inventory digest and the render digest are stored values: each frontend
 // records them and compares a later value against them. Their encodings are

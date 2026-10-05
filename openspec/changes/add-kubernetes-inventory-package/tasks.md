@@ -119,7 +119,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 4. The shared render digest (opm/k8s/inventory; design KI5, KI7)
 
-- [ ] 4.1 `opm/k8s/inventory/render_digest.go`: `RenderDigest` per KI5. It decodes with
+- [x] 4.1 `opm/k8s/inventory/render_digest.go`: `RenderDigest` per KI5. It decodes with
       `json.Decoder` + `UseNumber` and refuses trailing data, blanks the managed-by value
       through `labels.ManagedBy`, and encodes through `json.Encoder` with
       `SetEscapeHTML(false)` into a buffer per object. The sort keys are read from the decoded
@@ -129,7 +129,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       `null`) is an error too. A missing or non-string sort field reads as `""`. It never
       writes to `Exported.JSON` or
       `Exported.Object`. Verify: `go vet ./opm/k8s/...` clean.
-- [ ] 4.2 `render_digest_test.go`, with fixtures built through `object.Export` from CUE
+- [x] 4.2 `render_digest_test.go`, with fixtures built through `object.Export` from CUE
       literals (as `opm/k8s/object/export_test.go` does), so the digest is tested on real
       export bytes:
       - "The two runtimes digest one render equally", second half: one set rendered with
@@ -149,7 +149,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       deleting the managed-by key instead of blanking its value fails "Adding or removing the
       managed-by label counts"; reusing `Exported.Object` instead of re-decoding fails "Large
       integers are not rounded".
-- [ ] 4.3 `task check` green, then commit `feat(k8s): add the shared render digest`. The body
+- [x] 4.3 `task check` green, then commit `feat(k8s): add the shared render digest`. The body
       says that the managed-by value is the one byte range ignored (0012:D6), and that both
       frontends' stored render digests change once when they adopt it.
 
