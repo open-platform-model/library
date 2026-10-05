@@ -6,7 +6,7 @@
 // (opm/kernel, opm/module, opm/platform, opm/catalog, opm/schema,
 // opm/errors and opm/internal/) is the contract every frontend (CLI,
 // controller, Crossplane fn, future runtimes) MUST honour. The Kubernetes
-// tier, opm/k8s/ (planned), is the contract every frontend that targets
+// tier, opm/k8s/, is the contract every frontend that targets
 // Kubernetes MUST honour.
 //
 // The boundary is real in the import graph, not just described: no kernel
@@ -27,14 +27,11 @@
 //     registry, Files.WriteTo places the files in a caller-owned directory.
 //     The result is what (*Kernel).AcquirePlatformFromDir accepts. A
 //     frontend MAY write its platform module by hand instead.
-//   - objectset — duplicate rendered object identities (0015:D15/D12):
-//     Duplicates scans a render's compiled objects for every Kubernetes apply
-//     identity two or more of them share, naming each producing component and
-//     transformer, and DuplicateIdentitiesError words the refusal a runtime
-//     raises from those rows between render and apply. The kernel never calls
-//     it, and a frontend applying to something other than Kubernetes MAY skip
-//     it. Apply identity is Kubernetes-specific, so it moves into
-//     opm/k8s/object with the first Kubernetes-tier package.
+//   - objectset — Deprecated: use opm/k8s/object. Duplicate rendered object
+//     identities (0015:D15/D12): Duplicates and DuplicateIdentitiesError,
+//     identical to the copy in opm/k8s/object. Apply identity is
+//     Kubernetes-specific, so its home is the Kubernetes tier; this copy is
+//     frozen and kept only until both frontends have moved their imports.
 //
 // Earlier subpackages were folded into the kernel once it depended on them,
 // which had made the opt-in tier mandatory:
@@ -55,6 +52,5 @@
 // never a one-off addition.
 package helper
 
-// The planned Kubernetes tier, opm/k8s/, and objectset's move into it are
-// ADR-011. The umbrella design of this tier is legacy:001
+// The Kubernetes tier, opm/k8s/, and objectset's move into it are ADR-011. The umbrella design of this tier is legacy:001
 // (kernel-redesign-around-platform).

@@ -86,7 +86,8 @@ type RenderInput struct {
 // *Compiled values carrying the rendered CUE value plus OPM provenance. It
 // carries no platform-native fields — keeping platform vocabulary out of the
 // kernel keeps it platform-neutral, and each consumer wraps *Compiled in its
-// own resource type.
+// own resource type. A Kubernetes consumer uses opm/k8s/object.Resource, the
+// Kubernetes tier's wrapper; the kernel never imports it.
 type Compiled struct {
 	// Value is the CUE value produced by the transformer. Concrete and
 	// fully evaluated — safe to encode directly to YAML or JSON.

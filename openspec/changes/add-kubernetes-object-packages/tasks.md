@@ -176,7 +176,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 6. Docs say what exists (README, AGENTS, CONSTITUTION, ADR-011, helper doc, kernel doc; design KO11)
 
-- [ ] 6.1 Locate every edit by text, not by line number:
+- [x] 6.1 Locate every edit by text, not by line number:
       - `README.md` § Helper boundary: "the planned Kubernetes tier" becomes the tier with
         `labels` and `object`; the lint paragraph counts the new rules. The Layout tree gains
         `k8s/labels/` and `k8s/object/` rows, and its `objectset/` row is marked Deprecated
@@ -193,7 +193,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       Verify: `grep -n "planned" README.md AGENTS.md CONSTITUTION.md` shows no `opm/k8s`
       hit; `grep -n objectset README.md AGENTS.md CONSTITUTION.md | grep -v -i deprecated`
       shows no line presenting it as current; the layout block is still one code fence.
-- [ ] 6.2 `adr/011-kubernetes-tier-beside-the-kernel.md`: one Status sentence, "Amended
+- [x] 6.2 `adr/011-kubernetes-tier-beside-the-kernel.md`: one Status sentence, "Amended
       2026-10-05 by add-kubernetes-object-packages", covering the first packages `labels` and
       `object`, item 9 carried out as copy, deprecate, then remove (SD1), and item 2's
       allow-list question answered yes. Item 2's "held by review until..." sentence is
@@ -202,7 +202,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       "(planned)". `opm/kernel/render.go` `Compiled` doc: a Kubernetes consumer wraps it in
       `opm/k8s/object.Resource` (prose only). Verify: `go doc ./opm/helper` and
       `go doc ./opm/kernel Compiled` read correctly; `task docs:bundle:check` green.
-- [ ] 6.3 `task check` green and `openspec validate add-kubernetes-object-packages --strict`
+- [x] 6.3 `task check` green and `openspec validate add-kubernetes-object-packages --strict`
       passes, then commit `docs(k8s): record the first Kubernetes tier packages`.
 
 ## 7. Archive (at PR time, on the supervisor's word)
