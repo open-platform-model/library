@@ -33,8 +33,7 @@ import (
 // Package is the source of truth: it is the loaded CUE value for the catalog,
 // and every derived view reads it by path on demand. Nothing but metadata is
 // decoded at construction — a caller that never asks what a catalog provides
-// pays nothing for the fold, exactly as platform.Platform.Contracts is not
-// paid for by a render.
+// pays nothing for the fold.
 //
 // Metadata is an ergonomic decoded projection of the catalog-level metadata
 // stamped at construction. It is a cache, not a parallel source of truth —

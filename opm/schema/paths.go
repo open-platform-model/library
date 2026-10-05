@@ -17,11 +17,12 @@ import "cuelang.org/go/cue"
 //   - Module: Instance.ConfigSchema, Instance.ModuleMetadata and values
 //     checking at acquire and synthesis.
 //   - DebugValues: Module.DebugValues.
-//   - Contracts: Platform.Contracts.
+//   - Contracts: the inventory decode platform.NewPlatformFromValue records,
+//     which Platform.Contracts returns.
 //   - ContractsProvidedBy: the core-floor presence check Kernel.Render runs
 //     before staging.
 //   - ContractsCollisions, ContractsCollidingEntries: in Go, tests only; they
-//     document the collision report, whose fields Platform.Contracts reads
+//     document the collision report, whose fields the inventory decode reads
 //     relative to [Contracts].
 //   - CatalogProvides: Catalog.Provides.
 //   - Transformers: Catalog.Provides, on both of its paths, and the
@@ -52,9 +53,11 @@ var (
 	// Platform. Contracts is #Platform.#contracts, the contract inventory
 	// core derives from the enabled registry entries' contract maps and the
 	// transformers' required demands (0015:D1, D2, D5, D18).
-	// (*platform.Platform).Contracts decodes its eleven data fields on
-	// demand; `defined` (member schemas, not data) is not decoded. Never
-	// the loader gate, never platform construction.
+	// platform.NewPlatformFromValue decodes its eleven data fields once
+	// and records them, and (*platform.Platform).Contracts returns the
+	// record (a Platform the constructor did not build decodes them on its
+	// first Contracts or CoreFloor call); `defined` (member schemas, not
+	// data) is not decoded. Never the loader gate.
 	Contracts = cue.MakePath(cue.Def("contracts"))
 
 	// ContractsProvidedBy is #Platform.#contracts.providedBy: every

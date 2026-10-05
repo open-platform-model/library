@@ -42,8 +42,10 @@ type: "kubernetes"
 
 // TestPlatform_FieldSet pins the platform-artifact scenario "Platform struct
 // fields": exactly Metadata, Package and Source are exported, so no decoded
-// derived view (#composedTransformers, #contracts) ever becomes a struct
-// field. The contract inventory is read on demand through Contracts().
+// derived view (#composedTransformers, #contracts) ever becomes an exported
+// struct field. The contract inventory and the core floor are recorded in
+// unexported fields at construction and read through Contracts() and
+// CoreFloor().
 func TestPlatform_FieldSet(t *testing.T) {
 	typ := reflect.TypeOf(platform.Platform{})
 	var exported []string

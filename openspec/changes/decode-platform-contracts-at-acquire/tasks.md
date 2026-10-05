@@ -5,14 +5,14 @@ Library tests run with an absolute private `TMPDIR`
 of the main checkout's, never a symlink. Every commit task stages the files it names with
 `git add <file>`.
 
-- [ ] 1.1 `opm/platform/platform.go`: add the unexported `once sync.Once` and `recorded facts` fields and the `facts` type (design D1). `NewPlatformFromValue` decodes the metadata as today, then runs `p.once.Do` with the decode. A contracts refusal or decode error is stored and never returned from construction.
-- [ ] 1.2 `opm/platform/contracts.go`: move the current `Contracts()` body into an unexported `decode(v cue.Value) facts`. It records `providedBy` presence, the inventory, a missing-field refusal as data (`field`, `since`), or the decode error (design D1, D3). `Contracts()` runs `p.once.Do` (the lazy path of design D2), then returns a deep copy of the inventory (an unexported `clone`, covering every map, slice and `Comparable` row) or a fresh `*oerrors.PlatformCoreTooOldError` built from the recorded data with `p.name()`. The clone keeps nil and empty apart (`maps.Clone` and `slices.Clone` do): a decoded empty map stays empty, a nil one stays nil. Add `(*Platform).CoreFloor() error` with the doc comment of design D4. Check that the error texts are byte-equal to today's.
-- [ ] 1.3 Docs in this section (design D5, section 1 list):
+- [x] 1.1 `opm/platform/platform.go`: add the unexported `once sync.Once` and `recorded facts` fields and the `facts` type (design D1). `NewPlatformFromValue` decodes the metadata as today, then runs `p.once.Do` with the decode. A contracts refusal or decode error is stored and never returned from construction.
+- [x] 1.2 `opm/platform/contracts.go`: move the current `Contracts()` body into an unexported `decode(v cue.Value) facts`. It records `providedBy` presence, the inventory, a missing-field refusal as data (`field`, `since`), or the decode error (design D1, D3). `Contracts()` runs `p.once.Do` (the lazy path of design D2), then returns a deep copy of the inventory (an unexported `clone`, covering every map, slice and `Comparable` row) or a fresh `*oerrors.PlatformCoreTooOldError` built from the recorded data with `p.name()`. The clone keeps nil and empty apart (`maps.Clone` and `slices.Clone` do): a decoded empty map stays empty, a nil one stays nil. Add `(*Platform).CoreFloor() error` with the doc comment of design D4. Check that the error texts are byte-equal to today's.
+- [x] 1.3 Docs in this section (design D5, section 1 list):
   - the `Platform` doc: decoded once at construction, a cache like `Metadata`, re-run the constructor after changing `Package`, use through a pointer and never copy;
   - the `Contracts`, `ContractInventory` and `opm/platform` package docs: no "on demand", no "never at construction";
   - the `schema.Contracts` comment in `opm/schema/paths.go`;
   - the two `opm/catalog` comments that cite `Platform.Contracts` as their precedent (`catalog.go`, `provides.go`), which keep their own on-demand rule.
-- [ ] 1.4 Tests in `opm/platform` (`contracts_test.go`, `platform_test.go`), one per `platform-artifact` scenario that needs no kernel:
+- [x] 1.4 Tests in `opm/platform` (`contracts_test.go`, `platform_test.go`), one per `platform-artifact` scenario that needs no kernel:
   - zeroing `Package` after `NewPlatformFromValue` leaves `Contracts()` equal and `CoreFloor()` nil;
   - mutating a returned inventory (a map entry, a truncated slice, a `Comparable` row's `Contracts`) does not change the next call's result, and the copy keeps nil and empty apart;
   - `&platform.Platform{}` returns the `#contracts` refusal, and its `CoreFloor()` returns the `providedBy` refusal;
@@ -24,7 +24,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   `Taskfile.yml` `test`: move `./opm/platform/...` from the plain `go test` line to the `-race` line, so `task test` (which CI runs) checks the concurrency scenario on every push.
 
   Update the `TestPlatform_FieldSet` comment: the exported set is unchanged, and the inventory is recorded in unexported fields.
-- [ ] 1.5 `task check` green (its `test` step now runs `opm/platform` under the race detector), then commit `feat(platform): decode the core floor and contract inventory at construction`.
+- [x] 1.5 `task check` green (its `test` step now runs `opm/platform` under the race detector), then commit `feat(platform): decode the core floor and contract inventory at construction`.
 
 ## 2. kernel: Render reads the recorded core floor
 
