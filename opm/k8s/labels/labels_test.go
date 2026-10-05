@@ -57,3 +57,10 @@ func TestIsOPMManagedBy(t *testing.T) {
 		})
 	}
 }
+
+// TestAdoptAnnotationKey pins the adopt annotation key. It is not in
+// TestVocabularyLiterals, whose table is the frontends' copy: neither
+// frontend carried an adopt key before the tier fixed it.
+func TestAdoptAnnotationKey(t *testing.T) {
+	assert.Equal(t, "opmodel.dev/adopt", labels.AnnotationAdopt)
+}
