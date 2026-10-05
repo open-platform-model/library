@@ -188,9 +188,9 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 
 ## 6. Archive (at PR time)
 
-- [ ] 6.1 Set the ADR-011 amendment date to today and place the Status sentence after any
+- [x] 6.1 Set the ADR-011 amendment date to today and place the Status sentence after any
       sibling amendment that merged first. `openspec archive add-kubernetes-inventory-package
       --yes` on this branch, so the archive rides the implementing PR. Verify: the main `kubernetes-tier` spec carries the
       four requirements and `openspec validate --all --strict` passes. `enhancement.yaml`
       claims no decision, so the delivery log runs with an empty claim or is skipped.
-- [ ] 6.2 Commit `chore(openspec): archive add-kubernetes-inventory-package`.
+- [x] 6.2 Commit `chore(openspec): archive add-kubernetes-inventory-package`.
