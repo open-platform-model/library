@@ -118,8 +118,8 @@ This section lands tests that pass on `origin/main` and pin the gap.
 
 ## 4. Verify and hand over
 
-- [ ] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
-- [ ] 4.2 `openspec validate refuse-unset-required-config --strict` passes.
+- [x] 4.1 Whole-tree gates on the final tree: `task check`. Verify: green.
+- [x] 4.2 `openspec validate refuse-unset-required-config --strict` passes.
 - [ ] 4.3 Archive only when the PR is being opened, on this branch, so the archive rides the
       implementing PR: `openspec archive refuse-unset-required-config --yes`, then
       `openspec validate --all --strict`, then commit
