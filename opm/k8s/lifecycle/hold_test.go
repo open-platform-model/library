@@ -90,16 +90,40 @@ func TestMayReleaseHold(t *testing.T) {
 			message: "the deletion is not finished; 2 objects still to process",
 		},
 		{
+			name: "a finished step count with no outcomes holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: 2},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
+			name: "a state past the plan holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: 5, Outcomes: []lifecycle.Outcome{deleted(0), deleted(1), deleted(2), deleted(3), deleted(4)}},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
+			name: "a negative step holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: -1},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
+			name: "a state awaiting a read after the last step holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: 2, Awaiting: lifecycle.AwaitRead, Outcomes: []lifecycle.Outcome{deleted(0), deleted(1)}},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
 			name: "branch 6: a Forbidden failure holds", plan: planOf(prune),
 			state:   done(deleted(0), failedAs(1, lifecycle.FailureForbidden)),
 			because: lifecycle.HoldCleanupForbidden,
-			message: "the deleting identity was forbidden to delete 1 object; 1 object left to retry",
+			message: "the deleting identity was forbidden to read or delete 1 object; 1 object left to retry",
 		},
 		{
 			name: "a Forbidden failure wins over other failures", plan: planOf(prune),
 			state:   done(failedAs(0, lifecycle.FailureError), failedAs(1, lifecycle.FailureForbidden)),
 			because: lifecycle.HoldCleanupForbidden,
-			message: "the deleting identity was forbidden to delete 1 object; 2 objects left to retry",
+			message: "the deleting identity was forbidden to read or delete 1 object; 2 objects left to retry",
 		},
 		{
 			name: "branch 7: any other failure holds", plan: planOf(prune),

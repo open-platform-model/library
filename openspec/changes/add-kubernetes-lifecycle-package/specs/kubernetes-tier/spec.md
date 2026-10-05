@@ -124,7 +124,7 @@ The caller SHALL hand back the raw error of each read or delete, and the library
 
 ### Requirement: The deletion state is a serialisable value the caller owns
 
-The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies beyond the plan's end, it awaits something after the last step, or what it awaits is not a defined value. The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: 0012:D4:R5, ADR-008 rule 2.
+The deletion state SHALL be a plain value with a defined JSON encoding, holding the next step, what the state awaits and one outcome per finished step. The zero state SHALL be the start of a plan. The library SHALL keep nothing between calls. A state written to JSON and read back SHALL advance identically to the state held in memory, and advancing the same plan, state and outcome twice SHALL name the same action and return equal states. The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, it awaits something after the last step, or what it awaits is not a defined value. The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: 0012:D4:R5, ADR-008 rule 2.
 
 #### Scenario: A round-tripped state advances identically
 
@@ -147,6 +147,11 @@ The deletion state SHALL be a plain value with a defined JSON encoding, holding 
 - **WHEN** the state's next step equals the number of steps and the state awaits a read
 - **THEN** the transition returns an error and the input state unchanged
 
+#### Scenario: A state whose outcomes do not match its next step is refused
+
+- **WHEN** the state names step 1 of a plan and records no outcome
+- **THEN** the transition returns an error and the input state unchanged
+
 #### Scenario: The JSON encoding is fixed
 
 - **WHEN** a state with a next step, an awaited read and a failed outcome carrying every field is written to JSON
@@ -154,7 +159,7 @@ The deletion state SHALL be a plain value with a defined JSON encoding, holding 
 
 ### Requirement: The hold verdict is decided from the policy and the plan's outcome
 
-The library SHALL decide whether an instance's deletion hold may be released from the plan's policy, its steps, the state's outcomes and whether the caller can act as the deleting identity, and from nothing that names the hold's bearer or the frontend. It SHALL check in this order and stop at the first match. When the policy does not prune, it SHALL release as `prune-disabled`. When the plan has no steps, it SHALL release as `inventory-empty`. When the deleting identity is missing and the policy sets force-orphan, it SHALL release as `force-orphan`. When the identity is missing or could not be obtained, it SHALL hold as `identity-unavailable`. When the plan is not finished, it SHALL hold as `cleanup-incomplete`. When any step failed as Forbidden, it SHALL hold as `cleanup-forbidden`. When any other step failed, it SHALL hold as `cleanup-incomplete`. Otherwise it SHALL release as `cleanup-complete`, with skipped steps counting as complete. Each verdict SHALL carry the reason as the contract's literal and a message the library words. Source: 0012:D1:R5, 0012:D4:R1, the 0012 contract's `#HoldVerdict`.
+The library SHALL decide whether an instance's deletion hold may be released from the plan's policy, its steps, the state's outcomes and whether the caller can act as the deleting identity, and from nothing that names the hold's bearer or the frontend. It SHALL check in this order and stop at the first match. When the policy does not prune, it SHALL release as `prune-disabled`. When the plan has no steps, it SHALL release as `inventory-empty`. When the deleting identity is missing and the policy sets force-orphan, it SHALL release as `force-orphan`. When the identity is missing or could not be obtained, it SHALL hold as `identity-unavailable`. When the state cannot belong to the plan, for any reason the transition refuses it, it SHALL hold as `cleanup-incomplete` and never release. When the plan is not finished, it SHALL hold as `cleanup-incomplete`. When any step failed as Forbidden, it SHALL hold as `cleanup-forbidden`. When any other step failed, it SHALL hold as `cleanup-incomplete`. Otherwise it SHALL release as `cleanup-complete`, with skipped steps counting as complete. Each verdict SHALL carry the reason as the contract's literal and a message the library words. Source: 0012:D1:R5, 0012:D4:R1, the 0012 contract's `#HoldVerdict`.
 
 #### Scenario: Pruning disabled releases
 
@@ -180,6 +185,11 @@ The library SHALL decide whether an instance's deletion hold may be released fro
 #### Scenario: An unfinished plan holds
 
 - **WHEN** the identity is available and the state has not reached done
+- **THEN** the verdict is hold with reason `cleanup-incomplete`
+
+#### Scenario: A state that cannot belong to the plan holds
+
+- **WHEN** the policy prunes, the identity is available, and the state of a two-step plan names step 2 with no outcomes, or names step 5, or awaits a read at step 2
 - **THEN** the verdict is hold with reason `cleanup-incomplete`
 
 #### Scenario: A Forbidden failure wins over other failures

@@ -227,6 +227,7 @@ how the cli keeps its per-resource errors and the operator its joined error from
 `Advance` returns an error only when the state cannot belong to the plan:
 
 - `state.Next` is outside `0..plan.Len()`;
+- `len(state.Outcomes) != state.Next`, since every finished step records exactly one outcome;
 - the state awaits something while `Next == plan.Len()`;
 - `state.Awaiting` is not one of the three defined values.
 
@@ -261,7 +262,7 @@ It also records the error text as `Message`. NotFound is never a failure.
 
 **Context**: 0012:D4:R5 requires a written-out state to advance identically to one held in memory.
 0012:D4 says the operator carries the state across reconciles. Because the state is serialisable,
-a controller can carry it. Whether the operator does is op-f2's choice, not this package's. op-f2
+a controller can carry it. Whether the operator does is its adoption change's choice, not this package's. That change
 plans to rebuild it each pass from `status.inventory` plus the live objects, with no new CRD field
 (ADR-008, Deletion plans): the reconcile is level-triggered, and after a pass a deleted object
 reads as absent, so a fresh plan over the same inventory converges on the next pass. The library
@@ -335,11 +336,14 @@ func MayReleaseHold(plan DeletionPlan, state State, in HoldInput) HoldVerdict
 2. A plan with no steps releases with `inventory-empty`.
 3. `IdentityMissing` with `plan.Policy().ForceOrphan` releases with `force-orphan`.
 4. `IdentityMissing` or `IdentityFailed` holds with `identity-unavailable`.
-5. A plan that is not finished (`Next < plan.Len()` or the state awaits something) holds with
-   `cleanup-incomplete`.
-6. Any `forbidden` outcome holds with `cleanup-forbidden`.
-7. Any other `failed` outcome holds with `cleanup-incomplete`.
-8. Otherwise it releases with `cleanup-complete`. Skipped steps count as complete.
+5. A state that cannot belong to the plan, for any of the reasons `Advance` refuses it, holds
+   with `cleanup-incomplete`. Releasing the hold is the one step that cannot be undone, so a
+   stale, truncated or foreign state never releases it.
+6. A plan that is not finished (`Next < plan.Len()`) holds with `cleanup-incomplete`.
+7. Any `forbidden` outcome holds with `cleanup-forbidden`. A Forbidden read counts as well as a
+   Forbidden delete, so the message says "read or delete".
+8. Any other `failed` outcome holds with `cleanup-incomplete`.
+9. Otherwise it releases with `cleanup-complete`. Skipped steps count as complete.
 
 Force-orphan releases only when the identity is missing, as the operator does today. It does not
 lift a Forbidden or incomplete cleanup. Widening it would change operator behaviour that no
@@ -351,9 +355,9 @@ A frontend without impersonation passes `IdentityAvailable`. A prune never calls
 impersonates (Context, branch 6). Without a ServiceAccount, a Forbidden error falls to branch 7 and
 requeues with backoff. `MayReleaseHold` returns `cleanup-forbidden` whatever the identity source,
 because the verdict is only whether the hold may come off, and in both branches it may not. How a
-frontend surfaces a hold (stall, or return an error and requeue) stays frontend policy. op-f2 keeps
+frontend surfaces a hold (stall, or return an error and requeue) stays frontend policy. The operator keeps
 the requeue when it does not impersonate and stalls only when it does, so the verdict changes no
-operator behaviour here. If op-f2 chooses otherwise, that is a behaviour change it carries with a
+operator behaviour here. If its adoption change chooses otherwise, that is a behaviour change it carries with a
 release note, like the order and propagation changes.
 
 **Rationale**: each operator branch maps to one case, in the operator's own precedence. Forbidden
@@ -366,7 +370,7 @@ names a finalizer or a frontend.
 **Context**: the contract's `#PlannedAction` names no propagation policy, and the frontends differ.
 
 **Decision**: the `delete` action carries `metav1.DeletePropagationForeground`. That is the cli's
-behaviour today, and the operator adopts it in op-f2 with a release note. This is the per-frontend
+behaviour today, and the operator adopts it in its adoption change with a release note. This is the per-frontend
 divergence 0012:D1:R1 exists to remove. Making propagation a policy field would let it diverge
 again.
 
@@ -401,7 +405,7 @@ after the package clause, as in `opm/k8s/ownership/doc.go`.
   before they are gone, and the object lingers with a `foregroundDeletion` finalizer. On its next
   pass the operator reads it as present, OPM-managed and of this instance, and `CanDelete` proceeds
   ("An object being deleted proceeds"), so the plan names `delete` again. Deleting it again is
-  harmless. op-f2 owns the release note.
+  harmless. The operator's adoption change owns the release note.
 - **Rebuilding the plan on every pass gives up cross-pass memory.** A step that failed on one pass
   is read again on the next. This is the operator's behaviour today, and it is what level
   triggering wants.

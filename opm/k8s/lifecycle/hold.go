@@ -40,8 +40,8 @@ const (
 	// HoldForceOrphan releases: the deleting identity is missing and the
 	// policy sets force-orphan, so the objects are left in place.
 	HoldForceOrphan HoldReason = "force-orphan"
-	// HoldCleanupIncomplete holds: the plan is not finished, or a step failed
-	// other than as Forbidden.
+	// HoldCleanupIncomplete holds: the state does not belong to the plan, the
+	// plan is not finished, or a step failed other than as Forbidden.
 	HoldCleanupIncomplete HoldReason = "cleanup-incomplete"
 	// HoldCleanupForbidden holds: a step failed as Forbidden.
 	HoldCleanupForbidden HoldReason = "cleanup-forbidden"
@@ -70,10 +70,12 @@ type HoldVerdict struct {
 //  2. a plan with no steps releases ([HoldInventoryEmpty]);
 //  3. a missing identity with force-orphan releases ([HoldForceOrphan]);
 //  4. a missing or failed identity holds ([HoldIdentityUnavailable]);
-//  5. an unfinished plan holds ([HoldCleanupIncomplete]);
-//  6. a step failed as Forbidden holds ([HoldCleanupForbidden]);
-//  7. any other failed step holds ([HoldCleanupIncomplete]);
-//  8. otherwise it releases ([HoldCleanupComplete]); skipped steps count as
+//  5. a state that cannot belong to the plan holds ([HoldCleanupIncomplete]),
+//     for the reasons [Advance] refuses it;
+//  6. an unfinished plan holds ([HoldCleanupIncomplete]);
+//  7. a step failed as Forbidden holds ([HoldCleanupForbidden]);
+//  8. any other failed step holds ([HoldCleanupIncomplete]);
+//  9. otherwise it releases ([HoldCleanupComplete]); skipped steps count as
 //     complete.
 //
 // Force-orphan lifts only a missing identity, never a failed or unfinished
@@ -93,7 +95,10 @@ func MayReleaseHold(plan DeletionPlan, state State, in HoldInput) HoldVerdict {
 	case in.Identity != IdentityAvailable:
 		return hold(HoldIdentityUnavailable, "the deleting identity could not be obtained; "+
 			objects(plan.Len())+" not deleted")
-	case state.Next < plan.Len() || state.Awaiting != AwaitNothing:
+	case checkState(plan, state) != nil:
+		return hold(HoldCleanupIncomplete, "the deletion state does not belong to this plan; "+
+			objects(plan.Len())+" not confirmed deleted")
+	case state.Next < plan.Len():
 		return hold(HoldCleanupIncomplete, "the deletion is not finished; "+
 			objects(plan.Len()-state.Next)+" still to process")
 	}
@@ -109,7 +114,7 @@ func MayReleaseHold(plan DeletionPlan, state State, in HoldInput) HoldVerdict {
 	}
 	switch {
 	case forbidden > 0:
-		return hold(HoldCleanupForbidden, "the deleting identity was forbidden to delete "+
+		return hold(HoldCleanupForbidden, "the deleting identity was forbidden to read or delete "+
 			objects(forbidden)+"; "+objects(failedCount)+" left to retry")
 	case failedCount > 0:
 		return hold(HoldCleanupIncomplete, objects(failedCount)+" could not be deleted; left to retry")

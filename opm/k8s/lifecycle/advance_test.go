@@ -287,20 +287,23 @@ func TestAdvance(t *testing.T) {
 
 func TestAdvanceRefusesAStateOutsideThePlan(t *testing.T) {
 	p := lifecycle.NewDeletionPlan([]inventory.Entry{web}, prune, thisUUID)
+	one := []lifecycle.Outcome{{Step: 0, Result: lifecycle.ResultDeleted}}
+	two := []lifecycle.Outcome{{Step: 0, Result: lifecycle.ResultDeleted}, {Step: 1, Result: lifecycle.ResultDeleted}}
 	tests := []struct {
 		name  string
 		state lifecycle.State
 	}{
-		{"a state past the plan", lifecycle.State{Next: 2}},
+		{"a state past the plan", lifecycle.State{Next: 2, Outcomes: two}},
 		{"a negative step", lifecycle.State{Next: -1}},
-		{"a state awaiting a read after the last step", lifecycle.State{Next: 1, Awaiting: lifecycle.AwaitRead}},
-		{"a state awaiting a delete after the last step", lifecycle.State{Next: 1, Awaiting: lifecycle.AwaitDelete}},
+		{"a state awaiting a read after the last step", lifecycle.State{Next: 1, Awaiting: lifecycle.AwaitRead, Outcomes: one}},
+		{"a state awaiting a delete after the last step", lifecycle.State{Next: 1, Awaiting: lifecycle.AwaitDelete, Outcomes: one}},
 		{"an unknown awaited value", lifecycle.State{Awaiting: "apply"}},
+		{"fewer outcomes than finished steps", lifecycle.State{Next: 1}},
+		{"more outcomes than finished steps", lifecycle.State{Outcomes: one}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			in := tt.state
-			in.Outcomes = []lifecycle.Outcome{{Step: 0, Result: lifecycle.ResultDeleted}}
 			got, act, err := lifecycle.Advance(p, in, lifecycle.Event{})
 			require.Error(t, err)
 			assert.Equal(t, in, got, "the input state comes back unchanged")

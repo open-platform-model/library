@@ -151,7 +151,9 @@ type State struct {
 // Each call appends the outcomes of the steps it finished, in step order, and
 // never changes an earlier one or the caller's backing array. It returns an
 // error, the input state and the zero Action only when the state cannot
-// belong to the plan.
+// belong to the plan: its next step lies outside the plan, it records a
+// number of outcomes other than its next step, or it awaits something after
+// the last step or something that is not a defined action.
 func Advance(plan DeletionPlan, state State, ev Event) (State, Action, error) {
 	if err := checkState(plan, state); err != nil {
 		return state, Action{}, err
@@ -311,6 +313,10 @@ func doneAction() Action { return Action{Kind: ActionDone, Step: -1} }
 func checkState(plan DeletionPlan, s State) error {
 	if s.Next < 0 || s.Next > plan.Len() {
 		return fmt.Errorf("deletion state names step %d, outside a plan of %d steps", s.Next, plan.Len())
+	}
+	if len(s.Outcomes) != s.Next {
+		return fmt.Errorf("deletion state names step %d but records %d outcomes; every finished step records one",
+			s.Next, len(s.Outcomes))
 	}
 	switch s.Awaiting {
 	case AwaitNothing:
