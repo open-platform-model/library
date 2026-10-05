@@ -145,7 +145,8 @@ func dirSource(verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool)
 //   - platform, and an instance with no values sources: on-disk mode.
 //
 // A load or shape-gate error is returned unwrapped, as each verb reports it,
-// and so is ctx's error when ctx is done once the tree is read.
+// and so is ctx's error when ctx is done once the tree is read or once the
+// package is built.
 func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool) (cue.Value, *module.Source, error) {
 	src, err := dirSource(verb, dirPath, spec, withOverlay)
 	if err != nil {
@@ -156,6 +157,9 @@ func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirP
 	}
 	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, spec)
 	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
 	return val, src, nil

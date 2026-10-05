@@ -105,6 +105,8 @@ func TestCancel_RegistryFetchServedFromCache(t *testing.T) {
 	k := newRenderKernel(t)
 	_, err := k.AcquireModuleFromRegistry(context.Background(), renderModPath+"@v0", "v0.1.0")
 	require.NoError(t, err, "the warm-up acquire caches the coordinate")
+	_, err = k.AcquireCatalogFromRegistry(context.Background(), renderCatPath+"@v0", "v0.1.0")
+	require.NoError(t, err, "the warm-up acquire caches the coordinate")
 
 	mod, err := k.AcquireModuleFromRegistry(cancelledContext(), renderModPath+"@v0", "v0.1.0")
 	require.Error(t, err)
@@ -126,4 +128,159 @@ func TestCancel_ExpiredDeadline(t *testing.T) {
 	assert.True(t, errors.Is(err, context.DeadlineExceeded))
 	assert.Equal(t, context.DeadlineExceeded, err)
 	assert.Nil(t, plat)
+}
+
+// countingCtx is a context whose Err reports nil for its first n calls and
+// context.Canceled after that, so a test can cancel a verb at each of its
+// stage checks in turn. Done never closes: only the verb's own checks see
+// the cancellation, which is what the test counts.
+type countingCtx struct {
+	context.Context
+	left int
+}
+
+func (c *countingCtx) Err() error {
+	if c.left > 0 {
+		c.left--
+		return nil
+	}
+	return context.Canceled
+}
+
+// assertStageChecks cancels call at its first, second, ... check until it
+// succeeds. Every cancelled call must return the bare context.Canceled (the
+// artifact's nil-ness is asserted by call), and the number of checks the verb
+// made before it succeeded must be want, so dropping any one check fails the
+// test.
+func assertStageChecks(t *testing.T, want int, call func(ctx context.Context) error) {
+	t.Helper()
+	for n := 0; n <= want+1; n++ {
+		err := call(&countingCtx{Context: context.Background(), left: n})
+		if err == nil {
+			assert.Equal(t, want, n, "stage checks before the verb succeeded")
+			return
+		}
+		assert.Equal(t, context.Canceled, err, "cancelled at check %d: the bare context error", n+1)
+	}
+	t.Fatalf("the verb did not succeed after %d checks", want+1)
+}
+
+// Each count names the checks the verb makes, in order.
+func TestCancel_EveryStageCheck(t *testing.T) {
+	k := newRenderKernel(t)
+	moduleDir := renderFixtureDir(t, "registry", "testing.opmodel.dev_library-render_web_app_v0.1.0")
+	catalogDir := renderFixtureDir(t, "registry", "testing.opmodel.dev_library-render_cat_v0.1.0")
+	values := mustSource(t, k, "values.cue", `{replicas: 2}`)
+
+	// entry, after the directory is read, after the package is built.
+	t.Run("AcquireModuleFromDir", func(t *testing.T) {
+		assertStageChecks(t, 3, func(ctx context.Context) error {
+			mod, err := k.AcquireModuleFromDir(ctx, moduleDir)
+			if err != nil {
+				assert.Nil(t, mod)
+			}
+			return err
+		})
+	})
+	t.Run("AcquireCatalogFromDir", func(t *testing.T) {
+		assertStageChecks(t, 3, func(ctx context.Context) error {
+			cat, err := k.AcquireCatalogFromDir(ctx, catalogDir)
+			if err != nil {
+				assert.Nil(t, cat)
+			}
+			return err
+		})
+	})
+	t.Run("AcquirePlatformFromDir", func(t *testing.T) {
+		assertStageChecks(t, 3, func(ctx context.Context) error {
+			plat, err := k.AcquirePlatformFromDir(ctx, renderFixtureDir(t, "platform"))
+			if err != nil {
+				assert.Nil(t, plat)
+			}
+			return err
+		})
+	})
+	// entry, after the directory is read, after the package is built (twice:
+	// the shared build step and the verb), after the values check.
+	t.Run("AcquireInstanceFromDir", func(t *testing.T) {
+		assertStageChecks(t, 5, func(ctx context.Context) error {
+			inst, err := k.AcquireInstanceFromDir(ctx, renderFixtureDir(t, "instance"))
+			if err != nil {
+				assert.Nil(t, inst)
+			}
+			return err
+		})
+	})
+	// entry, after the directory is read, after the values sources are
+	// merged, after the package is built, after the values check.
+	t.Run("AcquireInstanceFromDir with values sources", func(t *testing.T) {
+		assertStageChecks(t, 5, func(ctx context.Context) error {
+			inst, err := k.AcquireInstanceFromDir(ctx, renderFixtureDir(t, "instance"), values)
+			if err != nil {
+				assert.Nil(t, inst)
+			}
+			return err
+		})
+	})
+
+	// The registry verbs are served from the warm cache, so the fetch makes
+	// no request: after the fetch, after the package is built.
+	_, err := k.AcquireModuleFromRegistry(context.Background(), renderModPath+"@v0", "v0.1.0")
+	require.NoError(t, err)
+	_, err = k.AcquireCatalogFromRegistry(context.Background(), renderCatPath+"@v0", "v0.1.0")
+	require.NoError(t, err)
+	t.Run("AcquireModuleFromRegistry", func(t *testing.T) {
+		assertStageChecks(t, 2, func(ctx context.Context) error {
+			mod, err := k.AcquireModuleFromRegistry(ctx, renderModPath+"@v0", "v0.1.0")
+			if err != nil {
+				assert.Nil(t, mod)
+			}
+			return err
+		})
+	})
+	t.Run("AcquireCatalogFromRegistry", func(t *testing.T) {
+		assertStageChecks(t, 2, func(ctx context.Context) error {
+			cat, err := k.AcquireCatalogFromRegistry(ctx, renderCatPath+"@v0", "v0.1.0")
+			if err != nil {
+				assert.Nil(t, cat)
+			}
+			return err
+		})
+	})
+
+	// entry, after the core version resolves, after the values sources are
+	// merged, after the package is built, after the values check.
+	t.Run("SynthesizeInstance", func(t *testing.T) {
+		mod, err := k.AcquireModuleFromRegistry(context.Background(), renderModPath+"@v0", "v0.1.0")
+		require.NoError(t, err)
+		in := kernel.InstanceInput{
+			Module:    mod,
+			Name:      "web-synth",
+			Namespace: "default",
+			Values:    []kernel.Source{mustSource(t, k, "values.cue", `{image: "nginx:1.27", replicas: 3}`)},
+		}
+		assertStageChecks(t, 5, func(ctx context.Context) error {
+			inst, err := k.SynthesizeInstance(ctx, in)
+			if err != nil {
+				assert.Nil(t, inst)
+			}
+			return err
+		})
+	})
+
+	// after the input checks, after staging, after the render build.
+	t.Run("Render", func(t *testing.T) {
+		in := kernel.RenderInput{
+			Instance:    acquireRenderInstance(t, k, "instance"),
+			Platform:    acquireRenderPlatform(t, k, "platform"),
+			RuntimeName: "render-test",
+		}
+		assertStageChecks(t, 3, func(ctx context.Context) error {
+			res, err := k.Render(ctx, in)
+			if err != nil {
+				assert.Nil(t, res)
+			}
+			return err
+		})
+	})
 }

@@ -102,8 +102,8 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("fetching %s %s: %w", spec.Label, mv, classifyFetch(err, mv))
 	}
-	// A fetch served from the module cache never consults ctx; the build
-	// below takes none, so this is the last point a cancellation lands.
+	// A fetch served from the module cache never consults ctx, so this check
+	// is what observes a cancellation before the build.
 	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
@@ -133,6 +133,10 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	src := &opmmodule.Source{Root: synthRoot, Overlay: overlay}
 	val, err := LoadDir(cueCtx, src, Options{Env: env}, spec)
 	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	// The build takes no context; a cancellation during it lands here.
+	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
 
