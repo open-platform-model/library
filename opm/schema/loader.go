@@ -11,6 +11,7 @@ import (
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/module"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 )
 
@@ -160,7 +161,7 @@ func (l OCILoader) loadVersioned(ctx *cue.Context) (cue.Value, string, error) {
 		return cue.Value{}, "", fmt.Errorf("schema OCILoader: load.Instances returned no instances for %q", moduleID)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, "", fmt.Errorf("schema OCILoader: loading %q: %w", moduleID, instances[0].Err)
+		return cue.Value{}, "", fmt.Errorf("schema OCILoader: loading %q: %w", moduleID, oerrors.Classify(instances[0].Err))
 	}
 
 	// A module can load cleanly and still fail to build (an unresolved

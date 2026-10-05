@@ -1,6 +1,8 @@
 // Package labels is the OPM label vocabulary for Kubernetes objects: the keys
 // and values the cli and the operator read and write, and [IsOPMManagedBy],
-// which recognises every managed-by value an OPM runtime has stamped.
+// which recognises every managed-by value an OPM runtime has stamped. Besides
+// the labels it names one annotation, [AnnotationAdopt], which a user writes
+// on a live object and no OPM runtime ever writes.
 //
 // The package names and recognises labels. It never stamps them on rendered
 // objects: core's CUE stamps those at render, where #runtimeName fills the

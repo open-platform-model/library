@@ -93,6 +93,22 @@
 // throughput saturates at roughly physical cores divided by 1.6 renders in
 // flight. Size against the largest module the pool will see.
 //
+// # Cancellation
+//
+// Every verb that takes a context checks it between its stages: after the
+// directory is read, after the values sources are merged, after a registry
+// fetch returns, after the package or render module is built, and before the
+// next stage starts. The directory verbs and [Kernel.SynthesizeInstance] also
+// check it at entry, and [Kernel.Render] once its input is checked; argument
+// errors come first, because they do not depend on time. When
+// one of these checks finds the context done, the verb returns the context's
+// own error unwrapped (so errors.Is(err, context.Canceled) or
+// context.DeadlineExceeded holds) and no artifact. A running load or build is
+// not interrupted: cue/load takes no context, so cancellation lands at the
+// next stage boundary. Only the registry fetch itself observes the context
+// while it runs; a cancellation it sees comes back wrapped in the fetch
+// error, and errors.Is(err, context.Canceled) still holds (0009:D9).
+//
 // # One-Kernel-per-process example
 //
 //	func renderAll(ctx context.Context, k *kernel.Kernel, platformDir string, instanceDirs []string) error {

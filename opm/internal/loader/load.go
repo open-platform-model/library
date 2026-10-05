@@ -104,7 +104,9 @@ func LoadDir(cueCtx *cue.Context, src *opmmodule.Source, opts Options, spec Arti
 		return cue.Value{}, fmt.Errorf("expected exactly one CUE package in %s (%s), found %d: %w", root, pkg, len(instances), oerrors.ErrInvalidPackage)
 	}
 	if instances[0].Err != nil {
-		return cue.Value{}, fmt.Errorf("loading %s package from %s (%s): %w", spec.Label, root, pkg, instances[0].Err)
+		// A dependency resolution failure is classified; the build and
+		// gate errors below are evaluation errors and never are.
+		return cue.Value{}, fmt.Errorf("loading %s package from %s (%s): %w", spec.Label, root, pkg, oerrors.Classify(instances[0].Err))
 	}
 
 	val := cueCtx.BuildInstance(instances[0])

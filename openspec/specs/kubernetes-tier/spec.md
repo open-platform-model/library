@@ -245,3 +245,412 @@ The library SHALL keep a test that lists the kinds of Flux's `ReconcileOrder` fo
 
 - **WHEN** the comparison runs over a PersistentVolumeClaim, a custom resource and a validating webhook configuration
 - **THEN** the PersistentVolumeClaim after Deployment and the webhook configuration after the custom resource are both in the committed list
+
+### Requirement: Readiness evaluation is a pure function over fetched objects
+
+The library SHALL provide `opm/k8s/health`, which judges the readiness of one Kubernetes object that the caller has already fetched, and aggregates such judgements. Nothing in the package SHALL read a cluster, wait or poll; the frontend fetches each live object with its own client and passes it in. A status SHALL be one of the strings `Ready`, `NotReady`, `Complete`, `Unknown`, `Missing`, `Applied` and `Bound`, byte-equal to the cli's `internal/kubernetes/health.go` at cli `bd4d1a7c`, or, for a PersistentVolumeClaim, the raw value of its `status.phase`. The evaluation rules SHALL be the cli's at that commit, unchanged:
+
+- A Deployment is `Ready` only when `status.observedGeneration` has reached `metadata.generation`, no Progressing condition carries the reason `ProgressDeadlineExceeded`, and the updated and available replica counts equal `spec.replicas` (1 when omitted) with no more total replicas than updated ones; otherwise `NotReady`.
+- A StatefulSet is `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: always under the `OnDelete` strategy; under a RollingUpdate partition greater than zero, when the updated replicas reach `spec.replicas` minus the partition; otherwise when the updated replicas equal `spec.replicas` and the update revision equals the current revision. Otherwise `NotReady`.
+- A DaemonSet is `Ready` when the generation is observed and the updated and available counts equal `status.desiredNumberScheduled`; otherwise `NotReady`.
+- A Job is `Complete` when, in condition order, a `Complete` condition with status `True` appears before any `Failed` condition with status `True`; otherwise `NotReady`.
+- A CronJob, and every kind of the fixed passive set (ConfigMap, Secret, Service, ServiceAccount, Namespace, ClusterRole, ClusterRoleBinding, Role, RoleBinding, Ingress, NetworkPolicy, PodDisruptionBudget, ResourceQuota, LimitRange, StorageClass, PriorityClass), is `Applied`.
+- A PersistentVolumeClaim reports its `status.phase` as the status (`Bound` for a bound claim), or `Ready` when it has no phase yet.
+- Any other kind is `Ready` when its `Ready` condition is `True`, `NotReady` when that condition has any other status, and `Applied` when it has no `Ready` condition.
+
+`Ready`, `Applied`, `Complete` and `Bound` SHALL be the healthy statuses, and every other string SHALL be unhealthy. The aggregate of a list of statuses and a count of tracked objects that have no status (missing or unreadable) SHALL count each of those objects toward the total and never toward ready, and SHALL be `Unknown` when the total is zero, `Ready` when every counted object is healthy, and `NotReady` otherwise, together with the ready count and the total. The package SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose controller has observed its current generation carries a Progressing condition with the reason `ProgressDeadlineExceeded`, false for any other object, so a frontend can tell a stalled rollout from one in progress without reading conditions itself. A strict lint rule SHALL hold the package's non-test files to the Go standard library and `k8s.io/apimachinery`. Source: 0012:D3; owner decision f5 (beta.1 walkthrough).
+
+#### Scenario: The status strings match the cli's output
+
+- **WHEN** a table test pins each status constant to its literal
+- **THEN** the seven constants are `Ready`, `NotReady`, `Complete`, `Unknown`, `Missing`, `Applied` and `Bound`
+
+#### Scenario: A Deployment mid-rollout is not ready
+
+- **WHEN** a Deployment whose generation is observed and whose Available condition is `True` reports fewer updated replicas than `spec.replicas`
+- **THEN** its status is `NotReady`
+
+#### Scenario: A Deployment past its progress deadline is not ready
+
+- **WHEN** a Deployment whose replica counters all equal `spec.replicas` carries a Progressing condition with reason `ProgressDeadlineExceeded`
+- **THEN** its status is `NotReady`
+
+#### Scenario: A stalled Deployment is told apart from one rolling out
+
+- **WHEN** `ProgressDeadlineExceeded` is asked about a Deployment whose generation is observed and whose Progressing condition has reason `ProgressDeadlineExceeded`, and about one whose updated replicas still lag with Progressing reason `ReplicaSetUpdated`
+- **THEN** it reports true for the first and false for the second, and `Evaluate` reports `NotReady` for both
+
+#### Scenario: A partitioned StatefulSet is ready at its partition
+
+- **WHEN** a StatefulSet with three replicas, its generation observed and a RollingUpdate partition of 2, reports three ready replicas and one updated replica
+- **THEN** its status is `Ready`
+
+#### Scenario: A pending claim reports its phase
+
+- **WHEN** a PersistentVolumeClaim with `status.phase` `Pending` is evaluated
+- **THEN** its status is the string `Pending`, and that status is not healthy
+
+#### Scenario: A custom resource without a Ready condition counts as applied
+
+- **WHEN** an object of an unlisted kind with no `Ready` condition is evaluated
+- **THEN** its status is `Applied`, and that status is healthy
+
+#### Scenario: Missing and unreadable objects count against the aggregate
+
+- **WHEN** three `Ready` statuses are aggregated with two tracked objects that have no status
+- **THEN** the aggregate is `NotReady` with 3 ready out of 5
+
+#### Scenario: Nothing to aggregate is unknown
+
+- **WHEN** no statuses and no objects without a status are aggregated
+- **THEN** the aggregate is `Unknown` with 0 ready out of 0
+
+#### Scenario: The package performs no cluster I/O
+
+- **WHEN** a non-test file of `opm/k8s/health` imports any package other than the Go standard library and `k8s.io/apimachinery`, such as `k8s.io/client-go` or a library `opm/` package
+- **THEN** `task lint` fails on the depguard rule `k8s-health-imports-only-apimachinery`, so the package can hold no cluster client and takes every object as an argument
+
+### Requirement: The adopt annotation key is fixed in the label vocabulary
+
+`opm/k8s/labels` SHALL declare the adopt annotation key `opmodel.dev/adopt`. It is an annotation a user sets on an existing live object, and its value names the adopting instance by the value of that instance's `module-instance.opmodel.dev/uuid` label. No function in the library SHALL set it on an object, and the package documentation SHALL say that no OPM runtime writes it. Source: 0012:D8 (the implementing change fixes the key), 0012:D8:R6.
+
+#### Scenario: The key is the fixed literal
+
+- **WHEN** a test reads the adopt annotation constant
+- **THEN** it equals `opmodel.dev/adopt`
+
+#### Scenario: No library code sets the adopt annotation
+
+- **WHEN** every non-test Go file under `opm/` is parsed
+- **THEN** no file outside `opm/k8s/labels` spells the literal `opmodel.dev/adopt`
+- **AND** no file outside `opm/k8s/labels` and `opm/k8s/ownership`, which only reads the key, refers to the adopt annotation constant
+
+### Requirement: The ownership verdicts are pure
+
+The library SHALL provide `opm/k8s/ownership` with a per-object delete verdict and a per-object apply verdict, as pure functions of explicit inputs. Each input SHALL name the object by group, kind, namespace and name and SHALL carry the live object as the caller read it, absent when the read found nothing, together with the judging instance's UUID. The package SHALL perform no cluster read or write, read no clock or environment, and log nothing. It SHALL NOT modify the live object it is given. Each reason SHALL be a string equal to the contract literal for it. A frontend reads the live object with its own client. Source: 0012:D4, ADR-008, ADR-011.
+
+#### Scenario: The live object is not modified
+
+- **WHEN** either verdict is computed for a live object
+- **THEN** the object is deeply equal to a copy taken before the call
+
+#### Scenario: The package imports no clock, environment or logger
+
+- **WHEN** the direct imports of `opm/k8s/ownership` are listed
+- **THEN** none of them is `os`, `time`, `log` or `log/slog`
+
+#### Scenario: Reasons are the contract's literals
+
+- **WHEN** a test reads the skip and refusal reason constants
+- **THEN** they are `safety-excluded`, `already-absent`, `not-opm-managed`, `owner-mismatch`, `terminating`, `foreign-object` and `other-instance`
+
+### Requirement: Safety-excluded kinds match on group and kind
+
+The library SHALL report a core-group `Namespace` and an `apiextensions.k8s.io` `CustomResourceDefinition` as safety-excluded, and no other group and kind pair. The test SHALL NOT need a live object. Source: 0012:D1:R3, the 0012 contract's `#safetyExcluded`.
+
+#### Scenario: The two protected kinds are excluded
+
+- **WHEN** the core group with kind `Namespace`, and `apiextensions.k8s.io` with kind `CustomResourceDefinition`, are tested
+- **THEN** both are safety-excluded
+
+#### Scenario: A same-named kind in another group is not excluded
+
+- **WHEN** `example.com` with kind `Namespace`, and `example.com` with kind `CustomResourceDefinition`, are tested
+- **THEN** neither is safety-excluded
+
+### Requirement: The delete verdict skips with a reason or proceeds with the judged object's identity
+
+The delete verdict SHALL decide in this order and stop at the first match: skip as `safety-excluded` when the kind is safety-excluded, whatever the live object; skip as `already-absent` when there is no live object; skip as `not-opm-managed` when the live managed-by label is not an OPM runtime's value; skip as `owner-mismatch` when the live UUID label and the instance's UUID are both non-empty and differ; otherwise proceed. An empty UUID on either side SHALL pass the owner comparison. An object being deleted SHALL NOT be skipped for that reason. A proceed verdict SHALL carry the UID and the resourceVersion of the live object it judged. Its DELETE precondition SHALL name that UID and SHALL NOT name a resourceVersion. A caller MAY add the carried resourceVersion itself. A skip verdict, and a proceed verdict whose judged UID is empty, SHALL yield no precondition at all, never a precondition on an empty UID. A skip verdict SHALL carry a message naming the object and the reason. Source: 0012:D1:R3/R4, 0012:D4:R1.
+
+#### Scenario: A protected kind is skipped without a live read
+
+- **WHEN** the delete verdict is asked for a core Namespace with no live object
+- **THEN** it skips as `safety-excluded`
+
+#### Scenario: A gone object is skipped as already absent
+
+- **WHEN** the delete verdict is asked for a Deployment with no live object
+- **THEN** it skips as `already-absent`
+
+#### Scenario: A foreign object is skipped
+
+- **WHEN** the live Deployment's managed-by label is `helm`
+- **THEN** the verdict skips as `not-opm-managed` and its message names the Deployment
+
+#### Scenario: Another instance's object is skipped
+
+- **WHEN** the live Deployment is OPM-managed and its UUID label differs from the non-empty instance UUID
+- **THEN** the verdict skips as `owner-mismatch`
+
+#### Scenario: An empty UUID on either side passes
+
+- **WHEN** the live Deployment is OPM-managed and either its UUID label or the instance UUID is empty
+- **THEN** the verdict proceeds
+
+#### Scenario: Proceed carries the precondition for the judged object
+
+- **WHEN** the verdict proceeds for a live object with UID `u-1` and resourceVersion `42`
+- **THEN** it carries UID `u-1` and resourceVersion `42`
+- **AND** its DELETE precondition names UID `u-1` and no resourceVersion
+
+#### Scenario: A skip verdict yields no precondition
+
+- **WHEN** the delete verdict skips as `already-absent`
+- **THEN** it yields no DELETE precondition
+
+#### Scenario: A live object without a UID yields no precondition
+
+- **WHEN** the verdict proceeds for a live object that carries no UID
+- **THEN** it yields no DELETE precondition
+
+#### Scenario: An object being deleted proceeds
+
+- **WHEN** the live OPM-managed object of this instance has a deletion timestamp
+- **THEN** the verdict proceeds
+
+### Requirement: The apply verdict refuses terminating, foreign and other-instance objects
+
+The apply verdict SHALL decide in this order and stop at the first match. When there is no live object, it SHALL apply. When the live object has a deletion timestamp, it SHALL refuse as `terminating`, whether or not the object is in the instance's recorded inventory, and nothing SHALL lift that refusal. When the object is in the instance's recorded inventory, it SHALL apply. When the live object's adopt annotation equals the non-empty instance UUID, it SHALL apply. When the live managed-by label is not an OPM runtime's value, it SHALL refuse as `foreign-object`, unless the operator install admission lifts it. When the live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `other-instance`. Otherwise it SHALL apply. An empty instance UUID SHALL never match an adopt annotation, and any non-empty live UUID SHALL then count as another instance's. Source: 0012:D8:R1/R2/R5, 0012:D1:R7, 0012:D4:R2.
+
+#### Scenario: A new object is applied
+
+- **WHEN** the apply verdict is asked for an object with no live object
+- **THEN** it applies
+
+#### Scenario: A terminating object is refused everywhere
+
+- **WHEN** the live object has a deletion timestamp
+- **THEN** the verdict refuses as `terminating` when the object is in the inventory, when it is outside it, when it carries the adopt annotation naming this instance, and when it is admitted
+
+#### Scenario: An inventoried object is not judged for ownership
+
+- **WHEN** the object is in the instance's recorded inventory and its live managed-by label is `helm`
+- **THEN** the verdict applies
+
+#### Scenario: An inventoried object annotated for another instance still applies
+
+- **WHEN** the object is in the instance's recorded inventory, carries this instance's UUID label, and its adopt annotation names a different instance
+- **THEN** the verdict applies
+
+#### Scenario: A foreign object outside the inventory is refused
+
+- **WHEN** the object is outside the inventory and its live managed-by label is missing or is `kustomize`
+- **THEN** the verdict refuses as `foreign-object`
+
+#### Scenario: Another instance's object outside the inventory is refused
+
+- **WHEN** the object is outside the inventory, OPM-managed, and its UUID label differs from the instance UUID
+- **THEN** the verdict refuses as `other-instance`
+
+#### Scenario: An OPM object without a UUID label is applied
+
+- **WHEN** the object is outside the inventory, OPM-managed, and carries no UUID label
+- **THEN** the verdict applies
+
+#### Scenario: An OPM object of this instance outside the inventory is applied
+
+- **WHEN** the object is outside the inventory, OPM-managed, and its UUID label equals the instance UUID
+- **THEN** the verdict applies
+
+#### Scenario: An empty instance UUID fails closed
+
+- **WHEN** the instance UUID is empty and the object outside the inventory is OPM-managed with a non-empty UUID label
+- **THEN** the verdict refuses as `other-instance`
+
+### Requirement: The adopt annotation is the only override and the refusal names it
+
+An adopt annotation whose value equals the instance UUID SHALL lift the `foreign-object` and `other-instance` refusals. The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. The refusal message for `foreign-object` and `other-instance` SHALL name the object, the annotation key `opmodel.dev/adopt` and the instance UUID to set it to, unless the instance UUID is empty. The `other-instance` message SHALL ask the user to remove the object from the instance that owns it before annotating it, since that instance applies the object again for as long as it holds it in its inventory. No message SHALL name any other way past a refusal, such as a command-line flag. No message SHALL carry an enhancement reference. Source: 0012:D8:R2/R3.
+
+#### Scenario: Adoption lifts a foreign refusal
+
+- **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation equals the instance UUID
+- **THEN** the verdict applies
+
+#### Scenario: Adoption lifts an other-instance refusal
+
+- **WHEN** the object outside the inventory carries another instance's UUID label and its adopt annotation equals the instance UUID
+- **THEN** the verdict applies
+
+#### Scenario: An annotation naming another instance lifts nothing
+
+- **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation names a different UUID
+- **THEN** the verdict refuses as `foreign-object`
+- **AND** the message says the annotation names another instance
+
+#### Scenario: Surrounding whitespace in the annotation value is ignored
+
+- **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation is the instance UUID with surrounding whitespace
+- **THEN** the verdict applies
+
+#### Scenario: A blank annotation counts as none
+
+- **WHEN** the object outside the inventory is not OPM-managed and its adopt annotation is empty or only whitespace
+- **THEN** the verdict refuses as `foreign-object`
+- **AND** the message does not say the annotation names another instance
+
+#### Scenario: The other-instance remedy moves the object only after its owner lets go
+
+- **WHEN** the verdict refuses `Deployment/web/api` as `other-instance` for instance UUID `u-9`, the live UUID label being `u-1`
+- **THEN** the message asks to remove it from module instance `u-1` before annotating it `opmodel.dev/adopt=u-9`
+
+#### Scenario: The refusal tells the user how to adopt
+
+- **WHEN** the verdict refuses `Deployment/web/api` as `foreign-object` for instance UUID `u-9`
+- **THEN** the message contains `Deployment/web/api`, `opmodel.dev/adopt` and `u-9`
+- **AND** it contains no `--` flag and no `force`
+
+### Requirement: The operator install admission lifts only a proven object's ownership refusal
+
+Both verdicts SHALL take an admission input that a caller sets only for an object it has proven came from an earlier operator release's install manifest. On apply, admission SHALL lift `foreign-object` only, and only when the live object carries no UUID label or carries the instance UUID. On delete, admission SHALL lift `not-opm-managed` only, only when the live object carries no UUID label at all, and only for an `apps` `Deployment`, a `rbac.authorization.k8s.io` `RoleBinding` or a `rbac.authorization.k8s.io` `ClusterRoleBinding`, the kinds install may delete outside the inventory. The UUID label is the only identity admission compares. Admission SHALL NOT lift `terminating`, `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The library does not check the proof. Source: 0012:D8:R6/R7, 0012:D4:R1.
+
+#### Scenario: A proven earlier-manifest object is admitted on apply
+
+- **WHEN** the operator install asks for the earlier `Namespace/opm-operator-system`, live with managed-by `kustomize` and no UUID label, admitted and outside the inventory
+- **THEN** the verdict applies
+
+#### Scenario: An admitted object carrying another identity is refused
+
+- **WHEN** an admitted object outside the inventory is not OPM-managed but carries a UUID label that differs from the instance UUID
+- **THEN** the apply verdict refuses as `foreign-object`
+
+#### Scenario: Admission never lifts the terminating refusal
+
+- **WHEN** an admitted proven object has a deletion timestamp
+- **THEN** the apply verdict refuses as `terminating`
+
+#### Scenario: A proven earlier Deployment may be deleted
+
+- **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize` and no UUID label
+- **THEN** it proceeds and carries the Deployment's UID
+
+#### Scenario: An admitted object carrying another identity is not deleted
+
+- **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize` and a UUID label that differs from the non-empty instance UUID
+- **THEN** it skips as `not-opm-managed`
+
+#### Scenario: An admitted object carrying this instance's UUID is not deleted
+
+- **WHEN** the delete verdict is asked for an admitted live ClusterRoleBinding with no OPM managed-by label and a UUID label equal to the instance UUID
+- **THEN** it skips as `not-opm-managed`
+
+#### Scenario: Admission deletes only the install's deletable kinds
+
+- **WHEN** the delete verdict is asked for an admitted live ConfigMap, or an admitted live custom resource, with managed-by `kustomize` and no UUID label
+- **THEN** it skips as `not-opm-managed`
+
+#### Scenario: Admission never deletes a protected kind
+
+- **WHEN** the delete verdict is asked for an admitted CustomResourceDefinition of `apiextensions.k8s.io`
+- **THEN** it skips as `safety-excluded`
+
+### Requirement: Inventory entries are plain values built from objects
+
+The library SHALL provide, in `opm/k8s/inventory`, an inventory entry with exactly the fields group, kind, namespace, name, version and component, and a constructor that builds one from a `*unstructured.Unstructured`. The constructor SHALL read group, version and kind, namespace and name from the object, and the component from its `component.opmodel.dev/name` label, which gives an empty component when the label is absent. The entry type SHALL carry no struct tags, so that no serialisation the library chooses can become the frontends' wire shape. Each frontend maps entries to its own CRD or record fields. Source: 0012:D1, 0012:D7.
+
+#### Scenario: An entry reads the object's identity and component
+
+- **WHEN** an entry is built from a `Deployment` in group `apps`, version `v1`, namespace `team`, named `web` and labelled `component.opmodel.dev/name: web`
+- **THEN** the entry's group is `apps`, kind `Deployment`, namespace `team`, name `web`, version `v1` and component `web`
+
+#### Scenario: A core-group, cluster-scoped object without the label
+
+- **WHEN** an entry is built from a `v1` `Namespace` named `team` with no `component.opmodel.dev/name` label
+- **THEN** the entry's group, namespace and component are empty, its kind is `Namespace`, its name `team` and its version `v1`
+
+#### Scenario: The entry type carries no tags
+
+- **WHEN** a test reflects over the entry type's fields
+- **THEN** there are exactly six string fields and none carries a struct tag
+
+### Requirement: The stale set is component-blind
+
+The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. It SHALL return every entry of the previous inventory for which no entry of the current inventory has the same group, kind, namespace and name, whatever the component and the version of either entry. The result SHALL keep the previous inventory's order, SHALL be a non-nil empty list when nothing is stale, and SHALL leave both inputs unchanged. The same identity comparison SHALL be exported on its own. No component-aware comparison and no separate component-rename filter SHALL exist in the package. Source: 0012:D7:R1, 0012:D1:R1.
+
+#### Scenario: A component rename is not stale
+
+- **WHEN** the previous inventory holds `apps/Deployment team/web` with component `api` and the current inventory holds the same group, kind, namespace and name with component `web`
+- **THEN** the stale set is empty
+
+#### Scenario: An API version change is not stale
+
+- **WHEN** the previous inventory holds an `autoscaling` `HorizontalPodAutoscaler` at version `v2beta2` and the current inventory holds the same object at version `v2`
+- **THEN** the stale set is empty
+
+#### Scenario: Removed objects are stale in previous order
+
+- **WHEN** the previous inventory holds objects A, B, C and D in that order and the current inventory holds only B
+- **THEN** the stale set is A, C, D in that order
+
+#### Scenario: The package exports no other comparison
+
+- **WHEN** a test lists the exported identifiers of `opm/k8s/inventory`
+- **THEN** they are exactly `Entry`, `NewEntry`, `SameObject`, `StaleSet`, `Digest` and `RenderDigest`
+
+#### Scenario: Nothing stale is an empty list, not nil
+
+- **WHEN** the previous inventory is empty, or every previous object is in the current inventory
+- **THEN** the stale set is a non-nil list of length zero
+
+### Requirement: The inventory digest hashes a canonical field encoding
+
+The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the form `sha256:` followed by 64 lowercase hex digits. It SHALL hash the tag line `opm-inventory-v1` with a newline, followed by every entry in order of group, kind, namespace, name, component and version (byte-wise). Each entry SHALL be written as its group, kind, namespace, name, version and component, in that order, each preceded by its byte length as an 8-byte big-endian unsigned integer. The digest SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests. The empty inventory SHALL hash the tag line alone. The function SHALL leave its input unchanged. A change to this encoding SHALL use a new tag line. Source: 0012:D7:R2/R3, 0012:D1:R1.
+
+#### Scenario: The encoding is the one defined
+
+- **WHEN** a test writes out by hand the tag line and the length-prefixed fields of the fixture entries (a core-group cluster-scoped entry with empty group and namespace, a namespaced `apps` entry, an entry with an empty component, two `apps` entries whose namespace order and name order disagree, two entries of one kind and namespace whose name order and component order disagree, two entries with one identity whose component order and version order disagree, and two entries that differ only in version), sorted as defined
+- **THEN** the digest of those entries, given in another order, equals `sha256:` and the hex SHA-256 of the hand-written bytes, and equals the committed golden value
+
+#### Scenario: Input order does not matter
+
+- **WHEN** the same entries are digested in two different orders
+- **THEN** the two digests are equal
+
+#### Scenario: Every field counts
+
+- **WHEN** one entry of an inventory changes in exactly one of its six fields, or an entry is added, removed or repeated, or a byte moves from one field to the next (group `ab` and kind `` against group `a` and kind `b`)
+- **THEN** the digest differs from the original inventory's
+
+#### Scenario: Empty and nil inventories agree
+
+- **WHEN** an empty inventory and a nil inventory are digested
+- **THEN** both digests equal `sha256:` and the hex SHA-256 of `opm-inventory-v1` followed by a newline
+
+### Requirement: The render digest ignores only the managed-by label value
+
+The library SHALL provide, in `opm/k8s/inventory`, one render digest over the objects that `opm/k8s/object`'s export returns, of the form `sha256:` followed by 64 lowercase hex digits. It SHALL read only each object's exported JSON, never a CUE value, so a caller may release its build before digesting. For each object it SHALL decode the JSON keeping every number's literal, replace the value of the label `app.kubernetes.io/managed-by` with the empty string when `metadata.labels` holds that key, and encode the result as JSON with object keys sorted and no HTML escaping, ending with a newline. Strings SHALL be encoded as Go's `encoding/json` Encoder writes them with HTML escaping off: `"` and `\` escaped with a backslash; U+0008, U+000C, U+000A, U+000D and U+0009 as the short escapes `\b`, `\f`, `\n`, `\r` and `\t`; every other character from U+0000 to U+001F, and U+2028 and U+2029, as a `\u` escape with four lowercase hex digits; every other character, including U+007F and `<`, `>` and `&`, written as is; and invalid UTF-8 replaced by U+FFFD. It SHALL hash the tag line `opm-render-v1` with a newline, followed by the encoded objects in order of group (from `apiVersion`), kind, namespace and name, with the encoded bytes as the final tie-break. Two exported object sets that differ only in the value of the managed-by label SHALL produce the same digest. The cli (`opm-cli`) and the operator (`opm-controller`) therefore compute the same digest for one render as long as the catalogs pass `#runtimeName` only through `#context.labels`, which is the case the kernel test checks on the library's render fixture and on the shipped catalog. Two object sets that differ in any other label, in whether the managed-by label is present, or in any other content of any object SHALL produce different digests. The empty set SHALL hash the tag line alone. An object whose JSON does not decode to a single JSON object SHALL fail with an error naming its position. The function SHALL leave its input unchanged. A change to this encoding SHALL use a new tag line. Source: 0012:D6:R2/R3, 0012:D1:R1.
+
+#### Scenario: The two runtimes digest one render equally
+
+- **WHEN** the kernel renders one instance with runtime name `opm-cli` and again with `opm-controller`, for the library's render fixture and for the shipped-catalog parity instance
+- **THEN** each rendered object's managed-by label value is that render's runtime name, and the two renders are equal object by object once that one value is blanked
+- **AND** two exported object sets that differ only in the managed-by label value have equal render digests
+
+#### Scenario: Any other label counts
+
+- **WHEN** two exported object sets differ only in the value of one label other than `app.kubernetes.io/managed-by`
+- **THEN** their render digests differ
+
+#### Scenario: Adding or removing the managed-by label counts
+
+- **WHEN** one object set carries the managed-by label on an object and the other does not, and nothing else differs
+- **THEN** their render digests differ
+
+#### Scenario: Large integers are not rounded
+
+- **WHEN** two exported object sets differ only in one integer field, `9007199254740993` in one and `9007199254740992` in the other
+- **THEN** their render digests differ
+
+#### Scenario: The encoding is the one defined
+
+- **WHEN** a test writes out by hand the tag line and the sorted-key JSON of a Deployment carrying a managed-by label and an annotation with U+2028, a newline, U+0001 and U+007F, a core-group Service, a cluster-scoped Namespace, a core-group ConfigMap in a namespace that sorts after the Services' namespaces, two Services whose namespace order and name order disagree, and two Services in one namespace whose name order and encoded-bytes order disagree, sorted as defined and with the managed-by value blanked
+- **THEN** the render digest of those objects, given in another order, equals `sha256:` and the hex SHA-256 of the hand-written bytes, and equals the committed golden value
+
+#### Scenario: The input is not changed
+
+- **WHEN** a list of exported objects is digested
+- **THEN** each object's JSON bytes and decoded object, including its managed-by label value, are unchanged afterwards
+
+#### Scenario: A malformed object fails with its position
+
+- **WHEN** the second object in the list carries JSON that is a list, that is `null`, or that is not valid JSON
+- **THEN** the render digest fails with an error naming position 1

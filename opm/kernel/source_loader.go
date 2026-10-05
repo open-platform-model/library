@@ -9,6 +9,7 @@ import (
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/cue/parser"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -107,7 +108,9 @@ func compileSource(ctx *cue.Context, s Source, env []string) (cue.Value, error) 
 			return cue.Value{}, fmt.Errorf("no CUE instances found for %s", s.Origin)
 		}
 		if instances[0].Err != nil {
-			return cue.Value{}, instances[0].Err
+			// A values file may import a registry module, so its load
+			// error may be a fetch failure; the build error below never is.
+			return cue.Value{}, oerrors.Classify(instances[0].Err)
 		}
 		v = ctx.BuildInstance(instances[0])
 	} else {

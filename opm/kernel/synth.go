@@ -107,7 +107,7 @@ type InstanceInput struct {
 // [oerrors.ErrMissingName], [oerrors.ErrMissingNamespace]); a module with no
 // staged source wraps [oerrors.ErrMissingSource]; a module acquired from a
 // subdirectory of its CUE module fails stating the root-package requirement.
-func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*module.Instance, error) {
+func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*module.Instance, error) {
 	if in.Module == nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", oerrors.ErrMissingModule)
 	}
@@ -128,10 +128,16 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	if in.Module.Source.Pkg != "" {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: module was acquired from the subdirectory %q of its CUE module; a synthesizable module is its module's root package, because the synthesized instance imports it by module path", in.Module.Source.Pkg)
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	coreVersion, err := k.resolveCoreVersion()
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	cueCtx := cuecontext.New()
@@ -139,6 +145,9 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	compiled, merged, err := mergeSources(cueCtx, in.Values, env)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	input := synth.Input{
@@ -151,6 +160,9 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 		Env:         env,
 	}
 	spec, src, err := synth.Instance(cueCtx, coreVersion, input)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
 	if err != nil {
 		if merged.Exists() {
 			// A values conflict a component consumes fails the build itself,
@@ -179,6 +191,9 @@ func (k *Kernel) SynthesizeInstance(_ context.Context, in InstanceInput) (*modul
 	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
 	if _, vErr := validateCompiled(configSchema, compiled, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	// synth.Instance bakes the merged values into the single build (as
