@@ -207,8 +207,8 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 7. Archive (at PR time, on the supervisor's word)
 
-- [ ] 7.1 `openspec archive add-kubernetes-object-packages --yes` on this branch, so the
+- [x] 7.1 `openspec archive add-kubernetes-object-packages --yes` on this branch, so the
       archive rides the implementing PR. Verify: the three main specs carry the changes and
       `openspec validate --all --strict` passes. `enhancement.yaml` claims no decision, so the
       delivery log runs with an empty claim, or the supervisor skips it.
-- [ ] 7.2 Commit `chore(openspec): archive add-kubernetes-object-packages`.
+- [x] 7.2 Commit `chore(openspec): archive add-kubernetes-object-packages`.

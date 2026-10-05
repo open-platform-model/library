@@ -7,7 +7,7 @@ The opt-in check between render and apply that finds rendered objects sharing on
 
 ### Requirement: Duplicate rendered identities are detected with their producers
 
-The library SHALL provide, under `opm/helper/`, a function that scans a render's compiled objects and returns every apply identity that two or more objects share. Two objects SHALL share an apply identity when they carry the same API group (the part of `apiVersion` before the first `/`, empty for the core group and for an object with no `apiVersion`), kind, namespace and name, namespace empty when the object carries none; the version part of `apiVersion` SHALL NOT distinguish two objects, because Kubernetes addresses one object under every version of its group. Each returned row SHALL carry the identity of the first object rendered with it (its `apiVersion` verbatim, kind, namespace and name) and every producer of it, a producer being the component and the transformer the kernel recorded on the object together with that object's own `apiVersion`, in the render's pair order. Rows SHALL be returned in the order the first object of each identity was rendered, so the result is deterministic for a given render. A render with no shared identity SHALL return no rows. The exported identity type SHALL keep its fields (apiVersion, kind, namespace, name).
+The library SHALL provide, in the Kubernetes tier package `opm/k8s/object`, a function that scans a render's compiled objects and returns every apply identity that two or more objects share. Two objects SHALL share an apply identity when they carry the same API group (the part of `apiVersion` before the first `/`, empty for the core group and for an object with no `apiVersion`), kind, namespace and name, namespace empty when the object carries none; the version part of `apiVersion` SHALL NOT distinguish two objects, because Kubernetes addresses one object under every version of its group. Each returned row SHALL carry the identity of the first object rendered with it (its `apiVersion` verbatim, kind, namespace and name) and every producer of it, a producer being the component and the transformer the kernel recorded on the object together with that object's own `apiVersion`, in the render's pair order. Rows SHALL be returned in the order the first object of each identity was rendered, so the result is deterministic for a given render. A render with no shared identity SHALL return no rows. The exported identity type SHALL keep its fields (apiVersion, kind, namespace, name). Source: 0015:D15, 0015:D12; the tier placement is ADR-011 item 9.
 
 #### Scenario: Two components render one cluster-scoped object
 
@@ -41,7 +41,7 @@ The library SHALL provide, under `opm/helper/`, a function that scans a render's
 
 ### Requirement: Objects without an apply identity are skipped
 
-A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treated as a Kubernetes object: it SHALL be skipped by the scan and SHALL NOT produce a row or an error. The helper SHALL NOT validate the objects in any other way.
+A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treated as a Kubernetes object: it SHALL be skipped by the scan and SHALL NOT produce a row or an error. The check SHALL NOT validate the objects in any other way.
 
 #### Scenario: A value without a name is ignored
 
@@ -50,7 +50,7 @@ A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treat
 
 ### Requirement: The refusal is worded once
 
-The helper SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording. When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each producer's `apiVersion` beside it, worded as `<no apiVersion>` for a producer whose object carries none; when they do, the line SHALL carry no per-producer version. The kernel SHALL NOT return this error: it is raised by the runtime that calls the helper, before apply.
+`opm/k8s/object` SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording. When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each producer's `apiVersion` beside it, worded as `<no apiVersion>` for a producer whose object carries none; when they do, the line SHALL carry no per-producer version. The kernel SHALL NOT return this error: it is raised by the runtime that calls the check, before apply.
 
 #### Scenario: The message names both carrying components
 
@@ -74,9 +74,23 @@ The helper SHALL provide an error type aggregating duplicate rows, whose message
 
 ### Requirement: The kernel stays neutral
 
-`opm/kernel` SHALL NOT import the helper, `Render` SHALL NOT refuse a duplicate identity, and `Compiled` SHALL gain no identity fields; the helper reads the identity off `Compiled.Value`. A frontend that applies to something other than Kubernetes MAY skip the helper entirely.
+`opm/kernel` SHALL NOT import the check, `Render` SHALL NOT refuse a duplicate identity, and `Compiled` SHALL gain no identity fields; the check reads the identity off `Compiled.Value`. A frontend that applies to something other than Kubernetes MAY skip the check entirely.
 
 #### Scenario: A render with duplicates still succeeds in the kernel
 
 - **WHEN** a render produces two objects with one identity
-- **THEN** `Render` returns both in `Compiled` with no error, and only a caller of the helper learns of the collision
+- **THEN** `Render` returns both in `Compiled` with no error, and only a caller of the check learns of the collision
+
+### Requirement: The helper copy is deprecated and kept until both frontends migrate
+
+`opm/helper/objectset`, the check's earlier home, SHALL stay in the library with its exported names and behaviour unchanged. Its rows and error message SHALL be identical to those of `opm/k8s/object` for the same render. Its package documentation and each exported symbol SHALL carry a `Deprecated:` notice that names the replacement in `opm/k8s/object`. It SHALL be removed only by a later change, merged after both the cli and the operator have stopped importing it. Source: the library rule deprecate, then remove: a library change never removes API that a frontend imports at `main` (AGENTS.md, Consumer build paragraph).
+
+#### Scenario: Both homes agree on a render
+
+- **WHEN** the same compiled objects are scanned by `opm/helper/objectset` and by `opm/k8s/object`
+- **THEN** both return rows with the same identities and producers in the same order, and both errors carry the same message
+
+#### Scenario: The deprecated home says where to go
+
+- **WHEN** a developer reads the documentation of `opm/helper/objectset` or of its `Duplicates`
+- **THEN** it is marked Deprecated and names `opm/k8s/object` as the replacement
