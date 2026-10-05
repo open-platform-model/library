@@ -1,6 +1,8 @@
 package catalog_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"cuelang.org/go/cue/cuecontext"
@@ -8,13 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/catalog"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // newCatalog compiles a catalog-shaped value from CUE text and wraps it. The
-// text is not built against core: Provides reads the artifact by path, so the
-// unit cases here pin the fold's behaviour — ordering, deduplication, the
-// empty set, the skipped fulfilments — without paying a registry resolution
-// per case. That the paths agree with the shape core actually publishes is
+// text is not built against core, so it carries no `provides` unless a case
+// authors one, and the value carries no Source: Provides then runs the
+// deprecated fold, and the first table here pins the fold's behaviour —
+// ordering, deduplication, the empty set, the skipped fulfilments — without
+// paying a registry resolution per case. That the paths agree with the shape core actually publishes is
 // pinned end to end by the acquisition tests in opm/kernel, which build real
 // #Catalog artifacts against core.
 func newCatalog(t *testing.T, body string) *catalog.Catalog {
@@ -170,4 +174,118 @@ func TestCatalog_Provides_NilReceiver(t *testing.T) {
 	got, err := c.Provides()
 	require.Error(t, err)
 	assert.Nil(t, got)
+}
+
+// catalog-acquisition spec, "Core's provider set is read when the catalog
+// carries it" and "An unreadable provider set is reported": a value carrying
+// a `provides` field and no Source is answered from the field, normalised,
+// and a field that is not a concrete list of strings is an error naming it.
+func TestCatalog_Provides_DecodesCoreField(t *testing.T) {
+	// The transformers provide backupTrait; the authored field disagrees, so
+	// an answer of restoreTrait proves the decode ran and the fold did not.
+	transformers := `#transformers: "` + scheduleImpl + `": requiredTraits: "` + backupTrait + `": fulfilment: "provider"
+`
+	tests := []struct {
+		name     string
+		provides string
+		want     []string
+	}{
+		{name: "a present field wins over disagreeing transformers", provides: `["` + restoreTrait + `"]`, want: []string{restoreTrait}},
+		{name: "an unsorted, duplicated field is normalised", provides: `["` + restoreTrait + `", "` + backupTrait + `", "` + restoreTrait + `"]`, want: []string{backupTrait, restoreTrait}},
+		{name: "an empty field is a non-nil empty set", provides: `[]`, want: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCatalog(t, catalogBody(transformers+"provides: "+tt.provides+"\n"))
+			got, err := c.Provides()
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	for _, tt := range []struct{ name, provides string }{
+		{name: "a non-concrete element is reported", provides: `[string]`},
+		{name: "a field that is not a list is reported", provides: `"` + backupTrait + `"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCatalog(t, catalogBody(transformers+"provides: "+tt.provides+"\n"))
+			got, err := c.Provides()
+			require.Error(t, err)
+			assert.Nil(t, got, "no partial set is returned")
+			assert.Contains(t, err.Error(), "provides")
+		})
+	}
+}
+
+// providerModFile is a catalog module file committing to core at version,
+// or to no core at all when version is empty.
+func providerModFile(version string) string {
+	f := "module: \"test.example/catalogs/provider@v1\"\nlanguage: version: \"v0.17.0\"\n"
+	if version != "" {
+		f += "deps: \"opmodel.dev/core@v2\": v: \"" + version + "\"\n"
+	}
+	return f
+}
+
+// withModFile wraps a catalog value in an on-disk source tree whose committed
+// module file is modFile, the way an acquire verb stamps one.
+func withModFile(t *testing.T, body, modFile string) *catalog.Catalog {
+	t.Helper()
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cue.mod", "module.cue"), []byte(modFile), 0o644))
+	c := newCatalog(t, body)
+	c.Source = &catalog.Source{Root: root}
+	return c
+}
+
+// catalog-acquisition spec, "A catalog built against an older core falls
+// back": when the catalog carries a Source, its committed core pin decides
+// the path. An older core does not derive `provides`, so one authored beside
+// an embedded #Catalog is not read; from schema.ProvidesSince on the field
+// is. Offline: the values are literals, only the module file is on disk.
+func TestCatalog_Provides_CorePinDecidesThePath(t *testing.T) {
+	// The transformers provide backupTrait; the authored field says
+	// restoreTrait, so the answer names the path that ran.
+	body := catalogBody(`#transformers: "` + scheduleImpl + `": requiredTraits: "` + backupTrait + `": fulfilment: "provider"
+provides: ["` + restoreTrait + `"]
+`)
+
+	// v2.0.0-beta.2 is the release before ProvidesSince; the literal is the
+	// point (.cascade-frozen).
+	const olderCore = "v2.0.0-beta.2"
+
+	tests := []struct {
+		name    string
+		modFile string
+		want    []string
+	}{
+		{name: "an older core pin runs the fallback even over an authored field", modFile: providerModFile(olderCore), want: []string{backupTrait}},
+		{name: "a core pin at ProvidesSince decodes the field", modFile: providerModFile("v" + schema.ProvidesSince), want: []string{restoreTrait}},
+		{name: "a module file with no core requirement decides by presence", modFile: providerModFile(""), want: []string{restoreTrait}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := withModFile(t, body, tt.modFile)
+			got, err := c.Provides()
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	t.Run("a core pin that is not a version is reported", func(t *testing.T) {
+		c := withModFile(t, body, providerModFile("not-a-version"))
+		got, err := c.Provides()
+		require.Error(t, err)
+		assert.Nil(t, got, "no partial set is returned")
+	})
+
+	t.Run("a committed module file that cannot be read is reported", func(t *testing.T) {
+		c := withModFile(t, body, "module: [")
+		got, err := c.Provides()
+		require.Error(t, err)
+		assert.Nil(t, got, "no partial set is returned")
+		assert.Contains(t, err.Error(), "core pin")
+	})
 }

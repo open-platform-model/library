@@ -153,7 +153,7 @@ const ProvidesSince = "2.0.0-beta.3"
   - the catalog authors nothing extra. The acquired package has no `provides`, and `Provides()` returns the expected FQNs and equals `ProvidesFold`;
   - the catalog authors a bogus `provides` beside its embedded `#Catalog`. The acquired package carries it, and `Provides()` still returns the fold's answer, not the authored list.
 
-  Core `v2.0.0-beta.2` resolves from the shared workspace cache that the worktree's `.cue-cache` copy carries.
+  Core `v2.0.0-beta.2` resolves from GHCR, or from the user's CUE module cache when it already holds it; Go tests do not read the worktree's `.cue-cache`.
 - **Gating.** The parity and old-catalog tests resolve core from GHCR (beta.3 and beta.2). They skip under `-short` and skip when GHCR is unreachable, the way the kernel's registry-backed tests do (`testing.Short`, and the `skipUnlessRegistry` probe with its `OPM_FLOW_TEST_FORCE=1` override). The probe is copied into the catalog test file, because a test helper in `opm/kernel` is not importable.
 
   The literal is deliberate, so the file gets a `.cascade-frozen` entry for `opmodel.dev/core@v2` with that reason. Otherwise a later cascade run would warn about the literal or rewrite it.
