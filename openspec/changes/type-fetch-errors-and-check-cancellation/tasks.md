@@ -46,10 +46,10 @@ the files it names with `git add <file>`.
 
 ## 5. Full suite, consumer builds and api diff
 
-- [ ] 5.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
-- [ ] 5.2 Run the consumer build against a fresh clone of cli `main` and of opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. Record the consumer commits in design.md "Verification". Then run `task api:diff`: it must list no incompatible change charged to this branch, and the new `opm/errors` symbols appear as compatible additions.
-- [ ] 5.3 In design.md "Verification", list the cli sites and the kind each moves onto (design D2), so the cli change starts from it. Read every call of the five verbs in cli and opm-operator `main`, confirm each passes the caller's live context, and record the call sites.
-- [ ] 5.4 `task check` green, then commit `chore(openspec): record type-fetch-errors-and-check-cancellation verification`.
+- [x] 5.1 Run the full non-short suite with the network tests forced: `OPM_FLOW_TEST_FORCE=1 go test -race ./opm/...`. `TestParity_*`, `TestRender_InventoryParity` and the flow test must run, not skip. Record the result in design.md "Verification".
+- [x] 5.2 Run the consumer build against a fresh clone of cli `main` and of opm-operator `main` (`GOTOOLCHAIN=local bash .tasks/consumer-build.sh <clone> . <scratch work dir>`). Both must build and vet. Record the consumer commits in design.md "Verification". Then run `task api:diff`: it must list no incompatible change charged to this branch, and the new `opm/errors` symbols appear as compatible additions.
+- [x] 5.3 In design.md "Verification", list the cli sites and the kind each moves onto (design D2), so the cli change starts from it. Read every call of the five verbs in cli and opm-operator `main`, confirm each passes the caller's live context, and record the call sites.
+- [x] 5.4 `task check` green, then commit `chore(openspec): record type-fetch-errors-and-check-cancellation verification`.
 
 ## 6. Verify and archive
 

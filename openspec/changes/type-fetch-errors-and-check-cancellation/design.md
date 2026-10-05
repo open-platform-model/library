@@ -388,4 +388,47 @@ the forms the text fallback already matches; the cli's own tidy tests stay their
 
 ## Verification
 
-To be filled in by section 5.
+Recorded on 2026-10-05 against `origin/main` `ca7c56b`.
+
+- Full suite (task 5.1): `OPM_FLOW_TEST_FORCE=1 go test -race -count=1 ./opm/...` passes in every
+  package. `TestParity_ShippedCatalog`, `TestParity_ShippedCatalogDiscriminated`,
+  `TestParity_Probes`, `TestRender_InventoryParity`, `TestFlow_WebApp_OnOpmPlatform` and both
+  `TestFlow_ImportedModule_*` ran and passed; no test skipped.
+- Consumer builds (task 5.2): `GOTOOLCHAIN=local bash .tasks/consumer-build.sh` builds and vets
+  fresh clones of cli `main` at `bd4d1a7` and opm-operator `main` at `53ccaab` against this tree.
+- `task api:diff` against `v1.0.0-beta.4`: no incompatible change; the only listed line is the
+  allowed core-pin value change the base already carries. The new `opm/errors` symbols are
+  additions, which the check does not list.
+- `task check` is green after every section.
+
+**The cli sites and the kind each moves onto** (D2), for the cli change that adopts `Classify` on
+the first library release carrying this one:
+
+| cli site | Moves onto |
+| --- | --- |
+| `internal/cuemod/connectivity.go` `IsConnectivityError` (after `Tidy`) | `Classify(err)`, then `Kind == FetchUnreachable` (or that, or `errors.Is(err, context.Canceled)`, to keep cancellation counting as connectivity) |
+| `internal/publish/check.go` after `reg.Fetch` | `Kind == FetchNotFound` gives `ErrNotPublished`, anything else connectivity (a 403 is `FetchNotFound`, as the text probe reads it today) |
+| `internal/publish/compat.go` after `load.Instances` | `Kind == FetchNotFound` means absent, anything else connectivity |
+| `internal/config/platform.go` hint probe (optional, outside the owner's three) | `Kind == FetchNotFound`; `cannot expand module graph` around a malformed dependency stays unclassified |
+
+The tidy forms are pinned only by the cli's own `TestIsConnectivityError_UnreachableRegistry` and
+`TestIsConnectivityError_RegistryAnswered`, which stay (D3).
+
+**Callers of the five verbs** (task 5.3). Every call passes the caller's own context parameter:
+
+- cli: `internal/cmd/module/eval.go:74` (`runModuleEval`; a nil ctx is replaced by
+  `context.Background()`), `internal/cmdutil/instance_arg.go:105`, `internal/cmdutil/path_guard.go:55`,
+  `internal/config/platform.go:75`, `internal/publish/kernel_gate.go:31`,
+  `internal/scaffold/repair.go:249`, `internal/scaffold/scaffold.go:283`,
+  `internal/workflow/render/module.go:69` and `:182`, `internal/workflow/render/render.go:73`,
+  `internal/workflow/render/env.go:61`, and the integration programs
+  `tests/integration/platform-build/main.go:124` and `tests/integration/render-parity/main.go:135`
+  and `:151`.
+- opm-operator: `internal/controller/platform_controller.go:259` (`Reconcile`),
+  `internal/render/kernel_module_renderer.go:176`, `internal/render/kernel_package_renderer.go:106`.
+
+One behaviour to note for the cli: `cmdutil.ModulePackageError` (`path_guard.go:55`) acquires the
+directory as a module after an instance acquire failed with `ErrWrongKind`, to word the refusal.
+If the command's context is already cancelled, that acquire now returns `context.Canceled` at once,
+so the function returns nil and the caller reports the instance acquire's own error. The command
+was being cancelled anyway.
