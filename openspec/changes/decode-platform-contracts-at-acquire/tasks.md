@@ -51,6 +51,6 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 4. Verify and archive
 
-- [ ] 4.1 Run `openspec verify` for `decode-platform-contracts-at-acquire` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
+- [x] 4.1 Run `openspec verify` for `decode-platform-contracts-at-acquire` (the repo's openspec-verify-change skill). Verify: no CRITICAL finding.
 - [ ] 4.2 At PR time, not in the implement stage: run `openspec archive decode-platform-contracts-at-acquire --yes`, then check that `openspec validate --specs --strict` passes and that `platform-artifact` carries "A platform records its core floor and contract inventory at construction".
 - [ ] 4.3 Run the gates green, then commit `chore(openspec): archive decode-platform-contracts-at-acquire` (the archive rides the implementing PR).

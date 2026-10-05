@@ -73,7 +73,10 @@ func acquireOlderCorePlatform(t *testing.T, k *kernel.Kernel) *platform.Platform
 // Render and Contracts() refuse the same unnamed older-core platform with
 // the same message: both pass the raw metadata name (empty) and the error
 // words it as <unnamed>, whether no metadata was decoded or the name is
-// empty. The re-pin target is the floor the kernel enforces.
+// empty. The re-pin target is the floor the kernel enforces. The struct
+// literal is also the pin for platform-artifact "A hand-built platform keeps
+// its results": it decodes Package on its first call, and Render refuses it
+// with the error its CoreFloor returns.
 func TestRender_UnnamedOlderCorePlatformSameMessageAsContracts(t *testing.T) {
 	k := newRenderKernel(t)
 	acquired := acquireOlderCorePlatform(t, k)
@@ -95,6 +98,7 @@ func TestRender_UnnamedOlderCorePlatformSameMessageAsContracts(t *testing.T) {
 			require.True(t, errors.As(contractsErr, &fromContracts), "got: %v", contractsErr)
 
 			assert.Equal(t, *fromContracts, *fromRender)
+			assert.Equal(t, plat.CoreFloor(), errors.Unwrap(renderErr), "Render refuses with the error CoreFloor returns")
 			assert.Empty(t, fromRender.Platform)
 			assert.Equal(t, fromContracts.Error(), fromRender.Error())
 			assert.Equal(t,
