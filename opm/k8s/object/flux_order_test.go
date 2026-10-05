@@ -14,8 +14,10 @@ import (
 // fluxFirst and fluxLast are ReconcileOrder.First and .Last from
 // github.com/fluxcd/pkg/ssa v0.77.0 sort.go, the version the operator pins.
 // They are literals: Flux is the operator's engine and depguard keeps it out
-// of the library. A Flux bump in the operator updates them, and the guard
-// below then shows any pair the new order contradicts.
+// of the library. Nothing here follows the operator's Flux pin: a planned
+// opm-operator test, comparing Flux's own staged order with object.Weight
+// through the Flux module itself, is what catches a Flux bump that reorders
+// kinds. Update these literals when that test reports a new order.
 var (
 	fluxFirst = []string{
 		"CustomResourceDefinition",
@@ -150,7 +152,9 @@ const (
 // fluxUniverse is every GVK the guard compares: the library's GVK table;
 // every kind of its kind table and of Flux's ReconcileOrder in its canonical
 // group; a same-named copy of each of those kinds in groupBefore and
-// groupAfter; a custom kind in both groups; and a custom class kind.
+// groupAfter; the v1beta1 CustomResourceDefinition and ClusterRole, so the
+// definition stage is guarded beyond its canonical versions; a custom kind
+// in both groups; and a custom class kind.
 func fluxUniverse() []schema.GroupVersionKind {
 	var out []schema.GroupVersionKind
 	for gvk := range gvkWeights {
@@ -172,6 +176,8 @@ func fluxUniverse() []schema.GroupVersionKind {
 		)
 	}
 	out = append(out,
+		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "ClusterRole"},
 		schema.GroupVersionKind{Group: groupBefore, Version: "v1", Kind: "Widget"},
 		schema.GroupVersionKind{Group: groupAfter, Version: "v1", Kind: "Widget"},
 		schema.GroupVersionKind{Group: groupBefore, Version: "v1", Kind: "WidgetClass"},
@@ -204,8 +210,9 @@ func contradictions(weight func(schema.GroupVersionKind) int) []string {
 // TestWeightNeverContradictsFlux is the guard of kubernetes-tier "The weight
 // table never contradicts Flux's staged apply order": the operator hands the
 // whole set to Flux's ApplyAllStaged, which re-sorts it, so Flux may refine
-// the library's order and never contradict it (0012:D5:R1). A table edit or a
-// Flux bump that reorders a pair fails here, naming the pair.
+// the library's order and never contradict it (0012:D5:R1). A table edit, or
+// a change to the literals above, that reorders a pair fails here, naming
+// the pair.
 func TestWeightNeverContradictsFlux(t *testing.T) {
 	assert.Empty(t, contradictions(Weight))
 }
