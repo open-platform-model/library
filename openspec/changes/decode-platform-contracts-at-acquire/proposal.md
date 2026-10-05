@@ -46,8 +46,8 @@ The owner decided this in the beta.1 kernel checklist walkthrough (h4):
 - Docs that say the inventory is "on demand" and "never at construction", or that `Render` reads
   `Package`, are corrected: the `Platform`, `Contracts`, `ContractInventory` and package docs, the
   `opm/schema` path comments, the `opm/catalog` comments that cite `Platform.Contracts` as their
-  precedent, the `opm/kernel` package doc and the `Render` doc, `AGENTS.md`, and a dated amendment
-  line in ADR-007.
+  precedent, the `opm/kernel` package doc and the `Render` doc, and a dated amendment line in ADR-007.
+  AGENTS.md stays as it is: its lines remain true, and the `Platform` godoc is the contract's home.
 
 Not in this change:
 
@@ -81,7 +81,8 @@ None.
 - Packages: `opm/platform` (`platform.go`, `contracts.go`, `doc.go` and tests), `opm/kernel`
   (`render.go`, `doc.go`, `render_core_floor_test.go`, and comments in `render_collision_test.go`),
   `opm/schema` (`paths.go` comments), `opm/catalog` (`catalog.go` and `provides.go` comments).
-  Also `adr/007-shares-nothing-verbs.md` and `AGENTS.md`.
+  Also `adr/007-shares-nothing-verbs.md`. `Taskfile.yml` moves `opm/platform` under the race
+  detector in `task test`.
 - Public surface: additive. The new method is `(*Platform).CoreFloor() error`. `Platform` gains
   unexported fields, including a `sync.Once`, so `go vet`'s copylocks check now flags a copy of a
   `Platform` value. No such copy exists in the library, cli or opm-operator at `origin/main` (design

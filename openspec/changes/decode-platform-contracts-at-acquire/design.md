@@ -117,12 +117,13 @@ requirement needs no delta.
 `*platform.Platform` everywhere and never copy the value. Planning searched for dereference copies
 and value-typed `platform.Platform` uses, and found only the `reflect.TypeOf(platform.Platform{})`
 in the field-set test. The `Platform` doc gains one sentence: use it through a pointer, never copy
-it. Section 2's consumer build runs `go vet` on both frontends, so a copy there would show.
+it. Task 3.2's consumer build runs `go vet` on both frontends, so a copy there would show.
 
 ### D3. Contracts() hands out copies; refusals are built per call
 
 `Contracts()` returns a deep copy of the recorded inventory: every map and slice is cloned, and so
-is each `Comparable` row's `Contracts` slice. Callers on several goroutines (the operator's two
+is each `Comparable` row's `Contracts` slice. The clone keeps nil and empty apart (`maps.Clone` and
+`slices.Clone` do), so `reflect.DeepEqual` and JSON (`null` against `[]`) see what the decode produced. Callers on several goroutines (the operator's two
 controllers) therefore never share a mutable value, and a caller that edits its result cannot
 change the next call's result. A missing-field refusal is recorded as data (`tooOld{field, since}`)
 and built into a fresh `*oerrors.PlatformCoreTooOldError` on each call, naming the platform with
@@ -179,11 +180,18 @@ consistent:
   that cite `Platform.Contracts` as their on-demand precedent (`catalog.go:33-36`,
   `provides.go:36-39`). Those comments keep their own rule and drop the precedent claim.
 - Section 2 (`opm/kernel`): the `Render` doc (`render.go:324-331`), the floor comment, the
-  `opm/kernel` package doc (`doc.go:55-61`, "with one exception: Render reads ... Package", and
-  `:185-189`), the `schema.ContractsProvidedBy` comment (`paths.go:60-66`), the race-test comments
+  `opm/kernel` package doc (`doc.go:55-61`, "with one exception: Render reads ... Package"; the
+  Goroutine safety sentence at `:80-86`, "reads the shared Package only for the core floor", which
+  becomes "reads no Package: the floor reads the fact recorded at construction"; and `:185-189`), the `schema.ContractsProvidedBy` comment (`paths.go:60-66`), the race-test comments
   (`render_core_floor_test.go:106-110` and the cold sibling), ADR-007's Status paragraph (a new
-  dated amendment sentence; the 2026-09-30 sentence stays as history), and the `platform/` line of
-  AGENTS.md "Repository Layout".
+  dated amendment sentence naming this change and owner decision h4, in the form of the 2026-09-30
+  sentence, which stays as history), and the `acquireOlderCorePlatform` helper comment and require
+  message (`render_core_floor_test.go:54-55, :68`), which say acquisition does not read the
+  inventory.
+
+AGENTS.md is not edited. Its `platform/` line ("Render's sole platform input") and its parity
+tripwire line stay true, and AGENTS.md "Where a statement lives" puts a runtime contract in one
+home, here the `Platform` godoc.
 
 ## Research & Decisions
 
