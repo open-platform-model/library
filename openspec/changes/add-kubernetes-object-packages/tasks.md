@@ -108,17 +108,17 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 4. Kind-class order and apply stages (object; design KO5, KO6, KO7)
 
-- [ ] 4.1 `opm/k8s/object/weights.go`: the constants, the GVK table and the kind table from
+- [x] 4.1 `opm/k8s/object/weights.go`: the constants, the GVK table and the kind table from
       cli `pkg/resourceorder/weights.go` at `0b37e3f2`, values unchanged. `GetWeight` becomes
       `Weight`. The file comment cites the source once: "ported from cli pkg/resourceorder
       (cli#289), values unchanged". `sort.go`: `Direction`, `Ascending`, `Descending` and
       `Sort[T]` unchanged. Verify: a scripted diff of the two tables against
       `git -C <cli> show 0b37e3f2:pkg/resourceorder/weights.go`, after normalising the package
       name and the `GetWeight` rename, shows no value change (not committed).
-- [ ] 4.2 `opm/k8s/object/stages.go`: `Stage[T]` and `Stages` per KO6, with an unexported
+- [x] 4.2 `opm/k8s/object/stages.go`: `Stage[T]` and `Stages` per KO6, with an unexported
       cluster-definition predicate on group and kind. The input is not reordered and no stage
       is empty. Verify: `go vet ./opm/k8s/...` clean.
-- [ ] 4.3 Tests:
+- [x] 4.3 Tests:
       - `weights_test.go` and `sort_test.go`: port the cli's tests; a guard table pinning
         every constant and every table entry; the kubernetes-tier scenarios "Apply order puts
         definitions before their users", "Delete order is the reverse and stable" and "An
@@ -136,7 +136,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
         contradiction is caught").
 
       Verify: `go test ./opm/k8s/object -count=1` green.
-- [ ] 4.4 `task check` green, then commit
+- [x] 4.4 `task check` green, then commit
       `feat(k8s): add the kind-class weight table and apply stages`. The body cites the cli
       source commit and says that SD11's per-weight-group apply reads `Stages`.
 

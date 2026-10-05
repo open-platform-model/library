@@ -253,6 +253,11 @@ library, and the webhook configurations last in Flux but at 500, before custom r
 CustomResourceDefinition before Namespace is no contradiction, the pair KO6's definition stage
 rests on. The test decides nothing. Under SD11 these contradictions cannot appear
 inside one `ApplyAll` call, because each call holds a single weight.
+**Outcome (section 4)**: the committed list holds 196 pairs over a 35-kind universe. It is
+grouped by cause with one comment per group (the early `*Class`, ResourceQuota and LimitRange
+kinds at `WeightDefault`; StorageClass; the volumes and unlisted workload kinds at Flux rank 0;
+PodDisruptionBudget; the webhook configurations after custom resources), not one comment per
+pair. Lowering `WeightDeployment` to 40 fails the test naming "Service before Deployment".
 **Rationale**: This makes the e1 rule "an engine may refine, never contradict" checkable in
 review without importing the engine.
 
