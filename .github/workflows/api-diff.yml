@@ -1,0 +1,56 @@
+name: API diff
+
+# Lists the incompatible changes a pull request makes to the exported opm/
+# API since the nearest release tag (task api:diff, .tasks/api-diff.sh).
+# The tag decides the outcome: a prerelease tag warns and passes, a release
+# tag fails. Not a required status check.
+on:
+  pull_request:
+    paths:
+      - "**.go"
+      - go.mod
+      - go.sum
+      - Taskfile.yml
+      - .tasks/api-diff.sh
+      - .tasks/api-diff-test.sh
+      - .tasks/apidiff/**
+      - .github/workflows/api-diff.yml
+
+# Read-only: no step pushes, publishes or calls the GitHub API.
+permissions:
+  contents: read
+
+concurrency:
+  group: api-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  api-diff:
+    name: API diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history: the base tag is found by walking back from the base
+      # commit, and the base commit itself is exported.
+      - name: Clone the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.x
+
+      # No continue-on-error: in warn mode the script exits 0 itself, so a
+      # failure of the check (tool build, missing tag) still shows red.
+      - name: Diff the API against the last release tag
+        env:
+          API_DIFF_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: task api:diff
