@@ -364,7 +364,7 @@ The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `
 A consumer that wants its own pin, or the bare major, passes its own loader, for example:
 
 ```go
-k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.3"}))
+k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.4"}))
 ```
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).
