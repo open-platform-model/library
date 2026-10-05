@@ -76,10 +76,10 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
 
 ## 4. openspec: deltas and wording
 
-- [ ] 4.1 Confirm the change's `single-build-render` delta splits the sentence as written (the
+- [x] 4.1 Confirm the change's `single-build-render` delta splits the sentence as written (the
   refusal is its own sentence, the colon introduces only the served files), that the
   `registry-module-loading` delta names the refusal with a module and a catalog scenario, and that
   the `instance-synthesis` delta names the synthesis refusal and keeps every main-spec scenario of
   the requirement. Run `openspec validate refuse-an-existing-synthetic-root --strict` green.
-- [ ] 4.2 Tick every task in this file and commit
+- [x] 4.2 Tick every task in this file and commit
   `chore(openspec): mark refuse-an-existing-synthetic-root implemented`.
