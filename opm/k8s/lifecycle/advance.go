@@ -318,6 +318,16 @@ func checkState(plan DeletionPlan, s State) error {
 		return fmt.Errorf("deletion state names step %d but records %d outcomes; every finished step records one",
 			s.Next, len(s.Outcomes))
 	}
+	for i, o := range s.Outcomes {
+		if o.Step != i {
+			return fmt.Errorf("deletion state records outcome %d for step %d; outcomes follow the plan's order", i, o.Step)
+		}
+		switch o.Result {
+		case ResultDeleted, ResultSkipped, ResultFailed:
+		default:
+			return fmt.Errorf("deletion state records step %d as %q, which is not a step result", i, string(o.Result))
+		}
+	}
 	switch s.Awaiting {
 	case AwaitNothing:
 		return nil

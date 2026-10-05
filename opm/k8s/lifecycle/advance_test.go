@@ -300,6 +300,8 @@ func TestAdvanceRefusesAStateOutsideThePlan(t *testing.T) {
 		{"an unknown awaited value", lifecycle.State{Awaiting: "apply"}},
 		{"fewer outcomes than finished steps", lifecycle.State{Next: 1}},
 		{"more outcomes than finished steps", lifecycle.State{Outcomes: one}},
+		{"an outcome out of the plan's order", lifecycle.State{Next: 1, Outcomes: []lifecycle.Outcome{{Step: 9, Result: lifecycle.ResultDeleted}}}},
+		{"an outcome with an unknown result", lifecycle.State{Next: 1, Outcomes: []lifecycle.Outcome{{Step: 0, Result: "weird"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

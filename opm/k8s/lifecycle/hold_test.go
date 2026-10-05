@@ -114,6 +114,18 @@ func TestMayReleaseHold(t *testing.T) {
 			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
 		},
 		{
+			name: "an outcome out of the plan's order holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: 2, Outcomes: []lifecycle.Outcome{deleted(0), deleted(9)}},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
+			name: "an outcome with an unknown result holds", plan: planOf(prune),
+			state:   lifecycle.State{Next: 2, Outcomes: []lifecycle.Outcome{deleted(0), {Step: 1, Result: "weird"}}},
+			because: lifecycle.HoldCleanupIncomplete,
+			message: "the deletion state does not belong to this plan; 2 objects not confirmed deleted",
+		},
+		{
 			name: "branch 6: a Forbidden failure holds", plan: planOf(prune),
 			state:   done(deleted(0), failedAs(1, lifecycle.FailureForbidden)),
 			because: lifecycle.HoldCleanupForbidden,
