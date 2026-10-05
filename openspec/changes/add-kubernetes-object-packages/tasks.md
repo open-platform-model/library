@@ -53,12 +53,12 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 
 ## 2. opm/k8s/labels (design KO2)
 
-- [ ] 2.1 `opm/k8s/labels/labels.go` and `doc.go`. The constants and `IsOPMManagedBy` per
+- [x] 2.1 `opm/k8s/labels/labels.go` and `doc.go`. The constants and `IsOPMManagedBy` per
       design KO2, values byte-equal to cli and operator `pkg/core/labels.go`. Each doc comment
       says who writes the label. The package doc says it names and recognises labels and never
       stamps them on rendered objects, because core's CUE stamps them at render (0012:D6, cited
       once at the package). Verify: `go build ./opm/k8s/...` clean.
-- [ ] 2.2 `labels_test.go`:
+- [x] 2.2 `labels_test.go`:
       - a table pinning each constant to its literal (kubernetes-tier scenario "The vocabulary
         matches the frontends' copies");
       - the `IsOPMManagedBy` table, ported from `pkg/core/labels_test.go` and extended with
@@ -67,7 +67,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
       Verify: `go test ./opm/k8s/labels -count=1` green;
       `go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' ./opm/k8s/labels` prints
       only the package itself.
-- [ ] 2.3 `task check` green, then commit `feat(k8s): add the opm/k8s/labels vocabulary`.
+- [x] 2.3 `task check` green, then commit `feat(k8s): add the opm/k8s/labels vocabulary`.
 
 ## 3. opm/k8s/object: Resource and the one-pass Export (go.mod; design KO3, KO4)
 
