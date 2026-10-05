@@ -46,6 +46,16 @@ const (
 	ModuleInstanceUUID = "module-instance.opmodel.dev/uuid"
 )
 
+// Annotation keys.
+const (
+	// AnnotationAdopt is the adopt annotation: a user sets it on an existing
+	// live object to hand that object to a module instance whose apply would
+	// otherwise refuse it. Its value is the adopting instance's
+	// [ModuleInstanceUUID] value. No OPM runtime writes it; a user writes it
+	// by hand (0012:D8:R6).
+	AnnotationAdopt = "opmodel.dev/adopt"
+)
+
 // IsOPMManagedBy reports whether a managed-by label value identifies an OPM
 // runtime: the cli's value, the operator's value, or the legacy value objects
 // applied before runtime-owned values still carry. The match is exact and
