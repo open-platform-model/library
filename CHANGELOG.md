@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0-beta.6](https://github.com/open-platform-model/library/compare/v1.0.0-beta.5...v1.0.0-beta.6) (2026-10-05)
+
+
+### Features
+
+* **k8s:** add opm/k8s/ownership with the apply and delete verdicts ([#202](https://github.com/open-platform-model/library/issues/202)) ([b008be8](https://github.com/open-platform-model/library/commit/b008be8d8cce270b80b6fab2a249a4149d2aa6f6))
+* **k8s:** add the opm/k8s/health readiness evaluator ([#199](https://github.com/open-platform-model/library/issues/199)) ([f419d1c](https://github.com/open-platform-model/library/commit/f419d1c0ce315d055fc0e4feb0abf5811f8484eb))
+* **k8s:** add the opm/k8s/inventory package ([#203](https://github.com/open-platform-model/library/issues/203)) ([9f5ddc9](https://github.com/open-platform-model/library/commit/9f5ddc9e8af7be24f8fa676be880ef0dde6fed99))
+* **kernel:** type fetch failures and check cancellation between stages ([#205](https://github.com/open-platform-model/library/issues/205)) ([0a21558](https://github.com/open-platform-model/library/commit/0a215580658a758cb655d599fef503772e82443e))
+
 ## [1.0.0-beta.5](https://github.com/open-platform-model/library/compare/v1.0.0-beta.4...v1.0.0-beta.5) (2026-10-05)
 
 
