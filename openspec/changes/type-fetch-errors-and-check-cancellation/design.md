@@ -139,6 +139,19 @@ The cli moves onto the kinds, not onto `ErrTransient`, so each site's semantics 
 | `check.go` after `reg.Fetch` | text `not found` → `ErrNotPublished`, else connectivity | `Kind == FetchNotFound` → `ErrNotPublished`, else connectivity |
 | `compat.go` after `load.Instances` | text `cannot find module providing package` → absent, else connectivity | `Kind == FetchNotFound` → absent, else connectivity |
 
+`compat.go` loads a standalone `importPath@version`, so its "absent" form names an exact version
+and stays `FetchNotFound` (D3); the parity holds for that form. One edge moves, and it is the cli
+change's to map, not this one's: a dependency of the probed module that the registry answers with
+404 or 403 (`cannot fetch D@V: module D@V: module not found`) is a `*ConnectivityError` today
+(exit 3), and under `Kind == FetchNotFound` it would read as "absent" (found=false). The cli change
+either accepts that with a pinning test, or keeps connectivity when the not-found failure is not
+the probed coordinate itself.
+
+An import no registry interaction failed is not classified at all (D3): a package missing from the
+main module's own path, an import the module never declared, or a package missing from a declared
+dependency that was fetched. These are author defects. No frontend retries them, because no
+`*FetchError` reaches it.
+
 `context.DeadlineExceeded` satisfies `net.Error`, so `IsConnectivityError` already treats it as
 connectivity, and `FetchUnreachable` keeps that. A 5xx answer is `FetchOther`. That is what the
 probe says today (an answer, not connectivity), even though it is transient. The cli change pins
@@ -185,8 +198,14 @@ pins against CUE v0.17.1 (Spike findings), in this order, so the most specific f
    `net/http` gives that code (`: 401 Unauthorized: `, `: 503 Service Unavailable: `). 401 or 403
    → `FetchUnauthorized`, 404 → `FetchNotFound`, any other code from 400 up → `FetchOther`.
    `Status` is the code, so a flattened 5xx stays transient;
-3. `module not found` or `cannot find module providing package` → `FetchNotFound` (a flattened 403
-   or 404 tag lookup reads `module not found`);
+3. `module not found` → `FetchNotFound` (a flattened 403 or 404 tag lookup reads `module not
+   found`), and `cannot find module providing package P@vX.Y.Z` → `FetchNotFound`. That second form
+   names an exact version, which only a standalone `path@version` load produces (the schema
+   loader's, and the cli's `compat.go` probe): the registry was asked for that version and does
+   not provide the package. In a directory load the same words carry an import path, which holds
+   at most a major version, and report an author defect no registry interaction failed (an own-path
+   package that does not exist, an undeclared import, a package missing from a fetched dependency).
+   That form is never matched;
 4. `cannot fetch ` → `FetchOther` (what is left is a fetch with an unrecognised cause, such as a
    published archive that does not unzip).
 
@@ -208,10 +227,11 @@ asserts the kind. It fails when a CUE bump changes a form, which is the signal t
 fallback. A comment at the fallback names the test.
 
 **Never transient by accident.** An error that matches neither branch is returned as it is, so a
-syntax error, a conflict or a missing field from `cue/load` stays a plain error. `FetchNotFound`
-includes "cannot find module providing package", which is also what a missing dependency in an
-author's `cue.mod/module.cue` reports. That error is a fetch failure of kind not-found, and it is
-never transient. Whether the operator retries it is the operator's policy.
+syntax error, a conflict or a missing field from `cue/load` stays a plain error. `Classify`
+recognises only a failed registry interaction, so an import that no module provides in a directory
+load (an own-path package that does not exist, or an undeclared dependency) stays a plain error too;
+`classify_cue_test.go` and `TestFetchClassify_UnresolvableImportStaysPlain` pin it. A frontend that
+retries every `*FetchError` therefore never retries an author's import typo.
 
 ### D4. Where the library applies it, and where it does not
 
@@ -253,11 +273,15 @@ caller bug that does not depend on time, and both checks do no work.
 
 | Verb | Checks |
 | --- | --- |
-| `AcquireModuleFromDir`, `AcquireCatalogFromDir`, `AcquirePlatformFromDir` | entry; inside `acquireDir`, after `dirSource` reads the tree and before `LoadDir` |
+| `AcquireModuleFromDir`, `AcquireCatalogFromDir`, `AcquirePlatformFromDir` | entry; inside `acquireDir`, after `dirSource` reads the tree and before `LoadDir`, and after `LoadDir` builds the package |
 | `AcquireInstanceFromDir` | entry; after the tree read (both paths), and in `loadInstanceWithValues` after `mergeSources` and before `LoadDir`; after the build, before `checkInstanceValues`; before `processInstance` |
 | `SynthesizeInstance` | entry (after the argument checks); after `resolveCoreVersion`; after `mergeSources`; after `synth.Instance` (before the attribution rebuild); before `processInstance` |
-| `FetchArtifact` (both registry verbs) | after `reg.Fetch`, before staging and `LoadDir` |
+| `FetchArtifact` (both registry verbs) | after `reg.Fetch`, before staging and `LoadDir`; after `LoadDir` builds the package |
 | `Render` | after `renderstage.Build`, before decoding (new; the two existing checks stay) |
+
+`TestCancel_EveryStageCheck` cancels each verb at its first, second, ... check in turn, through a
+context whose `Err` turns non-nil after n calls, and pins the number of checks each verb makes, so
+removing any one check fails the test.
 
 `acquireDir` gains a `ctx` parameter. `ValidateConfigDetailed` is not one of the five verbs and is
 unchanged.
@@ -331,7 +355,8 @@ against a local registry only and a fresh module cache.
 | Failure | `FetchArtifact` (typed chain) | `LoadDir` (text only) |
 | --- | --- | --- |
 | version absent | `modregistry.ErrNotFound`; `module P@V: module not found` | `cannot fetch P@V: module P@V: module not found` |
-| import no dependency provides | | `cannot find module providing package P` |
+| import of an undeclared module, of an own-path package that does not exist, or of a package missing from a fetched dependency | | `cannot find module providing package P` (P carries at most a major version; unclassified) |
+| standalone `P@vX.Y.Z` load: version absent, package absent in it, or a 404 registry | | `cannot find module providing package P@vX.Y.Z` (`FetchNotFound`) |
 | unreachable (refused) | `net.Error`; `cannot do HTTP request: ... connection refused` | `cannot fetch P@V: module P@V: cannot do HTTP request: ...` |
 | 401 | `HTTPError` 401, `ErrUnauthorized`; `401 Unauthorized: unauthorized: ...` | `...: 401 Unauthorized: ...` |
 | 403 | `modregistry.ErrNotFound`, no `HTTPError`; `module not found` | `...: module not found` |
@@ -361,8 +386,10 @@ The answers to the three open questions:
 The `cue mod tidy` forms of the same CUE version (run once with `cue` v0.17.1, not in the suite):
 an unreachable registry gives `failed to resolve "P": module M: cannot do HTTP request: ...`, a
 registry answering 404 to everything gives `cannot find module providing package P`, and 401 and
-503 give `module M: 401 Unauthorized: ...` and `module M: 503 Service Unavailable: ...`. These are
-the forms the text fallback already matches; the cli's own tidy tests stay their pin (D3).
+503 give `module M: 401 Unauthorized: ...` and `module M: 503 Service Unavailable: ...`. The text
+fallback matches the unreachable, 401 and 503 forms. The 404 form names an import path with no
+exact version, so it stays unclassified; `IsConnectivityError` reads only the unreachable form, so
+nothing in the cli depends on it. The cli's own tidy tests stay the pin of these forms (D3).
 
 ## Risks / Trade-offs
 
@@ -372,9 +399,9 @@ the forms the text fallback already matches; the cli's own tidy tests stay their
 - [An extra link in the chain breaks a caller that type-switches on the direct cause] → `errors.As`
   and `cueerrors.Errors` (which uses `As`) still find it. A test asserts `cueerrors.Errors` on a
   classified load error returns the same positions.
-- [The operator retries an author's missing dependency (`FetchNotFound`) forever] → It is not
-  transient. Whether the operator retries any `*FetchError` with backoff is its own policy, and the
-  operator change decides it.
+- [The operator retries an author's missing dependency forever] → An import no registry
+  interaction failed (an own-path package that does not exist, an undeclared dependency) is not
+  classified (D3), so an operator that retries any `*FetchError` with backoff never retries it.
 - [A pre-cancelled context now fails a call that used to complete] → Both frontends pass live
   contexts. The behaviour is the documented contract of a context parameter.
 - [`opm/errors` grows a CUE dependency] → Both modules are already required. D7 records why.
@@ -408,7 +435,7 @@ the first library release carrying this one:
 | --- | --- |
 | `internal/cuemod/connectivity.go` `IsConnectivityError` (after `Tidy`) | `Classify(err)`, then `Kind == FetchUnreachable` (or that, or `errors.Is(err, context.Canceled)`, to keep cancellation counting as connectivity) |
 | `internal/publish/check.go` after `reg.Fetch` | `Kind == FetchNotFound` gives `ErrNotPublished`, anything else connectivity (a 403 is `FetchNotFound`, as the text probe reads it today) |
-| `internal/publish/compat.go` after `load.Instances` | `Kind == FetchNotFound` means absent, anything else connectivity |
+| `internal/publish/compat.go` after `load.Instances` | `Kind == FetchNotFound` means absent, anything else connectivity; a dependency answered 404 or 403 moves from connectivity to absent, and the cli change maps that edge (D2) |
 | `internal/config/platform.go` hint probe (optional, outside the owner's three) | `Kind == FetchNotFound`; `cannot expand module graph` around a malformed dependency stays unclassified |
 
 The tidy forms are pinned only by the cli's own `TestIsConnectivityError_UnreachableRegistry` and

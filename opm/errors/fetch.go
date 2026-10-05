@@ -26,10 +26,13 @@ const (
 	// does not recognise, such as a published archive that does not unzip.
 	FetchOther FetchKind = iota
 
-	// FetchNotFound is an absent module, version or package: the registry
-	// does not hold the tag, or no module in the dependency graph provides
-	// an imported package. CUE's registry client reports a 403 answer to a
-	// tag lookup as not found too, so that case is FetchNotFound.
+	// FetchNotFound is an absent module, version or package the registry was
+	// asked for: it does not hold the tag, or the version a path@version
+	// load names does not provide the package. CUE's registry client reports
+	// a 403 answer to a tag lookup as not found too, so that case is
+	// FetchNotFound. An import no module provides in a directory load (an
+	// undeclared dependency, or a package missing from the module's own
+	// path) is an author defect, not a FetchError.
 	FetchNotFound
 
 	// FetchUnauthorized is a registry that refused the credentials (401),

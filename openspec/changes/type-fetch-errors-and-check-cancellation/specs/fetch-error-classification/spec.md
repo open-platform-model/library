@@ -47,9 +47,9 @@
 
 ### Requirement: Classify recognises fetch and resolution failures and leaves every other error unchanged
 
-`opm/errors` SHALL export `Classify(err error) error`. It SHALL return nil for nil. It SHALL return `err` unchanged when the chain already holds a `*FetchError`, when the chain holds `context.Canceled`, and when it recognises nothing. Otherwise it SHALL return a `*FetchError` that wraps `err`.
+`opm/errors` SHALL export `Classify(err error) error`. It SHALL recognise only a failed registry interaction: a fetch that got no response, a registry answer that refused or did not hold what was asked for, or a fetched archive that could not be used. It SHALL return nil for nil. It SHALL return `err` unchanged when the chain already holds a `*FetchError`, when the chain holds `context.Canceled`, and when it recognises nothing. Otherwise it SHALL return a `*FetchError` that wraps `err`.
 
-`Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. Only when no typed cause is found SHALL it match text. The text fallback SHALL be the only place in the library that matches the text of a registry or `cue/load` error, and it SHALL cover the forms that the embedded CUE version produces when `cue/load` flattens a fetch failure: `cannot do HTTP request`, an HTTP status in the form `<code> <status text>: ` (which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient), `module not found`, `cannot find module providing package`, and `cannot fetch`. `cannot expand module graph` SHALL NOT be matched on its own, because it also wraps a malformed dependency's module file. A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version changes one. Source: 0021:D8:R12.
+`Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. Only when no typed cause is found SHALL it match text. The text fallback SHALL be the only place in the library that matches the text of a registry or `cue/load` error, and it SHALL cover the forms that the embedded CUE version produces when `cue/load` flattens a fetch failure: `cannot do HTTP request`, an HTTP status in the form `<code> <status text>: ` (which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient), `module not found`, `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`, which only a standalone `path@version` load produces, after asking the registry for that version), and `cannot fetch`. `cannot expand module graph` SHALL NOT be matched on its own, because it also wraps a malformed dependency's module file. `cannot find module providing package` followed by a path without an exact version SHALL NOT be matched: in a directory load it reports an import of the main module's own path that does not exist, an import the main module does not declare, or a package missing from a declared dependency that was fetched, which are author defects no registry interaction failed. A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version changes one. Source: 0021:D8:R12.
 
 #### Scenario: An author defect stays a plain error
 
@@ -58,8 +58,18 @@
 
 #### Scenario: A flattened not-found form is classified
 
-- **WHEN** `Classify` receives a `cue/load` error whose text says it cannot find the module providing an imported package
+- **WHEN** `Classify` receives a `cue/load` error whose text says it cannot fetch a dependency because the module was not found
 - **THEN** it returns a `*FetchError` of kind `FetchNotFound`
+
+#### Scenario: An exact version the registry does not provide is not found
+
+- **WHEN** `Classify` receives the error of a standalone `path@version` load whose text says no module provides the package at that exact version
+- **THEN** it returns a `*FetchError` of kind `FetchNotFound`
+
+#### Scenario: An unresolvable import is an author defect
+
+- **WHEN** `Classify` receives a `cue/load` error for an import of a package missing from the main module's own path, or of a module the main module does not declare
+- **THEN** it returns the error unchanged, with no `*FetchError` in the chain, and `errors.Is(err, ErrTransient)` is false
 
 #### Scenario: Cancellation is not a fetch failure
 
