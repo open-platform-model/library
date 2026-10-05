@@ -341,7 +341,9 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string) (*p
 // with or without sources, the same way a source is: a key the schema lacks,
 // a type mismatch or a violated constraint is refused at the position of the
 // file that holds it. The check does not require concreteness; the instance
-// processing step that follows does.
+// processing step that follows does, on the whole built spec and on the
+// instance's values unified with the module's #config, so a required #config
+// value the values leave unset is refused even when no component reads it.
 //
 // The build runs in a [cue.Context] created for the call; Instance.Package
 // keeps it alive for as long as the caller holds the instance. This is the

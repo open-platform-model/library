@@ -56,7 +56,7 @@ Instance synthesis builds a ModuleInstance from an acquired Module and a caller-
 #### Scenario: Zero Values is not replaced by debugValues
 
 - **WHEN** `SynthesizeInstance` is called with empty `Values` against a Module that defines `debugValues`
-- **THEN** the build's values path is unfilled (does not equal `debugValues`) and the call fails on concreteness unless every `#config` field has a default
+- **THEN** the build's values path is unfilled (does not equal `debugValues`) and the call fails on concreteness
 
 ### Requirement: Optional labels and annotations are filled into instance metadata
 

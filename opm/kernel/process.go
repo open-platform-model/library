@@ -14,8 +14,17 @@ import (
 // processing step behind [Kernel.AcquireInstanceFromDir] and
 // [Kernel.SynthesizeInstance]: values are already unified inside the CUE
 // build each of them runs (the package's own `values`, the acquire-time values
-// overlay, the synthesized values file), so nothing is validated or filled
-// here and nothing on the Kernel is read. Errors are framed
+// overlay, the synthesized values file), so nothing is filled here and nothing
+// on the Kernel is read.
+//
+// Concreteness is checked twice. The whole built spec first, so a value the
+// instance carries in a non-concrete form is refused at its place in the build.
+// Then the spec's `values` unified with the module's #config (both read off
+// the spec): #ModuleInstance only unifies `values` into a let binding the
+// components read, so a required #config value the values leave unset, and
+// no component reads, never reaches the spec; this check refuses it at the
+// path `values.<field>` (library#211). Both failures are framed
+// `instance "<name>": not fully concrete: …`; other errors
 // `instance "<name>": …`.
 //
 // The returned Instance carries no Source; the caller stamps it.
@@ -23,6 +32,9 @@ func processInstance(spec cue.Value) (*module.Instance, error) {
 	name := bestEffortInstanceName(spec)
 
 	if err := spec.Validate(cue.Concrete(true)); err != nil {
+		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
+	}
+	if err := requiredConfigSet(spec); err != nil {
 		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
 	}
 
@@ -35,6 +47,24 @@ func processInstance(spec cue.Value) (*module.Instance, error) {
 		Metadata: meta,
 		Package:  spec,
 	}, nil
+}
+
+// requiredConfigSet validates the built spec's `values` unified with the
+// module's #config under concreteness, so a required #config value the
+// values leave unset is refused whether or not a component reads it. The
+// values come first in the unification, so CUE reports each finding at the
+// path `values.<field>`, positioned at the field's #config declaration where
+// CUE records one. It is the concreteness rule [Kernel.ValidateConfigDetailed]
+// applies; the disallowed-field walk and type checks are not repeated, the
+// per-source checks both verbs run before processInstance have done them. A
+// spec without #config or `values` has nothing to check.
+func requiredConfigSet(spec cue.Value) error {
+	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	built := spec.LookupPath(schema.Values)
+	if !configSchema.Exists() || !built.Exists() {
+		return nil
+	}
+	return built.Unify(configSchema).Validate(cue.Concrete(true))
 }
 
 // decodeInstanceMetadata extracts the instance metadata from a

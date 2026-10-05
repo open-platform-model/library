@@ -700,14 +700,17 @@ func TestKernel_AcquireInstanceFromDir_OwnValues_TypeMismatchRefused(t *testing.
 // key the schema lacks or a violated type or constraint is refused by it. A
 // default-carrying value is concrete once defaults resolve and acquires; a
 // bare constraint is valid for #config, so the refusal is the instance's
-// concreteness gate, never a values error.
+// concreteness gate, never a values error. A default that disagrees with the
+// #config default leaves the field with no default once the two unify, so it
+// is refused as not concrete, the way ValidateConfigDetailed refuses it
+// (library#211), even though no component reads the field.
 func TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires(t *testing.T) {
 	k := newRenderKernel(t)
 	ctx := context.Background()
 
 	t.Run("a default acquires, with and without sources", func(t *testing.T) {
 		dir := copyRenderInstance(t, "instance_partial")
-		writeValuesFile(t, dir, "replicas: int | *3")
+		writeValuesFile(t, dir, "replicas: int | *2")
 
 		inst, err := k.AcquireInstanceFromDir(ctx, dir)
 		require.NoError(t, err)
@@ -716,6 +719,19 @@ func TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires(t *tes
 		inst, err = k.AcquireInstanceFromDir(ctx, dir, mustSource(t, k, "/values/a.cue", `image: "nginx:1.27"`))
 		require.NoError(t, err)
 		require.NotNil(t, inst)
+	})
+
+	t.Run("a default that disagrees with the #config default is refused", func(t *testing.T) {
+		dir := copyRenderInstance(t, "instance_partial")
+		writeValuesFile(t, dir, "replicas: int | *3")
+
+		for _, sources := range [][]kernel.Source{nil, {mustSource(t, k, "/values/a.cue", `image: "nginx:1.27"`)}} {
+			inst, err := k.AcquireInstanceFromDir(ctx, dir, sources...)
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.True(t, strings.HasPrefix(err.Error(), `Kernel.AcquireInstanceFromDir: instance "web-partial": not fully concrete: `), "framing: %v", err)
+			assert.True(t, hasErrorPath(err, "values.replicas"), "no error names values.replicas: %v", err)
+		}
 	})
 
 	t.Run("a bare constraint is not a values error", func(t *testing.T) {
