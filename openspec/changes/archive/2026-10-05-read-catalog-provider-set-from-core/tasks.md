@@ -93,5 +93,5 @@ Commit rules:
 
 ## 3. Archive (at PR time, on the supervisor's word)
 
-- [ ] 3.1 Run `openspec archive read-catalog-provider-set-from-core --yes` on this branch, so the archive rides the implementing PR. Verify: the `catalog-acquisition` main spec carries the modified requirement, and `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no delivery log runs.
-- [ ] 3.2 Commit `chore(openspec): archive read-catalog-provider-set-from-core`.
+- [x] 3.1 Run `openspec archive read-catalog-provider-set-from-core --yes` on this branch, so the archive rides the implementing PR. Verify: the `catalog-acquisition` main spec carries the modified requirement, and `openspec validate --all --strict` passes. There is no `enhancement.yaml`, so no delivery log runs.
+- [x] 3.2 Commit `chore(openspec): archive read-catalog-provider-set-from-core`.
