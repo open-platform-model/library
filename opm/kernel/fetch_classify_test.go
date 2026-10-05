@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
+	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -112,31 +114,89 @@ func TestFetchClassify_DirModuleWithUnreachableDependency(t *testing.T) {
 	assert.ErrorIs(t, err, oerrors.ErrTransient)
 }
 
-// An import no registry interaction failed is an author defect and stays a
-// plain error: a package missing from the module's own path, and an import
-// of a module the module never declared.
-func TestFetchClassify_UnresolvableImportStaysPlain(t *testing.T) {
-	for name, importPath := range map[string]string{
-		"own path":   "fetch.example/app/missing",
-		"undeclared": "test.example/undeclared@v0",
+// requireResolutionError returns the *ResolutionError in err's chain, and
+// holds that the chain carries no *FetchError and is not transient.
+func requireResolutionError(t *testing.T, err error) *oerrors.ResolutionError {
+	t.Helper()
+	require.Error(t, err)
+	var re *oerrors.ResolutionError
+	require.True(t, errors.As(err, &re), "a *ResolutionError in the chain of %q", err)
+	var fe *oerrors.FetchError
+	assert.False(t, errors.As(err, &fe), "no *FetchError in %q", err)
+	assert.NotErrorIs(t, err, oerrors.ErrTransient)
+	return re
+}
+
+// servedDependency serves test.example/dep@v0 at v0.0.1, whose one package
+// is the module root, and returns the registry mapping.
+func servedDependency(t *testing.T) string {
+	t.Helper()
+	reg, err := modregistrytest.New(fstest.MapFS{
+		"test.example_dep_v0.0.1/cue.mod/module.cue": &fstest.MapFile{Data: []byte("module: \"test.example/dep@v0\"\nlanguage: version: \"v0.17.0\"\n")},
+		"test.example_dep_v0.0.1/dep.cue":            &fstest.MapFile{Data: []byte("package dep\n\ny: 1\n")},
+	}, "")
+	require.NoError(t, err)
+	t.Cleanup(reg.Close)
+	return reg.Host() + "+insecure"
+}
+
+// An import no registry interaction failed is an author defect, typed as a
+// *ResolutionError of kind ResolutionImportUnprovided: a package missing from
+// the module's own path, an import of a module the module never declared,
+// and a package missing from a declared dependency that was fetched. The
+// message is the text the verb returned before the type existed.
+func TestFetchClassify_UnresolvableImportIsResolutionError(t *testing.T) {
+	for name, tc := range map[string]struct {
+		importPath string
+		deps       string
+		registry   func(t *testing.T) string
+	}{
+		"own path":   {"fetch.example/app/missing", "", registrytest.UnreachableRegistry},
+		"undeclared": {"test.example/undeclared@v0", "", registrytest.UnreachableRegistry},
+		"package missing from a declared dependency": {"test.example/dep/missing", "deps: \"test.example/dep@v0\": v: \"v0.0.1\"\n", servedDependency},
 	} {
 		t.Run(name, func(t *testing.T) {
 			freshCache(t)
 			dir := t.TempDir()
 			require.NoError(t, os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(
-				"module: \"fetch.example/app@v0\"\nlanguage: version: \"v0.17.0\"\n"), 0o644))
+				"module: \"fetch.example/app@v0\"\nlanguage: version: \"v0.17.0\"\n"+tc.deps), 0o644))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "app.cue"), []byte(
-				"package app\n\nimport m \""+importPath+"\"\n\nkind: \"Module\"\nx: m.y\n"), 0o644))
-			k := kernel.New(kernel.WithRegistry(registrytest.UnreachableRegistry(t)))
+				"package app\n\nimport m \""+tc.importPath+"\"\n\nkind: \"Module\"\nx: m.y\n"), 0o644))
+			k := kernel.New(kernel.WithRegistry(tc.registry(t)))
 			_, err := k.AcquireModuleFromDir(context.Background(), dir)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "cannot find module providing package "+importPath)
-			var fe *oerrors.FetchError
-			assert.False(t, errors.As(err, &fe), "no *FetchError in %q", err)
-			assert.NotErrorIs(t, err, oerrors.ErrTransient)
+			re := requireResolutionError(t, err)
+			assert.Equal(t, oerrors.ResolutionImportUnprovided, re.Kind)
+			assert.Contains(t, err.Error(), "cannot find module providing package "+tc.importPath)
 		})
 	}
+}
+
+// A file-backed values source that imports a module its own cue.mod does not
+// declare is the same author defect, through AcquireInstanceFromDir.
+func TestFetchClassify_ValuesFileWithUndeclaredImport(t *testing.T) {
+	inst := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(inst, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(inst, "cue.mod", "module.cue"), []byte(
+		"module: \"fetch.example/inst@v0\"\nlanguage: version: \"v0.17.0\"\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(inst, "inst.cue"), []byte("package inst\n\nkind: \"ModuleInstance\"\n"), 0o644))
+
+	values := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(values, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(values, "cue.mod", "module.cue"), []byte(
+		"module: \"values.example/site@v0\"\nlanguage: version: \"v0.17.0\"\n"), 0o644))
+	path := filepath.Join(values, "values.cue")
+	require.NoError(t, os.WriteFile(path, []byte(
+		"package values\n\nimport defaults \"test.example/undeclared@v0\"\n\nvalues: sentinel: defaults.sentinel\n"), 0o644))
+
+	freshCache(t)
+	k := kernel.New(kernel.WithRegistry(registrytest.UnreachableRegistry(t)))
+	src, err := k.LoadSourceFromFile(path)
+	require.NoError(t, err)
+	_, err = k.AcquireInstanceFromDir(context.Background(), inst, src)
+	re := requireResolutionError(t, err)
+	assert.Equal(t, oerrors.ResolutionImportUnprovided, re.Kind)
+	assert.Contains(t, err.Error(), "cannot find module providing package test.example/undeclared@v0")
 }
 
 // An evaluation error is never a fetch failure, and the shape-gate sentinels

@@ -35,8 +35,9 @@ import (
 
 // This file pins the forms in which the embedded CUE (v0.17.1) reports a
 // registry fetch or a dependency resolution failure, as the library's own
-// sites receive them. Classify's text fallback matches exactly these forms,
-// so a CUE bump that changes one fails here first.
+// sites receive them, and Classify's answer for each: a *FetchError, a
+// *ResolutionError, or the error unchanged. Classify's text fallback matches
+// exactly these forms, so a CUE bump that changes one fails here first.
 //
 // Every case resolves against a local registry only (no catch-all mapping,
 // so nothing dials a public registry) and a fresh module cache, so a warm
@@ -197,16 +198,22 @@ type cueForm struct {
 }
 
 // classified is Classify's answer for a form; the zero value means
-// "returned unchanged".
+// "returned unchanged". ok is a *FetchError of kind, status and transient;
+// a non-zero resolution is a *ResolutionError of that kind.
 type classified struct {
-	ok        bool
-	kind      oerrors.FetchKind
-	status    int
-	transient bool
+	ok         bool
+	kind       oerrors.FetchKind
+	status     int
+	transient  bool
+	resolution oerrors.ResolutionKind
 }
 
 func kindOf(kind oerrors.FetchKind, status int, transient bool) classified {
 	return classified{ok: true, kind: kind, status: status, transient: transient}
+}
+
+func resolutionOf(kind oerrors.ResolutionKind) classified {
+	return classified{resolution: kind}
 }
 
 func cueForms() []cueForm {
@@ -255,16 +262,16 @@ func cueForms() []cueForm {
 		// author defect no registry interaction failed: an import the main
 		// module does not declare, a package missing from the main module's
 		// own path, or one missing from a declared dependency that was
-		// fetched. None is classified.
+		// fetched. Each is ResolutionImportUnprovided.
 		{"load/undeclared-import", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "", "test.example/other@v0"))
-		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/own-path-missing-package", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, "", "spike.example/main/missing"))
-		}, observed{contains: []string{"cannot find module providing package spike.example/main/missing"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package spike.example/main/missing"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/dependency-missing-package", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, depVersion, "test.example/dep/missing"))
-		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing"}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing"}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"load/unreachable", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "cannot do HTTP request", "connection refused"}}, kindOf(oerrors.FetchUnreachable, 0, true)},
@@ -362,7 +369,7 @@ func cueForms() []cueForm {
 			require.NoError(t, err)
 			t.Cleanup(reg.Close)
 			return loadStandalone(t, reg.Host()+"+insecure", "test.example/dep@v0.0.2")
-		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}, lacks: []string{"test.example/other@v0."}}, classified{}},
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}, lacks: []string{"test.example/other@v0."}}, resolutionOf(oerrors.ResolutionImportUnprovided)},
 		{"standalone/404", func(t *testing.T) error {
 			return loadStandalone(t, registrytest.NewStatusRegistry(t, 404), "test.example/dep@v0.0.2")
 		}, observed{contains: []string{"cannot find module providing package test.example/dep@v0.0.2"}}, kindOf(oerrors.FetchNotFound, 0, false)},
@@ -404,8 +411,8 @@ func TestCUEFailureForms(t *testing.T) {
 }
 
 // TestClassify_CUEFailureForms pins Classify's answer for each form the
-// embedded CUE produces: its kind, its status and whether it is transient,
-// or that it comes back unchanged.
+// embedded CUE produces: a fetch failure's kind, status and whether it is
+// transient, a resolution failure's kind, or that it comes back unchanged.
 func TestClassify_CUEFailureForms(t *testing.T) {
 	for _, f := range cueForms() {
 		t.Run(f.name, func(t *testing.T) {
@@ -414,6 +421,16 @@ func TestClassify_CUEFailureForms(t *testing.T) {
 			got := oerrors.Classify(err)
 			assert.Equal(t, err.Error(), got.Error(), "the message is unchanged")
 			var fe *oerrors.FetchError
+			var re *oerrors.ResolutionError
+			if f.class.resolution != oerrors.ResolutionOther {
+				require.True(t, errors.As(got, &re), "a resolution failure: %q", err.Error())
+				assert.Equal(t, f.class.resolution, re.Kind)
+				assert.False(t, errors.As(got, &fe), "no *FetchError")
+				assert.NotErrorIs(t, got, oerrors.ErrTransient)
+				assert.ErrorIs(t, got, err, "the cause stays reachable")
+				return
+			}
+			assert.False(t, errors.As(got, &re), "no *ResolutionError: %q", err.Error())
 			if !f.class.ok {
 				assert.Same(t, err, got, "returned unchanged")
 				assert.False(t, errors.As(got, &fe))
