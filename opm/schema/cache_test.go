@@ -202,6 +202,27 @@ func TestCache_ErroredValueFromAnyLoaderIsAnError(t *testing.T) {
 	assert.Equal(t, int64(1), loader.calls.Load())
 }
 
+// TestCache_ZeroValueFromLoaderIsUnusable pins the schema-dispatch scenario
+// "A zero value from the Loader is an unusable schema": a Loader returning
+// the zero cue.Value with a nil error is a load failure, worded as an
+// unusable schema rather than a build error, and memoised without a retry.
+func TestCache_ZeroValueFromLoaderIsUnusable(t *testing.T) {
+	loader := &countingLoader{}
+	cache := &schema.Cache{Loader: loader}
+
+	first, firstErr := cache.Get()
+	second, secondErr := cache.Get()
+
+	require.Error(t, firstErr)
+	assert.Contains(t, firstErr.Error(), "is unusable")
+	assert.NotContains(t, firstErr.Error(), "build error")
+	assert.Same(t, firstErr, secondErr, "the failure is memoised, not retried")
+	assert.False(t, first.Exists())
+	assert.False(t, second.Exists())
+	assert.Empty(t, cache.ResolvedVersion())
+	assert.Equal(t, int64(1), loader.calls.Load())
+}
+
 // TestCache_WorkspaceCacheReuse asserts that a second OCILoader-backed
 // Cache reuses the workspace cache populated by the first Cache —
 // i.e. the on-disk cache layer survives across Cache instances within

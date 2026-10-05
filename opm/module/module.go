@@ -79,7 +79,9 @@ type ModuleMetadata = schema.ModuleMetadata
 func NewModuleFromValue(v cue.Value) (*Module, error) {
 	meta, err := decodeModuleMetadata(v)
 	if err != nil {
-		return nil, fmt.Errorf("decoding module metadata: %w", err)
+		// The decoder's error already names the artifact; a second prefix
+		// would read "decoding module metadata: decoding module metadata: ...".
+		return nil, err
 	}
 	return &Module{
 		Metadata: meta,

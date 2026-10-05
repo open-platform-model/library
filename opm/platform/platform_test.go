@@ -2,6 +2,7 @@ package platform_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"cuelang.org/go/cue/cuecontext"
@@ -99,4 +100,16 @@ type: "kubernetes"
 	p.Source = &module.Source{Root: "/x"}
 	var src *platform.Source = p.Source //nolint:staticcheck // the explicit type IS the assertion: alias identity
 	assert.Equal(t, "/x", src.Root)
+}
+
+// TestNewPlatformFromValue_DecodeFailureNamedOnce pins the schema-dispatch
+// scenario "A decode failure names its artifact once".
+func TestNewPlatformFromValue_DecodeFailureNamedOnce(t *testing.T) {
+	v := cuecontext.New().CompileString(`kind: "Platform", type: "kubernetes", metadata: name: 1`)
+	require.NoError(t, v.Err())
+
+	p, err := platform.NewPlatformFromValue(v)
+	require.Error(t, err)
+	assert.Nil(t, p)
+	assert.Equal(t, 1, strings.Count(err.Error(), "decoding platform metadata:"), err.Error())
 }

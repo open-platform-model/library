@@ -38,6 +38,7 @@ import (
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -129,16 +130,7 @@ const PrimitiveMatchKey = "opm.test/primitive"
 // declared dep are both derived from it so they can never disagree on the
 // major.
 func coreDep(coreVersion string) string {
-	return "opmodel.dev/core@" + Major(coreVersion)
-}
-
-// Major returns the major-qualified suffix a module at version is published
-// under, with or without the "v" prefix: "0.1.0" → "v0", "v2.0.0-beta.1" →
-// "v2"; a bare major ("v2") passes through. Fixture writers use it for the
-// dep key and import path of a served coordinate.
-func Major(version string) string {
-	major, _, _ := strings.Cut(strings.TrimPrefix(version, "v"), ".")
-	return "v" + major
+	return modversion.CoreModule + "@" + modversion.Major(coreVersion)
 }
 
 // NewCatalogRegistry stands up an in-memory OCI registry serving the given
@@ -190,9 +182,9 @@ func NewRegistryWithCore(t *testing.T, coreFile string, modules ...ModuleFixture
 	t.Helper()
 
 	mapfs := fstest.MapFS{}
-	coreDir := strings.ReplaceAll("opmodel.dev/core", "/", "_") + "_" + DefaultCoreVersion
+	coreDir := strings.ReplaceAll(modversion.CoreModule, "/", "_") + "_" + DefaultCoreVersion
 	mapfs[coreDir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-		"module: %q\nlanguage: version: \"v0.17.0\"\n", coreDep(DefaultCoreVersion),
+		"module: %q\nlanguage: version: %q\n", coreDep(DefaultCoreVersion), modversion.LanguageFloor,
 	)}
 	mapfs[coreDir+"/core.cue"] = &fstest.MapFile{Data: []byte(coreFile)}
 	addModules(mapfs, modules...)
@@ -271,8 +263,6 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 	for _, f := range fixtures {
 		dir := strings.ReplaceAll(f.Path, "/", "_") + "_v" + f.Version
 		pkg := f.Path[strings.LastIndex(f.Path, "/")+1:]
-		// The module's major suffix must match the published version's major.
-		major, _, _ := strings.Cut(f.Version, ".")
 		core := DefaultCoreVersion
 		var deps strings.Builder
 		fmt.Fprintf(&deps, "deps: %q: v: %q\n", coreDep(core), core)
@@ -280,8 +270,9 @@ func addCatalogs(mapfs fstest.MapFS, fixtures ...CatalogFixture) {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0\"\n%s",
-			f.Path+"@v"+major, deps.String(),
+			"module: %q\nlanguage: version: %q\n%s",
+			// The module's major suffix must match the published version's major.
+			f.Path+"@"+modversion.Major(f.Version), modversion.LanguageFloor, deps.String(),
 		)}
 		mapfs[dir+"/catalog.cue"] = &fstest.MapFile{Data: []byte(
 			"package " + pkg + "\n\nimport c \"" + coreDep(core) + "\"\n\nc.#Catalog\n" + f.Body,
@@ -301,11 +292,10 @@ func addModules(mapfs fstest.MapFS, modules ...ModuleFixture) {
 		for p, v := range m.Deps {
 			fmt.Fprintf(&deps, "deps: %q: v: %q\n", p, "v"+strings.TrimPrefix(v, "v"))
 		}
-		// The module's major suffix must match the published version's major.
-		major, _, _ := strings.Cut(m.Version, ".")
 		mapfs[dir+"/cue.mod/module.cue"] = &fstest.MapFile{Data: fmt.Appendf(nil,
-			"module: %q\nlanguage: version: \"v0.17.0\"\n%s",
-			m.Path+"@v"+major, deps.String(),
+			"module: %q\nlanguage: version: %q\n%s",
+			// The module's major suffix must match the published version's major.
+			m.Path+"@"+modversion.Major(m.Version), modversion.LanguageFloor, deps.String(),
 		)}
 		mapfs[dir+"/module.cue"] = &fstest.MapFile{Data: []byte(m.File)}
 		for rel, content := range m.Extra {
@@ -369,8 +359,7 @@ func BuildModuleFile(pkg, name, modulePath, catalogImport string) string {
 // FQNs are keyed by [ContractAPIVersion] (transformer keys stay build-keyed).
 func BuildCatalog(path, version string, txs ...TxFixture) string {
 	var b strings.Builder
-	major, _, _ := strings.Cut(version, ".")
-	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@v"+major, version)
+	fmt.Fprintf(&b, "metadata: {\n\tmodulePath:  %q\n\tversion:     %q\n\tdescription: \"test catalog\"\n}\n", path+"@"+modversion.Major(version), version)
 	b.WriteString("#transformers: {\n")
 	for _, tx := range txs {
 		fqn := fmt.Sprintf("%s/transformers/%s@%s", path, tx.Name, version)

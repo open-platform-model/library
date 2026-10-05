@@ -49,8 +49,10 @@ type Cache struct {
 // reachable only through that value.
 //
 // Returns the zero cue.Value and a non-nil error if Loader.Load fails or
-// returns a value that carries a build error; the error is cached and
-// subsequent calls return it without re-invoking the Loader.
+// returns, with a nil error, a value that is unusable: one whose build
+// failed, or the zero cue.Value (whose Err is "undefined value"). The
+// error wraps the value's own and calls the loaded schema unusable; it is
+// cached and subsequent calls return it without re-invoking the Loader.
 func (c *Cache) Get() (cue.Value, error) {
 	c.once.Do(func() {
 		ctx := cuecontext.New()
@@ -62,7 +64,7 @@ func (c *Cache) Get() (cue.Value, error) {
 		if c.err == nil {
 			if err := c.val.Err(); err != nil {
 				c.val, c.ver = cue.Value{}, ""
-				c.err = fmt.Errorf("schema Cache: loaded schema carries a build error: %w", err)
+				c.err = fmt.Errorf("schema Cache: loaded schema is unusable: %w", err)
 			}
 		}
 	})

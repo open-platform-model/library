@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/open-platform-model/library/opm/internal/modversion"
 )
 
 // VersionRow is one resolved-versions comparison row (0019:D18): for an
@@ -63,13 +63,9 @@ func CompareSkew(platform, instance *ModFile) ([]VersionRow, error) {
 
 // isNewer reports whether a is a strictly newer SemVer than b.
 func isNewer(a, b string) (bool, error) {
-	va, err := semver.NewVersion(a)
+	c, err := modversion.Compare(a, b)
 	if err != nil {
-		return false, fmt.Errorf("invalid version %q: %w", a, err)
+		return false, err
 	}
-	vb, err := semver.NewVersion(b)
-	if err != nil {
-		return false, fmt.Errorf("invalid version %q: %w", b, err)
-	}
-	return va.GreaterThan(vb), nil
+	return c > 0, nil
 }

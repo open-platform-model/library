@@ -95,7 +95,7 @@ After writing the render module's dependency list, the kernel SHALL verify that 
 
 ### Requirement: Version skew is detected from the two committed resolutions and the response is caller-configured
 
-For each OPM-namespace path, the kernel SHALL compare the instance module's `cue.mod` requirement against the platform module's tidied entry (never the render module's promoted list). When the instance requires a NEWER build than the platform carries, the configured policy decides: warn-and-render (the default when no policy is supplied) marks that path's resolved-versions row as newer and proceeds; refuse fails the render before evaluation. A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity. The kernel SHALL NOT render the skew as a message string; a frontend formats the row.
+For each OPM-namespace path, the kernel SHALL compare the instance module's `cue.mod` requirement against the platform module's tidied entry (never the render module's promoted list). When the instance requires a NEWER build than the platform carries, the configured policy decides: warn-and-render (the default when no policy is supplied) marks that path's resolved-versions row as newer and proceeds; refuse fails the render before evaluation. Newer and older SHALL follow SemVer 2 precedence, prerelease builds included (`2.0.0-beta.2` is older than `2.0.0-beta.10`, which is older than `2.0.0`). A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity. The kernel SHALL NOT render the skew as a message string; a frontend formats the row.
 
 #### Scenario: Newer module warns and renders by default
 
@@ -111,6 +111,11 @@ For each OPM-namespace path, the kernel SHALL compare the instance module's `cue
 
 - **WHEN** the instance requires `1.1.0` and the platform carries `1.2.0`
 - **THEN** the render proceeds, the resolved-versions row for that path is present in the result's diagnostics, and it is not marked newer
+
+#### Scenario: Prerelease builds compare by SemVer precedence
+
+- **WHEN** the skew comparison compares an instance requiring `2.0.0-beta.10` of a path against a platform carrying `2.0.0-beta.2`, and against a platform carrying `2.0.0`
+- **THEN** the row against `2.0.0-beta.2` is marked newer and the row against `2.0.0` is not
 
 ### Requirement: Each render is its own build in its own context
 

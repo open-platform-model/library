@@ -115,6 +115,28 @@ func TestCatalog_Requires_Errors(t *testing.T) {
 		assert.Nil(t, got)
 	})
 
+	// catalog-acquisition scenario "A module file the render stage would
+	// refuse is refused": Requires reads through the render stage's reader,
+	// which refuses replaceWith in module.cue as cue/load does.
+	t.Run("a replaceWith dependency is refused like the render stage refuses it", func(t *testing.T) {
+		root := filepath.Join(string(filepath.Separator), "synthetic", "root")
+		c := withSource(t, &catalog.Source{
+			Root: root,
+			Overlay: map[string][]byte{filepath.Join(root, "cue.mod", "module.cue"): []byte(`module: "test.example/catalogs/provider@v1"
+language: version: "v0.17.0"
+deps: "test.example/catalogs/base@v1": {
+	v:           "v1.2.3"
+	replaceWith: "../base"
+}
+`)},
+		})
+		got, err := c.Requires()
+		require.Error(t, err)
+		assert.Nil(t, got)
+		assert.Contains(t, err.Error(), "cue.mod/module.cue")
+		assert.Contains(t, err.Error(), "replaceWith")
+	})
+
 	t.Run("nil receiver", func(t *testing.T) {
 		var c *catalog.Catalog
 		got, err := c.Requires()
