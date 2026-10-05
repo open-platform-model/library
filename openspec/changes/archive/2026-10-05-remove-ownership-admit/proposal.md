@@ -6,8 +6,8 @@ from an earlier release's install manifest, so that the first module-based insta
 controller could take over a manifest-installed one (the earlier text of 0012:D8:R6/R7). The owner
 decided on 2026-10-05, as part of renaming the operator to the controller, to remove every piece of
 legacy-migration code: nobody runs OPM yet, so there is no manifest-installed controller to take
-over. The enhancement withdraws 0012:D8:R6/R7, and the cli deletes its migration, the only code that
-ever set `Admit`.
+over. The enhancement withdraws 0012:D8:R6/R7. No frontend ever set `Admit`; the cli removes its
+own migration (its `inventory.AdmitSet`) in a change of its own.
 
 `Admit` has no caller. Removing it now is free; once a frontend calls it, removing it is a real
 break.
