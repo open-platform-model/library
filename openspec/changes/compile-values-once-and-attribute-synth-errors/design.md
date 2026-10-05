@@ -167,7 +167,10 @@ from a `Source` with Origin `/values/bad.cue`. Section 1 adds the test with the 
 that hold today: an error, no instance, and the path `replicas` named. Before this change
 the build error is framed `Kernel.SynthesizeInstance: instance synthesis: building instance
 package from …/opm-synth-instance: unifiedModule.#components.foo._r: conflicting values …`,
-and no position names the source (recorded when section 1 ran; see task 1.1). Section 3
+and no position names the source: they name the module's `module.cue`, the synthesized
+`opm-synth-instance/instance.cue` and `opm-synth-instance/values.cue`, and core's
+`module_instance.cue` (recorded when section 1 ran). The word `replicas` is not in the
+message either, only the hidden field's path and the value `"three"`. Section 3
 tightens the test to assert that a position names `/values/bad.cue` and that the message
 reads `Kernel.SynthesizeInstance: instance "myrel": `.
 

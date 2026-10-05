@@ -74,12 +74,21 @@ func acquireSynthModule(t *testing.T, k *kernel.Kernel, modPath, version string)
 // from a registry — a locally-built value no longer works.
 func publishSynthModule(t *testing.T, name, version, bodyFields string, opts ...kernel.Option) (*kernel.Kernel, *module.Module) {
 	t.Helper()
+	k, mod, _ := publishSynthModuleAt(t, name, version, bodyFields, opts...)
+	return k, mod
+}
+
+// publishSynthModuleAt is publishSynthModule that also returns the module's
+// major-free path, for a test that authors a directory instance importing
+// the same published module.
+func publishSynthModuleAt(t *testing.T, name, version, bodyFields string, opts ...kernel.Option) (*kernel.Kernel, *module.Module, string) {
+	t.Helper()
 
 	modPath, fixture := synthModuleFixture(t, name, version, bodyFields)
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{fixture}, nil)
 
 	k := kernel.New(append([]kernel.Option{kernel.WithRegistry(reg)}, opts...)...)
-	return k, acquireSynthModule(t, k, modPath, version)
+	return k, acquireSynthModule(t, k, modPath, version), modPath
 }
 
 const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"ok\"}\ndebugValues: {sentinel: \"from-debug\"}\n"
@@ -392,4 +401,64 @@ func TestKernel_SynthesizeInstance_FailureReturnsNoInstance(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Nil(t, inst)
+}
+
+// consumingConfigBody is a module whose one component reads #config.replicas,
+// so a value that breaks #config there fails the instance build itself
+// rather than only the check after it. A component's spec is closed over its
+// resources, so the read goes through a hidden field.
+const consumingConfigBody = "#config: {replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & int}\n"
+
+// kernel-runtime spec, "SynthesizeInstance attributes a values conflict that
+// fails the build": a value a component consumes breaks the synthesized
+// build, not only the post-build check.
+func TestKernel_SynthesizeInstance_BuildFailingViolation(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", consumingConfigBody)
+
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "/values/bad.cue", `replicas: "three"`)},
+	})
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.Contains(t, err.Error(), `"three"`)
+	assert.NotContains(t, err.Error(), `Kernel.SynthesizeInstance: instance "`,
+		"the build itself must fail, not the check after it")
+	assert.False(t, positionsName(err, "/values/bad.cue"),
+		"the build error is positioned in the synthesized package: %v", err)
+}
+
+// kernel-runtime spec, "A build failure with clean values is returned
+// unchanged": a build that fails for a reason other than the values keeps
+// its own error, not the instance-framed values error.
+func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) {
+	cases := map[string]string{
+		// #ctx is declared at file level so the body can reach core's; every
+		// instance outside "elsewhere" fails, a build without values included.
+		"the component fails for every instance": "#ctx: _\n#config: {replicas: int | *1}\ndebugValues: {}\n" +
+			"#components: foo: {metadata: name: \"foo\", _n: #ctx.instance.namespace & \"elsewhere\"}\n",
+		// Without values the read is only incomplete, so a build without
+		// values succeeds; the clean values then explain nothing.
+		"the values-free build succeeds": "#config: {replicas: int | *1}\ndebugValues: {}\n" +
+			"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & >5}\n",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			k, mod := publishSynthModule(t, "demo", "0.1.0", body)
+
+			inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+				Module:    mod,
+				Name:      "myrel",
+				Namespace: "default",
+				Values:    []kernel.Source{mustSource(t, k, "/values/clean.cue", `replicas: 2`)},
+			})
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.NotContains(t, err.Error(), `instance "myrel": `)
+		})
+	}
 }

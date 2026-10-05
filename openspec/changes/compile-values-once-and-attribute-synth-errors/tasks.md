@@ -21,18 +21,19 @@ in design.md. Code and test comments cite no CVn, task or section number.
 
 Tests only. Every one passes on `origin/main` before any code moves.
 
-- [ ] 1.1 `opm/kernel/synth_test.go`: `TestKernel_SynthesizeInstance_BuildFailingViolation`
+- [x] 1.1 `opm/kernel/synth_test.go`: `TestKernel_SynthesizeInstance_BuildFailingViolation`
       publishes a synth module (`publishSynthModule`) whose `#config` declares
       `replicas: int | *1` and whose one component reads it through a hidden field,
       `_r: #config.replicas & int` (a component's `spec` is closed over its resources, so a
       hidden field is the smallest shape core accepts). Synthesize with `Values: []kernel.Source{mustSource(t, k, "/values/bad.cue",
-      `replicas: "three"`)}`. Assert an error, a nil instance and `replicas` in the message.
+      `replicas: "three"`)}`. Assert an error, a nil instance and the value `"three"` in the message (today's build
+      error names the hidden field's path, not `replicas`).
       First confirm the failure comes from `synth.Instance`, not from the post-build check:
       the message must not start `Kernel.SynthesizeInstance: instance "`. Write in design.md
       CV4 which file today's positions name (expected: the synthesized `values.cue`). If the
       build does not fail, change the component until it does. Do not continue with a
       fixture whose build passes.
-- [ ] 1.2 Same file: `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged`, with two
+- [x] 1.2 Same file: `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged`, with two
       subtests. Each must hold before and after section 3.
       - **The component fails for every instance.** The module declares `#ctx: _` at file
         level (so the body can reference core's `#ctx`) and a component field
@@ -47,14 +48,14 @@ Tests only. Every one passes on `origin/main` before any code moves.
         values, `int | *1 & >5` is only incomplete, so the rebuild succeeds; the values are
         clean against `#config`, so the original build error comes back. Assert the same
         framing as the first subtest.
-- [ ] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory whose
+- [x] 1.3 `opm/kernel/acquire_test.go`: the acquire twin of 1.1, an instance directory whose
       module component consumes `#config.replicas`, acquired with the same bad source.
       Assert it fails with positions naming `/values/bad.cue` and the message framed
       `Kernel.AcquireInstanceFromDir: instance "`. This already holds; it is the target
       shape for section 3. Reuse a render fixture with a component that reads a `#config`
       value if one exists (`renderFixtureDir`). Otherwise write one under `t.TempDir()`
       that imports the module 1.1 publishes.
-- [ ] 1.4 `task check` green, then commit
+- [x] 1.4 `task check` green, then commit
       `test(kernel): pin values conflicts that fail the instance build`.
 
 ## 2. Compile each values source once per call (kernel; design CV1, CV5)
@@ -101,7 +102,8 @@ Tests only. Every one passes on `origin/main` before any code moves.
       attributed to the values sources the way `AcquireInstanceFromDir` does it, through a
       values-free rebuild in the call's context. Keep the "never its Package" sentence true.
 - [ ] 3.4 Tests. Tighten 1.1 to assert the `Kernel.SynthesizeInstance: instance "myrel": `
-      prefix and that a position names `/values/bad.cue` (`positionsName`). 1.2 must stay
+      prefix, `replicas` in the message and that a position names `/values/bad.cue`
+      (`positionsName`). 1.2 must stay
       green unchanged. Add `TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged`: the
       module of 1.2's first subtest (its component fails for every instance, the rebuild
       included) synthesized with no values, and again with one empty-`Data` source. Both return the build error framed `Kernel.SynthesizeInstance: `
