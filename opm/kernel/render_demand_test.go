@@ -167,7 +167,7 @@ func walkDeclaredContracts(inst *module.Instance) ([]string, error) {
 // demand equals the controller walk it replaces. Every scenario package on
 // disk is classified, so a new one must either join the parity set or be
 // named as a render that never reaches its diagnostics.
-func TestRenderDemand_ParityWithOperatorWalk(t *testing.T) {
+func TestRenderDemand_ParityWithControllerWalk(t *testing.T) {
 	// Scenarios whose render returns a plain error before or at the
 	// diagnostics decode, so no demand is reported. bad_traits and
 	// no_resources are not acquirable at all.
