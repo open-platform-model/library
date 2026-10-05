@@ -112,6 +112,33 @@ func TestFetchClassify_DirModuleWithUnreachableDependency(t *testing.T) {
 	assert.ErrorIs(t, err, oerrors.ErrTransient)
 }
 
+// An import no registry interaction failed is an author defect and stays a
+// plain error: a package missing from the module's own path, and an import
+// of a module the module never declared.
+func TestFetchClassify_UnresolvableImportStaysPlain(t *testing.T) {
+	for name, importPath := range map[string]string{
+		"own path":   "fetch.example/app/missing",
+		"undeclared": "test.example/undeclared@v0",
+	} {
+		t.Run(name, func(t *testing.T) {
+			freshCache(t)
+			dir := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(dir, "cue.mod"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "cue.mod", "module.cue"), []byte(
+				"module: \"fetch.example/app@v0\"\nlanguage: version: \"v0.17.0\"\n"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "app.cue"), []byte(
+				"package app\n\nimport m \""+importPath+"\"\n\nkind: \"Module\"\nx: m.y\n"), 0o644))
+			k := kernel.New(kernel.WithRegistry(registrytest.UnreachableRegistry(t)))
+			_, err := k.AcquireModuleFromDir(context.Background(), dir)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "cannot find module providing package "+importPath)
+			var fe *oerrors.FetchError
+			assert.False(t, errors.As(err, &fe), "no *FetchError in %q", err)
+			assert.NotErrorIs(t, err, oerrors.ErrTransient)
+		})
+	}
+}
+
 // An evaluation error is never a fetch failure, and the shape-gate sentinels
 // still match.
 func TestFetchClassify_EvaluationErrorStaysPlain(t *testing.T) {

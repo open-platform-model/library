@@ -101,9 +101,6 @@ const (
 	// textModuleNotFound is modregistry.ErrNotFound's text, which a 403 or
 	// 404 tag lookup also reads as.
 	textModuleNotFound = "module not found"
-	// textNoModuleProvides is cue/load's report for an import that no
-	// module in the dependency graph provides.
-	textNoModuleProvides = "cannot find module providing package"
 	// textCannotFetch is cue/load's prefix around a fetch whose cause is
 	// none of the above.
 	textCannotFetch = "cannot fetch "
@@ -114,11 +111,21 @@ const (
 // one net/http gives the code, so a number in a path never matches.
 var textStatus = regexp.MustCompile(`(?:^|: )([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -]*): `)
 
-// classifyText is the text fallback, most specific form first. It does not
-// match cue/load's "cannot expand module graph" on its own: that prefix also
-// wraps a published dependency whose module file does not parse, which is a
-// defect and not a fetch, so it classifies only through the fetch form it
-// carries.
+// textVersionNotProvided matches cue/load's "cannot find module providing
+// package P" only where P names an exact version, which is a standalone
+// path@version load (the schema loader's): there the registry was asked for
+// that version and it does not provide the package. In a directory load the
+// same words report an import of the main module's own path that does not
+// exist, or an import no declared dependency provides. Both are author
+// defects that no registry interaction failed, and an import path carries
+// at most a major version, so they never match.
+var textVersionNotProvided = regexp.MustCompile(`cannot find module providing package \S+@v[0-9]+\.[0-9]+\.[0-9]+`)
+
+// classifyText is the text fallback, most specific form first. It
+// recognises only a failed registry interaction. It does not match cue/load's
+// "cannot expand module graph" on its own: that prefix also wraps a published
+// dependency whose module file does not parse, which is a defect and not a
+// fetch, so it classifies only through the fetch form it carries.
 func classifyText(msg string) (FetchKind, int, bool) {
 	if strings.Contains(msg, textUnreachable) {
 		return FetchUnreachable, 0, true
@@ -130,7 +137,7 @@ func classifyText(msg string) (FetchKind, int, bool) {
 		}
 		return kindOfStatus(status), status, true
 	}
-	if strings.Contains(msg, textModuleNotFound) || strings.Contains(msg, textNoModuleProvides) {
+	if strings.Contains(msg, textModuleNotFound) || textVersionNotProvided.MatchString(msg) {
 		return FetchNotFound, 0, true
 	}
 	if strings.Contains(msg, textCannotFetch) {

@@ -17,6 +17,7 @@ import (
 	"cuelabs.dev/go/oci/ociregistry"
 	"cuelabs.dev/go/oci/ociregistry/ocimem"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/load"
 	"cuelang.org/go/mod/modregistry"
 	"cuelang.org/go/mod/modregistrytest"
 	"github.com/stretchr/testify/assert"
@@ -153,6 +154,15 @@ func loadMain(t *testing.T, registry string, src *opmmodule.Source) error {
 	return err
 }
 
+// loadStandalone loads pattern (path@version) with no main module, as the
+// schema loader loads core.
+func loadStandalone(t *testing.T, registry, pattern string) error {
+	t.Helper()
+	insts := load.Instances([]string{pattern}, &load.Config{Dir: t.TempDir(), Env: env(t, registry)})
+	require.Len(t, insts, 1)
+	return insts[0].Err
+}
+
 // cueForm is one failure as a library site receives it, and what Classify
 // makes of it.
 type cueForm struct {
@@ -217,9 +227,20 @@ func cueForms() []cueForm {
 		{"load/absent", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "v0.0.9", "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.9: module test.example/dep@v0.0.9: module not found"}}, kindOf(oerrors.FetchNotFound, 0, false)},
-		{"load/no-module-provides", func(t *testing.T) error {
+		// "cannot find module providing package" in a directory load is an
+		// author defect no registry interaction failed: an import the main
+		// module does not declare, a package missing from the main module's
+		// own path, or one missing from a declared dependency that was
+		// fetched. None is classified.
+		{"load/undeclared-import", func(t *testing.T) error {
 			return loadMain(t, servedDep(t), mainModule(t, "", "test.example/other@v0"))
-		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		}, observed{contains: []string{"cannot find module providing package test.example/other@v0"}}, classified{}},
+		{"load/own-path-missing-package", func(t *testing.T) error {
+			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, "", "spike.example/main/missing"))
+		}, observed{contains: []string{"cannot find module providing package spike.example/main/missing"}}, classified{}},
+		{"load/dependency-missing-package", func(t *testing.T) error {
+			return loadMain(t, servedDep(t), mainModule(t, depVersion, "test.example/dep/missing"))
+		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing"}}, classified{}},
 		{"load/unreachable", func(t *testing.T) error {
 			return loadMain(t, registrytest.UnreachableRegistry(t), mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "cannot do HTTP request", "connection refused"}}, kindOf(oerrors.FetchUnreachable, 0, true)},
@@ -252,12 +273,30 @@ func cueForms() []cueForm {
 			return loadMain(t, reg, mainModule(t, depVersion, "test.example/dep"))
 		}, observed{contains: []string{"cannot fetch test.example/dep@v0.0.2: ", "zip: not a valid zip file"}}, kindOf(oerrors.FetchOther, 0, false)},
 
+		// A standalone path@version load asks the registry for that exact
+		// version, so "cannot find module providing package P@V" there is
+		// the registry's answer: the version, or the package in it, is not
+		// published.
+		{"standalone/absent-version", func(t *testing.T) error {
+			return loadStandalone(t, servedDep(t), "test.example/dep@v0.0.9")
+		}, observed{contains: []string{"cannot find module providing package test.example/dep@v0.0.9"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"standalone/absent-package", func(t *testing.T) error {
+			return loadStandalone(t, servedDep(t), "test.example/dep/missing@v0.0.2")
+		}, observed{contains: []string{"cannot find module providing package test.example/dep/missing@v0.0.2"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"standalone/404", func(t *testing.T) error {
+			return loadStandalone(t, registrytest.NewStatusRegistry(t, 404), "test.example/dep@v0.0.2")
+		}, observed{contains: []string{"cannot find module providing package test.example/dep@v0.0.2"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+
 		// The schema loader loads a standalone package by path@version, and
 		// that path keeps the typed chain.
 		{"schema/unreachable", func(t *testing.T) error {
 			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.UnreachableRegistry(t), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
 			return err
 		}, observed{contains: []string{"cannot fetch opmodel.dev/core@v2.0.0: ", "cannot do HTTP request"}, netErr: true}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"schema/404", func(t *testing.T) error {
+			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.NewStatusRegistry(t, 404), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
+			return err
+		}, observed{contains: []string{"cannot find module providing package opmodel.dev/core@v2.0.0"}}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"schema/503", func(t *testing.T) error {
 			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.NewStatusRegistry(t, 503), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
 			return err

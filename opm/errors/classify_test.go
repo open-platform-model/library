@@ -20,8 +20,14 @@ func TestClassify_Nil(t *testing.T) {
 }
 
 func TestClassify_AlreadyClassifiedIsReturnedAsIs(t *testing.T) {
-	err := fmt.Errorf("fetching: %w", &oerrors.FetchError{Kind: oerrors.FetchNotFound, Err: errors.New("x")})
-	assert.Same(t, err, oerrors.Classify(err))
+	// The inner cause is one Classify would recognise on its own, so only
+	// the already-classified guard keeps the inner Coordinate visible.
+	err := fmt.Errorf("fetching: %w", &oerrors.FetchError{Kind: oerrors.FetchNotFound, Coordinate: "m@v0.0.1", Err: modregistry.ErrNotFound})
+	got := oerrors.Classify(err)
+	assert.Same(t, err, got)
+	var fe *oerrors.FetchError
+	require.True(t, errors.As(got, &fe))
+	assert.Equal(t, "m@v0.0.1", fe.Coordinate)
 }
 
 func TestClassify_CancellationIsUnchanged(t *testing.T) {
@@ -38,6 +44,10 @@ func TestClassify_UnrecognisedIsUnchanged(t *testing.T) {
 		errors.New("a: conflicting values 1 and 2"),
 		errors.New("cannot expand module graph: test.example/dep@v0.0.2: cannot parse module file from test.example/dep@v0.0.2: bogus: field not allowed"),
 		errors.New("listening on port 401 Unauthorized"),
+		// An import no module provides is an author defect: an import path
+		// carries at most a major version.
+		errors.New(`main.cue:3:8: cannot find package "a.b/c": cannot find module providing package a.b/c`),
+		errors.New(`main.cue:3:8: cannot find package "a.b/c@v1": cannot find module providing package a.b/c@v1`),
 		errors.New("x: 999 Bogus Status: y"),
 		errors.New("x: 404 Something Else: y"),
 	} {
@@ -99,7 +109,7 @@ func TestClassify_Text(t *testing.T) {
 		{"429", "x: 429 Too Many Requests: y", oerrors.FetchOther, 429, false},
 		{"503", `x: 503 Service Unavailable: non-JSON error response ""; body ""`, oerrors.FetchOther, 503, true},
 		{"module not found", "cannot fetch m@v0.0.1: module m@v0.0.1: module not found", oerrors.FetchNotFound, 0, false},
-		{"no module provides", `main.cue:3:8: cannot find package "a.b/c": cannot find module providing package a.b/c`, oerrors.FetchNotFound, 0, false},
+		{"no module provides an exact version", `cannot find module providing package a.b/c@v1.2.3`, oerrors.FetchNotFound, 0, false},
 		{"tidy unreachable", `failed to resolve "a.b/c@v0": module a.b@v0: cannot do HTTP request: Get "http://h/v2/a.b/tags/list?n=1000": dial tcp: connection refused`, oerrors.FetchUnreachable, 0, true},
 		{"cannot fetch other", "cannot fetch m@v0.0.1: unzip /c/m.zip: zip: not a valid zip file", oerrors.FetchOther, 0, false},
 		{"graph expansion carrying a fetch form", "cannot expand module graph: m@v0.0.1: module not found", oerrors.FetchNotFound, 0, false},
