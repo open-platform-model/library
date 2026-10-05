@@ -276,3 +276,34 @@ func TestReadFile_OverlayAndDisk(t *testing.T) {
 	_, err = ReadFile(nil, "x")
 	require.Error(t, err)
 }
+
+// CheckRootAbsent passes a missing path and refuses anything that exists at
+// it, naming the role and the path: a directory holding a .cue file, a plain
+// file and a dangling symlink.
+func TestCheckRootAbsent(t *testing.T) {
+	base := t.TempDir()
+
+	absent := filepath.Join(base, "absent")
+	require.NoError(t, CheckRootAbsent("test root", "test module", absent))
+
+	dir := filepath.Join(base, "dir")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "injected.cue"), []byte("package x\n"), 0o644))
+	file := filepath.Join(base, "file")
+	require.NoError(t, os.WriteFile(file, []byte("x"), 0o644))
+
+	cases := map[string]string{"directory": dir, "file": file}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(filepath.Join(base, "nowhere"), link); err == nil {
+		cases["dangling symlink"] = link
+	} else {
+		t.Logf("skipping the symlink case: %v", err)
+	}
+	for name, root := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := CheckRootAbsent("test root", "test module", root)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "test root "+root+" exists on disk; the test module is served from memory under it")
+		})
+	}
+}

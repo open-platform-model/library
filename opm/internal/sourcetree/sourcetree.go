@@ -159,16 +159,37 @@ func OverlayFromFS(fsys fs.FS, dir, keyRoot string) (map[string][]byte, error) {
 }
 
 // VolumeRoot returns the absolute path of the directory name directly
-// beneath the file-system root: /<name> on Unix and, on Windows, \\<name> on
-// the current volume (a separator-rooted path without a volume is not
-// absolute there, and cue/load refuses an overlay key that is not absolute).
-// It is computed once, into a package variable, by each caller.
+// beneath the file-system root: /<name> on Unix and C:\<name> on Windows,
+// where C: stands for the current volume (a separator-rooted path without a
+// volume is not absolute there, and cue/load refuses an overlay key that is
+// not absolute). It is computed once, into a package variable, by each
+// caller.
 func VolumeRoot(name string) string {
 	p := string(filepath.Separator) + name
 	if abs, err := filepath.Abs(p); err == nil {
 		return abs
 	}
 	return p
+}
+
+// CheckRootAbsent refuses when anything exists at root, an in-memory build
+// root that must not exist on disk. cue/load serves load.Config.Overlay on
+// top of the real filesystem and merges a real directory's entries beneath
+// an overlay root into the load, so a stray .cue file there would join the
+// build. It returns nil when [os.Lstat] reports the path missing, and an
+// error naming role and root when it finds anything (a directory, a file, a
+// symlink, even a dangling one). served names what the build serves from
+// memory under root, for the message. Any other Lstat failure is wrapped.
+func CheckRootAbsent(role, served, root string) error {
+	_, err := os.Lstat(root)
+	switch {
+	case err == nil:
+		return fmt.Errorf("%s %s exists on disk; the %s is served from memory under it and the build would read what is there, so remove it", role, root, served)
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("checking that the %s %s is absent: %w", role, root, err)
+	}
 }
 
 // syntheticBase is the directory every [SyntheticRoot] lies under.

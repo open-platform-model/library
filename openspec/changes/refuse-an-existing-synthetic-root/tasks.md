@@ -5,23 +5,23 @@ Library tests run with an absolute private `TMPDIR`
 of the main checkout's, never a symlink. Every commit task stages the files it names with
 `git add <file>`.
 
-- [ ] 1.1 `opm/internal/sourcetree/sourcetree.go`: add `CheckRootAbsent(role, served, root string) error`
+- [x] 1.1 `opm/internal/sourcetree/sourcetree.go`: add `CheckRootAbsent(role, served, root string) error`
   (design D1): nil when `os.Lstat(root)` reports `fs.ErrNotExist`; when it finds anything,
   `<role> <root> exists on disk; the <served> is served from memory under it and the build would read what is there, so remove it`;
   any other `Lstat` error wrapped as `checking that the <role> <root> is absent: <cause>`. Its doc
   says why: cue/load merges a real directory beneath an overlay root into the load.
-- [ ] 1.2 Same file: fix the `VolumeRoot` doc. The result is `/<name>` on Unix and `C:\<name>` on
+- [x] 1.2 Same file: fix the `VolumeRoot` doc. The result is `/<name>` on Unix and `C:\<name>` on
   Windows, where `C:` stands for the current volume; drop the `\\<name>` spelling, which reads as a
   UNC path.
-- [ ] 1.3 `opm/internal/renderstage/stage.go`: delete `checkRootAbsent` and call
+- [x] 1.3 `opm/internal/renderstage/stage.go`: delete `checkRootAbsent` and call
   `sourcetree.CheckRootAbsent("render root", "render module", root)` from `Stage`, so the message
   stays byte-identical. Drop imports that become unused. Keep the `RenderRoot` doc's sentence about
   the refusal.
-- [ ] 1.4 `opm/internal/sourcetree/sourcetree_test.go`: add `TestCheckRootAbsent` with four cases
+- [x] 1.4 `opm/internal/sourcetree/sourcetree_test.go`: add `TestCheckRootAbsent` with four cases
   under `t.TempDir()`: an absent path passes; a directory holding a `.cue` file, a plain file and a
   dangling symlink each refuse with the role and the path in the error. Skip the symlink case when
   `os.Symlink` fails (Windows without the privilege).
-- [ ] 1.5 `go test -count=1 ./opm/internal/sourcetree/ ./opm/internal/renderstage/` green
+- [x] 1.5 `go test -count=1 ./opm/internal/sourcetree/ ./opm/internal/renderstage/` green
   (`TestStage_RefusesAnExistingRenderRoot` unchanged), then `task check` green, then commit
   `refactor(renderstage): move the existing-root check into sourcetree`.
 
