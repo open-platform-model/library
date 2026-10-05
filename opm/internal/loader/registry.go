@@ -102,6 +102,11 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("fetching %s %s: %w", spec.Label, mv, classifyFetch(err, mv))
 	}
+	// A fetch served from the module cache never consults ctx; the build
+	// below takes none, so this is the last point a cancellation lands.
+	if err := ctx.Err(); err != nil {
+		return cue.Value{}, nil, err
+	}
 
 	// Stage the fetched artifact's .cue files in memory under a deterministic
 	// synthetic root. A fetch carrying no .cue file is not an artifact.

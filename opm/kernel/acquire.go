@@ -93,9 +93,12 @@ func (k *Kernel) AcquireModuleFromRegistry(ctx context.Context, modPath, version
 //
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial module is returned.
-func (k *Kernel) AcquireModuleFromDir(_ context.Context, dirPath string) (*module.Module, error) {
+func (k *Kernel) AcquireModuleFromDir(ctx context.Context, dirPath string) (*module.Module, error) {
 	const verb = "Kernel.AcquireModuleFromDir"
-	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.ModuleSpec, true)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	val, src, err := k.acquireDir(ctx, cuecontext.New(), verb, dirPath, loader.ModuleSpec, true)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +144,14 @@ func dirSource(verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool)
 //   - module and catalog: overlay mode, built from the overlay they stamp;
 //   - platform, and an instance with no values sources: on-disk mode.
 //
-// A load or shape-gate error is returned unwrapped, as each verb reports it.
-func (k *Kernel) acquireDir(cueCtx *cue.Context, verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool) (cue.Value, *module.Source, error) {
+// A load or shape-gate error is returned unwrapped, as each verb reports it,
+// and so is ctx's error when ctx is done once the tree is read.
+func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirPath string, spec loader.ArtifactSpec, withOverlay bool) (cue.Value, *module.Source, error) {
 	src, err := dirSource(verb, dirPath, spec, withOverlay)
 	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, err
 	}
 	val, err := loader.LoadDir(cueCtx, src, loader.Options{Env: k.loadEnv()}, spec)
@@ -225,9 +232,12 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 //
 // Shape-gate failures propagate unchanged (missing directory, no package, or
 // a sentinel such as [oerrors.ErrWrongKind]); no partial catalog is returned.
-func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*catalog.Catalog, error) {
+func (k *Kernel) AcquireCatalogFromDir(ctx context.Context, dirPath string) (*catalog.Catalog, error) {
 	const verb = "Kernel.AcquireCatalogFromDir"
-	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.CatalogSpec, true)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	val, src, err := k.acquireDir(ctx, cuecontext.New(), verb, dirPath, loader.CatalogSpec, true)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +270,12 @@ func (k *Kernel) AcquireCatalogFromDir(_ context.Context, dirPath string) (*cata
 // Loader failures propagate unchanged (missing directory, no package, or a
 // shape-gate sentinel such as [oerrors.ErrWrongKind]); no partial platform is
 // returned.
-func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*platform.Platform, error) {
+func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string) (*platform.Platform, error) {
 	const verb = "Kernel.AcquirePlatformFromDir"
-	val, src, err := k.acquireDir(cuecontext.New(), verb, dirPath, loader.PlatformSpec, false)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	val, src, err := k.acquireDir(ctx, cuecontext.New(), verb, dirPath, loader.PlatformSpec, false)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +330,10 @@ func (k *Kernel) AcquirePlatformFromDir(_ context.Context, dirPath string) (*pla
 // propagate unchanged (missing directory, no package, or a shape-gate
 // sentinel); a non-concrete package surfaces the concreteness error, framed
 // `instance "<name>": …`. No partial instance is returned.
-func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, values ...Source) (*module.Instance, error) {
+func (k *Kernel) AcquireInstanceFromDir(ctx context.Context, dirPath string, values ...Source) (*module.Instance, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	cueCtx := cuecontext.New()
 	var (
 		spec     cue.Value
@@ -326,15 +342,21 @@ func (k *Kernel) AcquireInstanceFromDir(_ context.Context, dirPath string, value
 		err      error
 	)
 	if len(values) == 0 {
-		spec, src, err = k.acquireDir(cueCtx, "Kernel.AcquireInstanceFromDir", dirPath, loader.InstanceSpec, false)
+		spec, src, err = k.acquireDir(ctx, cueCtx, "Kernel.AcquireInstanceFromDir", dirPath, loader.InstanceSpec, false)
 	} else {
-		spec, src, compiled, err = k.loadInstanceWithValues(cueCtx, dirPath, values)
+		spec, src, compiled, err = k.loadInstanceWithValues(ctx, cueCtx, dirPath, values)
 	}
 	if err != nil {
 		return nil, err
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	if err := checkInstanceValues(spec, compiled); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
@@ -379,16 +401,22 @@ func mergeSources(cueCtx *cue.Context, sources []Source, env []string) (compiled
 // itself is kept unchanged for attributing a failed build to the sources.
 // The sources' compiled values are returned with the build, for the check
 // that follows it.
-func (k *Kernel) loadInstanceWithValues(cueCtx *cue.Context, dirPath string, sources []Source) (cue.Value, *module.Source, []cue.Value, error) {
+func (k *Kernel) loadInstanceWithValues(ctx context.Context, cueCtx *cue.Context, dirPath string, sources []Source) (cue.Value, *module.Source, []cue.Value, error) {
 	const verb = "Kernel.AcquireInstanceFromDir"
 	authored, err := dirSource(verb, dirPath, loader.InstanceSpec, true)
 	if err != nil {
+		return cue.Value{}, nil, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return cue.Value{}, nil, nil, err
 	}
 
 	compiled, merged, err := mergeSources(cueCtx, sources, k.loadEnv())
 	if err != nil {
 		return cue.Value{}, nil, nil, fmt.Errorf("%s: %w", verb, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return cue.Value{}, nil, nil, err
 	}
 
 	pkgName, err := sourcetree.PackageName(authored)

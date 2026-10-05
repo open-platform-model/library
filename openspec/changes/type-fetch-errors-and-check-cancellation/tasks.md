@@ -38,11 +38,11 @@ the files it names with `git add <file>`.
 
 ## 4. Check cancellation at entry and between stages
 
-- [ ] 4.1 `opm/kernel/acquire.go`: rename the `_ context.Context` parameters to `ctx` and add `ctx.Err()` checks at the points in design D6. `acquireDir` and `loadInstanceWithValues` take `ctx`. Each check returns the bare context error.
-- [ ] 4.2 `opm/kernel/synth.go`: the same for `SynthesizeInstance`, at the points in design D6. `opm/internal/loader/registry.go`: check after `reg.Fetch` returns. `opm/kernel/render.go`: check after `renderstage.Build`.
-- [ ] 4.3 Godoc: add a `# Cancellation` section to `opm/kernel/doc.go` (design D6), outside the `Surface` list and the code examples. The verbs carry no copy of the contract. The doc guard test must still pass unchanged.
-- [ ] 4.4 Add `opm/kernel/cancel_test.go` with one test per verb: each of the four directory verbs and `SynthesizeInstance` is called with a pre-cancelled context and valid inputs, and returns `context.Canceled` (asserted with `errors.Is` and as the bare error) and a nil artifact. Also add: `SynthesizeInstance` with a cancelled context and no `Module` wraps `ErrMissingModule`; `AcquireModuleFromRegistry` with a cancelled context after a warm-up acquire of the same coordinate in the same `CUE_CACHE_DIR` returns `context.Canceled`; `AcquireInstanceFromDir` with values sources and a pre-cancelled context returns `context.Canceled`; a `context.WithDeadline` in the past gives `context.DeadlineExceeded` on one verb.
-- [ ] 4.5 `task check` green, then commit `feat(kernel): check cancellation at entry and between stages`.
+- [x] 4.1 `opm/kernel/acquire.go`: rename the `_ context.Context` parameters to `ctx` and add `ctx.Err()` checks at the points in design D6. `acquireDir` and `loadInstanceWithValues` take `ctx`. Each check returns the bare context error.
+- [x] 4.2 `opm/kernel/synth.go`: the same for `SynthesizeInstance`, at the points in design D6. `opm/internal/loader/registry.go`: check after `reg.Fetch` returns. `opm/kernel/render.go`: check after `renderstage.Build`.
+- [x] 4.3 Godoc: add a `# Cancellation` section to `opm/kernel/doc.go` (design D6), outside the `Surface` list and the code examples. The verbs carry no copy of the contract. The doc guard test must still pass unchanged.
+- [x] 4.4 Add `opm/kernel/cancel_test.go` with one test per verb: each of the four directory verbs and `SynthesizeInstance` is called with a pre-cancelled context and valid inputs, and returns `context.Canceled` (asserted with `errors.Is` and as the bare error) and a nil artifact. Also add: `SynthesizeInstance` with a cancelled context and no `Module` wraps `ErrMissingModule`; `AcquireModuleFromRegistry` with a cancelled context after a warm-up acquire of the same coordinate in the same `CUE_CACHE_DIR` returns `context.Canceled`; `AcquireInstanceFromDir` with values sources and a pre-cancelled context returns `context.Canceled`; a `context.WithDeadline` in the past gives `context.DeadlineExceeded` on one verb.
+- [x] 4.5 `task check` green, then commit `feat(kernel): check cancellation at entry and between stages`.
 
 ## 5. Full suite, consumer builds and api diff
 

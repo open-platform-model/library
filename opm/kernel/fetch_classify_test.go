@@ -134,8 +134,7 @@ func TestFetchClassify_EvaluationErrorStaysPlain(t *testing.T) {
 }
 
 func TestFetchClassify_SynthesizeWithUnreachableDependency(t *testing.T) {
-	k, mod := publishSynthModule(t, "demo", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
-	_ = k
+	_, mod := publishSynthModule(t, "demo", "0.1.0", "#components: {}\n#config: {}\ndebugValues: {}\n")
 	freshCache(t)
 	offline := kernel.New(kernel.WithRegistry(registrytest.UnreachableRegistry(t)))
 	_, err := offline.SynthesizeInstance(context.Background(), kernel.InstanceInput{Module: mod, Name: "demo", Namespace: "default"})
