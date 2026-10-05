@@ -134,7 +134,9 @@ func TestKernel_InstanceVerbs_OptionalAndDefaultedConfigUnsetAccepted(t *testing
 
 // parityBody declares, next to the unread required fields of
 // unreadRequiredBody, a field a component reads with no default (host) and a
-// read field with a constraint (port).
+// read field with a constraint (port). The component reads both only through
+// hidden fields, which the built-spec check does not validate, so the rows for
+// host and port exercise the required-config check, not a build refusal.
 const parityBody = "#config: {\n" +
 	"\treplicas: int | *1\n" +
 	"\timage:    string\n" +
@@ -171,10 +173,10 @@ func TestKernel_SynthesizeInstance_RequiredConfigMatchesValidateConfigDetailed(t
 		{"an unread _ unset", `image: "nginx", tag: "v1", host: "h"`, true, true},
 		{"an optional field unset", all, false, false},
 		{"a defaulted field unset", all + `, opt: "o"`, false, false},
-		{"a read field unset", `image: "nginx", tag: "v1", any: 3`, true, true},
+		{"a field read only through a hidden field unset", `image: "nginx", tag: "v1", any: 3`, true, true},
 		{"a key #config does not declare", all + `, extra: 1`, true, true},
 		{"an unread field of the wrong type", `image: 5, tag: "v1", any: 3, host: "h"`, true, true},
-		{"a read field violating its constraint", all + `, port: 0`, true, true},
+		{"a field read only through a hidden field violating its constraint", all + `, port: 0`, true, true},
 		{"the empty document", `{}`, true, true},
 		{"a defaulted field given a bare type", all + `, port: int`, false, true},
 	}
@@ -242,4 +244,58 @@ func TestKernel_AcquireInstanceFromDir_NonConcreteOwnValueKeepsSpecError(t *test
 				"a finding is positioned at the module's #config declaration: %v", e)
 		}
 	}
+}
+
+// kernel-runtime spec, "Directory acquisition refuses an unread required
+// value": the effective values include the trailing sources, so a source that
+// supplies the required values the package's own values leave unset makes the
+// instance acceptable.
+func TestKernel_AcquireInstanceFromDir_TrailingSourceSuppliesRequiredConfig(t *testing.T) {
+	k, _, modPath := publishSynthModuleAt(t, "demo", "0.1.0", unreadRequiredBody)
+	dir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, "0.1.0",
+		"myrel", "default", "{replicas: 2}", nil)
+	src := mustSource(t, k, "/values/a.cue", `image: "n", tag: "v", any: 1`)
+
+	inst, err := k.AcquireInstanceFromDir(context.Background(), dir, src)
+	require.NoError(t, err)
+	require.NotNil(t, inst)
+}
+
+// assertOnlyBuiltSpecFinding checks that a refusal both checks would raise
+// carries the built-spec check's one finding at values.image and nothing the
+// required-config check would add at values.tag or values.any: the built-spec
+// check runs first and its error is the one returned.
+func assertOnlyBuiltSpecFinding(t *testing.T, verb string, inst *module.Instance, err error) {
+	t.Helper()
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.True(t, strings.HasPrefix(err.Error(), verb+`: instance "myrel": not fully concrete: `), "framing: %v", err)
+	var cerr cueerrors.Error
+	require.ErrorAs(t, err, &cerr)
+	errs := cueerrors.Errors(cerr)
+	require.Len(t, errs, 1, "findings: %v", err)
+	assert.Equal(t, "values.image", strings.Join(errs[0].Path(), "."))
+	for _, field := range []string{"tag", "any"} {
+		assert.False(t, hasErrorPath(err, "values."+field), "an error names values.%s: %v", field, err)
+	}
+}
+
+// kernel-runtime spec, "A value the built spec refuses is reported once": a
+// source writes a bare type for image while tag and any stay unset, so both
+// checks would refuse the instance; the built-spec check runs first and is
+// the only one reported, on both verbs.
+func TestKernel_InstanceVerbs_BuiltSpecCheckRunsFirst(t *testing.T) {
+	k, mod, modPath := publishSynthModuleAt(t, "demo", "0.1.0", unreadRequiredBody)
+	ctx := context.Background()
+
+	inst, err := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module: mod, Name: "myrel", Namespace: "default",
+		Values: []kernel.Source{mustSource(t, k, "/values/a.cue", `replicas: 2, image: string`)},
+	})
+	assertOnlyBuiltSpecFinding(t, "Kernel.SynthesizeInstance", inst, err)
+
+	dir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, "0.1.0",
+		"myrel", "default", "{replicas: 2}", nil)
+	inst, err = k.AcquireInstanceFromDir(ctx, dir, mustSource(t, k, "/values/a.cue", `image: string`))
+	assertOnlyBuiltSpecFinding(t, "Kernel.AcquireInstanceFromDir", inst, err)
 }

@@ -64,9 +64,10 @@ Per CONSTITUTION VI (pre-GA clause) and ADR-010 the change lands breaking-marked
 are now refused, and the remedy (set the value, give the field a default, or mark it
 optional with `?`).
 
-Release effect: advances `-beta.N` (release-please `versioning: prerelease`); class `fix`,
-breaking-marked: `fix(kernel)!: refuse an instance that leaves a required config value
-unset`. The PR closes library#211.
+Release effect: advances `-beta.N` (release-please `versioning: prerelease`). CONSTITUTION
+VI lands a pre-GA behaviour break only as `feat!`, so the squash title is
+`feat(kernel)!: refuse an instance that leaves a required config value unset`. The PR
+closes library#211.
 
 ## Capabilities
 
@@ -83,8 +84,9 @@ None.
 
 ## Impact
 
-- Packages: `opm/kernel` (`process.go`, `synth.go`, `acquire.go`, `doc.go`; tests in
-  `synth_test.go`, `acquire_test.go`, and a parity test against `ValidateConfigDetailed`).
+- Packages: `opm/kernel` (`process.go`, `synth.go`, `acquire.go`, `doc.go`; tests in the
+  new `required_config_test.go`, including a parity test against `ValidateConfigDetailed`,
+  and one edited subtest in `acquire_test.go`).
   No change under `opm/internal/synth`, `opm/module` or `opm/errors`.
 - Public surface under `opm/`: none. `task api:diff` lists nothing new.
 - Cost: one extra unify-and-validate of `#config` with the values per successful instance

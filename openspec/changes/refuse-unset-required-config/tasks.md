@@ -125,8 +125,8 @@ This section lands tests that pass on `origin/main` and pin the gap.
       `openspec validate --all --strict`, then commit
       `chore(openspec): archive refuse-unset-required-config`. There is no
       `enhancement.yaml`, so no delivery log runs.
-- [ ] 4.4 Open the PR titled
-      `fix(kernel)!: refuse an instance that leaves a required config value unset`. Its
+- [ ] 4.4 Open the PR titled (CONSTITUTION VI: a pre-GA behaviour break lands as `feat!`)
+      `feat(kernel)!: refuse an instance that leaves a required config value unset`. Its
       body records the owner's settlement of library#211 (the kernel refuses an unset
       required `#config` value on both instance verbs; the operator then deletes its
       pre-check), says `Closes #211`, and carries the `BREAKING CHANGE:` footer of 2.5 in
