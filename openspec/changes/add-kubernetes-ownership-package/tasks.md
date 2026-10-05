@@ -26,18 +26,22 @@ enhancement reference.
       `module-instance.opmodel.dev/uuid`; and no OPM runtime writes it (0012:D8:R6, cited once).
       `doc.go`: the package names the labels and this one annotation, and still stamps nothing.
       Verify: `go build ./opm/k8s/...` clean.
-- [ ] 1.2 `labels_test.go`: add `AnnotationAdopt` to the literal-pinning table (scenario "The
-      key is the fixed literal"). Verify: `go test ./opm/k8s/labels -count=1` green;
-      `go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' ./opm/k8s/labels` prints
-      only the package itself (scenario "The vocabulary stays dependency-free").
+- [ ] 1.2 `labels_test.go`: a new `TestAdoptAnnotationKey` pins `AnnotationAdopt` to its
+      literal (scenario "The key is the fixed literal"). `TestVocabularyLiterals` stays as it is:
+      its table is the frontend-parity table, and neither frontend has an adopt key. A
+      `TestNoLibraryCodeSetsTheAdoptAnnotation` parses every non-test Go file under `opm/` and
+      fails if a file outside `opm/k8s/labels` spells `opmodel.dev/adopt` or any file calls a
+      `SetAnnotations` method (scenario "No library code sets the adopt annotation"). Verify:
+      `go test ./opm/k8s/labels -count=1` green.
 - [ ] 1.3 `task check` green, then commit
-      `feat(k8s): fix the adopt annotation key in opm/k8s/labels`.
+      `feat(k8s): add the adopt annotation key to opm/k8s/labels`.
 
 ## 2. opm/k8s/ownership: SafetyExcluded and the delete verdict (design OW2, OW5, OW6, OW7, OW8)
 
 - [ ] 2.1 `opm/k8s/ownership/doc.go`. The package doc covers four things:
       - pure verdicts over inputs the caller reads with its own client, with no cluster I/O,
-        clock or logging (ADR-008, ADR-011);
+        clock or logging, stated in its own words with no ADR or other maintainer pointer (the
+        doc publishes into the Library reference);
       - the frontend obligation, which is to consult a verdict on every apply, prune and delete
         path (0012:D4:R1/R2);
       - that a refusal or skip message is the library's wording for both frontends;
@@ -47,9 +51,11 @@ enhancement reference.
       (`Kind/namespace/name`, or `Kind/name` when cluster-scoped), and `SafetyExcluded(group,
       kind)` with group and kind constants for the two protected kinds. `delete.go`:
       `SkipReason` and its four constants, `DeleteInput`, `DeleteVerdict` (`Proceed`,
-      `Preconditions` with the UID only), and `CanDelete` in the OW5 order with the OW4
-      admission (lifts `not-opm-managed` only, and only when the live UUID label is empty or
-      equals `InstanceUUID`). It reads the managed-by and UUID label keys and `IsOPMManagedBy`
+      `Preconditions` returning `*metav1.Preconditions` with the UID only, nil unless the verdict
+      proceeds with a non-empty UID), and `CanDelete` in the OW5 order with the OW4 admission
+      (lifts `not-opm-managed` only, only when the live UUID label is empty or equals
+      `InstanceUUID`, and only for `apps` Deployment and `rbac.authorization.k8s.io`
+      RoleBinding and ClusterRoleBinding). It reads the managed-by and UUID label keys and `IsOPMManagedBy`
       from `opm/k8s/labels`, never a literal. Verify: `go vet ./opm/k8s/...` clean.
 - [ ] 2.3 Tests:
       - `ownership_test.go`: the `SafetyExcluded` table, both scenarios of "Safety-excluded
@@ -60,9 +66,12 @@ enhancement reference.
         "The operator install admission lifts only a proven object's ownership refusal", and an
         admitted object whose UUID label names another instance (scenario "An admitted object
         carrying another identity is not deleted"). Then the reason literals (half of scenario "Reasons are the
-        contract's literals"), the `Preconditions` result (UID set, `ResourceVersion` nil), and
-        a deep-equal check that `Live` is unchanged after each case (scenario "The live object
-        is not modified").
+        contract's literals"), the `Preconditions` result (UID set, `ResourceVersion` nil; nil
+        on a skip and on an empty live UID), the admitted ConfigMap and custom resource that
+        still skip, and a deep-equal check that `Live` is unchanged after each case (scenario
+        "The live object is not modified"). A `TestImportsNoClockEnvOrLogger` lists the
+        package's direct imports with `go/build` (or `go list`) and fails on `os`, `time`,
+        `log` or `log/slog` (scenario "The package imports no clock, environment or logger").
 
       Verify: `go test ./opm/k8s/ownership -count=1` green.
 - [ ] 2.4 `task check` green, then commit
@@ -76,8 +85,10 @@ enhancement reference.
       `ApplyVerdict` (`Allowed`) and `CanApply` in the OW3 order. Admission lifts
       `foreign-object` only, under the OW4 UUID condition. Messages are worded as in OW6. The
       ownership refusals end with the remedy `annotate it opmodel.dev/adopt=<instance uuid>`,
-      built from `labels.AnnotationAdopt`. A wrong-valued annotation adds that it names another
-      instance. An empty `InstanceUUID` gets no remedy. Verify: `go vet ./opm/k8s/...` clean.
+      built from `labels.AnnotationAdopt`; the `other-instance` remedy first says to remove the
+      object from module instance `<other uuid>`. A blank (empty or whitespace) annotation
+      counts as none. A wrong-valued annotation adds that it names another instance. An empty
+      `InstanceUUID` gets no remedy. Verify: `go vet ./opm/k8s/...` clean.
 - [ ] 3.2 `apply_test.go`: one table covering every scenario of "The apply verdict refuses
       terminating, foreign and other-instance objects" and "The adopt annotation is the only
       override and the refusal names it". It also covers the three apply scenarios of "The
@@ -85,7 +96,9 @@ enhancement reference.
       earlier-manifest case is the cli migration's shape: `Namespace/opm-operator-system` with
       `app.kubernetes.io/managed-by: kustomize`, no identity label, admitted, outside the
       inventory, which applies. Its admitted ClusterRole twin with no labels at all also
-      applies. Each refusal message is asserted to contain the object path, and for the two
+      applies. An inventoried object whose adopt annotation names another instance applies,
+      and a blank annotation row refuses `foreign-object` without the "names another
+      instance" clause. Each refusal message is asserted to contain the object path, and for the two
       ownership refusals the key and the UUID. No message contains `--`, `force` or an
       enhancement id (`0012:`). Add the three refusal literals to the reason test, and the
       deep-equal `Live` check. Verify: `go test ./opm/k8s/ownership -count=1` green;
@@ -125,8 +138,11 @@ enhancement reference.
 
 ## 5. Archive (at PR time)
 
-- [ ] 5.1 `openspec archive add-kubernetes-ownership-package --yes` on this branch, so the
-      archive rides the implementing PR. Verify: the `kubernetes-tier` main spec carries the new
-      requirements, and `openspec validate --all --strict` passes. `enhancement.yaml` claims no
-      decision, so the delivery log runs with an empty claim or is skipped.
+- [ ] 5.1 Merge `origin/main` into the branch first (lib-e3 and lib-f5 append to the same
+      `kubernetes-tier` main spec and doc lines), then
+      `openspec archive add-kubernetes-ownership-package --yes` on this branch, so the archive
+      rides the implementing PR. If `origin/main` moves after the archive, merge it and re-run
+      the archive step. Verify: the `kubernetes-tier` main spec carries the new requirements,
+      and `openspec validate --all --strict` passes. Skip the delivery log; the claim belongs
+      to op-e4 and cli-e4.
 - [ ] 5.2 Commit `chore(openspec): archive add-kubernetes-ownership-package`.

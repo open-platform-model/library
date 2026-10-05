@@ -45,7 +45,7 @@ one that was judged.
     the 0012 contract's `#SkipReason`). The instance UUID tolerance is today's in both frontends:
     an empty UUID on either side passes. A proceed verdict carries the live object's UID and
     resourceVersion. `DeleteVerdict.Preconditions()` returns the DELETE precondition with the UID
-    only (design OW5).
+    only, and nil on a skip or when the live object has no UID (design OW5).
   - `CanApply(ApplyInput) ApplyVerdict`: apply, or refuse with one of `terminating`,
     `foreign-object` and `other-instance` (0012:D8, the contract's `#ApplyRefusalReason`). An
     object that does not exist is always applied. An object being deleted is refused whether or
@@ -56,11 +56,14 @@ one that was judged.
   - **The install admission** (0012:D8:R6/R7): both inputs take `Admit`, which the caller sets
     only for an object it has proven came from an earlier operator release's install manifest.
     On apply it lifts `foreign-object` for an object that carries no other instance's UUID; on
-    delete it lifts `not-opm-managed` under the same condition. It never lifts `terminating`,
+    delete it lifts `not-opm-managed` under the same condition, and only for the kinds
+    0012:D8:R7 lets install delete (`apps` Deployment, `rbac.authorization.k8s.io` RoleBinding
+    and ClusterRoleBinding). It never lifts `terminating`,
     `other-instance`, `owner-mismatch` or `safety-excluded` (design OW4).
   - Every verdict carries a message the library words, so both frontends report a refusal or a
     skip in the same words. An ownership refusal names the annotation key and this instance's
-    UUID. No message names another override (0012:D8:R3).
+    UUID; the `other-instance` refusal first asks the user to remove the object from the
+    instance that owns it. No message names another override (0012:D8:R3).
 - **Docs**: the `opm/k8s/` package lists in `README.md`, `AGENTS.md` and `CONSTITUTION.md` gain
   `ownership`.
 - **Specs**: `kubernetes-tier` gains the adopt-key, delete-verdict, apply-verdict and admission

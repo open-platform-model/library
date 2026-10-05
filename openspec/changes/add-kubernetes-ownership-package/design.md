@@ -110,6 +110,7 @@ frontend can skip the live read for a protected kind, as the cli's `recordUnread
    inventory or not, adopted or admitted.
 3. `InInventory`: apply. The ownership refusals cover only objects outside the inventory.
 4. The adopt annotation's value equals `InstanceUUID` and `InstanceUUID` is not empty: apply.
+   An annotation whose value is empty or only whitespace counts as no annotation at all.
 5. The managed-by value is not an OPM runtime's (`labels.IsOPMManagedBy`): refuse
    `foreign-object`, unless `Admit` holds and the object carries no other instance's UUID (OW4).
 6. The live UUID label is not empty and differs from `InstanceUUID`: refuse `other-instance`.
@@ -136,6 +137,16 @@ Two identity edge cases, both decided toward the existing tolerance or toward re
   (core stamps `module-instance.opmodel.dev/uuid`), so a frontend always has one to pass. An
   empty value is a caller defect, and refusing is the safe direction.
 
+The UUID label is the only identity the verdict compares. 0012:D8:R6 says a proven object
+"carries no OPM instance identity", and an object could in principle carry another instance's
+`module-instance.opmodel.dev/name` with no UUID label. The verdict does not compare the name: the
+instance name is not one of its inputs, and an object without a UUID label predates UUID
+stamping, so its name label alone cannot tell a stale stamp of this instance from another's.
+
+Step 3 also means an inventoried object is applied whatever its adopt annotation says. Moving an
+object between two live instances therefore needs the instance that owns it to stop rendering it
+first (see Risks), and the `other-instance` remedy says so.
+
 **Rationale**: Terminating before inventory makes 0012:D8:R5 hold for every object. Adoption
 before the two ownership tests means one annotation lifts both, as 0012:D8:R2 says, and the
 annotation is read only when the guard would otherwise refuse.
@@ -152,15 +163,24 @@ and rendered objects that already carry the instance's own UUID.
 0012:D8:R6 is narrower: a proven object carries no instance identity, so it could never meet
 `other-instance`.
 **Decision**: `Admit` lifts only `foreign-object` on apply and only `not-opm-managed` on delete,
-and only when the live object carries no UUID label or carries `InstanceUUID`. It never lifts
-`terminating`, `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The
-caller sets `Admit` only for an object it has proven. The library cannot check the proof, which
-needs the earlier manifests. Whether an object is a custom resource is also the caller's to
-exclude, since the verdict sees only group and kind.
+and only when the live object carries no UUID label or carries `InstanceUUID`. On delete it
+lifts `not-opm-managed` only for the kinds 0012:D8:R7 lets install delete: `apps` `Deployment`,
+and `rbac.authorization.k8s.io` `RoleBinding` and `ClusterRoleBinding` (the cli's R7 set,
+`internal/operator/legacy.go`). An admitted object of any other kind, a ConfigMap or a custom
+resource among them, still skips as `not-opm-managed`. It never lifts `terminating`,
+`other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The caller sets
+`Admit` only for an object it has proven. The library cannot check the proof, which needs the
+earlier manifests. The UUID label is the only identity compared, as in OW3.
 **Rationale**: This is the reading that best matches the owner's 2026-10-04 decision. An
 admitted object whose UUID label names another instance is not a proven object, and the library
-refuses it even if a caller's proof has a hole. Every object in the cli's set passes as before:
-proven objects carry no identity, and `Ours` objects carry the instance's own.
+refuses it even if a caller's proof has a hole. The delete bound is enforced by the verdict, as
+`safety-excluded` is, because it sees group and kind and need not trust the caller for it. The
+apply side keeps no kind bound: the cli's admit set covers every kind of the earlier manifest
+(Namespace, ClusterRole, ServiceAccount and so on), and applying over a proven object is what R6
+asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
+`Ours` objects carry the instance's own. Delete-side `Admit` stays, because without it the
+install's R7 deletes could not go through `CanDelete`, and the owner's e4 answer puts every
+delete path through it.
 
 ### OW5: The delete verdict carries the judged UID and resourceVersion; the precondition is UID only
 
@@ -184,11 +204,15 @@ type DeleteVerdict struct {
 }
 
 func (v DeleteVerdict) Proceed() bool
-func (v DeleteVerdict) Preconditions() metav1.Preconditions // UID only
+func (v DeleteVerdict) Preconditions() *metav1.Preconditions // UID only, or nil
 ```
 
-`Preconditions` returns `{UID: &v.UID}` and no resourceVersion. A frontend that wants the strict
-form sets `ResourceVersion` itself from the verdict.
+`Preconditions` returns `&metav1.Preconditions{UID: &uid}` with no resourceVersion when the
+verdict proceeds and the judged UID is non-empty, and nil otherwise. A precondition on an empty
+UID would make a real apiserver answer 409, so a skip verdict, or a live object with no UID (a
+frontend fake, a hand-built object), yields no precondition, as the cli's proven-delete path
+guards today (`if uid != ""`, cli `internal/operator/migration_execute.go`). A frontend that
+wants the strict form sets `ResourceVersion` itself from the verdict.
 **Rationale**: The UID precondition closes the real hazard, an object deleted and recreated
 under the same name between the read and the DELETE. A resourceVersion precondition also fails
 whenever any writer touches the object in that window. A controller's status update is one, and
@@ -208,11 +232,13 @@ example:
 
 ```text
 Deployment/web/api exists and is not managed by OPM; to let this instance take it over, annotate it opmodel.dev/adopt=<uuid>
-Deployment/web/api belongs to module instance <other-uuid>; to move it to this instance, annotate it opmodel.dev/adopt=<uuid>
+Deployment/web/api belongs to module instance <other-uuid>; to move it to this instance, remove it from module instance <other-uuid>, then annotate it opmodel.dev/adopt=<uuid>
 Deployment/web/api is being deleted; wait for the deletion to finish, then apply again
 ```
 
-When the live object carries the annotation with another value, the message says so. With an
+The `other-instance` remedy asks for the move in that order because the owning instance still
+holds the object in its inventory while it renders it (OW3 step 3, and Risks). When the live
+object carries the annotation with another non-blank value, the message says so. With an
 empty `InstanceUUID` it gives no remedy. Messages carry no enhancement reference, since they
 reach CLI output, and name no flag.
 **Rationale**: One wording keeps the two frontends from drifting. Printing the UUID answers the
@@ -244,5 +270,14 @@ both frontends then report the same token.
   the read and the error policy.
 - [Fail-closed on an empty `InstanceUUID` could refuse an apply a frontend expected to pass] →
   Every render stamps the UUID, so this fires only on a caller defect. The tests pin it.
-- [lib-e3 and lib-f5 edit the same doc lines] → Merge `origin/main` into the branch at PR time.
-  The edits are list items.
+- [lib-e3 and lib-f5 edit the same doc lines, and append to the same main spec on archive] →
+  Merge `origin/main` into the branch at PR time, before archiving. The edits are list items.
+- [Two live instances can take an object from each other] → 0012:D8 judges only objects outside
+  the applying instance's inventory. If a user annotates an object for instance B while
+  instance A still renders it, B applies and records it, A's next apply passes at step 3 and
+  takes the UUID label back (the annotation is no field A manages, so it stays), and the two
+  flip the object on every reconcile. Neither verdict refuses this. The library does not widen
+  the guard beyond 0012:D8's scope; instead the `other-instance` remedy tells the user to remove
+  the object from the owning instance first, and a scenario pins that an inventoried object
+  whose adopt annotation names another instance still applies. Refusing such an object inside
+  the inventory is an owner question for a later amendment of 0012:D8.
