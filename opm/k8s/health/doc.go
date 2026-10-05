@@ -23,7 +23,8 @@ package health
 // Maintainer note, kept out of the package doc because it publishes into the
 // Library reference: the evaluator was ported from the cli's
 // internal/kubernetes/health.go at cli commit bd4d1a7c under ADR-011, with its
-// rules and status strings unchanged. Until the cli deletes its copy, a fix to
-// either copy is ported to the other by hand. The status strings are the cli's
-// `opm instance status -o json|yaml` output, so changing one is a breaking
-// change (feat!).
+// rules and status strings unchanged. Once the cli has deleted its copy, this
+// package is the only home of those rules and strings, and a fix lands here
+// alone; until then, a fix to either copy is ported to the other by hand. The
+// status strings are the cli's `opm instance status -o json|yaml` output, so
+// changing one is a breaking change (feat!).
