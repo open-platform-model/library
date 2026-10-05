@@ -18,7 +18,7 @@ Core v2 is a beta line. A change to a rule core owns is a core release, a break 
 
 The matching algorithm stays in the library's render glue. 0019:D10 and 0019:D17 stand.
 
-A single derived rule may move into core, one at a time, when core can compute it from core shapes alone. Each move is an additive core release and ships with a parity test proving that the core field and the verdict or derivation it replaces agree over the served fixtures, the way `render_inventory_parity_test.go` does for `#contracts.providedBy`. The per-catalog provider set, which `Catalog.Provides()` derives in Go today, is the next candidate.
+A single derived rule may move into core, one at a time, when core can compute it from core shapes alone. Each move is an additive core release and ships with a parity test proving that the core field and the verdict or derivation it replaces agree over the served fixtures, the way `render_inventory_parity_test.go` does for `#contracts.providedBy`. The per-catalog provider set, which `Catalog.Provides()` derived in Go, was the next candidate. It moved in core `v2.0.0-beta.3` as `#Catalog.provides`: `Provides()` decodes it, `opm/catalog/provides_parity_test.go` is its parity test, and the Go fold stays only as a deprecated fallback for catalogs built against an older core, removed before GA.
 
 Rejected alternatives:
 

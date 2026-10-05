@@ -63,7 +63,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	// published core and catalog, the paths the in-memory validate cases
 	// bypass. A Source carries bytes: render the field back to CUE source,
 	// the way a frontend layering a debug overlay would hand it in.
-	debugValues := mod.Package.LookupPath(schema.DebugValues)
+	debugValues := mod.DebugValues()
 	require.True(t, debugValues.Exists(), "web_app fixture must provide debugValues")
 	rendered, err := format.Node(debugValues.Syntax(cue.Final(), cue.Concrete(false)))
 	require.NoError(t, err)

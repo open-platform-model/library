@@ -29,7 +29,7 @@ The kernel accepts exactly four artifact types — every input ultimately resolv
 | `Platform`       | `#Platform`                               | `*platform.Platform` | A CUE module importing its catalogs; core derives `#composedTransformers`, which the render glue reads inside the build.               |
 | `Catalog`        | `#Catalog`                                | `*catalog.Catalog`   | The contracts a catalog defines beside the transformers implementing them. Acquired, read and derived from — never rendered (ADR-009). |
 
-`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.Package.LookupPath(schema.DebugValues)` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
+`#ModuleDebug` was previously contemplated as a fourth top-level artifact and has been **retired**; `debugValues` is now a field on `Module`. The migration is one line: read `mod.DebugValues()` and feed the result into the helper-side values stack at the layer your frontend prefers. The kernel itself never observes the distinction.
 
 See `CONSTITUTION.md` for the full set of principles.
 
@@ -42,7 +42,7 @@ opm/
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render) and `Compiled`, its terminal output
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
-  catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() and Requires(). Read and derived from; never rendered
+  catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() (reads core's derived `provides`; a deprecated Go fold answers catalogs built against an older core) and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
     objectset/            DEPRECATED: use k8s/object. Duplicate rendered object identities, frozen and kept until both frontends migrate
@@ -74,7 +74,7 @@ Kernel.Render(RenderInput{Instance, Platform, RuntimeName, Skew, LocalReplacemen
         instance-only paths) -> RenderDiagnostics.Replacements rows; refuse an input carrying one when the opt-in is off
         verify every OPM-namespace path either input requires is covered; apply the skew policy (SkewWarn | SkewRefuse)
         build once in a fresh cue.Context, dropped on return
-        decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, skipped, unify, unhandled traits, over-subscribed, resolved versions)
+        decode `diagnostics` -> RenderDiagnostics (pairs, unmatched, unresolved, skipped, unify, unhandled traits, over-subscribed, resolved versions, required contracts)
         fail-closed gate     -> *RenderError carrying the diagnostics and typed causes (errors.As)
         decode `rendered`    -> []*kernel.Compiled with instance / component / transformer provenance
 ```

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 func TestNewModuleFromValue_SuccessPath(t *testing.T) {
@@ -82,4 +83,32 @@ func TestNewModuleFromValue_DecodeFailureNamedOnce(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, mod)
 	assert.Equal(t, 1, strings.Count(err.Error(), "decoding module metadata:"), err.Error())
+}
+
+// artifact-types, "Debug values present" and "Debug values absent".
+func TestModule_DebugValues(t *testing.T) {
+	ctx := cuecontext.New()
+	with := ctx.CompileString(`
+kind: "Module"
+metadata: name: "demo-mod"
+debugValues: replicas: 1
+`)
+	require.NoError(t, with.Err())
+	mod, err := module.NewModuleFromValue(with)
+	require.NoError(t, err)
+	dv := mod.DebugValues()
+	require.True(t, dv.Exists())
+	assert.True(t, dv.Equals(with.LookupPath(schema.DebugValues)))
+
+	without := ctx.CompileString(`
+kind: "Module"
+metadata: name: "demo-mod"
+`)
+	require.NoError(t, without.Err())
+	mod, err = module.NewModuleFromValue(without)
+	require.NoError(t, err)
+	assert.False(t, mod.DebugValues().Exists(), "a module that declares none")
+
+	var nilMod *module.Module
+	assert.NotPanics(t, func() { assert.False(t, nilMod.DebugValues().Exists()) })
 }

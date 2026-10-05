@@ -126,7 +126,7 @@ opm/
   kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
   module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
   platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
-  catalog/                    *catalog.Catalog — the acquired #Catalog (ADR-009): Metadata, Package, Source, plus the on-demand derivations Provides() (provider-fulfilled contracts its own transformers require) and Requires() (its committed cue.mod deps, path → version). Reads and derives; never renders, never judges
+  catalog/                    *catalog.Catalog — the acquired #Catalog (ADR-009): Metadata, Package, Source, plus the on-demand derivations Provides() (provider-fulfilled contracts its own transformers require, read from core's derived `provides`; a deprecated Go fold answers a catalog whose committed core predates schema.ProvidesSince) and Requires() (its committed cue.mod deps, path → version). Reads and derives; never renders, never judges
   schema/                     OPM core schema loader (OCILoader, Cache) + CUE paths + metadata types
   helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree; a depguard rule in .golangci.yml forbids every package outside it from importing it)
     platformmodule/           Platform CUE module from catalog coordinates (0019:D5/D13): Generate (pure files), Roots + Closure (once-at-generation tidy via caller-configured ModFileSource), Files.WriteTo; core pin defaults to schema.DefaultSchemaVersion()
@@ -363,7 +363,7 @@ The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `
 A consumer that wants its own pin, or the bare major, passes its own loader, for example:
 
 ```go
-k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.2"}))
+k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.3"}))
 ```
 
 Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).

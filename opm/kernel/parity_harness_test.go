@@ -90,6 +90,13 @@ func TestParity_ShippedCatalog(t *testing.T) {
 		PlatformVersion: "v" + oracleCatalog,
 	}, "the platform module and the parity module must pin the catalog build the oracle resolved")
 
+	// ── demand (single-build-render, "The demand equals the declared
+	// contracts of the instance") ─────────────────────────────────────
+	wantDemand, err := walkDeclaredContracts(inst)
+	require.NoError(t, err)
+	assert.Equal(t, wantDemand, res.Diagnostics.RequiredContracts,
+		"the build's demand equals the operator walk on the shipped catalog")
+
 	// ── pair sets (spec: "Matched pair sets agree") ──────────────────
 	pairs := oraclePairs(t, oracle)
 	assertPairSetsAgree(t, res.Diagnostics.Pairs, pairs)

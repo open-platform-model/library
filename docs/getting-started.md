@@ -48,7 +48,7 @@ The Kernel owns a single `*schema.Cache` for its lifetime. The first `SchemaCach
 import "github.com/open-platform-model/library/opm/schema"
 
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{
-    Module: "opmodel.dev/core@v2.0.0-beta.2",
+    Module: "opmodel.dev/core@v2.0.0-beta.3",
 }))
 
 // After a schema load (SchemaCache().Get(); no verb runs one on a pinned kernel):
@@ -220,7 +220,8 @@ if err != nil {
         // The build ran and the fail-closed gate refused: rerr.Diagnostics
         // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
         // UnhandledTraits, OverSubscribed, Collisions, Routable,
-        // ResolvedVersions) and rerr.Err the typed causes, joined in gate
+        // ResolvedVersions, and RequiredContracts, the instance's contract
+        // demand) and rerr.Err the typed causes, joined in gate
         // order (*oerrors.ContractCollisionsError,
         // *oerrors.UnresolvedDemandsError, *oerrors.OverSubscribedContractsError,
         // *oerrors.UnmatchedComponentsError, *oerrors.NotRoutableError) or

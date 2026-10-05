@@ -89,6 +89,16 @@ The kernel SHALL evaluate a synthesized instance package (in-memory overlay insi
 - **THEN** both produce a value of the same shape passing the same instance shape gate
 - **AND** a malformed instance fails the shape gate identically in both paths, wrapping the same `opm/errors` sentinel
 
+#### Scenario: A values conflict that fails the build is attributed identically
+
+- **WHEN** the same violating values source (a value that breaks `#config` at a path a component consumes) is supplied once to `SynthesizeInstance` for a module and once to `AcquireInstanceFromDir` for an instance package of that module
+- **THEN** both calls fail with a values error framed `instance "<name>": …` whose positions name the source's `Origin`, and neither returns an instance
+
+#### Scenario: Failure-path attribution does not require concreteness on either path
+
+- **WHEN** a build fails for a reason the values do not explain, while the values leave a required `#config` field unset, through either `SynthesizeInstance` or `AcquireInstanceFromDir`
+- **THEN** the call returns its build error, not a missing-field error framed `instance "<name>": …`
+
 ### Requirement: Imported-module render coverage exists
 
 The library SHALL include a test that renders an instance whose module is referenced by import (not inlined) end-to-end through construction and `Kernel.Render`, against a D5-shaped platform (a platform module importing its catalog), producing concrete resources. This coverage SHALL exist for both the synth path and an authored-package path so that a regression in either surfaces. The synth-path coverage SHALL include a module that imports a **catalog subpackage** (e.g. a workload blueprint under `opmodel.dev/catalogs/opm/...`), so that a regression to a dependency-incomplete synthesis surfaces as a failing test.

@@ -1,7 +1,7 @@
 # artifact-types Specification
 
 ## Purpose
-The typed Go form of the artifacts the kernel accepts: each is a struct of a decoded metadata projection, the CUE package value, which stays the source of truth whenever the two disagree, and the staged source tree the artifact was acquired or synthesized from. No artifact carries an API version. Covers that uniform shape and the closed set of kernel artifact types, construction of modules and platforms from a bare value with no version detection, the instance accessors for components and config schema, the rule that kernel code reads artifact sub-values only through the schema path variables, and the staged source an artifact carries in overlay or on-disk mode. Also covers acquisition of modules and instances from a directory, the shape gate every directory and registry acquisition runs before a typed artifact exists, and writing an overlay source to disk.
+The typed Go form of the artifacts the kernel accepts: each is a struct of a decoded metadata projection, the CUE package value, which stays the source of truth whenever the two disagree, and the staged source tree the artifact was acquired or synthesized from. No artifact carries an API version. Covers that uniform shape and the closed set of kernel artifact types, construction of modules and platforms from a bare value with no version detection, the instance accessors for components, config schema, merged values and the embedded module's metadata, the module's debug-values accessor, the rule that kernel code reads artifact sub-values only through the schema path variables, and the staged source an artifact carries in overlay or on-disk mode. Also covers acquisition of modules and instances from a directory, the shape gate every directory and registry acquisition runs before a typed artifact exists, and writing an overlay source to disk.
 
 ## Requirements
 
@@ -20,57 +20,6 @@ Every OPM artifact type accepted by the kernel (`module.Module`, `module.Instanc
 - **WHEN** a developer reads the `module.Instance` struct definition
 - **THEN** the struct has exactly three exported fields: `Metadata` (typed `*InstanceMetadata`), `Package` (typed `cue.Value`) and `Source` (typed `*Source`)
 - **AND** there are no `APIVersion`, `Module`, `Spec` or `Values` exported fields
-
-### Requirement: Constructor Helpers from cue.Value
-
-The library SHALL provide constructor helpers that build the module and platform artifacts from a raw `cue.Value`: `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`. Each constructor SHALL take only the artifact value, decode `Metadata` from the value's `metadata` field, and set the `Package` field to the supplied `cue.Value` unmodified. The constructed artifact carries no `Source`. The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. No instance constructor SHALL be exported: an instance is produced only by the kernel's acquisition paths, which stamp its staged source.
-
-#### Scenario: NewModuleFromValue success path
-
-- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` carrying a valid module
-- **THEN** the returned `*Module` has `Metadata.Name` matching the value's `metadata.name`
-- **AND** `Package` is the supplied `cue.Value` unchanged
-- **AND** `Source` is nil
-
-#### Scenario: NewModuleFromValue with missing metadata
-
-- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that has no `metadata` field
-- **THEN** the function returns a non-nil error stating that the metadata field is required
-- **AND** no partial `*Module` is returned
-
-#### Scenario: NewModuleFromValue with unknown apiVersion
-
-- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that carries no `apiVersion` field, or one the library has never heard of
-- **THEN** the constructor performs no version detection and no binding lookup; the value is decoded as the single OPM schema the library consumes
-- **AND** the result depends only on the `metadata` field being present and decodable
-
-#### Scenario: NewPlatformFromValue hoists the platform type
-
-- **WHEN** a caller invokes `platform.NewPlatformFromValue(v)` with a `#Platform` value whose root has `type: "kubernetes"` alongside its `metadata` block
-- **THEN** the returned `*Platform` has `Metadata.Type == "kubernetes"`, `Package == v` and `Source == nil`
-
-#### Scenario: Constructors take no context owner
-
-- **WHEN** a consumer inspects the exported identifiers of `opm/module` and `opm/platform`
-- **THEN** `NewModuleFromValue` and `NewPlatformFromValue` each take a single `cue.Value` argument
-- **AND** no `CueContextOwner` interface exists in either package
-
-#### Scenario: No kernel constructor wrappers
-
-- **WHEN** a consumer inspects the exported methods of `Kernel`
-- **THEN** neither `NewModuleFromValue` nor `NewPlatformFromValue` exists on it
-
-#### Scenario: NewInstanceFromValue success path
-
-- **WHEN** a consumer inspects the exported identifiers of `opm/module` and the exported methods of `Kernel`
-- **THEN** no `NewInstanceFromValue` exists in either
-- **AND** the only ways to obtain a `*module.Instance` are `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance`
-
-#### Scenario: No instance constructor
-
-- **WHEN** a consumer inspects the exported identifiers of `opm/module` and the exported methods of `Kernel`
-- **THEN** `NewInstanceFromValue` does not exist in either
-- **AND** the only ways to obtain a `*module.Instance` are `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance`
 
 ### Requirement: Package Is Source of Truth
 
@@ -97,7 +46,7 @@ The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`,
 #### Scenario: debugValues accessible via Module.Package
 
 - **WHEN** a frontend reads debug overlays from a Module
-- **THEN** the read goes through `Module.Package.LookupPath(schema.DebugValues)`
+- **THEN** the read goes through `Module.DebugValues()`, which returns `Module.Package.LookupPath(schema.DebugValues)`
 - **AND** the kernel never receives `debugValues` as a separate parameter
 
 #### Scenario: Documentation explicitly retires the construct
@@ -224,43 +173,6 @@ Every kernel-internal Go call site that reads a sub-value of an artifact's `Pack
 
 - **WHEN** Go code outside `opm/schema` reads a field of an artifact's `metadata` (the loaders' identity checks, the instance name for a diagnostic, the module's snake-case name)
 - **THEN** it navigates to the metadata value through `schema.Metadata` and reads the field off that value, never through a dotted path literal rooted at the artifact
-
-### Requirement: Instance exposes its components and config schema
-
-`*module.Instance` SHALL expose `Components()` (the instance's evaluated components value, definition fields included, read through `schema.Components`) and `ConfigSchema()` (the embedded module's `#config`, read as `Package.LookupPath(schema.Module)` followed by `LookupPath(schema.Config)`). `ConfigSchema()` SHALL return the zero `cue.Value` (not an error) when the receiver is `nil`, when the instance carries no `#module`, or when the embedded module declares no `#config`, and SHALL consult no version or binding. The instance SHALL expose no accessor that mirrors a decoded metadata field (`Metadata` is the projection) and no accessor over the module-metadata projection: the transformer context that read those is projected by core (0019:D12).
-
-#### Scenario: Components accessor
-
-- **WHEN** a caller invokes `inst.Components()` on an acquired instance
-- **THEN** the returned value is `inst.Package.LookupPath(schema.Components)` with `#names`, `#resources`, `#traits` and `#blueprints` intact
-
-#### Scenario: No metadata-mirroring accessors
-
-- **WHEN** a developer inspects the exported methods of `*module.Instance`
-- **THEN** none of `InstanceName`, `Namespace`, `InstanceUUID`, `InstanceFQN`, `ModuleVersion`, `Labels`, `Annotations`, `MatchComponents` exists
-
-#### Scenario: Config schema reachable on a well-formed instance
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` carries an embedded `#module` with a `#config` definition
-- **THEN** the returned `cue.Value` exists (`v.Exists() == true`)
-- **AND** it is the value `inst.Package.LookupPath(schema.Module).LookupPath(schema.Config)`
-
-#### Scenario: Config schema is the zero value on a missing #module
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` has no `#module` field
-- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
-- **AND** no error is returned
-
-#### Scenario: Config schema is the zero value on a missing #config
-
-- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose embedded `#module` does not declare a `#config` definition
-- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
-
-#### Scenario: Config schema on a nil instance is the zero value
-
-- **WHEN** a caller invokes `(*Instance)(nil).ConfigSchema()`
-- **THEN** the returned `cue.Value` is the zero value
-- **AND** no panic occurs
 
 ### Requirement: Module acquisition from a directory
 
@@ -445,3 +357,136 @@ it does from disk, because files outside the overlay are read from the directory
 - **WHEN** a module package uses the embed attribute to embed a JSON file stored beside it, and a caller invokes `AcquireModuleFromDir` on its directory
 - **THEN** acquisition succeeds and `Package` carries the embedded data
 - **AND** `Source.Overlay` still holds only the `.cue` files under the module root
+
+### Requirement: Module and platform constructors from cue.Value
+
+The library SHALL provide constructor helpers that build the module and platform artifacts from a raw `cue.Value`: `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`. Each constructor SHALL take only the artifact value, decode `Metadata` from the value's `metadata` field, and set the `Package` field to the supplied `cue.Value` unmodified. The constructed artifact carries no `Source`. The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. No instance constructor SHALL be exported: an instance is produced only by the kernel's acquisition paths, which stamp its staged source.
+
+#### Scenario: NewModuleFromValue success path
+
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` carrying a valid module
+- **THEN** the returned `*Module` has `Metadata.Name` matching the value's `metadata.name`
+- **AND** `Package` is the supplied `cue.Value` unchanged
+- **AND** `Source` is nil
+
+#### Scenario: NewModuleFromValue with missing metadata
+
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that has no `metadata` field
+- **THEN** the function returns a non-nil error stating that the metadata field is required
+- **AND** no partial `*Module` is returned
+
+#### Scenario: NewModuleFromValue with unknown apiVersion
+
+- **WHEN** a caller invokes `module.NewModuleFromValue(v)` with a `cue.Value` that carries no `apiVersion` field, or one the library has never heard of
+- **THEN** the constructor performs no version detection and no binding lookup; the value is decoded as the single OPM schema the library consumes
+- **AND** the result depends only on the `metadata` field being present and decodable
+
+#### Scenario: NewPlatformFromValue hoists the platform type
+
+- **WHEN** a caller invokes `platform.NewPlatformFromValue(v)` with a `#Platform` value whose root has `type: "kubernetes"` alongside its `metadata` block
+- **THEN** the returned `*Platform` has `Metadata.Type == "kubernetes"`, `Package == v` and `Source == nil`
+
+#### Scenario: Constructors take no context owner
+
+- **WHEN** a consumer inspects the exported identifiers of `opm/module` and `opm/platform`
+- **THEN** `NewModuleFromValue` and `NewPlatformFromValue` each take a single `cue.Value` argument
+- **AND** no `CueContextOwner` interface exists in either package
+
+#### Scenario: No kernel constructor wrappers
+
+- **WHEN** a consumer inspects the exported methods of `Kernel`
+- **THEN** neither `NewModuleFromValue` nor `NewPlatformFromValue` exists on it
+
+#### Scenario: No instance constructor
+
+- **WHEN** a consumer inspects the exported identifiers of `opm/module` and the exported methods of `Kernel`
+- **THEN** `NewInstanceFromValue` does not exist in either
+- **AND** the only ways to obtain a `*module.Instance` are `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance`
+
+### Requirement: Instance exposes its components, config schema, values and module metadata
+
+`*module.Instance` SHALL expose the following accessors:
+
+- `Components()`: the instance's evaluated components value, definition fields included, read through `schema.Components`.
+- `ConfigSchema()`: the embedded module's `#config`, read as `Package.LookupPath(schema.Module)` followed by `LookupPath(schema.Config)`.
+- `Values()`: the instance's merged values as evaluated, read through `schema.Values`.
+- `ModuleMetadata()`: the metadata of the module the instance was built from, decoded from `Package.LookupPath(schema.Module)` on each call.
+
+`ConfigSchema()` and `Values()` SHALL return the zero `cue.Value` (not an error) when the receiver is `nil` or the field they read is absent. `ConfigSchema()` returns it as well when the instance carries no `#module` or the embedded module declares no `#config`. `ModuleMetadata()` SHALL return nil when the receiver is `nil`, when the instance carries no `#module`, or when the embedded module's metadata does not decode. Each call decodes afresh from `Package`; the returned struct is a copy, and mutating it does not change `Package`. No accessor SHALL consult a version or binding.
+
+The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection. The render build reads none of these accessors: the transformer context is projected by core (0019:D12), and the glue reads the instance by import.
+
+#### Scenario: Components accessor
+
+- **WHEN** a caller invokes `inst.Components()` on an acquired instance
+- **THEN** the returned value is `inst.Package.LookupPath(schema.Components)` with `#names`, `#resources`, `#traits` and `#blueprints` intact
+
+#### Scenario: No metadata-mirroring accessors
+
+- **WHEN** a developer inspects the exported methods of `*module.Instance`
+- **THEN** none of `InstanceName`, `Namespace`, `InstanceUUID`, `InstanceFQN`, `ModuleVersion`, `Labels`, `Annotations`, `MatchComponents` exists
+
+#### Scenario: Config schema reachable on a well-formed instance
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` carries an embedded `#module` with a `#config` definition
+- **THEN** the returned `cue.Value` exists (`v.Exists() == true`)
+- **AND** it is the value `inst.Package.LookupPath(schema.Module).LookupPath(schema.Config)`
+
+#### Scenario: Config schema is the zero value on a missing #module
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose `Package` has no `#module` field
+- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
+- **AND** no error is returned
+
+#### Scenario: Config schema is the zero value on a missing #config
+
+- **WHEN** a caller invokes `inst.ConfigSchema()` on a `*Instance` whose embedded `#module` does not declare a `#config` definition
+- **THEN** the returned `cue.Value` is the zero value (`v.Exists() == false`)
+
+#### Scenario: Config schema on a nil instance is the zero value
+
+- **WHEN** a caller invokes `(*Instance)(nil).ConfigSchema()`
+- **THEN** the returned `cue.Value` is the zero value
+- **AND** no panic occurs
+
+#### Scenario: Values accessor
+
+- **WHEN** a caller invokes `inst.Values()` on an acquired instance
+- **THEN** the returned value is `inst.Package.LookupPath(schema.Values)`, the instance's merged values as evaluated
+
+#### Scenario: Values on a nil instance is the zero value
+
+- **WHEN** a caller invokes `(*Instance)(nil).Values()`
+- **THEN** the returned `cue.Value` is the zero value
+- **AND** no panic occurs
+
+#### Scenario: Module metadata of an acquired instance
+
+- **WHEN** a caller invokes `inst.ModuleMetadata()` on an instance returned by `SynthesizeInstance` or `AcquireInstanceFromDir`
+- **THEN** it returns a non-nil `*ModuleMetadata` whose `Name`, `ModulePath`, `Version`, `FQN` and `UUID` equal the embedded `#module`'s `metadata`
+
+#### Scenario: Module metadata is nil when it cannot be read
+
+- **WHEN** a caller invokes `ModuleMetadata()` on a nil `*Instance`, on an instance whose `Package` has no `#module`, or on one whose embedded module metadata does not decode
+- **THEN** it returns nil
+- **AND** no panic occurs and no error is raised
+
+#### Scenario: Module metadata reads the package
+
+- **WHEN** a caller builds an `Instance` struct literal whose `Package` carries an embedded `#module`
+- **THEN** `ModuleMetadata()` returns that module's metadata, decoded from `Package`, with no processing step having run
+
+### Requirement: Module exposes its debug values
+
+`*module.Module` SHALL expose `DebugValues()`, which returns `Package.LookupPath(schema.DebugValues)`: the module's author-supplied `debugValues`. It SHALL return the zero `cue.Value` for a nil receiver or a module that declares no `debugValues`, so callers test `Exists()`. The kernel itself SHALL NOT read it. Whether a frontend layers it into its values stack remains the frontend's policy. No `InitValues()` accessor is exposed.
+
+#### Scenario: Debug values present
+
+- **WHEN** a caller invokes `mod.DebugValues()` on a module that declares `debugValues`
+- **THEN** the returned value exists and is `mod.Package.LookupPath(schema.DebugValues)`
+
+#### Scenario: Debug values absent
+
+- **WHEN** a caller invokes `mod.DebugValues()` on a module that declares no `debugValues`, or on a nil `*Module`
+- **THEN** the returned value is the zero value (`Exists() == false`)
+- **AND** no panic occurs

@@ -74,12 +74,21 @@ func acquireSynthModule(t *testing.T, k *kernel.Kernel, modPath, version string)
 // from a registry — a locally-built value no longer works.
 func publishSynthModule(t *testing.T, name, version, bodyFields string, opts ...kernel.Option) (*kernel.Kernel, *module.Module) {
 	t.Helper()
+	k, mod, _ := publishSynthModuleAt(t, name, version, bodyFields, opts...)
+	return k, mod
+}
+
+// publishSynthModuleAt is publishSynthModule that also returns the module's
+// major-free path, for a test that authors a directory instance importing
+// the same published module.
+func publishSynthModuleAt(t *testing.T, name, version, bodyFields string, opts ...kernel.Option) (*kernel.Kernel, *module.Module, string) {
+	t.Helper()
 
 	modPath, fixture := synthModuleFixture(t, name, version, bodyFields)
 	reg := registrytest.NewModuleRegistry(t, []registrytest.ModuleFixture{fixture}, nil)
 
 	k := kernel.New(append([]kernel.Option{kernel.WithRegistry(reg)}, opts...)...)
-	return k, acquireSynthModule(t, k, modPath, version)
+	return k, acquireSynthModule(t, k, modPath, version), modPath
 }
 
 const kernelSynthConfigBody = "#components: {}\n#config: {sentinel: string | *\"ok\"}\ndebugValues: {sentinel: \"from-debug\"}\n"
@@ -392,4 +401,132 @@ func TestKernel_SynthesizeInstance_FailureReturnsNoInstance(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Nil(t, inst)
+}
+
+// consumingConfigBody is a module whose one component reads #config.replicas,
+// so a value that breaks #config there fails the instance build itself
+// rather than only the check after it. A component's spec is closed over its
+// resources, so the read goes through a hidden field.
+const consumingConfigBody = "#config: {replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & int}\n"
+
+// kernel-runtime spec, "SynthesizeInstance attributes a values conflict that
+// fails the build": a value a component consumes breaks the synthesized
+// build, not only the post-build check.
+func TestKernel_SynthesizeInstance_BuildFailingViolation(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", consumingConfigBody)
+
+	inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+		Module:    mod,
+		Name:      "myrel",
+		Namespace: "default",
+		Values:    []kernel.Source{mustSource(t, k, "/values/bad.cue", `replicas: "three"`)},
+	})
+	require.Error(t, err)
+	assert.Nil(t, inst)
+	assert.True(t, strings.HasPrefix(err.Error(), `Kernel.SynthesizeInstance: instance "myrel": `), "framing: %v", err)
+	assert.Contains(t, err.Error(), "replicas")
+	assert.True(t, positionsName(err, "/values/bad.cue"), "no position names the source: %v", err)
+}
+
+// failingComponentBody is a module whose component fails every instance
+// build outside the namespace "elsewhere", a build without values included.
+// #ctx is declared at file level so the body can reach core's; a component
+// field set to two conflicting literals would fail the module itself, so
+// acquisition would refuse it before synthesis runs.
+const failingComponentBody = "#ctx: _\n#config: {replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _n: #ctx.instance.namespace & \"elsewhere\"}\n"
+
+// incompleteStackBody is a module with a required #config field and a
+// component that fails the build for any replicas value of 5 or less, so
+// values `replicas: 2` are clean but incomplete and the build fails for a
+// reason the values do not explain.
+const incompleteStackBody = "#config: {image: string, replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & >5}\n"
+
+// kernel-runtime spec, "A build failure with clean values is returned
+// unchanged": a build that fails for a reason other than the values keeps
+// its own error, not the instance-framed values error.
+func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) {
+	cases := map[string]string{
+		"the component fails for every instance": failingComponentBody,
+		// Without values the read is only incomplete, so a build without
+		// values succeeds; the clean values then explain nothing.
+		"the values-free build succeeds": "#config: {replicas: int | *1}\ndebugValues: {}\n" +
+			"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & >5}\n",
+		// The values leave a required field unset. The attribution does not
+		// require concreteness, so the missing field does not replace the
+		// real build error.
+		"the values are clean but incomplete": incompleteStackBody,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			k, mod := publishSynthModule(t, "demo", "0.1.0", body)
+
+			inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+				Module:    mod,
+				Name:      "myrel",
+				Namespace: "default",
+				Values:    []kernel.Source{mustSource(t, k, "/values/clean.cue", `replicas: 2`)},
+			})
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.Contains(t, err.Error(), "instance synthesis: building instance package")
+			assert.NotContains(t, err.Error(), `instance "myrel": `)
+		})
+	}
+}
+
+// With no values to attribute, a failed build keeps its own error, whether
+// the call passes no sources or only an empty one.
+func TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", failingComponentBody)
+
+	for name, values := range map[string][]kernel.Source{
+		"no sources":      nil,
+		"an empty source": {{Origin: "/values/empty.cue"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+				Module: mod, Name: "myrel", Namespace: "default", Values: values,
+			})
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.Contains(t, err.Error(), "instance synthesis: building instance package")
+			assert.NotContains(t, err.Error(), `instance "myrel": `)
+		})
+	}
+}
+
+// instance-synthesis spec, "A values conflict that fails the build is
+// attributed identically": the same violating source, fed to both verbs
+// for the same module, is reported at the source's Origin under each verb's
+// own instance framing, and neither returns an instance.
+func TestKernel_InstanceVerbs_AttributeABuildFailingConflictAlike(t *testing.T) {
+	k, mod, modPath := publishSynthModuleAt(t, "demo", "0.1.0", consumingConfigBody)
+	dir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, "0.1.0",
+		"myrel", "default", "{}", nil)
+	ctx := context.Background()
+	bad := mustSource(t, k, "/values/bad.cue", `replicas: "three"`)
+
+	synthesized, sErr := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module: mod, Name: "myrel", Namespace: "default", Values: []kernel.Source{bad},
+	})
+	acquired, aErr := k.AcquireInstanceFromDir(ctx, dir, bad)
+
+	for verb, got := range map[string]struct {
+		inst *module.Instance
+		err  error
+	}{
+		"Kernel.SynthesizeInstance":     {synthesized, sErr},
+		"Kernel.AcquireInstanceFromDir": {acquired, aErr},
+	} {
+		require.Error(t, got.err, verb)
+		assert.Nil(t, got.inst, verb)
+		assert.True(t, strings.HasPrefix(got.err.Error(), verb+`: instance "myrel": `), "framing: %v", got.err)
+		assert.Contains(t, got.err.Error(), "replicas", verb)
+		assert.True(t, positionsName(got.err, "/values/bad.cue"), "%s: no position names the source: %v", verb, got.err)
+	}
 }

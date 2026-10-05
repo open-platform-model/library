@@ -1196,3 +1196,99 @@ func TestRender_LocalReplacementsFlagIsInertWithoutTheFile(t *testing.T) {
 		assert.Equal(t, string(a), string(b), "object %d is byte-identical", i)
 	}
 }
+
+// scenarioLiteralInstance builds a struct-literal *module.Instance over a
+// scenario package on disk, bypassing acquisition: Render reads only
+// Metadata.Name and Source, so a package acquisition would refuse can still
+// reach the build.
+func scenarioLiteralInstance(t *testing.T, name string) *module.Instance {
+	t.Helper()
+	return &module.Instance{
+		Metadata: &module.InstanceMetadata{Name: name},
+		Source:   &module.Source{Root: renderFixtureDir(t, "scenarios"), Pkg: name},
+	}
+}
+
+// A component with no #resources fails the render: the matcher reads
+// #resources with no presence test, so the build cannot read the component
+// as one with no demand (fail-closed, 0013:D24). The package is not a core
+// #ModuleInstance, because core's #Component declares #resources.
+func TestRender_ComponentWithoutResourcesRefuses(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := scenarioLiteralInstance(t, "no_resources")
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	assert.Nil(t, res, "no result rides on the refusal")
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "the refusal is a plain error, not a diagnostics row")
+	assert.Contains(t, err.Error(), "#resources")
+}
+
+// The demand reads #resources unguarded on its own account, not only
+// because the matcher does: on the built value, diagnostics.requiredContracts
+// for a component with no #resources is not concrete. If the demand guarded
+// the read, the list would evaluate (to empty) and the render would read the
+// component as one with no demand (fail-closed, 0013:D24).
+func TestRenderDemand_ComponentWithoutResourcesFailsClosed(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+	inst := scenarioLiteralInstance(t, "no_resources")
+
+	built, _, err := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})
+	require.Error(t, err)
+	require.True(t, built.Exists(), "the refusal comes from the build, so the built value is kept")
+	demand := built.LookupPath(cue.ParsePath("diagnostics.requiredContracts"))
+	assert.Error(t, demand.Validate(cue.Concrete(true)), "the demand fails closed on a component without #resources")
+}
+
+// A component whose #traits is a top-level conflict never reaches a
+// successful render. Acquisition refuses it, and a struct-literal instance
+// that skips acquisition fails the build with a plain error. The glue's
+// presence test on #traits therefore cannot drop a conflicting trait map
+// from a render that succeeds.
+func TestRender_ComponentWithConflictingTraitsRefuses(t *testing.T) {
+	k := newRenderKernel(t)
+	plat := acquireRenderPlatform(t, k, "platform")
+
+	_, aerr := k.AcquireInstanceFromDir(context.Background(), renderFixtureDir(t, "scenarios", "bad_traits"))
+	require.Error(t, aerr, "acquisition refuses a conflicting #traits")
+	assert.Contains(t, aerr.Error(), "#traits")
+
+	res, err := k.Render(context.Background(), kernel.RenderInput{
+		Instance: scenarioLiteralInstance(t, "bad_traits"), Platform: plat, RuntimeName: "rt",
+	})
+	require.Error(t, err)
+	assert.Nil(t, res, "no result rides on the refusal")
+	var rerr *kernel.RenderError
+	assert.False(t, errors.As(err, &rerr), "the refusal is a plain error, not a diagnostics row")
+	assert.Contains(t, err.Error(), "#traits")
+}
+
+// artifact-types, "Module metadata of an acquired instance": both
+// acquisition verbs produce an instance whose ModuleMetadata() equals the
+// embedded #module's metadata in every identity field.
+func TestInstance_ModuleMetadataOfAcquiredInstances(t *testing.T) {
+	k := newRenderKernel(t)
+	for name, inst := range map[string]*module.Instance{
+		"SynthesizeInstance":     synthRenderInstance(t, k, "0.1.0"),
+		"AcquireInstanceFromDir": acquireRenderInstance(t, k, "instance"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var want schema.ModuleMetadata
+			require.NoError(t, inst.Package.LookupPath(schema.Module).LookupPath(schema.Metadata).Decode(&want))
+
+			got := inst.ModuleMetadata()
+			require.NotNil(t, got)
+			assert.Equal(t, "web_app", got.Name)
+			assert.NotEmpty(t, got.FQN)
+			assert.NotEmpty(t, got.UUID)
+			assert.Equal(t, want.Name, got.Name)
+			assert.Equal(t, want.ModulePath, got.ModulePath)
+			assert.Equal(t, want.Version, got.Version)
+			assert.Equal(t, want.FQN, got.FQN)
+			assert.Equal(t, want.UUID, got.UUID)
+		})
+	}
+}

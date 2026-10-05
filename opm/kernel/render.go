@@ -213,6 +213,26 @@ type RenderDiagnostics struct {
 	// [*oerrors.NotRoutableError].
 	Routable bool
 
+	// RequiredContracts is every contract key a component of the instance
+	// requires: each component's #resources and #traits keys, sorted in
+	// byte order and deduplicated (0013:D24). It counts every component of
+	// the render, one omitted under [RenderInput.SkipUnprovided] included,
+	// and it is not narrowed to provider-fulfilled contracts. Empty, never
+	// nil, for an instance with no components.
+	//
+	// It is computed in the build and set on every RenderResult and every
+	// [*RenderError]. A render that returns a plain error (a refusal before
+	// evaluation, a build error or a diagnostics decode failure) carries no
+	// demand, so a caller tracking it keeps its last known list there.
+	//
+	// It fails closed: a component whose #resources is missing or does not
+	// evaluate fails the render with a plain error instead of reading as no
+	// demand. #traits is read behind the matcher's presence test, so an
+	// absent #traits contributes nothing; a #traits that is a top-level
+	// conflict never reaches a successful render, because the instance's
+	// components do not evaluate.
+	RequiredContracts []string
+
 	// ResolvedVersions holds the per-path version rows, in path order.
 	ResolvedVersions []ResolvedVersion
 
