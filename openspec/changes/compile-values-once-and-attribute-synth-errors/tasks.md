@@ -87,21 +87,21 @@ Tests only. Every one passes on `origin/main` before any code moves.
 
 ## 3. Attribute a synthesized instance's values conflict to its source (kernel; design CV2, CV3)
 
-- [ ] 3.1 `opm/kernel/acquire.go`: extract `valuesConflict(authored cue.Value, compiled
+- [x] 3.1 `opm/kernel/acquire.go`: extract `valuesConflict(authored cue.Value, compiled
       []cue.Value) error` from `attributeValuesError`. It reads `#module.#config` off
       `authored`, prepends `authored`'s own `values` when it exists, and calls
       `validateCompiled(configSchema, all, true)`. It returns the raw CUE error or nil.
       `attributeValuesError` keeps its framing and calls it.
-- [ ] 3.2 `opm/kernel/synth.go`: when `synth.Instance` fails and `merged.Exists()`, call
+- [x] 3.2 `opm/kernel/synth.go`: when `synth.Instance` fails and `merged.Exists()`, call
       `synth.Instance` again in the same `cueCtx` with the same input and `Values` zero. If
       that fails, return the original build error. Otherwise `valuesConflict(rebuilt,
       compiled)`. A non-nil result returns `Kernel.SynthesizeInstance: instance %q: %w` with
       `in.Name`; a nil result returns the original build error unchanged. Never call
       `in.Module.ConfigSchema()` or read `in.Module.Package` (CV2).
-- [ ] 3.3 Update the `SynthesizeInstance` godoc with one paragraph: a build failure is
+- [x] 3.3 Update the `SynthesizeInstance` godoc with one paragraph: a build failure is
       attributed to the values sources the way `AcquireInstanceFromDir` does it, through a
       values-free rebuild in the call's context. Keep the "never its Package" sentence true.
-- [ ] 3.4 Tests. Tighten 1.1 to assert the `Kernel.SynthesizeInstance: instance "myrel": `
+- [x] 3.4 Tests. Tighten 1.1 to assert the `Kernel.SynthesizeInstance: instance "myrel": `
       prefix, `replicas` in the message and that a position names `/values/bad.cue`
       (`positionsName`). 1.2 must stay
       green unchanged. Add `TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged`: the
@@ -112,10 +112,10 @@ Tests only. Every one passes on `origin/main` before any code moves.
       `instance "<name>": ` framing. Extend `TestKernel_SynthesizeInstance_BuildsInItsOwnContext`
       or a sibling only if it already covers a failure path cheaply; do not invent a
       cross-context probe.
-- [ ] 3.5 Cross-cutting checks: `go test -race ./opm/kernel -count=1`, the parity tests
+- [x] 3.5 Cross-cutting checks: `go test -race ./opm/kernel -count=1`, the parity tests
       (`go test ./opm/kernel -run Parity -count=1`) and `task cue:test:flow`. Verify: all
       green (the flow test may skip when the registry is unreachable; say so if it does).
-- [ ] 3.6 `task api:diff` lists nothing under the files this change touches (it compares
+- [x] 3.6 `task api:diff` lists nothing under the files this change touches (it compares
       the exported `opm/` API against the last release tag; `task check` runs only
       `api:diff:test`, the offline fixture test of the script). The PR's api-diff CI job,
       against the PR base, is the gate after that. Run the consumer-build script locally

@@ -424,22 +424,25 @@ func TestKernel_SynthesizeInstance_BuildFailingViolation(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Nil(t, inst)
-	assert.Contains(t, err.Error(), `"three"`)
-	assert.NotContains(t, err.Error(), `Kernel.SynthesizeInstance: instance "`,
-		"the build itself must fail, not the check after it")
-	assert.False(t, positionsName(err, "/values/bad.cue"),
-		"the build error is positioned in the synthesized package: %v", err)
+	assert.True(t, strings.HasPrefix(err.Error(), `Kernel.SynthesizeInstance: instance "myrel": `), "framing: %v", err)
+	assert.Contains(t, err.Error(), "replicas")
+	assert.True(t, positionsName(err, "/values/bad.cue"), "no position names the source: %v", err)
 }
+
+// failingComponentBody is a module whose component fails every instance
+// build outside the namespace "elsewhere", a build without values included.
+// #ctx is declared at file level so the body can reach core's; a component
+// field set to two conflicting literals would fail the module itself, so
+// acquisition would refuse it before synthesis runs.
+const failingComponentBody = "#ctx: _\n#config: {replicas: int | *1}\ndebugValues: {}\n" +
+	"#components: foo: {metadata: name: \"foo\", _n: #ctx.instance.namespace & \"elsewhere\"}\n"
 
 // kernel-runtime spec, "A build failure with clean values is returned
 // unchanged": a build that fails for a reason other than the values keeps
 // its own error, not the instance-framed values error.
 func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) {
 	cases := map[string]string{
-		// #ctx is declared at file level so the body can reach core's; every
-		// instance outside "elsewhere" fails, a build without values included.
-		"the component fails for every instance": "#ctx: _\n#config: {replicas: int | *1}\ndebugValues: {}\n" +
-			"#components: foo: {metadata: name: \"foo\", _n: #ctx.instance.namespace & \"elsewhere\"}\n",
+		"the component fails for every instance": failingComponentBody,
 		// Without values the read is only incomplete, so a build without
 		// values succeeds; the clean values then explain nothing.
 		"the values-free build succeeds": "#config: {replicas: int | *1}\ndebugValues: {}\n" +
@@ -460,5 +463,57 @@ func TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged(t *testing.T) 
 			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
 			assert.NotContains(t, err.Error(), `instance "myrel": `)
 		})
+	}
+}
+
+// With no values to attribute, a failed build keeps its own error, whether
+// the call passes no sources or only an empty one.
+func TestKernel_SynthesizeInstance_NoValuesBuildErrorUnchanged(t *testing.T) {
+	k, mod := publishSynthModule(t, "demo", "0.1.0", failingComponentBody)
+
+	for name, values := range map[string][]kernel.Source{
+		"no sources":      nil,
+		"an empty source": {{Origin: "/values/empty.cue"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			inst, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
+				Module: mod, Name: "myrel", Namespace: "default", Values: values,
+			})
+			require.Error(t, err)
+			assert.Nil(t, inst)
+			assert.True(t, strings.HasPrefix(err.Error(), "Kernel.SynthesizeInstance: "), "unframed error: %v", err)
+			assert.NotContains(t, err.Error(), `instance "myrel": `)
+		})
+	}
+}
+
+// instance-synthesis spec, "A values conflict that fails the build is
+// attributed identically": the same violating source, fed to both verbs
+// for the same module, is reported at the source's Origin under each verb's
+// own instance framing, and neither returns an instance.
+func TestKernel_InstanceVerbs_AttributeABuildFailingConflictAlike(t *testing.T) {
+	k, mod, modPath := publishSynthModuleAt(t, "demo", "0.1.0", consumingConfigBody)
+	dir := writeImportedInstance(t, t.TempDir(), "authored.opmodel.dev/instance@v0", modPath, "0.1.0",
+		"myrel", "default", "{}", nil)
+	ctx := context.Background()
+	bad := mustSource(t, k, "/values/bad.cue", `replicas: "three"`)
+
+	synthesized, sErr := k.SynthesizeInstance(ctx, kernel.InstanceInput{
+		Module: mod, Name: "myrel", Namespace: "default", Values: []kernel.Source{bad},
+	})
+	acquired, aErr := k.AcquireInstanceFromDir(ctx, dir, bad)
+
+	for verb, got := range map[string]struct {
+		inst *module.Instance
+		err  error
+	}{
+		"Kernel.SynthesizeInstance":     {synthesized, sErr},
+		"Kernel.AcquireInstanceFromDir": {acquired, aErr},
+	} {
+		require.Error(t, got.err, verb)
+		assert.Nil(t, got.inst, verb)
+		assert.True(t, strings.HasPrefix(got.err.Error(), verb+`: instance "myrel": `), "framing: %v", got.err)
+		assert.Contains(t, got.err.Error(), "replicas", verb)
+		assert.True(t, positionsName(got.err, "/values/bad.cue"), "%s: no position names the source: %v", verb, got.err)
 	}
 }

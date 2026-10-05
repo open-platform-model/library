@@ -466,17 +466,29 @@ func (k *Kernel) attributeValuesError(cueCtx *cue.Context, authoredSrc *module.S
 	if err != nil {
 		return nil
 	}
+	if vErr := valuesConflict(authored, compiled); vErr != nil {
+		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(authored), vErr)
+	}
+	return nil
+}
+
+// valuesConflict is the failure-path attribution both instance verbs share.
+// authored is the instance package built without the rendered values file
+// (the authored package on the acquire path, the values-free synthesized
+// package on the synthesis path), and compiled the call's values, compiled
+// once in the context authored was built in. It unifies authored's own
+// values with compiled and validates the result against authored's #config
+// with concreteness enforced. It returns the raw CUE error, or nil when the
+// values are clean or there is nothing to check.
+func valuesConflict(authored cue.Value, compiled []cue.Value) error {
 	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
 	all := make([]cue.Value, 0, len(compiled)+1)
 	if own := authored.LookupPath(schema.Values); own.Exists() {
 		all = append(all, own)
 	}
 	all = append(all, compiled...)
-	if _, vErr := validateValues(configSchema, all, true); vErr != nil {
-		name := bestEffortInstanceName(authored)
-		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", name, vErr)
-	}
-	return nil
+	_, err := validateCompiled(configSchema, all, true)
+	return err
 }
 
 // sourceForDir describes an on-disk package directory as a Source: Root is
