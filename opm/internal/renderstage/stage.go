@@ -3,6 +3,8 @@ package renderstage
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 
 	"cuelang.org/go/cue"
@@ -14,15 +16,19 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// RenderRoot is the synthetic root every render module is staged under. It
-// exists nowhere on disk: the generated module and every overlay-mode input
-// are served to the build from [Staged.Overlay], keyed under it. It is the
-// same for every render, which is safe because an overlay belongs to one
-// load.Instances call and nothing in cue/load keys process-wide state on the
-// main module's root (the module cache keys by module@version), and it makes
-// the positions in a render build error the same from one render to the
-// next.
-const RenderRoot = string(filepath.Separator) + "opm-render"
+// RenderRoot is the synthetic root every render module is staged under: an
+// absolute path directly beneath the file-system root (/opm-render on Unix;
+// on Windows, on the current volume). Nothing is written there: the
+// generated module and every overlay-mode input are served to the build from
+// [Staged.Overlay], keyed under it. cue/load merges a real directory's
+// entries into the overlay, so [Stage] refuses when anything exists at the
+// path. It is the same for every render, which is safe because an overlay
+// belongs to one load.Instances call and nothing in cue/load keys
+// process-wide state on the main module's root (the module cache keys by
+// module@version), and it makes the positions in a render build error the
+// same from one render to the next. It is a variable only so a test can
+// point it at an existing directory; nothing else assigns it.
+var RenderRoot = sourcetree.VolumeRoot("opm-render")
 
 // Staged is one render module staged in memory: what the kernel needs to
 // build it and to report on the version skew it was staged under.
@@ -89,6 +95,9 @@ func Stage(instance, platform *module.Source, runtimeName string, opts StageOpti
 		return nil, errors.New("runtime name must be non-empty")
 	}
 	root := RenderRoot
+	if err := checkRootAbsent(root); err != nil {
+		return nil, err
+	}
 
 	overlay := map[string][]byte{}
 	instDir, err := serveDir(root, "instance", instance, overlay)
@@ -189,10 +198,10 @@ func Stage(instance, platform *module.Source, runtimeName string, opts StageOpti
 // cue/load build one from Env). Staged.Overlay (the generated module and the
 // overlay-mode inputs) is handed to cue/load as load.Config.Overlay, so the
 // main module and those replacement directories are served from memory and
-// nothing under Staged.Dir needs to exist on disk. A load failure (an import that does not resolve,
-// a malformed module file) is returned as an error; an evaluation error on
-// the built value is NOT, because the fail-closed gate is one such error and
-// the kernel reads `diagnostics` beside it.
+// nothing under Staged.Dir needs to exist on disk. A load failure (an import
+// that does not resolve, a malformed module file) is returned as an error;
+// an evaluation error on the built value is NOT, because the fail-closed
+// gate is one such error and the kernel reads `diagnostics` beside it.
 func Build(cueCtx *cue.Context, staged *Staged, opts loader.Options) (cue.Value, error) {
 	if cueCtx == nil || staged == nil {
 		return cue.Value{}, errors.New("build needs a context and a staged module")
@@ -219,6 +228,21 @@ func Build(cueCtx *cue.Context, staged *Staged, opts loader.Options) (cue.Value,
 		return cue.Value{}, fmt.Errorf("loading the render module: %w", oerrors.Classify(instances[0].Err))
 	}
 	return cueCtx.BuildInstance(instances[0]), nil
+}
+
+// checkRootAbsent refuses when anything exists at root: cue/load reads a real
+// directory's entries beneath the overlay, so a stray file there would join
+// every render package.
+func checkRootAbsent(root string) error {
+	_, err := os.Lstat(root)
+	switch {
+	case err == nil:
+		return fmt.Errorf("render root %s exists on disk; the render module is served from memory under it and the build would read what is there, so remove it", root)
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("checking that the render root %s is absent: %w", root, err)
+	}
 }
 
 // serveDir returns the absolute directory cue/load serves src from: its own

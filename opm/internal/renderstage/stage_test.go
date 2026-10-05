@@ -614,6 +614,38 @@ func assertAbsent(t *testing.T, path string) {
 	assert.True(t, os.IsNotExist(err), "%s must not exist on disk", path)
 }
 
+// RenderRoot is absolute on every OS (on Windows it carries a volume), since
+// cue/load refuses an overlay key that is not absolute.
+func TestRenderRoot_IsAbsolute(t *testing.T) {
+	assert.True(t, filepath.IsAbs(RenderRoot), "%s is absolute", RenderRoot)
+	assert.Equal(t, "opm-render", filepath.Base(RenderRoot))
+}
+
+// Stage refuses when anything exists at RenderRoot: cue/load merges a real
+// directory's entries into the overlay, so a stray .cue file there would
+// join the render package. The test points the root at a directory it owns
+// that holds such a file.
+func TestStage_RefusesAnExistingRenderRoot(t *testing.T) {
+	existing := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(existing, "injected.cue"), []byte("package render\n\nINJECTED: \"from disk\"\n"), 0o644))
+	saved := RenderRoot
+	RenderRoot = existing
+	t.Cleanup(func() { RenderRoot = saved })
+
+	staged, err := Stage(overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")), diskPlatform(t), "rt", StageOptions{})
+	require.Error(t, err)
+	assert.Nil(t, staged)
+	assert.Contains(t, err.Error(), "render root "+existing+" exists on disk")
+
+	// A file at the root is refused the same way.
+	file := filepath.Join(t.TempDir(), "opm-render")
+	require.NoError(t, os.WriteFile(file, nil, 0o644))
+	RenderRoot = file
+	_, err = Stage(overlayInstance(filepath.Join(string(filepath.Separator), "opm-registry-module", "web_app")), diskPlatform(t), "rt", StageOptions{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), file)
+}
+
 // TestStageBuild_RenderModuleServedFromMemory pins the assumption in-memory
 // staging rests on: cue/load v0.17 reads cue.mod/module.cue,
 // cue.mod/local-module.cue and the glue of the main module, and every

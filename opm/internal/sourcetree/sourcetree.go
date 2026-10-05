@@ -158,6 +158,22 @@ func OverlayFromFS(fsys fs.FS, dir, keyRoot string) (map[string][]byte, error) {
 	return overlay, nil
 }
 
+// VolumeRoot returns the absolute path of the directory name directly
+// beneath the file-system root: /<name> on Unix and, on Windows, \\<name> on
+// the current volume (a separator-rooted path without a volume is not
+// absolute there, and cue/load refuses an overlay key that is not absolute).
+// It is computed once, into a package variable, by each caller.
+func VolumeRoot(name string) string {
+	p := string(filepath.Separator) + name
+	if abs, err := filepath.Abs(p); err == nil {
+		return abs
+	}
+	return p
+}
+
+// syntheticBase is the directory every [SyntheticRoot] lies under.
+var syntheticBase = VolumeRoot("opm-registry-module")
+
 // SyntheticRoot returns a deterministic absolute path used as the in-memory
 // module root for the overlay. It is derived purely from path@version (no
 // randomness, no clock) so the load is reproducible, and is sanitized into a
@@ -167,7 +183,7 @@ func OverlayFromFS(fsys fs.FS, dir, keyRoot string) (map[string][]byte, error) {
 func SyntheticRoot(modPath, version string) string {
 	repl := strings.NewReplacer("/", "_", ":", "_", "@", "_", "+", "_")
 	safe := repl.Replace(modPath + "@" + modversion.Canonical(version))
-	return string(filepath.Separator) + filepath.Join("opm-registry-module", safe)
+	return filepath.Join(syntheticBase, safe)
 }
 
 // ReadFile returns the contents of path inside src: the overlay entry in

@@ -86,9 +86,10 @@ tasks:
         fi
 
   vet:
-    desc: Run go vet
+    desc: Run go vet (and once for windows, so the windows build the cli ships at least compiles)
     cmds:
       - go vet ./...
+      - GOOS=windows go vet ./opm/...
 
   lint:
     desc: Run golangci-lint

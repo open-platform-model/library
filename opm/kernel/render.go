@@ -303,23 +303,24 @@ func (e *RenderError) Unwrap() error { return e.Err }
 
 // Render renders an instance against a platform as ONE CUE build
 // (0019:D9): it stages a generated render module in memory, under a
-// synthetic root that exists nowhere on disk (the promoted cue.mod,
+// synthetic root that must not exist on disk (the promoted cue.mod,
 // 0019:D13; directory replacements bringing both inputs in, an on-disk input
 // in place and an overlay-mode input from memory; the embedded matching and
-// execution glue), verifies the promoted list covers
-// every OPM-namespace path either input requires, applies the skew policy
-// (0019:D7/D18), builds the module once in a fresh cue.Context whose
-// references the kernel drops when Render returns (0019:D8), and decodes
-// `diagnostics` and `rendered` off the built value.
+// execution glue), verifies the promoted list covers every OPM-namespace
+// path either input requires, applies the skew policy (0019:D7/D18), builds
+// the module once in a fresh cue.Context whose references the kernel drops
+// when Render returns (0019:D8), and decodes `diagnostics` and `rendered`
+// off the built value. A render is refused when anything exists at that
+// root, since the build would read it beneath the overlay.
 //
 // The Kernel holds no context of its own, and no built value survives the
 // call except the returned output; repeated renders share nothing. A render
 // writes no staging file, success or failure: the generated module reaches
 // the build through the load overlay. The CUE module cache under
 // CUE_CACHE_DIR is filled when the build fetches a dependency, as for any
-// load. Registry resolution
-// for the platform's catalog imports uses [WithRegistry] when set, else the
-// process CUE_REGISTRY, plumbed through the load configuration only.
+// load. Registry resolution for the platform's catalog imports uses
+// [WithRegistry] when set, else the process CUE_REGISTRY, plumbed through
+// the load configuration only.
 //
 // Refusals before evaluation (missing Source, a platform whose core predates
 // the provider count, uncovered OPM path, skew under [SkewRefuse]) return

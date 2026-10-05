@@ -8,11 +8,11 @@
 //
 // Staging writes nothing to the filesystem. The generated module (its
 // cue.mod pair and the glue) is served to the build through
-// load.Config.Overlay under [RenderRoot], a synthetic root that exists
-// nowhere on disk. An on-disk input is referenced in place through its
-// local-module.cue replacement; an overlay-mode input is re-keyed under the
-// directory that replacement names and served from the same overlay, so no
-// file of it is written either.
+// load.Config.Overlay under [RenderRoot], a synthetic root that must not
+// exist on disk ([Stage] refuses when it does). An on-disk input is
+// referenced in place through its local-module.cue replacement; an
+// overlay-mode input is re-keyed under the directory that replacement names
+// and served from the same overlay, so no file of it is written either.
 //
 // An input's own cue.mod/local-module.cue (a developer's redirection of a
 // dependency to a directory or another module) is read in either mode

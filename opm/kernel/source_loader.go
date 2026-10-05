@@ -86,10 +86,11 @@ func parseSource(origin string, data []byte) error {
 // load of the operation uses, so a values file importing a registry module
 // resolves it the way directory acquisition would; the process environment
 // is never mutated. Any other source is compiled from Data with
-// [cue.Filename](Origin) and carries no imports, so opts are unused for it. After either, a top-level `values:` field that
-// exists without error is unwrapped: OPM values files conventionally wrap
-// their payload in one, and the value carried into validation must be the
-// inner object so it unifies against the module's #config directly.
+// [cue.Filename](Origin) and carries no imports, so opts are unused for it.
+// After either, a top-level `values:` field that exists without error is
+// unwrapped: OPM values files conventionally wrap their payload in one, and
+// the value carried into validation must be the inner object so it unifies
+// against the module's #config directly.
 //
 // An empty Data is "no values supplied" and compiles to the zero value, which
 // every consumer treats as absent. A compile failure is returned as the raw
