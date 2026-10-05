@@ -197,7 +197,10 @@
 // matched pair regardless, and RenderDiagnostics carries the pairing diagnosis
 // (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits,
 // OverSubscribed, Collisions, Routable, ResolvedVersions). There is no
-// separate match verb.
+// separate match verb. Beside the pairing diagnosis, RequiredContracts is
+// the instance's contract demand (0013:D24): every #resources and #traits key
+// of every component, omitted ones included, set on every RenderResult and
+// every [*RenderError].
 //
 // A demand is unprovided when its contract declares fulfilment "provider" and
 // no enabled registry entry carries a transformer requiring the key: the key

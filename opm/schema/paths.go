@@ -71,9 +71,9 @@ var (
 	Fulfilment        = cue.ParsePath("fulfilment")
 
 	// Module-internal field. DebugValues is a Module field — NOT a separate
-	// kernel artifact. Frontends that want a debug overlay read it from
-	// Module.Package and decide whether to layer it into the values stack;
-	// the kernel never receives debugValues as a parameter.
+	// kernel artifact. Frontends that want a debug overlay read it through
+	// Module.DebugValues() and decide whether to layer it into the values
+	// stack; the kernel never receives debugValues as a parameter.
 	DebugValues = cue.ParsePath("debugValues")
 )
 

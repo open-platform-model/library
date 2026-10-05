@@ -220,7 +220,8 @@ if err != nil {
         // The build ran and the fail-closed gate refused: rerr.Diagnostics
         // carries every verdict (Pairs, Unmatched, Unresolved, Unify,
         // UnhandledTraits, OverSubscribed, Collisions, Routable,
-        // ResolvedVersions) and rerr.Err the typed causes, joined in gate
+        // ResolvedVersions, and RequiredContracts, the instance's contract
+        // demand) and rerr.Err the typed causes, joined in gate
         // order (*oerrors.ContractCollisionsError,
         // *oerrors.UnresolvedDemandsError, *oerrors.OverSubscribedContractsError,
         // *oerrors.UnmatchedComponentsError, *oerrors.NotRoutableError) or

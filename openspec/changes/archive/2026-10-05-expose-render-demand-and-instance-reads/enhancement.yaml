@@ -1,0 +1,6 @@
+# Under-claimed on purpose: 0013:D24 is complete only once the operator reads
+# its demand from the render (op-i3g2) and the kernel synthesises the 0013
+# secret components whose contracts R1 covers. This change ships the library
+# export those depend on, so it claims no decision.
+implements:
+  - enhancement: "0013"
