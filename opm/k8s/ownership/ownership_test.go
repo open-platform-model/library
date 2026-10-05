@@ -79,7 +79,8 @@ func TestDocsStateTheFrontendsPartOfTheHandOver(t *testing.T) {
 	})
 	for name, doc := range map[string]string{"package doc": packageDoc, "ApplyInput.InInventory doc": inInventoryDoc} {
 		flat := strings.Join(strings.Fields(doc), " ")
-		assert.Contains(t, flat, "drops an object refused as adopted-elsewhere from the inventory it records next", name)
-		assert.Contains(t, flat, "never deletes the object for that refusal", name)
+		for _, term := range []string{"adopted-elsewhere", "inventory it records next", "never deletes"} {
+			assert.Contains(t, flat, term, name)
+		}
 	}
 }

@@ -23,10 +23,10 @@ const (
 	// RefuseOtherInstance: the live object outside the inventory belongs to
 	// another module instance.
 	RefuseOtherInstance ApplyRefusal = "other-instance"
-	// RefuseAdoptedElsewhere: another module instance adopted the live
-	// object. In the inventory, its adopt annotation or UUID label names
-	// that instance; outside it, its adopt annotation does. A frontend drops
-	// an inventoried object refused for this from its next inventory.
+	// RefuseAdoptedElsewhere: the live object's adopt annotation names
+	// another module instance, which is taking the object over or has taken
+	// it. A frontend drops an inventoried object refused for this from its
+	// next inventory.
 	RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"
 )
 
@@ -38,24 +38,25 @@ type ApplyInput struct {
 	// CanApply does not change it.
 	Live *unstructured.Unstructured
 	// InInventory reports whether the object is in the applying instance's
-	// recorded inventory. An inventoried object is judged only for another
-	// instance's adoption: a frontend drops an object refused as
+	// recorded inventory. An inventoried object is judged only for an adopt
+	// annotation naming another instance; a UUID label naming another
+	// instance alone does not refuse it, so the instance's objects still
+	// apply after its UUID changes. A frontend drops an object refused as
 	// adopted-elsewhere from the inventory it records next, keeps applying
 	// the instance's other objects, and never deletes the object for that
 	// refusal.
 	InInventory bool
 	// InstanceUUID is the applying instance's UUID, from the render. Empty
-	// matches no adopt annotation. Outside the inventory every non-empty live
-	// UUID and every non-blank adopt annotation then counts as another
-	// instance's; inside it the object applies, since there is no identity
-	// to compare against.
+	// matches no adopt annotation. Outside the inventory every non-empty
+	// live UUID and every non-blank adopt annotation then counts as another
+	// instance's; inside it the object applies, since there is no identity to
+	// compare against.
 	InstanceUUID string
 	// Admit is set only for an object the caller has proven came from an
 	// earlier operator release's install manifest. It lifts the
 	// foreign-object refusal when the live object carries no UUID label or
 	// InstanceUUID (0012:D8:R6). It lifts nothing else, adopted-elsewhere
-	// included. The library cannot
-	// check the proof.
+	// included. The library cannot check the proof.
 	Admit bool
 }
 
@@ -76,12 +77,15 @@ func (v ApplyVerdict) Allowed() bool { return v.Refuse == "" }
 // live object being deleted is refused, in the inventory or not, adopted or
 // admitted; an object whose adopt annotation ([labels.AnnotationAdopt])
 // names this instance applies, in the inventory or not. In the instance's
-// inventory: with no instance UUID it applies; an adopt annotation or UUID
-// label naming another instance is refused as adopted-elsewhere; otherwise it
-// applies. Outside it: a live object OPM does not manage is refused, unless
-// admitted; a live object carrying another instance's UUID is refused; an
-// adopt annotation naming another instance is refused as adopted-elsewhere;
-// otherwise it applies (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
+// inventory: with no instance UUID it applies; an adopt annotation naming
+// another instance is refused as adopted-elsewhere; otherwise it applies,
+// whatever its UUID label says. Outside it: a live object OPM does not manage
+// is refused, unless admitted; a live object whose adopt annotation and UUID
+// label name the same other instance is refused as adopted-elsewhere, since
+// that instance completed the hand-over; a live object carrying another
+// instance's UUID is refused as other-instance; an adopt annotation naming
+// another instance is refused as adopted-elsewhere; otherwise it applies
+// (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
 // is the only override, and a refusal message names it with the UUID to set
 // (0012:D8:R3).
 func CanApply(in ApplyInput) ApplyVerdict {
@@ -103,7 +107,12 @@ func CanApply(in ApplyInput) ApplyVerdict {
 		return refuse(RefuseForeignObject, obj+" exists and is not managed by OPM"+
 			adoptsAnother(annotation)+adoptRemedy("to let this instance take it over,", in.InstanceUUID))
 	}
-	if u := liveUUID(in.Live); u != "" && u != in.InstanceUUID {
+	u := liveUUID(in.Live)
+	if annotation != "" && annotation == u {
+		return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+annotation+
+			"; this instance does not apply it"+adoptRemedy("to let this instance take it back,", in.InstanceUUID))
+	}
+	if u != "" && u != in.InstanceUUID {
 		return refuse(RefuseOtherInstance, obj+" belongs to module instance "+u+
 			adoptsAnother(annotation)+adoptRemedy("to move it to this instance, remove it from module instance "+u+", then", in.InstanceUUID))
 	}
@@ -118,22 +127,15 @@ func CanApply(in ApplyInput) ApplyVerdict {
 // annotation does not name this instance. With no instance UUID nothing can
 // name another instance, so it applies: refusing would drop the object from
 // the inventory, and the prune would then delete the instance's own object.
-// Otherwise an adopt annotation naming another instance, or a UUID label
-// naming one, refuses it as adopted-elsewhere.
+// Otherwise an adopt annotation naming another instance refuses it as
+// adopted-elsewhere. A UUID label naming another instance alone does not, so
+// an instance whose UUID changed (a module moved to a new path) keeps
+// applying and relabels its own objects.
 func judgeInventoried(in ApplyInput, obj, annotation string) ApplyVerdict {
-	if in.InstanceUUID == "" {
+	if in.InstanceUUID == "" || annotation == "" {
 		return ApplyVerdict{}
 	}
-	other := annotation
-	if other == "" {
-		if u := liveUUID(in.Live); u != "" && u != in.InstanceUUID {
-			other = u
-		}
-	}
-	if other == "" {
-		return ApplyVerdict{}
-	}
-	return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+other+
+	return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+annotation+
 		"; this instance no longer applies it and drops it from its inventory"+
 		adoptRemedy("to take it back,", in.InstanceUUID))
 }

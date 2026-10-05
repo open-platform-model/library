@@ -44,7 +44,10 @@ type DeletionPlan struct {
 // as skipped up front. It copies entries and never changes the caller's
 // slice. Duplicate entries are kept; the later one reads the object again,
 // which is harmless. ownerUUID is the deleting instance's UUID, compared with
-// each live object's UUID label; empty disables that comparison.
+// each live object's UUID label; empty disables that comparison. It is also
+// compared with the live adopt annotation ([ownership.CanDelete]): an
+// annotation naming another instance skips the step as adopted-elsewhere,
+// and with an empty ownerUUID every non-blank annotation does.
 func NewDeletionPlan(entries []inventory.Entry, policy Policy, ownerUUID string) DeletionPlan {
 	steps := make([]Step, len(entries))
 	for i, e := range entries {
