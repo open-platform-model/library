@@ -2,7 +2,7 @@
 
 ### Requirement: Library PRs build the consumers against the PR's merge commit
 
-A pull request from a branch in this repository that changes `opm/**`, `go.mod`, `go.sum`, the consumer-build workflow or its script SHALL run one job per consumer, cli and opm-controller. Each job SHALL check out the consumer's `main`, install the Go version the consumer's `go.mod` names, and run `go build ./...` and `go vet ./...` in the consumer with the library resolved to the PR's merge commit, the tree `actions/checkout` checks out by default for a pull request. Source: owner walkthrough decision j4 (2026-10-03).
+A pull request from a branch in this repository that changes `opm/**`, `go.mod`, `go.sum`, the consumer-build workflow or its script SHALL run one job per consumer, cli and opm-controller. Each job SHALL check out the consumer's `main`, install the Go version the consumer's `go.mod` names, and run `go build ./...` and `go vet ./...` in the consumer with the library resolved to the PR's merge commit, the tree `actions/checkout` checks out by default for a pull request. Source: ADR-013, decision j4.
 
 #### Scenario: A PR changes library code
 
@@ -21,7 +21,7 @@ A pull request from a branch in this repository that changes `opm/**`, `go.mod`,
 
 ### Requirement: A consumer break is reported and never blocks a merge
 
-The consumer-build jobs SHALL NOT be required checks. When a consumer fails to build or vet, its job SHALL fail, and the job summary SHALL name the consumer, the consumer commit, the failing step and the compiler's error lines, which name the broken symbol; the job SHALL also emit a warning annotation naming the consumer. One consumer's failure SHALL NOT cancel the other consumer's job. Source: owner walkthrough decision j4 (2026-10-03).
+The consumer-build jobs SHALL NOT be required checks. When a consumer fails to build or vet, its job SHALL fail, and the job summary SHALL name the consumer, the consumer commit, the failing step and the compiler's error lines, which name the broken symbol; the job SHALL also emit a warning annotation naming the consumer. One consumer's failure SHALL NOT cancel the other consumer's job. Source: ADR-013, decision j4.
 
 #### Scenario: A PR removes an exported function a consumer calls
 
