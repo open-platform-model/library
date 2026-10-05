@@ -33,7 +33,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   - the `Render` doc and the floor comment in `render.go`;
   - the `opm/kernel` package doc (`doc.go`: the "with one exception: Render reads ... Package" sentence in "Every operation shares nothing", the Goroutine safety sentence that a render "reads the shared Package only for the core floor", which now says a render reads no `Package` and the floor reads the fact recorded at construction, and the core-floor paragraph);
   - the `schema.ContractsProvidedBy` comment;
-  - a dated amendment sentence on ADR-007's Status paragraph, in the form of the existing one: "Amended 2026-10-05 by `decode-platform-contracts-at-acquire` (owner decision h4 of the beta.1 kernel checklist walkthrough): `Render` reads no `Package`; the core floor reads the fact the platform recorded at construction." The 2026-09-30 sentence stays as history.
+  - a dated amendment sentence on ADR-007's Status paragraph, in the form of the existing one: "Amended 2026-10-05 by `decode-platform-contracts-at-acquire`: `Render` reads no `Package`; the core floor reads the fact the platform recorded at construction." The 2026-09-30 sentence stays as history.
 
   AGENTS.md is not edited: its `platform/` line stays true, and the `Platform` godoc is the contract's one home.
 - [x] 2.3 Tests in `opm/kernel`:

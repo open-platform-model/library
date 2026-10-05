@@ -57,7 +57,10 @@
 // number of operations it has run. The cross-artifact verbs read only Metadata
 // and Source from their inputs, and no Package: Render's core floor (whether
 // the platform's #contracts carries providedBy) reads the fact the platform
-// recorded at construction, through platform.Platform.CoreFloor. Nothing is
+// recorded at construction, through platform.Platform.CoreFloor. That holds
+// for a platform the constructor built; a Platform built as a struct literal
+// decodes its Package once, on its first CoreFloor or Contracts call (see
+// platform.Platform). Nothing is
 // built into an input's context, so a module acquired by one Kernel
 // synthesizes on another and an instance from either renders on a third, and
 // one acquired platform may be shared by concurrent renders. No method returns
@@ -81,8 +84,9 @@
 // goroutines calls Render on one Kernel with no mutex, and may share one
 // acquired platform across them: each render builds the platform from its
 // Source in its own context and reads no Package (the core floor reads the
-// fact recorded at construction), so concurrent renders never write to the
-// shared platform. No render reuses a platform
+// fact recorded at construction; a struct-literal Platform decodes its
+// Package once, on its first CoreFloor or Contracts call, under a sync.Once),
+// so concurrent renders never write to the shared platform. No render reuses a platform
 // value another render built, and there is no serialised render path; the
 // earlier shared-platform contract (renders filling one shared platform
 // value) is superseded, not supported.

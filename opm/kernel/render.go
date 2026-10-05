@@ -330,7 +330,9 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // wrapping [*oerrors.PlatformCoreTooOldError]: the render never falls back
 // to a provider count of its own. The floor is the fact the platform
 // recorded at construction; Render reads no Package, only the platform's
-// Metadata and Source.
+// Metadata and Source. That holds for a platform the constructor built; a
+// Platform built as a struct literal decodes its Package once, on its first
+// CoreFloor or Contracts call (see [platform.Platform]).
 func (k *Kernel) Render(ctx context.Context, in RenderInput) (*RenderResult, error) {
 	_, res, err := k.render(ctx, in)
 	return res, err

@@ -38,16 +38,16 @@ noticeable.
 **Goals:**
 
 - The core floor and the contract inventory (or its refusal) are decoded once, when the platform
-  is constructed, into plain Go fields (owner decision h4).
+  is constructed, into plain Go fields.
 - `Render` and `Contracts()` read those fields. `Render`'s floor refusal stays where it is: before
   staging, with the same typed error and wrap.
 - After this change, `Render` and `Contracts()` on a constructed platform never read `Package`, so
-  g5 part B can drop it.
+  a later change can drop it.
 - No behaviour change for any existing caller, including struct-literal and zero platforms.
 
 **Non-Goals:**
 
-- Dropping `Package`, and any memory claim. That is g5 part B.
+- Dropping `Package`, and any memory claim. That is a later change.
 - Changing what the inventory reports or refuses.
 - Any cli or opm-operator change.
 
@@ -184,7 +184,7 @@ consistent:
   Goroutine safety sentence at `:80-86`, "reads the shared Package only for the core floor", which
   becomes "reads no Package: the floor reads the fact recorded at construction"; and `:185-189`), the `schema.ContractsProvidedBy` comment (`paths.go:60-66`), the race-test comments
   (`render_core_floor_test.go:106-110` and the cold sibling), ADR-007's Status paragraph (a new
-  dated amendment sentence naming this change and owner decision h4, in the form of the 2026-09-30
+  dated amendment sentence naming this change, in the form of the 2026-09-30
   sentence, which stays as history), and the `acquireOlderCorePlatform` helper comment and require
   message (`render_core_floor_test.go:54-55, :68`), which say acquisition does not read the
   inventory.
@@ -197,7 +197,7 @@ home, here the `Platform` godoc.
 
 ### Where to decode
 
-**Context**: Owner decision h4 says "at acquire". `AcquirePlatformFromDir` is the only acquire
+**Context**: The decision is to decode "at acquire". `AcquirePlatformFromDir` is the only acquire
 verb, and it builds the platform through `NewPlatformFromValue`.
 **Explored**: decoding in `AcquirePlatformFromDir` after construction, or in the constructor.
 **Decision**: in the constructor.
@@ -235,7 +235,7 @@ ADDED requirement in `platform-artifact`.
   to evaluate is stored and surfaced by `Contracts()`, never thrown at acquire, so the
   older-core and hand-built-colliding tests keep passing.
 - [No memory saving yet] → `Package` stays, so the build stays pinned (about 96 MiB idle for the
-  two-catalog platform). Only g5 part B frees it. The PR says so.
+  two-catalog platform). Only the later change that drops `Package` frees it. The PR says so.
 - [A mutated `Package` is no longer seen] → the constructor docs already say to re-run the
   constructor after changing `Package`. No caller in the library, cli or opm-operator mutates it.
 - [Copying a `Platform`] → D2: no copy exists today, and vet's copylocks now flags one.

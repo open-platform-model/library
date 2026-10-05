@@ -9,14 +9,12 @@ controllers call it on one shared platform, so the decode repeats and every call
 `cue.Value`.
 
 These two reads are also what keeps `Render` and `Contracts()` tied to `Package`. While they read
-it, `Package` cannot be dropped from `Platform`. Dropping it is the second half of the owner's g5
-decision, and it is where the memory saving is.
+it, `Package` cannot be dropped from `Platform`. Dropping it is a later change, and it is where the
+memory saving is.
 
-The owner decided this in the beta.1 kernel checklist walkthrough (h4):
-
-- h4: "(a') decode the core floor and the contracts inventory once at acquire into plain Go fields
-  on Platform; Render and Contracts() read them; the refusal stays before staging. Enables dropping
-  Package."
+The decision: decode the core floor and the contract inventory once, at acquire, into plain Go
+fields on `Platform`; `Render` and `Contracts()` read those fields; the refusal stays before
+staging. That is what makes dropping `Package` possible.
 
 ## What Changes
 
@@ -51,7 +49,7 @@ The owner decided this in the beta.1 kernel checklist walkthrough (h4):
 
 Not in this change:
 
-- Dropping `Platform.Package`. That is g5 part B, which also brings the platform overlay mode and
+- Dropping `Platform.Package`. That is a later change, which also brings the platform overlay mode and
   lets the operator delete its lease system. `Package` still pins the platform's build, so this
   change frees no memory, and the PR claims none.
 - Any change to what the inventory reports or refuses. The decode moves; its rules do not.
