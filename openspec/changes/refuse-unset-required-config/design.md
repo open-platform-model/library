@@ -140,7 +140,24 @@ the same source over a table of values: all set, an unread `string` unset, an un
 unset, an unread `_` unset, an optional field unset, a defaulted field unset, a read field
 unset, a disallowed key, a type mismatch on an unread field, a constraint violation on a
 read field, and the operator's `{}` no-values source. Each row asserts that
-`SynthesizeInstance` refuses exactly when `ValidateConfigDetailed` refuses.
+`SynthesizeInstance` refuses whenever `ValidateConfigDetailed` refuses.
+
+**Implementation result**: the two agree on every row but one, and that one runs the other
+way and predates this change. A source that gives a defaulted field a bare type
+(`port: int` where `#config` declares `port: int | *80`) passes `ValidateConfigDetailed`,
+because the `#config` default completes it, and is refused by `SynthesizeInstance`'s
+built-spec check, because the instance's `values` carry the bare `int`. The operator
+refuses that instance today too (in synthesis), so deleting its pre-check loosens
+nothing. The table pins this row, and the requirement says "every value
+`ValidateConfigDetailed` refuses", not "exactly". A separate test pins the `{}` source
+over a fully defaulted `#config`: both accept.
+
+A second finding, in an existing test: an instance whose own `values` give an unread
+field a default that disagrees with the `#config` default (`replicas: int | *3` against
+`replicas: int | *2`) is now refused. Two disagreeing defaults leave the unified field with
+no default (`int | 2 | 3`), which `ValidateConfigDetailed` refuses too. The render fixture
+test "a default acquires" used that value; it now uses the agreeing default `int | *2`, and
+a new subtest pins the refusal of the disagreeing one.
 **Rationale**: the parity is the condition for the operator's deletion, so it is pinned by
 a test, not by argument.
 

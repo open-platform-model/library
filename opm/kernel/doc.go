@@ -275,7 +275,9 @@
 // own `values`, against the module's `#config` at their own positions, on
 // every acquire; [Kernel.SynthesizeInstance] does the same for
 // [InstanceInput.Values], rendering them into the synthesized package; both
-// then assert concreteness on the whole built spec. Render performs no
+// then assert concreteness on the whole built spec and on the instance's
+// values unified with `#config`, so both refuse a required `#config` value the
+// values leave unset, whether or not a component reads it. Render performs no
 // validation pass of its own.
 //
 // # Configuration validation

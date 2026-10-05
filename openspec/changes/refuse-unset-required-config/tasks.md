@@ -43,40 +43,46 @@ This section lands tests that pass on `origin/main` and pin the gap.
 
 ## 2. Refuse an unset required config value in instance processing (kernel; design RC1 to RC4)
 
-- [ ] 2.1 `opm/kernel/process.go`: `processInstance(spec)` runs the existing
+- [x] 2.1 `opm/kernel/process.go`: `processInstance(spec)` runs the existing
       `spec.Validate(cue.Concrete(true))` first, unchanged, then the required-config check
       of RC1 (the spec's `values` unified with `#module.#config`, both off the spec,
       validated with `cue.Concrete(true)`), framed `instance %q: not fully concrete: %w`.
       Skip when `#config` or `values` does not exist. Rewrite the `processInstance` doc
       comment to state both checks and that the second refuses a value no component reads.
-- [ ] 2.2 Update the `SynthesizeInstance`, `AcquireInstanceFromDir` and
+- [x] 2.2 Update the `SynthesizeInstance`, `AcquireInstanceFromDir` and
       `InstanceInput.Values` godoc sentences this makes incomplete, and the values paragraph
       of `opm/kernel/doc.go` (one sentence: both verbs refuse a required `#config` value the
       values leave unset, read or not). `valuesConflict` and both post-build per-source
       checks stay without concreteness. Check `docs/getting-started.md` and `README.md`
       still hold; edit only a sentence that became false.
-- [ ] 2.3 Tests. Turn 1.1 and 1.3 into refusals: no instance, framing
+- [x] 2.3 Tests. Turn 1.1 and 1.3 into refusals: no instance, framing
       `Kernel.SynthesizeInstance: instance "myrel": not fully concrete: ` and
       `Kernel.AcquireInstanceFromDir: instance "<name>": not fully concrete: `, error paths
       `values.image`, `values.tag` and `values.any` and none for `opt` or `replicas`, and a
       position naming the module's `#config` declaration for `image` and `tag`. Add:
       optional-and-defaulted-only succeeds on both verbs; the parity table of RC3
       (`TestKernel_SynthesizeInstance_RequiredConfigMatchesValidateConfigDetailed`), each
-      row asserting `SynthesizeInstance` refuses exactly when
-      `ValidateConfigDetailed(mod.ConfigSchema(), []Source{src})` does.
-- [ ] 2.4 Unchanged behaviour: `TestKernel_AcquireInstanceFromDir_NonConcreteRejected`,
+      row asserting `SynthesizeInstance` refuses whenever
+      `ValidateConfigDetailed(mod.ConfigSchema(), []Source{src})` does (design RC3,
+      "Implementation result", records the one pre-existing row where synthesis refuses
+      more). The tests live in a new file, `opm/kernel/required_config_test.go`.
+- [x] 2.4 Unchanged behaviour: `TestKernel_AcquireInstanceFromDir_NonConcreteRejected`,
       `TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires`,
       `TestKernel_SynthesizeInstance_EmptyValuesNotBackfilledFromDebugValues`,
       `TestKernel_SynthesizeInstance_CleanValuesBuildErrorUnchanged` (its required-`image`
       subtest included) and
       `TestKernel_AcquireInstanceFromDir_WithSources_IncompleteValuesKeepBuildError` pass
-      without edits. Add one test that tells the two checks apart for the `replicas: >=1`
+      without edits, except the subtest "a default acquires" of
+      `TestKernel_AcquireInstanceFromDir_OwnValues_ValidNonConcreteAcquires`: its value
+      `replicas: int | *3` disagrees with the `#config` default and is now refused (design
+      RC3, "Implementation result"); it moves to `int | *2` and a new subtest pins the
+      refusal. Add one test that tells the two checks apart for the `replicas: >=1`
       own-values case: the error is at `values.replicas`, positioned in the package's
       `values.cue`, and carries no finding positioned at the module's `#config` declaration
       file. If any other existing test or fixture under `testdata/` relied on an unread
       required field staying unset, give the fixture the value or a default and say why in
       the commit body; never loosen the check.
-- [ ] 2.5 `go test -race ./opm/kernel -count=1`, the parity tests
+- [x] 2.5 `go test -race ./opm/kernel -count=1`, the parity tests
       (`go test ./opm/kernel -run Parity -count=1`) and `task cue:test:flow` (it may skip
       when the registry is unreachable; say so if it does). Then `task check` green, and
       commit `fix(kernel)!: refuse an instance that leaves a required config value unset`

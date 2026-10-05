@@ -48,8 +48,9 @@ type InstanceInput struct {
 	// build.
 	//
 	// Empty means "no values supplied": the values path is left unfilled and
-	// the concreteness check then fails unless every #config field has a
-	// default. Synthesis NEVER falls back to Module.debugValues; layering a
+	// the concreteness check then fails. Values that leave a required #config
+	// value unset are refused, whether or not a component reads it.
+	// Synthesis NEVER falls back to Module.debugValues; layering a
 	// debug-values overlay is frontend policy.
 	Values []Source
 
@@ -73,8 +74,11 @@ type InstanceInput struct {
 // performs the values merge against the module's #config. It then checks the
 // values sources against #config at their own positions — so a violation is
 // reported with the source's Origin rather than the rendered values file —
-// asserts concreteness on the whole built spec and decodes instance metadata.
-// No additional values source is consulted.
+// asserts concreteness on the whole built spec and on the instance's values
+// unified with the module's #config, and decodes instance metadata. The second
+// concreteness check refuses a required #config value the values leave unset
+// even when no component reads it, at the path `values.<field>`. No
+// additional values source is consulted.
 //
 // A values conflict at a path a component consumes fails the build itself.
 // When the build fails and in.Values carry values, the failure is attributed
@@ -198,9 +202,10 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*mod
 
 	// synth.Instance bakes the merged values into the single build (as
 	// values.cue), so the spec already carries them — exactly like an authored
-	// instance.cue package. processInstance checks concreteness and decodes
-	// metadata, the same way it processes a directory-acquired instance whose
-	// values live in the package.
+	// instance.cue package. processInstance checks concreteness (of the spec,
+	// and of the values against #config) and decodes metadata, the same way it
+	// processes a directory-acquired instance whose values live in the
+	// package.
 	inst, err := processInstance(spec)
 	if err != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: %w", err)
