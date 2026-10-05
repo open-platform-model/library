@@ -63,7 +63,7 @@ func buildScenario(t *testing.T, scenario, platformDir string, skip bool) (cue.V
 
 	inst := &module.Source{Root: filepath.Join(fixture, "scenarios"), Pkg: scenario}
 	plat := &module.Source{Root: filepath.Join(fixture, platformDir)}
-	staged, err := Stage(t.TempDir(), inst, plat, "rt", StageOptions{SkipUnprovided: skip})
+	staged, err := Stage(inst, plat, "rt", StageOptions{SkipUnprovided: skip})
 	require.NoError(t, err)
 
 	built, err := Build(cuecontext.New(), staged, nil)

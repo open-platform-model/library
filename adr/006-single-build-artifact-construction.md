@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-03). Supersedes ADR-003. Records 0019:D9 (workspace root, `enhancements/0019/03-decisions.md`: the render step is one CUE build per render) and its application to instance synthesis. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). ADR-005 records the lifetime and concurrency rules of that build.
+Accepted (2026-09-03). Supersedes ADR-003. Records 0019:D9 (workspace root, `enhancements/0019/03-decisions.md`: the render step is one CUE build per render) and its application to instance synthesis. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). ADR-005 records the lifetime and concurrency rules of that build. Amended 2026-10-05 by `stage-render-in-memory-and-share-registry`: the negative "Staging touches disk" is retired, because the render module is now staged in memory and served to the one build through the load overlay; a render writes no staging file.
 
 ## Context
 

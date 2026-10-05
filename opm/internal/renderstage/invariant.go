@@ -22,7 +22,7 @@ func (e *CoverageError) Error() string {
 	return fmt.Sprintf("render module does not cover OPM path %q required by %v: promotion is defective (kernel defect, not a policy)", e.Path, e.RequiredBy)
 }
 
-// VerifyCoverage re-parses the render module's written module.cue and refuses
+// VerifyCoverage re-parses the module.cue bytes the render build is served and refuses
 // when any OPM-namespace path present in either input's dependency list is
 // absent from it. inputs maps a label ("platform", "instance") to the
 // committed module file it was promoted from. The first uncovered path in

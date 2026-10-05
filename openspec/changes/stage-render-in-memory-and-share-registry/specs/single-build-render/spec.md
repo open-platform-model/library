@@ -37,7 +37,7 @@
 
 #### Scenario: A refusal leaves the temp directory untouched
 
-- **WHEN** a test points `TMPDIR` at an empty directory it owns and `Render` refuses an older-core platform, a local replacement without the opt-in, and an uncovered OPM-namespace path
+- **WHEN** a test points `TMPDIR` at an empty directory it owns and `Render` refuses an older-core platform, a local replacement without the opt-in, an instance dependency that carries no version and no replacement, and catalog skew under `SkewRefuse`, and fails to load a render module whose instance imports a module nothing serves
 - **THEN** each call returns its refusal, the directory is still empty, and the synthetic root does not exist on disk
 
 #### Scenario: A render that writes is caught
