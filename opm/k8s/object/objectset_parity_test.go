@@ -89,6 +89,38 @@ func TestDuplicates_BothHomesAgree(t *testing.T) {
 		"missing apiVersion falls in the core group": func() []*kernel.Compiled {
 			return []*kernel.Compiled{configMap(t, "a", `apiVersion: "v1"`), configMap(t, "b", "")}
 		},
+		"one name in two namespaces": func() []*kernel.Compiled {
+			configMapIn := func(component, namespace string) *kernel.Compiled {
+				return compiled(t, component, "…/configmap@1.0.0", `
+					apiVersion: "v1"
+					kind:       "ConfigMap"
+					metadata: {
+						name:      "x"
+						namespace: "`+namespace+`"
+					}
+				`)
+			}
+			return []*kernel.Compiled{configMapIn("a", "a"), configMapIn("b", "b")}
+		},
+		"one kind and name in two groups": func() []*kernel.Compiled {
+			widget := func(component, apiVersion string) *kernel.Compiled {
+				return compiled(t, component, "…/widget@1.0.0", `
+					apiVersion: "`+apiVersion+`"
+					kind:       "Widget"
+					metadata: name: "web"
+				`)
+			}
+			return []*kernel.Compiled{widget("a", "a.example.com/v1"), widget("b", "b.example.com/v1")}
+		},
+		"core group pair": func() []*kernel.Compiled {
+			return []*kernel.Compiled{configMap(t, "a", `apiVersion: "v1"`), configMap(t, "b", `apiVersion: "v1"`)}
+		},
+		"same-version row": func() []*kernel.Compiled {
+			return []*kernel.Compiled{
+				deploymentAt(t, "a", "…/deployment@1.0.0", "apps/v1", "web"),
+				deploymentAt(t, "b", "…/legacy@1.0.0", "apps/v1", "web"),
+			}
+		},
 	}
 
 	for name, render := range renders {
