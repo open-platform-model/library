@@ -25,8 +25,9 @@ const (
 	RefuseOtherInstance ApplyRefusal = "other-instance"
 	// RefuseAdoptedElsewhere: the live object's adopt annotation names
 	// another module instance, which is taking the object over or has taken
-	// it. A frontend drops an inventoried object refused for this from its
-	// next inventory.
+	// it. A frontend never fails the apply on this refusal, in the inventory
+	// or outside it; it drops an inventoried object refused for this from
+	// its next inventory and never deletes it.
 	RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"
 )
 
@@ -41,10 +42,12 @@ type ApplyInput struct {
 	// recorded inventory. An inventoried object is judged only for an adopt
 	// annotation naming another instance; a UUID label naming another
 	// instance alone does not refuse it, so the instance's objects still
-	// apply after its UUID changes. A frontend drops an object refused as
-	// adopted-elsewhere from the inventory it records next, keeps applying
-	// the instance's other objects, and never deletes the object for that
-	// refusal.
+	// apply after its UUID changes, except an object whose adopt annotation
+	// still names the old UUID, which must be re-annotated with the new one.
+	// A frontend never fails the apply on an adopted-elsewhere refusal: it
+	// drops an inventoried object refused for that from the inventory it
+	// records next, keeps applying the instance's other objects, and never
+	// deletes the object for that refusal.
 	InInventory bool
 	// InstanceUUID is the applying instance's UUID, from the render. Empty
 	// matches no adopt annotation. Outside the inventory every non-empty
@@ -130,7 +133,9 @@ func CanApply(in ApplyInput) ApplyVerdict {
 // Otherwise an adopt annotation naming another instance refuses it as
 // adopted-elsewhere. A UUID label naming another instance alone does not, so
 // an instance whose UUID changed (a module moved to a new path) keeps
-// applying and relabels its own objects.
+// applying and relabels its own objects, except an object it once adopted:
+// that object's annotation still names the old UUID and refuses it until it
+// is re-annotated with the new one.
 func judgeInventoried(in ApplyInput, obj, annotation string) ApplyVerdict {
 	if in.InstanceUUID == "" || annotation == "" {
 		return ApplyVerdict{}
