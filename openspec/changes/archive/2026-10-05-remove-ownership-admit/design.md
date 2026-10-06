@@ -34,10 +34,11 @@ public surface loses the two fields.
 ### Whether to keep `Admit` as an unused seam
 
 **Context**: the field is released public API (beta.5) with no caller.
-**Explored**: the rename plan's open question OQ3 (keep the seam, or remove it).
+**Explored**: keep the field as a seam for a future migration, or remove it.
 **Decision**: remove it.
-**Rationale**: owner decision 2026-10-05 (rename plan, decision D8): remove all legacy-migration
-code; a dead public field is surface to support (Principle VII).
+**Rationale**: the owner decided on 2026-10-05 to remove all legacy-migration code, since nobody
+runs OPM yet (0032:D1 renames with no migration; 0012:D8 withdraws its install admission); a dead
+public field is surface to support (Principle VII).
 
 ## Risks / Trade-offs
 

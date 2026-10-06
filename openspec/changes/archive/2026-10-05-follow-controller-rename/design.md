@@ -32,13 +32,13 @@ kept as written).
 ### Where the rename's sites are
 
 **Context**: the sites had to be complete without a bare-word sed.
-**Explored**: the rename inventory's library section, then `git grep -nIiw 'operators?'` and the
-residue regex over the worktree.
+**Explored**: `git grep -nIiw 'operators?'` and the residue regex of task 3.6 over the
+worktree.
 **Decision**: rename every product hit; keep the four human-role hits above.
-**Rationale**: owner vocabulary rule (2026-10-05): "controller" is the product; the human role is
-not renamed.
+**Rationale**: the vocabulary rule of 0032:D1: "controller" is the product; the human role is not
+renamed.
 
 ## Risks / Trade-offs
 
 - Before the GitHub rename, `Consumer build (opm-controller)` cannot clone. The check is not
-  required, so the PR stays mergeable; it merges after the rename in the cutover.
+  required, so the PR stays mergeable; it merges after the GitHub rename.
