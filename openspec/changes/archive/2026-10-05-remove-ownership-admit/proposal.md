@@ -28,8 +28,9 @@ break.
   proven object's ownership refusal" and its ten scenarios; MODIFIED the apply verdict and the
   adopt-key requirements to drop the admission and the R6 citation.
 - Library #220 (the adopted-elsewhere refusal, 0012:D8:R8) merged first and built on the
-  admission: it added an admitted terminating row, an admitted adopted-elsewhere row on each side,
-  "unless admitted" wording and two admission scenarios. Those go with the rest. The
+  admission: it added an admitted adopted-elsewhere row on each side, "unless admitted" wording
+  and two admission scenarios, and extended the terminating scenario, which already named the
+  admitted case, with the adopt annotation naming another instance. Those go with the rest. The
   adopted-elsewhere refusal itself and its 0012:D8:R8 citations stay; R8 is live.
 
 Not in this change: renaming the operator to the controller in the rest of the library (the
