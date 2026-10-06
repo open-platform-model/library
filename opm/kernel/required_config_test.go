@@ -150,9 +150,9 @@ const parityBody = "#config: {\n" +
 	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & int, _h: #config.host & string, _p: #config.port & int}\n"
 
 // kernel-runtime spec, "The refused set matches ValidateConfigDetailed": the
-// operator checks one values source with ValidateConfigDetailed before
+// controller checks one values source with ValidateConfigDetailed before
 // SynthesizeInstance; synthesis alone refuses every value that check
-// refuses, so the operator's pre-check adds nothing (library#211). The one
+// refuses, so the controller's pre-check adds nothing (library#211). The one
 // difference runs the other way and predates the required-config check: a
 // source that gives a defaulted field a bare type keeps the #config default
 // for ValidateConfigDetailed, while the built-spec check refuses the bare
@@ -200,12 +200,12 @@ func TestKernel_SynthesizeInstance_RequiredConfigMatchesValidateConfigDetailed(t
 }
 
 // emptyDocBody is a module whose #config is fully defaulted, so the empty
-// document the operator sends for a ModuleInstance without spec.values is
+// document the controller sends for a ModuleInstance without spec.values is
 // accepted by both checks.
 const emptyDocBody = "#config: {replicas: int | *1, opt?: string}\ndebugValues: {}\n" +
 	"#components: foo: {metadata: name: \"foo\", _r: #config.replicas & int}\n"
 
-// The operator's no-values source, the empty document, is accepted by both
+// The controller's no-values source, the empty document, is accepted by both
 // checks when every #config field has a default or is optional.
 func TestKernel_SynthesizeInstance_EmptyDocumentOverDefaultsAccepted(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", emptyDocBody)

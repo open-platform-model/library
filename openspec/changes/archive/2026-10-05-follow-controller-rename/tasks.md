@@ -19,3 +19,10 @@
 - [x] 3.4 The active change `publish-go-api-bundle` (proposal, design, tasks) names `opm-controller`.
 - [x] 3.5 Hand-edit the Purpose of `consumer-build`, `kernel-runtime` and `registry-module-loading` (a delta Purpose is ignored for an existing spec).
 - [x] 3.6 Residue check: `git grep -nIiE 'opm[-_ ]?operator|operator'` outside `CHANGELOG.md`, `openspec/changes/archive/**` and this change's own spec deltas leaves only the human-role hits, ADR-001, `.tasks/cascade/wiring-check.sh` and the main spec bodies this change's deltas move at archive; `openspec validate --all --strict` green; `task check` green, then commit `docs: name the controller in the prose`.
+
+## 4. Rebase over library #217, #218, #219 and #220 (2026-10-06)
+
+- [x] 4.1 ADR-013 (added by #219): its rows and prose name `opm-controller` and the controller; PR references follow as `opm-controller#N` (GitHub redirects the old name).
+- [x] 4.2 `opm/kernel/required_config_test.go` (added by #217): its four comments name the controller.
+- [x] 4.3 The `consumer-build` deltas carry #219's `Source: ADR-013, decision j4.`; the `kernel-runtime` sync keeps #217's appended requirement before the re-added SynthesizeInstance requirement. No main-spec wording that names the old product arrived outside these deltas, so no follow-up change is needed.
+- [x] 4.4 `task check` and `openspec validate --all --strict` green, then commit `docs: name the controller in ADR-013 and the required-config tests`.
