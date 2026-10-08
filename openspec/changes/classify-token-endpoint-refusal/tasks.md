@@ -2,9 +2,9 @@
 
 Tests run against the worktree's own copy of the main checkout's `.cue-cache/mod`. Every registry case uses a local registry only and a fresh module cache. Every commit task stages the files it names.
 
-- [ ] 1.1 `opm/internal/registrytest/status.go`: add `NewTokenRegistry(t, tokenStatus)`, a local server that answers every registry request 401 with a Bearer challenge naming its own `/token`, and answers `/token` with `tokenStatus`. Verify: the cases of 1.2 reach the token endpoint (their text names the status).
-- [ ] 1.2 `opm/errors/classify_cue_test.go`: add `token/...` cases to `cueForms()` for a direct fetch (401, 403, 503), a directory load with a dependency (401, 403, 503) and a push through `modregistry.Client.PutModule` (401, 403, 404, 429, 500, 503). Pin each text and typed chain, and pin `Classify`'s answer at what it is today (`FetchUnreachable` and transient for the flattened forms). Verify: `go test ./opm/errors -run 'CUEFailureForms'` passes.
-- [ ] 1.3 `task check` green, then commit `test(errors): pin the token endpoint forms of the embedded cue`.
+- [x] 1.1 `opm/internal/registrytest/status.go`: add `NewTokenRegistry(t, tokenStatus)`, a local server that answers every registry request 401 with a Bearer challenge naming its own `/token`, and answers `/token` with `tokenStatus`. Verify: the cases of 1.2 reach the token endpoint (their text names the status).
+- [x] 1.2 `opm/errors/classify_cue_test.go`: add `token/...` cases to `cueForms()` for a direct fetch (401, 403, 503), a directory load with a dependency (401, 403, 503) and a push through `modregistry.Client.PutModule` (401, 403, 404, 429, 500, 503). Pin each text and typed chain, and pin `Classify`'s answer at what it is today (`FetchUnreachable` and transient for the flattened forms). Verify: `go test ./opm/errors -run 'CUEFailureForms'` passes.
+- [x] 1.3 `task check` green, then commit `test(errors): pin the token endpoint forms of the embedded cue`.
 
 ## 2. errors: classify an answered token request by its status
 

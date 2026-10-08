@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -19,8 +20,10 @@ import (
 	"cuelabs.dev/go/oci/ociregistry/ocimem"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
+	"cuelang.org/go/mod/modconfig"
 	"cuelang.org/go/mod/modregistry"
 	"cuelang.org/go/mod/modregistrytest"
+	"cuelang.org/go/mod/module"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -57,6 +60,7 @@ const (
 type observed struct {
 	contains []string // substrings the text carries
 	lacks    []string // substrings the text does not carry
+	suffix   string   // what the text ends in, when the end is what matters
 	status   int      // ociregistry.HTTPError status, 0 when none survives
 	notFound bool     // modregistry.ErrNotFound in the chain
 	netErr   bool     // a net.Error in the chain
@@ -194,6 +198,17 @@ func loadMain(t *testing.T, registry string, src *opmmodule.Source) error {
 	return err
 }
 
+// pushDep pushes test.example/dep through a stock CUE registry client, as a
+// frontend's publish does, and returns the push error.
+func pushDep(t *testing.T, registry string) error {
+	t.Helper()
+	resolver, err := modconfig.NewResolver(&modconfig.Config{Env: env(t, registry)})
+	require.NoError(t, err)
+	archive := zipOf(t, map[string]string{"cue.mod/module.cue": depModFile, "dep.cue": "package dep\n\ny: 1\n"})
+	mv := module.MustNewVersion(depPath, depVersion)
+	return modregistry.NewClientWithResolver(resolver).PutModule(context.Background(), mv, bytes.NewReader(archive), int64(len(archive)))
+}
+
 // loadStandalone loads pattern (path@version) with no main module, as the
 // schema loader loads core.
 func loadStandalone(t *testing.T, registry, pattern string) error {
@@ -242,7 +257,8 @@ func cueForms() []cueForm {
 			return loadMain(t, registrytest.NewStatusRegistry(t, status), mainModule(t, depVersion, "test.example/dep"))
 		}
 	}
-	return []cueForm{
+	forms := tokenForms()
+	return append(forms, []cueForm{
 		// A direct fetch keeps the typed chain.
 		{"fetch/absent", func(t *testing.T) error {
 			return fetchDep(context.Background(), t, servedDep(t), "v0.0.9")
@@ -415,6 +431,45 @@ func cueForms() []cueForm {
 			_, err := schema.OCILoader{Module: "opmodel.dev/core@v2.0.0", Registry: registrytest.NewStatusRegistry(t, 503), CacheDir: schematest.IsolatedCacheDir(t)}.Load(cuecontext.New())
 			return err
 		}, observed{contains: []string{": 503 Service Unavailable: "}, status: 503}, kindOf(oerrors.FetchOther, 503, true)},
+	}...)
+}
+
+// tokenForms are the failures of a registry that uses token authentication
+// and whose token endpoint answers the token request with a status. The
+// client returns that answer as an error from the HTTP round trip, so its
+// text reads "cannot do HTTP request: <request>: <code> <status text>", the
+// prefix a request with no response also has. A direct fetch keeps the typed
+// status; cue/load and the push flatten it; and CUE's registry client turns
+// a 403 or 404 on a version lookup into "module not found".
+func tokenForms() []cueForm {
+	fetch := func(status int) func(t *testing.T) error {
+		return func(t *testing.T) error {
+			return fetchDep(context.Background(), t, registrytest.NewTokenRegistry(t, status), depVersion)
+		}
+	}
+	loadDep := func(status int) func(t *testing.T) error {
+		return func(t *testing.T) error {
+			return loadMain(t, registrytest.NewTokenRegistry(t, status), mainModule(t, depVersion, "test.example/dep"))
+		}
+	}
+	push := func(status int) func(t *testing.T) error {
+		return func(t *testing.T) error { return pushDep(t, registrytest.NewTokenRegistry(t, status)) }
+	}
+	get := []string{"cannot do HTTP request: Get \""}
+	post := []string{"cannot make scratch config: cannot do HTTP request: Post \""}
+	return []cueForm{
+		{"token/fetch/401", fetch(401), observed{contains: get, suffix: "\": 401 Unauthorized", status: 401, netErr: true}, kindOf(oerrors.FetchUnauthorized, 401, false)},
+		{"token/fetch/403", fetch(403), observed{contains: []string{"module not found"}, lacks: []string{"Forbidden"}, notFound: true}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"token/fetch/503", fetch(503), observed{contains: get, suffix: "\": 503 Service Unavailable", status: 503, netErr: true}, kindOf(oerrors.FetchOther, 503, true)},
+		{"token/load/401", loadDep(401), observed{contains: get, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/load/403", loadDep(403), observed{contains: []string{"module not found"}, lacks: []string{"Forbidden"}}, kindOf(oerrors.FetchNotFound, 0, false)},
+		{"token/load/503", loadDep(503), observed{contains: get, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/401", push(401), observed{contains: post, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/403", push(403), observed{contains: post, suffix: "\": 403 Forbidden"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/404", push(404), observed{contains: post, suffix: "\": 404 Not Found"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/429", push(429), observed{contains: post, suffix: "\": 429 Too Many Requests"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/500", push(500), observed{contains: post, suffix: "\": 500 Internal Server Error"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/push/503", push(503), observed{contains: post, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchUnreachable, 0, true)},
 	}
 }
 
@@ -431,7 +486,10 @@ func TestCUEFailureForms(t *testing.T) {
 			for _, s := range f.want.lacks {
 				assert.NotContains(t, err.Error(), s)
 			}
-			got.contains, got.lacks = f.want.contains, f.want.lacks
+			if f.want.suffix != "" {
+				assert.True(t, strings.HasSuffix(err.Error(), f.want.suffix), "%q ends in %q", err.Error(), f.want.suffix)
+			}
+			got.contains, got.lacks, got.suffix = f.want.contains, f.want.lacks, f.want.suffix
 			assert.Equal(t, f.want, got, "typed chain of %q", err.Error())
 		})
 	}

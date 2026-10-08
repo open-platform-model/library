@@ -88,3 +88,38 @@ func RefuseFirst(t *testing.T, mapping, prefix string, refusals int) string {
 	}
 	return routed
 }
+
+// NewTokenRegistry returns a CUE_REGISTRY value routing every module path to
+// a local server that uses token authentication, as GHCR and Docker Hub do:
+// every registry request is answered 401 with a Bearer challenge naming the
+// server's own /token endpoint, and that token endpoint answers every
+// request with tokenStatus (the OCI distribution error body for 401 and 403,
+// an empty body otherwise). It exists to pin how the embedded CUE reports a
+// token endpoint that refuses; the server is closed at test end. Like
+// [NewStatusRegistry] it sets no environment.
+func NewTokenRegistry(t *testing.T, tokenStatus int) string {
+	t.Helper()
+	code := map[int]string{
+		http.StatusUnauthorized: "UNAUTHORIZED",
+		http.StatusForbidden:    "DENIED",
+	}[tokenStatus]
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/token" {
+			w.Header().Set("Www-Authenticate", fmt.Sprintf(`Bearer realm=%q,service="registrytest"`, srv.URL+"/token"))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"errors":[{"code":"UNAUTHORIZED","message":"registrytest token required"}]}`)
+			return
+		}
+		if code == "" {
+			w.WriteHeader(tokenStatus)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(tokenStatus)
+		_, _ = fmt.Fprintf(w, `{"errors":[{"code":%q,"message":"registrytest token status %d"}]}`, code, tokenStatus)
+	}))
+	t.Cleanup(srv.Close)
+	return strings.TrimPrefix(srv.URL, "http://") + "+insecure"
+}
