@@ -14,13 +14,13 @@ import (
 )
 
 // exportedDecls parses the non-test Go files of the package in dir and
-// returns its exported package-level type specs and value names (vars and
-// consts) by name.
-func exportedDecls(t *testing.T, dir string) (types map[string]*ast.TypeSpec, values map[string]*ast.ValueSpec) {
+// returns its exported package-level type specs by name, and the names of
+// its exported variables and constants.
+func exportedDecls(t *testing.T, dir string) (types map[string]*ast.TypeSpec, vars, consts []string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
-	types, values = map[string]*ast.TypeSpec{}, map[string]*ast.ValueSpec{}
+	types = map[string]*ast.TypeSpec{}
 	fset := token.NewFileSet()
 	for _, entry := range entries {
 		name := entry.Name()
@@ -42,8 +42,12 @@ func exportedDecls(t *testing.T, dir string) (types map[string]*ast.TypeSpec, va
 					}
 				case *ast.ValueSpec:
 					for _, n := range s.Names {
-						if n.IsExported() {
-							values[n.Name] = s
+						switch {
+						case !n.IsExported():
+						case gen.Tok == token.VAR:
+							vars = append(vars, n.Name)
+						default:
+							consts = append(consts, n.Name)
 						}
 					}
 				}
@@ -51,7 +55,7 @@ func exportedDecls(t *testing.T, dir string) (types map[string]*ast.TypeSpec, va
 		}
 	}
 	require.NotEmpty(t, types, "found no exported type in %s; the scan is broken", dir)
-	return types, values
+	return types, vars, consts
 }
 
 // Each metadata type and the staged-source type has exactly one name: it is
@@ -66,7 +70,7 @@ func TestSurface_OneNamePerType(t *testing.T) {
 		"Source":           "module",
 	}
 	for _, pkg := range []string{"schema", "module", "platform", "catalog"} {
-		types, _ := exportedDecls(t, filepath.Join("..", pkg))
+		types, _, _ := exportedDecls(t, filepath.Join("..", pkg))
 		for name, home := range homes {
 			spec, declared := types[name]
 			if pkg != home {
@@ -86,27 +90,15 @@ func TestSurface_OneNamePerType(t *testing.T) {
 // reads. Every other path the kernel's Go code reads lives in
 // opm/internal/corepath, where no importer can reach or reassign it.
 func TestSurface_SchemaExportsOnlyConsumerPaths(t *testing.T) {
-	_, values := exportedDecls(t, ".")
+	_, vars, consts := exportedDecls(t, ".")
 
-	var paths []string
-	for name, spec := range values {
-		for _, v := range spec.Values {
-			call, ok := v.(*ast.CallExpr)
-			if !ok {
-				continue
-			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if ok && (sel.Sel.Name == "ParsePath" || sel.Sel.Name == "MakePath") {
-				paths = append(paths, name)
-				break
-			}
-		}
-	}
-	assert.ElementsMatch(t, []string{"Metadata", "Module", "CatalogProvides"}, paths,
-		"a new exported path is a v1 contract: put it in opm/internal/corepath unless a consumer must read it")
+	// Every exported variable of the package is pinned by name, whatever its
+	// type or initializer: the three paths are the only ones.
+	assert.ElementsMatch(t, []string{"Metadata", "Module", "CatalogProvides"}, vars,
+		"a new exported variable is a v1 contract: a path goes in opm/internal/corepath unless a consumer must read it")
 
 	var since []string
-	for name := range values {
+	for _, name := range consts {
 		if strings.HasSuffix(name, "Since") {
 			since = append(since, name)
 		}

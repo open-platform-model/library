@@ -13,7 +13,7 @@ import (
 
 // Provides returns the provider-fulfilled contracts this catalog implements:
 // every contract required by one of the catalog's own #transformers
-// ([corepath.Transformers]) whose value carries `fulfilment: "provider"`.
+// (#Catalog.#transformers) whose value carries `fulfilment: "provider"`.
 // Required demands only — `optionalResources` and `optionalTraits` are
 // tolerance, not fulfilment, the same rule core applies when it folds a
 // platform's inventory.

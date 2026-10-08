@@ -15,7 +15,7 @@ See proposal.md for the motivation. Constraints: the base tag is `v1.0.0-beta.7`
 **Context**: `IdentityError` has a value receiver; all eleven other types with an `Error` method in `opm/errors`, and `RenderError`, `ExportError` and `DuplicateIdentitiesError` outside it, use a pointer receiver.
 **Explored**: `git grep ") Error() string"` over `opm/`; consumer uses with `git -C cli grep` and `git -C opm-operator grep` at `origin/main`.
 **Decision**: pointer receivers everywhere. The loader returns `&oerrors.IdentityError{...}`.
-**Rationale**: the majority shape, and with a pointer-only method set the value type no longer implements `error`, so a stale `errors.As` to the value type fails to compile (go vet also rejects it) in place of missing at run time. Alternative: value receivers for all. Rejected: fourteen types change and both consumers break widely. Alternative: keep both method sets by adding nothing. Rejected: a value receiver puts the method in both method sets, so two `errors.As` targets work and callers diverge.
+**Rationale**: the majority shape, and with a pointer-only method set the value type no longer implements `error`, so a stale value-typed form is loud in place of missing silently: `errors.AsType[IdentityError]` fails to compile, and `errors.As(err, &v)` with a value-typed `v` is a `go vet` error and a run-time panic on every error that reaches it. Alternative: value receivers for all. Rejected: fourteen types change and both consumers break widely. Alternative: keep both method sets by adding nothing. Rejected: a value receiver puts the method in both method sets, so two `errors.As` targets work and callers diverge.
 
 ### Typed validation failure
 
@@ -54,6 +54,7 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 ## Risks / Trade-offs
 
 - [opm-operator `main` stops compiling against this library] → expected and listed; the non-required `Consumer build (opm-operator)` job turns red. The edits are in proposal.md; another task makes them with the pin bump.
+- [A caller outside the workspace keeps `errors.As` with a value-typed `IdentityError` target: it compiles and panics at run time] → the footer names the panic and `go vet`.
 - [A caller outside the workspace type-asserts the validation error] → the footer says to use `errors.As` or `cueerrors.Errors`.
 - [The squash commit loses the footer] → the PR body carries the footer text; the reviewer checks the squash message (ADR-010).
 - [Reversibility] → two-way until v1.0.0 is tagged; after that each restored name is additive, each further removal is a major.

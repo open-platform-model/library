@@ -434,6 +434,16 @@ func TestRender_DuplicateObjectIdentitiesStillSucceed(t *testing.T) {
 	assertGateAgrees(t, built, false)
 	assert.Equal(t, []string{"primary/ConfigMap/app", "shadow/ConfigMap/app"}, compiledSummary(t, res.Compiled),
 		"both objects are returned, under one kind and name, each with its producing component, in render order")
+
+	// The two objects carry one apply identity in the fields opm/k8s/object
+	// reads (apiVersion, kind, metadata.namespace, metadata.name), so its
+	// Duplicates reports them as one row; that package's own tests cover the
+	// rows on values of this shape.
+	require.Len(t, res.Compiled, 2)
+	assert.Equal(t, applyIdentity(t, res.Compiled[0]), applyIdentity(t, res.Compiled[1]),
+		"the render output holds the shared identity where the duplicate check reads it")
+	assert.Contains(t, applyIdentity(t, res.Compiled[0]), "|ConfigMap|")
+	assert.NotEqual(t, res.Compiled[0].Component, res.Compiled[1].Component)
 }
 
 func TestRender_UnstatedPostureIsBuildError(t *testing.T) {

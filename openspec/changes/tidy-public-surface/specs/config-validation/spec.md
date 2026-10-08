@@ -1,6 +1,11 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: No Custom Validation Error Types`
+- TO: `### Requirement: One validation marker and no projection of CUE errors`
+
 ## MODIFIED Requirements
 
-### Requirement: No Custom Validation Error Types
+### Requirement: One validation marker and no projection of CUE errors
 
 The library SHALL define exactly one Go type for a configuration validation failure: `ConfigValidationError` in `opm/errors`, a pointer-receiver marker that wraps the CUE error tree unchanged. It SHALL carry the tree in its `Err` field, return it from `Unwrap`, and return the tree's own text from `Error`. It SHALL NOT project, group, re-order or reword the CUE errors, and the library SHALL NOT provide a walking or formatting API beside `cuelang.org/go/cue/errors`. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
 

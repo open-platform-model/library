@@ -50,7 +50,7 @@ func (r *Instance) Components() cue.Value {
 }
 
 // ConfigSchema returns the embedded source module's #config schema reachable
-// via schema.Module followed by corepath.Config on r.Package.
+// via schema.Module followed by its `#config` field on r.Package.
 //
 // All failure modes return the zero cue.Value (not an error): a nil
 // receiver, a missing #module reference, or a missing #config definition on
@@ -66,7 +66,7 @@ func (r *Instance) ConfigSchema() cue.Value {
 	return mod.LookupPath(corepath.Config)
 }
 
-// Values returns the instance's merged values at corepath.Values on
+// Values returns the instance's merged values, the `values` field of
 // r.Package, as evaluated.
 //
 // It returns the zero cue.Value (not an error) for a nil receiver or an

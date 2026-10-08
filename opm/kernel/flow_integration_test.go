@@ -165,7 +165,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 		// import (ADR-011), so this compares the identity fields directly.
 		seenIdentities := map[string]int{}
 		for _, c := range res.Compiled {
-			seenIdentities[flowApplyIdentity(c)]++
+			seenIdentities[applyIdentity(t, c)]++
 		}
 		for id, n := range seenIdentities {
 			assert.Equal(t, 1, n, "the shipped fixture must not render two objects with one apply identity: %s", id)
@@ -253,19 +253,31 @@ func skipUnlessRegistry(t *testing.T) {
 	_ = conn.Close()
 }
 
-// flowApplyIdentity is the API group, kind, namespace and name of one
-// rendered object, the fields a Kubernetes apply identifies it by.
-func flowApplyIdentity(c *kernel.Compiled) string {
-	read := func(path string) string {
+// applyIdentity is the API group, kind, namespace and name of one rendered
+// object, the fields a Kubernetes apply identifies it by, read where
+// opm/k8s/object reads them: apiVersion, kind, metadata.namespace and
+// metadata.name of Compiled.Value. Kind and name must be present and
+// concrete; apiVersion and namespace may be absent (the core group, a
+// cluster-scoped object).
+func applyIdentity(t *testing.T, c *kernel.Compiled) string {
+	t.Helper()
+	must := func(path string) string {
 		s, err := c.Value.LookupPath(cue.ParsePath(path)).String()
-		if err != nil {
-			return ""
-		}
+		require.NoError(t, err, "rendered object of component %q: %s", c.Component, path)
 		return s
 	}
-	group, _, found := strings.Cut(read("apiVersion"), "/")
+	optional := func(path string) string {
+		v := c.Value.LookupPath(cue.ParsePath(path))
+		if !v.Exists() {
+			return ""
+		}
+		s, err := v.String()
+		require.NoError(t, err, "rendered object of component %q: %s", c.Component, path)
+		return s
+	}
+	group, _, found := strings.Cut(optional("apiVersion"), "/")
 	if !found {
 		group = ""
 	}
-	return strings.Join([]string{group, read("kind"), read("metadata.namespace"), read("metadata.name")}, "|")
+	return strings.Join([]string{group, must("kind"), optional("metadata.namespace"), must("metadata.name")}, "|")
 }

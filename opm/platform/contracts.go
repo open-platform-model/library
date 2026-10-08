@@ -133,8 +133,8 @@ type ContractInventory struct {
 	CollidingEntries map[string][]string `json:"collidingEntries"`
 }
 
-// Contracts returns the contract inventory (#Platform.#contracts,
-// [corepath.Contracts]) that was decoded once, when the platform was
+// Contracts returns the contract inventory (#Platform.#contracts) that was
+// decoded once, when the platform was
 // constructed (see [Platform]), or the refusal recorded in its place. It
 // reads no Package on a constructed platform, and no kernel verb calls it.
 // Each call returns its own copy: a caller may change the maps and slices

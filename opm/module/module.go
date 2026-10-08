@@ -20,8 +20,8 @@ import (
 	"github.com/open-platform-model/library/opm/schema"
 )
 
-// ConfigSchema returns the module's #config schema reachable via
-// corepath.Config on m.Package.
+// ConfigSchema returns the module's #config schema, the `#config` field of
+// m.Package.
 //
 // All failure modes return the zero cue.Value (not an error): a nil receiver
 // or a missing #config definition on the module package. Callers detect
@@ -35,8 +35,8 @@ func (m *Module) ConfigSchema() cue.Value {
 	return m.Package.LookupPath(corepath.Config)
 }
 
-// DebugValues returns the module's author-supplied debugValues at
-// corepath.DebugValues on m.Package.
+// DebugValues returns the module's author-supplied debugValues, the
+// `debugValues` field of m.Package.
 //
 // It returns the zero cue.Value (not an error) for a nil receiver or a
 // module that declares none; callers test Exists(). The kernel never reads
