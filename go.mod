@@ -6,7 +6,7 @@ require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20260717083115-5eb5795f322a
 	cuelang.org/go v0.17.1
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/mod v0.39.0
+	golang.org/x/mod v0.41.0
 	k8s.io/apimachinery v0.36.4
 )
 
