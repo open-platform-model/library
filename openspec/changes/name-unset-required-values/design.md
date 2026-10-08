@@ -97,12 +97,12 @@ func concreteness(spec cue.Value) error {
 
 ## Consumer assertions on the old text
 
-Searched in the cli checkout at ef54c046 and the opm-operator checkout at 59537b7 (test files, for `not fully concrete`, `incomplete value`, `values.<field>:` and component paths). Nothing was edited.
+Searched in throwaway copies of cli at origin/main b1eea50 and opm-operator at origin/main 0f75ccb (test files, for `not fully concrete`, `incomplete value` and component paths). Neither repo was edited.
 
-- No test in either repo asserts a component path for an unset value, so none fails on the new text.
-- cli `tests/e2e/vet_output_test.go` (`TestE2E_ModuleVet_OpenDebugValuesRefusedAtSynthesis`) asserts the substring `incomplete value` on a synthesis refusal; it holds before and after.
-- cli `tests/e2e/vet_output_test.go` (the `open-debug-values` case: `values do not satisfy #config`, `values.replicas`) and opm-operator `internal/render/required_values_test.go` assert the text of `ValidateConfigDetailed`, which this change does not touch.
-- opm-operator `test/integration/reconcile/kernel_module_renderer_test.go` asserts the substring `spec.values` of the operator's own pre-check message.
+- No test in either repo asserts a component path for an unset value, so none depends on the old text.
+- opm-operator `internal/render/required_values_test.go` asserts the exact kernel text `Kernel.AcquireInstanceFromDir: instance "needy": not fully concrete: values.note: incomplete value string` and the prefix `not fully concrete: values.tier: incomplete value ` (`TestKernelPackageRenderer_UnsetRequiredValueIsRefused`). Both values are read by no component; the text is unchanged, and `go test ./internal/render -run UnsetRequiredValue` passes in that copy against this library tree.
+- The same file asserts `#config.note: incomplete value string (...)`, the text of `ValidateConfigDetailed`, which this change does not touch.
+- cli `tests/e2e/vet_output_test.go` asserts the substrings `incomplete value` and `incomplete value int` and cli `internal/publish/identity_test.go` asserts `incomplete value`; all hold for the new text. The e2e tests were not run.
 - The operator's unmerged change `drop-values-pre-validate` is the consumer of the new text: its requirement that synthesis names `values.<field>` for a value a component reads becomes true with this change.
 
 ## Risks / Trade-offs

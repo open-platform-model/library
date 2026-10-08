@@ -2,8 +2,11 @@ package kernel
 
 import (
 	"fmt"
+	"strings"
 
 	"cuelang.org/go/cue"
+	cueerrors "cuelang.org/go/cue/errors"
+	"cuelang.org/go/cue/token"
 
 	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/module"
@@ -18,24 +21,16 @@ import (
 // overlay, the synthesized values file), so nothing is filled here and nothing
 // on the Kernel is read.
 //
-// Concreteness is checked twice. The whole built spec first, so a value the
-// instance carries in a non-concrete form is refused at its place in the build.
-// Then the spec's `values` unified with the module's #config (both read off
-// the spec): #ModuleInstance only unifies `values` into a let binding the
-// components read, so a required #config value the values leave unset, and
-// no component reads, never reaches the spec; this check refuses it at the
-// path `values.<field>` (library#211). Both failures are framed
-// `instance "<name>": not fully concrete: …`; other errors
-// `instance "<name>": …`.
+// Concreteness is checked twice and reported once, see [concreteness]: the
+// whole built spec, and the spec's `values` unified with the module's
+// #config. A failure is framed `instance "<name>": not fully concrete: …`;
+// other errors `instance "<name>": …`.
 //
 // The returned Instance carries no Source; the caller stamps it.
 func processInstance(spec cue.Value) (*module.Instance, error) {
 	name := bestEffortInstanceName(spec)
 
-	if err := spec.Validate(cue.Concrete(true)); err != nil {
-		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
-	}
-	if err := requiredConfigSet(spec); err != nil {
+	if err := concreteness(spec); err != nil {
 		return nil, fmt.Errorf("instance %q: not fully concrete: %w", name, err)
 	}
 
@@ -66,6 +61,82 @@ func requiredConfigSet(spec cue.Value) error {
 		return nil
 	}
 	return built.Unify(configSchema).Validate(cue.Concrete(true))
+}
+
+// concreteness checks the built spec twice and returns one report.
+//
+// The whole spec first, so a value the instance carries in a non-concrete
+// form is refused at its place in the build. Then the spec's `values` unified
+// with the module's #config ([requiredConfigSet]): #ModuleInstance only
+// unifies `values` into a let binding the components read, so a required
+// #config value the values leave unset is named by the first check only at
+// the component fields that read it, and not at all when none does
+// (library#211).
+//
+// When the second check passes, the first check's error is returned as it
+// is, and likewise the other way round. When both fail, the report holds:
+//
+//   - the second check's findings, in its order, each at `values.<field>`.
+//     Where the first check has a finding at the same path (the values carry
+//     the field as a bare type), that finding takes its place: it is
+//     positioned where the values carry the field.
+//   - then the first check's other findings, except those an unset value
+//     explains. CUE positions a component field left incomplete by an unset
+//     #config value at that value's #config declaration, the position the
+//     second check's finding for it carries, so a finding of the first check
+//     that shares a position with one of the second is left out. A finding
+//     that shares none (a defect of the module's own, or a value read from a
+//     field declared `_`, which has no position) stays.
+//
+// The values findings come first so that the error's one-line text, which
+// CUE takes from the first finding, names a field the user sets.
+func concreteness(spec cue.Value) error {
+	specErr := spec.Validate(cue.Concrete(true))
+	requiredErr := requiredConfigSet(spec)
+	if requiredErr == nil {
+		return specErr
+	}
+	if specErr == nil {
+		return requiredErr
+	}
+
+	built := cueerrors.Errors(specErr)
+	builtAt := make(map[string]cueerrors.Error, len(built))
+	for _, e := range built {
+		builtAt[strings.Join(e.Path(), ".")] = e
+	}
+
+	var report cueerrors.Error
+	reported := make(map[string]bool)
+	declared := make(map[token.Position]bool)
+	for _, e := range cueerrors.Errors(requiredErr) {
+		path := strings.Join(e.Path(), ".")
+		reported[path] = true
+		for _, pos := range cueerrors.Positions(e) {
+			declared[pos.Position()] = true
+		}
+		if b, ok := builtAt[path]; ok {
+			e = b
+		}
+		report = cueerrors.Append(report, e)
+	}
+	for _, e := range built {
+		if reported[strings.Join(e.Path(), ".")] || positionedAt(e, declared) {
+			continue
+		}
+		report = cueerrors.Append(report, e)
+	}
+	return report
+}
+
+// positionedAt reports whether any position of e is in positions.
+func positionedAt(e cueerrors.Error, positions map[token.Position]bool) bool {
+	for _, pos := range cueerrors.Positions(e) {
+		if positions[pos.Position()] {
+			return true
+		}
+	}
+	return false
 }
 
 // decodeInstanceMetadata extracts the instance metadata from a
