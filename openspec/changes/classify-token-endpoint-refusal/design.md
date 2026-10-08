@@ -44,6 +44,12 @@ Where the typed chain is lost: `ociauth` returns the token endpoint's answer as 
 
 This narrows what the existing no-response match claims and adds one anchored variant of the existing status pattern. It adds no new failure family to the text fallback. The form is pinned by `TestCUEFailureForms`, so a CUE or OCI client bump that changes it fails there.
 
+### Owner decision of 2026-10-08
+
+**Context**: The task asked that no message-text match be added. The review held the change on that line and on the fetch-403 case.
+
+**Decision**: The owner accepted the one anchored match as a recorded exception to the strict reading of 0021:D8:R12, and decided that a library-owned registry transport is not planned now. Accepted as built: a fetch whose token endpoint answers 403 stays `FetchNotFound`; a token endpoint's 404 reads `FetchNotFound`; a token endpoint's 429 is no longer transient. `adr/014-one-text-match-for-a-token-endpoint-answer.md` is the record, and the comment at `textTokenAnswer` names it.
+
 ### The refresh-token path
 
 **Context**: A client that holds a refresh token (a Docker `identitytoken`, a credential helper, a token server that returns one) asks for a new access token before it sends the request. `ociauth` flattens that token answer on purpose (`cannot acquire access token: %v`, `ociauth/auth.go:247-252`). `net/http` wraps it in a `*url.Error`, which is a `net.Error`, so even a direct call has no typed status and `classifyTyped` answered `FetchUnreachable`. Driven through the real client with `registrytest.NewRefreshTokenRegistry` (`token/refresh/*` in `classify_cue_test.go`).

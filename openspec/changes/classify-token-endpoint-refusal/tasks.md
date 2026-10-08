@@ -18,3 +18,8 @@ Tests run against the worktree's own copy of the main checkout's `.cue-cache/mod
 - [x] 3.1 `opm/internal/registrytest/status.go`: add `NewRefreshTokenRegistry`. `opm/errors/classify_cue_test.go`: add `token/refresh/*` cases through a stock client that holds a refresh token (a version listing, which keeps its `*url.Error`, and a push). Verify: the listing cases fail before 3.2 (`FetchUnreachable`).
 - [x] 3.2 `opm/errors/classify.go`: `classifyTyped` reads the answered-token pattern before a `net.Error` becomes `FetchUnreachable` (design, "The refresh-token path"). Add the constructed `*url.Error` rows to `TestClassify_Typed`. Reflow the comment blocks edited in section 2. Verify: `go test ./opm/errors` passes.
 - [x] 3.3 `task check` green, then commit `fix(errors): read a refused token refresh on a failed round trip`.
+
+## 4. Record the accepted exception
+
+- [x] 4.1 Write `adr/014-one-text-match-for-a-token-endpoint-answer.md` in the `adr/TEMPLATE.md` shape: the owner's decision of 2026-10-08, the one pattern, the transport set aside, the three accepted limits. Name it in a comment at `textTokenAnswer` and in design.md. Verify: the file exists and `task check` is green.
+- [x] 4.2 `task check` green on the tree with `origin/main` merged in, then commit `docs(adr): record the token answer text match as ADR-014`.
