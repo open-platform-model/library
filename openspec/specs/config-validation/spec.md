@@ -119,14 +119,16 @@ The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private 
 - **THEN** no exported symbol with that name exists
 - **AND** the unexported helpers are documented in the package's internal godoc only
 
-### Requirement: No Custom Validation Error Types
+### Requirement: One validation marker and no projection of CUE errors
 
-The library SHALL NOT define custom Go-typed wrappers around CUE validation errors. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
+The library SHALL define exactly one Go type for a configuration validation failure: `ConfigValidationError` in `opm/errors`, a pointer-receiver marker that wraps the CUE error tree unchanged. It SHALL carry the tree in its `Err` field, return it from `Unwrap`, and return the tree's own text from `Error`. It SHALL NOT project, group, re-order or reword the CUE errors, and the library SHALL NOT provide a walking or formatting API beside `cuelang.org/go/cue/errors`. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
+
+Every error type in `opm/errors` that has an `Error` method SHALL declare it on the pointer receiver, so a caller matches each of them with `errors.As` and a pointer target. `IdentityError` follows the same rule: the library returns `*IdentityError`, and the value type `IdentityError` is not an `error`.
 
 #### Scenario: opm/errors carries no validation projections
 
 - **WHEN** a developer reads `opm/errors/`
-- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, and the render verdict rows and refusal causes (skew, routing, contract, demand, unmatched-component and core-floor), none of which projects a CUE validation error
+- **THEN** its exported identifiers are the acquisition and synthesis sentinels, the acquisition identity error (`IdentityError`), `TransformError`, the fetch and resolution classification, the render verdict rows and refusal causes (skew, routing, contract, demand, unmatched-component and core-floor), and the one validation marker `ConfigValidationError`, which wraps a CUE validation error and projects nothing
 - **AND** no `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, or `GroupedError` types are present
 
 #### Scenario: Frontends rely on cuelang.org/go/cue/errors
@@ -135,9 +137,21 @@ The library SHALL NOT define custom Go-typed wrappers around CUE validation erro
 - **THEN** it imports `cuelang.org/go/cue/errors` and uses `errors.Errors(err)` plus `errors.Positions(ce)` to walk the tree
 - **AND** the library does not provide a parallel walking API
 
+#### Scenario: A validation failure is matched by type
+
+- **WHEN** `ValidateConfigDetailed` refuses values that do not satisfy the schema, and the caller wraps the error with `%w` any number of times
+- **THEN** `errors.As` with a `*ConfigValidationError` target succeeds
+- **AND** `cueerrors.Errors` on the same error returns the same CUE errors, in the same order, as on the `Err` field
+
+#### Scenario: Every typed error matches through a pointer target
+
+- **WHEN** a module acquired from a registry declares another path or version than the coordinate it was fetched by
+- **THEN** `errors.As` with a `*IdentityError` target succeeds on the returned error
+- **AND** every other type in `opm/errors` that implements `error` does so on its pointer receiver only
+
 ### Requirement: Single Kernel Validation Primitive
 
-The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error)`. It SHALL compile each source in the schema's own context so that every position names the source's `Origin` (a bytes source with `cue.Filename(Origin)`, a file-backed source through `cue/load` at its file, "File-Backed Sources Resolve Imports Through the Kernel Mapping"), unify the compiled sources in stack order, run the closed-schema disallowed-field walk, and assert concreteness on the merged value. It SHALL return CUE-native errors (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`); the library SHALL NOT define a Go-typed projection over those errors. The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-element `[]Source`, and partial validation is an internal mode the kernel uses for per-source attribution under `AcquireInstanceFromDir` with extra values and under `SynthesizeInstance`, not a public entry.
+The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateConfigDetailed(schema cue.Value, sources []Source) (cue.Value, error)`. It SHALL compile each source in the schema's own context so that every position names the source's `Origin` (a bytes source with `cue.Filename(Origin)`, a file-backed source through `cue/load` at its file, "File-Backed Sources Resolve Imports Through the Kernel Mapping"), unify the compiled sources in stack order, run the closed-schema disallowed-field walk, and assert concreteness on the merged value. A failure of the validation step (the disallowed-field walk, the unification with the schema, or concreteness) SHALL be returned as a `*ConfigValidationError` (`opm/errors`) that wraps the CUE-native error tree (`cuelang.org/go/cue/errors.Error` or a tree of them, accessed via `cuelang.org/go/cue/errors.Errors`) unchanged; the library SHALL NOT define a Go-typed projection over those errors. A source that fails to compile or to load is returned as before, without the marker: such a failure can be a registry or a file failure, which is not a statement about the values. The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-element `[]Source`, and partial validation is an internal mode the kernel uses for per-source attribution under `AcquireInstanceFromDir` with extra values and under `SynthesizeInstance`, not a public entry.
 
 #### Scenario: ValidateConfigDetailed signature and behavior
 
@@ -145,7 +159,7 @@ The library SHALL expose exactly one validation method on `*Kernel` in `opm/kern
 - **THEN** the method compiles each source in the schema's context with its `Origin` as the position filename, unifies the compiled values in stack order (`sources[0]`, then `sources[1]`, …), then validates the merged value against `schema` with concreteness enforced
 - **AND** disallowed fields under closed schemas are reported with source positions via the internal `walkDisallowed` mechanism
 - **AND** returns `(cue.Value, error)` with the merged value on success and the zero value on failure
-- **AND** the error (if any) implements `cuelang.org/go/cue/errors.Error` and is walkable via `cueerrors.Errors(err)`
+- **AND** the error of a failed validation step is a `*ConfigValidationError` whose `Err` implements `cuelang.org/go/cue/errors.Error`, and the returned error is walkable via `cueerrors.Errors(err)`
 
 #### Scenario: No single-value or partial variant is exported
 
@@ -175,13 +189,13 @@ The library SHALL expose exactly one validation method on `*Kernel` in `opm/kern
 #### Scenario: Module.ConfigSchema accessor
 
 - **WHEN** a caller invokes `m.ConfigSchema()`
-- **THEN** the result is the `cue.Value` at `schema.Config` inside `m.Package`
+- **THEN** the result is the `cue.Value` at `corepath.Config` inside `m.Package`
 - **AND** the accessor returns a zero value if the module has no `#config` field
 
 #### Scenario: Instance.ConfigSchema accessor
 
 - **WHEN** a caller invokes `r.ConfigSchema()`
-- **THEN** the result is the `cue.Value` at `schema.Config` inside the instance's embedded module at `schema.Module`
+- **THEN** the result is the `cue.Value` at `corepath.Config` inside the instance's embedded module at `schema.Module`
 - **AND** the accessor returns a zero value if the instance has no embedded module or the module has no `#config`
 
 #### Scenario: No per-artifact validation wrapper exists
