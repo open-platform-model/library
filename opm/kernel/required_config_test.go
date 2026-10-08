@@ -475,7 +475,8 @@ func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 
 // kernel-runtime spec, "Every unset value is named, read or not, nested or
 // not": each values finding of the empty document carries the position of its
-// #config declaration, and the one-line text names a values path.
+// #config declaration, and the findings name every field that
+// ValidateConfigDetailed names for the same source.
 func TestKernel_SynthesizeInstance_UnsetValuesPositionedAtConfig(t *testing.T) {
 	k, mod := publishSynthModule(t, "demo", "0.1.0", readBody)
 	_, err := k.SynthesizeInstance(context.Background(), kernel.InstanceInput{
@@ -486,6 +487,20 @@ func TestKernel_SynthesizeInstance_UnsetValuesPositionedAtConfig(t *testing.T) {
 	for _, path := range []string{"values.message", "values.other", "values.db.host"} {
 		assert.True(t, positionsEndWith(err, path, "/module.cue"), "%s is not positioned at its #config declaration: %v", path, err)
 	}
+
+	// Every field ValidateConfigDetailed names at #config.<field> for the
+	// same source is named here at values.<field>.
+	_, vErr := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source{mustSource(t, k, "/values/a.cue", `{}`)})
+	var cerr cueerrors.Error
+	require.ErrorAs(t, vErr, &cerr)
+	named := 0
+	for _, e := range cueerrors.Errors(cerr) {
+		field, ok := strings.CutPrefix(strings.Join(e.Path(), "."), "#config.")
+		require.True(t, ok, "ValidateConfigDetailed finding outside #config: %v", e)
+		assert.True(t, hasErrorPath(err, "values."+field), "values.%s is not named: %v", field, err)
+		named++
+	}
+	assert.Equal(t, 3, named, "ValidateConfigDetailed findings: %v", vErr)
 }
 
 // kernel-runtime spec, "A value a component reads is named at its field" and
