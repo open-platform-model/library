@@ -37,10 +37,6 @@ type Instance struct {
 	Source *Source
 }
 
-// InstanceMetadata is a re-export of [schema.InstanceMetadata] so callers can
-// keep working with `module.InstanceMetadata`.
-type InstanceMetadata = schema.InstanceMetadata
-
 // Components returns the instance's components value as evaluated,
 // definition fields (#resources, #traits, #blueprints, #names) included. It
 // is a read for frontends and tests: the render build reads the same field

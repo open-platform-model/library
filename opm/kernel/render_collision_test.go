@@ -17,6 +17,7 @@ import (
 	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
+	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -218,7 +219,7 @@ func TestRender_HandBuiltOlderCoreCollidingPlatformNeverRenders(t *testing.T) {
 	require.Error(t, contractsErr, "the recorded inventory refusal is returned later")
 	assert.Contains(t, contractsErr.Error(), "conflicting values")
 	require.False(t, plat.Package.LookupPath(schema.ContractsCollisions).Exists(), "and carries no collision report")
-	plat.Source = &platform.Source{Root: dir}
+	plat.Source = &module.Source{Root: dir}
 
 	inst := acquireRenderInstance(t, k, "instance_maj0")
 	_, res, rerr := k.RenderForTest(context.Background(), kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "rt"})

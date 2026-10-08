@@ -1273,7 +1273,7 @@ func TestInstance_ModuleMetadataOfAcquiredInstances(t *testing.T) {
 		"AcquireInstanceFromDir": acquireRenderInstance(t, k, "instance"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			var want schema.ModuleMetadata
+			var want module.ModuleMetadata
 			require.NoError(t, inst.Package.LookupPath(schema.Module).LookupPath(schema.Metadata).Decode(&want))
 
 			got := inst.ModuleMetadata()

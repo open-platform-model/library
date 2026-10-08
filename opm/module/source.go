@@ -40,7 +40,8 @@ import (
 //   - Catalog: overlay mode, from the registry and from a directory
 //     (Kernel.AcquireCatalogFromRegistry, Kernel.AcquireCatalogFromDir).
 //
-// platform.Source and catalog.Source are aliases of this type. Source is nil
+// This is the type's one name: Platform.Source and Catalog.Source are
+// *module.Source fields, and no other package re-exports it. Source is nil
 // for an artifact constructed from a bare value (e.g. a unit-test
 // CompileString).
 type Source struct {

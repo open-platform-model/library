@@ -194,7 +194,7 @@ func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirP
 // only thing that differs is the shape it gates to.
 //
 // It returns a decoded [*catalog.Catalog] whose staged source
-// ([catalog.Source]) is populated in overlay mode, so
+// ([module.Source]) is populated in overlay mode, so
 // [catalog.Catalog.Requires] reads the catalog's committed
 // cue.mod/module.cue without a second fetch. A caller that wants the raw
 // value reads Catalog.Package, which keeps the call's runtime alive for as
@@ -233,7 +233,7 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 // [Kernel.AcquireModuleFromDir] exactly: the package is evaluated and
 // shape-gated as the registry path gates a fetched catalog,
 // [catalog.NewCatalogFromValue] constructs the typed artifact, and
-// [catalog.Source] is stamped in OVERLAY mode — Root the enclosing module
+// [module.Source] is stamped in OVERLAY mode — Root the enclosing module
 // root (the nearest ancestor holding cue.mod/module.cue, the directory
 // itself when it is the root or when no ancestor holds one), Pkg the package
 // directory relative to it, and Overlay every .cue file under Root (the

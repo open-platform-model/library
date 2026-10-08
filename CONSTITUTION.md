@@ -59,7 +59,7 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
-- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata types
+- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`) and CUE path inventory (each decoded metadata type is declared with its artifact)
 - `opm/errors/` — structured errors and grouped CUE diagnostics (alias as `oerrors` in consumers)
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, synthesize, validate, render)
 - `opm/module/` — module and instance model, value-validation accessors

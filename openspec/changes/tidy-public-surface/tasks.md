@@ -14,9 +14,9 @@
 
 ## 3. One name per type (opm/schema, opm/module, opm/platform, opm/catalog)
 
-- [ ] 3.1 Move the four metadata type declarations from `opm/schema/metadata.go` to their artifact packages and delete the aliases; move their tests; verify `go build ./... && go vet ./...`
-- [ ] 3.2 Delete `platform.Source` and `catalog.Source`; fields and signatures name `module.Source`; verify with `go doc` that neither package exports `Source`
-- [ ] 3.3 `task check` green, then commit `feat(schema)!: keep one name for each metadata type and for Source`
+- [x] 3.1 Move the four metadata type declarations from `opm/schema/metadata.go` to their artifact packages and delete the aliases; move their tests; verify `go build ./... && go vet ./...`
+- [x] 3.2 Delete `platform.Source` and `catalog.Source`; fields and signatures name `module.Source`; verify with `go doc` that neither package exports `Source`
+- [x] 3.3 `task check` green, then commit `feat(schema)!: keep one name for each metadata type and for Source`
 
 ## 4. Shrink the opm/schema exports
 

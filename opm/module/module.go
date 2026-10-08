@@ -80,14 +80,6 @@ type Module struct {
 	Source *Source `json:"-"`
 }
 
-// ModuleMetadata is the decoded module-level identity record. It is a
-// re-export of [schema.ModuleMetadata] so callers can keep working with
-// `module.ModuleMetadata` without taking a transitive dependency on opm/schema
-// at every reference site.
-//
-//nolint:revive // stutter intentional: module.ModuleMetadata reads clearly at call sites
-type ModuleMetadata = schema.ModuleMetadata
-
 // NewModuleFromValue builds a *Module from a raw CUE artifact value: it
 // decodes ModuleMetadata from the value's metadata field and stores the input
 // cue.Value unmodified in Package. Errors return a nil *Module — partial
