@@ -26,6 +26,6 @@
 
 ## 5. Record and verify
 
-- [ ] 5.1 Write `adr/015-one-shape-for-the-public-surface.md` (receiver rule, validation marker, one name per type, path split) from `adr/TEMPLATE.md`; update `AGENTS.md` and `README.md` layout lines for `opm/errors`, `opm/schema` and `opm/internal/corepath`
-- [ ] 5.2 Run `task api:diff` and check that it lists exactly the intended removals; run `task check`; run `openspec validate tidy-public-surface --strict`
-- [ ] 5.3 Commit `docs(adr): record the public surface rules for v1`
+- [x] 5.1 Write `adr/015-one-shape-for-the-public-surface.md` (receiver rule, validation marker, one name per type, path split) from `adr/TEMPLATE.md`; update `AGENTS.md` and `README.md` layout lines for `opm/errors`, `opm/schema` and `opm/internal/corepath`
+- [x] 5.2 Run `task api:diff` and check that it lists exactly the intended removals; run `task check`; run `openspec validate tidy-public-surface --strict`
+- [x] 5.3 Commit `docs(adr): record the public surface rules for v1`
