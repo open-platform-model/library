@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-beta.8](https://github.com/open-platform-model/library/compare/v1.0.0-beta.7...v1.0.0-beta.8) (2026-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* tidy the public surface before v1.0.0 ([#223](https://github.com/open-platform-model/library/issues/223))
+
+### Features
+
+* tidy the public surface before v1.0.0 ([#223](https://github.com/open-platform-model/library/issues/223)) ([d21adc9](https://github.com/open-platform-model/library/commit/d21adc95d087daf2daa3612ae9b789aba1d2c624))
+
+
+### Bug Fixes
+
+* **errors:** classify a token endpoint refusal by its status ([#222](https://github.com/open-platform-model/library/issues/222)) ([c81e7fd](https://github.com/open-platform-model/library/commit/c81e7fd39c5aedcb0cc09839b53f90ec9f768c21))
+* **kernel:** name every unset required config value ([#227](https://github.com/open-platform-model/library/issues/227)) ([0cef88f](https://github.com/open-platform-model/library/commit/0cef88f0891ae2a228c0ee60a653951e1ec681e1))
+
 ## [1.0.0-beta.7](https://github.com/open-platform-model/library/compare/v1.0.0-beta.6...v1.0.0-beta.7) (2026-10-05)
 
 
