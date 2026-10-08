@@ -69,10 +69,19 @@ func TestSurface_OneNamePerType(t *testing.T) {
 		"CatalogMetadata":  "catalog",
 		"Source":           "module",
 	}
+	// catalog.Source is a deprecated alias, kept while opm-operator at main
+	// still uses the name. The change that removes it empties this list.
+	deprecatedAliases := map[string]bool{"catalog.Source": true}
+	sawDeprecated := map[string]bool{}
 	for _, pkg := range []string{"schema", "module", "platform", "catalog"} {
 		types, _, _ := exportedDecls(t, filepath.Join("..", pkg))
 		for name, home := range homes {
 			spec, declared := types[name]
+			if declared && deprecatedAliases[pkg+"."+name] {
+				assert.True(t, spec.Assign.IsValid(), "%s.%s is kept only as an alias of %s.%s", pkg, name, home, name)
+				sawDeprecated[pkg+"."+name] = true
+				continue
+			}
 			if pkg != home {
 				assert.False(t, declared, "opm/%s declares %s; its one name is %s.%s", pkg, name, home, name)
 				continue
@@ -81,8 +90,14 @@ func TestSurface_OneNamePerType(t *testing.T) {
 			assert.False(t, spec.Assign.IsValid(), "%s.%s must be a declared type, not an alias", pkg, name)
 		}
 		for name, spec := range types {
+			if deprecatedAliases[pkg+"."+name] {
+				continue
+			}
 			assert.False(t, spec.Assign.IsValid(), "opm/%s exports the alias %s; an exported type has one name", pkg, name)
 		}
+	}
+	for alias := range deprecatedAliases {
+		assert.True(t, sawDeprecated[alias], "%s is gone: remove it from deprecatedAliases", alias)
 	}
 }
 

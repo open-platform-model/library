@@ -63,6 +63,15 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 
 One PR. Consumers migrate when they bump the library pin. Rollback: revert the squash commit; nothing persists outside Go source.
 
+## Amendment (2026-10-08, after the first review of library#223)
+
+**Context**: `Consumer build (opm-operator)` was red: the operator's `main` builds `oerrors.IdentityError{}` values as errors, matches with `errors.AsType[oerrors.IdentityError]`, and names `catalog.Source`.
+**Decision**: `IdentityError` keeps the value receiver for now. The loader still returns `&IdentityError{}`. A method `As(target any) bool` on the value receiver fills a value target from a pointer in the chain and a pointer target from a value in the chain, so the old and the new form both match, with `errors.As` and with `errors.AsType`. `catalog.Source` returns as a Deprecated alias.
+**Rationale**: the pointer and the value receiver cannot coexist on one type, so the receiver flip must wait. Returning the pointer now, with the bridge, lets the operator move to the pointer forms before the flip; without it the flip and the operator's edit would again have to land together. Alternative: return the value again and change nothing. Rejected: the pointer target would not match until the flip, so no consumer could migrate ahead of it.
+**Follow-up**: plan task T9.24 flips the receiver and removes `As` and `catalog.Source` once the operator has migrated. The tests `TestTypedErrorsUsePointerReceivers` and `TestSurface_OneNamePerType` each hold a one-entry exception list that the follow-up empties.
+
+The two open questions below are answered in part by the owner (2026-10-08, library#223): the four `opm/schema` names stay public for v1. The first question stays open.
+
 ## Open Questions
 
 - Should the values checks inside `AcquireInstanceFromDir` and `SynthesizeInstance` also return `*ConfigValidationError`? Not in the brief; additive later.

@@ -25,6 +25,17 @@ Kept on purpose: `cue.Value` in public structs (owner decision for v1); `schema.
 | `platform.Source`, `catalog.Source` | none | `catalog.Source` becomes `module.Source` at `internal/controller/transformerregistration_catalog_test.go:92,94` |
 | twelve path variables, `CollisionsSince` | none | none |
 
+### Amendment after the first review of library#223 (2026-10-08)
+
+The first version of this change removed two things opm-operator at `main` still uses, and `Consumer build (opm-operator)` was red. The library's rule is deprecate, then remove (AGENTS.md, Consumer build paragraph; ADR-013, decision j4), so both are kept as deprecated shims, and the table above is superseded for these two rows:
+
+- `IdentityError` keeps its value receiver. The library returns `*IdentityError`, and an `As` method lets both the pointer target and the deprecated value target match. opm-operator needs no edit now.
+- `catalog.Source` stays as a Deprecated alias of `module.Source`. `platform.Source`, which no consumer uses, stays removed.
+
+Follow-up (plan task T9.24 of the swarm, a later library change): after opm-operator has moved to `*oerrors.IdentityError` targets, `&oerrors.IdentityError{}` literals and `module.Source`, give `IdentityError` a pointer receiver, delete its `As` method and delete `catalog.Source`.
+
+Owner decisions of 2026-10-08, recorded on library#223: the reversal of the rule "No Custom Validation Error Types" is confirmed (one marker type, the CUE tree unchanged inside); `schema.Module`, `schema.Metadata`, `schema.CatalogProvides` and `schema.ProvidesSince` stay public for v1.
+
 ## Capabilities
 
 ### New Capabilities

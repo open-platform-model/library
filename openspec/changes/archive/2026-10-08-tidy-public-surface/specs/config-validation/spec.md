@@ -9,7 +9,7 @@
 
 The library SHALL define exactly one Go type for a configuration validation failure: `ConfigValidationError` in `opm/errors`, a pointer-receiver marker that wraps the CUE error tree unchanged. It SHALL carry the tree in its `Err` field, return it from `Unwrap`, and return the tree's own text from `Error`. It SHALL NOT project, group, re-order or reword the CUE errors, and the library SHALL NOT provide a walking or formatting API beside `cuelang.org/go/cue/errors`. The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `MultiSourceError`, `LayerError`, and `DetailedError` SHALL NOT exist as exported symbols anywhere in the library.
 
-Every error type in `opm/errors` that has an `Error` method SHALL declare it on the pointer receiver, so a caller matches each of them with `errors.As` and a pointer target. `IdentityError` follows the same rule: the library returns `*IdentityError`, and the value type `IdentityError` is not an `error`.
+Every error type in `opm/errors` that has an `Error` method SHALL declare it on the pointer receiver, so a caller matches each of them with `errors.As` and a pointer target. `IdentityError` is the one exception, for a transition: the library returns `*IdentityError`, and the type keeps a value receiver and a deprecated value target while a consumer at `main` still uses the value forms (the deprecate, then remove rule of AGENTS.md, Consumer build paragraph). During the transition both `errors.As` targets, `*IdentityError` and `IdentityError`, SHALL match the returned error. A later change gives the type a pointer receiver and removes the value forms.
 
 #### Scenario: opm/errors carries no validation projections
 
@@ -34,6 +34,12 @@ Every error type in `opm/errors` that has an `Error` method SHALL declare it on 
 - **WHEN** a module acquired from a registry declares another path or version than the coordinate it was fetched by
 - **THEN** `errors.As` with a `*IdentityError` target succeeds on the returned error
 - **AND** every other type in `opm/errors` that implements `error` does so on its pointer receiver only
+
+#### Scenario: The deprecated value target still matches
+
+- **WHEN** the same error is matched with `errors.As` and an `IdentityError` value target, or with `errors.AsType[IdentityError]`, through a `%w` wrap
+- **THEN** the match succeeds and yields the same field values as the pointer target
+- **AND** the documentation of `IdentityError` marks the value forms Deprecated and names the pointer forms
 
 ### Requirement: Single Kernel Validation Primitive
 

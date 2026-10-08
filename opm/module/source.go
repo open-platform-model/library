@@ -41,7 +41,8 @@ import (
 //     (Kernel.AcquireCatalogFromRegistry, Kernel.AcquireCatalogFromDir).
 //
 // This is the type's one name: Platform.Source and Catalog.Source are
-// *module.Source fields, and no other package re-exports it. Source is nil
+// *module.Source fields. The alias catalog.Source is deprecated and goes in
+// a later release. Source is nil
 // for an artifact constructed from a bare value (e.g. a unit-test
 // CompileString).
 type Source struct {
