@@ -1,54 +1,4 @@
-# fetch-error-classification Specification
-
-## Purpose
-A registry fetch failure that the library returns is a typed `*FetchError` with a kind, and `ErrTransient` marks the network-level ones. An author-defect resolution failure (an import no module provides, an ambiguous import, a dependency module file that does not parse) is a typed `*ResolutionError` with a kind, and is never transient. A frontend decides retry, exit code or stall by type rather than by matching message text. `opm/errors.Classify` is the one place that reads CUE's registry and `cue/load` failure forms; a fetch form wins over an author-defect form in the same text, and every other author defect comes back unchanged (0021:D8:R12).
-
-## Requirements
-
-### Requirement: A fetch or resolution failure is a typed error
-
-`opm/errors` SHALL export `FetchKind` with the values `FetchOther`, `FetchNotFound`, `FetchUnauthorized` and `FetchUnreachable`, and the type `*FetchError` with the fields `Kind`, `Coordinate`, `Status` and `Err`. `FetchNotFound` means the module, version or package is absent. `FetchUnauthorized` means the registry refused the credentials (401), or refused the access (403) where the 403 answer survives in the chain. CUE's registry client reports a 403 on a module tag lookup as not-found, so that case SHALL classify as `FetchNotFound`. `FetchUnreachable` means no HTTP response was received: a refused connection, a DNS or TLS failure, a timeout or an expired deadline. `FetchOther` is any other failed registry interaction, such as a 429 answer or a fetched archive that does not unzip. An author-defect resolution failure, which no failed registry interaction caused, is a `*ResolutionError` and never a `*FetchError`. `Status` is the HTTP status the registry answered with, or 0 when there was none or it is unknown. Source: 0021:D8:R12.
-
-`(*FetchError).Error()` SHALL return the text of `Err` unchanged, and `Unwrap` SHALL return `Err`, so `errors.Is` and `errors.As` on the cause keep matching through it. A `*FetchError` whose `Err` is nil SHALL NOT panic in `Error()`.
-
-#### Scenario: The message is the cause's message
-
-- **WHEN** a `*FetchError` wraps a cause whose text is `T`
-- **THEN** its `Error()` returns `T`
-
-#### Scenario: The cause stays reachable
-
-- **WHEN** a `*FetchError` wraps an error chain that holds a CUE error list
-- **THEN** `errors.As` finds the list through it, and `cueerrors.Errors` returns the same errors and positions it returns for the unwrapped cause
-
-### Requirement: ErrTransient marks network-level failures only
-
-`opm/errors` SHALL export the sentinel `ErrTransient`. `errors.Is(err, ErrTransient)` SHALL hold for a `*FetchError` in the chain exactly when its `Kind` is `FetchUnreachable` or its `Status` is 500 or higher. It SHALL NOT hold for `FetchNotFound`, for `FetchUnauthorized`, for a 429 answer, for an error with no `*FetchError` in its chain, or for a context cancellation. `(*FetchError).Transient()` SHALL report the same answer. Source: 0021:D8:R12.
-
-#### Scenario: An unreachable registry is transient
-
-- **WHEN** a fetch fails because the registry's port refuses the connection
-- **THEN** the error is a `*FetchError` of kind `FetchUnreachable`, and `errors.Is(err, ErrTransient)` is true
-
-#### Scenario: A server error is transient
-
-- **WHEN** the registry answers a fetch with status 503
-- **THEN** the error is a `*FetchError` with `Status` 503, and `errors.Is(err, ErrTransient)` is true
-
-#### Scenario: An absent version is not transient
-
-- **WHEN** a fetch asks for a version the registry does not hold
-- **THEN** the error is a `*FetchError` of kind `FetchNotFound`, and `errors.Is(err, ErrTransient)` is false
-
-#### Scenario: A refused credential is not transient
-
-- **WHEN** the registry answers a fetch with status 401
-- **THEN** the error is a `*FetchError` of kind `FetchUnauthorized`, and `errors.Is(err, ErrTransient)` is false
-
-#### Scenario: A forbidden tag lookup is not found
-
-- **WHEN** the registry answers a module fetch with status 403
-- **THEN** the error is a `*FetchError` of kind `FetchNotFound`, and `errors.Is(err, ErrTransient)` is false
+## ADDED Requirements
 
 ### Requirement: A token endpoint's answer is a registry answer
 
@@ -96,45 +46,7 @@ One case is outside this requirement. The embedded CUE's registry client reports
 - **WHEN** `Kernel.AcquireModuleFromRegistry` asks a registry that answers with a Bearer challenge and whose token endpoint answers 403
 - **THEN** the error is a `*FetchError` of kind `FetchNotFound` with `Status` 0
 
-### Requirement: The library classifies every fetch and resolution failure it returns
-
-Every library path that returns a registry fetch failure or a `cue/load` dependency resolution failure SHALL pass the cause through `Classify` inside its existing wrap. These paths are the registry acquire verbs (`FetchArtifact`, with `Coordinate` set to the fetched `path@version`), every directory acquire verb and the synth build (through `loader.LoadDir`), the load of a file-backed values source, the render module load, the schema `OCILoader` load, and the platform-module dependency closure. The wrap text SHALL be unchanged, and every existing sentinel (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField` and the synthesis sentinels) SHALL still match with `errors.Is`. An evaluation error (a built value's error, a shape-gate or concreteness failure) SHALL NOT be classified. Source: 0021:D8:R12.
-
-#### Scenario: Acquiring an unpublished version
-
-- **WHEN** `Kernel.AcquireModuleFromRegistry` asks for a version the registry does not hold
-- **THEN** `errors.As` yields a `*FetchError` of kind `FetchNotFound` whose `Coordinate` names the module path and the canonical version, and the message text is the text the verb returned before this change
-
-#### Scenario: A directory module whose dependency registry is down
-
-- **WHEN** `Kernel.AcquireModuleFromDir` loads a module whose dependency must be fetched from a registry that refuses connections
-- **THEN** `errors.Is(err, oerrors.ErrTransient)` is true
-
-#### Scenario: A values file whose import registry is down
-
-- **WHEN** `Kernel.AcquireInstanceFromDir` receives a file-backed values source that imports a module from a registry that refuses connections
-- **THEN** `errors.Is(err, oerrors.ErrTransient)` is true
-
-#### Scenario: A malformed package is not a fetch failure
-
-- **WHEN** an acquire verb loads a package that does not evaluate (a conflict between two concrete values)
-- **THEN** the error holds no `*FetchError` and is not transient
-
-### Requirement: An author-defect resolution failure is a typed error
-
-`opm/errors` SHALL export `ResolutionKind` with the values `ResolutionOther`, `ResolutionImportUnprovided`, `ResolutionImportAmbiguous` and `ResolutionModuleFileInvalid`, and the type `*ResolutionError` with the fields `Kind` and `Err`. `ResolutionImportUnprovided` means no module of the build provides an imported package. It covers an import of a package missing from the main module's own path, an import of a module the main module does not declare, and an import of a package missing from a declared dependency that was fetched. `ResolutionImportAmbiguous` means more than one module of the build provides an imported package. `ResolutionModuleFileInvalid` means a dependency's module file does not parse, whether the dependency is published or served from a local replacement directory. `ResolutionOther` is the zero value, and `Classify` SHALL NOT build it. Source: 0021:D8:R12.
-
-`(*ResolutionError).Error()` SHALL return the text of `Err` unchanged, and `Unwrap` SHALL return `Err`. A `*ResolutionError` whose `Err` is nil SHALL NOT panic in `Error()`. A `*ResolutionError` SHALL NOT satisfy `errors.Is(err, ErrTransient)`, and `errors.As` SHALL NOT find a `*FetchError` through it unless its cause holds one.
-
-#### Scenario: The message is the cause's message
-
-- **WHEN** a `*ResolutionError` wraps a cause whose text is `T`
-- **THEN** its `Error()` returns `T`, and `errors.As` finds a CUE error list in the cause through it
-
-#### Scenario: An author defect is never transient
-
-- **WHEN** an error chain holds a `*ResolutionError` of any kind and no `*FetchError`
-- **THEN** `errors.Is(err, ErrTransient)` is false, and `errors.As(err, &fe)` for a `*FetchError` is false
+## MODIFIED Requirements
 
 ### Requirement: Classify recognises fetch failures and author-defect resolution failures, and leaves every other error unchanged
 
@@ -219,17 +131,3 @@ Every library path that returns a registry fetch failure or a `cue/load` depende
 
 - **WHEN** `Classify` receives an error with no typed cause whose text carries `cannot do HTTP request` and ends in a dial failure, and no line of it ends in an HTTP status
 - **THEN** it returns a `*FetchError` of kind `FetchUnreachable`, and `errors.Is(err, ErrTransient)` is true
-
-### Requirement: The library returns author-defect resolution failures typed
-
-Every library path that the requirement "The library classifies every fetch and resolution failure it returns" names SHALL return an author-defect resolution failure as a `*ResolutionError` inside its existing wrap. The wrap text SHALL be unchanged. Source: 0021:D8:R12.
-
-#### Scenario: A directory module importing an undeclared module
-
-- **WHEN** `Kernel.AcquireModuleFromDir` loads a module whose package imports a module that its `cue.mod/module.cue` does not declare
-- **THEN** `errors.As` yields a `*ResolutionError` of kind `ResolutionImportUnprovided`, no `*FetchError` is in the chain, the error is not transient, and the message text is the text the verb returned before this change
-
-#### Scenario: A directory module importing a missing own-path package
-
-- **WHEN** `Kernel.AcquireModuleFromDir` loads a module whose package imports a package under the module's own path that does not exist
-- **THEN** `errors.As` yields a `*ResolutionError` of kind `ResolutionImportUnprovided`, and the error is not transient

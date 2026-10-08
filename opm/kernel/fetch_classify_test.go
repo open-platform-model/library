@@ -114,6 +114,42 @@ func TestFetchClassify_DirModuleWithUnreachableDependency(t *testing.T) {
 	assert.ErrorIs(t, err, oerrors.ErrTransient)
 }
 
+// A registry that uses token authentication, whose token endpoint refuses
+// the token request, has answered: the failure is a refusal, never an
+// unreachable registry, and it is not transient.
+func TestFetchClassify_TokenEndpointRefusal(t *testing.T) {
+	ctx := context.Background()
+	t.Run("directory module with a dependency/401", func(t *testing.T) {
+		freshCache(t)
+		k := kernel.New(kernel.WithRegistry(registrytest.NewTokenRegistry(t, 401)))
+		_, err := k.AcquireModuleFromDir(ctx, writeDependentModule(t))
+		fe := requireFetchError(t, err)
+		assert.Equal(t, oerrors.FetchUnauthorized, fe.Kind)
+		assert.Equal(t, 401, fe.Status)
+		assert.NotErrorIs(t, err, oerrors.ErrTransient)
+	})
+	t.Run("registry module/401", func(t *testing.T) {
+		freshCache(t)
+		k := kernel.New(kernel.WithRegistry(registrytest.NewTokenRegistry(t, 401)))
+		_, err := k.AcquireModuleFromRegistry(ctx, "test.example/dep@v0", "0.0.1")
+		fe := requireFetchError(t, err)
+		assert.Equal(t, oerrors.FetchUnauthorized, fe.Kind)
+		assert.Equal(t, 401, fe.Status)
+		assert.NotErrorIs(t, err, oerrors.ErrTransient)
+	})
+	// CUE's registry client reports a 403 on a version lookup as not found
+	// and drops the status, for the token endpoint's answer too.
+	t.Run("registry module/403", func(t *testing.T) {
+		freshCache(t)
+		k := kernel.New(kernel.WithRegistry(registrytest.NewTokenRegistry(t, 403)))
+		_, err := k.AcquireModuleFromRegistry(ctx, "test.example/dep@v0", "0.0.1")
+		fe := requireFetchError(t, err)
+		assert.Equal(t, oerrors.FetchNotFound, fe.Kind)
+		assert.Zero(t, fe.Status)
+		assert.NotErrorIs(t, err, oerrors.ErrTransient)
+	})
+}
+
 // requireResolutionError returns the *ResolutionError in err's chain, and
 // holds that the chain carries no *FetchError and is not transient.
 func requireResolutionError(t *testing.T, err error) *oerrors.ResolutionError {

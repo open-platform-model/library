@@ -5,9 +5,12 @@ import "errors"
 // ErrTransient marks a registry failure that the same request may get past
 // later with nothing changed: the registry could not be reached (no HTTP
 // response, which includes an expired deadline), or it answered with a 5xx
-// status. It is network-level only. An absent module, a refused credential,
-// a 429 answer and every error the library does not recognise as a fetch
-// failure are not transient, and neither is a context cancellation.
+// status. It is network-level only. The token endpoint of a registry that
+// uses token authentication counts as the registry: its 5xx answer is
+// transient, and its refusal (401, 403) is not. An absent module, a refused
+// credential, a 429 answer and every error the library does not recognise
+// as a fetch failure are not transient, and neither is a context
+// cancellation.
 //
 // Match it with errors.Is; a [*FetchError] in the chain answers for it. The
 // caller owns retries, and a cache that memoized the failure keeps it: a
@@ -40,11 +43,15 @@ const (
 
 	// FetchUnauthorized is a registry that refused the credentials (401),
 	// or refused access (403) where the 403 answer reaches the library
-	// (see FetchNotFound for the tag lookup).
+	// (see FetchNotFound for the tag lookup). A refusal by the registry's
+	// token endpoint is the same kind, on a fetch and on the error of a
+	// push passed to [Classify]; [FetchError.Status] tells 401 from 403.
 	FetchUnauthorized
 
 	// FetchUnreachable is a request that got no HTTP response: a refused
 	// connection, a DNS or TLS failure, a timeout or an expired deadline.
+	// An answer from the registry's token endpoint is an HTTP response, so
+	// it is never this kind.
 	FetchUnreachable
 )
 
