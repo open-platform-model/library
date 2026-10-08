@@ -44,6 +44,14 @@ Where the typed chain is lost: `ociauth` returns the token endpoint's answer as 
 
 This narrows what the existing no-response match claims and adds one anchored variant of the existing status pattern. It adds no new failure family to the text fallback. The form is pinned by `TestCUEFailureForms`, so a CUE or OCI client bump that changes it fails there.
 
+### The refresh-token path
+
+**Context**: A client that holds a refresh token (a Docker `identitytoken`, a credential helper, a token server that returns one) asks for a new access token before it sends the request. `ociauth` flattens that token answer on purpose (`cannot acquire access token: %v`, `ociauth/auth.go:247-252`). `net/http` wraps it in a `*url.Error`, which is a `net.Error`, so even a direct call has no typed status and `classifyTyped` answered `FetchUnreachable`. Driven through the real client with `registrytest.NewRefreshTokenRegistry` (`token/refresh/*` in `classify_cue_test.go`).
+
+**Decision**: `classifyTyped` checks the same anchored pattern on the chain's text before it turns a `net.Error` into `FetchUnreachable`. `context.DeadlineExceeded` is still read first.
+
+**Rationale**: It is the same failure as the proposal names (a revoked credential retried as a network failure), and the same single pattern covers it. The cost is one text read inside the typed path, stated in the spec.
+
 ### Order against the other fetch forms
 
 **Decision**: The answered-token form runs first in `classifyText`, before the bare `cannot do HTTP request`. When several lines of one text match, the first decides. Everything after it keeps its order.

@@ -209,6 +209,20 @@ func pushDep(t *testing.T, registry string) error {
 	return modregistry.NewClientWithResolver(resolver).PutModule(context.Background(), mv, bytes.NewReader(archive), int64(len(archive)))
 }
 
+// refreshClient returns a stock CUE registry client that holds a refresh
+// token for a registry whose token endpoint then answers status: one
+// version listing takes the first token, which expires at once.
+func refreshClient(t *testing.T, status int) *modregistry.Client {
+	t.Helper()
+	resolver, err := modconfig.NewResolver(&modconfig.Config{Env: env(t, registrytest.NewRefreshTokenRegistry(t, status))})
+	require.NoError(t, err)
+	client := modregistry.NewClientWithResolver(resolver)
+	versions, err := client.ModuleVersions(context.Background(), depPath)
+	require.NoError(t, err)
+	require.Empty(t, versions)
+	return client
+}
+
 // loadStandalone loads pattern (path@version) with no main module, as the
 // schema loader loads core.
 func loadStandalone(t *testing.T, registry, pattern string) error {
@@ -441,7 +455,9 @@ func cueForms() []cueForm {
 // prefix a request with no response also has. A direct fetch keeps the typed
 // status; cue/load and the push flatten it, and Classify reads the status
 // at the end of the text; and CUE's registry client turns a 403 or 404 on a
-// version lookup into "module not found".
+// version lookup into "module not found". A client that refreshes a token it
+// holds gets the answer flattened inside a *url.Error, with no typed status
+// even on a direct call; Classify reads the same text there.
 func tokenForms() []cueForm {
 	fetch := func(status int) func(t *testing.T) error {
 		return func(t *testing.T) error {
@@ -465,6 +481,18 @@ func tokenForms() []cueForm {
 		{"token/load/401", loadDep(401), observed{contains: get, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnauthorized, 401, false)},
 		{"token/load/403", loadDep(403), observed{contains: []string{"module not found"}, lacks: []string{"Forbidden"}}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"token/load/503", loadDep(503), observed{contains: get, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchOther, 503, true)},
+		{"token/refresh/list/401", func(t *testing.T) error {
+			_, err := refreshClient(t, 401).ModuleVersions(context.Background(), depPath)
+			return err
+		}, observed{contains: get, suffix: "\": cannot acquire access token: 401 Unauthorized", netErr: true}, kindOf(oerrors.FetchUnauthorized, 401, false)},
+		{"token/refresh/list/403", func(t *testing.T) error {
+			_, err := refreshClient(t, 403).ModuleVersions(context.Background(), depPath)
+			return err
+		}, observed{contains: get, suffix: "\": cannot acquire access token: 403 Forbidden", netErr: true}, kindOf(oerrors.FetchUnauthorized, 403, false)},
+		{"token/refresh/push/403", func(t *testing.T) error {
+			archive := zipOf(t, map[string]string{"cue.mod/module.cue": depModFile, "dep.cue": "package dep\n\ny: 1\n"})
+			return refreshClient(t, 403).PutModule(context.Background(), module.MustNewVersion(depPath, depVersion), bytes.NewReader(archive), int64(len(archive)))
+		}, observed{contains: post, suffix: "\": cannot acquire access token: 403 Forbidden"}, kindOf(oerrors.FetchUnauthorized, 403, false)},
 		{"token/push/401", push(401), observed{contains: post, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnauthorized, 401, false)},
 		{"token/push/403", push(403), observed{contains: post, suffix: "\": 403 Forbidden"}, kindOf(oerrors.FetchUnauthorized, 403, false)},
 		{"token/push/404", push(404), observed{contains: post, suffix: "\": 404 Not Found"}, kindOf(oerrors.FetchNotFound, 404, false)},

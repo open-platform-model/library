@@ -30,10 +30,12 @@ import (
 // ociregistry.HTTPError status, modregistry.ErrNotFound, the ociregistry
 // not-found, unauthorized and denied codes, and net.Error. Only when no typed
 // cause is found does it match text, because cue/load flattens the cause of a
-// failed import into a string. The fetch forms are matched first, so a
+// failed import into a string. One text form is also read on the typed
+// chain: a failed HTTP round trip (a net.Error) whose text is the token
+// endpoint's answer, described below. The fetch forms are matched first, so a
 // registry failure anywhere in the text never reads as an author defect; the
-// author-defect forms only after. That text fallback is the only place in the
-// library that matches the text of a registry or cue/load error. Source:
+// author-defect forms only after. Classify is the only place in the library
+// that matches the text of a registry or cue/load error. Source:
 // 0021:D8:R12.
 //
 // A registry that uses token authentication has a token endpoint, and that
@@ -41,7 +43,10 @@ import (
 // and 403 are [FetchUnauthorized]) and never as [FetchUnreachable], on the
 // typed chain and in the text fallback alike. So the error of a module push
 // through CUE's registry client, which keeps no typed cause, classifies
-// here too.
+// here too. One case is lost before it reaches Classify: CUE's registry
+// client reports a 403 or 404 on a version lookup as not found and drops
+// the status, for the token endpoint's answer too, so that is
+// [FetchNotFound].
 func Classify(err error) error {
 	if err == nil {
 		return nil
@@ -88,6 +93,13 @@ func classifyTyped(err error) (FetchKind, int, bool) {
 	}
 	var ne net.Error
 	if errors.As(err, &ne) {
+		// The HTTP round trip returned an error. That is no response,
+		// unless the error is the token endpoint's answer, which the OCI
+		// client flattens into the round trip's error on purpose when it
+		// refreshes a token, so no typed status is left to read.
+		if status, ok := errorStatus(textTokenAnswer, err.Error()); ok {
+			return kindOfStatus(status), status, true
+		}
 		return FetchUnreachable, 0, true
 	}
 	return 0, 0, false
@@ -151,7 +163,11 @@ var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+
 // token inside the HTTP round trip, and returns that endpoint's answer as
 // the round trip's error. The text is then the no-response prefix, the
 // request, and the status at the end of the line:
-// `cannot do HTTP request: Post "<url>": 403 Forbidden`. A request that got
+// `cannot do HTTP request: Post "<url>": 403 Forbidden`, or, when the client
+// was refreshing a token it held,
+// `... Post "<url>": cannot acquire access token: 403 Forbidden`. The second
+// form has no typed status even on a chain that is not flattened, so
+// classifyTyped reads this pattern too. A request that got
 // no response ends in its transport cause instead, never in a status, and
 // the URL is quoted, so it cannot hold the tail. The registry did answer,
 // so this form classifies by its status. The status text must be the one
@@ -175,8 +191,9 @@ var textStatus = regexp.MustCompile(`(?:^|: )([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -
 var textVersionNotProvided = regexp.MustCompile(`cannot find module providing package \S+@v[0-9]+\.[0-9]+\.[0-9]+`)
 
 // classifyText is the fetch half of the text fallback, most specific form
-// first: an answered token request before the no-response prefix it shares. It recognises only a failed registry interaction, and it runs
-// before classifyResolutionText, so a fetch form anywhere in the text wins.
+// first: an answered token request before the no-response prefix it shares.
+// It recognises only a failed registry interaction, and it runs before
+// classifyResolutionText, so a fetch form anywhere in the text wins.
 // It does not match cue/load's "cannot expand module graph" on its own: that
 // prefix also wraps a dependency whose module file does not parse,
 // which is an author defect (ResolutionModuleFileInvalid) and not a fetch, so

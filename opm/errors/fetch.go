@@ -7,9 +7,10 @@ import "errors"
 // response, which includes an expired deadline), or it answered with a 5xx
 // status. It is network-level only. The token endpoint of a registry that
 // uses token authentication counts as the registry: its 5xx answer is
-// transient, and its refusal (401, 403) is not. An absent module, a refused credential,
-// a 429 answer and every error the library does not recognise as a fetch
-// failure are not transient, and neither is a context cancellation.
+// transient, and its refusal (401, 403) is not. An absent module, a refused
+// credential, a 429 answer and every error the library does not recognise
+// as a fetch failure are not transient, and neither is a context
+// cancellation.
 //
 // Match it with errors.Is; a [*FetchError] in the chain answers for it. The
 // caller owns retries, and a cache that memoized the failure keeps it: a

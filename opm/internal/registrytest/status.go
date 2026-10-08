@@ -123,3 +123,35 @@ func NewTokenRegistry(t *testing.T, tokenStatus int) string {
 	t.Cleanup(srv.Close)
 	return strings.TrimPrefix(srv.URL, "http://") + "+insecure"
 }
+
+// NewRefreshTokenRegistry is [NewTokenRegistry] for a client that holds a
+// refresh token. The token endpoint answers its first request with a token
+// that expires at once and a refresh token; a registry request carrying
+// that token is answered 404 NAME_UNKNOWN, which a version listing reads as
+// "no versions". Every later token request is answered with tokenStatus, so
+// the client's next registry call fails while it refreshes the token,
+// before it sends the request. Like [NewStatusRegistry] it sets no
+// environment.
+func NewRefreshTokenRegistry(t *testing.T, tokenStatus int) string {
+	t.Helper()
+	var issued atomic.Bool
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/token" && issued.CompareAndSwap(false, true):
+			_, _ = fmt.Fprint(w, `{"token":"registrytest","refresh_token":"registrytest-refresh","expires_in":1}`)
+		case r.URL.Path == "/token":
+			w.WriteHeader(tokenStatus)
+		case r.Header.Get("Authorization") == "Bearer registrytest":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"errors":[{"code":"NAME_UNKNOWN","message":"registrytest holds nothing"}]}`)
+		default:
+			w.Header().Set("Www-Authenticate", fmt.Sprintf(`Bearer realm=%q,service="registrytest"`, srv.URL+"/token"))
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"errors":[{"code":"UNAUTHORIZED","message":"registrytest token required"}]}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return strings.TrimPrefix(srv.URL, "http://") + "+insecure"
+}
