@@ -5,6 +5,7 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -59,8 +60,8 @@ func processInstance(spec cue.Value) (*module.Instance, error) {
 // per-source checks both verbs run before processInstance have done them. A
 // spec without #config or `values` has nothing to check.
 func requiredConfigSet(spec cue.Value) error {
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
-	built := spec.LookupPath(schema.Values)
+	configSchema := spec.LookupPath(schema.Module).LookupPath(corepath.Config)
+	built := spec.LookupPath(corepath.Values)
 	if !configSchema.Exists() || !built.Exists() {
 		return nil
 	}

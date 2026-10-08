@@ -10,8 +10,8 @@ import (
 	"cuelang.org/go/cue/parser"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/loader"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // LoadSourceFromBytes wraps b as a [Source] with Origin origin after checking
@@ -125,7 +125,7 @@ func compileSource(ctx *cue.Context, s Source, opts loader.Options) (cue.Value, 
 	if err := v.Err(); err != nil {
 		return cue.Value{}, err
 	}
-	if values := v.LookupPath(schema.Values); values.Exists() && values.Err() == nil {
+	if values := v.LookupPath(corepath.Values); values.Exists() && values.Err() == nil {
 		v = values
 	}
 	return v, nil

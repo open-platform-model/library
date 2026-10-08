@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-platform-model/library/opm/catalog"
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
@@ -488,11 +489,11 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, cueCtx *cue.Context
 // incomplete values pass here and are held to concreteness by the instance
 // processing step afterwards.
 func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := spec.LookupPath(schema.Module).LookupPath(corepath.Config)
 	if _, err := validateCompiled(configSchema, compiled, false); err != nil {
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(spec), err)
 	}
-	built := spec.LookupPath(schema.Values)
+	built := spec.LookupPath(corepath.Values)
 	if !configSchema.Exists() || !built.Exists() {
 		return nil
 	}
@@ -536,9 +537,9 @@ func attributeValuesError(cueCtx *cue.Context, opts loader.Options, authoredSrc 
 // processing step on a build that succeeds. It returns the raw CUE error, or
 // nil when the values are clean or there is nothing to check.
 func valuesConflict(authored cue.Value, compiled []cue.Value) error {
-	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := authored.LookupPath(schema.Module).LookupPath(corepath.Config)
 	all := make([]cue.Value, 0, len(compiled)+1)
-	if own := authored.LookupPath(schema.Values); own.Exists() {
+	if own := authored.LookupPath(corepath.Values); own.Exists() {
 		all = append(all, own)
 	}
 	all = append(all, compiled...)

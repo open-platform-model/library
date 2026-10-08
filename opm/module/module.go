@@ -16,11 +16,12 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
 // ConfigSchema returns the module's #config schema reachable via
-// schema.Config on m.Package.
+// corepath.Config on m.Package.
 //
 // All failure modes return the zero cue.Value (not an error): a nil receiver
 // or a missing #config definition on the module package. Callers detect
@@ -31,11 +32,11 @@ func (m *Module) ConfigSchema() cue.Value {
 	if m == nil {
 		return cue.Value{}
 	}
-	return m.Package.LookupPath(schema.Config)
+	return m.Package.LookupPath(corepath.Config)
 }
 
 // DebugValues returns the module's author-supplied debugValues at
-// schema.DebugValues on m.Package.
+// corepath.DebugValues on m.Package.
 //
 // It returns the zero cue.Value (not an error) for a nil receiver or a
 // module that declares none; callers test Exists(). The kernel never reads
@@ -47,7 +48,7 @@ func (m *Module) DebugValues() cue.Value {
 	if m == nil {
 		return cue.Value{}
 	}
-	return m.Package.LookupPath(schema.DebugValues)
+	return m.Package.LookupPath(corepath.DebugValues)
 }
 
 // Module represents an OPM #Module artifact in the unified artifact shape.

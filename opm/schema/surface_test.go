@@ -81,3 +81,36 @@ func TestSurface_OneNamePerType(t *testing.T) {
 		}
 	}
 }
+
+// opm/schema exports only the paths and core-release constants a consumer
+// reads. Every other path the kernel's Go code reads lives in
+// opm/internal/corepath, where no importer can reach or reassign it.
+func TestSurface_SchemaExportsOnlyConsumerPaths(t *testing.T) {
+	_, values := exportedDecls(t, ".")
+
+	var paths []string
+	for name, spec := range values {
+		for _, v := range spec.Values {
+			call, ok := v.(*ast.CallExpr)
+			if !ok {
+				continue
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if ok && (sel.Sel.Name == "ParsePath" || sel.Sel.Name == "MakePath") {
+				paths = append(paths, name)
+				break
+			}
+		}
+	}
+	assert.ElementsMatch(t, []string{"Metadata", "Module", "CatalogProvides"}, paths,
+		"a new exported path is a v1 contract: put it in opm/internal/corepath unless a consumer must read it")
+
+	var since []string
+	for name := range values {
+		if strings.HasSuffix(name, "Since") {
+			since = append(since, name)
+		}
+	}
+	assert.ElementsMatch(t, []string{"ProvidedBySince", "ProvidesSince"}, since,
+		"a core-release constant is exported only when code outside the library's tests reads it")
+}

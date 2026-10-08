@@ -20,9 +20,9 @@
 
 ## 4. Shrink the opm/schema exports
 
-- [ ] 4.1 Create `opm/internal/corepath` with the twelve paths and their reader inventory; `opm/schema/paths.go` keeps `Metadata`, `Module`, `CatalogProvides`, `ProvidedBySince`, `ProvidesSince`; delete `CollisionsSince`; move every reader; verify `go build ./... && go vet ./...`
-- [ ] 4.2 Add a test that pins the exported `cue.Path` variables of `opm/schema` to the three names (parse the package with `go/parser`); verify it fails when a fourth is added
-- [ ] 4.3 `task check` green, then commit `feat(schema)!: export only the paths a consumer reads`
+- [x] 4.1 Create `opm/internal/corepath` with the twelve paths and their reader inventory; `opm/schema/paths.go` keeps `Metadata`, `Module`, `CatalogProvides`, `ProvidedBySince`, `ProvidesSince`; delete `CollisionsSince`; move every reader; verify `go build ./... && go vet ./...`
+- [x] 4.2 Add a test that pins the exported `cue.Path` variables of `opm/schema` to the three names (parse the package with `go/parser`); verify it fails when a fourth is added
+- [x] 4.3 `task check` green, then commit `feat(schema)!: export only the paths a consumer reads`
 
 ## 5. Record and verify
 

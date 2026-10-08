@@ -38,7 +38,7 @@ See `CONSTITUTION.md` for the full set of principles.
 ```text
 opm/
   errors/                 Structured errors, grouped CUE diagnostics, typed render-gate causes
-  schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory
+  schema/                 OPM core schema loader (OCILoader, Cache), the CUE paths a consumer reads
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render) and `Compiled`, its terminal output
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
@@ -97,7 +97,7 @@ The library does NOT vendor or embed the OPM core schema. The per-`Kernel` `*sch
 
 Key pieces:
 
-- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
+- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), the three CUE paths a consumer reads (`Metadata`, `Module`, `CatalogProvides`), and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
 - `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to callers. `kernel.WithRegistry(string)` sets the ONE registry mapping every kernel operation resolves through; the [`opm/kernel` package documentation](opm/kernel/doc.go) lists the operations.
 
 Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.

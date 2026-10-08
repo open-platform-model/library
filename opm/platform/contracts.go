@@ -8,6 +8,7 @@ import (
 	"cuelang.org/go/cue"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -123,7 +124,7 @@ type ContractInventory struct {
 	// a key is in none of DefinedBy, RequiredBy, Unfulfilled or
 	// Comparable, and Routable is false while any exists. A disabled entry
 	// never counts as a definer. Empty on a platform pinning a core older
-	// than [schema.CollisionsSince], which cannot evaluate a colliding
+	// than core 2.0.0-alpha.13, which cannot evaluate a colliding
 	// platform at all.
 	Collisions []string `json:"collisions"`
 
@@ -133,7 +134,7 @@ type ContractInventory struct {
 }
 
 // Contracts returns the contract inventory (#Platform.#contracts,
-// [schema.Contracts]) that was decoded once, when the platform was
+// [corepath.Contracts]) that was decoded once, when the platform was
 // constructed (see [Platform]), or the refusal recorded in its place. It
 // reads no Package on a constructed platform, and no kernel verb calls it.
 // Each call returns its own copy: a caller may change the maps and slices
@@ -159,7 +160,7 @@ type ContractInventory struct {
 //
 // The one exception is the collision report: an absent `collisions` or
 // `collidingEntries` decodes as empty. Every core release carrying
-// #contracts before [schema.CollisionsSince] folds definedBy over every
+// #contracts before core 2.0.0-alpha.13 folds definedBy over every
 // enabled entry, and registry keys are distinct strings, so two enabled
 // definers of one key always conflict there: such a core fails to evaluate
 // a colliding platform, and a value that evaluated without the report
@@ -225,14 +226,14 @@ func (p *Platform) facts() *facts {
 // platform value. It never fails: a refusal is recorded in place of the
 // inventory.
 func decodeFacts(v cue.Value) facts {
-	f := facts{providedBy: v.LookupPath(schema.ContractsProvidedBy).Exists()}
-	cv := v.LookupPath(schema.Contracts)
+	f := facts{providedBy: v.LookupPath(corepath.ContractsProvidedBy).Exists()}
+	cv := v.LookupPath(corepath.Contracts)
 	if !cv.Exists() {
 		f.tooOld = &tooOld{field: "#contracts", since: "2.0.0-alpha.9"}
 		return f
 	}
 	if err := cv.Err(); err != nil {
-		f.err = fmt.Errorf("platform %s did not evaluate: %w", schema.Contracts, err)
+		f.err = fmt.Errorf("platform %s did not evaluate: %w", corepath.Contracts, err)
 		return f
 	}
 	inv := &ContractInventory{}
@@ -259,7 +260,7 @@ func decodeFacts(v cue.Value) facts {
 			return f
 		}
 		if err := fv.Decode(d.into); err != nil {
-			f.err = fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, d.name, err)
+			f.err = fmt.Errorf("decoding platform %s.%s: %w", corepath.Contracts, d.name, err)
 			return f
 		}
 	}
@@ -278,7 +279,7 @@ func decodeFacts(v cue.Value) facts {
 			continue
 		}
 		if err := fv.Decode(d.into); err != nil {
-			f.err = fmt.Errorf("decoding platform %s.%s: %w", schema.Contracts, d.name, err)
+			f.err = fmt.Errorf("decoding platform %s.%s: %w", corepath.Contracts, d.name, err)
 			return f
 		}
 	}

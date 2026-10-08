@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/platform"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // The colliding-majors fixtures (testdata/render): maj 0.1.0 and maj 1.4.0
@@ -167,7 +167,7 @@ func TestRender_OlderCoreWithoutCollisionReportRendersUnchanged(t *testing.T) {
 	require.NoError(t, os.WriteFile(modFile, []byte(strings.Replace(string(data), pin, `v: "v2.0.0-alpha.12"`, 1)), 0o644))
 	plat, err := k.AcquirePlatformFromDir(context.Background(), dir)
 	require.NoError(t, err)
-	require.False(t, plat.Package.LookupPath(schema.ContractsCollisions).Exists(),
+	require.False(t, plat.Package.LookupPath(corepath.ContractsCollisions).Exists(),
 		"precondition: core 2.0.0-alpha.12 carries no collision report")
 
 	inst := acquireRenderInstance(t, k, "instance")
@@ -213,12 +213,12 @@ func TestRender_HandBuiltOlderCoreCollidingPlatformNeverRenders(t *testing.T) {
 	pkg := buildPlatformValue(t, dir)
 	plat, err := platform.NewPlatformFromValue(pkg)
 	require.NoError(t, err, "construction records the contracts refusal and does not return it")
-	require.True(t, plat.Package.LookupPath(schema.ContractsProvidedBy).Exists(), "the value carries providedBy")
+	require.True(t, plat.Package.LookupPath(corepath.ContractsProvidedBy).Exists(), "the value carries providedBy")
 	require.NoError(t, plat.CoreFloor(), "the value passes the core floor")
 	_, contractsErr := plat.Contracts()
 	require.Error(t, contractsErr, "the recorded inventory refusal is returned later")
 	assert.Contains(t, contractsErr.Error(), "conflicting values")
-	require.False(t, plat.Package.LookupPath(schema.ContractsCollisions).Exists(), "and carries no collision report")
+	require.False(t, plat.Package.LookupPath(corepath.ContractsCollisions).Exists(), "and carries no collision report")
 	plat.Source = &module.Source{Root: dir}
 
 	inst := acquireRenderInstance(t, k, "instance_maj0")
