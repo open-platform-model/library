@@ -9,8 +9,9 @@ import (
 // clause (0010:D9): the kernel is the version label's verifier, never its source.
 // It is emitted at the one library read site that holds both a fetched
 // coordinate and decoded metadata: module acquire
-// (the kernel's registry acquisition) returns it bare, so frontends route on it via
-// [errors.As]. A platform's catalog builds are verified structurally by core
+// (the kernel's registry acquisition) returns a *IdentityError bare, so
+// frontends route on it via [errors.As] with a pointer target, as for every
+// other typed error of this package. A platform's catalog builds are verified structurally by core
 // instead: the registry key binds to the embedded catalog's modulePath
 // (0019:D5), so no catalog read site produces it.
 type IdentityError struct {
@@ -29,9 +30,9 @@ type IdentityError struct {
 }
 
 // Error names both values, the declared identity and the fetched coordinate
-// (0010:D11). Value receiver: the condition is a comparison, not a wrapped
-// failure, so there is no Cause and no Unwrap.
-func (e IdentityError) Error() string {
+// (0010:D11). The condition is a comparison, not a wrapped failure, so there
+// is no Cause and no Unwrap.
+func (e *IdentityError) Error() string {
 	return fmt.Sprintf("identity mismatch at %s: metadata declares %q but the artifact was fetched as %q (%s)",
 		e.Field, e.Declared, e.Fetched, e.Coordinate)
 }

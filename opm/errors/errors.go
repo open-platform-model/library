@@ -1,5 +1,9 @@
 // Package errors provides the structured verdict rows and error types of OPM.
 //
+// Every type here that is an error declares its Error method on the pointer
+// receiver: match each of them with errors.As and a pointer target. The
+// value type is not an error.
+//
 // The render path splits the two. A ROW is plain data with no Error method:
 // [UnresolvedDemand], [UnifyRefusal], [UnmatchedComponent],
 // [CandidateVerdict], [OverSubscribedContract] and [ContractCollision] are
@@ -29,8 +33,10 @@
 //
 // Configuration validation errors are CUE-native — see
 // [cuelang.org/go/cue/errors] for the canonical interface and helpers
-// (Errors, Positions, Print). The library does not wrap CUE diagnostics
-// in custom Go-typed projections, nor does it ship a presentation-layer
-// formatter; frontends walk the CUE error tree and render however their
-// consumer requires.
+// (Errors, Positions, Print). [*ConfigValidationError] marks one as a
+// validation failure and wraps the CUE error tree unchanged, so those
+// helpers see through it. The library does not project CUE diagnostics into
+// Go types of its own, nor does it ship a presentation-layer formatter;
+// frontends walk the CUE error tree and render however their consumer
+// requires.
 package errors

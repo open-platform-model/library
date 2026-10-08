@@ -6,11 +6,11 @@
 
 ## 2. One shape for typed errors (opm/errors, opm/kernel, opm/internal/loader)
 
-- [ ] 2.1 Add a test in `opm/errors` that every exported type with an `Error` method implements `error` on the pointer only, and loader tests that match `*IdentityError`; see them fail
-- [ ] 2.2 Give `IdentityError` a pointer receiver and return `&IdentityError{}` from the loader; the tests of 2.1 pass
-- [ ] 2.3 Add tests: `ValidateConfigDetailed` on bad values matches `*ConfigValidationError` through a `%w` wrap, `cueerrors.Errors` gives the same errors as on `Err`, the text is unchanged, and a source that does not compile is not marked; see them fail
-- [ ] 2.4 Add `errors.ConfigValidationError` and wrap in `ValidateConfigDetailed`; update the `opm/errors` and `ValidateConfigDetailed` docs; the tests of 2.3 pass
-- [ ] 2.5 `task check` green, then commit `feat(errors)!: give typed errors one shape and type the validation failure`
+- [x] 2.1 Add a test in `opm/errors` that every exported type with an `Error` method implements `error` on the pointer only, and loader tests that match `*IdentityError`; see them fail
+- [x] 2.2 Give `IdentityError` a pointer receiver and return `&IdentityError{}` from the loader; the tests of 2.1 pass
+- [x] 2.3 Add tests: `ValidateConfigDetailed` on bad values matches `*ConfigValidationError` through a `%w` wrap, `cueerrors.Errors` gives the same errors as on `Err`, the text is unchanged, and a source that does not compile is not marked; see them fail
+- [x] 2.4 Add `errors.ConfigValidationError` and wrap in `ValidateConfigDetailed`; update the `opm/errors` and `ValidateConfigDetailed` docs; the tests of 2.3 pass
+- [x] 2.5 `task check` green, then commit `feat(errors)!: give typed errors one shape and type the validation failure`
 
 ## 3. One name per type (opm/schema, opm/module, opm/platform, opm/catalog)
 
