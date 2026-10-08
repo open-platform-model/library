@@ -303,7 +303,9 @@
 // goroutine its own acquired artifact. The kernel's own verbs never share a
 // context this way.
 //
-// The primitive returns CUE-native errors. Walk them via
+// The primitive returns CUE-native errors, marked as a validation failure by
+// the *ConfigValidationError of opm/errors (see ValidateConfigDetailed for
+// what is marked). Walk them via
 // [cuelang.org/go/cue/errors.Errors] / [cuelang.org/go/cue/errors.Positions],
 // or print via [cuelang.org/go/cue/errors.Print]. Presentation belongs to the
 // frontend — the kernel does not ship a formatter.

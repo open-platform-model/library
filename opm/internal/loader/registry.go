@@ -175,7 +175,7 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 // with the `v` prefix stripped. The shape gate has already guaranteed both
 // fields present and concrete (ModuleSpec.RequiredConcreteFields), so
 // the check cannot misfire on absence. A mismatch returns a bare
-// oerrors.IdentityError naming both values. Sitting after the gate in
+// *oerrors.IdentityError naming both values. Sitting after the gate in
 // FetchModule, the registry path's single entry FOR MODULES, the check runs
 // for every caller (Kernel.AcquireModuleFromRegistry and the frontends behind
 // it): 0010:D11's one implementation. It is module-only by decision, not by
@@ -195,7 +195,7 @@ func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 		return fmt.Errorf("reading metadata.modulePath of %s: %w", coordinate, err)
 	}
 	if declaredPath != modPath {
-		return oerrors.IdentityError{
+		return &oerrors.IdentityError{
 			Field:      "path",
 			Declared:   declaredPath,
 			Fetched:    modPath,
@@ -208,7 +208,7 @@ func verifyModuleIdentity(val cue.Value, modPath, version string) error {
 		return fmt.Errorf("reading metadata.version of %s: %w", coordinate, err)
 	}
 	if fetched := modversion.Bare(version); declaredVersion != fetched {
-		return oerrors.IdentityError{
+		return &oerrors.IdentityError{
 			Field:      "version",
 			Declared:   declaredVersion,
 			Fetched:    fetched,

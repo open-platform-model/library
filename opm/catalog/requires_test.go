@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/catalog"
+	"github.com/open-platform-model/library/opm/module"
 )
 
 const testModFile = `module: "test.example/catalogs/provider@v1"
@@ -22,7 +23,7 @@ deps: {
 
 // withSource wraps a bare catalog value in a source tree, the way an acquire
 // verb stamps one.
-func withSource(t *testing.T, src *catalog.Source) *catalog.Catalog {
+func withSource(t *testing.T, src *module.Source) *catalog.Catalog {
 	t.Helper()
 	v := cuecontext.New().CompileString(catalogBody(""))
 	require.NoError(t, v.Err())
@@ -44,7 +45,7 @@ func TestCatalog_Requires(t *testing.T) {
 
 	t.Run("overlay mode reads the staged module file", func(t *testing.T) {
 		root := filepath.Join(string(filepath.Separator), "synthetic", "root")
-		c := withSource(t, &catalog.Source{
+		c := withSource(t, &module.Source{
 			Root: root,
 			Overlay: map[string][]byte{
 				filepath.Join(root, "cue.mod", "module.cue"): []byte(testModFile),
@@ -60,7 +61,7 @@ func TestCatalog_Requires(t *testing.T) {
 		root := t.TempDir()
 		require.NoError(t, os.MkdirAll(filepath.Join(root, "cue.mod"), 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(root, "cue.mod", "module.cue"), []byte(testModFile), 0o644))
-		c := withSource(t, &catalog.Source{Root: root})
+		c := withSource(t, &module.Source{Root: root})
 
 		got, err := c.Requires()
 		require.NoError(t, err)
@@ -73,7 +74,7 @@ func TestCatalog_Requires(t *testing.T) {
 // never a CUE module type.
 func TestCatalog_Requires_ReturnsPlainStrings(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "synthetic", "root")
-	c := withSource(t, &catalog.Source{
+	c := withSource(t, &module.Source{
 		Root:    root,
 		Overlay: map[string][]byte{filepath.Join(root, "cue.mod", "module.cue"): []byte(testModFile)},
 	})
@@ -97,7 +98,7 @@ func TestCatalog_Requires_Errors(t *testing.T) {
 
 	t.Run("an absent module file is reported with its path", func(t *testing.T) {
 		root := t.TempDir()
-		c := withSource(t, &catalog.Source{Root: root})
+		c := withSource(t, &module.Source{Root: root})
 		got, err := c.Requires()
 		require.Error(t, err)
 		assert.Nil(t, got)
@@ -106,7 +107,7 @@ func TestCatalog_Requires_Errors(t *testing.T) {
 
 	t.Run("an unparseable module file is reported", func(t *testing.T) {
 		root := filepath.Join(string(filepath.Separator), "synthetic", "root")
-		c := withSource(t, &catalog.Source{
+		c := withSource(t, &module.Source{
 			Root:    root,
 			Overlay: map[string][]byte{filepath.Join(root, "cue.mod", "module.cue"): []byte("this is not a module file")},
 		})
@@ -120,7 +121,7 @@ func TestCatalog_Requires_Errors(t *testing.T) {
 	// which refuses replaceWith in module.cue as cue/load does.
 	t.Run("a replaceWith dependency is refused like the render stage refuses it", func(t *testing.T) {
 		root := filepath.Join(string(filepath.Separator), "synthetic", "root")
-		c := withSource(t, &catalog.Source{
+		c := withSource(t, &module.Source{
 			Root: root,
 			Overlay: map[string][]byte{filepath.Join(root, "cue.mod", "module.cue"): []byte(`module: "test.example/catalogs/provider@v1"
 language: version: "v0.17.0"

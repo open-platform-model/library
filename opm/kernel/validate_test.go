@@ -1,6 +1,8 @@
 package kernel_test
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -9,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
 )
@@ -265,4 +268,62 @@ func TestKernel_ValidateConfigDetailed_ViolationPositionedAtOriginLine(t *testin
 		}
 	}
 	assert.True(t, atOriginLine3, "the violation is positioned at %s:3; positions: %v", origin, positions)
+}
+
+// A validation failure is matched by type, through any number of %w wraps,
+// and the marker changes neither the text nor what the CUE helpers see.
+func TestKernel_ValidateConfigDetailed_FailureIsTyped(t *testing.T) {
+	k := kernel.New()
+	for name, tc := range map[string]struct{ schema, values string }{
+		"constraint":      {`{ replicas: int & >0 }`, `{ replicas: -1 }`},
+		"disallowed":      {`close({ replicas: int })`, `{ replicas: 1, stray: "x" }`},
+		"not concrete":    {`{ replicas: int & >0, name: string }`, `{ replicas: 3 }`},
+		"several at once": {`close({ replicas: int & >0, name: string })`, `{ replicas: -1, stray: "x" }`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			schema := cuecontext.New().CompileString(tc.schema)
+			require.NoError(t, schema.Err())
+			src := mustSource(t, k, "values.cue", tc.values)
+
+			_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{src})
+			require.Error(t, vErr)
+			wrapped := fmt.Errorf("module %q: %w", "demo", fmt.Errorf("values: %w", vErr))
+
+			var cve *oerrors.ConfigValidationError
+			require.True(t, errors.As(wrapped, &cve), "want *ConfigValidationError, got %T: %v", vErr, vErr)
+			require.Error(t, cve.Err, "the marker carries the CUE error tree")
+			assert.Equal(t, cve.Err.Error(), vErr.Error(), "the marker does not reword the tree")
+
+			tree := cueerrors.Errors(cve.Err)
+			require.NotEmpty(t, tree)
+			assert.Equal(t, tree, cueerrors.Errors(vErr), "the returned error walks to the same CUE errors, in order")
+			assert.Equal(t, tree, cueerrors.Errors(wrapped), "and so does a wrapped one")
+			assert.Equal(t, cueerrors.Details(cve.Err, nil), cueerrors.Details(wrapped, nil), "printing is unchanged")
+		})
+	}
+}
+
+// A source that does not compile is not a statement about the values against
+// the schema (a file-backed source can fail on a registry), so it is returned
+// without the marker.
+func TestKernel_ValidateConfigDetailed_CompileFailureIsNotMarked(t *testing.T) {
+	k := kernel.New()
+	schema := cuecontext.New().CompileString(`{ replicas: int }`)
+	require.NoError(t, schema.Err())
+	src := kernel.Source{Origin: "broken.cue", Data: []byte(`{ replicas: `)}
+
+	_, vErr := k.ValidateConfigDetailed(schema, []kernel.Source{src})
+	require.Error(t, vErr)
+	var cve *oerrors.ConfigValidationError
+	assert.False(t, errors.As(vErr, &cve), "a compile failure is not a validation failure: %v", vErr)
+}
+
+func TestKernel_ValidateConfigDetailed_SuccessReturnsNoMarker(t *testing.T) {
+	k := kernel.New()
+	schema := cuecontext.New().CompileString(`{ replicas: int & >0 }`)
+	require.NoError(t, schema.Err())
+
+	merged, err := k.ValidateConfigDetailed(schema, []kernel.Source{mustSource(t, k, "ok.cue", `{ replicas: 2 }`)})
+	require.NoError(t, err, "a nil validation result must stay a nil error, never a typed nil")
+	assert.True(t, merged.Exists())
 }

@@ -7,6 +7,7 @@ import (
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/token"
 
+	oerrors "github.com/open-platform-model/library/opm/errors"
 	"github.com/open-platform-model/library/opm/internal/loader"
 )
 
@@ -25,10 +26,15 @@ const fieldNotAllowed = "field not allowed"
 // constructors, and [Source] for what a file-backed origin means.
 //
 // Returns the merged [cue.Value] on success and the zero value on failure.
-// The returned error is the raw CUE error tree (a source that fails to
-// compile included); walk it via [cuelang.org/go/cue/errors.Errors] and
+// Values that do not satisfy the schema (a disallowed field, a type or
+// constraint violation, a field left non-concrete) fail with a
+// [*oerrors.ConfigValidationError], which wraps the raw CUE error tree
+// unchanged: test for it with [errors.As], and walk the returned error via
+// [cuelang.org/go/cue/errors.Errors] and
 // [cuelang.org/go/cue/errors.Positions], or print it via
-// [cuelang.org/go/cue/errors.Print]. Presentation is outside the kernel's
+// [cuelang.org/go/cue/errors.Print], all of which see through the marker.
+// A source that fails to compile or to load is returned as the raw error,
+// without the marker. Presentation is outside the kernel's
 // contract — frontends own their own formatting. Module-name framing is the
 // caller's responsibility — wrap with [fmt.Errorf] if a context prefix is
 // required.
@@ -50,8 +56,10 @@ func (k *Kernel) ValidateConfigDetailed(schema cue.Value, sources []Source) (cue
 // file-backed source's load uses ([Kernel.loadOptions]); the zero value
 // reads the process environment and lets cue/load build its own registry.
 //
-// Returns the unified value on success and the zero value plus the raw CUE
-// error tree on failure; callers wrap with [fmt.Errorf] if they want context
+// Returns the unified value on success and the zero value plus an error on
+// failure: the raw error of a source that does not compile or load, or a
+// [*oerrors.ConfigValidationError] around the raw CUE error tree of the
+// validation step. Callers wrap with [fmt.Errorf] if they want context
 // framing. Empty sources, a zero schema or a merged value that does not
 // exist short-circuit to (zero, nil).
 func validateSources(schema cue.Value, sources []Source, opts loader.Options, requireConcrete bool) (cue.Value, error) {
@@ -65,12 +73,17 @@ func validateSources(schema cue.Value, sources []Source, opts loader.Options, re
 	if err != nil {
 		return cue.Value{}, err
 	}
-	return validateCompiled(schema, values, requireConcrete)
+	merged, err := validateCompiled(schema, values, requireConcrete)
+	if err != nil {
+		return cue.Value{}, &oerrors.ConfigValidationError{Err: err}
+	}
+	return merged, nil
 }
 
-// validateCompiled is [validateSources] for values already compiled in the
-// schema's context: no values or a zero schema short-circuit to (zero, nil),
-// anything else goes to [validateValues].
+// validateCompiled is the validation step of [validateSources] for values
+// already compiled in the schema's context, returning the raw CUE error
+// tree without the marker: no values or a zero schema short-circuit to
+// (zero, nil), anything else goes to [validateValues].
 func validateCompiled(schema cue.Value, values []cue.Value, requireConcrete bool) (cue.Value, error) {
 	if len(values) == 0 || !schema.Exists() {
 		return cue.Value{}, nil

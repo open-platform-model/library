@@ -21,8 +21,8 @@ import (
 // It names an exact core release, never the floating "opmodel.dev/core@v2"
 // major: the release the kernel's render glue, fixtures and parity oracle
 // were verified against. The constant's value below names that release,
-// and doc comments cite it by the constant's name. [CollisionsSince]
-// (2.0.0-alpha.13) is the first release reporting contract collisions on
+// and doc comments cite it by the constant's name. Core
+// 2.0.0-alpha.13 is the first release reporting contract collisions on
 // the derived #Platform.#contracts inventory (`collisions` and
 // `collidingEntries`, with `routable` false while any exist, and `defined`
 // and `definedBy` folding only keys with exactly one enabled definer), on
@@ -35,7 +35,7 @@ import (
 //
 // The default is not the render floor: Kernel.Render and Platform.Contracts
 // accept every core from [ProvidedBySince] on, and a platform pinning a
-// release between the floor and [CollisionsSince] decodes an absent collision
+// release between the floor and 2.0.0-alpha.13 decodes an absent collision
 // report as no collision (such a core cannot evaluate a colliding platform
 // at all). The constant advances only by a deliberate change that
 // re-verifies the glue and the fixtures against the new release; a default

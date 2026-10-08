@@ -38,14 +38,13 @@ See `CONSTITUTION.md` for the full set of principles.
 ```text
 opm/
   errors/                 Structured errors, grouped CUE diagnostics, typed render-gate causes
-  schema/                 OPM core schema loader (OCILoader, Cache), CUE path inventory, metadata types
+  schema/                 OPM core schema loader (OCILoader, Cache), the CUE paths a consumer reads
   kernel/                 Public Kernel struct — single entry point for the OPM runtime (acquire, synthesize, validate, Render) and `Compiled`, its terminal output
   module/                 Module / Instance model and value-validation accessors
   platform/               Platform artifact model — a CUE module importing its catalogs; Render's sole platform input
   catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() (reads core's derived `provides`; a deprecated Go fold answers catalogs built against an older core) and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
-    objectset/            DEPRECATED: use k8s/object. Duplicate rendered object identities, frozen and kept until both frontends migrate
   k8s/                    The Kubernetes tier beside the kernel (ADR-011): mandatory for a Kubernetes frontend, fenced by lint
     health/               Readiness: Evaluate (one fetched object to a Status), IsHealthy, Aggregate, ProgressDeadlineExceeded; pure, ported from the cli with its status strings
     inventory/            Entry + NewEntry, SameObject, the component-blind StaleSet, the canonical inventory Digest and the RenderDigest both runtimes compute equally
@@ -98,7 +97,7 @@ The library does NOT vendor or embed the OPM core schema. The per-`Kernel` `*sch
 
 Key pieces:
 
-- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), CUE path inventory, metadata types, and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
+- `opm/schema` — schema loader (`Loader` interface, `OCILoader` sole public implementation), per-instance memoization (`Cache`), the three CUE paths a consumer reads (`Metadata`, `Module`, `CatalogProvides`), and the `PublicRegistry` const (`opmodel.dev=ghcr.io/open-platform-model,registry.cue.works`).
 - `opm/kernel` — `kernel.WithSchemaLoader(schema.Loader)` configures which Loader the Kernel's cache wraps; `(*Kernel).SchemaCache()` exposes the cache to callers. `kernel.WithRegistry(string)` sets the ONE registry mapping every kernel operation resolves through; the [`opm/kernel` package documentation](opm/kernel/doc.go) lists the operations.
 
 Frontends (CLI, operator, future Crossplane fn) set `CUE_REGISTRY` (typically to `schema.PublicRegistry`) before constructing the Kernel. The library auto-applies no default; this keeps Principle I (kernel neutrality) intact and avoids hidden lookups. See `docs/getting-started.md` for the deployment pattern, including the warm-cache pre-seeding pattern for restricted environments.
@@ -109,10 +108,9 @@ Anything under `opm/helper/` is opt-in convenience for embedding the kernel; a f
 
 The boundary is enforced by `task lint`, not just documented: a `depguard` rule in `.golangci.yml` forbids `opm/kernel`, `opm/module`, `opm/platform`, `opm/catalog`, `opm/schema`, `opm/errors` and every package under `opm/internal/` from importing anything under `opm/helper/`. Six more fence `opm/k8s/`: no other `opm/` package imports it, it imports no Flux, helper or internal package, of the Kubernetes modules it imports only `k8s.io/apimachinery`, its non-test files import only the standard library, `cuelang.org/go/cue` and its subpackages, `k8s.io/apimachinery` and the library's own `opm/` packages (a strict allow list), `opm/k8s/labels` imports only the standard library, and `opm/k8s/health` imports only the standard library and `k8s.io/apimachinery`. Two keep every kernel package and every helper package off `k8s.io` and `sigs.k8s.io`, a tenth keeps client-go, controller-runtime and Flux out of every file under `opm/`, and an eleventh keeps `golang.org/x/mod/semver` (and any second SemVer library) out of every `opm/` package but `opm/internal/modversion`.
 
-Today this layer holds exactly two subpackages:
+Today this layer holds exactly one subpackage:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
-- `opm/helper/objectset` — **Deprecated: use `opm/k8s/object`.** Duplicate rendered object identities: `Duplicates` and `DuplicateIdentitiesError`, identical to the copy in `opm/k8s/object`, which is now the home of that Kubernetes vocabulary. This copy is frozen and stays only until the cli and the operator have moved their imports; a later change removes it.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 

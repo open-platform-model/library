@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/schematest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/platform"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // The render fixtures (testdata/render) serve the catalogs whose contract
@@ -577,7 +577,7 @@ func TestContracts_InventoryPredatingTheCollisionReportReadsEmpty(t *testing.T) 
 		require.NoError(t, os.WriteFile(filepath.Join(dir, rel), data, 0o644))
 	}
 	plat := acquireContractsPlatform(t, k, dir)
-	require.False(t, plat.Package.LookupPath(schema.ContractsCollisions).Exists(),
+	require.False(t, plat.Package.LookupPath(corepath.ContractsCollisions).Exists(),
 		"precondition: core 2.0.0-alpha.12 carries no collision report")
 
 	inv, err := plat.Contracts()

@@ -8,6 +8,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -192,7 +193,7 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*mod
 	// positions. This is the same pass Kernel.AcquireInstanceFromDir runs over
 	// its extra values; concreteness of the whole instance is enforced by
 	// processInstance afterwards.
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := spec.LookupPath(schema.Module).LookupPath(corepath.Config)
 	if _, vErr := validateCompiled(configSchema, compiled, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
 	}

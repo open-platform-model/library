@@ -57,20 +57,14 @@ type Catalog struct {
 	// [Catalog.Requires] is the one reader that needs it. See
 	// [module.Source] for the full two-mode contract shared with every
 	// artifact.
-	Source *Source `json:"-"`
+	Source *module.Source `json:"-"`
 }
 
-// Source is a re-export of [module.Source] so callers can keep working with
-// `catalog.Source`, mirroring platform.Source. One type describes the staged
-// source tree of every artifact.
-type Source = module.Source
-
-// CatalogMetadata is a re-export of [schema.CatalogMetadata] so callers can
-// keep working with `catalog.CatalogMetadata` without taking a transitive
-// dependency on opm/schema at every reference site.
+// Source is a second name of [module.Source], kept for a consumer that still
+// spells it this way.
 //
-//nolint:revive // stutter intentional: catalog.CatalogMetadata reads clearly at call sites
-type CatalogMetadata = schema.CatalogMetadata
+// Deprecated: use [module.Source]. A later release removes this alias.
+type Source = module.Source
 
 // NewCatalogFromValue builds a *Catalog from a raw CUE artifact value: it
 // decodes CatalogMetadata from the value's metadata field and stores the input

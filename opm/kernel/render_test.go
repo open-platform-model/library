@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
-	"github.com/open-platform-model/library/opm/helper/objectset" //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
 	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/internal/renderstage"
 	"github.com/open-platform-model/library/opm/internal/schematest"
@@ -421,11 +420,10 @@ func TestRender_EffectivelyOptionalTraitWarns(t *testing.T) {
 
 // The kernel reads no Kubernetes identity, so two objects landing on one is
 // not its business: the render succeeds and both objects come back. Only a
-// caller of the duplicate check (opm/k8s/object, or its deprecated copy in
-// opm/helper/objectset, which this kernel test may import) learns that the
-// second write would overwrite the first. The Kubernetes tier is where the
-// platform vocabulary lives, and this pins that the kernel never grew the
-// check.
+// caller of the duplicate check (opm/k8s/object, which no kernel test may
+// import and whose own tests cover the rows) learns that the second write
+// would overwrite the first. The Kubernetes tier is where the platform
+// vocabulary lives, and this pins that the kernel never grew the check.
 func TestRender_DuplicateObjectIdentitiesStillSucceed(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")
@@ -435,14 +433,17 @@ func TestRender_DuplicateObjectIdentitiesStillSucceed(t *testing.T) {
 	require.NoError(t, err, "a duplicate apply identity is not a kernel refusal")
 	assertGateAgrees(t, built, false)
 	assert.Equal(t, []string{"primary/ConfigMap/app", "shadow/ConfigMap/app"}, compiledSummary(t, res.Compiled),
-		"both objects are returned, under one name")
+		"both objects are returned, under one kind and name, each with its producing component, in render order")
 
-	rows := objectset.Duplicates(res.Compiled) //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
-	require.Len(t, rows, 1, "the helper, not the kernel, reports the collision")
-	assert.Equal(t, "ConfigMap", rows[0].Identity.Kind)
-	assert.Equal(t, "app", rows[0].Identity.Name)
-	assert.Equal(t, []string{"primary", "shadow"}, []string{rows[0].Producers[0].Component, rows[0].Producers[1].Component},
-		"both producing components are named, in render order")
+	// The two objects carry one apply identity in the fields opm/k8s/object
+	// reads (apiVersion, kind, metadata.namespace, metadata.name), so its
+	// Duplicates reports them as one row; that package's own tests cover the
+	// rows on values of this shape.
+	require.Len(t, res.Compiled, 2)
+	assert.Equal(t, applyIdentity(t, res.Compiled[0]), applyIdentity(t, res.Compiled[1]),
+		"the render output holds the shared identity where the duplicate check reads it")
+	assert.Contains(t, applyIdentity(t, res.Compiled[0]), "|ConfigMap|")
+	assert.NotEqual(t, res.Compiled[0].Component, res.Compiled[1].Component)
 }
 
 func TestRender_UnstatedPostureIsBuildError(t *testing.T) {
@@ -1282,7 +1283,7 @@ func TestInstance_ModuleMetadataOfAcquiredInstances(t *testing.T) {
 		"AcquireInstanceFromDir": acquireRenderInstance(t, k, "instance"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			var want schema.ModuleMetadata
+			var want module.ModuleMetadata
 			require.NoError(t, inst.Package.LookupPath(schema.Module).LookupPath(schema.Metadata).Decode(&want))
 
 			got := inst.ModuleMetadata()

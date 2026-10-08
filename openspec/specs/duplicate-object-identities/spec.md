@@ -80,17 +80,3 @@ A rendered value that carries no `kind` or no `metadata.name` SHALL NOT be treat
 
 - **WHEN** a render produces two objects with one identity
 - **THEN** `Render` returns both in `Compiled` with no error, and only a caller of the check learns of the collision
-
-### Requirement: The helper copy is deprecated and kept until both frontends migrate
-
-`opm/helper/objectset`, the check's earlier home, SHALL stay in the library with its exported names and behaviour unchanged. Its rows and error message SHALL be identical to those of `opm/k8s/object` for the same render. Its package documentation and each exported symbol SHALL carry a `Deprecated:` notice that names the replacement in `opm/k8s/object`. It SHALL be removed only by a later change, merged after both the cli and the operator have stopped importing it. Source: the library rule deprecate, then remove: a library change never removes API that a frontend imports at `main` (AGENTS.md, Consumer build paragraph).
-
-#### Scenario: Both homes agree on a render
-
-- **WHEN** the same compiled objects are scanned by `opm/helper/objectset` and by `opm/k8s/object`
-- **THEN** both return rows with the same identities and producers in the same order, and both errors carry the same message
-
-#### Scenario: The deprecated home says where to go
-
-- **WHEN** a developer reads the documentation of `opm/helper/objectset` or of its `Duplicates`
-- **THEN** it is marked Deprecated and names `opm/k8s/object` as the replacement

@@ -52,7 +52,7 @@ type Platform struct {
 	// (NewPlatformFromValue). Source is the render input: Kernel.Render
 	// imports the platform package from it, so a platform without Source
 	// cannot be rendered against. No other kernel operation reads it.
-	Source *Source `json:"-"`
+	Source *module.Source `json:"-"`
 
 	// once guards recorded: the constructor runs it, and on a Platform the
 	// constructor did not build the first Contracts or CoreFloor call does.
@@ -61,18 +61,6 @@ type Platform struct {
 	// refusal), decoded from Package once.
 	recorded facts
 }
-
-// Source is a re-export of [module.Source] so callers can keep working with
-// `platform.Source`, mirroring the [PlatformMetadata] re-export. One type
-// describes the staged source tree of every artifact; see [module.Source]
-// for the overlay and on-disk modes.
-type Source = module.Source
-
-// PlatformMetadata is a re-export of [schema.PlatformMetadata] so callers
-// can keep working with `platform.PlatformMetadata`.
-//
-//nolint:revive // stutter intentional: platform.PlatformMetadata reads clearly at call sites
-type PlatformMetadata = schema.PlatformMetadata
 
 // NewPlatformFromValue builds a *Platform from a raw CUE artifact value: it
 // decodes PlatformMetadata from the value's metadata field (with the

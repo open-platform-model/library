@@ -6,13 +6,14 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/modversion"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
 // Provides returns the provider-fulfilled contracts this catalog implements:
 // every contract required by one of the catalog's own #transformers
-// ([schema.Transformers]) whose value carries `fulfilment: "provider"`.
+// (#Catalog.#transformers) whose value carries `fulfilment: "provider"`.
 // Required demands only — `optionalResources` and `optionalTraits` are
 // tolerance, not fulfilment, the same rule core applies when it folds a
 // platform's inventory.
@@ -64,9 +65,9 @@ func (c *Catalog) Provides() ([]string, error) {
 	// Shared by both paths: core guards each demand map with `!= _|_`, so a
 	// #transformers that does not evaluate could drop out of `provides`
 	// where the fold would report it.
-	if transformers := c.Package.LookupPath(schema.Transformers); transformers.Exists() {
+	if transformers := c.Package.LookupPath(corepath.Transformers); transformers.Exists() {
 		if err := transformers.Err(); err != nil {
-			return nil, fmt.Errorf("catalog %s did not evaluate: %w", schema.Transformers, err)
+			return nil, fmt.Errorf("catalog %s did not evaluate: %w", corepath.Transformers, err)
 		}
 	}
 
@@ -123,21 +124,21 @@ func (c *Catalog) pinsCoreBeforeProvides() (bool, error) {
 func (c *Catalog) providesFold() ([]string, error) {
 	found := map[string]struct{}{}
 
-	transformers := c.Package.LookupPath(schema.Transformers)
+	transformers := c.Package.LookupPath(corepath.Transformers)
 	if !transformers.Exists() {
 		return []string{}, nil
 	}
 	if err := transformers.Err(); err != nil {
-		return nil, fmt.Errorf("catalog %s did not evaluate: %w", schema.Transformers, err)
+		return nil, fmt.Errorf("catalog %s did not evaluate: %w", corepath.Transformers, err)
 	}
 
 	iter, err := transformers.Fields()
 	if err != nil {
-		return nil, fmt.Errorf("reading catalog %s: %w", schema.Transformers, err)
+		return nil, fmt.Errorf("reading catalog %s: %w", corepath.Transformers, err)
 	}
 	for iter.Next() {
 		impl := iter.Selector().Unquoted()
-		for _, demands := range []cue.Path{schema.RequiredResources, schema.RequiredTraits} {
+		for _, demands := range []cue.Path{corepath.RequiredResources, corepath.RequiredTraits} {
 			if err := collectProviders(iter.Value(), impl, demands, found); err != nil {
 				return nil, err
 			}
@@ -179,17 +180,17 @@ func collectProviders(transformer cue.Value, impl string, path cue.Path, found m
 	}
 	iter, err := demands.Fields()
 	if err != nil {
-		return fmt.Errorf("reading %s.%s of transformer %q: %w", schema.Transformers, path, impl, err)
+		return fmt.Errorf("reading %s.%s of transformer %q: %w", corepath.Transformers, path, impl, err)
 	}
 	for iter.Next() {
 		fqn := iter.Selector().Unquoted()
-		fulfilment := iter.Value().LookupPath(schema.Fulfilment)
+		fulfilment := iter.Value().LookupPath(corepath.Fulfilment)
 		if !fulfilment.Exists() {
 			continue
 		}
 		s, err := fulfilment.String()
 		if err != nil {
-			return fmt.Errorf("reading %s of contract %q required by transformer %q: %w", schema.Fulfilment, fqn, impl, err)
+			return fmt.Errorf("reading %s of contract %q required by transformer %q: %w", corepath.Fulfilment, fqn, impl, err)
 		}
 		if s == "provider" {
 			found[fqn] = struct{}{}
