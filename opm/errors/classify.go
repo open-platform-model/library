@@ -35,6 +35,13 @@ import (
 // author-defect forms only after. That text fallback is the only place in the
 // library that matches the text of a registry or cue/load error. Source:
 // 0021:D8:R12.
+//
+// A registry that uses token authentication has a token endpoint, and that
+// endpoint's answer is a registry answer: it classifies by its status (401
+// and 403 are [FetchUnauthorized]) and never as [FetchUnreachable], on the
+// typed chain and in the text fallback alike. So the error of a module push
+// through CUE's registry client, which keeps no typed cause, classifies
+// here too.
 func Classify(err error) error {
 	if err == nil {
 		return nil
@@ -104,8 +111,9 @@ func kindOfStatus(status int) FetchKind {
 // embedded CUE; a CUE bump that changes one fails there, and this list moves
 // with it.
 const (
-	// textUnreachable is the OCI client's prefix for a request that got no
-	// HTTP response.
+	// textUnreachable is the OCI client's prefix for a request whose HTTP
+	// round trip returned an error. That is a request that got no HTTP
+	// response, with one exception that textTokenAnswer takes first.
 	textUnreachable = "cannot do HTTP request"
 	// textModuleNotFound is modregistry.ErrNotFound's text, which a 403 or
 	// 404 tag lookup also reads as.
@@ -138,6 +146,18 @@ const (
 // file content and is never read.
 var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+@v[0-9]+\.[0-9]+\.[0-9]+[^\s:]*: `)
 
+// textTokenAnswer matches a token request that was answered. With token
+// authentication the OCI client asks the registry's token endpoint for a
+// token inside the HTTP round trip, and returns that endpoint's answer as
+// the round trip's error. The text is then the no-response prefix, the
+// request, and the status at the end of the line:
+// `cannot do HTTP request: Post "<url>": 403 Forbidden`. A request that got
+// no response ends in its transport cause instead, never in a status, and
+// the URL is quoted, so it cannot hold the tail. The registry did answer,
+// so this form classifies by its status. The status text must be the one
+// net/http gives the code.
+var textTokenAnswer = regexp.MustCompile(`(?m)cannot do HTTP request: [^\n]*: ([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -]*)$`)
+
 // textStatus matches an HTTP status as the OCI client writes a registry's
 // error answer: ": 503 Service Unavailable: ". The status text must be the
 // one net/http gives the code, so a number in a path never matches.
@@ -155,21 +175,20 @@ var textStatus = regexp.MustCompile(`(?:^|: )([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -
 var textVersionNotProvided = regexp.MustCompile(`cannot find module providing package \S+@v[0-9]+\.[0-9]+\.[0-9]+`)
 
 // classifyText is the fetch half of the text fallback, most specific form
-// first. It recognises only a failed registry interaction, and it runs
+// first: an answered token request before the no-response prefix it shares. It recognises only a failed registry interaction, and it runs
 // before classifyResolutionText, so a fetch form anywhere in the text wins.
 // It does not match cue/load's "cannot expand module graph" on its own: that
 // prefix also wraps a dependency whose module file does not parse,
 // which is an author defect (ResolutionModuleFileInvalid) and not a fetch, so
 // it classifies only through the form it carries.
 func classifyText(msg string) (FetchKind, int, bool) {
+	if status, ok := errorStatus(textTokenAnswer, msg); ok {
+		return kindOfStatus(status), status, true
+	}
 	if strings.Contains(msg, textUnreachable) {
 		return FetchUnreachable, 0, true
 	}
-	for _, m := range textStatus.FindAllStringSubmatch(msg, -1) {
-		status, err := strconv.Atoi(m[1])
-		if err != nil || status < 400 || http.StatusText(status) != m[2] {
-			continue
-		}
+	if status, ok := errorStatus(textStatus, msg); ok {
 		return kindOfStatus(status), status, true
 	}
 	if strings.Contains(msg, textModuleNotFound) || textVersionNotProvided.MatchString(msg) {
@@ -179,6 +198,20 @@ func classifyText(msg string) (FetchKind, int, bool) {
 		return FetchOther, 0, true
 	}
 	return 0, 0, false
+}
+
+// errorStatus returns the first HTTP error status form matches in msg: a
+// code of 400 or higher followed by the status text net/http gives it. form
+// captures the code and the text.
+func errorStatus(form *regexp.Regexp, msg string) (int, bool) {
+	for _, m := range form.FindAllStringSubmatch(msg, -1) {
+		status, err := strconv.Atoi(m[1])
+		if err != nil || status < 400 || http.StatusText(status) != m[2] {
+			continue
+		}
+		return status, true
+	}
+	return 0, false
 }
 
 // classifyResolutionText is the author-defect half of the text fallback. It

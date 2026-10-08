@@ -439,8 +439,9 @@ func cueForms() []cueForm {
 // client returns that answer as an error from the HTTP round trip, so its
 // text reads "cannot do HTTP request: <request>: <code> <status text>", the
 // prefix a request with no response also has. A direct fetch keeps the typed
-// status; cue/load and the push flatten it; and CUE's registry client turns
-// a 403 or 404 on a version lookup into "module not found".
+// status; cue/load and the push flatten it, and Classify reads the status
+// at the end of the text; and CUE's registry client turns a 403 or 404 on a
+// version lookup into "module not found".
 func tokenForms() []cueForm {
 	fetch := func(status int) func(t *testing.T) error {
 		return func(t *testing.T) error {
@@ -461,15 +462,15 @@ func tokenForms() []cueForm {
 		{"token/fetch/401", fetch(401), observed{contains: get, suffix: "\": 401 Unauthorized", status: 401, netErr: true}, kindOf(oerrors.FetchUnauthorized, 401, false)},
 		{"token/fetch/403", fetch(403), observed{contains: []string{"module not found"}, lacks: []string{"Forbidden"}, notFound: true}, kindOf(oerrors.FetchNotFound, 0, false)},
 		{"token/fetch/503", fetch(503), observed{contains: get, suffix: "\": 503 Service Unavailable", status: 503, netErr: true}, kindOf(oerrors.FetchOther, 503, true)},
-		{"token/load/401", loadDep(401), observed{contains: get, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/load/401", loadDep(401), observed{contains: get, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnauthorized, 401, false)},
 		{"token/load/403", loadDep(403), observed{contains: []string{"module not found"}, lacks: []string{"Forbidden"}}, kindOf(oerrors.FetchNotFound, 0, false)},
-		{"token/load/503", loadDep(503), observed{contains: get, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/401", push(401), observed{contains: post, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/403", push(403), observed{contains: post, suffix: "\": 403 Forbidden"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/404", push(404), observed{contains: post, suffix: "\": 404 Not Found"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/429", push(429), observed{contains: post, suffix: "\": 429 Too Many Requests"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/500", push(500), observed{contains: post, suffix: "\": 500 Internal Server Error"}, kindOf(oerrors.FetchUnreachable, 0, true)},
-		{"token/push/503", push(503), observed{contains: post, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchUnreachable, 0, true)},
+		{"token/load/503", loadDep(503), observed{contains: get, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchOther, 503, true)},
+		{"token/push/401", push(401), observed{contains: post, suffix: "\": 401 Unauthorized"}, kindOf(oerrors.FetchUnauthorized, 401, false)},
+		{"token/push/403", push(403), observed{contains: post, suffix: "\": 403 Forbidden"}, kindOf(oerrors.FetchUnauthorized, 403, false)},
+		{"token/push/404", push(404), observed{contains: post, suffix: "\": 404 Not Found"}, kindOf(oerrors.FetchNotFound, 404, false)},
+		{"token/push/429", push(429), observed{contains: post, suffix: "\": 429 Too Many Requests"}, kindOf(oerrors.FetchOther, 429, false)},
+		{"token/push/500", push(500), observed{contains: post, suffix: "\": 500 Internal Server Error"}, kindOf(oerrors.FetchOther, 500, true)},
+		{"token/push/503", push(503), observed{contains: post, suffix: "\": 503 Service Unavailable"}, kindOf(oerrors.FetchOther, 503, true)},
 	}
 }
 

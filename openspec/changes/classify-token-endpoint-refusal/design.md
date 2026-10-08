@@ -65,4 +65,11 @@ This narrows what the existing no-response match claims and adds one anchored va
 
 ## Verification
 
-Filled in by section 2 of tasks.md.
+All commands ran in the worktree.
+
+- `go test ./opm/errors ./opm/kernel -run 'Classify|CUEFailure' -count=1`: both packages pass.
+- The same command with `opm/errors/classify.go` put back to the section 1 commit: `TestClassify_CUEFailureForms` fails for `token/load/401`, `token/load/503` and all six `token/push/*`; `TestClassify_Text` fails for the five `token answer` rows; `TestFetchClassify_TokenEndpointRefusal` fails for the directory module. The rows that pin unchanged answers pass in both states.
+- `task check`: exit 0 (`0 issues.` from lint; every package `ok`).
+- `task api:diff`: exit 0. It lists no new incompatible change for this branch; the entries it prints are inherited from the base since the last release tag.
+
+Follow-up for the cli, after a library release: bump the library pin, and change `TestPush_TokenEndpointRefusal_Pinned` to expect a refused credential (`FetchUnauthorized`, status 401 or 403) and not connectivity. No cli source change is needed for the classification itself: `internal/cuemod/connectivity.go` already reads `Classify`.
