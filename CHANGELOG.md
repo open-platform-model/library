@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.0-beta.7](https://github.com/open-platform-model/library/compare/v1.0.0-beta.6...v1.0.0-beta.7) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **k8s:** ownership.CanApply now refuses as adopted-elsewhere an inventoried object whose opmodel.dev/adopt annotation names another instance; refuses as adopted-elsewhere an object outside the inventory whose annotation names another instance (including an admitted one); and reports an object outside the inventory whose annotation equals its UUID label as adopted-elsewhere instead of other-instance. ownership.CanDelete (and so the lifecycle deletion plan) skips as adopted-elsewhere an object whose annotation names another instance. A frontend must never fail the apply on any adopted-elsewhere refusal; it drops an inventoried one from the next inventory it records, keeps applying the instance's other objects, and never deletes it.
+* **kernel:** SynthesizeInstance and AcquireInstanceFromDir now refuse an instance whose values leave a required #config value unset (a field declared foo!, or a bare type such as string or _ with no default), even when no component reads it. The same holds for a value whose default disagrees with the #config default. In the cli this affects instance-directory renders, path arguments to opm instance commands (a name or UUID still works), and module renders that use debugValues without -f. To migrate, set the value, give the #config field a default, or mark it optional with ?.
+* **k8s:** thirteen `opm/k8s/object` Weight constants change value to agree with Flux's staged apply: WeightClusterRoleBinding 5 -> 7, WeightStorageClass 20 -> 6, WeightCronJob 110 -> 105, WeightPDB 200 -> 108, WeightWebhook 500 -> 2000; WeightPersistentVolume 20, WeightPVC 20, WeightDaemonSet 100, WeightJob 110, WeightIngress 150, WeightNetworkPolicy 150, WeightHPA 200 and WeightVPA 200 -> 1000. New: WeightClass 6, WeightResourceQuota 8, WeightLimitRange 60. Moved kinds: webhook configurations after custom resources; StorageClass, PriorityClass, RuntimeClass, IngressClass, GatewayClass, ClusterClass, VolumeSnapshotClass and any *Class kind right after ClusterRoles, then ClusterRoleBinding; ResourceQuota before ServiceAccounts; LimitRange before Deployments; CronJob and PodDisruptionBudget right after StatefulSets; PersistentVolume, PersistentVolumeClaim, DaemonSet, ReplicaSet, Job, Ingress, NetworkPolicy and the autoscalers with custom resources; CustomResourceDefinition, Namespace or ClusterRole outside their canonical group with the class kinds. The cli's apply, prune and delete order changes when it takes this release (delete is the reverse).
+
+### Features
+
+* **errors:** type author-defect resolution failures as ResolutionError ([#218](https://github.com/open-platform-model/library/issues/218)) ([a0c49ec](https://github.com/open-platform-model/library/commit/a0c49ec82770a163a23118ce0e51c82232b8b93a))
+* **k8s:** add opm/k8s/lifecycle with the deletion plan, its transition and the hold verdict ([#209](https://github.com/open-platform-model/library/issues/209)) ([84b71ac](https://github.com/open-platform-model/library/commit/84b71ac200b91743865c2439e8204d9c6aad2b38))
+* **k8s:** order kinds the way Flux applies them ([#214](https://github.com/open-platform-model/library/issues/214)) ([88afdfb](https://github.com/open-platform-model/library/commit/88afdfbb1e9c3d9aff88be3259a8bd8e7f8eb575))
+* **k8s:** refuse an object another instance adopted ([#220](https://github.com/open-platform-model/library/issues/220)) ([b3ed767](https://github.com/open-platform-model/library/commit/b3ed767e4423d0a4df382fa2df161e7ed487b818))
+* **kernel:** refuse an instance that leaves a required config value unset ([#217](https://github.com/open-platform-model/library/issues/217)) ([3396759](https://github.com/open-platform-model/library/commit/3396759e87866bacbcb7039957c7313ebc2ecb62))
+* **platform:** decode the core floor and contract inventory at construction ([#208](https://github.com/open-platform-model/library/issues/208)) ([f6b29e0](https://github.com/open-platform-model/library/commit/f6b29e0f82621727d99760dc246be305a80c9925))
+
+
+### Bug Fixes
+
+* **loader:** refuse an acquire whose synthetic root exists on disk ([#213](https://github.com/open-platform-model/library/issues/213)) ([af2bf84](https://github.com/open-platform-model/library/commit/af2bf84b627c53fcb0892864c93a0e6e251c7c81))
+
+
+### Code Refactoring
+
+* **render:** stage the render module in memory and share one registry client per kernel ([#212](https://github.com/open-platform-model/library/issues/212)) ([9404209](https://github.com/open-platform-model/library/commit/9404209a968afbf7a465319eb5d200c1b1f42ac3))
+
 ## [1.0.0-beta.6](https://github.com/open-platform-model/library/compare/v1.0.0-beta.5...v1.0.0-beta.6) (2026-10-05)
 
 
