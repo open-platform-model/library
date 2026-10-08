@@ -31,26 +31,30 @@ Kernel.SynthesizeInstance: instance "myrel": not fully concrete: components.foo.
 
 ### Which findings the report holds
 
-**Context**: The brief of this change asks for one of two shapes: the required-value findings alone whenever any exist, or both sets.
+**Context**: The brief of this change asks for one of two shapes: the values findings alone whenever a required value is unset, or both sets.
 
-**Explored**: A prototype of each against fourteen value documents (the table under "Before and after"). Three facts came out of it.
+**Explored**: A first implementation tried a third shape: values findings first, then the built-spec findings that no unset value "explains", where a built-spec finding counted as explained when it shared a position with a values finding. The review of this change disproved it with two probes.
 
-1. Every built-spec finding that an unset value causes carries the position of that value's `#config` declaration (`module.cue:12:11` above), next to the position of the place that reads it. The required-value finding for the same field carries the same position.
-2. A component defect that has nothing to do with the values (`loose: string` in a component) carries no `#config` position.
-3. For a value the values carry in a non-concrete form (`message: string` written in a source), both checks report `values.message`; the built-spec finding is positioned in the values file, which is where the user must edit.
+1. A component that is a catalog resource, the shape of a real module: the finding of a field that reads an unset value carries core's `let` line and the catalog's schema line, and not the `#config` declaration. The component findings stayed in the report. Only fields with no schema line of their own (`metadata.annotations`, the first fixture) carry the `#config` position.
+2. A `#config` field and an unrelated component field typed by one shared declaration (`_S: string`): the unrelated defect shared a position and was dropped.
 
-**Decision**: Neither shape as stated; a third that the facts allow. The report holds the required-value findings first, then every built-spec finding that no unset required value explains. A built-spec finding is explained, and left out, when it shares a position with a required-value finding. Where both checks report the same path, the built-spec finding is the one kept.
+So the positions CUE prints do not say whether an unset value causes a finding. Nothing else on the error does.
+
+**Decision**: The values findings alone. When a required value is unset the report holds the built-spec findings under `values` (a value the sources carry as a bare type, positioned where they carry it), then the required-value findings at every other path. Every built-spec finding outside `values` is left out.
 
 **Rationale**:
 
-- The required-value findings alone would hide a module defect (fact 2) until the user has fixed the values: a second round for a different audience (the module author), and a refusal whose text says less than the kernel knows.
-- Both sets in full would bury the field name. One unset value read in three places gives one useful finding and three that name a catalog file; the operator writes the findings into an event note with a 1024 character limit (review of opm-operator `drop-values-pre-validate`, "Uncertain").
-- Position sharing is evidence CUE itself records, not a guess from the path. When it is absent (a field declared `_` has no position), the finding is kept: the rule errs toward saying more.
-- When no required value is unset the function returns the built-spec error itself, so "every other defect keeps its text" holds by construction and not by re-assembly.
+- It depends only on finding paths, which both checks root at the instance, never on positions.
+- It is what a user of the operator sees today: `ValidateConfigDetailed` runs first and reports `#config` findings only, and synthesis never runs on incomplete values. The operator can drop that pre-check with no loss.
+- Both sets in full would bury the field names: one unset value read in three places gives one useful finding and three that name a catalog file, and the operator writes the findings into an event note with a 1024 character limit (review of opm-operator `drop-values-pre-validate`, "Uncertain"). `cueerrors.Details` sorts by position, so the values findings would not even print first.
+- Cost, accepted: a defect of the module's own (an incomplete component field no value completes) is not reported while the values are incomplete. It is reported, with today's text, as soon as they are complete. No instance is accepted that was refused. A module author tests a module with complete values (`debugValues`), so the second round falls on few users.
+- When no required value is unset the function returns the built-spec error itself, so "every other defect keeps its text" holds by construction.
+
+A value the sources write as a bare type (`message: string`) is an unset required value by the requirement's own definition, so it takes the same shape: its `values.message` finding stays, the component findings it causes go. That row changes too (table below).
 
 ### Order of the findings
 
-**Decision**: `values` findings first. `Error()` of a CUE error list prints its first element and a count, so the one-line text names a field. `cueerrors.Details` and `cueerrors.Print` sort by position before printing; the kernel does not control that order, and in the mixed case (an unexplained component finding next to a values finding) the sorted print can show the component finding first. `cueerrors.Errors(err)` returns the kernel's order.
+**Decision**: Built-spec `values` findings, then the required-value findings in CUE's order. Every finding is a values finding, so `Error()` (first finding and a count), `cueerrors.Errors` (the kernel's order) and `cueerrors.Details` (sorted by position) all show only fields the user sets.
 
 ### Testable by type
 
@@ -58,7 +62,7 @@ Kernel.SynthesizeInstance: instance "myrel": not fully concrete: components.foo.
 
 **Decision**: Not used here, and nothing added. Before and after, a caller has `errors.As(err, &cueerrors.Error)` and the finding paths: a path that starts with `values` under the `not fully concrete` frame is a values finding. After this change that test is reliable for the first finding whenever a required value is unset.
 
-**Rationale**: The refusal can now hold component findings next to values findings, so wrapping the whole tree in `ConfigValidationError` would mislabel them, and the brief rules out an API change. A typed marker for "the values are incomplete" is an API addition for its own change, if the operator needs one.
+**Rationale**: The brief rules out an API change, and the path test is exact: when a required value is unset every finding is under `values`. A typed marker for "the values are incomplete" is an API addition for its own change, if the operator needs one.
 
 ## Design
 
@@ -68,8 +72,7 @@ func concreteness(spec cue.Value) error {
     requiredErr := requiredConfigSet(spec)
     if requiredErr == nil { return specErr }      // today's error, untouched
     if specErr == nil { return requiredErr }      // today's error, untouched
-    // required findings in order, the built-spec finding in place of one at the same path;
-    // then built-spec findings that share no position with a required finding
+    // built-spec findings under `values`, then the required findings at any other path
 }
 ```
 
@@ -89,11 +92,12 @@ func concreteness(spec cue.Value) error {
 | `port: -1` | `#module.#config.port: 2 errors in empty disjunction: (and 2 more errors)` | same |
 | `extra: 1` | `field not allowed` (finding at `values.extra`) | same |
 | `port: int` | `values.port: incomplete value int` | same |
-| `message: string` written, rest set | `values.message` and 2 component findings | same |
-| `message: string` written, `other` unset | `values.message` and 2 component findings; `other` missing | the same three and `values.other` |
+| `message: string` written, rest set | `values.message` and 2 component findings | `values.message` |
+| `message: string` written, `other` unset | `values.message` and 2 component findings; `other` missing | `values.message`, `values.other` |
 | component `loose: string`, values set | `components.foo.metadata.annotations.loose` | same |
-| component `loose: string`, `message` unset | `...annotations.message`, `...annotations.loose` | `values.message`, `...annotations.loose` |
-| component `loose: string`, `other` unset | `...annotations.loose`; `other` missing | `values.other`, `...annotations.loose` |
+| component `loose: string`, `message` unset | `...annotations.message`, `...annotations.loose` | `values.message` |
+| component `loose: string`, `other` unset | `...annotations.loose`; `other` missing | `values.other` |
+| catalog resource reads `note` three times, `note` unset | 3 findings, component paths, catalog and core positions | `values.note` |
 
 ## Consumer assertions on the old text
 
@@ -108,5 +112,4 @@ Searched in throwaway copies of cli at origin/main b1eea50 and opm-operator at o
 ## Risks / Trade-offs
 
 - A consumer test that asserts a component path for an unset value fails after a pin bump → listed for the consumers; the framing `not fully concrete` and the `values.` prefix stay.
-- A built-spec finding that shares a `#config` position with an unset value and is also wrong for another reason is left out until the value is set → it then appears; nothing is accepted that was refused.
-- The rule depends on CUE recording the declaration position on both findings (cuelang.org/go v0.17.1) → the tests assert the exact finding count for the read case, so a CUE bump that drops the position fails them by showing more findings, never fewer.
+- A defect of the module's own is hidden while a required value is unset → it is refused with today's text once the values are complete; nothing is accepted that was refused.

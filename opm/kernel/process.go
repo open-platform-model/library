@@ -6,7 +6,6 @@ import (
 
 	"cuelang.org/go/cue"
 	cueerrors "cuelang.org/go/cue/errors"
-	"cuelang.org/go/cue/token"
 
 	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/module"
@@ -74,22 +73,20 @@ func requiredConfigSet(spec cue.Value) error {
 // (library#211).
 //
 // When the second check passes, the first check's error is returned as it
-// is, and likewise the other way round. When both fail, the report holds:
+// is, and likewise the other way round. When both fail, the values are
+// incomplete and the report is about the values only:
 //
-//   - the second check's findings, in its order, each at `values.<field>`.
-//     Where the first check has a finding at the same path (the values carry
-//     the field as a bare type), that finding takes its place: it is
-//     positioned where the values carry the field.
-//   - then the first check's other findings, except those an unset value
-//     explains. CUE positions a component field left incomplete by an unset
-//     #config value at that value's #config declaration, the position the
-//     second check's finding for it carries, so a finding of the first check
-//     that shares a position with one of the second is left out. A finding
-//     that shares none (a defect of the module's own, or a value read from a
-//     field declared `_`, which has no position) stays.
+//   - the first check's findings under `values` (a field the values carry as
+//     a bare type), positioned where the values carry the field;
+//   - then the second check's findings, each at `values.<field>`, except at a
+//     path the first check already reported.
 //
-// The values findings come first so that the error's one-line text, which
-// CUE takes from the first finding, names a field the user sets.
+// The first check's findings outside `values` are left out of that report.
+// Most of them are the unset values seen again, once per component field
+// that reads one, and nothing CUE records tells those apart from a defect of
+// the module's own: the positions of such a finding name the schema of the
+// field, not always the #config declaration. A defect of the module's own is
+// reported once the values are complete; the instance is refused either way.
 func concreteness(spec cue.Value) error {
 	specErr := spec.Validate(cue.Concrete(true))
 	requiredErr := requiredConfigSet(spec)
@@ -100,28 +97,18 @@ func concreteness(spec cue.Value) error {
 		return requiredErr
 	}
 
-	built := cueerrors.Errors(specErr)
-	builtAt := make(map[string]cueerrors.Error, len(built))
-	for _, e := range built {
-		builtAt[strings.Join(e.Path(), ".")] = e
-	}
-
 	var report cueerrors.Error
 	reported := make(map[string]bool)
-	declared := make(map[token.Position]bool)
-	for _, e := range cueerrors.Errors(requiredErr) {
-		path := strings.Join(e.Path(), ".")
-		reported[path] = true
-		for _, pos := range cueerrors.Positions(e) {
-			declared[pos.Position()] = true
+	for _, e := range cueerrors.Errors(specErr) {
+		path := e.Path()
+		if len(path) == 0 || path[0] != valuesField {
+			continue
 		}
-		if b, ok := builtAt[path]; ok {
-			e = b
-		}
+		reported[strings.Join(path, "\x00")] = true
 		report = cueerrors.Append(report, e)
 	}
-	for _, e := range built {
-		if reported[strings.Join(e.Path(), ".")] || positionedAt(e, declared) {
+	for _, e := range cueerrors.Errors(requiredErr) {
+		if reported[strings.Join(e.Path(), "\x00")] {
 			continue
 		}
 		report = cueerrors.Append(report, e)
@@ -129,15 +116,9 @@ func concreteness(spec cue.Value) error {
 	return report
 }
 
-// positionedAt reports whether any position of e is in positions.
-func positionedAt(e cueerrors.Error, positions map[token.Position]bool) bool {
-	for _, pos := range cueerrors.Positions(e) {
-		if positions[pos.Position()] {
-			return true
-		}
-	}
-	return false
-}
+// valuesField is the first path element of every finding about the
+// instance's values, in both concreteness checks.
+const valuesField = "values"
 
 // decodeInstanceMetadata extracts the instance metadata from a
 // #ModuleInstance artifact root. A missing metadata field is fatal.

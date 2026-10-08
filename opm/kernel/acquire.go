@@ -345,9 +345,9 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string) (*p
 // processing step that follows does, on the whole built spec and on the
 // instance's values unified with the module's #config, so a required #config
 // value the values leave unset is refused even when no component reads it.
-// The refusal names every such value at `values.<field>` first, whether or
-// not a component reads it; a finding of the built spec that an unset value
-// explains is left out, and every other one follows the values findings.
+// That refusal holds findings at `values.<field>` only, one for every such
+// value, whether or not a component reads it; the findings of the built spec
+// outside `values` are left out until the values are complete.
 //
 // The build runs in a [cue.Context] created for the call; Instance.Package
 // keeps it alive for as long as the caller holds the instance. This is the

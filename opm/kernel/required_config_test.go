@@ -3,6 +3,7 @@ package kernel_test
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,8 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/registrytest"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
+	"github.com/open-platform-model/library/opm/schema"
 )
 
 // unreadRequiredBody is a module whose #config declares required values no
@@ -277,7 +280,7 @@ func assertWrittenBareTypeReportedOnce(t *testing.T, verb string, inst *module.I
 	for _, e := range cueerrors.Errors(cerr) {
 		paths = append(paths, strings.Join(e.Path(), "."))
 	}
-	assert.ElementsMatch(t, []string{"values.image", "values.tag", "values.any"}, paths, "findings: %v", err)
+	assert.Equal(t, []string{"values.image", "values.tag", "values.any"}, paths, "findings: %v", err)
 	assert.False(t, positionsEndWith(err, "values.image", "/module.cue"),
 		"values.image is positioned at its #config declaration, so it is the required-config finding: %v", err)
 }
@@ -346,25 +349,25 @@ const (
 
 // kernel-runtime spec, "A value a component reads is named at its field",
 // "Every unset value is named, read or not, nested or not", "A component
-// defect no unset value explains stays in the report" and "Other values
-// defects keep their text": the exact one-line text and the exact findings of
+// defect waits for complete values" and "Other values defects keep their
+// text": the exact one-line text and the exact findings of
 // SynthesizeInstance for each class of defect.
 //
 // The rows named unchanged carry the text the kernel returned before it
-// reported both concreteness checks together (library origin/main d21adc9);
-// was holds the earlier one-line text of a row that changed.
+// reported both concreteness checks together (library#217). On a row that
+// changed, the Before comment records the earlier one-line text; nothing
+// checks it.
 func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 	cases := []struct {
 		name     string
 		body     string
 		values   string
-		was      string
 		text     string
 		findings []string
 	}{
 		{
 			name: "every required value unset", body: readBody, values: `{}`,
-			was:  notConcreteFrame + annotations + "message: incomplete value string (and 2 more errors)",
+			// Before: notConcreteFrame + annotations + "message: incomplete value string (and 2 more errors)"
 			text: notConcreteFrame + "values.message: incomplete value string (and 2 more errors)",
 			findings: []string{
 				"values.message: incomplete value string",
@@ -374,13 +377,13 @@ func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 		},
 		{
 			name: "a value a component reads unset", body: readBody, values: `other: 1, db: host: "h"`,
-			was:      notConcreteFrame + annotations + "message: incomplete value string (and 1 more errors)",
+			// Before: notConcreteFrame + annotations + "message: incomplete value string (and 1 more errors)"
 			text:     notConcreteFrame + "values.message: incomplete value string",
 			findings: []string{"values.message: incomplete value string"},
 		},
 		{
 			name: "a nested value a component reads unset", body: readBody, values: `message: "m", other: 1`,
-			was:      notConcreteFrame + annotations + "host: incomplete value string",
+			// Before: notConcreteFrame + annotations + "host: incomplete value string"
 			text:     notConcreteFrame + "values.db.host: incomplete value string",
 			findings: []string{"values.db.host: incomplete value string"},
 		},
@@ -414,23 +417,18 @@ func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 			findings: []string{"values.port: incomplete value int"},
 		},
 		{
-			name: "unchanged a bare type written for a read value with the rest set", body: readBody, values: `message: string, other: 1, db: host: "h"`,
-			text: notConcreteFrame + "values.message: incomplete value string (and 2 more errors)",
-			findings: []string{
-				"values.message: incomplete value string",
-				annotations + "message: incomplete value string",
-				"unifiedModule.#" + annotations + "again: invalid interpolation: non-concrete value string (type string)",
-			},
+			name: "a bare type written for a read value with the rest set", body: readBody, values: `message: string, other: 1, db: host: "h"`,
+			// Before: notConcreteFrame + "values.message: incomplete value string (and 2 more errors)"
+			text:     notConcreteFrame + "values.message: incomplete value string",
+			findings: []string{"values.message: incomplete value string"},
 		},
 		{
 			name: "a bare type written for a read value and another value unset", body: readBody, values: `message: string, db: host: "h"`,
-			was:  notConcreteFrame + "values.message: incomplete value string (and 2 more errors)",
-			text: notConcreteFrame + "values.message: incomplete value string (and 3 more errors)",
+			// Before: notConcreteFrame + "values.message: incomplete value string (and 2 more errors)"
+			text: notConcreteFrame + "values.message: incomplete value string (and 1 more errors)",
 			findings: []string{
 				"values.message: incomplete value string",
 				"values.other: incomplete value int",
-				annotations + "message: incomplete value string",
-				"unifiedModule.#" + annotations + "again: invalid interpolation: non-concrete value string (type string)",
 			},
 		},
 		{
@@ -440,21 +438,15 @@ func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 		},
 		{
 			name: "a component defect and a read value unset", body: looseBody, values: `other: 1`,
-			was:  notConcreteFrame + annotations + "message: incomplete value string (and 1 more errors)",
-			text: notConcreteFrame + "values.message: incomplete value string (and 1 more errors)",
-			findings: []string{
-				"values.message: incomplete value string",
-				annotations + "loose: incomplete value string",
-			},
+			// Before: notConcreteFrame + annotations + "message: incomplete value string (and 1 more errors)"
+			text:     notConcreteFrame + "values.message: incomplete value string",
+			findings: []string{"values.message: incomplete value string"},
 		},
 		{
 			name: "a component defect and an unread value unset", body: looseBody, values: `message: "m"`,
-			was:  notConcreteFrame + annotations + "loose: incomplete value string",
-			text: notConcreteFrame + "values.other: incomplete value int (and 1 more errors)",
-			findings: []string{
-				"values.other: incomplete value int",
-				annotations + "loose: incomplete value string",
-			},
+			// Before: notConcreteFrame + annotations + "loose: incomplete value string"
+			text:     notConcreteFrame + "values.other: incomplete value int",
+			findings: []string{"values.other: incomplete value int"},
 		},
 	}
 	for _, tc := range cases {
@@ -468,7 +460,6 @@ func TestKernel_SynthesizeInstance_RefusalText(t *testing.T) {
 			assert.Nil(t, inst)
 			assert.Equal(t, tc.text, err.Error())
 			assert.Equal(t, tc.findings, findingLines(t, err))
-			assert.NotEqual(t, tc.was, err.Error(), "the refusal still has the text it had before both checks were reported")
 		})
 	}
 }
@@ -504,7 +495,7 @@ func TestKernel_SynthesizeInstance_UnsetValuesPositionedAtConfig(t *testing.T) {
 }
 
 // kernel-runtime spec, "A value a component reads is named at its field" and
-// "A component defect no unset value explains stays in the report", on the
+// "A component defect waits for complete values", on the
 // directory verb: the package's own values leave message unset, and the
 // refusal is the one SynthesizeInstance gives for the same values.
 func TestKernel_AcquireInstanceFromDir_ReadRequiredConfigUnset(t *testing.T) {
@@ -523,11 +514,8 @@ func TestKernel_AcquireInstanceFromDir_ReadRequiredConfigUnset(t *testing.T) {
 		},
 		{
 			name: "a component defect and a read value unset", body: looseBody, values: `{other: 1}`,
-			text: frame + "values.message: incomplete value string (and 1 more errors)",
-			findings: []string{
-				"values.message: incomplete value string",
-				annotations + "loose: incomplete value string",
-			},
+			text:     frame + "values.message: incomplete value string",
+			findings: []string{"values.message: incomplete value string"},
 		},
 	}
 	for _, tc := range cases {
@@ -545,4 +533,99 @@ func TestKernel_AcquireInstanceFromDir_ReadRequiredConfigUnset(t *testing.T) {
 				"values.message is not positioned at its #config declaration: %v", err)
 		})
 	}
+}
+
+// needyModule is a module whose components are catalog resources, the shape
+// of a real module: CUE positions a resource field that reads an unset value
+// at the catalog's schema, not at the #config declaration.
+const needyModule = `package needy
+
+import (
+	c "opmodel.dev/core@v2"
+	cat "testing.opmodel.dev/library-render/cat@v0"
+)
+
+c.#Module
+
+metadata: {
+	name:        "needy"
+	modulePath:  "testing.opmodel.dev/library-render/needy@v0"
+	version:     "0.1.0"
+	description: "reads required config values into catalog resources"
+}
+
+#config: {
+	note:  string
+	other: int
+	image: string
+	port:  int & >0 | *80
+}
+
+#components: {
+	web: {
+		#resources: (cat.#ContainerResource.metadata.fqn): cat.#ContainerResource
+		spec: container: image: #config.image
+	}
+	config: {
+		#resources: (cat.#ConfigMapsResource.metadata.fqn): cat.#ConfigMapsResource
+		spec: configMaps: app: data: {
+			note:  #config.note
+			note2: #config.note
+			note3: "n-\(#config.note)"
+		}
+	}
+}
+`
+
+// kernel-runtime spec, "A value a catalog resource reads is named at its
+// field": the refusal of a module built from catalog resources holds the
+// values findings and nothing at a component path, and a complete document
+// synthesizes.
+func TestKernel_SynthesizeInstance_UnsetValueReadByCatalogResource(t *testing.T) {
+	// The module pins the core release the fixture catalog pins.
+	_, corePin, ok := strings.Cut(schema.DefaultSchemaModule, "@")
+	require.True(t, ok, "schema.DefaultSchemaModule carries no version: %s", schema.DefaultSchemaModule)
+
+	dir := t.TempDir()
+	require.NoError(t, os.CopyFS(dir, os.DirFS(renderFixtureDir(t, "registry"))))
+	modDir := filepath.Join(dir, "testing.opmodel.dev_library-render_needy_v0.1.0")
+	require.NoError(t, os.MkdirAll(filepath.Join(modDir, "cue.mod"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "cue.mod", "module.cue"), []byte(
+		"module: \"testing.opmodel.dev/library-render/needy@v0\"\n"+
+			"language: version: \"v0.17.0\"\n"+
+			"deps: {\n"+
+			"\t\"opmodel.dev/core@v2\": v: \""+corePin+"\"\n"+
+			"\t\"testing.opmodel.dev/library-render/cat@v0\": v: \"v0.1.0\"\n"+
+			"}\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(needyModule), 0o600))
+
+	k := kernel.New(kernel.WithRegistry(registrytest.NewRegistryFromDir(t, dir, renderPrefix)))
+	ctx := context.Background()
+	mod, err := k.AcquireModuleFromRegistry(ctx, "testing.opmodel.dev/library-render/needy@v0", "v0.1.0")
+	require.NoError(t, err)
+
+	synthesize := func(values string) (*module.Instance, error) {
+		return k.SynthesizeInstance(ctx, kernel.InstanceInput{
+			Module: mod, Name: "myrel", Namespace: "default",
+			Values: []kernel.Source{mustSource(t, k, "/values/a.cue", values)},
+		})
+	}
+
+	_, err = synthesize(`other: 1, image: "i"`)
+	require.Error(t, err)
+	assert.Equal(t, notConcreteFrame+"values.note: incomplete value string", err.Error())
+	assert.Equal(t, []string{"values.note: incomplete value string"}, findingLines(t, err))
+	assert.True(t, positionsEndWith(err, "values.note", "/module.cue"), "values.note is not positioned at its #config declaration: %v", err)
+
+	_, err = synthesize(`{}`)
+	require.Error(t, err)
+	assert.Equal(t, []string{
+		"values.note: incomplete value string",
+		"values.other: incomplete value int",
+		"values.image: incomplete value string",
+	}, findingLines(t, err))
+
+	inst, err := synthesize(`note: "n", other: 1, image: "i"`)
+	require.NoError(t, err)
+	require.NotNil(t, inst)
 }

@@ -278,10 +278,11 @@
 // then assert concreteness on the whole built spec and on the instance's
 // values unified with `#config`, so both refuse a required `#config` value the
 // values leave unset, whether or not a component reads it. The two checks
-// give one refusal: it names every unset value at `values.<field>` first, and
-// leaves out the findings of the built spec that such a value explains (a
-// component field that reads it). Render performs no validation pass of its
-// own.
+// give one refusal. When a required value is unset it holds findings at
+// `values.<field>` only, one for every such value; the findings of the built
+// spec outside `values` (the component fields that read an unset value, and
+// any defect of the module's own) are left out until the values are complete.
+// Render performs no validation pass of its own.
 //
 // # Configuration validation
 //

@@ -78,11 +78,12 @@ type InstanceInput struct {
 // asserts concreteness on the whole built spec and on the instance's values
 // unified with the module's #config, and decodes instance metadata. The second
 // concreteness check refuses a required #config value the values leave unset
-// even when no component reads it. The two checks give one refusal: it names
-// every unset value at the path `values.<field>` first, whether or not a
-// component reads it; a finding of the built spec that an unset value
-// explains (a component field that reads it) is left out, and every other
-// one follows the values findings. No additional values source is consulted.
+// even when no component reads it. The two checks give one refusal: when a
+// required value is unset it holds findings at the path `values.<field>`
+// only, one for every such value, whether or not a component reads it; the
+// findings of the built spec outside `values` (the component fields that read
+// an unset value, and any defect of the module's own) are left out until the
+// values are complete. No additional values source is consulted.
 //
 // A values conflict at a path a component consumes fails the build itself.
 // When the build fails and in.Values carry values, the failure is attributed

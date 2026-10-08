@@ -6,3 +6,10 @@
 - [x] 1.4 Godoc of `processInstance`, `SynthesizeInstance` and `AcquireInstanceFromDir`: state the report as it is now
 - [x] 1.5 Consumer build against throwaway copies of cli and opm-operator `origin/main` with `.tasks/consumer-build.sh`; `task api:diff`
 - [x] 1.6 `task check` green, then commit `fix(kernel): name every unset required config value`
+
+## 2. Kernel: the values findings alone
+
+- [x] 2.1 `opm/kernel/process.go`: drop the position rule the review disproved; when a required value is unset the report holds the findings under `values` only
+- [x] 2.2 `opm/kernel/required_config_test.go`: move the table rows to the new report, add a module built from catalog resources, record the earlier texts as comments
+- [x] 2.3 Delta spec, design.md, proposal.md and the godoc of both verbs state the report as it is
+- [x] 2.4 `task check` green, then commit `fix(kernel): report only the values when a required value is unset`
