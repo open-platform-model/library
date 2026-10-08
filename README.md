@@ -45,7 +45,6 @@ opm/
   catalog/                Catalog artifact model (ADR-009) — Metadata, Package, Source, plus the on-demand derivations Provides() (reads core's derived `provides`; a deprecated Go fold answers catalogs built against an older core) and Requires(). Read and derived from; never rendered
   helper/                 Opt-in frontend convenience layer (a frontend MAY skip these; lint-enforced)
     platformmodule/       Platform CUE module generation from catalog coordinates (files + dependency closure)
-    objectset/            DEPRECATED: use k8s/object. Duplicate rendered object identities, frozen and kept until both frontends migrate
   k8s/                    The Kubernetes tier beside the kernel (ADR-011): mandatory for a Kubernetes frontend, fenced by lint
     health/               Readiness: Evaluate (one fetched object to a Status), IsHealthy, Aggregate, ProgressDeadlineExceeded; pure, ported from the cli with its status strings
     inventory/            Entry + NewEntry, SameObject, the component-blind StaleSet, the canonical inventory Digest and the RenderDigest both runtimes compute equally
@@ -112,7 +111,6 @@ The boundary is enforced by `task lint`, not just documented: a `depguard` rule 
 Today this layer holds exactly two subpackages:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
-- `opm/helper/objectset` — **Deprecated: use `opm/k8s/object`.** Duplicate rendered object identities: `Duplicates` and `DuplicateIdentitiesError`, identical to the copy in `opm/k8s/object`, which is now the home of that Kubernetes vocabulary. This copy is frozen and stays only until the cli and the operator have moved their imports; a later change removes it.
 
 Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
 

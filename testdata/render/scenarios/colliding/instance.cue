@@ -2,7 +2,7 @@
 // carry the config-maps resource with the same map key, and the fixture
 // catalog's configmap-transformer names each ConfigMap after the key alone,
 // not after the component. The render succeeds — the kernel reads no
-// Kubernetes identity — and only a caller of opm/helper/objectset learns
+// Kubernetes identity — and only a caller of opm/k8s/object learns
 // that the second write would overwrite the first.
 package colliding
 

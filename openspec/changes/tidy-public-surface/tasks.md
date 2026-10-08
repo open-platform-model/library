@@ -1,8 +1,8 @@
 ## 1. Remove opm/helper/objectset
 
-- [ ] 1.1 Delete `opm/helper/objectset/` and `opm/k8s/object/objectset_parity_test.go`; verify `go build ./... && go vet ./...` pass and `git grep helper/objectset -- '*.go'` is empty
-- [ ] 1.2 Remove the package from `AGENTS.md`, `README.md`, `CONSTITUTION.md`, `docs-kit.cue`, `.cascade-frozen`, `.golangci.yml` and the `opm/helper` and `opm/k8s/object` docs where they name it as present; verify with `git grep -n objectset` that only history (ADR-011, archives, api-diff fixtures) is left
-- [ ] 1.3 `task check` green, then commit `feat(helper)!: remove the deprecated objectset package`
+- [x] 1.1 Delete `opm/helper/objectset/` and `opm/k8s/object/objectset_parity_test.go`; verify `go build ./... && go vet ./...` pass and `git grep helper/objectset -- '*.go'` is empty
+- [x] 1.2 Remove the package from `AGENTS.md`, `README.md`, `CONSTITUTION.md`, `docs-kit.cue`, `.cascade-frozen`, `.golangci.yml` and the `opm/helper` and `opm/k8s/object` docs where they name it as present; verify with `git grep -n objectset` that only history (ADR-011, archives, api-diff fixtures) is left
+- [x] 1.3 `task check` green, then commit `feat(helper)!: remove the deprecated objectset package`
 
 ## 2. One shape for typed errors (opm/errors, opm/kernel, opm/internal/loader)
 

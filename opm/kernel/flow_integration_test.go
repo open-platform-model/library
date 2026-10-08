@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/open-platform-model/library/opm/helper/objectset" //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/schema"
 )
@@ -162,8 +161,15 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 
 		// The shipped catalog's outputs are distinct at apply identity: two
 		// objects sharing one would reach apply as two writes to one object.
-		assert.Empty(t, objectset.Duplicates(res.Compiled), //nolint:staticcheck // SA1019: the deprecated copy is tested until its removal
-			"the shipped fixture must not render two objects with one apply identity")
+		// The check itself lives in opm/k8s/object, which no kernel test may
+		// import (ADR-011), so this compares the identity fields directly.
+		seenIdentities := map[string]int{}
+		for _, c := range res.Compiled {
+			seenIdentities[flowApplyIdentity(c)]++
+		}
+		for id, n := range seenIdentities {
+			assert.Equal(t, 1, n, "the shipped fixture must not render two objects with one apply identity: %s", id)
+		}
 	})
 
 	t.Run("resolved versions", func(t *testing.T) {
@@ -245,4 +251,21 @@ func skipUnlessRegistry(t *testing.T) {
 		t.Skipf("GHCR not reachable (%v); the flow test pulls the catalog + core schema from ghcr.io. Set OPM_FLOW_TEST_FORCE=1 to require it", err)
 	}
 	_ = conn.Close()
+}
+
+// flowApplyIdentity is the API group, kind, namespace and name of one
+// rendered object, the fields a Kubernetes apply identifies it by.
+func flowApplyIdentity(c *kernel.Compiled) string {
+	read := func(path string) string {
+		s, err := c.Value.LookupPath(cue.ParsePath(path)).String()
+		if err != nil {
+			return ""
+		}
+		return s
+	}
+	group, _, found := strings.Cut(read("apiVersion"), "/")
+	if !found {
+		group = ""
+	}
+	return strings.Join([]string{group, read("kind"), read("metadata.namespace"), read("metadata.name")}, "|")
 }

@@ -10,8 +10,8 @@ bundles: library: {
 		kind:   "go-api"
 		module: "./"
 		// The module's root package cannot be documented (C20): pages are
-		// named by the package directory below root, so helper/objectset is
-		// the page helper-objectset. opm/internal/ is never documented.
+		// named by the package directory below root, so helper/platformmodule
+		// is the page helper-platformmodule. opm/internal/ is never documented.
 		root: "./opm"
 		packages: ["./opm/..."]
 		section:     "reference/library/"
