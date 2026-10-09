@@ -15,7 +15,7 @@
 
 ## 3. Record and verify
 
-- [ ] 3.1 Add the closing note to `adr/015-one-shape-for-the-public-surface.md`; write `adr/016-no-install-admission-in-the-ownership-verdicts.md` from `adr/TEMPLATE.md`
-- [ ] 3.2 Run `task api:diff`; it lists exactly the five removals of the proposal
-- [ ] 3.3 Run `.tasks/consumer-build.sh` on throwaway copies: opm-operator at `origin/main` builds and vets; cli at `refactor/retire-legacy-migration` builds and vets; cli at `origin/main` fails only on `Admit`
-- [ ] 3.4 `task check` green and `openspec validate remove-admit-and-public-surface-shims --strict`, then commit `docs(adr): record the end of the install admission and of the surface shims`
+- [x] 3.1 Add the closing note to `adr/015-one-shape-for-the-public-surface.md`; write `adr/016-no-install-admission-in-the-ownership-verdicts.md` from `adr/TEMPLATE.md`
+- [x] 3.2 Run `task api:diff`; it lists exactly the five removals of the proposal
+- [x] 3.3 Run `.tasks/consumer-build.sh` on throwaway copies: opm-operator at `origin/main` builds and vets; cli at `refactor/retire-legacy-migration` builds and vets; cli at `origin/main` fails only on `Admit`
+- [x] 3.4 `task check` green and `openspec validate remove-admit-and-public-surface-shims --strict`, then commit `docs(adr): record the end of the install admission and of the surface shims`
