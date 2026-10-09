@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0-beta.9](https://github.com/open-platform-model/library/compare/v1.0.0-beta.8...v1.0.0-beta.9) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the install admission and the deprecated surface shims ([#228](https://github.com/open-platform-model/library/issues/228))
+
+### Features
+
+* remove the install admission and the deprecated surface shims ([#228](https://github.com/open-platform-model/library/issues/228)) ([41c2f1c](https://github.com/open-platform-model/library/commit/41c2f1cc9f70d7e222f2d722c218f556ed89042a))
+
 ## [1.0.0-beta.8](https://github.com/open-platform-model/library/compare/v1.0.0-beta.7...v1.0.0-beta.8) (2026-10-08)
 
 
