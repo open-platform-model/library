@@ -53,7 +53,7 @@ const (
 	// live object to hand that object to a module instance whose apply would
 	// otherwise refuse it. Its value is the adopting instance's
 	// [ModuleInstanceUUID] value. No OPM runtime writes it; a user writes it
-	// by hand (0012:D8:R6).
+	// by hand (0012:D8:R3).
 	AnnotationAdopt = "opmodel.dev/adopt"
 )
 

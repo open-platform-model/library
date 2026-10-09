@@ -42,11 +42,6 @@ func TestCanApply(t *testing.T) {
 			want: ownership.RefuseTerminating,
 		},
 		{
-			name: "admission never lifts the terminating refusal",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), terminating()), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseTerminating, contains: []string{"Namespace/opm-operator-system"},
-		},
-		{
 			name: "a terminating object annotated for another instance is refused as terminating",
 			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(append(opm, adopt(otherUUID), terminating())...), InInventory: true, InstanceUUID: thisUUID},
 			want: ownership.RefuseTerminating,
@@ -177,31 +172,18 @@ func TestCanApply(t *testing.T) {
 			want: ownership.RefuseForeignObject, notContains: []string{"names another instance"},
 		},
 		{
-			name: "a proven earlier-manifest object is admitted on apply",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
+			name: "an earlier install manifest's Namespace is refused like any foreign object",
+			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize")), InstanceUUID: thisUUID},
+			want: ownership.RefuseForeignObject, contains: []string{"Namespace/opm-operator-system", adoptKey + "=" + thisUUID},
 		},
 		{
-			name: "a proven ClusterRole with no labels is admitted on apply",
-			in:   ownership.ApplyInput{Object: clusterRole, Live: live("rbac.authorization.k8s.io/v1", "ClusterRole", "", "opm-operator-manager"), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "an admitted object carrying this instance's UUID is applied",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(thisUUID)), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "an admitted object carrying another identity is refused",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
+			name: "an earlier install manifest's ClusterRole with no labels is refused",
+			in:   ownership.ApplyInput{Object: clusterRole, Live: live("rbac.authorization.k8s.io/v1", "ClusterRole", "", "opm-operator-manager"), InstanceUUID: thisUUID},
 			want: ownership.RefuseForeignObject,
 		},
 		{
-			name: "admission never lifts the adopted-elsewhere refusal",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), adopt(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseAdoptedElsewhere,
-		},
-		{
-			name: "admission never lifts other-instance",
-			in:   ownership.ApplyInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.RefuseOtherInstance,
+			name: "the adopt annotation takes an earlier install manifest's object over",
+			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), adopt(thisUUID)), InstanceUUID: thisUUID},
 		},
 	}
 	for _, tt := range tests {

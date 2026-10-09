@@ -2,9 +2,7 @@
 //
 // Match every typed error here with errors.As and a pointer target. Each
 // declares its Error method on the pointer receiver, so the value type is
-// not an error. The one exception is [IdentityError], which keeps a value
-// receiver, and a deprecated value target, until the consumers have moved:
-// the library already returns it as a pointer.
+// not an error. No type here is an exception.
 //
 // The render path splits the two. A ROW is plain data with no Error method:
 // [UnresolvedDemand], [UnifyRefusal], [UnmatchedComponent],
