@@ -14,8 +14,6 @@ var (
 	deployment = ownership.Object{Group: "apps", Kind: "Deployment", Namespace: "web", Name: "api"}
 	namespace  = ownership.Object{Kind: "Namespace", Name: "team-a"}
 	crd        = ownership.Object{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition", Name: "widgets.example.com"}
-	configMap  = ownership.Object{Kind: "ConfigMap", Namespace: "web", Name: "cfg"}
-	widget     = ownership.Object{Group: "example.com", Kind: "Widget", Namespace: "web", Name: "w"}
 	roleBind   = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "RoleBinding", Namespace: "opm-operator-system", Name: "leader"}
 	clusterRB  = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRoleBinding", Name: "opm-operator-manager"}
 )
@@ -79,60 +77,8 @@ func TestCanDelete(t *testing.T) {
 			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(append(opm, terminating())...), InstanceUUID: thisUUID},
 		},
 		{
-			name: "a proven earlier Deployment may be deleted",
-			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uid("u-dep")), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "a proven earlier RoleBinding may be deleted",
-			in:   ownership.DeleteInput{Object: roleBind, Live: live("rbac.authorization.k8s.io/v1", "RoleBinding", "opm-operator-system", "leader"), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "a proven earlier ClusterRoleBinding may be deleted",
-			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-		},
-		{
-			name: "an admitted object carrying this instance's UUID is not deleted",
-			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", uuid(thisUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
 			name: "a Namespace of another group is no protected kind",
 			in:   ownership.DeleteInput{Object: ownership.Object{Group: "example.com", Kind: "Namespace", Name: "team-a"}, Live: live("example.com/v1", "Namespace", "", "team-a", append(opm, uid("u-ns"))...), InstanceUUID: thisUUID},
-		},
-		{
-			name: "an admitted object carrying another identity is not deleted",
-			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
-			name: "an admitted object with a UUID label is not deleted for an empty instance UUID",
-			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uuid(otherUUID)), Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
-			name: "an admitted ConfigMap is not deleted",
-			in:   ownership.DeleteInput{Object: configMap, Live: live("v1", "ConfigMap", "web", "cfg", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
-			name: "an admitted custom resource is not deleted",
-			in:   ownership.DeleteInput{Object: widget, Live: live("example.com/v1", "Widget", "web", "w", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
-			name: "a same-named Deployment in another group is not admitted",
-			in:   ownership.DeleteInput{Object: ownership.Object{Group: "example.com", Kind: "Deployment", Namespace: "web", Name: "api"}, Live: live("example.com/v1", "Deployment", "web", "api", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipNotOPMManaged,
-		},
-		{
-			name: "admission never deletes a protected kind",
-			in:   ownership.DeleteInput{Object: crd, Live: live("apiextensions.k8s.io/v1", "CustomResourceDefinition", "", "widgets.example.com", managedBy("kustomize")), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipSafetyExcluded,
-		},
-		{
-			name: "admission never lifts already-absent",
-			in:   ownership.DeleteInput{Object: deployment, InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipAlreadyAbsent,
 		},
 		{
 			name: "an object annotated for another instance is left in place",
@@ -153,14 +99,19 @@ func TestCanDelete(t *testing.T) {
 			want: ownership.SkipAdoptedElsewhere,
 		},
 		{
-			name: "admission never deletes an object another instance is adopting",
-			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), adopt(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipAdoptedElsewhere,
+			name: "an earlier install manifest's Deployment is not deleted",
+			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("kustomize"), uid("u-dep")), InstanceUUID: thisUUID},
+			want: ownership.SkipNotOPMManaged,
 		},
 		{
-			name: "admission never lifts owner-mismatch",
-			in:   ownership.DeleteInput{Object: deployment, Live: liveDeployment(managedBy("opm-cli"), uuid(otherUUID)), InstanceUUID: thisUUID, Admit: true},
-			want: ownership.SkipOwnerMismatch,
+			name: "an earlier install manifest's RoleBinding with no labels is not deleted",
+			in:   ownership.DeleteInput{Object: roleBind, Live: live("rbac.authorization.k8s.io/v1", "RoleBinding", "opm-operator-system", "leader"), InstanceUUID: thisUUID},
+			want: ownership.SkipNotOPMManaged,
+		},
+		{
+			name: "an earlier install manifest's ClusterRoleBinding is not deleted",
+			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", managedBy("kustomize")), InstanceUUID: thisUUID},
+			want: ownership.SkipNotOPMManaged,
 		},
 	}
 	for _, tt := range tests {

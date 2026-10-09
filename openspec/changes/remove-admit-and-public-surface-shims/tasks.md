@@ -1,10 +1,10 @@
 ## 1. Remove the install admission (opm/k8s/ownership, opm/k8s/labels)
 
-- [ ] 1.1 Add `TestVerdictInputsCarryNoOverride` (reflection: the field names of `ApplyInput` and `DeleteInput`); see it fail on `Admit`
-- [ ] 1.2 Delete `ApplyInput.Admit`, `DeleteInput.Admit`, `admittedForApply`, `admittedForDelete`, `installDeletable`, `carriesNoOtherIdentity`; correct the `CanApply` and `CanDelete` docs; verify `git grep -n "Admit\|installDeletable" -- opm` is empty
-- [ ] 1.3 Remove the table rows that set `Admit`; keep the earlier-manifest Namespace and Deployment rows with their refused verdicts; every other row is unedited
-- [ ] 1.4 Cite 0012:D8:R3 in place of 0012:D8:R6 at `labels.AnnotationAdopt` and its no-writer test; correct the `labels/` and `ownership/` lines of `AGENTS.md`
-- [ ] 1.5 `task check` green, then commit `feat(k8s)!: remove the install admission from the ownership verdicts`
+- [x] 1.1 Add `TestVerdictInputsCarryNoOverride` (reflection: the field names of `ApplyInput` and `DeleteInput`); see it fail on `Admit`
+- [x] 1.2 Delete `ApplyInput.Admit`, `DeleteInput.Admit`, `admittedForApply`, `admittedForDelete`, `installDeletable`, `carriesNoOtherIdentity`; correct the `CanApply` and `CanDelete` docs; verify `git grep -n "Admit\|installDeletable" -- opm` is empty
+- [x] 1.3 Remove the table rows that set `Admit`; keep the earlier-manifest Namespace and Deployment rows with their refused verdicts; every other row is unedited
+- [x] 1.4 Cite 0012:D8:R3 in place of 0012:D8:R6 at `labels.AnnotationAdopt` and its no-writer test; correct the `labels/` and `ownership/` lines of `AGENTS.md`
+- [x] 1.5 `task check` green, then commit `feat(k8s)!: remove the install admission from the ownership verdicts`
 
 ## 2. Remove the two deprecated shims (opm/errors, opm/catalog, opm/schema, opm/internal/loader)
 

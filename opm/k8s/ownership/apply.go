@@ -55,12 +55,6 @@ type ApplyInput struct {
 	// instance's; inside it the object applies, since there is no identity to
 	// compare against.
 	InstanceUUID string
-	// Admit is set only for an object the caller has proven came from an
-	// earlier operator release's install manifest. It lifts the
-	// foreign-object refusal when the live object carries no UUID label or
-	// InstanceUUID (0012:D8:R6). It lifts nothing else, adopted-elsewhere
-	// included. The library cannot check the proof.
-	Admit bool
 }
 
 // ApplyVerdict is the outcome of [CanApply]: apply, or refuse with a reason.
@@ -78,19 +72,20 @@ func (v ApplyVerdict) Allowed() bool { return v.Refuse == "" }
 // CanApply decides whether a frontend may apply over one object. It checks,
 // in order, and stops at the first match: a missing live object applies; a
 // live object being deleted is refused, in the inventory or not, adopted or
-// admitted; an object whose adopt annotation ([labels.AnnotationAdopt])
+// not; an object whose adopt annotation ([labels.AnnotationAdopt])
 // names this instance applies, in the inventory or not. In the instance's
 // inventory: with no instance UUID it applies; an adopt annotation naming
 // another instance is refused as adopted-elsewhere; otherwise it applies,
 // whatever its UUID label says. Outside it: a live object OPM does not manage
-// is refused, unless admitted; a live object whose adopt annotation and UUID
+// is refused; a live object whose adopt annotation and UUID
 // label name the same other instance is refused as adopted-elsewhere, since
 // that instance completed the hand-over; a live object carrying another
 // instance's UUID is refused as other-instance; an adopt annotation naming
 // another instance is refused as adopted-elsewhere; otherwise it applies
 // (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
-// is the only override, and a refusal message names it with the UUID to set
-// (0012:D8:R3).
+// is the only override: the input carries no field by which a caller lifts a
+// refusal on its own word. A refusal message names the annotation with the
+// UUID to set (0012:D8:R3).
 func CanApply(in ApplyInput) ApplyVerdict {
 	if in.Live == nil {
 		return ApplyVerdict{}
@@ -106,7 +101,7 @@ func CanApply(in ApplyInput) ApplyVerdict {
 	if in.InInventory {
 		return judgeInventoried(in, obj, annotation)
 	}
-	if !opmManaged(in.Live) && !admittedForApply(in) {
+	if !opmManaged(in.Live) {
 		return refuse(RefuseForeignObject, obj+" exists and is not managed by OPM"+
 			adoptsAnother(annotation)+adoptRemedy("to let this instance take it over,", in.InstanceUUID))
 	}
@@ -143,13 +138,6 @@ func judgeInventoried(in ApplyInput, obj, annotation string) ApplyVerdict {
 	return refuse(RefuseAdoptedElsewhere, obj+" was adopted by module instance "+annotation+
 		"; this instance no longer applies it and drops it from its inventory"+
 		adoptRemedy("to take it back,", in.InstanceUUID))
-}
-
-// admittedForApply reports whether the install admission lifts the
-// foreign-object refusal: the caller admitted the object and it carries no
-// other instance's UUID.
-func admittedForApply(in ApplyInput) bool {
-	return in.Admit && carriesNoOtherIdentity(in.Live, in.InstanceUUID)
 }
 
 func refuse(r ApplyRefusal, msg string) ApplyVerdict {

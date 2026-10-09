@@ -39,15 +39,6 @@ type DeleteInput struct {
 	// matches an adopt annotation, so any non-blank adopt annotation then
 	// names another instance.
 	InstanceUUID string
-	// Admit is set only for an object the caller has proven came from an
-	// earlier operator release's install manifest. It lifts the
-	// not-opm-managed skip for a Deployment of apps and a RoleBinding or
-	// ClusterRoleBinding of rbac.authorization.k8s.io, the kinds the
-	// operator install may delete outside the inventory, and only when the
-	// live object carries no UUID label at all (0012:D8:R6/R7). It lifts
-	// nothing else, adopted-elsewhere included. The library cannot check the
-	// proof.
-	Admit bool
 }
 
 // DeleteVerdict is the outcome of [CanDelete]: proceed, or skip with a
@@ -85,7 +76,7 @@ func (v DeleteVerdict) Preconditions() *metav1.Preconditions {
 // CanDelete decides whether a frontend may delete one object. It checks, in
 // order, and stops at the first match: a safety-excluded kind skips, whatever
 // the live object; a missing live object skips as already absent; a live
-// object OPM does not manage skips, unless admitted; a live object whose UUID
+// object OPM does not manage skips, and nothing lifts that; a live object whose UUID
 // label and the instance's UUID are both set and differ skips as another
 // instance's; a live object whose adopt annotation (opmodel.dev/adopt)
 // is set and does not name this instance skips as adopted elsewhere, so an
@@ -100,7 +91,7 @@ func CanDelete(in DeleteInput) DeleteVerdict {
 	if in.Live == nil {
 		return skip(SkipAlreadyAbsent, obj.String()+" no longer exists")
 	}
-	if !opmManaged(in.Live) && !admittedForDelete(in) {
+	if !opmManaged(in.Live) {
 		return skip(SkipNotOPMManaged, obj.String()+" is not managed by OPM; left in place")
 	}
 	if u := liveUUID(in.Live); u != "" && in.InstanceUUID != "" && u != in.InstanceUUID {
@@ -114,30 +105,4 @@ func CanDelete(in DeleteInput) DeleteVerdict {
 
 func skip(r SkipReason, msg string) DeleteVerdict {
 	return DeleteVerdict{Skip: r, Message: msg}
-}
-
-// admittedForDelete reports whether the install admission lifts the
-// not-opm-managed skip: the caller admitted the object, it is of a kind the
-// operator install may delete outside the inventory, and it carries no OPM
-// instance identity at all. This is narrower than apply-side admission, which
-// also admits an object carrying this instance's UUID: a deletion outside the
-// inventory is for proven objects only, and a proven object carries no
-// instance identity (0012:D8:R6/R7).
-func admittedForDelete(in DeleteInput) bool {
-	return in.Admit && installDeletable(in.Object.Group, in.Object.Kind) &&
-		liveUUID(in.Live) == ""
-}
-
-// installDeletable reports whether the operator install may delete an object
-// of this group and kind outside the inventory: the earlier operator
-// Deployment and the superseded role bindings (0012:D8:R7).
-func installDeletable(group, kind string) bool {
-	switch {
-	case group == "apps" && kind == "Deployment":
-		return true
-	case group == "rbac.authorization.k8s.io" && (kind == "RoleBinding" || kind == "ClusterRoleBinding"):
-		return true
-	default:
-		return false
-	}
 }

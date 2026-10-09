@@ -19,7 +19,7 @@ import (
 // adopt annotation. Outside this package, which declares the key, and
 // opm/k8s/ownership, which only reads it, no non-test file under opm/ spells
 // its literal or refers to [labels.AnnotationAdopt]. Only a user writes the
-// annotation (0012:D8:R6).
+// annotation (0012:D8:R3).
 func TestNoLibraryCodeSetsTheAdoptAnnotation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)
