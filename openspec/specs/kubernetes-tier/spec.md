@@ -324,7 +324,7 @@ The library SHALL provide `opm/k8s/health`, which judges the readiness of one Ku
 
 ### Requirement: The adopt annotation key is fixed in the label vocabulary
 
-`opm/k8s/labels` SHALL declare the adopt annotation key `opmodel.dev/adopt`. It is an annotation a user sets on an existing live object, and its value names the adopting instance by the value of that instance's `module-instance.opmodel.dev/uuid` label. No function in the library SHALL set it on an object, and the package documentation SHALL say that no OPM runtime writes it. Source: 0012:D8 (the implementing change fixes the key), 0012:D8:R6.
+`opm/k8s/labels` SHALL declare the adopt annotation key `opmodel.dev/adopt`. It is an annotation a user sets on an existing live object, and its value names the adopting instance by the value of that instance's `module-instance.opmodel.dev/uuid` label. No function in the library SHALL set it on an object, and the package documentation SHALL say that no OPM runtime writes it. Source: 0012:D8 (the implementing change fixes the key), 0012:D8:R3.
 
 #### Scenario: The key is the fixed literal
 
@@ -479,60 +479,6 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **WHEN** the verdict refuses `Deployment/web/api` as `foreign-object` for instance UUID `u-9`
 - **THEN** the message contains `Deployment/web/api`, `opmodel.dev/adopt` and `u-9`
 - **AND** it contains no `--` flag and no `force`
-
-### Requirement: The operator install admission lifts only a proven object's ownership refusal
-
-Both verdicts SHALL take an admission input that a caller sets only for an object it has proven came from an earlier operator release's install manifest. On apply, admission SHALL lift `foreign-object` only, and only when the live object carries no UUID label or carries the instance UUID. On delete, admission SHALL lift `not-opm-managed` only, only when the live object carries no UUID label at all, and only for an `apps` `Deployment`, a `rbac.authorization.k8s.io` `RoleBinding` or a `rbac.authorization.k8s.io` `ClusterRoleBinding`, the kinds install may delete outside the inventory. The UUID label is the only identity admission compares. Admission SHALL NOT lift `terminating`, `other-instance`, `adopted-elsewhere`, `owner-mismatch`, `safety-excluded` or `already-absent`, on either side. The library does not check the proof. Source: 0012:D8:R6/R7, 0012:D8:R8 (enhancements#103), 0012:D4:R1.
-
-#### Scenario: A proven earlier-manifest object is admitted on apply
-
-- **WHEN** the operator install asks for the earlier `Namespace/opm-operator-system`, live with managed-by `kustomize` and no UUID label, admitted and outside the inventory
-- **THEN** the verdict applies
-
-#### Scenario: An admitted object carrying another identity is refused
-
-- **WHEN** an admitted object outside the inventory is not OPM-managed but carries a UUID label that differs from the instance UUID
-- **THEN** the apply verdict refuses as `foreign-object`
-
-#### Scenario: Admission never lifts the terminating refusal
-
-- **WHEN** an admitted proven object has a deletion timestamp
-- **THEN** the apply verdict refuses as `terminating`
-
-#### Scenario: Admission never lifts the adopted-elsewhere refusal
-
-- **WHEN** an admitted object outside the inventory, live with managed-by `kustomize` and no UUID label, carries an adopt annotation naming another instance
-- **THEN** the apply verdict refuses as `adopted-elsewhere`
-
-#### Scenario: A proven earlier Deployment may be deleted
-
-- **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize` and no UUID label
-- **THEN** it proceeds and carries the Deployment's UID
-
-#### Scenario: An admitted object carrying another identity is not deleted
-
-- **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize` and a UUID label that differs from the non-empty instance UUID
-- **THEN** it skips as `not-opm-managed`
-
-#### Scenario: An admitted object carrying this instance's UUID is not deleted
-
-- **WHEN** the delete verdict is asked for an admitted live ClusterRoleBinding with no OPM managed-by label and a UUID label equal to the instance UUID
-- **THEN** it skips as `not-opm-managed`
-
-#### Scenario: Admission deletes only the install's deletable kinds
-
-- **WHEN** the delete verdict is asked for an admitted live ConfigMap, or an admitted live custom resource, with managed-by `kustomize` and no UUID label
-- **THEN** it skips as `not-opm-managed`
-
-#### Scenario: Admission never deletes a protected kind
-
-- **WHEN** the delete verdict is asked for an admitted CustomResourceDefinition of `apiextensions.k8s.io`
-- **THEN** it skips as `safety-excluded`
-
-#### Scenario: Admission never deletes an object another instance is adopting
-
-- **WHEN** the delete verdict is asked for an admitted live Deployment with managed-by `kustomize`, no UUID label, and an adopt annotation naming another instance
-- **THEN** it skips as `adopted-elsewhere`
 
 ### Requirement: Inventory entries are plain values built from objects
 
@@ -909,7 +855,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The apply verdict refuses terminating, foreign, other-instance and adopted-elsewhere objects
 
-The apply verdict SHALL decide in this order and stop at the first match. When there is no live object, it SHALL apply. When the live object has a deletion timestamp, it SHALL refuse as `terminating`, whether or not the object is in the instance's recorded inventory, and nothing SHALL lift that refusal. When the live object's adopt annotation equals the non-empty instance UUID, it SHALL apply. When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL apply; when its adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL refuse as `foreign-object`, unless the operator install admission lifts it; when the adopt annotation is non-blank and equals the live UUID label, it SHALL refuse as `adopted-elsewhere`, since the instance it names completed the hand-over; when the live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `other-instance`; when the adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply. Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non-empty live UUID or non-blank adopt annotation SHALL then count as another instance's. Source: 0012:D8:R1/R2/R5, 0012:D8:R8 (enhancements#103), 0012:D1:R7, 0012:D4:R2.
+The apply verdict SHALL decide in this order and stop at the first match. When there is no live object, it SHALL apply. When the live object has a deletion timestamp, it SHALL refuse as `terminating`, whether or not the object is in the instance's recorded inventory, and nothing SHALL lift that refusal. When the live object's adopt annotation equals the non-empty instance UUID, it SHALL apply. When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL apply; when its adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL refuse as `foreign-object`; when the adopt annotation is non-blank and equals the live UUID label, it SHALL refuse as `adopted-elsewhere`, since the instance it names completed the hand-over; when the live UUID label is non-empty and differs from the instance UUID, it SHALL refuse as `other-instance`; when the adopt annotation is non-blank, it SHALL refuse as `adopted-elsewhere`; otherwise it SHALL apply. Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non-empty live UUID or non-blank adopt annotation SHALL then count as another instance's. Source: 0012:D8:R1/R2/R5, 0012:D8:R8 (enhancements#103), 0012:D1:R7, 0012:D4:R2.
 
 The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: 0012:D8:R3, 0012:D8:R8 (enhancements#103).
 
@@ -921,7 +867,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 #### Scenario: A terminating object is refused everywhere
 
 - **WHEN** the live object has a deletion timestamp
-- **THEN** the verdict refuses as `terminating` when the object is in the inventory, when it is outside it, when it carries the adopt annotation naming this instance, when it carries the adopt annotation naming another instance, and when it is admitted
+- **THEN** the verdict refuses as `terminating` when the object is in the inventory, when it is outside it, when it carries the adopt annotation naming this instance, and when it carries the adopt annotation naming another instance
 
 #### Scenario: An inventoried foreign object is applied
 
@@ -1011,3 +957,23 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 
 - **WHEN** the `ApplyInput.InInventory` doc comment and the package doc are read
 - **THEN** each says a frontend drops an object refused as `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal
+
+### Requirement: The ownership verdicts take no input that only lifts a refusal
+
+`ownership.ApplyInput` SHALL have exactly the fields `Object`, `Live`, `InInventory` and `InstanceUUID`, and `ownership.DeleteInput` SHALL have exactly the fields `Object`, `Live` and `InstanceUUID`. Neither SHALL carry a field whose only effect is to lift a refusal or a skip. The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. Outside the inventory, the adopt annotation on the live object naming the applying instance SHALL be the only thing that lifts an ownership refusal. On delete, nothing SHALL lift the `not-opm-managed` skip. A frontend that installs the operator is judged as any other instance. Source: 0012:D8:R1/R2/R3; 0012:D8:R6 and 0012:D8:R7 are withdrawn.
+
+#### Scenario: The verdict inputs carry no admission field
+
+- **WHEN** a test lists the fields of `ownership.ApplyInput` and `ownership.DeleteInput`
+- **THEN** they are `Object`, `Live`, `InInventory`, `InstanceUUID` and `Object`, `Live`, `InstanceUUID`
+
+#### Scenario: An earlier install manifest's object is refused on apply
+
+- **WHEN** the apply verdict is asked for `Namespace/opm-operator-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
+- **THEN** it refuses as `foreign-object`
+- **AND** the message names `opmodel.dev/adopt` with the instance UUID
+
+#### Scenario: An earlier install manifest's Deployment is not deleted
+
+- **WHEN** the delete verdict is asked for a live `apps` Deployment with managed-by `kustomize` and no UUID label
+- **THEN** it skips as `not-opm-managed`
