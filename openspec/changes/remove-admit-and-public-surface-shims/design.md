@@ -31,7 +31,7 @@ if !opmManaged(in.Live) { /* foreign-object */ }
 **Context**: After `v1.0.0` an added field is a MINOR change, so an override could return without a break.
 **Explored**: The package's tests are table tests over the verdicts; none pins the input shape.
 **Decision**: One reflection test lists the fields of `ApplyInput` and `DeleteInput` by name. Two table rows keep the earlier-manifest cases with their new, refused verdicts.
-**Rationale**: The rule "the annotation on the live object is the only override" (0012:D8:R3) is then a test, and a new input needs a spec change.
+**Rationale**: The test pins the field names, `InInventory` included, so a new input needs a spec change. It does not claim the inputs are free of caller-supplied facts: `InInventory` and `InstanceUUID` stay, and the library trusts both.
 
 ### The `IdentityError` receiver
 

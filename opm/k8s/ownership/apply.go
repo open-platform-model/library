@@ -83,9 +83,10 @@ func (v ApplyVerdict) Allowed() bool { return v.Refuse == "" }
 // instance's UUID is refused as other-instance; an adopt annotation naming
 // another instance is refused as adopted-elsewhere; otherwise it applies
 // (0012:D8:R1/R2/R5, 0012:D8:R8). The adopt annotation
-// is the only override: the input carries no field by which a caller lifts a
-// refusal on its own word. A refusal message names the annotation with the
-// UUID to set (0012:D8:R3).
+// is the only override outside the inventory: no input field exists only to
+// lift a refusal. InInventory and InstanceUUID are the caller's own ownership
+// record, which CanApply trusts and cannot check. A refusal message names the
+// annotation with the UUID to set (0012:D8:R3).
 func CanApply(in ApplyInput) ApplyVerdict {
 	if in.Live == nil {
 		return ApplyVerdict{}

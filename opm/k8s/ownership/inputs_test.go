@@ -10,10 +10,10 @@ import (
 )
 
 // TestVerdictInputsCarryNoOverride pins the fields of the two verdict inputs
-// by name. Neither carries a field by which a caller asserts, with no evidence
-// on the live object, that a refusal or a skip does not apply: the adopt
-// annotation on the live object is the only override (0012:D8:R3). A new
-// input field fails here first.
+// by name. Neither carries a field whose only effect is to lift a refusal or
+// a skip; outside the inventory the adopt annotation on the live object is the
+// only override (0012:D8:R3). InInventory and InstanceUUID are caller-supplied
+// facts the verdicts trust. A new input field fails here first.
 func TestVerdictInputsCarryNoOverride(t *testing.T) {
 	assert.Equal(t, []string{"Object", "Live", "InInventory", "InstanceUUID"}, fieldNames(reflect.TypeFor[ownership.ApplyInput]()))
 	assert.Equal(t, []string{"Object", "Live", "InstanceUUID"}, fieldNames(reflect.TypeFor[ownership.DeleteInput]()))

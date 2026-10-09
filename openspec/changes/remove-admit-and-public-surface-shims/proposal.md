@@ -71,7 +71,7 @@ None.
 
 ### Modified Capabilities
 
-- `kubernetes-tier`: the requirement on the operator install admission is removed; the apply verdict requirement loses its two admission clauses; the adopt annotation requirement cites 0012:D8:R3 in place of the withdrawn 0012:D8:R6; a requirement is added that the verdict inputs carry no caller-asserted override.
+- `kubernetes-tier`: the requirement on the operator install admission is removed; the apply verdict requirement loses its two admission clauses; the adopt annotation requirement cites 0012:D8:R3 in place of the withdrawn 0012:D8:R6; a requirement is added that the verdict inputs carry no field whose only effect is to lift a refusal.
 - `config-validation`: the requirement that held both the validation marker rule and the receiver rule is split in two; the receiver rule loses its `IdentityError` exception and the scenario for the deprecated value target.
 - `platform-artifact`: `opm/catalog` no longer exports the alias `Source`.
 
@@ -80,5 +80,5 @@ None.
 - Packages: `opm/k8s/ownership`, `opm/errors`, `opm/catalog`; doc comments in `opm/k8s/labels`, `opm/module`; tests in `opm/schema`, `opm/internal/loader`.
 - Docs: `AGENTS.md` (layout lines for `errors/`, `labels/`, `ownership/`), `docs/site/diagnostics/identity-mismatch.md`, ADR-015 (closing note), a new ADR-016 for the admission removal.
 - Not touched: the kernel, any rename, the unexported `providesFold` fallback in `opm/catalog` (deprecated by ADR-013, decision h2, before library#223; its own removal).
-- Security: the change removes the one input by which a caller could lift an ownership refusal on its own word, with no evidence on the live object. It adds no trust boundary, input or secret.
+- Security: the change removes the one input whose only effect was to lift an ownership refusal on the caller's word. The caller still supplies inventory membership (`InInventory`) and the instance UUID, which the library trusts as the frontend's ownership record; that is unchanged. It adds no trust boundary, input or secret.
 - No `enhancement.yaml`: the change delivers no decision. It removes what 0012:D8 withdrew, and the delivery log has no entry kind for a withdrawal.
