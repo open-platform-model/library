@@ -60,12 +60,6 @@ type Catalog struct {
 	Source *module.Source `json:"-"`
 }
 
-// Source is a second name of [module.Source], kept for a consumer that still
-// spells it this way.
-//
-// Deprecated: use [module.Source]. A later release removes this alias.
-type Source = module.Source
-
 // NewCatalogFromValue builds a *Catalog from a raw CUE artifact value: it
 // decodes CatalogMetadata from the value's metadata field and stores the input
 // cue.Value unmodified in Package. Errors return a nil *Catalog — partial

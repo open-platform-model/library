@@ -167,9 +167,6 @@ func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 	var ie *oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "path", ie.Field)
-	deprecated, ok := errors.AsType[oerrors.IdentityError](err)
-	require.True(t, ok, "the deprecated value target must still match what the loader returns")
-	assert.Equal(t, *ie, deprecated)
 	assert.Equal(t, otherPath, ie.Declared)
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
 }

@@ -8,10 +8,10 @@
 
 ## 2. Remove the two deprecated shims (opm/errors, opm/catalog, opm/schema, opm/internal/loader)
 
-- [ ] 2.1 Empty the exception lists in `TestTypedErrorsUsePointerReceivers` and `TestSurface_OneNamePerType`, add the check that no type in `opm/errors` declares `As` and that the value type is not an error; see them fail
-- [ ] 2.2 Give `IdentityError` its pointer receiver and delete `As`; delete `catalog.Source`; correct the docs of `IdentityError`, the `opm/errors` package and `module.Source`; drop the value-target assertions in `opm/errors` and `opm/internal/loader`
-- [ ] 2.3 Correct the `errors/` line of `AGENTS.md` and `docs/site/diagnostics/identity-mismatch.md`
-- [ ] 2.4 `task check` green, then commit `feat(errors)!: remove the deprecated IdentityError value forms and catalog.Source`
+- [x] 2.1 Empty the exception lists in `TestTypedErrorsUsePointerReceivers` and `TestSurface_OneNamePerType`, add the check that no type in `opm/errors` declares `As` and that the value type is not an error; see them fail
+- [x] 2.2 Give `IdentityError` its pointer receiver and delete `As`; delete `catalog.Source`; correct the docs of `IdentityError`, the `opm/errors` package and `module.Source`; drop the value-target assertions in `opm/errors` and `opm/internal/loader`
+- [x] 2.3 Correct the `errors/` line of `AGENTS.md` and `docs/site/diagnostics/identity-mismatch.md`
+- [x] 2.4 `task check` green, then commit `feat(errors)!: remove the deprecated IdentityError value forms and catalog.Source`
 
 ## 3. Record and verify
 
