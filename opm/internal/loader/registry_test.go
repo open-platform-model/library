@@ -164,7 +164,7 @@ func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
-	var ie oerrors.IdentityError
+	var ie *oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "path", ie.Field)
 	assert.Equal(t, otherPath, ie.Declared)
@@ -190,7 +190,7 @@ func TestFetchModule_IdentityMajorFreeDeclarationRefused(t *testing.T) {
 		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err, "a major-free declaration cannot equal the fetched path")
 
-	var ie oerrors.IdentityError
+	var ie *oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "path", ie.Field)
 	assert.Equal(t, base, ie.Declared)
@@ -214,7 +214,7 @@ func TestFetchModule_IdentityVersionMismatch(t *testing.T) {
 		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
-	var ie oerrors.IdentityError
+	var ie *oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "version", ie.Field)
 	assert.Equal(t, "9.9.9", ie.Declared)
@@ -237,7 +237,7 @@ func TestFetchModule_IdentityVersionMismatchBareFetch(t *testing.T) {
 		loader.Options{Env: cueenv.Override(reg, "")})
 	require.Error(t, err)
 
-	var ie oerrors.IdentityError
+	var ie *oerrors.IdentityError
 	require.True(t, errors.As(err, &ie), "want IdentityError, got %v", err)
 	assert.Equal(t, "version", ie.Field)
 	assert.Equal(t, "0.0.1", ie.Fetched)

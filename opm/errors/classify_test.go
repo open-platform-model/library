@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"testing"
 
 	"cuelabs.dev/go/oci/ociregistry"
@@ -162,12 +163,24 @@ func TestClassify_Typed(t *testing.T) {
 		{"unauthorized code", fmt.Errorf("x: %w", ociregistry.ErrUnauthorized), oerrors.FetchUnauthorized, 0, false},
 		{"denied code", fmt.Errorf("x: %w", ociregistry.ErrDenied), oerrors.FetchUnauthorized, 0, false},
 		{"net.OpError", fmt.Errorf("x: %w", &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}), oerrors.FetchUnreachable, 0, true},
+		// A failed round trip is a net.Error. It is no response, unless its
+		// text is the token endpoint's answer to a token refresh.
+		{"round trip with no response", roundTrip(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}), oerrors.FetchUnreachable, 0, true},
+		{"round trip holding a token refresh 401", roundTrip(errors.New("cannot acquire access token: 401 Unauthorized")), oerrors.FetchUnauthorized, 401, false},
+		{"round trip holding a token refresh 403", roundTrip(errors.New("cannot acquire access token: 403 Forbidden")), oerrors.FetchUnauthorized, 403, false},
+		{"round trip holding a token refresh 503", roundTrip(errors.New("cannot acquire access token: 503 Service Unavailable")), oerrors.FetchOther, 503, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			assertClassified(t, c.err, c.kind, c.status, c.transient)
 		})
 	}
+}
+
+// roundTrip is the chain the OCI client returns when an HTTP round trip
+// fails with cause.
+func roundTrip(cause error) error {
+	return fmt.Errorf("cannot do HTTP request: %w", &url.Error{Op: "Get", URL: "http://h/v2/", Err: cause})
 }
 
 // TestClassify_Text covers each text form of the fallback on constructed
@@ -190,6 +203,19 @@ func TestClassify_Text(t *testing.T) {
 		{"module not found", "cannot fetch m@v0.0.1: module m@v0.0.1: module not found", oerrors.FetchNotFound, 0, false},
 		{"no module provides an exact version", `cannot find module providing package a.b/c@v1.2.3`, oerrors.FetchNotFound, 0, false},
 		{"tidy unreachable", `failed to resolve "a.b/c@v0": module a.b@v0: cannot do HTTP request: Get "http://h/v2/a.b/tags/list?n=1000": dial tcp: connection refused`, oerrors.FetchUnreachable, 0, true},
+		// A token endpoint that answered: the no-response prefix, then the
+		// status at the end of the line.
+		{"token answer 401 on a push", `cannot make scratch config: cannot do HTTP request: Post "http://h/v2/m/blobs/uploads/": 401 Unauthorized`, oerrors.FetchUnauthorized, 401, false},
+		{"token answer 403 on a push", `cannot make scratch config: cannot do HTTP request: Post "http://h/v2/m/blobs/uploads/": 403 Forbidden`, oerrors.FetchUnauthorized, 403, false},
+		{"token answer 401 on a load", `import failed: /d/main.cue:3:8: cannot find package "a.b/c": cannot fetch a.b@v0.0.1: module a.b@v0.0.1: cannot do HTTP request: Get "http://h/v2/a.b/manifests/v0.0.1": 401 Unauthorized`, oerrors.FetchUnauthorized, 401, false},
+		{"token answer 503", `cannot do HTTP request: Post "http://h/v2/m/blobs/uploads/": 503 Service Unavailable`, oerrors.FetchOther, 503, true},
+		{"token answer on the first of two lines", "cannot do HTTP request: Get \"http://h/v2/\": 403 Forbidden\nand more", oerrors.FetchUnauthorized, 403, false},
+		{"token answer on a refresh", `cannot do HTTP request: Get "http://h/v2/": cannot acquire access token: 401 Unauthorized`, oerrors.FetchUnauthorized, 401, false},
+		// Not a token answer: each stays a request that got no response.
+		{"a status text that is not the code's", `cannot do HTTP request: Get "http://h/v2/": 401 Forbidden`, oerrors.FetchUnreachable, 0, true},
+		{"a code below 400", `cannot do HTTP request: Get "http://h/v2/": 200 OK`, oerrors.FetchUnreachable, 0, true},
+		{"a status that is not at the end of the line", `cannot do HTTP request: Get "http://h/v2/": 403 Forbidden, then dial tcp: connection refused`, oerrors.FetchUnreachable, 0, true},
+		{"a status in the quoted URL", `cannot do HTTP request: Get "http://h/v2/x:%20403%20Forbidden": dial tcp: connection refused`, oerrors.FetchUnreachable, 0, true},
 		{"cannot fetch other", "cannot fetch m@v0.0.1: unzip /c/m.zip: zip: not a valid zip file", oerrors.FetchOther, 0, false},
 		{"graph expansion carrying a fetch form", "cannot expand module graph: m@v0.0.1: module not found", oerrors.FetchNotFound, 0, false},
 	}

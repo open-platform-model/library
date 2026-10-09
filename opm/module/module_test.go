@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 func TestNewModuleFromValue_SuccessPath(t *testing.T) {
@@ -98,7 +98,7 @@ debugValues: replicas: 1
 	require.NoError(t, err)
 	dv := mod.DebugValues()
 	require.True(t, dv.Exists())
-	assert.True(t, dv.Equals(with.LookupPath(schema.DebugValues)))
+	assert.True(t, dv.Equals(with.LookupPath(corepath.DebugValues)))
 
 	without := ctx.CompileString(`
 kind: "Module"

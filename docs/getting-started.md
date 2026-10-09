@@ -91,7 +91,8 @@ userValues, vErr := k.ValidateConfigDetailed(mod.ConfigSchema(), []kernel.Source
 })
 if vErr != nil {
     // CUE-native error tree — walk via cueerrors.Errors / Positions, or
-    // print with cueerrors.Print. The kernel ships no formatter; the
+    // print with cueerrors.Print. Values that fail the schema are marked
+    // with *errors.ConfigValidationError (opm/errors), for errors.As. The kernel ships no formatter; the
     // frontend owns presentation.
     cueerrors.Print(os.Stderr, vErr, nil)
     return vErr

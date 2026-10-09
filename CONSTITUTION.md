@@ -59,14 +59,14 @@ inputs -> schema -> semantics -> render
 
 The library MUST preserve clear package boundaries. Each package owns a single responsibility:
 
-- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`), CUE path inventory, and metadata types
+- `opm/schema/` — OPM core schema loader (`OCILoader`, per-`Kernel` `Cache`) and the CUE paths a consumer reads (the rest of the path inventory is internal; each decoded metadata type is declared with its artifact)
 - `opm/errors/` — structured errors and grouped CUE diagnostics (alias as `oerrors` in consumers)
 - `opm/kernel/` — public `Kernel` struct: the single runtime entry point (acquire, synthesize, validate, render)
 - `opm/module/` — module and instance model, value-validation accessors
 - `opm/platform/` — platform artifact model (a CUE module importing its catalogs; the kernel's render input)
 - `opm/catalog/` — the acquired catalog artifact ([ADR-009](adr/009-catalog-is-an-acquired-kind.md)): reads and derives, never judges
 - `opm/internal/renderstage/` — single-build render staging (generated render module, promoted `cue.mod`, embedded matching and execution glue); internal, reachable only through `Kernel.Render`
-- `opm/helper/` — opt-in frontend convenience (`platformmodule`, and `objectset`, Deprecated in favour of `opm/k8s/object` and kept until both frontends migrate); a frontend MAY skip the entire tree
+- `opm/helper/` — opt-in frontend convenience (`platformmodule`); a frontend MAY skip the entire tree
 - `opm/k8s/` — the Kubernetes tier beside the kernel ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)): the Kubernetes decisions OPM makes (object conversion, labels, inventory, ownership guards, deletion protocol, kind-class order, readiness). Its packages today are `opm/k8s/labels` (the label vocabulary), `opm/k8s/object` (object conversion, kind-class order and duplicate apply identities), `opm/k8s/health` (readiness evaluation over fetched objects), `opm/k8s/ownership` (the apply and delete ownership verdicts), `opm/k8s/inventory` (inventory entries, the component-blind stale set and the inventory and render digests) and `opm/k8s/lifecycle` (the deletion plan, its transition and the hold verdict). It is mandatory for a frontend that targets Kubernetes, which deletes its own copy of a package when it adopts it, and it is fenced from the kernel: no other `opm/` package imports it
 
 The library therefore has three tiers. The kernel binds every frontend. `opm/helper/` binds none. `opm/k8s/` binds every frontend that targets Kubernetes. Lint rules in `.golangci.yml` keep the kernel from importing either of the other two, and from importing any Kubernetes package.

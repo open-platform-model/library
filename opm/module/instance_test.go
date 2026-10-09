@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 func TestInstance_ConfigSchema_Reachable(t *testing.T) {
@@ -129,7 +129,7 @@ func TestInstance_Values(t *testing.T) {
 
 	values := inst.Values()
 	require.True(t, values.Exists())
-	assert.True(t, values.Equals(v.LookupPath(schema.Values)), "Values is the schema.Values subtree")
+	assert.True(t, values.Equals(v.LookupPath(corepath.Values)), "Values is the corepath.Values subtree")
 	replicas, err := values.LookupPath(cue.ParsePath("replicas")).Int64()
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), replicas)

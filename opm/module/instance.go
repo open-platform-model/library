@@ -3,6 +3,7 @@ package module
 import (
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -37,10 +38,6 @@ type Instance struct {
 	Source *Source
 }
 
-// InstanceMetadata is a re-export of [schema.InstanceMetadata] so callers can
-// keep working with `module.InstanceMetadata`.
-type InstanceMetadata = schema.InstanceMetadata
-
 // Components returns the instance's components value as evaluated,
 // definition fields (#resources, #traits, #blueprints, #names) included. It
 // is a read for frontends and tests: the render build reads the same field
@@ -49,11 +46,11 @@ func (r *Instance) Components() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
-	return r.Package.LookupPath(schema.Components)
+	return r.Package.LookupPath(corepath.Components)
 }
 
 // ConfigSchema returns the embedded source module's #config schema reachable
-// via schema.Module followed by schema.Config on r.Package.
+// via schema.Module followed by its `#config` field on r.Package.
 //
 // All failure modes return the zero cue.Value (not an error): a nil
 // receiver, a missing #module reference, or a missing #config definition on
@@ -66,10 +63,10 @@ func (r *Instance) ConfigSchema() cue.Value {
 	if !mod.Exists() {
 		return cue.Value{}
 	}
-	return mod.LookupPath(schema.Config)
+	return mod.LookupPath(corepath.Config)
 }
 
-// Values returns the instance's merged values at schema.Values on
+// Values returns the instance's merged values, the `values` field of
 // r.Package, as evaluated.
 //
 // It returns the zero cue.Value (not an error) for a nil receiver or an
@@ -78,7 +75,7 @@ func (r *Instance) Values() cue.Value {
 	if r == nil {
 		return cue.Value{}
 	}
-	return r.Package.LookupPath(schema.Values)
+	return r.Package.LookupPath(corepath.Values)
 }
 
 // ModuleMetadata returns the metadata of the module this instance was built

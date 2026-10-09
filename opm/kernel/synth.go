@@ -8,6 +8,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/synth"
 	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
@@ -77,8 +78,12 @@ type InstanceInput struct {
 // asserts concreteness on the whole built spec and on the instance's values
 // unified with the module's #config, and decodes instance metadata. The second
 // concreteness check refuses a required #config value the values leave unset
-// even when no component reads it, at the path `values.<field>`. No
-// additional values source is consulted.
+// even when no component reads it. The two checks give one refusal: when a
+// required value is unset it holds findings at the path `values.<field>`
+// only, one for every such value, whether or not a component reads it; the
+// findings of the built spec outside `values` (the component fields that read
+// an unset value, and any defect of the module's own) are left out until the
+// values are complete. No additional values source is consulted.
 //
 // A values conflict at a path a component consumes fails the build itself.
 // When the build fails and in.Values carry values, the failure is attributed
@@ -192,7 +197,7 @@ func (k *Kernel) SynthesizeInstance(ctx context.Context, in InstanceInput) (*mod
 	// positions. This is the same pass Kernel.AcquireInstanceFromDir runs over
 	// its extra values; concreteness of the whole instance is enforced by
 	// processInstance afterwards.
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := spec.LookupPath(schema.Module).LookupPath(corepath.Config)
 	if _, vErr := validateCompiled(configSchema, compiled, false); vErr != nil {
 		return nil, fmt.Errorf("Kernel.SynthesizeInstance: instance %q: %w", bestEffortInstanceName(spec), vErr)
 	}

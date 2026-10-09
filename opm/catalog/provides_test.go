@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-platform-model/library/opm/catalog"
+	"github.com/open-platform-model/library/opm/module"
 	"github.com/open-platform-model/library/opm/schema"
 )
 
@@ -250,7 +251,7 @@ func withModFile(t *testing.T, body, modFile string) *catalog.Catalog {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "cue.mod"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "cue.mod", "module.cue"), []byte(modFile), 0o644))
 	c := newCatalog(t, body)
-	c.Source = &catalog.Source{Root: root}
+	c.Source = &module.Source{Root: root}
 	return c
 }
 

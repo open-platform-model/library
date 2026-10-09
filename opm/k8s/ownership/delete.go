@@ -76,12 +76,13 @@ func (v DeleteVerdict) Preconditions() *metav1.Preconditions {
 // CanDelete decides whether a frontend may delete one object. It checks, in
 // order, and stops at the first match: a safety-excluded kind skips, whatever
 // the live object; a missing live object skips as already absent; a live
-// object OPM does not manage skips; a live object whose UUID label and the
-// instance's UUID are both set and differ skips as another instance's; a live
-// object whose adopt annotation (opmodel.dev/adopt) is set and does not name
-// this instance skips as adopted elsewhere, so an instance never deletes an
-// object it let go of (0012:D8:R8); otherwise it proceeds. An object already
-// being deleted proceeds, since deleting it again changes nothing.
+// object OPM does not manage skips, and nothing lifts that; a live object whose UUID
+// label and the instance's UUID are both set and differ skips as another
+// instance's; a live object whose adopt annotation (opmodel.dev/adopt)
+// is set and does not name this instance skips as adopted elsewhere, so an
+// instance never deletes an object it let go of (0012:D8:R8); otherwise it
+// proceeds. An object already being deleted proceeds, since deleting it again
+// changes nothing.
 func CanDelete(in DeleteInput) DeleteVerdict {
 	obj := in.Object
 	if SafetyExcluded(obj.Group, obj.Kind) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-platform-model/library/opm/catalog"
 	oerrors "github.com/open-platform-model/library/opm/errors"
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/internal/cueenv"
 	"github.com/open-platform-model/library/opm/internal/loader"
 	"github.com/open-platform-model/library/opm/internal/sourcetree"
@@ -194,7 +195,7 @@ func (k *Kernel) acquireDir(ctx context.Context, cueCtx *cue.Context, verb, dirP
 // only thing that differs is the shape it gates to.
 //
 // It returns a decoded [*catalog.Catalog] whose staged source
-// ([catalog.Source]) is populated in overlay mode, so
+// ([module.Source]) is populated in overlay mode, so
 // [catalog.Catalog.Requires] reads the catalog's committed
 // cue.mod/module.cue without a second fetch. A caller that wants the raw
 // value reads Catalog.Package, which keeps the call's runtime alive for as
@@ -233,7 +234,7 @@ func (k *Kernel) AcquireCatalogFromRegistry(ctx context.Context, modPath, versio
 // [Kernel.AcquireModuleFromDir] exactly: the package is evaluated and
 // shape-gated as the registry path gates a fetched catalog,
 // [catalog.NewCatalogFromValue] constructs the typed artifact, and
-// [catalog.Source] is stamped in OVERLAY mode — Root the enclosing module
+// [module.Source] is stamped in OVERLAY mode — Root the enclosing module
 // root (the nearest ancestor holding cue.mod/module.cue, the directory
 // itself when it is the root or when no ancestor holds one), Pkg the package
 // directory relative to it, and Overlay every .cue file under Root (the
@@ -344,6 +345,9 @@ func (k *Kernel) AcquirePlatformFromDir(ctx context.Context, dirPath string) (*p
 // processing step that follows does, on the whole built spec and on the
 // instance's values unified with the module's #config, so a required #config
 // value the values leave unset is refused even when no component reads it.
+// That refusal holds findings at `values.<field>` only, one for every such
+// value, whether or not a component reads it; the findings of the built spec
+// outside `values` are left out until the values are complete.
 //
 // The build runs in a [cue.Context] created for the call; Instance.Package
 // keeps it alive for as long as the caller holds the instance. This is the
@@ -488,11 +492,11 @@ func (k *Kernel) loadInstanceWithValues(ctx context.Context, cueCtx *cue.Context
 // incomplete values pass here and are held to concreteness by the instance
 // processing step afterwards.
 func checkInstanceValues(spec cue.Value, compiled []cue.Value) error {
-	configSchema := spec.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := spec.LookupPath(schema.Module).LookupPath(corepath.Config)
 	if _, err := validateCompiled(configSchema, compiled, false); err != nil {
 		return fmt.Errorf("Kernel.AcquireInstanceFromDir: instance %q: %w", bestEffortInstanceName(spec), err)
 	}
-	built := spec.LookupPath(schema.Values)
+	built := spec.LookupPath(corepath.Values)
 	if !configSchema.Exists() || !built.Exists() {
 		return nil
 	}
@@ -536,9 +540,9 @@ func attributeValuesError(cueCtx *cue.Context, opts loader.Options, authoredSrc 
 // processing step on a build that succeeds. It returns the raw CUE error, or
 // nil when the values are clean or there is nothing to check.
 func valuesConflict(authored cue.Value, compiled []cue.Value) error {
-	configSchema := authored.LookupPath(schema.Module).LookupPath(schema.Config)
+	configSchema := authored.LookupPath(schema.Module).LookupPath(corepath.Config)
 	all := make([]cue.Value, 0, len(compiled)+1)
-	if own := authored.LookupPath(schema.Values); own.Exists() {
+	if own := authored.LookupPath(corepath.Values); own.Exists() {
 		all = append(all, own)
 	}
 	all = append(all, compiled...)

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-platform-model/library/opm/internal/corepath"
 	"github.com/open-platform-model/library/opm/kernel"
 	"github.com/open-platform-model/library/opm/module"
-	"github.com/open-platform-model/library/opm/schema"
 )
 
 // single-build-render spec, "A render reports every contract its instance
@@ -132,7 +132,7 @@ func walkDeclaredContracts(inst *module.Instance) ([]string, error) {
 	if inst == nil {
 		return contracts, nil
 	}
-	components := inst.Package.LookupPath(schema.Components)
+	components := inst.Package.LookupPath(corepath.Components)
 	if !components.Exists() {
 		return contracts, nil
 	}

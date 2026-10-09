@@ -50,6 +50,52 @@ A registry fetch failure that the library returns is a typed `*FetchError` with 
 - **WHEN** the registry answers a module fetch with status 403
 - **THEN** the error is a `*FetchError` of kind `FetchNotFound`, and `errors.Is(err, ErrTransient)` is false
 
+### Requirement: A token endpoint's answer is a registry answer
+
+When a registry uses token authentication and its token endpoint answers the token request with an HTTP status, the failure SHALL classify by that status, the same as an answer from the registry itself: 401 and 403 are `FetchUnauthorized`, 404 is `FetchNotFound`, and every other status is `FetchOther`, each with `Status` set to the answered code. It SHALL NOT classify as `FetchUnreachable`, and it SHALL satisfy `errors.Is(err, ErrTransient)` only when the status is 500 or higher. This SHALL hold on a chain that keeps the typed cause and on a chain that the embedded CUE flattened into text, which includes the error of a module push (`modregistry.Client.PutModule`) that a frontend passes to `Classify`. It SHALL also hold when the client was refreshing a token it held: the embedded registry client then writes the answer as text inside the failed request's error (`cannot acquire access token: <code> <status text>`) and keeps no typed status, on any chain. A caller tells a refused credential from a refused permission by `Status` (401 or 403).
+
+One case is outside this requirement. The embedded CUE's registry client reports a 403 or a 404 on a module version lookup as `modregistry.ErrNotFound` and drops the status, and it does so for the token endpoint's answer too. That case SHALL classify as `FetchNotFound`, as the requirement "A fetch or resolution failure is a typed error" says for a forbidden tag lookup.
+
+#### Scenario: A push whose token endpoint refuses the credentials
+
+- **WHEN** a module push goes to a registry that answers with a Bearer challenge, the token endpoint answers 401, and the push error is passed to `Classify`
+- **THEN** the result is a `*FetchError` of kind `FetchUnauthorized` with `Status` 401, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A push whose token endpoint refuses the permission
+
+- **WHEN** a module push goes to a registry that answers with a Bearer challenge, the token endpoint answers 403, and the push error is passed to `Classify`
+- **THEN** the result is a `*FetchError` of kind `FetchUnauthorized` with `Status` 403, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A directory module whose dependency registry refuses the token
+
+- **WHEN** `Kernel.AcquireModuleFromDir` loads a module whose dependency must be fetched from a registry that answers with a Bearer challenge and whose token endpoint answers 401
+- **THEN** `errors.As` yields a `*FetchError` of kind `FetchUnauthorized` with `Status` 401, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A registry fetch whose token endpoint refuses the credentials
+
+- **WHEN** `Kernel.AcquireModuleFromRegistry` asks a registry that answers with a Bearer challenge and whose token endpoint answers 401
+- **THEN** `errors.As` yields a `*FetchError` of kind `FetchUnauthorized` with `Status` 401, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A refused token refresh on a direct call
+
+- **WHEN** a registry client that holds a refresh token lists a module's versions, the token endpoint answers the refresh 401 or 403, and the error is passed to `Classify`
+- **THEN** the result is a `*FetchError` of kind `FetchUnauthorized` with `Status` 401 or 403, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A token endpoint that fails stays transient
+
+- **WHEN** a module push goes to a registry that answers with a Bearer challenge, the token endpoint answers 503, and the push error is passed to `Classify`
+- **THEN** the result is a `*FetchError` of kind `FetchOther` with `Status` 503, and `errors.Is(err, ErrTransient)` is true
+
+#### Scenario: A token endpoint that throttles is not transient
+
+- **WHEN** a module push goes to a registry that answers with a Bearer challenge, the token endpoint answers 429, and the push error is passed to `Classify`
+- **THEN** the result is a `*FetchError` of kind `FetchOther` with `Status` 429, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A forbidden token on a version lookup is not found
+
+- **WHEN** `Kernel.AcquireModuleFromRegistry` asks a registry that answers with a Bearer challenge and whose token endpoint answers 403
+- **THEN** the error is a `*FetchError` of kind `FetchNotFound` with `Status` 0
+
 ### Requirement: The library classifies every fetch and resolution failure it returns
 
 Every library path that returns a registry fetch failure or a `cue/load` dependency resolution failure SHALL pass the cause through `Classify` inside its existing wrap. These paths are the registry acquire verbs (`FetchArtifact`, with `Coordinate` set to the fetched `path@version`), every directory acquire verb and the synth build (through `loader.LoadDir`), the load of a file-backed values source, the render module load, the schema `OCILoader` load, and the platform-module dependency closure. The wrap text SHALL be unchanged, and every existing sentinel (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField` and the synthesis sentinels) SHALL still match with `errors.Is`. An evaluation error (a built value's error, a shape-gate or concreteness failure) SHALL NOT be classified. Source: 0021:D8:R12.
@@ -94,9 +140,9 @@ Every library path that returns a registry fetch failure or a `cue/load` depende
 
 `opm/errors` SHALL export `Classify(err error) error`. It SHALL return nil for nil. It SHALL return `err` unchanged when the chain already holds a `*FetchError` or a `*ResolutionError`, when the chain holds `context.Canceled`, and when it recognises nothing. It SHALL return a `*FetchError` that wraps `err` for a failed registry interaction: a fetch that got no response, a registry answer that refused or did not hold what was asked for, or a fetched archive that could not be used. It SHALL return a `*ResolutionError` that wraps `err` for an author-defect resolution failure that no failed registry interaction caused. When the text carries both a fetch form and an author-defect form, the fetch form SHALL win, the generic `cannot fetch` form included, so a registry failure never reads as an author defect and no text that classified as a `*FetchError` before stops being one. When the text carries several author-defect forms, the first in the order of step 2 below SHALL decide. Source: 0021:D8:R12.
 
-`Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. Only when no typed cause is found SHALL it match text. The text fallback SHALL be the only place in the library that matches the text of a registry or `cue/load` error. It SHALL cover the forms the embedded CUE version produces when `cue/load` flattens a failure, in this order:
+`Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. A `net.Error` is `FetchUnreachable`, except when the text of the chain is the answered token request of step 1 below, which classifies by its status: the embedded registry client leaves no typed status for a refused token refresh. Only when no typed cause is found SHALL it match text. The text fallback, with that one `net.Error` exception, SHALL be the only place in the library that matches the text of a registry or `cue/load` error. It SHALL cover the forms the embedded CUE version produces when `cue/load` flattens a failure, in this order:
 
-1. The fetch forms. These are `cannot do HTTP request`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. They also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). Only a standalone `path@version` load produces that form, after it asks the registry for that version. Last among them is `cannot fetch`, which is `FetchOther`.
+1. The fetch forms. First is the answered token request: `cannot do HTTP request: ` followed on the same line by a request and `: <code> <status text>` at the end of the line, where the status text is the one HTTP gives the code and the code is 400 or higher. The embedded registry client writes that form only when the token endpoint of a token-authenticated registry answered the token request with that status, so it classifies by the status, as a registry answer does, and never as `FetchUnreachable`. Then come `cannot do HTTP request` in any other form, which is `FetchUnreachable`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. They also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). Only a standalone `path@version` load produces that form, after it asks the registry for that version. Last among them is `cannot fetch`, which is `FetchOther`.
 2. The author-defect forms, in this order:
    - `cannot find module providing package` followed by a path without an exact version, which is `ResolutionImportUnprovided`;
    - `ambiguous import`, which is `ResolutionImportAmbiguous`;
@@ -163,6 +209,16 @@ Every library path that returns a registry fetch failure or a `cue/load` depende
 
 - **WHEN** `Classify` receives an error whose chain already holds a `*FetchError` or a `*ResolutionError`
 - **THEN** it returns the same error
+
+#### Scenario: A flattened token refusal is not unreachable
+
+- **WHEN** `Classify` receives an error with no typed cause whose text ends in `cannot do HTTP request: Post "<url>": 403 Forbidden`
+- **THEN** it returns a `*FetchError` of kind `FetchUnauthorized` with `Status` 403, and `errors.Is(err, ErrTransient)` is false
+
+#### Scenario: A request that got no response stays unreachable
+
+- **WHEN** `Classify` receives an error with no typed cause whose text carries `cannot do HTTP request` and ends in a dial failure, and no line of it ends in an HTTP status
+- **THEN** it returns a `*FetchError` of kind `FetchUnreachable`, and `errors.Is(err, ErrTransient)` is true
 
 ### Requirement: The library returns author-defect resolution failures typed
 

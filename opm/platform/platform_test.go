@@ -97,11 +97,9 @@ type: "kubernetes"
 	require.NotNil(t, p)
 	assert.Nil(t, p.Source, "value-constructed platform must carry no Source")
 
-	// platform.Source aliases module.Source: assigning one type to the other
-	// needs no conversion.
+	// The field is a *module.Source: the source type has one name.
 	p.Source = &module.Source{Root: "/x"}
-	var src *platform.Source = p.Source //nolint:staticcheck // the explicit type IS the assertion: alias identity
-	assert.Equal(t, "/x", src.Root)
+	assert.Equal(t, "/x", p.Source.Root)
 }
 
 // TestNewPlatformFromValue_DecodeFailureNamedOnce pins the schema-dispatch

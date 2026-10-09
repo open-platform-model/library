@@ -1,0 +1,25 @@
+## 1. Pin the token endpoint forms of the embedded CUE
+
+Tests run against the worktree's own copy of the main checkout's `.cue-cache/mod`. Every registry case uses a local registry only and a fresh module cache. Every commit task stages the files it names.
+
+- [x] 1.1 `opm/internal/registrytest/status.go`: add `NewTokenRegistry(t, tokenStatus)`, a local server that answers every registry request 401 with a Bearer challenge naming its own `/token`, and answers `/token` with `tokenStatus`. Verify: the cases of 1.2 reach the token endpoint (their text names the status).
+- [x] 1.2 `opm/errors/classify_cue_test.go`: add `token/...` cases to `cueForms()` for a direct fetch (401, 403, 503), a directory load with a dependency (401, 403, 503) and a push through `modregistry.Client.PutModule` (401, 403, 404, 429, 500, 503). Pin each text and typed chain, and pin `Classify`'s answer at what it is today (`FetchUnreachable` and transient for the flattened forms). Verify: `go test ./opm/errors -run 'CUEFailureForms'` passes.
+- [x] 1.3 `task check` green, then commit `test(errors): pin the token endpoint forms of the embedded cue`.
+
+## 2. errors: classify an answered token request by its status
+
+- [x] 2.1 `opm/errors/classify.go`: add the anchored answered-token pattern and check it first in `classifyText` (design, "How to recognise the answered token request"). Rewrite the `textUnreachable` comment and the `Classify` godoc to say which form is an answer. `opm/errors/fetch.go`: say in the `FetchUnauthorized`, `FetchUnreachable` and `ErrTransient` docs that a token endpoint's answer is a registry answer. Verify: 2.2.
+- [x] 2.2 Move the `token/...` pins of 1.2 to the right answers (`FetchUnauthorized` 401 and 403, `FetchNotFound` 404, `FetchOther` 429 and 5xx; transient only for 5xx). In `opm/errors/classify_test.go` add constructed rows: the push text for 401 and 403, a text with a number that is not the status text of its code (stays `FetchUnreachable`), a dial failure (stays `FetchUnreachable`), and a status below 400 (stays `FetchUnreachable`). In `opm/kernel/fetch_classify_test.go` add `AcquireModuleFromDir` with a dependency behind a token registry answering 401 (`FetchUnauthorized`, 401, not transient) and `AcquireModuleFromRegistry` against token registries answering 401 (`FetchUnauthorized`) and 403 (`FetchNotFound`). Verify: each new assertion fails with the 2.1 edit reverted, except the two that pin unchanged answers.
+- [x] 2.3 Update the `opm/errors` package doc if it describes the unreachable form, and record the commands and results under design.md "Verification". Verify: `task check` and `task api:diff` report no incompatible change charged to this branch.
+- [x] 2.4 `task check` green, then commit `fix(errors): classify a token endpoint refusal by its status`.
+
+## 3. errors: read a refused token refresh on the typed chain
+
+- [x] 3.1 `opm/internal/registrytest/status.go`: add `NewRefreshTokenRegistry`. `opm/errors/classify_cue_test.go`: add `token/refresh/*` cases through a stock client that holds a refresh token (a version listing, which keeps its `*url.Error`, and a push). Verify: the listing cases fail before 3.2 (`FetchUnreachable`).
+- [x] 3.2 `opm/errors/classify.go`: `classifyTyped` reads the answered-token pattern before a `net.Error` becomes `FetchUnreachable` (design, "The refresh-token path"). Add the constructed `*url.Error` rows to `TestClassify_Typed`. Reflow the comment blocks edited in section 2. Verify: `go test ./opm/errors` passes.
+- [x] 3.3 `task check` green, then commit `fix(errors): read a refused token refresh on a failed round trip`.
+
+## 4. Record the accepted exception
+
+- [x] 4.1 Write `adr/014-one-text-match-for-a-token-endpoint-answer.md` in the `adr/TEMPLATE.md` shape: the owner's decision of 2026-10-08, the one pattern, the transport set aside, the three accepted limits. Name it in a comment at `textTokenAnswer` and in design.md. Verify: the file exists and `task check` is green.
+- [x] 4.2 `task check` green on the tree with `origin/main` merged in, then commit `docs(adr): record the token answer text match as ADR-014`.
