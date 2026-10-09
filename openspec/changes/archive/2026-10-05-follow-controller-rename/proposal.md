@@ -17,14 +17,14 @@ directory moves.
 - Godoc and comments under `opm/` name the controller where they named the operator, and the
   provenance notes name `opm-controller` at the same commits. `.golangci.yml` depguard messages,
   which a contributor reads, say "the controller's engine". Test assertion messages and one
-  fixture comment follow; the hold-message test bans the word `controller` instead of `operator`.
+  fixture comment follow; the hold-message test bans the word `controller` beside `operator`.
 - Prose: `README.md`, `AGENTS.md`, `CONSTITUTION.md`, `openspec/config.yaml`, `MIGRATIONS.md`,
   `migrations/README.md`, ADR bodies (dated material is renamed too), `docs/design/*` (links
   re-pointed at `../../../opm-controller/...`), `docs/site` diagnostics (the `Check against:`
   pointers and the "Controller conditions entry" name), the embedding page, the repo's two skills,
   and the active change `publish-go-api-bundle`.
-- Specs: MODIFIED wording in `consumer-build`, `duplicate-object-identities` and
-  `kubernetes-tier`. In `kernel-runtime` the requirement "Kernel.SynthesizeInstance method" is
+- Specs: MODIFIED wording in `consumer-build`, `duplicate-object-identities`, `kubernetes-tier`
+  and one requirement of `kernel-runtime`. In `kernel-runtime` the requirement "Kernel.SynthesizeInstance method" is
   REMOVED and re-ADDED as "Kernel.SynthesizeInstance builds an instance from an acquired module",
   because its scenario "Operator-shaped caller needs no cue.Context" becomes "Controller-shaped
   caller ..." and OpenSpec refuses a MODIFIED that drops a scenario. The Purpose lines of
@@ -40,7 +40,10 @@ Not in this change: the library release that carries it, and `.tasks/cascade/wir
 ## Impact
 
 - Affected packages: none in behaviour. `opm/` changes are comments and test messages only.
-- SemVer: PATCH-level by itself (docs, ci, test). It ships on the branch of
-  `remove-ownership-admit`, whose break sets the release class.
+- SemVer: PATCH-level (docs, ci, test). The install admission left the library in its own change,
+  `remove-admit-and-public-surface-shims` (library#228, ADR-016, `v1.0.0-beta.9`); this change
+  removes no API.
 - Downstream: none. The consumer-build check clones `open-platform-model/opm-controller`, which
-  exists only after the GitHub rename; until then that (non-required) job fails to clone.
+  exists only after the GitHub rename. The CI edits and the `consumer-build` spec wording are
+  therefore one separate, last commit of the branch, applied after the repository is renamed;
+  everything before it merges while the repository is still named `opm-operator`.

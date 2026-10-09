@@ -960,7 +960,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 
 ### Requirement: The ownership verdicts take no input that only lifts a refusal
 
-`ownership.ApplyInput` SHALL have exactly the fields `Object`, `Live`, `InInventory` and `InstanceUUID`, and `ownership.DeleteInput` SHALL have exactly the fields `Object`, `Live` and `InstanceUUID`. Neither SHALL carry a field whose only effect is to lift a refusal or a skip. The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. Outside the inventory, the adopt annotation on the live object naming the applying instance SHALL be the only thing that lifts an ownership refusal. On delete, nothing SHALL lift the `not-opm-managed` skip. A frontend that installs the operator is judged as any other instance. Source: 0012:D8:R1/R2/R3; 0012:D8:R6 and 0012:D8:R7 are withdrawn.
+`ownership.ApplyInput` SHALL have exactly the fields `Object`, `Live`, `InInventory` and `InstanceUUID`, and `ownership.DeleteInput` SHALL have exactly the fields `Object`, `Live` and `InstanceUUID`. Neither SHALL carry a field whose only effect is to lift a refusal or a skip. The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. Outside the inventory, the adopt annotation on the live object naming the applying instance SHALL be the only thing that lifts an ownership refusal. On delete, nothing SHALL lift the `not-opm-managed` skip. A frontend that installs the controller is judged as any other instance. Source: 0012:D8:R1/R2/R3; 0012:D8:R6 and 0012:D8:R7 are withdrawn.
 
 #### Scenario: The verdict inputs carry no admission field
 
@@ -969,7 +969,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 
 #### Scenario: An earlier install manifest's object is refused on apply
 
-- **WHEN** the apply verdict is asked for `Namespace/opm-operator-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
+- **WHEN** the apply verdict is asked for `Namespace/opm-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
 - **THEN** it refuses as `foreign-object`
 - **AND** the message names `opmodel.dev/adopt` with the instance UUID
 

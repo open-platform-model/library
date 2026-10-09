@@ -1,5 +1,25 @@
 ## MODIFIED Requirements
 
+### Requirement: The ownership verdicts take no input that only lifts a refusal
+
+`ownership.ApplyInput` SHALL have exactly the fields `Object`, `Live`, `InInventory` and `InstanceUUID`, and `ownership.DeleteInput` SHALL have exactly the fields `Object`, `Live` and `InstanceUUID`. Neither SHALL carry a field whose only effect is to lift a refusal or a skip. The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. Outside the inventory, the adopt annotation on the live object naming the applying instance SHALL be the only thing that lifts an ownership refusal. On delete, nothing SHALL lift the `not-opm-managed` skip. A frontend that installs the controller is judged as any other instance. Source: 0012:D8:R1/R2/R3; 0012:D8:R6 and 0012:D8:R7 are withdrawn.
+
+#### Scenario: The verdict inputs carry no admission field
+
+- **WHEN** a test lists the fields of `ownership.ApplyInput` and `ownership.DeleteInput`
+- **THEN** they are `Object`, `Live`, `InInventory`, `InstanceUUID` and `Object`, `Live`, `InstanceUUID`
+
+#### Scenario: An earlier install manifest's object is refused on apply
+
+- **WHEN** the apply verdict is asked for `Namespace/opm-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
+- **THEN** it refuses as `foreign-object`
+- **AND** the message names `opmodel.dev/adopt` with the instance UUID
+
+#### Scenario: An earlier install manifest's Deployment is not deleted
+
+- **WHEN** the delete verdict is asked for a live `apps` Deployment with managed-by `kustomize` and no UUID label
+- **THEN** it skips as `not-opm-managed`
+
 ### Requirement: Nothing in the library performs a cluster action
 
 Nothing in the library SHALL perform a cluster action, and the Kubernetes tier SHALL perform no cluster I/O. No executor (a loop that drives a plan to completion) and no executor backend that performs a planned action against a cluster SHALL ship anywhere under `opm/`: not in the kernel, not under `opm/k8s/` and not under `opm/helper/`. ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` is narrowed to executor backends that perform no planned action against a cluster (0009's wasm, HTTP, `cue.eval` and local container hosts; 0012:D3 amends 0009:D4 so its cluster-acting Ops are performed by the frontend). A deletion plan SHALL advance one action per call from a serialisable state the caller owns, and the frontend SHALL perform each action with its own client, in a loop it writes itself. The tier SHALL own the whole deletion sequence (plan, transition, hold verdict). For apply, it SHALL own the per-object verdict (CanApply) and the order, never an apply engine. Each frontend SHALL submit objects in the library's order. An engine's own staging MAY refine that order, for example by sorting within a stage, and SHALL NOT contradict it. ADR-008 rules 1 to 3 apply to the tier. Source: 0012:D3, 0012:D4, 0012:D5.

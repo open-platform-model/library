@@ -26,3 +26,11 @@
 - [x] 4.2 `opm/kernel/required_config_test.go` (added by #217): its four comments name the controller.
 - [x] 4.3 The `consumer-build` deltas carry #219's `Source: ADR-013, decision j4.`; the `kernel-runtime` sync keeps #217's appended requirement before the re-added SynthesizeInstance requirement. No main-spec wording that names the old product arrived outside these deltas, so no follow-up change is needed.
 - [x] 4.4 `task check` and `openspec validate --all --strict` green, then commit `docs: name the controller in ADR-013 and the required-config tests`.
+
+## 5. Merge of library main at v1.0.0-beta.9 (2026-10-09)
+
+- [x] 5.1 Main removed the install admission itself (library#228, ADR-016). The ownership code, its tests and the `kubernetes-tier` requirements are main's; the earlier change `remove-ownership-admit` of this branch is dropped, archive included.
+- [x] 5.2 Main deleted `opm/helper/objectset` (library#223); its delta requirement "The helper copy is deprecated and kept until both frontends migrate" is dropped from this change.
+- [x] 5.3 ADR-015, ADR-016, the `kernel-runtime` requirement "Instance verbs refuse an unset required config value" and the `kubernetes-tier` requirement "The ownership verdicts take no input that only lifts a refusal" name the controller; both requirements are MODIFIED deltas of this change. The ownership test fixtures name `opm-system` and `opm-controller-manager`.
+- [x] 5.4 The section 1 edits, the `consumer-build` spec wording and the check name in `AGENTS.md` are one last commit, `ci(consumer-build): build opm-controller in place of opm-operator`, applied after the repository rename. The commits before it keep `Consumer build (opm-operator)`.
+- [x] 5.5 `task check` and `openspec validate --all --strict` green without that last commit, and again with it.

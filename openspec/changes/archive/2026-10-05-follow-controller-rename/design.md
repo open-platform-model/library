@@ -40,5 +40,6 @@ renamed.
 
 ## Risks / Trade-offs
 
-- Before the GitHub rename, `Consumer build (opm-controller)` cannot clone. The check is not
-  required, so the PR stays mergeable; it merges after the GitHub rename.
+- Before the GitHub rename, `Consumer build (opm-controller)` cannot clone. The CI edits and the
+  `consumer-build` spec wording are therefore the last, separate commit of the branch, applied
+  after the GitHub rename; the commits before it keep `Consumer build (opm-operator)`.

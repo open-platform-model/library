@@ -490,7 +490,7 @@ A path SHALL be reported once. Every finding of the built-spec check outside `va
 
 A caller identifies the refusal as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. When a required value is unset, every finding of the tree is a values finding.
 
-For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every value that `ValidateConfigDetailed(#config, sources)` refuses, and SHALL name at `values.<field>` every unset field that `ValidateConfigDetailed` names at `#config.<field>`; it MAY refuse more only through the concreteness check on the built spec, which refuses a non-concrete value the instance's values carry even where a `#config` default would complete it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every value that `ValidateConfigDetailed(#config, sources)` refuses, and SHALL name at `values.<field>` every unset field that `ValidateConfigDetailed` names at `#config.<field>`; it MAY refuse more only through the concreteness check on the built spec, which refuses a non-concrete value the instance's values carry even where a `#config` default would complete it. Source: library#211, settled by the owner in the pull request that closes it; opm-controller#258 for the report of both checks.
 
 #### Scenario: Synthesis refuses an unread required value
 
