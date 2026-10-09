@@ -3,7 +3,7 @@ set -euo pipefail
 
 # consumer-build.sh — build and vet one library consumer against a library tree.
 #
-# The library's consumers, cli and opm-controller, require a released library
+# The library's consumers, cli and opm-operator, require a released library
 # version in their go.mod. This script points one consumer at a library tree
 # through a go.work written in a throwaway work directory and selected with
 # GOWORK, then runs `go build ./...` and `go vet ./...` in the consumer. No
@@ -14,7 +14,7 @@ set -euo pipefail
 # Usage:
 #   bash .tasks/consumer-build.sh <consumer-dir> <library-dir> [<work-dir>]
 #
-#   <consumer-dir>  a git checkout of cli or opm-controller
+#   <consumer-dir>  a git checkout of cli or opm-operator
 #   <library-dir>   a git checkout of this library (a worktree with
 #                   uncommitted edits is fine)
 #   <work-dir>      where go.work and the step logs go; must not already hold a

@@ -1,7 +1,7 @@
 name: Consumer build
 
 # ADR-013, decision j4: build and vet the
-# library's consumers, cli and opm-controller, at their main against this PR,
+# library's consumers, cli and opm-operator, at their main against this PR,
 # through a go.work in a throwaway directory, never a replace in a tracked
 # go.mod. Not a required check: a red run warns, it never blocks a merge. The
 # paths filter is safe only because of that (a required check a filter skips
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        consumer: [cli, opm-controller]
+        consumer: [cli, opm-operator]
     steps:
       # The checkout default for pull_request: the PR's merge commit, as in
       # test.yml.
@@ -57,11 +57,11 @@ jobs:
           path: consumer
           persist-credentials: false
 
-      - name: Clone opm-controller at main
-        if: matrix.consumer == 'opm-controller'
+      - name: Clone opm-operator at main
+        if: matrix.consumer == 'opm-operator'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: open-platform-model/opm-controller
+          repository: open-platform-model/opm-operator
           ref: main
           path: consumer
           persist-credentials: false
