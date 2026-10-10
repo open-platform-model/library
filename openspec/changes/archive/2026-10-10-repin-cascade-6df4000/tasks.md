@@ -8,4 +8,4 @@
 ## 2. Verify and archive
 
 - [x] 2.1 `openspec validate repin-cascade-6df4000 --strict` passes and the verify skill reports no CRITICAL finding.
-- [ ] 2.2 `openspec archive repin-cascade-6df4000 -y`; `openspec validate --all --strict` passes. Commit `chore(openspec): archive repin-cascade-6df4000`.
+- [x] 2.2 `openspec archive repin-cascade-6df4000 -y`; `openspec validate --all --strict` passes. Commit `chore(openspec): archive repin-cascade-6df4000`.
