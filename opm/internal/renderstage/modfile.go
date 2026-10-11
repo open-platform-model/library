@@ -23,7 +23,7 @@ const LocalModFileName = "cue.mod/local-module.cue"
 
 // Dep is one dependency entry of a parsed module file, with the default-major
 // marker intact: a catalog's `default: true` for a path is honoured by cue/load
-// only while that path is a root dependency (0019 02-design.md, "The render
+// only while that path is a root dependency (the design of enhancement 0019, "The render
 // build"), so promotion must carry the marker into the render module.
 type Dep struct {
 	// Version is the canonical dependency version ("v1.2.3", "v2.0.0-beta.1").
