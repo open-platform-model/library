@@ -3,7 +3,7 @@
 - [x] 1.1 Add `TestVerdictInputsCarryNoOverride` (reflection: the field names of `ApplyInput` and `DeleteInput`); see it fail on `Admit`
 - [x] 1.2 Delete `ApplyInput.Admit`, `DeleteInput.Admit`, `admittedForApply`, `admittedForDelete`, `installDeletable`, `carriesNoOtherIdentity`; correct the `CanApply` and `CanDelete` docs; verify `git grep -n "Admit\|installDeletable" -- opm` is empty
 - [x] 1.3 Remove the table rows that set `Admit`; keep the earlier-manifest Namespace and Deployment rows with their refused verdicts; every other row is unedited
-- [x] 1.4 Cite enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") in place of enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") at `labels.AnnotationAdopt` and its no-writer test; correct the `labels/` and `ownership/` lines of `AGENTS.md`
+- [x] 1.4 Cite the adopt-annotation requirement of enhancement 0012 in place of the withdrawn admission requirement at `labels.AnnotationAdopt` and its no-writer test; correct the `labels/` and `ownership/` lines of `AGENTS.md`
 - [x] 1.5 `task check` green, then commit `feat(k8s)!: remove the install admission from the ownership verdicts`
 
 ## 2. Remove the two deprecated shims (opm/errors, opm/catalog, opm/schema, opm/internal/loader)

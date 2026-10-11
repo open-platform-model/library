@@ -13,7 +13,7 @@ The documentation site moves from Astro + Starlight to Hugo + Hextra (opmodel.de
 
 **Not in this change:** prose edits; new pages; a `docs/site` lint in library's CI (a enhancement 0018 ("Every writing rule names what checks it, and machine checks run in the owning repository's pull requests") follow-up); rendering the pages (the site change renders every page); writing `docs/site/diagnostics/colliding-contracts.md` (its content belongs to `refuse-colliding-contracts`; if it is already on `origin/main`, this change only converts its front matter, see Impact).
 
-**Related decisions.** The pages keep `title`, `description` and `type` as enhancement 0018 ("Every page declares one type, a title and a one-line description") require (seven how-to pages, one tutorial). `weight` orders a page within its section and declares no address, so enhancement 0018 ("Every page declares one type, a title and a one-line description") still holds. Library keeps owning these pages under enhancement 0018 ("A page lives in the repository whose change would make it wrong; the site is assembled by section").
+**Related decisions.** The pages keep `title`, `description` and `type` as enhancement 0018 ("Every page declares one type, a title and a one-line description") require (seven how-to pages, one tutorial). `weight` orders a page within its section and declares no address, so the address rules of that enhancement still hold. Library keeps owning these pages under enhancement 0018 ("A page lives in the repository whose change would make it wrong; the site is assembled by section").
 
 ## Capabilities
 

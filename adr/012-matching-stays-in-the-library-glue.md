@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-03). Records ADR-013, decision d5: where the matching algorithm lives. Leaves enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted" and "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") (workspace root, `enhancements/archive/0019/03-decisions.md`) standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
+Accepted (2026-10-03). Records ADR-013, decision d5: where the matching algorithm lives. Leaves enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted" and "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
 
 ## Context
 
@@ -23,7 +23,7 @@ A single derived rule may move into core, one at a time, when core can compute i
 Rejected alternatives:
 
 - **Move `#Match` whole into core (core#62).** Not now. Every matching fix would become a core release, and every matching break a `feat!` on core (a new major after GA), the decoder's field names would become core contract, and it reverses half of enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index"), which needs an enhancement decision rather than an ADR. The readability argument is real; moving rules one at a time answers part of it without taking on the rest of the cost at once.
-- **A core reverse index, reversing enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index").** It brings back the shape enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") removed, a core field the glue does not consume, and has the same release cost for every change to it.
+- **A core reverse index, reversing enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index").** It brings back the shape that enhancement 0019 removed, a core field the glue does not consume, and has the same release cost for every change to it.
 
 ## Consequences
 

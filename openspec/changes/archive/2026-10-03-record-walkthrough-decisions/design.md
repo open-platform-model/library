@@ -52,7 +52,7 @@ Rule 2's last sentence becomes: "The Kernel holds no built value between calls. 
 
 ADR-004's "so the GA release checklist picks it up" becomes a pointer to the GA exit criteria in enhancement 0021, which holds the arming criterion too. The arming condition is recorded here and in `migrations/README.md`. `README.md` § API stability → Beta promise gains one sentence after "GA drops the suffix ...": GA is cut only when the GA exit criteria of enhancement 0021 hold, among them the library's own (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status gets the same link. ADR-010 already defers to ADR-004 and is not touched.
 
-**Reading chosen:** the owner text says "R11 to R14 in decision enhancement 0021 ("A beta line reaches GA only when its exit criteria hold")". The repo's reference rule writes one requirement of a decision as enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"), so that form is used.
+**Reading chosen:** the owner text names the library's own GA criteria (four requirements) of enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"). The repo's reference rule names an enhancement by its id beside a reason in words, so that form is used.
 
 ### 5. Spec deltas
 
@@ -64,6 +64,6 @@ ADR-004's "so the GA release checklist picks it up" becomes a pointer to the GA 
 
 ## Risks / Trade-offs
 
-- [This change cites enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") wording and enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") to enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") that the enhancements change `record-walkthrough-decisions` writes] → this change merges after that one. Until then, the R11 to R14 citations point at text that is not on enhancements `main`.
+- [This change cites enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") wording and the library's own GA criteria of enhancement 0021 that the enhancements change `record-walkthrough-decisions` writes] → this change merges after that one. Until then, the citations of the library's own GA criteria point at text that is not on enhancements `main`.
 - [`restore-kernel-godoc` edits `opm/kernel/doc.go` in parallel] → its task 1.1 rewraps every prose paragraph of doc.go, so whichever change merges second gets a conflict over the whole Goroutine-safety paragraph. The second merger re-applies the retention sentence by hand, wraps it to the restored width, and re-runs restore-kernel-godoc's word-diff check and doc_test.
 - [ADR-005's "a caller cannot obtain one to hold" may be quoted elsewhere] → a grep at section 3 covers `adr/`, `opm/`, `README.md`, `AGENTS.md` and `openspec/specs/`.

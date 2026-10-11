@@ -3,7 +3,7 @@
 ## Status
 
 Accepted. Amended 2026-10-03 by `record-walkthrough-decisions`: the arming condition now points
-at the GA exit criteria in enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (the arming condition is enhancement 0021 ("A beta line reaches GA only when its exit criteria hold")).
+at the GA exit criteria in enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (the same enhancement also holds the arming condition).
 
 ## Context
 

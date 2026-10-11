@@ -47,7 +47,7 @@ if !opmManaged(in.Live) { /* foreign-object */ }
 
 ### Records
 
-**Decision**: ADR-015 gets a dated closing note under Status (the two exceptions are gone). A new ADR-016 records the admission removal with enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") and what stays (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"). No `enhancement.yaml`.
+**Decision**: ADR-015 gets a dated closing note under Status (the two exceptions are gone). A new ADR-016 records the admission removal (the requirements of enhancement 0012 that the enhancement record withdrew) and what stays (the adopt rule of the same enhancement). No `enhancement.yaml`.
 **Rationale**: AGENTS.md "Where a statement lives": rationale goes in an ADR. The delivery log records delivered decisions, and this change delivers none.
 
 ## Risks / Trade-offs

@@ -26,5 +26,5 @@ condition (enhancement 0021, "A beta line reaches GA only when its exit criteria
 
 - **WHEN** a developer reads ADR-004, `README.md` § API stability → Beta promise or `migrations/README.md` § Status
 - **THEN** each names enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") as the GA exit criteria, and `README.md` names the library's
-  own criteria enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") to enhancement 0021 ("A beta line reaches GA only when its exit criteria hold")
+  own criteria among them
 - **AND** none refers to a GA release checklist

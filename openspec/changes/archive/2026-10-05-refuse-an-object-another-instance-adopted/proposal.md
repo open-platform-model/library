@@ -12,7 +12,7 @@ The owner settled enhancements#103: A refuses it too. A's apply guard also refus
 A's inventory whose live adopt annotation names another instance, and A drops the object from its
 next inventory. The annotation alone triggers it: a UUID label naming another instance does not,
 so an instance whose UUID changes (a module moved to a new path) keeps applying its own objects, except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID.
-This extends enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") with one requirement, enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), added by the enhancements amendment that
+This extends the apply guard of enhancement 0012 with one requirement (an object adopted by another instance is refused), added by the enhancements amendment that
 merges first (design.md AD7).
 
 Two gaps follow from "A drops it", and the change closes both so that the hand-over ends with B

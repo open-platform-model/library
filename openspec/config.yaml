@@ -256,3 +256,6 @@ operations:
         release class. In per-section mode each section commit is the PR title and therefore a
         release trigger; the change stays active on main between PRs, and spec sync waits for
         archive after the last PR."
+  archive:
+    guidance:
+      - "If the change delivers a line of an enhancement's `tasks.md`, a PR on `enhancements` ticks that line."

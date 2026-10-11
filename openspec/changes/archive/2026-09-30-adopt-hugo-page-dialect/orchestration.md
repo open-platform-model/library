@@ -187,7 +187,7 @@ This contract applies to every file under `<repo>/docs/site/` in opm, core, cata
 |---|---|---|---|
 | `title` | required | required | non-empty string |
 | `description` | required | required | a one-line, non-empty string (the index entry and search snippet) |
-| `type` | required | **forbidden** (an overview declares no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")) | one of `tutorial`, `how-to`, `explanation`, `reference` (enhancement 0018, "Every page declares one type, a title and a one-line description") |
+| `type` | required | **forbidden** (an overview declares no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")) | one of `tutorial`, `how-to`, `explanation`, `reference` (the same enhancement) |
 | `weight` | optional | optional | a positive integer. Order within the section: lower first, then title. 0 means unset in Hugo |
 
 Forbidden: `sidebar:` (write `weight: N`), and every other key (`slug`, `draft`, `template`, `hero`, `aliases` ...).

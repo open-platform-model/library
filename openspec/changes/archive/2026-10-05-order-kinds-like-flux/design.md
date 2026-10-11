@@ -156,7 +156,7 @@ and then kind. The library could treat that tie-break as an order to agree with,
 **Explored**: `ssa@v0.77.0/sort.go` (`IsLessThan`, which falls back to group and then kind when two
 ranks are equal, and `computeKind2index`, whose comment on the `ReconcileOrder` list says that in
 some cases the order is specified just to provide determinism); the old `flux_order_test.go`, which counted rank
-differences only; enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") ("An engine's own staging may refine it within a stage and never
+differences only; enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle"), whose requirement says "An engine's own staging may refine it within a stage and never
 contradicts it"). The operator applies the whole set in one `ApplyAllStaged`, so every unlisted
 kind meets every other one inside one Flux sort.
 
