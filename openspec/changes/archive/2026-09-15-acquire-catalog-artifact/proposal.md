@@ -4,7 +4,7 @@ Enhancement 0015 ("A transformer registration is a cluster-scoped CR, gated by t
 
 - **D10**: import the claimed artifact's root package and require a `#Catalog` value, so a module artifact is refused by shape rather than by a maintained rule.
 - **D11**: re-derive `provides` as a fold over the catalog's own `#transformers` — every required contract whose value carries `fulfilment: "provider"` — and compare it to the claim for exact equality.
-- **D8**: read the catalog's `cue.mod` requirements and compare them against the platform's resolved versions, per 0019 D18's committed-resolution discipline.
+- **D8**: read the catalog's `cue.mod` requirements and compare them against the platform's resolved versions, per the committed-resolution discipline of enhancement 0019.
 
 The kernel cannot do any of it. `opm/kernel` acquires `Module`, `Platform` and `Instance`; there is no catalog verb and no catalog type. `Platform.Contracts()` (alpha.30) is not a substitute: it decodes the inventory core derives from the platform's **enabled registry entries**, and a claimed catalog is by definition not subscribed yet — that is the whole point of the dynamic path.
 

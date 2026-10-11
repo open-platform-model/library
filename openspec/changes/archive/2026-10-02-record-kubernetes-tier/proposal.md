@@ -17,7 +17,7 @@ The owner decided on 2026-10-02 to use a third tier, `opm/k8s/*`, beside the ker
 
 - Any Go code under `opm/k8s`, and any `go.mod` change. `k8s.io/apimachinery` arrives with `add-kubernetes-object-packages` (ADR-013, decision e2), which also moves `opm/helper/objectset` into `opm/k8s/object`.
 - The cli and opm-operator lint rules that forbid their old local copies. Each frontend adds its rule when it migrates.
-- Enhancement 0012's own text. The decision numbers enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") to enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value") are cited here and are written into `enhancements/0012/03-decisions.md` separately.
+- The text of enhancement 0012. The decisions of that enhancement that the ADR cites are written into the entry separately.
 
 ## Classification
 

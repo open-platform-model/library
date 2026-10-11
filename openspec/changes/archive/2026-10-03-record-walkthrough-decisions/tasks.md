@@ -25,10 +25,10 @@ No Go code, no `go.mod` change. The only Go file touched is one comment sentence
 
 ## 4. Link the GA exit criteria (adr, docs)
 
-- [x] 4.1 `adr/004-migration-docs-structure.md`: replace "so the GA release checklist picks it up" with a pointer to the GA exit criteria, enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (the arming condition is enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"); workspace root `enhancements/0021/03-decisions.md`), and append one dated Status sentence naming the change.
-- [x] 4.2 `README.md` § API stability → Beta promise: after "GA drops the suffix ...", one sentence: GA is cut only when 0021:D8's exit criteria hold, among them the library's own enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") to enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status links enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") the same way, naming enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") as the arming condition.
+- [x] 4.1 `adr/004-migration-docs-structure.md`: replace "so the GA release checklist picks it up" with a pointer to the GA exit criteria of enhancement 0021, which also hold the arming condition, and append one dated Status sentence naming the change.
+- [x] 4.2 `README.md` § API stability → Beta promise: after "GA drops the suffix ...", one sentence: GA is cut only when the GA exit criteria of enhancement 0021 hold, among them the library's own (no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change). `migrations/README.md` § Status links enhancement 0021 the same way, naming it as the holder of the arming condition.
 - [x] 4.3 Verify: `grep -rn -i "release checklist" adr/ README.md AGENTS.md migrations/ openspec/specs/` returns nothing outside the main spec this change's delta replaces.
-- [x] 4.4 Gates green, then commit `docs(adr): point the GA arming condition at 0021:D8`.
+- [x] 4.4 Gates green, then commit `docs(adr): point the GA arming condition at enhancement 0021`.
 
 ## 5. Merge gate (run before merge, not at implementation)
 

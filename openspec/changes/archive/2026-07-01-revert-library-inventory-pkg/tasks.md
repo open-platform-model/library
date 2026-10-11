@@ -51,6 +51,6 @@
       the main spec tree. (The delta was already applied directly in the PR
       itself — `openspec/specs/inventory/spec.md` was deleted in the same
       commit — so archiving here is a move-only operation, no further sync.)
-- [x] 6.4 Update `enhancements/0006/planned-changes.md` (A3 row: `reverted-pending`
+- [x] 6.4 Update the planned-changes file of enhancement 0006 (A3 row: `reverted-pending`
       → `reverted`, with the real PR/commit + this change's slug) and append a
-      `history` event to `enhancements/0006/config.yaml`.
+      `history` event to the config of enhancement 0006.

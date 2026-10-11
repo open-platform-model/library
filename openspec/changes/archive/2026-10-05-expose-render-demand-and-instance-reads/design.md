@@ -100,7 +100,7 @@ rejected for the synthesised-component reason above.
 ```go
 // RequiredContracts is every contract key a component of the instance
 // requires: each component's #resources and #traits keys, sorted and
-// deduplicated (0013:D24). It counts every component of the render, one
+// deduplicated (enhancement 0013). It counts every component of the render, one
 // omitted under RenderInput.SkipUnprovided included, and it is not
 // narrowed to provider-fulfilled contracts. Empty, never nil, for an
 // instance with no components.

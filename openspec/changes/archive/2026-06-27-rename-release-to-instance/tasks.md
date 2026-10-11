@@ -46,4 +46,4 @@
 - [ ] 6.1 `openspec validate rename-release-to-instance --strict` (re-run) → `openspec-verify-change`.
 - [ ] 6.2 Bulk-archive the six spec deltas (`openspec-bulk-archive-change`) — including the `release-synthesis` → `instance-synthesis` capability dir move.
 - [ ] 6.3 Conventional Commit(s) (`feat(module)!: rename Release artifact family to Instance`); open the atomic PR referencing enhancement `0002` / slice L1.
-- [ ] 6.4 On merge, publish the `v1.0.0-alpha.N` library tag (release-please); record the slice as a `history` event in `enhancements/0002/config.yaml` (`slice: "library#<PR>"`). This tag unblocks O*/X*.
+- [ ] 6.4 On merge, publish the `v1.0.0-alpha.N` library tag (release-please); record the slice as a `history` event in the config of enhancement 0002 (`slice: "library#<PR>"`). This tag unblocks O*/X*.

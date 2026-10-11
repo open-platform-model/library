@@ -3,7 +3,7 @@
 See `proposal.md` for motivation. The constraints that shape the approach:
 
 - The kernel renders a pair in `opm/compile/execute.go` (`executePair`): it fills `#component` with the finalized component from `compile.FinalizeValue`, fills `#context` from `opm/schema/context.go`'s Go decoding, and never fills `#moduleInstance`. `opm/kernel/compile.go` forks one components value into `schemaComponents` (for `Match`) and `dataComponents` (for `Execute`).
-- The oracle already exists as CUE: `enhancements/0019/experiments/01-purecue-render-flow/render.cue` expresses match (predicate rung), `#context` projection, and execute in about 80 lines against the real published catalog, with `cue vet -c` exit 0.
+- The oracle already exists as CUE: the pure-CUE render-flow experiment of enhancement 0019 expresses match (predicate rung), `#context` projection, and execute in about 80 lines against the real published catalog, with `cue vet -c` exit 0.
 - The kernel accepts an import-authored `#ModuleInstance` package via `Kernel.LoadInstancePackage` followed by `ProcessModuleInstance` and `Compile`; `opm/kernel/flow_synth_imported_test.go` already exercises that path. The existing flow fixture instead assembles its instance with `LookupPath`+`FillPath`, which severs `#instance` and hardcodes a `uuid`; that fixture is repaired by the next 0019 slice, not this one.
 - None of the 50 published transformers reads a definition field, so a shipped-catalog-only harness is green on landing and cannot show the strip. The D1 evidence needs transformers that read `#component.#names` and `#moduleInstance`.
 - Hermetic catalogs are already served in tests through `opm/internal/registrytest` (`standardCatalog`, `UniquePath`), and both `cue/load` and the kernel loaders accept a registry mapping, so a probe catalog can be resolved identically by both renderers without publishing anything.
@@ -13,7 +13,7 @@ See `proposal.md` for motivation. The constraints that shape the approach:
 
 **Goals:**
 
-- One table-driven test whose rows are `#ParityCase` values from `enhancements/0019/contracts/contracts.cue` transcribed into Go: `name`, fixture names for the three inputs, `equality`, `expectedDivergence`.
+- One table-driven test whose rows are `#ParityCase` values from the contracts file of enhancement 0019 transcribed into Go: `name`, fixture names for the three inputs, `equality`, `expectedDivergence`.
 - Both renderers consume the same fixture bytes and the same `cue.mod` pins; the only per-side difference is which evaluator runs.
 - The suite is green on landing, with the strip and the unfilled `#moduleInstance` captured as expected divergences that later slices retire.
 
@@ -96,7 +96,7 @@ A Go struct with `Name`, `Instance`, `Component`, `Transformer`, `Equality` (`st
 
 ## Migration Plan
 
-Test-only; no deployment, no consumer change. Rollback is reverting the commit. The `enhancement.yaml` declaration means archiving logs D1, D4, D14 to `enhancements/0019/delivery.yaml`; if the harness is reverted after archive, that log entry needs a counter-entry.
+Test-only; no deployment, no consumer change. Rollback is reverting the commit. The enhancement declaration of this change meant that archiving logged the landing in the delivery record of enhancement 0019; if the harness is reverted after archive, that record needs a counter-entry.
 
 ## Open Questions
 

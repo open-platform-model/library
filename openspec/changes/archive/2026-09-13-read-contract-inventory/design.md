@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. The decisions are `enhancements/0015` D1, D2 and D18 and the library integration points in its `02-design.md` (re-baselined on 0019): read the inventory off a built value, sharpen the missed-demand diagnostic through membership rather than prefix parsing, leave the match glue unchanged.
+See `proposal.md` § Why. The decisions are the contract inventory, the one-provider rule and the unfulfilled-contract report of enhancement 0015 and the library integration points in its design (re-baselined on 0019): read the inventory off a built value, sharpen the missed-demand diagnostic through membership rather than prefix parsing, leave the match glue unchanged.
 
 Current state, measured 2026-09-13:
 
@@ -35,7 +35,7 @@ Current state, measured 2026-09-13:
 
 ```go
 // schema/paths.go
-Contracts = cue.MakePath(cue.Def("contracts")) // #Platform.#contracts (0015 D1)
+Contracts = cue.MakePath(cue.Def("contracts")) // #Platform.#contracts (enhancement 0015)
 
 // platform/contracts.go
 type ContractInventory struct {
@@ -100,7 +100,7 @@ func (p *Platform) Contracts() (*ContractInventory, error)
 
 ### The defining catalog rides the existing row
 
-**Context**: 0010 OQ3 asks how a render says "defined by a subscribed catalog, unimplemented"; D18 says the refusal names the defining catalog beside the demanding component.
+**Context**: An open question of enhancement 0010 asks how a render says "defined by a subscribed catalog, unimplemented"; enhancement 0015 says the refusal names the defining catalog beside the demanding component.
 **Explored**: a new diagnostics table keyed by contract; membership in `#contracts.unfulfilled`; a `definedBy` field on the unresolved row read from `#contracts.definedBy`.
 **Decision**: the field on the row.
 **Rationale**: the row is what a frontend words (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"): rows as data, no joins in Go), so the fact belongs on it; `unfulfilled` covers provider-fulfilled keys only, while a catalog-fulfilled key a catalog lists and no transformer implements is the same diagnostic; `definedBy` is the registry key core binds to the catalog's identity, never a prefix parsed off the FQN (enhancement 0010, "The primitive-under-catalog-path constraint is a publish gate, not a schema constraint").

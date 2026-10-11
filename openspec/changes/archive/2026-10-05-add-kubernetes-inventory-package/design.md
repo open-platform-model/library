@@ -84,7 +84,7 @@ JSON tags (suggesting the library owns the wire) is caught. `NewEntry` reads the
 both frontends' `NewEntryFromResource`, and a missing label gives an empty `Component`.
 
 **Rationale**: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"). The digest must not depend on serialisation, and the library must
-not own the CRD wire while 0012:OQ9 is open. With no tags there is nothing to depend on.
+not own the CRD wire while an open question of enhancement 0012 about it stays open. With no tags there is nothing to depend on.
 
 ### KI3: StaleSet is component-blind and keeps previous order
 
@@ -300,8 +300,8 @@ recorded in inventory entries as provenance and that the stale set ignores it.
   The adoption changes carry the migration note. The operator applies every instance once after
   its upgrade, bounded by the shared render slots.
 - **Mixed-version window.** Until both frontends pin a release with this package, a handoff
-  compares digests of two formats. Nothing compares them across frontends today (0006:D7's
-  handoff check is not implemented).
+  compares digests of two formats. Nothing compares them across frontends today (the handoff check of
+  enhancement 0006 is not implemented).
 - **Docs conflict with lib-e4 and lib-f5.** They edit the same package lists. The docs edits
   are their own section, so a rebase touches one commit.
 

@@ -6,7 +6,7 @@ The owner (ADR-013, decision e3) decided where that code goes:
 
 > opm/k8s/inventory holds one Entry, one stale-set function, the render and inventory digests.
 > Inventory digest hashes a NEW canonical field-by-field encoding (independent of JSON tags);
-> both frontends change their stored digest once, with a migration note. Close 0012:OQ7 as
+> both frontends change their stored digest once, with a migration note. Close the digest open question of enhancement 0012 as
 > component-blind (no behaviour change; drop the CLI rename filter).
 
 Enhancement 0012 records this as enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") (stale set and inventory digest) and enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value") (render
@@ -94,13 +94,13 @@ after the upgrade. Those changes carry the migration note (enhancement 0012, "Th
   `component rename detected` debug line. Each writes the new digests and ships the
   migration note.
 - **The wire shape.** `Entry` has no tags. The CRD `InventoryEntry` type and the cli's
-  record mapping stay in the frontends (0012:OQ9 is still open).
+  record mapping stay in the frontends (an open question of enhancement 0012 about the wire is still open).
 - **Prune safety exclusions, ownership verdicts and the adopt annotation** (lib-e4), **the
   deletion protocol** (lib-f2) and **health** (lib-f5).
 - **An identity key type or admit set.** The cli's `K8sIdentity` and `AdmitSet` serve its
   install path. That path is ownership work, and lib-e4 decides it.
 - **A compatibility path for old digest values.** enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") rejects it.
-- **Closing 0012:OQ7 in the enhancement.** enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") already resolved it in enhancements#88.
+- **Closing the digest open question in the enhancement.** Enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") already resolved it in enhancements#88.
   This change implements the rule and touches no enhancement file.
 
 ## Capabilities

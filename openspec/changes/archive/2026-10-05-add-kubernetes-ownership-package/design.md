@@ -283,7 +283,7 @@ both frontends then report the same token.
   instance A still renders it, B applies and records it, A's next apply passes at step 3 and
   takes the UUID label back (the annotation is no field A manages, so it stays), and the two
   flip the object on every reconcile. Neither verdict refuses this. The library does not widen
-  the guard beyond 0012:D8's scope; instead the `other-instance` remedy tells the user to remove
+  the guard beyond the scope of enhancement 0012; instead the `other-instance` remedy tells the user to remove
   the object from the owning instance first, and a scenario pins that an inventoried object
   whose adopt annotation names another instance still applies. Refusing such an object inside
   the inventory is an owner question for a later amendment of enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").

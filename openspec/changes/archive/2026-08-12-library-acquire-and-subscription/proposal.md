@@ -8,7 +8,7 @@ Two defects, one seam retirement.
 
 **Nothing verifies that an artifact lives where its metadata says it lives.** D11: a mismatch between declared identity and fetched coordinate is a typed error naming both values, checked where artifacts are read. D9 adds the version clause: an acquired artifact's `metadata.version` is compared against the tag it was fetched by (the kernel is the version label's *verifier*, never its source — measured defect: three published `jellyfin` artifacts carried one label value). Today the equivalent condition surfaces downstream as `module not found` or not at all.
 
-This change is 0010's `library-acquire-and-subscription` slice (see `enhancements/0010/plan.yaml`). Its decisions: D9, D11, D14, D41. It depends on `library-compat-comparator` having moved `highestStable` out of `filter.go` (the declared move-before-delete seam).
+This change is the `library-acquire-and-subscription` slice of enhancement 0010. Its decisions: the version label is declared by the schema and verified by the kernel; identity is verified where artifacts are read; a subscription names exactly one catalog build; instance identity derives from the module's registry path. It depends on `library-compat-comparator` having moved `highestStable` out of `filter.go` (the declared move-before-delete seam).
 
 ## What Changes
 

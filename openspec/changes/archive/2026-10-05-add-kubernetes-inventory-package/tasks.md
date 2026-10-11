@@ -46,7 +46,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       Negative check, not committed: render the second time with `opm-cli` instead of
       `opm-controller` and confirm that the managed-by assertion fails.
 - [x] 1.2 If 1.1 shows that the runtime name reaches anything beyond the managed-by value,
-      stop. Write the finding into design.md KI5/KI6 and report it, because 0012:D6's premise
+      stop. Write the finding into design.md KI5/KI6 and report it, because the premise of enhancement 0012 (labels are stamped by the CUE render)
       would then be false. Otherwise add one sentence under KI6: "Spike result: confirmed at
       `<commit>`".
 - [x] 1.3 `task check` green, then commit

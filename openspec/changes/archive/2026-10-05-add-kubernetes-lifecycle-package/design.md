@@ -28,7 +28,7 @@ The two frontends today (cli `bd4d1a7c`, opm-operator `bcfa722`):
 | Propagation | Foreground | client default (Background) |
 | NotFound on read or delete | already gone, not an error | already gone, not an error |
 | Other error | per-resource error; continue; instance kept | joined error; continue; finalizer kept |
-| Hold | none (0012:OQ6) | finalizer `opmodel.dev/cleanup`; release branches below |
+| Hold | none (an open question of enhancement 0012) | finalizer `opmodel.dev/cleanup`; release branches below |
 
 The operator's `handleDeletion` branches, in this order:
 
@@ -60,7 +60,7 @@ The operator's `handleDeletion` branches, in this order:
 
 - Frontend loops, status conditions, events, dry-run reporting and exit codes. These stay with the
   frontends.
-- Answering 0012:OQ5 or 0012:OQ6.
+- Answering the open questions of enhancement 0012 about the prune default and the hold.
 - A stored plan, a stored state or a new CRD field.
 - The operator install's admitted deletions outside the inventory (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
@@ -126,7 +126,7 @@ read or deleted. Each caller therefore states its policy:
 - The operator's prune on reconcile runs only when `spec.prune` is true today, and passes
   `Prune: spec.prune`.
 - The cli's `opm instance delete` and the cli's stale-set prune after an apply pass
-  `Prune: true`. The cli has no `spec.prune` input on those paths, and 0012:OQ5/OQ6 stay open.
+  `Prune: true`. The cli has no `spec.prune` input on those paths, and those two open questions of enhancement 0012 stay open.
 
 A scenario pins the footgun: a plan with `Prune: false` over a non-empty stale set names `done` and
 deletes nothing.
@@ -305,7 +305,7 @@ every step, and requires equal actions and equal states.
 **Context**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") says whether an instance's hold may be released is decided from its policy
 and the plan's outcome, identically for whichever frontend asks, with the reason named. The 0012
 contract's `#HoldVerdict` lists seven reasons. The operator's branches are listed in Context. The
-cli bears no hold today (0012:OQ6), and the verdict must not presume an answer to that question.
+cli bears no hold today (an open question of enhancement 0012), and the verdict must not presume an answer to that question.
 
 **Decision**:
 

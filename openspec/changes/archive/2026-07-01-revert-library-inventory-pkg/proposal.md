@@ -32,4 +32,4 @@ None.
 - **Dependencies:** `go.mod`/`go.sum` lose `k8s.io/apimachinery` and its transitive closure (confirmed unused elsewhere via `task tidy`).
 - **OpenSpec:** `openspec/specs/inventory/spec.md` is removed via this change's `REMOVED` delta spec.
 - **Downstream:** none in practice — neither `cli` nor `opm-operator` ever imported this package (verified: `opm-operator/go.mod` still pins `library v1.0.0-alpha.3`, predating the package's introduction). Recorded as a breaking change per Principle VI regardless, because the public API surface changed on a tagged release.
-- **Enhancement tracking:** `enhancements/0006/planned-changes.md` (A3 row) and `config.yaml` history get a follow-up update once this change lands, marking the code revert complete (separate from this change, owned by the `enhancements` repo).
+- **Enhancement tracking:** the planned-changes file of enhancement 0006 (A3 row) and `config.yaml` history get a follow-up update once this change lands, marking the code revert complete (separate from this change, owned by the `enhancements` repo).

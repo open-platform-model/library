@@ -24,7 +24,7 @@ Per the user, the library has no external consumers yet, so this is an opportune
 **Non-Goals:**
 - Re-architect the kernel beyond removing this indirection. Compile pipeline, match algorithm, validation tiers, error-wrap conventions stay as-is.
 - Rewrite the consumer CUE fixtures (`library/modules/opm_platform/`, `library/testdata/modules/web_app/`) against the post-0001 schema. They are pre-0001 in *both* import path (`opmodel.dev/core/v1alpha2@v1`) and registry / FQN shape (Module-valued `#registry`, MAJOR-only `@v1` FQNs). The shape rewrite is design implementation that belongs to enhancement 0001's library slice, not Part B's mechanical cleanup. Part B quarantines them (see D10 + tasks 12a.1–12a.4). Mechanical import-path rewires alone (e.g. `core/v1alpha2@v1` → `core@v0` without re-shaping `#registry`) would not produce a unifiable fixture — they would just fail at a different evaluation point — so Part B does not perform partial rewires either.
-- Repackage `library/modules/opm` into the D19 catalog shape or republish it at `opmodel.dev/catalogs/opm@0.1.0`. That is squarely enhancement 0001 D23's scope.
+- Repackage `library/modules/opm` into the catalog shape (enhancement 0001) or republish it at `opmodel.dev/catalogs/opm@0.1.0`. That is squarely the scope of enhancement 0001.
 - Provide a backwards-compatibility shim. Every API rename is a hard break.
 - Defer deletion behind a feature flag. The package goes; importers either compile against the new shape or fail.
 

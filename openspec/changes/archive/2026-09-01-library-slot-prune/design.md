@@ -34,13 +34,13 @@ Constraints that shape the approach:
 
 **Rationale**: One rule with no exception: the kernel exposes no injection slot without a kernel-side reader. The operator's log output is unchanged because the kernel never wrote to the logger.
 
-### D2: Revise 0009 D9 in place first; this change implements the revised decision
+### D2: Revise the injection-surface decision of enhancement 0009 in place first; this change implements the revised decision
 
 **Context**: D9 (Kind: scope) reserved the slots for the execution half and listed removal as a rejected alternative. Enhancements rules allow in-place revision while an entry is `draft`, folding the superseded position into Alternatives considered.
 
 **Explored**: Landing the removal and letting 0009 catch up later. Rejected: the library would be contradicting a live design decision for however long the gap lasted, and `enhancement.yaml` could not truthfully declare what the change implements.
 
-**Decision**: The D9 revision lands in enhancement 0009 before implementation starts (tasks 1.1). The revised D9 states: slots removed now; the execution half introduces the injection surface it needs together with its first reader; the cancellation half is unchanged. This change declares `implements: 0009/D9`.
+**Decision**: The revision lands in enhancement 0009 before implementation starts (tasks 1.1). The revised decision states: slots removed now; the execution half introduces the injection surface it needs together with its first reader; the cancellation half is unchanged. This change declares that it implements that decision of enhancement 0009.
 
 **Rationale**: The reversal is a design decision and belongs in the design record, not in a library changelog. Ordering it first keeps every artifact truthful at every point.
 

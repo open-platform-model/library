@@ -12,7 +12,7 @@
 
 - [x] 2.1 Add table rows to `opm/materialize/filter_test.go`: `Range: ">=0.6.0-dev.0 <0.7.0"` over `[v0.5.0, v0.6.0-dev.1, v0.6.0]` → selects dev.1 + 0.6.0, excludes 0.5.0
 - [x] 2.2 Add the OQ18-shape row: `Range: ">=1.0.0-alpha"` over `[v1.0.0-alpha, v1.0.0-alpha.1, v1.0.0-dev.1784212239.g0c11c12]` → all selected
-- [x] 2.3 Add a Materialize-level assertion that the resolved version from that survivor set is the `-dev.*` tag (dev out-sorts alpha); reference 0006 OQ18 in the test comment (`TestMaterialize_PrereleaseRangeResolvesDevOverAlpha`; required deriving the fixture module major from the version in `registrytest.addCatalogs`, previously hardcoded `@v0`)
+- [x] 2.3 Add a Materialize-level assertion that the resolved version from that survivor set is the `-dev.*` tag (dev out-sorts alpha); reference the open question of enhancement 0006 about pre-release ranges in the test comment (`TestMaterialize_PrereleaseRangeResolvesDevOverAlpha`; required deriving the fixture module major from the version in `registrytest.addCatalogs`, previously hardcoded `@v0`)
 
 ## 3. Fixture hygiene
 

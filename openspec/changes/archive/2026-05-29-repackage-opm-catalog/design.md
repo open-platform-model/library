@@ -30,7 +30,7 @@ Resources, traits, blueprints, **and** transformers derive `metadata.modulePath`
 - *Why:* keeps FQNs concrete for map keys without a circular import; `identity/` (constants only) sits at the bottom of the import graph.
 - *Alternative:* rely on stamping alone → map keys non-concrete at author time → fails. Rejected.
 
-### D-B: `#Catalog` uses the `M=metadata` label-alias (inherited from 0001 D25)
+### D-B: `#Catalog` uses the `M=metadata` label-alias (inherited from enhancement 0001)
 
 `catalog.cue` embeds bare `c.#Catalog` (modules pattern, no `Catalog:` wrapper). The stamping bridge is the field-label alias the published core schema already uses.
 

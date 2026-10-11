@@ -8,7 +8,7 @@ This is an **import rewrite, not a re-pin**: a major crossing that `task update-
 
 **This is the second landing.** The first (library#51) shipped the crossing against a library-owned stand-in fixture catalog, because 0010's ordering then placed the real catalogs' v2 authoring behind the library slices and no v2-built catalog existed. It was reverted the same day (library#52): the stand-in duplicated the real catalog's shape knowledge with no named retirement owner. 0010 inverted the ordering instead — catalogs moved first. Since then `catalog_opm` has become the single first-party catalog (D47, absorbing `catalog_kubernetes` as the `k8s-*` raw family and `catalog_opm_experimental` at `v1alpha1`), adopted D49's `<kind>/<apiVersion>/` versioned filing, and released the consolidated result on its v2 line (`2.0.0-alpha.1` authoring, `2.0.0-alpha.2` consolidation) via release-please. The redo re-lands the crossing against that real catalog, carries forward library#51's seam adaptations and major-aware fixture writers, and drops the fixture catalog, its disk-registry publish helper, and the vet-skip guard.
 
-This change is 0010's `library-core-retarget` slice (see `enhancements/0010/plan.yaml`). Its decisions: D42, D47, D49.
+This change is the `library-core-retarget` slice of enhancement 0010. Its decisions: every primitive kind is flat; the first-party catalogs consolidate into one; contract kinds file under a version segment.
 
 ## What Changes
 

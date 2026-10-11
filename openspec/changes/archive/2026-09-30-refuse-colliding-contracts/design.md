@@ -18,7 +18,7 @@ See proposal.md for why. The facts the approach rests on, all read on library `3
 
 **Non-Goals:**
 
-- Side-by-side majors (0026 D9's per-resolution builds). A collision is refused, never resolved.
+- Side-by-side majors (the per-resolution builds of enhancement 0026). A collision is refused, never resolved.
 - Keying `requiredBy` or `comparable` over colliding keys. Core A deferred it (colliding members can disagree across majors, and `routable` false already withholds generation); the library documents the blind spot and does not paper over it.
 - A new core floor (see Decision 2).
 - Frontend wording. The operator (change C) and cli (change D) own it.

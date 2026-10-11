@@ -16,7 +16,7 @@ See `proposal.md` for motivation. Current state, read 2026-09-15 at alpha.30:
 **Goals**
 
 - A catalog is acquirable by the same two routes a module is, with the same guarantees and the same sentinels.
-- A non-catalog artifact is refused by shape, so 0015 D10's restriction costs no maintained rule.
+- A non-catalog artifact is refused by shape, so the restriction of enhancement 0015 costs no maintained rule.
 - The provider-fulfilled set and the committed requirements are readable off the artifact, so the operator needs no CUE of its own.
 
 **Non-Goals**

@@ -18,7 +18,7 @@ Enhancement 0012 gives the whole deletion sequence to the library: the plan, the
 names the next action and the verdict on releasing the hold (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"). Enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply")
 reads: "Deletion protocol only, in opm/k8s/lifecycle, owned by 0012 (DeletionPlan, serialisable
 State, Advance, MayReleaseHold), used by both frontends' delete paths; closes the ownership half of
-0012:OQ10. No hook semantics." ADR-008
+an open question of enhancement 0012. No hook semantics." ADR-008
 (amended 2026-10-03) fixes where a deletion plan comes from: the persisted inventory plus the live
 objects, with no render and no stored plan, and a prune's stale set is computed by the inventory
 package and handed to the same plan.
@@ -76,8 +76,8 @@ is the library half of the enhancement 0012 ("The library owns the whole deletio
     - hold when a step was refused as Forbidden (`cleanup-forbidden`);
     - otherwise release (`cleanup-complete`).
 
-    Its inputs do not depend on who bears the hold, so the open questions 0012:OQ5 (the
-    `spec.prune` default) and 0012:OQ6 (whether a CLI-owned instance carries a hold) stay open.
+    Its inputs do not depend on who bears the hold, so the open questions of enhancement 0012 (the
+    `spec.prune` default, and whether a CLI-owned instance carries a hold) stay open.
   - The protocol has no hook semantics. Its actions are reads, deletions and skips of the plan's
     own inventory entries, plus the hold verdict (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 - **Docs**: the `opm/k8s/` package lists in `README.md`, `AGENTS.md` and `CONSTITUTION.md` gain
@@ -106,10 +106,10 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   where today the new object is deleted. The cli's adoption change states the exit-code effect. Each frontend keeps its own
   status messages, events, dry-run reporting and exit codes.
 - **Hook semantics.** No step a module declares runs as part of deletion (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"). The rest of
-  0012:OQ10 stays with 0009:OQ7.
+  that open question stays with the open question of enhancement 0009 about hooks.
 - **A stored plan or a new CRD field.** The plan is rebuilt from the inventory on each pass
   (ADR-008, Deletion plans).
-- **Answers to 0012:OQ5 and 0012:OQ6.** `MayReleaseHold` takes the policy as an input. It does not
+- **Answers to the prune-default and hold questions of enhancement 0012.** `MayReleaseHold` takes the policy as an input. It does not
   choose the `spec.prune` default, and it does not make the cli claim a hold.
 - **A resourceVersion precondition.** The delete action carries the UID precondition only, as
   `ownership.DeleteVerdict.Preconditions` does.

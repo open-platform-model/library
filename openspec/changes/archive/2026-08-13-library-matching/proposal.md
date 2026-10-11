@@ -12,7 +12,7 @@ The match rung becomes load-bearing. Under 0010, matching is the seam where the 
 
 Plus D10's surviving obligation: the own-graph invariant — a module's primitives resolve through the module's own dependency graph, never one shared with the platform — holds structurally today but is untested, and under D4 a shared resolution would make the unify rung compare a value against itself and never fail. The graduation gate requires a test that fails if the two ever share resolution.
 
-This change is 0010's `library-matching` slice (see `enhancements/0010/plan.yaml`). Its decisions: D4, D10, D26, D28, D30, D32, D34, D36, D37. It depends on `library-compat-comparator` (consumes `StripProvenance` and `CompareAPIVersions`); it is independent of `library-acquire-and-subscription` in code (disjoint files) and sequenced after it by plan convention only.
+This change is the `library-matching` slice of enhancement 0010. Its decisions: contracts keyed by API version, the retired built-against floor, provenance excluded before unification by a Go-side filter over a fixed denylist, the fail-closed unresolved-demand rule, the single-provider rule, the apiVersion ladder, matching labels in their own field, and fulfilment declared by the contract. It depends on `library-compat-comparator` (consumes `StripProvenance` and `CompareAPIVersions`); it is independent of `library-acquire-and-subscription` in code (disjoint files) and sequenced after it by plan convention only.
 
 ## What Changes
 

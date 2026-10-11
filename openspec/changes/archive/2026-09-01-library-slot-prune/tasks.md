@@ -2,7 +2,7 @@
 
 ## 1. Prerequisite (enhancements repo, outside this change's edits)
 
-- [x] 1.1 Confirm the `enhancements/0009` D9 in-place revision has landed (the reserved-slots half now states removal-now with re-introduction by the execution half; cancellation half unchanged). Do not start 2.x before it exists.
+- [x] 1.1 Confirm the in-place revision of the injection-surface decision of enhancement 0009 has landed (the reserved-slots half now states removal-now with re-introduction by the execution half; cancellation half unchanged). Do not start 2.x before it exists.
 
 ## 2. opm/kernel
 
