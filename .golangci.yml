@@ -140,7 +140,7 @@ linters:
             - cuelang.org/go/cue/
             - k8s.io/apimachinery
             - github.com/open-platform-model/library/opm
-        # The kernel imports no Kubernetes package (ADR-011, enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module")). Only
+        # The kernel imports no Kubernetes package (ADR-011, enhancement 0012). Only
         # opm/k8s may reach k8s.io/apimachinery. Once the first tier package
         # adds apimachinery to go.mod, nothing but this rule stops a kernel
         # file from importing it. Test files are covered too: no kernel test
@@ -183,7 +183,7 @@ linters:
             - pkg: github.com/Masterminds/semver
               desc: the library uses one SemVer implementation, golang.org/x/mod/semver, through opm/internal/modversion
         # No library package performs cluster I/O or carries a controller
-        # framework (Principle IV, enhancement 0012 ("The library is written for Kubernetes; no portability abstraction is maintained on its behalf")). The tier rule above already denies
+        # framework (Principle IV, enhancement 0012). The tier rule above already denies
         # these under opm/k8s; this one covers the kernel and the helper tier.
         opm-imports-no-cluster-runtime:
           files:
