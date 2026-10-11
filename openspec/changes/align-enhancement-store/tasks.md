@@ -4,7 +4,7 @@
 - [ ] 1.2 Rewrite the worklist rows by hand (Go and CUE, testdata, the render template, tests); commit.
 - [ ] 1.3 Change the parity producer strings and their assertions together; run the render and kernel tests; commit as `test:`.
 - [ ] 1.4 Rewrite worklist rows in live specs, archived changes and Markdown; commit.
-- [ ] 1.5 `enh cite-lint` reports 0 findings and `cite-rewrite --dry-run` 0 edits; `git grep` finds no `0030:` or `0031:`; `task check` passes.
+- [ ] 1.5 `enh cite-lint` reports 0 findings and `cite-rewrite --dry-run` 0 edits; `git grep` finds no blocked-id token; `task check` passes.
 
 ## 2. Rules and tooling
 
