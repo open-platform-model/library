@@ -383,8 +383,8 @@ openspec `kernel-runtime`, "Each runtime contract has one home"):
 
 Default is none: a comment says what the code does and why, in its own words.
 
-- When a rationale genuinely lives in an enhancement, cite it **once at the symbol**: the enhancement id beside a reason in words, such as `(enhancement 0011)` after the sentence it explains. Several enhancements: `(enhancements 0010 and 0011)`. The id is never alone, and a comment that is only an id is wrong. Read an entry with `openspec show <id>-<slug> --store opm-enhancements`.
-- Never a decision number. Decision numbers are gone from the store; a citation such as an id with a colon and `D9` names nothing. `enh cite-lint` rejects it.
+- In all text (proposal, design, specs, docs and comments), when a rationale genuinely lives in an enhancement, cite it **once at the symbol** (in a comment): the enhancement id beside a reason in words, such as `(enhancement 0011)` after the sentence it explains. Several enhancements: `(enhancements 0010 and 0011)`. The id is never alone, and a comment that is only an id is wrong. Read an entry with `openspec show <id>-<slug> --store opm-enhancements`.
+- Never a decision number. The store has no decision numbers; a citation such as an id with a colon and `D9`, or a bare `D9`, names nothing. `enh cite-lint` rejects it in comments.
 - Never a section, slice, phase, task or design-doc-local number (`§8.1`, `slice C2`, `task 4.2`, `design LD3`). They are not stable identifiers.
 - Never in scaffold templates, generated files, fixtures a user copies, or CLI output strings. Those reach people who have no access to the enhancements repo.
 - No `Was:` rename history. `git log` owns it.
@@ -462,7 +462,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Apply the mergeable-sections gate before starting work — split requests that do not cut into a handful of green, committable sections using `openspec/config.yaml` § Execution Gate phrasing.
 - Pick the right destination for new work:
   - **Cross-cutting OPM design** (spans `core/`, `library/`, `catalog/`, `opm-operator/`, etc.) — the `enhancements` repo, an OpenSpec store with the id `opm-enhancements` (read an entry with `openspec show <id>-<slug> --store opm-enhancements`). The library's own old proposals 001 to 007 are retired from the tree and live in git history; cite one as `legacy:NNN`.
-  - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here. If the change delivers a line of an enhancement's `tasks.md`, its proposal has a `## Enhancement` section with one line `Delivers NNNN, task X.Y.` per task; otherwise the section says `None.`. The rule is in `openspec/config.yaml`.
+  - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here. If the change delivers a line of an enhancement's `tasks.md`, its proposal has a `## Enhancement` section with one line `Delivers NNNN, task X.Y.` per task; otherwise the section says `None.`. The rule is in `openspec/config.yaml`. If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`. If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line.
   - **Architecture decision purely about library internals** — `adr/<NNN>-<slug>.md` (use `adr/TEMPLATE.md`).
   - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
 - Run `task check:fast` for iterative work, `task check` before merge.

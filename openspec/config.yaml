@@ -145,8 +145,9 @@ context: |
 
   ### Comments
   - Default to no enhancement reference: say what the code does and why, in the comment's own words.
-  - Cite an enhancement only beside a reason in words, such as `(enhancement 0011)` after the sentence it explains, once at the symbol. Several enhancements: `(enhancements 0010 and 0011)`. An enhancement id is never alone, and never comes with a decision number.
+  - In all text (proposal, design, specs, docs and comments), cite an enhancement only beside a reason in words, such as `(enhancement 0011)` after the sentence it explains, once at the symbol. Several enhancements: `(enhancements 0010 and 0011)`. An enhancement id is never alone, and never comes with a decision number (no `NNNN:Dn`, no `NNNN Dn`, no `NNNN:OQn`, no bare `Dn`): the store has no decision numbers.
   - To read an enhancement entry, run `openspec show <id>-<slug> --store opm-enhancements`.
+  - If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`. No agent runs `openspec store register`.
   - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `slice C2`, `task 4.2`, `design LD3`). They are not stable identifiers.
   - Never put a reference in a scaffold template, a generated file, a fixture a user copies, or a CLI output string. Those reach people with no access to the enhancements repo.
   - No `Was:` rename history in comments; `git log` owns it.
@@ -176,6 +177,8 @@ rules:
       ships section by section. In that mode the change stays active on main between PRs, and
       spec sync waits for archive after the last PR."
     - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`"
+    - Cite an enhancement only as its id beside a reason in words (`enhancement 0011`), never alone
+      and never with a decision number.
 
   design:
     - "Focus: HOW we'll implement it technically"
@@ -193,6 +196,8 @@ rules:
     - Include Go pseudo-code or CUE snippets where they clarify intent.
     - Detail the impact across the affected packages / pipeline phases.
     - Call out any change to the public surface in `opm/`.
+    - Cite an enhancement only as its id beside a reason in words (`enhancement 0011`), never alone
+      and never with a decision number.
 
   specs:
     - "Focus: WHAT behavior is changing (not HOW it's implemented)"
@@ -258,4 +263,4 @@ operations:
         archive after the last PR."
   archive:
     guidance:
-      - "If the change delivers a line of an enhancement's `tasks.md`, a PR on `enhancements` ticks that line."
+      - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."
