@@ -11,3 +11,7 @@
 - [x] 2.1 Update `openspec/config.yaml`: `references:`, the `Delivers` rule, the `context` line, the comment rule; remove `enhancement.yaml` and `delivery` rules.
 - [x] 2.2 Update `AGENTS.md` to match; remove `.tasks/enhancements.yaml` and its `Taskfile.yml` include.
 - [x] 2.3 `openspec validate align-enhancement-store --strict` passes; `task check` passes; commit.
+
+## 3. Review fixes
+
+- [x] 3.1 Add `operations.archive.guidance`; say doubled requirement citations in words; keep live requirements under 500 characters; rewrite archived bare decision numbers of enhancements; commit.

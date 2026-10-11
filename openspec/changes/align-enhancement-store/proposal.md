@@ -9,7 +9,12 @@ The enhancements now live in an OpenSpec store (`opm-enhancements`). Its entries
 - `openspec/config.yaml`: add `references:` for the store `opm-enhancements`; add the `Delivers` line to `rules.proposal`; add a `context` line on how to read an entry; replace the `NNNN:Dn` comment bullets by the new comment rule; remove every `enhancement.yaml` and `task enhancements:delivery:*` rule.
 - `AGENTS.md`: same rules; remove the `enhancement.yaml` text and the description of the `enhancements/` folder that no longer exists.
 - Remove the dead tooling `.tasks/enhancements.yaml` and its include in `Taskfile.yml`.
-- The active change `publish-go-api-bundle` is not edited.
+- Excluded paths, with the reason:
+  - `openspec/changes/publish-go-api-bundle/`: an active change; it belongs to its author.
+  - `.claude/`: agents do not write there. Two skill files still hold `REPO-LOCAL PATCH` blocks, and `security-audit` and `verify` still cite decision numbers.
+  - `CHANGELOG.md`: generated release history.
+- Live spec requirements keep their 500-character limit: a long decision title is replaced by `enhancement NNNN` and a short reason.
+- `operations.archive.guidance` says that a PR on `enhancements` ticks a delivered task line.
 
 ## Capabilities
 
