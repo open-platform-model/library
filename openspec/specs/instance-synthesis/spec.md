@@ -101,7 +101,7 @@ The kernel SHALL evaluate a synthesized instance package (in-memory overlay insi
 
 ### Requirement: Imported-module render coverage exists
 
-The library SHALL include a test that renders an instance whose module is referenced by import (not inlined) end-to-end through construction and `Kernel.Render`, against a D5-shaped platform (a platform module importing its catalog), producing concrete resources. This coverage SHALL exist for both the synth path and an authored-package path so that a regression in either surfaces. The synth-path coverage SHALL include a module that imports a **catalog subpackage** (e.g. a workload blueprint under `opmodel.dev/catalogs/opm/...`), so that a regression to a dependency-incomplete synthesis surfaces as a failing test.
+The library SHALL include a test that renders an instance whose module is referenced by import (not inlined) end-to-end through construction and `Kernel.Render`, against a catalog-importing platform (a platform module importing its catalog, enhancement 0019), producing concrete resources. This coverage SHALL exist for both the synth path and an authored-package path so that a regression in either surfaces. The synth-path coverage SHALL include a module that imports a **catalog subpackage** (e.g. a workload blueprint under `opmodel.dev/catalogs/opm/...`), so that a regression to a dependency-incomplete synthesis surfaces as a failing test.
 
 #### Scenario: Real imported module renders to resources
 

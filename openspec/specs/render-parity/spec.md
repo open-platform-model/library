@@ -81,7 +81,7 @@ Adding the harness SHALL NOT alter any value the kernel renders, any error it re
 
 ### Requirement: The old path was proven equal to Render before deletion
 
-Before the old render path was removed, the harness SHALL have rendered every parity case through both `Compile` (against the subscription-shaped platform on the prior core pin) and `Render` (against a D5-shaped platform importing the same published catalog bytes) and asserted the rendered values equal per case, order-sensitively, with any ordering-only difference recorded per case. The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only.
+Before the old render path was removed, the harness SHALL have rendered every parity case through both `Compile` (against the subscription-shaped platform on the prior core pin) and `Render` (against a platform module importing the same published catalog bytes, enhancement 0019) and asserted the rendered values equal per case, order-sensitively, with any ordering-only difference recorded per case. The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only.
 
 #### Scenario: Proof gated the deletion
 
@@ -90,7 +90,7 @@ Before the old render path was removed, the harness SHALL have rendered every pa
 
 ### Requirement: Equality is structural and order-sensitive
 
-Each case SHALL compare the whole rendered value (`structural`). Comparison SHALL be order-sensitive: two values whose fields or list elements appear in different orders SHALL compare unequal. The harness MUST NOT sort, canonicalise, or otherwise reorder either value before comparing. The `output-fields-only` mode is retired: with the context projected by core (D12) there is no runtime-built projection to exclude, and the harness SHALL refuse a table entry that declares it.
+Each case SHALL compare the whole rendered value (`structural`). Comparison SHALL be order-sensitive: two values whose fields or list elements appear in different orders SHALL compare unequal. The harness MUST NOT sort, canonicalise, or otherwise reorder either value before comparing. The `output-fields-only` mode is retired: with the context projected by core (enhancement 0019) there is no runtime-built projection to exclude, and the harness SHALL refuse a table entry that declares it.
 
 #### Scenario: Reordered output fails
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Generating a D5-shaped platform CUE module (a `cue.mod/module.cue` carrying the tidied dependency closure and a `platform.cue` importing every catalog) from typed registry entries, so a frontend that starts from catalog coordinates (a Platform CR, a seeded local default) obtains a directory `AcquirePlatformFromDir` accepts without writing its own generator.
+Generating a platform CUE module that imports its catalogs (enhancement 0019) (a `cue.mod/module.cue` carrying the tidied dependency closure and a `platform.cue` importing every catalog) from typed registry entries, so a frontend that starts from catalog coordinates (a Platform CR, a seeded local default) obtains a directory `AcquirePlatformFromDir` accepts without writing its own generator.
 
 ## Requirements
 

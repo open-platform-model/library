@@ -47,7 +47,7 @@ _skipUnprovided: <<.SkipUnprovided>>
 _transformers: platform.#composedTransformers
 _components:   instance.components
 
-// ── The D34/D4 apiVersion ladder, in the build.
+// ── The apiVersion ladder (enhancement 0010), in the build.
 //
 // #ladder classifies a contract key's apiVersion (the substring after the
 // final "@") on the Kubernetes ladder: vNalphaM -> vNbetaM -> vN. The grammar
@@ -241,7 +241,7 @@ _components:   instance.components
 					if _pred[tfqn].ok {(tfqn): true}
 				}
 
-				// D28 per-demand resolution: satisfied iff some candidate in
+				// Per-demand resolution (enhancement 0010): satisfied iff some candidate in
 				// ITS bucket survived both rungs; an empty bucket and an
 				// all-disqualified bucket are one verdict with different
 				// `disqualified` contents.

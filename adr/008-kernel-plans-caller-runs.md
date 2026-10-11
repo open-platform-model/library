@@ -10,7 +10,7 @@ The Constitution has said since the library was founded that it will host the fu
 
 ADR-005 and ADR-007 fixed the kernel's shape. Every verb creates a `cue.Context`, builds in it and drops it; the Kernel retains nothing but the schema memo; concurrency is across operations rather than inside one. A kernel that holds no evaluation state between calls cannot hold run state between calls either, unless run state is something other than evaluation state.
 
-Enhancement 0009 designs an execution half against the pre-ADR-005 kernel. Its sketch places the plan types, the planner, the executor port and a runner in a kernel-core `opm/flow/`, with backends in the opt-in helper tier. D3 calls the library a pure planner and orchestrator that performs no side effects of its own, and D4 gives each frontend its own backend registry. The design text still names `opm/compile/` and `[]*core.Compiled`, both deleted, so the entry needs revision whatever this decision says.
+Enhancement 0009 designs an execution half against the pre-ADR-005 kernel. Its sketch places the plan types, the planner, the executor port and a runner in a kernel-core `opm/flow/`, with backends in the opt-in helper tier. The enhancement calls the library a pure planner and orchestrator that performs no side effects of its own, and gives each frontend its own backend registry. The design text still names `opm/compile/` and `[]*core.Compiled`, both deleted, so the entry needs revision whatever this decision says.
 
 The planner half is uncontroversial. A function from an instance and a phase to a plan value is the shape `Render` already has: inputs in, decoded data out, nothing retained.
 
@@ -40,7 +40,7 @@ Rejected alternatives:
 
 ## Consequences
 
-**Positive:** Sequencing semantics get one definition that both frontends execute, which is the property the render half already has and the apply half does not. Cancellation is trivial and needs no mechanism: a caller that stops calling has stopped, which is the only cancellation OQ6 says is available anyway. ADR-005 and ADR-007 are untouched, so nothing about context lifetime or concurrency has to be revisited. A plan and its transitions are testable without a cluster, a registry or a clock.
+**Positive:** Sequencing semantics get one definition that both frontends execute, which is the property the render half already has and the apply half does not. Cancellation is trivial and needs no mechanism: a caller that stops calling has stopped, which is the only cancellation that an open question of enhancement 0009 says is available anyway. ADR-005 and ADR-007 are untouched, so nothing about context lifetime or concurrency has to be revisited. A plan and its transitions are testable without a cluster, a registry or a clock.
 
 **Negative:** Each frontend writes the loop that calls the step function, so a small amount of code is duplicated by design; what is not duplicated is any decision the loop makes. The public surface grows by a plan type, a state type and a step function, and every one of them is SemVer surface under Principle VI. The step function is more API than emitting a plan alone would be.
 
