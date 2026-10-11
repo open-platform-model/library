@@ -37,5 +37,5 @@ The addition rule in the new-side loop becomes `required(sel, nit.Value())`, so 
 
 ## Risks / Trade-offs
 
-- [False positive on a field that was `?` because it was truly optional and is now `!` deliberately] → that is the D27 break the rule exists for; the escape hatch is a new `apiVersion` (enhancement 0010, "A contract is keyed by its own API version; an implementation is keyed by its build"), which the gate does not compare against the old one.
+- [False positive on a field that was `?` because it was truly optional and is now `!` deliberately] → that is the break of the additive-only rule that the rule exists for; the escape hatch is a new `apiVersion` (enhancement 0010, "A contract is keyed by its own API version; an implementation is keyed by its build"), which the gate does not compare against the old one.
 - [`Fields(cue.All())` iteration of `!` fields] → measured by the existing "add required field" case, which iterates `y: string`; add the `y!:` spelling to the table to pin it.

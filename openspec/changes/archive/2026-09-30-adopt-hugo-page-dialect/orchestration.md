@@ -112,7 +112,7 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
    - Prove it by following the copied `openspec-propose/SKILL.md` step 3, not a bare CLI call: `cd <wt> && openspec new change w0-probe`; then overwrite `openspec/changes/w0-probe/.openspec.yaml` exactly as the patched skill says; check that it reads `schema: docs-site-change` and `skip_specs: true`; add stub `proposal.md`, `design.md` and `tasks.md` from the schema's templates; run `cd <wt> && openspec validate w0-probe --strict --no-interactive`; then delete `openspec/changes/w0-probe`.
 4. **Taskfile.** Add `openspec:check` (`openspec validate --all --strict --no-interactive`) and call it from `task check`. Add no `openspec:install`.
 5. **Ignore.** Add `.claude/worktrees/` to `.gitignore`.
-6. **Archive.** Give `openspec/changes/docs-catalog-contract/.openspec.yaml` the content `schema: docs-site-change`, `created: 2026-08-18`, `skip_specs: true`. Then run `cd <wt> && openspec archive docs-catalog-contract --yes --skip-specs`. Do not edit its text; its delivery is already logged in `enhancements/archive/0010/delivery.yaml`.
+6. **Archive.** Give `openspec/changes/docs-catalog-contract/.openspec.yaml` the content `schema: docs-site-change`, `created: 2026-08-18`, `skip_specs: true`. Then run `cd <wt> && openspec archive docs-catalog-contract --yes --skip-specs`. Do not edit its text; its delivery is already logged in the delivery log of enhancement 0010.
 7. **Sections.**
    - Section 1 is items 1-4 plus the `.openspec.yaml`. Commit `chore(openspec): add the docs-site-change workspace`.
    - Section 2 is the archive and item 5. Commit `chore(openspec): archive docs-catalog-contract`.
@@ -165,11 +165,11 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
 
 0018 is `draft`, so its decisions are revised in place, with no `Amends:` line. Follow the enhancements repo's `AGENTS.md` and its `enhancements` skill.
 
-1. **D14 decision body** (`0018/03-decisions.md`): "A figure on the site is an Astro component in the site engine ... and a page in any repository uses it through the site's import alias for components" becomes "A figure on the site is a figure component in the site engine that draws inline SVG by hand, and a page in any repository uses it through the engine's figure shortcode". Everything else in D14 stays.
-2. **D14 alternatives.** "the site build copies only Markdown and MDX files" becomes "copies only Markdown files". Keep the astro-d2 rejection evidence as it is.
-3. **`0018/README.md:103`.** Replace the whole bullet body. "**Site presentation.** The site generator, theme, search and styling. The site is built with Astro and Starlight; how it looks is not this entry's to decide." becomes "**Site presentation.** The site generator, theme, search and styling are not this entry's to decide."
+1. **Decision body of the figure decision** (the decisions file of enhancement 0018): "A figure on the site is an Astro component in the site engine ... and a page in any repository uses it through the site's import alias for components" becomes "A figure on the site is a figure component in the site engine that draws inline SVG by hand, and a page in any repository uses it through the engine's figure shortcode". Everything else in D14 stays.
+2. **Alternatives of the figure decision.** "the site build copies only Markdown and MDX files" becomes "copies only Markdown files". Keep the astro-d2 rejection evidence as it is.
+3. **The bullet on site presentation in the overview of enhancement 0018.** Replace the whole bullet body. "**Site presentation.** The site generator, theme, search and styling. The site is built with Astro and Starlight; how it looks is not this entry's to decide." becomes "**Site presentation.** The site generator, theme, search and styling are not this entry's to decide."
 4. **Section.** One. Commit `docs(0018): make the figure decision engine-neutral`.
-5. **Touches.** `0018/03-decisions.md`, `0018/README.md`.
+5. **Touches.** The decisions and the overview of enhancement 0018.
 
 ## 4. Dialect contract for source pages
 

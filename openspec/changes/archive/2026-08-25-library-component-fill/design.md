@@ -58,7 +58,7 @@ Delete `ExpectedDivergence` on `names-probe :: web`; the harness's "no longer re
 
 ## Risks / Trade-offs
 
-- [A published transformer trips the ADR-003 corruption once it receives a closed, unfinalized component] → shipped parity rows catch it as a genuine value divergence; the change halts and the pair is reproduced as a fixture and reported upstream (0019 05-risks names this hazard as probed-and-not-reproduced).
+- [A published transformer trips the ADR-003 corruption once it receives a closed, unfinalized component] → shipped parity rows catch it as a genuine value divergence; the change halts and the pair is reproduced as a fixture and reported upstream (the risks of enhancement 0019 name this hazard as probed-and-not-reproduced).
 - [`cue.Final()`-derived defaults: a transformer relying on defaults having been resolved in the finalized value] → unification resolves defaults at read time the same way; the parity rows are byte-identical for every shipped transformer or the harness says which one is not.
 - [Flow fixture assertions depend on the hand-built instance's shape (component count, labels)] → the import-authored instance carries the same two components and labels; the test's assertions are unchanged, only the construction is.
 - [`compile_test.go` helpers still call `FinalizeValue` and pass the result to `Execute`] → harmless while the parameter is ignored; they are cleaned in step 4 with the parameter. Not touched here to keep the slice small.

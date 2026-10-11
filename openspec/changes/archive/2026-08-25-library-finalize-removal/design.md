@@ -52,7 +52,7 @@ A small test in `opm/kernel` asserts, via `reflect`, that `*Kernel` has no metho
 
 - [A downstream caller of `Execute` exists outside the grep'd repos] → the only known embedders are `cli` and `opm-operator`, both grep-clean; the `MIGRATIONS.md` recipe covers anyone else (drop the fourth argument).
 - [Release gate refuses the breaking commit] → the `## Unreleased — Breaking` entry lands in the same change, keyed by the change slug the commit's `Migration:` trailer names.
-- [The alpha line graduates before this lands, turning the break into a `/v2` module path] → not the case at `v1.0.0-alpha.14`; the ordering constraint is recorded in 0019 06-operational and this is the slice that discharges it for the library.
+- [The alpha line graduates before this lands, turning the break into a `/v2` module path] → not the case at `v1.0.0-alpha.14`; the ordering constraint is recorded in the operational plan of enhancement 0019 and this is the slice that discharges it for the library.
 - [Security-audit rewrite weakens the audit] → the rewrite replaces a claim about a removed mechanism with the stronger, measured one (unification closedness); the audit gains the parity harness as an explicit check.
 
 ## Migration Plan

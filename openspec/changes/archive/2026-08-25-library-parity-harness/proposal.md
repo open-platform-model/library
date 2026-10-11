@@ -1,6 +1,6 @@
 ## Why
 
-Enhancement 0019 ("Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour") makes plain CUE unification of `#transform` with its three inputs the reference semantics of the render path, and nothing in `library` measures that today: the definition strip in `compile.FinalizeValue` diverged from CUE for three months and two refactors because no test compared the kernel's rendered value against unification of the same inputs. D4 orders the harness first, before any fill or removal lands, so that every later Phase A slice is checked against the oracle rather than the existing suite, and so the harness's first red run is preserved as the evidence for D1 instead of being discarded by fixing first.
+Enhancement 0019 ("Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour") makes plain CUE unification of `#transform` with its three inputs the reference semantics of the render path, and nothing in `library` measures that today: the definition strip in `compile.FinalizeValue` diverged from CUE for three months and two refactors because no test compared the kernel's rendered value against unification of the same inputs. The slice order of that enhancement puts the harness first, before any fill or removal lands, so that every later Phase A slice is checked against the oracle rather than the existing suite, and so the harness's first red run is preserved as the evidence for its oracle decision instead of being discarded by fixing first.
 
 ## What Changes
 

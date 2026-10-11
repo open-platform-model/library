@@ -5,7 +5,7 @@ See proposal.md, Why. The phase verbs date from `add-phase-methods-and-rename-co
 Constraints:
 
 - `library-dead-symbol-sweep` lands first and touches no phase surface; this change touches nothing that one removes.
-- Enhancement 0019 ("Catalog version skew between a module and its platform is detected by the kernel, and the response is caller-configured" and "Skew policy defaults to warn-and-render; the comparison reads the two committed resolutions; older-than-platform is data") adds a skew-policy field to `CompileInput`, and D10 moves matching into the build. `CompileInput` therefore stays a struct, and `Match` stays until D10 replaces the Go matcher.
+- Enhancement 0019 ("Catalog version skew between a module and its platform is detected by the kernel, and the response is caller-configured" and "Skew policy defaults to warn-and-render; the comparison reads the two committed resolutions; older-than-platform is data") adds a skew-policy field to `CompileInput`, and the same enhancement moves matching into the build. `CompileInput` therefore stays a struct, and `Match` stays until that move replaces the Go matcher.
 - The `cli` sibling `cli-layered-values` adopts `Source`, `LoadSourceFromFile` and `ValidateConfigDetailed`; those stay, and so do `Partial()` and `ValidateConfigPartial` (the `vet` primitive).
 
 ## Goals / Non-Goals

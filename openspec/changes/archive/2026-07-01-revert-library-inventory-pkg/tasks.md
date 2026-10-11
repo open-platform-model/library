@@ -26,7 +26,7 @@
       `### Removed — \`revert-library-inventory-pkg\`` — the `opm/inventory`
       package (shipped in `1.0.0-alpha.4`) is deleted in full; no known
       importer exists (`opm-operator` remained pinned to `v1.0.0-alpha.3`,
-      `cli` never depended on it). Reference D31 (enhancement 0006).
+      `cli` never depended on it). Reference the revert decision of enhancement 0006.
 
 ## 5. Validation gates
 

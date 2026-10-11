@@ -85,7 +85,7 @@ func (p *Platform) Contracts() (*ContractInventory, error)
 
 ### Where the inventory is read
 
-**Context**: 0015 02-design.md reduces library's obligation to "reading it off a built value".
+**Context**: The design of enhancement 0015 reduces library's obligation to "reading it off a built value".
 **Explored**: (a) decode into a `Platform.Contracts` field at construction; (b) a kernel verb `Kernel.PlatformContracts(p)`; (c) an on-demand accessor on `*Platform` reading `Package`.
 **Decision**: (c).
 **Rationale**: `Package` is the source of truth and the type's doc already refuses decoded derived views (a); the value is built and the kernel holds no context or state the read needs (ADR-007), so a verb adds a surface with nothing behind it (b). On demand also keeps the fold's cost off every acquire: the operator's readiness loop and `opm platform check` ask for it, a render does not.

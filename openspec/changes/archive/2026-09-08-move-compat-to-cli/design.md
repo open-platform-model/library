@@ -49,7 +49,7 @@ Constraints: `cue-owned-verdicts` has landed (task 1.1 checks it, since the tree
 ### The enhancements record is amended, not contradicted
 
 **Context**: the rationale and a note of enhancement 0011 (accepted) place the code in the library; enhancement 0020 (draft) plans to extend it there and orders delivery "library before cli".
-**Decision**: this change carries `enhancement.yaml` declaring enhancement 0011 ("`opm catalog publish` refuses a build that breaks a contract it already published"), so `task enhancements:delivery:log` writes a line whose summary names the new home; 0020's `06-operational.md` item 3 and the four `schemas/target.cue` comments are edited in a separate `enhancements/` commit before this change merges (a draft entry is editable and `task vet` must pass). No decision text in 0011 changes.
+**Decision**: this change carries `enhancement.yaml` declaring enhancement 0011 ("`opm catalog publish` refuses a build that breaks a contract it already published"), so `task enhancements:delivery:log` writes a line whose summary names the new home; the operational plan of enhancement 0020 (item 3) and the four comments in its target schema are edited in a separate `enhancements/` commit before this change merges (a draft entry is editable and `task vet` must pass). No decision text in 0011 changes.
 **Rationale**: decision numbers and accepted text are immutable; a landed relocation belongs in the log; a future landing point belongs in the draft that plans it.
 
 ### The library keeps its semver dependency

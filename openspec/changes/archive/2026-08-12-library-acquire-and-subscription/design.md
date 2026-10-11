@@ -21,7 +21,7 @@ builds = append(builds, catalogBuild{sub, ver, cv})
 resolved[sub] = ver
 ```
 
-`pullCatalog` already splits the `@vN` suffix and accepts a `v`-prefixed version — unchanged. The major-agreement check is `strings.SplitN(ver, ".", 2)[0]` vs the key suffix's digits, mirroring the target schema's `_majorAgrees` (`0010/schemas/target.cue:670-691`); a key with no `@vN` suffix is an error (core v2's `#ModulePathType` requires it; defensive, not a supported path).
+`pullCatalog` already splits the `@vN` suffix and accepts a `v`-prefixed version — unchanged. The major-agreement check is `strings.SplitN(ver, ".", 2)[0]` vs the key suffix's digits, mirroring the target schema's `_majorAgrees` (the target schema of enhancement 0010); a key with no `@vN` suffix is an error (core v2's `#ModulePathType` requires it; defensive, not a supported path).
 **Rationale**: D14 verbatim. The check is "a consistency check on what the author wrote rather than a selection step" — it lives beside the subscription read, not in a file of its own.
 
 ### Enumeration's fate: lazy diagnostic
@@ -84,7 +84,7 @@ Value receiver `Error()` naming both values (D11: "a typed error naming both"), 
 
 ### D41 residue: the instance FQN in the transformer context
 
-**Context**: `schema/context.go:59` fills `#moduleInstanceMetadata.fqn` with `inst.ModuleFQN()` — the module's FQN under an instance-shaped name. Core v2 defines the instance's own `metadata.fqn` (`registryPath:name:namespace`) and `uuid`. Measured free: no shipped transformer reads `.fqn` from that block. 02-design left `Version` "removed or repurposed".
+**Context**: `schema/context.go:59` fills `#moduleInstanceMetadata.fqn` with `inst.ModuleFQN()` — the module's FQN under an instance-shaped name. Core v2 defines the instance's own `metadata.fqn` (`registryPath:name:namespace`) and `uuid`. Measured free: no shipped transformer reads `.fqn` from that block. The design of enhancement 0010 left `Version` "removed or repurposed".
 **Decision**: `InstanceMetadata` gains `FQN` (decoded via the existing `schema.MetadataFQN` path from the instance value); `context.go` fills the block's `fqn` from it. `Version` **stays**, fed by `inst.ModuleVersion()` — post-this-change that value is acquire-verified, which *is* the "repurposed to the resolved coordinate" reading: declared and resolved are now proven equal, so the field needs no new source.
 **Rationale**: Smallest true implementation of D41's one-line residue; no context shape change, no transformer breakage possible (measured zero readers).
 

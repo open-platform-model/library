@@ -12,7 +12,7 @@ This change is `library-render-cutover`, the last library slice of 0019 Phase B.
 
 **PR 1, additive on the current pin (proof and guard):**
 
-- The old-versus-new proof: the parity harness renders every parity case through `Compile` (against the `alpha.6` subscription platform) and through `Render` (against a D5-shaped twin of the parity platform pinned to `alpha.7`, importing the same published catalog bytes) and asserts the rendered values byte-equal per case, order-sensitively, before anything is deleted. Rendered-object ordering: `Render` emits CUE's natural order (enhancement 0019, "CUE's natural, unfinalized ordering is the render output contract"); the proof records any ordering-only difference per case exactly as the existing harness does.
+- The old-versus-new proof: the parity harness renders every parity case through `Compile` (against the `alpha.6` subscription platform) and through `Render` (against a twin of the parity platform in the shape of enhancement 0019 (the platform imports its catalog), pinned to `alpha.7`, importing the same published catalog bytes) and asserts the rendered values byte-equal per case, order-sensitively, before anything is deleted. Rendered-object ordering: `Render` emits CUE's natural order (enhancement 0019, "CUE's natural, unfinalized ordering is the render output contract"); the proof records any ordering-only difference per case exactly as the existing harness does.
 - The single-provider guard ported into the render glue: a diagnostics row (`overSubscribed`, naming the contract key and every registry key whose transformers require it) folded over the enabled `#registry` entries' required demands, and the D28 gate extended so an over-subscribed provider-fulfilled key refuses the render with a decoded typed error. Divergent-fulfilment copies cannot occur in one build (one set of catalog bytes) and are not ported.
 
 **PR 2, the cutover (BREAKING, `feat(kernel)!:`):**
@@ -25,12 +25,12 @@ This change is `library-render-cutover`, the last library slice of 0019 Phase B.
 
 **PR 3, supersession and documentation (D8):**
 
-- ADR-005 states the two rules: each render is its own CUE build in its own `cue.Context`, and that context does not outlive the render; nothing built is shared between renders; concurrency is across renders, never within one; a render pool is sized by memory (61 MB + 7.75 MB per component, 0019 `06-operational.md`). ADR-002's status becomes "Superseded by ADR-005". ADR-006 states the single-build rule: every artifact the kernel constructs is one CUE build that imports its inputs, no cross-build fill; ADR-003's status becomes "Superseded by ADR-006" (its multi-version-composition premise was deleted by enhancement 0010 ("A subscription names exactly one catalog build") and enhancement 0019 ("A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), and the single-build-only framing it rejected is now the rule).
+- ADR-005 states the two rules: each render is its own CUE build in its own `cue.Context`, and that context does not outlive the render; nothing built is shared between renders; concurrency is across renders, never within one; a render pool is sized by memory (61 MB + 7.75 MB per component, the operational plan of enhancement 0019). ADR-002's status becomes "Superseded by ADR-005". ADR-006 states the single-build rule: every artifact the kernel constructs is one CUE build that imports its inputs, no cross-build fill; ADR-003's status becomes "Superseded by ADR-006" (its multi-version-composition premise was deleted by enhancement 0010 ("A subscription names exactly one catalog build") and enhancement 0019 ("A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), and the single-build-only framing it rejected is now the rule).
 - `opm/kernel/doc.go` drops the materialize-era goroutine text and the mutex stopgap, documents `Render` as the phase surface, and states the shares-nothing contract; `README.md`, `docs/getting-started.md` and `CLAUDE.md` (the Materialize lifetime section, the layout table) follow.
 
 ## SemVer classification
 
-MAJOR (Principle VI): public methods, types and two packages leave `opm/`. Pre-GA, so no migration fragment (ADR-004); the library's alpha line absorbs it, which 0019 `06-operational.md` names as the sequencing constraint (land before `library` declares `v1.0.0`).
+MAJOR (Principle VI): public methods, types and two packages leave `opm/`. Pre-GA, so no migration fragment (ADR-004); the library's alpha line absorbs it, which the operational plan of enhancement 0019 names as the sequencing constraint (land before `library` declares `v1.0.0`).
 
 ## Affected packages and downstream consumers
 
