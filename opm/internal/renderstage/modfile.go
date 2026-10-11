@@ -172,7 +172,8 @@ func isReplaceDir(target string) bool {
 
 // IsOPMPath reports whether a major-qualified module path lives in the OPM
 // namespace: its host element is opmodel.dev or a subdomain of it. This is the
-// path set the 0019:D13 refusal invariant and the 0019:D7 skew comparison cover;
+// path set the coverage refusal invariant and the skew comparison cover
+// (enhancement 0019);
 // fixture domains (testing.opmodel.dev) are included deliberately so the
 // invariant is exercised by fixture-backed tests.
 func IsOPMPath(path string) bool {

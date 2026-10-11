@@ -1,7 +1,7 @@
 // Package renderstage assembles the single-build render module (enhancement
 // 0019): it reads the two committed cue.mod/module.cue resolutions the
 // render inputs carry, promotes them into the render module's dependency list
-// (enhancement 0019), checks that list for OPM-namespace coverage (the 0019:D13 refusal
+// (enhancement 0019), checks that list for OPM-namespace coverage (the refusal
 // invariant), compares the two committed lists for catalog version skew
 // (enhancement 0019), stages the generated render module in memory, and builds it
 // once in a caller-supplied cue.Context (enhancement 0019).

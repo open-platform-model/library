@@ -1,5 +1,5 @@
-// Provider-fulfilled render fixture platform (the core its cue.mod pins, 0019:D5
-// shape): cat 0.1.0 beside providers 0.1.0, which lists two provider-fulfilled
+// Provider-fulfilled render fixture platform (the core its cue.mod pins, enhancement 0019
+// catalog-importing shape): cat 0.1.0 beside providers 0.1.0, which lists two provider-fulfilled
 // contracts nothing on this platform provides (snapshot, ledger) and one
 // whose provider requires a label (archive). Consumed on-disk by
 // Kernel.AcquirePlatformFromDir; never published; not discovered by the

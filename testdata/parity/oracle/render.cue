@@ -1,16 +1,16 @@
 // THE ORACLE. The render pipeline written as plain CUE unification, generic
-// over its inputs. Lifted from enhancements/0019/experiments/01-purecue-render-flow
-// (concluded 2026-08-19) and laid out in the same steps as the kernel's
+// over its inputs. Lifted from the pure-CUE render-flow experiment of
+// enhancement 0019 (concluded 2026-08-19) and laid out in the same steps as the kernel's
 // render glue (opm/internal/renderstage/render.cue.tmpl) so the two can be
 // read side by side:
 //
 //     glue `match` (#Match)                    ->  `matched` / `pairs` (predicate rung only)
-//     core's #TransformerContext projection    ->  `_contextFor` (0019:D12; the kernel supplies #runtimeName only)
+//     core's #TransformerContext projection    ->  `_contextFor` (enhancement 0019; the kernel supplies #runtimeName only)
 //     glue `rendered`                          ->  `rendered`
 //
 // SCOPE OF `matched`. This is the predicate rung, enough to produce the right
-// pairs for the fixtures; it is not a specification of matching (0019:D10
-// owns that). The glue's reverse-index and always-unify rungs are absent: on
+// pairs for the fixtures; it is not a specification of matching (the render-build
+// matching of enhancement 0019 owns that). The glue's reverse-index and always-unify rungs are absent: on
 // the shipped fixtures no primitive body conflicts with a transformer's
 // required copy, so the pair sets agree with no exemption (enhancement 0019); a
 // fixture that did conflict would be refused by the kernel and fail the

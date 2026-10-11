@@ -19,7 +19,7 @@
 package platform
 
 // Design records behind the package doc above, for maintainers:
-//   - enhancements/0019 (workspace root): single-build render
-//   - enhancements/0015 (workspace root): the contract inventory
+//   - enhancement 0019: single-build render
+//   - enhancement 0015: the contract inventory
 //   - adr/006-single-build-artifact-construction.md (one CUE build per artifact)
 //   - adr/005-shares-nothing-renders.md (the build's lifetime and concurrency)

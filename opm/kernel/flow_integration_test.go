@@ -25,7 +25,7 @@ import (
 //   - testdata/modules/web_app   (a core@v2 #Module consuming opm primitives
 //     from the consolidated catalogs/opm v4 line: Container resource,
 //     HttpRoute / Scaling / RestartPolicy / Expose traits, StatelessWorkload
-//     blueprint via 0010:D49 versioned imports), with its import-authored
+//     blueprint via apiVersion-level imports, enhancement 0010), with its import-authored
 //     #ModuleInstance package under testdata/modules/web_app/instance
 //   - modules/opm_platform       (the canonical Kubernetes #Platform module
 //     importing the major-suffixed opmodel.dev/catalogs/opm v4 line through
@@ -174,7 +174,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 
 	t.Run("resolved versions", func(t *testing.T) {
 		// The instance module and the platform module pin the same catalog
-		// build (0019:D18: rows, not warnings).
+		// build (enhancement 0019: rows, not warnings).
 		var catalogRow *kernel.ResolvedVersion
 		for i := range res.Diagnostics.ResolvedVersions {
 			if res.Diagnostics.ResolvedVersions[i].Path == "opmodel.dev/catalogs/opm@v4" {

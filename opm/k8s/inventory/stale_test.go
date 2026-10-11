@@ -72,7 +72,8 @@ func TestStaleSet_InputsUnchanged(t *testing.T) {
 	assert.Equal(t, curCopy, current)
 }
 
-// cliStaleSet is the cli's rule before 0012:D7, ported as an oracle (cli
+// cliStaleSet is the cli's rule before the component-blind stale set
+// (enhancement 0012), ported as an oracle (cli
 // pkg/inventory ComputeStaleSet, then internal/inventory
 // ApplyComponentRenameSafetyCheck): a component-aware stale set, then a filter
 // that rescues every stale entry some current entry names under another

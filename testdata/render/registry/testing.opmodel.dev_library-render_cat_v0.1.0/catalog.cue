@@ -94,7 +94,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	spec: orphan: size!: string
 }
 
-// The ladder family pins the 0010:D34/D4 apiVersion ordering of a demand's
+// The ladder family pins the apiVersion ordering (enhancement 0010) of a demand's
 // same-base alternatives: the three levels below are each implemented by a
 // transformer, ladder@v2 is not, so a demand for ladder@v2 is a hard miss
 // whose alternatives must arrive alpha < beta < GA -- an order lexical

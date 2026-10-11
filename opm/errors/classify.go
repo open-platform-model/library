@@ -35,8 +35,8 @@ import (
 // endpoint's answer, described below. The fetch forms are matched first, so a
 // registry failure anywhere in the text never reads as an author defect; the
 // author-defect forms only after. Classify is the only place in the library
-// that matches the text of a registry or cue/load error. Source:
-// 0021:D8:R12.
+// that matches the text of a registry or cue/load error, so that a frontend
+// never matches message text itself (enhancement 0021).
 //
 // A registry that uses token authentication has a token endpoint, and that
 // endpoint's answer is a registry answer: it classifies by its status (401

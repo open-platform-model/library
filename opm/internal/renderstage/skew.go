@@ -10,7 +10,8 @@ import (
 // VersionRow is one resolved-versions comparison row (enhancement 0019): for an
 // OPM-namespace path the instance module requires, the build the instance
 // asked for and the build the platform carries. It is plain data with no
-// severity; Newer flags the one case 0019:D7 makes a policy question.
+// severity; Newer flags the one case that is a policy question for the caller
+// (enhancement 0019).
 type VersionRow struct {
 	// Path is the major-qualified module path compared.
 	Path string
@@ -24,7 +25,7 @@ type VersionRow struct {
 	PlatformVersion string
 
 	// Newer is true when the instance requires a build newer than the
-	// platform carries: the 0019:D7 skew case the caller's policy decides.
+	// platform carries: the skew case the caller's policy decides.
 	Newer bool
 }
 

@@ -32,10 +32,12 @@ type UnifyRefusal struct {
 // trait whose posture the catalog never stated is a build error, not a
 // diagnostics row).
 //
-// The 0010:D4 contract-key diagnostic is carried by Alternatives: empty means
+// The apiVersion-keyed contract diagnostic (enhancement 0010) is carried by
+// Alternatives: empty means
 // nothing on this platform implements the contract at any version; non-empty
 // means the contract base is implemented at a different apiVersion only.
-// DefinedBy carries the 0015:D18 arm beside it: which enabled catalog lists
+// DefinedBy carries the defining-catalog arm beside it (enhancement 0015):
+// which enabled catalog lists
 // the demanded key in its contract maps, so the refusal can say "defined by
 // this catalog and implemented by nothing" rather than "unknown".
 //
@@ -52,7 +54,7 @@ type UnresolvedDemand struct {
 
 	// Alternatives is the same-base contract-key set the platform does
 	// implement, in contract-key order (kube-aware apiVersion ladder,
-	// 0010:D34/D4, applied inside the build). Empty when nothing implements the
+	// enhancement 0010, applied inside the build). Empty when nothing implements the
 	// contract.
 	Alternatives []string
 

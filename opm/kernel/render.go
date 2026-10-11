@@ -40,8 +40,8 @@ type RenderInput struct {
 	// is never sufficient.
 	Instance *module.Instance
 
-	// Platform is the platform to render against, in the 0019:D5 shape (registry
-	// entries carrying their catalog by import). It MUST carry a Source
+	// Platform is the platform to render against, as a module that imports its catalog (registry
+	// entries carrying their catalog by import, enhancement 0019). It MUST carry a Source
 	// (Kernel.AcquirePlatformFromDir).
 	Platform *platform.Platform
 
@@ -304,7 +304,7 @@ func (e *RenderError) Unwrap() error { return e.Err }
 // Render renders an instance against a platform as ONE CUE build
 // (enhancement 0019): it stages a generated render module in memory, under a
 // synthetic root that must not exist on disk (the promoted cue.mod,
-// 0019:D13; directory replacements bringing both inputs in, an on-disk input
+// enhancement 0019; directory replacements bringing both inputs in, an on-disk input
 // in place and an overlay-mode input from memory; the embedded matching and
 // execution glue), verifies the promoted list covers every OPM-namespace
 // path either input requires, applies the skew policy (enhancement 0019), builds

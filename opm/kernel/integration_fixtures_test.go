@@ -69,7 +69,7 @@ func newKernelWithCatalogs(t *testing.T, catalogs ...registrytest.CatalogFixture
 }
 
 // writeCatalogPlatform writes, as a nested module under dir, a
-// #CatalogEntry-form platform (core 0019:D5) importing the served catalog
+// #CatalogEntry-form platform (enhancement 0019) importing the served catalog
 // catPath at version, and returns the platform module directory. The files
 // come from opm/helper/platformmodule, the generator a frontend runs for the
 // same coordinates, so the render tests exercise its output end to end.

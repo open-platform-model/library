@@ -1,4 +1,4 @@
-// Two-catalog render fixture platform (the core its cue.mod pins, 0019:D5 shape): cat
+// Two-catalog render fixture platform (the core its cue.mod pins, catalog-importing shape of enhancement 0019): cat
 // 0.1.0 beside cat2 0.1.0, one transformer per catalog requiring the catalog-fulfilled container contract: renders, every candidate matched.
 // Consumed on-disk by Kernel.AcquirePlatformFromDir; never published; not
 // discovered by the repo's CUE tasks (its catalog deps are served in-process).

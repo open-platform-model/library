@@ -1,5 +1,5 @@
-// Colliding-majors render fixture platform (the core its cue.mod pins, 0019:D5
-// shape): maj 0.1.0 beside maj 1.4.0, two majors of one catalog listing the same
+// Colliding-majors render fixture platform (the core its cue.mod pins, enhancement 0019
+// catalog-importing shape): maj 0.1.0 beside maj 1.4.0, two majors of one catalog listing the same
 // container, expose and backup keys: core's #contracts reports the three keys
 // as collisions with routable false, and the render refuses the platform
 // before any object renders (maj 1.4.0's bridge would otherwise render a

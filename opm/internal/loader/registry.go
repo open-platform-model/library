@@ -169,7 +169,8 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 }
 
 // verifyModuleIdentity compares the acquired module's declared identity
-// against the coordinate it was fetched by (0010:D11; version clause 0010:D9): the
+// against the coordinate it was fetched by (enhancement 0010; the version
+// clause too): the
 // declared metadata.modulePath must equal the requested major-qualified path
 // as a string, and the declared metadata.version must equal the fetched tag
 // with the `v` prefix stripped. The shape gate has already guaranteed both
@@ -178,7 +179,7 @@ func FetchArtifact(ctx context.Context, cueCtx *cue.Context, modPath, version st
 // *oerrors.IdentityError naming both values. Sitting after the gate in
 // FetchModule, the registry path's single entry FOR MODULES, the check runs
 // for every caller (Kernel.AcquireModuleFromRegistry and the frontends behind
-// it): 0010:D11's one implementation. It is module-only by decision, not by
+// it): the one implementation of that identity rule (enhancement 0010). It is module-only by decision, not by
 // oversight — see FetchModule.
 //
 // There is no alternative check for a major-free declaration: the core

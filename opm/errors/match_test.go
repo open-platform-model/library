@@ -47,7 +47,7 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 	assert.Contains(t, bare.Error(), "unresolved resource demand")
 	assert.Contains(t, bare.Error(), "no enabled catalog defines this contract")
 
-	// Alternatives present: the 0010:D4 different-apiVersion diagnostic.
+	// Alternatives present: the different-apiVersion diagnostic (enhancement 0010).
 	alt := &oerrors.UnresolvedDemandsError{Demands: []oerrors.UnresolvedDemand{{
 		Component:    "web",
 		FQN:          "example.com/r/volume@v1",

@@ -24,7 +24,7 @@ import (
 // DeploymentTransformer's requiredLabels selects on. The explicit
 // metadata.labels duplicate below is DESCRIPTIVE and stays: render reads
 // (e.g. an hpa-style transformer's workload-type lookup off the component)
-// consume metadata.labels through the transformer context, which 0010:D36 keeps
+// consume metadata.labels through the transformer context, which the matchLabels rule (enhancement 0010) keeps
 // on the descriptive field.
 #components: {
 	web: {

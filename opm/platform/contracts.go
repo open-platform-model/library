@@ -35,8 +35,7 @@ type ComparablePredicates struct {
 
 // ContractInventory is the decoded view of #Platform.#contracts, the
 // inventory core derives from the enabled registry entries' contract maps
-// and the required demands of #composedTransformers (0015:D1,
-// D2, D5, D18). Providers are counted per registry entry (path plus major),
+// and the required demands of #composedTransformers (enhancement 0015). Providers are counted per registry entry (path plus major),
 // the one count the render's single-provider guard reads too: two majors of
 // one catalog are two providers, two transformers of one entry are one, and
 // a provider counts whether or not an enabled catalog defines the contract.
