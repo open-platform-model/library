@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-03). Supersedes ADR-003. Records enhancement 0019 ("The render step is one CUE build per render") (workspace root, `enhancements/0019/03-decisions.md`: the render step is one CUE build per render) and its application to instance synthesis. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). ADR-005 records the lifetime and concurrency rules of that build. Amended 2026-10-05 by `stage-render-in-memory-and-share-registry`: the negative "Staging touches disk" is retired, because the render module is now staged in memory and served to the one build through the load overlay; a render writes no staging file.
+Accepted (2026-09-03). Supersedes ADR-003. Records enhancement 0019 ("The render step is one CUE build per render") and its application to instance synthesis. Implemented by `library-render-build` (`Kernel.Render`) and `library-render-cutover` (`Render` as the sole render path; `opm/materialize` and `opm/compile` deleted). ADR-005 records the lifetime and concurrency rules of that build. Amended 2026-10-05 by `stage-render-in-memory-and-share-registry`: the negative "Staging touches disk" is retired, because the render module is now staged in memory and served to the one build through the load overlay; a render writes no staging file.
 
 ## Context
 
@@ -14,7 +14,7 @@ ADR-003 stated the principle, never `FillPath` into a closed independently built
 
 The render path meanwhile still crossed a build boundary: it filled `#moduleInstance`, `#component` and `#context` into a `#transform` reached through the materialized platform. That fill stripped the component's definitions and hidden fields on the way in (the parity gap enhancement 0019 ("Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour") names) and was the write to shared evaluation state that ADR-002 mistook for a read (ADR-005).
 
-Enhancement 0019 measured the alternative before adopting it (`enhancements/0019/experiments/`): a pure-CUE render flow over the real catalog renders correctly (01); `cue.mod/local-module.cue` directory replacements bring unpublished inputs into a build (02); matching expressed inside the build reaches the same pair set, and every embedded copy of a catalog resolves to the same bytes (05); a single build costs 90 ms per render against 42 ms for the held-platform baseline on a five-pair fixture (04), and sequentially the crossover against the old path sits between 4.6 and 14.2 components (07), with platform reuse worth at most about 85 ms.
+Enhancement 0019 measured the alternative before adopting it (its experiments): a pure-CUE render flow over the real catalog renders correctly (01); `cue.mod/local-module.cue` directory replacements bring unpublished inputs into a build (02); matching expressed inside the build reaches the same pair set, and every embedded copy of a catalog resolves to the same bytes (05); a single build costs 90 ms per render against 42 ms for the held-platform baseline on a five-pair fixture (04), and sequentially the crossover against the old path sits between 4.6 and 14.2 components (07), with platform reuse worth at most about 85 ms.
 
 ## Decision
 
