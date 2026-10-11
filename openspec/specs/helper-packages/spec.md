@@ -63,7 +63,7 @@ Future opt-in helpers SHALL follow the `opm/helper/<name>/` convention. Subpacka
 
 ### Requirement: No platform synthesis helper
 
-The library SHALL expose no function that turns typed subscription inputs into a platform `cue.Value` without a module on disk, and the kernel SHALL expose no `SynthesizePlatform`. A platform is a CUE module on disk that imports its catalogs (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else" and "The Platform CR keeps naming a catalog coordinate; the operator generates the platform package"); a frontend that starts from catalog coordinates generates that module through `opm/helper/platformmodule` (`platform-module-generation`) or writes it by hand, and acquires it with `AcquirePlatformFromDir`.
+The library SHALL expose no function that turns typed subscription inputs into a platform `cue.Value` without a module on disk, and the kernel SHALL expose no `SynthesizePlatform`. A platform is a CUE module on disk that imports its catalogs (enhancement 0019); a frontend that starts from catalog coordinates generates that module through `opm/helper/platformmodule` (`platform-module-generation`) or writes it by hand, and acquires it with `AcquirePlatformFromDir`.
 
 #### Scenario: Synth surface is instance-only
 

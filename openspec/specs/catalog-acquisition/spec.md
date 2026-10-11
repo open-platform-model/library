@@ -25,7 +25,7 @@ The kernel SHALL expose `AcquireCatalogFromRegistry(ctx, modPath, version)` and 
 
 ### Requirement: A non-catalog artifact is refused by shape
 
-Acquisition SHALL gate the evaluated value to a concrete `kind` of `"Catalog"` and SHALL refuse anything else with an error wrapping `ErrWrongKind`, naming the kind it found. A module artifact is therefore refused structurally rather than by a maintained rule (enhancement 0015, "The claim names a published catalog artifact, and only that; transformers never ship inside module artifacts and never ride the CR"). Acquisition SHALL NOT perform full schema validation, which remains the kernel's contract, and SHALL NOT return a partial catalog on any gate failure.
+Acquisition SHALL gate the evaluated value to a concrete `kind` of `"Catalog"` and SHALL refuse anything else with an error wrapping `ErrWrongKind`, naming the kind it found. A module artifact is therefore refused structurally rather than by a maintained rule (enhancement 0015: a claim names a published catalog artifact only). Acquisition SHALL NOT perform full schema validation, which remains the kernel's contract, and SHALL NOT return a partial catalog on any gate failure.
 
 #### Scenario: A module artifact claimed as a catalog is refused
 
