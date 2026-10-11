@@ -35,7 +35,7 @@ import (
 // (parity_probe_test.go): transformers that read #component.#names and
 // #moduleInstance. Every case compares the whole rendered value,
 // order-sensitively, and carries no expected divergence: with #context
-// projected by core (0019:D12) there is no runtime-built value left to
+// projected by core (enhancement 0019) there is no runtime-built value left to
 // exclude.
 //
 // Gating applies to the shipped group only, mirroring the flow test: skipped
@@ -218,7 +218,7 @@ var shippedCases = []parityCase{
 		Equality:    equalityStructural,
 	},
 	{
-		// The guarded-env component (0019:D14): the env MAP assembled from
+		// The guarded-env component (enhancement 0019): the env MAP assembled from
 		// plain fields, a feature-guarded block and a comprehension, folded
 		// into the Kubernetes env LIST by the deployment transformer, so any
 		// hoisting of comprehension-produced fields reaches rendered bytes.
@@ -339,7 +339,7 @@ func kernelRender(res *kernel.RenderResult, renderErr error, p kernel.RenderPair
 }
 
 // assertPairSetsAgree compares Render's matched pairs with the oracle's.
-// No exemption exists (0019:D10): the always-unify rung is plain unification
+// No exemption exists (enhancement 0019): the always-unify rung is plain unification
 // on both sides, so the two sets must be equal.
 func assertPairSetsAgree(t *testing.T, kernelPairs, oracle []kernel.RenderPair) {
 	t.Helper()

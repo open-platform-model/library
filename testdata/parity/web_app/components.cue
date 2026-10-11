@@ -22,9 +22,9 @@ import (
 //     and http-route-transformer in a single match cycle
 //   - StatelessWorkload blueprint → demonstrates Blueprint composition; its
 //     spec.statelessWorkload field is satisfied alongside the direct primitives.
-//     Imports name the apiVersion level (…/blueprints/v1beta1, 0010:D49).
+//     Imports name the apiVersion level (…/blueprints/v1beta1, enhancement 0010).
 //
-// Matching reads the component's derived matchLabels (0010:D36) — the
+// Matching reads the component's derived matchLabels (enhancement 0010) — the
 // StatelessWorkload blueprint's matchLabels carry the
 // "core.opmodel.dev/workload-type": "stateless" key the
 // DeploymentTransformer's requiredLabels selects on. The explicit
@@ -107,7 +107,7 @@ import (
 	}
 
 	// Third component, parity-only: the guarded-env shape experiment 07
-	// measured as the one that reorders under finalization (0019:D14). The
+	// measured as the one that reorders under finalization (enhancement 0019). The
 	// env MAP is assembled from three sources, plainly declared fields, a
 	// feature-guarded block and a comprehension over #config.extraEnv, and
 	// the deployment transformer converts it to the Kubernetes env LIST, so

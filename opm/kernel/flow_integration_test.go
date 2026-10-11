@@ -29,7 +29,7 @@ import (
 //     #ModuleInstance package under testdata/modules/web_app/instance
 //   - modules/opm_platform       (the canonical Kubernetes #Platform module
 //     importing the major-suffixed opmodel.dev/catalogs/opm v4 line through
-//     a #CatalogEntry-form #registry, 0019:D5)
+//     a #CatalogEntry-form #registry, enhancement 0019)
 //
 // Both are acquired source-carrying and rendered through Kernel.Render as one
 // build; the catalog and core resolve from GHCR. Transformer FQNs are
@@ -83,7 +83,7 @@ func TestFlow_WebApp_OnOpmPlatform(t *testing.T) {
 	// The instance is an import-authored package inside the fixture module
 	// (testdata/modules/web_app/instance): it names the module by import,
 	// so every component's #instance and #names resolve and core derives
-	// metadata.uuid from the instance fqn (0019:D3).
+	// metadata.uuid from the instance fqn (enhancement 0019).
 	inst, err := k.AcquireInstanceFromDir(ctx, filepath.Join(moduleDir, "instance"))
 	require.NoErrorf(t, err, "acquiring instance package from %s", moduleDir)
 	require.Equal(t, "web-app-demo", inst.Metadata.Name)

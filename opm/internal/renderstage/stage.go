@@ -44,7 +44,7 @@ type Staged struct {
 	// on-disk input is not in it and is read from its own directory.
 	Overlay map[string][]byte
 
-	// Skew holds the per-path resolved-versions rows (0019:D18), instance list
+	// Skew holds the per-path resolved-versions rows (enhancement 0019), instance list
 	// against platform list.
 	Skew []VersionRow
 

@@ -19,7 +19,7 @@
 // inventory entries all read one result and nothing exports twice.
 //
 // [Weight] is the kind-class order every Kubernetes frontend applies by:
-// definitions before their users on apply, the reverse on delete (0012:D5).
+// definitions before their users on apply, the reverse on delete (enhancement 0012).
 // It agrees with the staged apply order of Flux's ssa package wherever Flux
 // orders two kinds, so an engine that applies through Flux only refines it.
 // [Sort] orders by it, and [Stages] cuts an apply set into stages: the cluster

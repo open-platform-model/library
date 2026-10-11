@@ -80,7 +80,7 @@ func (v DeleteVerdict) Preconditions() *metav1.Preconditions {
 // label and the instance's UUID are both set and differ skips as another
 // instance's; a live object whose adopt annotation (opmodel.dev/adopt)
 // is set and does not name this instance skips as adopted elsewhere, so an
-// instance never deletes an object it let go of (0012:D8:R8); otherwise it
+// instance never deletes an object it let go of (enhancement 0012); otherwise it
 // proceeds. An object already being deleted proceeds, since deleting it again
 // changes nothing.
 func CanDelete(in DeleteInput) DeleteVerdict {

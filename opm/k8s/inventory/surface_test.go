@@ -15,7 +15,7 @@ import (
 
 // kubernetes-tier: "The package exports no other comparison". The surface is
 // pinned so that a component-aware comparison or a rename filter cannot come
-// back unnoticed (0012:D7). Methods count as Type.Method.
+// back unnoticed (enhancement 0012). Methods count as Type.Method.
 func TestPackage_ExportsExactlyItsSurface(t *testing.T) {
 	files, err := os.ReadDir(".")
 	require.NoError(t, err)

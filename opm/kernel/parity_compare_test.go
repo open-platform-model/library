@@ -18,7 +18,7 @@ import (
 // differ, the kernel is the defective side, and the fix is removing kernel
 // behaviour, never loosening this comparison.
 //
-// The comparison is ORDER-SENSITIVE by contract (0019:D14): CUE's natural,
+// The comparison is ORDER-SENSITIVE by contract (enhancement 0019): CUE's natural,
 // unfinalized field order is the render output contract, so the encoder used
 // here must preserve evaluation order rather than sort. cue.Value.MarshalJSON
 // does (TestParityEncoder_ReportsReordering proves it); Syntax(cue.Final())
@@ -30,7 +30,7 @@ import (
 type parityEquality string
 
 // equalityStructural compares the whole rendered value. It is the only
-// admitted mode: with #context projected by core (0019:D12) there is no
+// admitted mode: with #context projected by core (enhancement 0019) there is no
 // runtime-built value to exclude, and the interim "output-fields-only" mode
 // is retired; a table entry declaring it is refused by checkParity.
 const equalityStructural parityEquality = "structural"

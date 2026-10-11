@@ -72,7 +72,7 @@ func (k FetchKind) String() string {
 
 // FetchError is a failed registry interaction, during a fetch or during
 // dependency resolution, typed so a caller branches on it without reading
-// message text (0021:D8:R12). An author-defect resolution failure, which no
+// message text (enhancement 0021). An author-defect resolution failure, which no
 // registry interaction caused, is a [*ResolutionError] instead. The library
 // builds both through [Classify] at every site where such a failure leaves
 // it, inside the site's existing wrap.

@@ -10,7 +10,7 @@
 // (non-string) label value, and two sabotaged transformers (an output that
 // conflicts, an output that never becomes concrete). Every resource and
 // trait is also listed in the catalog's contract maps (#resources, #traits;
-// 0015:D1), so a platform embedding this catalog derives a
+// enhancement 0015), so a platform embedding this catalog derives a
 // populated contract inventory: the gateway resource is the one
 // provider-fulfilled contract, implemented by gateway-transformer here and
 // by a second provider in cat2 0.2.0. Every fqn lives under
@@ -204,7 +204,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	spec: tiered: name?: string
 }
 
-// Declared `fulfilment: "provider"` (0010:D32): this catalog ships
+// Declared `fulfilment: "provider"` (enhancement 0010): this catalog ships
 // gateway-transformer as its one provider, and a platform must carry exactly
 // one transformer requiring this key. cat2 0.2.0 and cat 1.0.0 each ship
 // another one: core counts every registry entry supplying the key in
@@ -288,7 +288,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 	appliesTo: [#ContainerResource]
 }
 
-// ── Contract maps (0015:D1) ─────────────────────────────
+// ── Contract maps (enhancement 0015) ─────────────────────────────
 // Every resource and trait above, listed by contract fqn as the contract
 // this catalog DEFINES, so a platform embedding it derives a non-empty
 // #contracts inventory (definedBy, requiredBy, unfulfilled, overSubscribed)
@@ -347,7 +347,7 @@ _tx:      "testing.opmodel.dev/library-render/cat/transformers"
 					labels:    #context.labels
 				}
 				spec: {
-					// Read through #moduleInstance (0019:D3) when the module
+					// Read through #moduleInstance (enhancement 0019) when the module
 					// exposes a replica count; scenario modules with an empty
 					// #config render one replica.
 					replicas: *1 | int

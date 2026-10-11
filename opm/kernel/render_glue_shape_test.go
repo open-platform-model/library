@@ -74,7 +74,7 @@ func TestRenderGlue_RungsCoverCandidatesOnly(t *testing.T) {
 }
 
 // The demand is a field of the build's own diagnostics, concrete beside the
-// other verdicts, so it shares their fail-closed decode (0013:D24).
+// other verdicts, so it shares their fail-closed decode (enhancement 0013).
 func TestRenderGlue_DiagnosticsCarryRequiredContracts(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")

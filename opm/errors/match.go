@@ -11,7 +11,7 @@ import (
 //
 // The conflict is reported as the FQNs it occurred at, not as a CUE error
 // tree: the glue decides the verdict inside the build and a CUE error is not
-// exportable from there (0019:D10).
+// exportable from there (enhancement 0019).
 type UnifyRefusal struct {
 	// Component is the component whose bodies diverged.
 	Component string
@@ -25,7 +25,7 @@ type UnifyRefusal struct {
 }
 
 // UnresolvedDemand is the structured diagnostic for a demanded contract key
-// the platform does not resolve (0010:D28): the matcher index holds no
+// the platform does not resolve (enhancement 0010): the matcher index holds no
 // candidate for it, or every candidate was disqualified (by unification or by
 // predicate). Every declared resource is a required demand; a trait demand is
 // unresolved only when its effective `optional` posture is load-bearing (a
@@ -64,7 +64,7 @@ type UnresolvedDemand struct {
 	// DefinedBy is the registry key (module path) of the enabled catalog
 	// whose contract maps list the demanded key, read inside the build from
 	// the platform's derived contract inventory (#contracts.definedBy,
-	// 0015:D18) and never parsed off the FQN. Empty when no
+	// enhancement 0015) and never parsed off the FQN. Empty when no
 	// enabled catalog lists it, or when more than one does (Colliding).
 	// Diagnostic only: its presence or absence never changes whether the
 	// demand refuses.
@@ -119,7 +119,7 @@ func (d UnresolvedDemand) describe() string {
 }
 
 // UnresolvedDemandsError aggregates every unresolved demand of a render into
-// the typed cause Render fails with through the fail-closed gate (0010:D28). It
+// the typed cause Render fails with through the fail-closed gate (enhancement 0010). It
 // carries the diagnostics' rows unchanged and wraps nothing: a row is data,
 // so there is no cause of another kind underneath.
 type UnresolvedDemandsError struct {

@@ -69,7 +69,7 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 
 // single-build-render spec, "Unresolved demands are diagnosed with
 // alternatives": the row words four cases, and the defining catalog
-// (0015:D18) is named wherever an enabled catalog lists the key. This table
+// (enhancement 0015) is named wherever an enabled catalog lists the key. This table
 // covers the three cases without a collision; the colliding case is
 // TestUnresolvedDemand_CollidingCase in collision_test.go.
 func TestUnresolvedDemand_NonCollidingCases(t *testing.T) {

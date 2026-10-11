@@ -174,7 +174,7 @@ var textImportedModuleFileUnparsed = regexp.MustCompile(`import failed: [^\s:@]+
 // net/http gives the code.
 //
 // This is the one text match accepted beside the typed chain as an exception
-// to "no message text" (0021:D8:R12); adr/014 records why and its limits.
+// to "no message text" (enhancement 0021); adr/014 records why and its limits.
 var textTokenAnswer = regexp.MustCompile(`(?m)cannot do HTTP request: [^\n]*: ([1-5][0-9]{2}) ([A-Za-z][A-Za-z' -]*)$`)
 
 // textStatus matches an HTTP status as the OCI client writes a registry's

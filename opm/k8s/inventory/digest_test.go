@@ -16,7 +16,7 @@ import (
 // goldenInventoryDigest is the inventory digest of inventoryFixture. Every
 // frontend stores this kind of value. Changing it changes every stored
 // inventory digest: that needs a new tag line in the encoding and a migration
-// note in each frontend (0012:D7:R4), never only a new constant here.
+// note in each frontend (enhancement 0012), never only a new constant here.
 const goldenInventoryDigest = "sha256:0d6041a9bb58abb677bac0d2ab3d0461dcebf9a6e8c5c325fbfc41f6cd46acc3"
 
 // The entries of the encoding fixture (design KI7): a core-group,
@@ -126,7 +126,7 @@ func TestDigest_EveryFieldCounts(t *testing.T) {
 		"added":     append(slices.Clone(base), inventory.Entry{Kind: "Service", Namespace: "team", Name: "api", Version: "v1"}),
 		"removed":   base[1:],
 		// Entries are not de-duplicated: a repeated entry is a different
-		// inventory (0012:D7:R3).
+		// inventory (enhancement 0012).
 		"duplicated": append(slices.Clone(base), base[0]),
 	}
 	for name, entries := range cases {

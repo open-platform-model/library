@@ -1218,7 +1218,7 @@ func scenarioLiteralInstance(t *testing.T, name string) *module.Instance {
 
 // A component with no #resources fails the render: the matcher reads
 // #resources with no presence test, so the build cannot read the component
-// as one with no demand (fail-closed, 0013:D24). The package is not a core
+// as one with no demand (fail-closed, enhancement 0013). The package is not a core
 // #ModuleInstance, because core's #Component declares #resources.
 func TestRender_ComponentWithoutResourcesRefuses(t *testing.T) {
 	k := newRenderKernel(t)
@@ -1237,7 +1237,7 @@ func TestRender_ComponentWithoutResourcesRefuses(t *testing.T) {
 // because the matcher does: on the built value, diagnostics.requiredContracts
 // for a component with no #resources is not concrete. If the demand guarded
 // the read, the list would evaluate (to empty) and the render would read the
-// component as one with no demand (fail-closed, 0013:D24).
+// component as one with no demand (fail-closed, enhancement 0013).
 func TestRenderDemand_ComponentWithoutResourcesFailsClosed(t *testing.T) {
 	k := newRenderKernel(t)
 	plat := acquireRenderPlatform(t, k, "platform")

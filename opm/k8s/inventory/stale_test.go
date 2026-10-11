@@ -108,7 +108,7 @@ func cliStaleSet(previous, current []inventory.Entry) []inventory.Entry {
 }
 
 // The component-blind rule gives the cli's outcome: dropping its rename filter
-// changes no behaviour (0012:D7).
+// changes no behaviour (enhancement 0012).
 func TestStaleSet_EqualsTheCLIRuleWithItsRenameFilter(t *testing.T) {
 	versioned := func(e inventory.Entry, v string) inventory.Entry { e.Version = v; return e }
 	previous := []inventory.Entry{

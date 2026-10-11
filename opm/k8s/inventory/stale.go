@@ -3,7 +3,7 @@ package inventory
 // StaleSet returns, in previous order, every previous entry that no current
 // entry is the [SameObject] as: the objects the current render no longer
 // produces. Component and version never count, so a component rename or an
-// API version change leaves nothing stale (0012:D7). Duplicate previous
+// API version change leaves nothing stale (enhancement 0012). Duplicate previous
 // entries are each returned. StaleSet returns a non-nil empty slice when
 // nothing is stale, including when previous is empty, and never changes its
 // inputs.

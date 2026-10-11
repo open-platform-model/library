@@ -6,7 +6,7 @@
 //
 // The package names and recognises labels. It never stamps them on rendered
 // objects: core's CUE stamps those at render, where #runtimeName fills the
-// managed-by value for the runtime that renders (0012:D6). The only labels a
+// managed-by value for the runtime that renders (enhancement 0012). The only labels a
 // frontend writes itself are the ones on its own bookkeeping objects, such as
 // the cli's inventory Secret; each constant's doc says who writes it.
 //

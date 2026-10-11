@@ -17,7 +17,7 @@ import (
 
 // FetchModule loads a #Module published in an OCI registry: [FetchArtifact]
 // with [ModuleSpec], plus the coordinate identity check that is the module
-// path's alone ([verifyModuleIdentity], 0010:D11). It is the registry path's
+// path's alone ([verifyModuleIdentity], enhancement 0010). It is the registry path's
 // single entry for modules, so the check runs for every caller behind it.
 //
 // Other kinds go through FetchArtifact with their own spec and do NOT get the

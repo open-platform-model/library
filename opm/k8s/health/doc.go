@@ -1,4 +1,4 @@
-// Package health judges whether Kubernetes objects have become ready (0012:D3).
+// Package health judges whether Kubernetes objects have become ready (enhancement 0012).
 //
 // [Evaluate] returns a [Status] for one object: whether a Deployment,
 // StatefulSet or DaemonSet has rolled out, whether a Job has completed, the

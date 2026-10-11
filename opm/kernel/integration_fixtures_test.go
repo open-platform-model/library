@@ -24,7 +24,7 @@ import (
 // warm workspace cache. No localhost:5000, so these run in CI under any
 // condition.
 //
-// Render takes source-carrying inputs (0019:D9), so a hermetic test authors
+// Render takes source-carrying inputs (enhancement 0019), so a hermetic test authors
 // its inputs as modules on disk: a #CatalogEntry-form platform module
 // importing a served catalog (writeCatalogPlatform), and an instance module
 // importing a served module (writeImportedInstance), or a synthesized
@@ -53,7 +53,7 @@ func standardCatalog(path, version string) registrytest.CatalogFixture {
 }
 
 // resFQN reproduces the resource contract FQN registrytest.BuildCatalog
-// keys v2 members under — apiVersion-keyed (0010:D4), so the
+// keys v2 members under — apiVersion-keyed (enhancement 0010), so the
 // catalog's build version does not appear in it.
 func resFQN(path, name string) string {
 	return fmt.Sprintf("%s/resources/%s@%s", path, name, registrytest.ContractAPIVersion)

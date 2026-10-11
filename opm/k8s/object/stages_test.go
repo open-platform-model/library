@@ -66,7 +66,7 @@ func TestStagesNoClusterDefinitions(t *testing.T) {
 // order. The weight table never contradicts Flux's staged apply order
 // (flux_order_test.go), so an engine that re-sorts with Flux's order can take
 // the whole set or any one stage in a call and only refine the library's
-// order (0012:D5:R1).
+// order (enhancement 0012).
 func TestStagesOneWeightPerStage(t *testing.T) {
 	sts := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	widget := schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"}

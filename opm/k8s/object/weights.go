@@ -16,7 +16,7 @@ import (
 )
 
 // Kind-class ordering weights for Kubernetes apply and delete. Lower weights
-// are applied first and deleted last (0012:D5). They follow Flux's staged
+// are applied first and deleted last (enhancement 0012). They follow Flux's staged
 // apply order: the cluster definitions, then the class kinds, then Flux's
 // ReconcileOrder. Every kind Flux does not list weighs [WeightDefault], so
 // Flux's alphabetical fallback among those kinds only refines the order.
