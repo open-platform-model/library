@@ -38,5 +38,5 @@
 ## 6. Verify & record
 
 - [x] 6.1 `task check` clean.
-- [x] 6.2 Record back in `enhancements/0011/`: slice `library-compat-comparator` → `done`, `openspec_ref: "library/library-compat-comparator"`, history event. Record the D30 scope addition in **both** entries' notes (0011 history event text + a 0010 history event noting D30's strip implementation landed here, application still owed by `library-matching`).
+- [x] 6.2 Record back in enhancement 0011: slice `library-compat-comparator` → `done`, `openspec_ref: "library/library-compat-comparator"`, history event. Record the D30 scope addition in **both** entries' notes (0011 history event text + a 0010 history event noting D30's strip implementation landed here, application still owed by `library-matching`).
 - [x] 6.3 Confirm `enhancements/0010/plan.yaml`'s `library-acquire-and-subscription` is now unblocked (`task plan:ready ID=0010`).

@@ -1,9 +1,9 @@
 ## Context
 
 `opm/k8s/object.Weight` is the kind-class order both Kubernetes frontends apply and delete by
-(0012:D5). The cli submits objects in that order. The operator hands the whole set to Flux's
+(enhancement 0012, "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle"). The cli submits objects in that order. The operator hands the whole set to Flux's
 `ApplyAllStaged` (`github.com/fluxcd/pkg/ssa` v0.77.0, the version opm-operator pins), and Flux
-re-sorts it. 0012:D5:R1 allows that engine to refine the library order and forbids it to contradict
+re-sorts it. Enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") allows that engine to refine the library order and forbids it to contradict
 it. Today Flux contradicts the library on 196 kind pairs by rank alone (the list `flux_order_test.go` held at `af2bf84`, the base of this change), and on more once its group-and-kind tie-break is counted, so the
 same module reaches the cluster in two different orders depending on the frontend.
 
@@ -156,7 +156,7 @@ and then kind. The library could treat that tie-break as an order to agree with,
 **Explored**: `ssa@v0.77.0/sort.go` (`IsLessThan`, which falls back to group and then kind when two
 ranks are equal, and `computeKind2index`, whose comment on the `ReconcileOrder` list says that in
 some cases the order is specified just to provide determinism); the old `flux_order_test.go`, which counted rank
-differences only; 0012:D5:R1 ("An engine's own staging may refine it within a stage and never
+differences only; enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") ("An engine's own staging may refine it within a stage and never
 contradicts it"). The operator applies the whole set in one `ApplyAllStaged`, so every unlisted
 kind meets every other one inside one Flux sort.
 
@@ -166,10 +166,10 @@ kind meets every other one inside one Flux sort.
 **Rationale**: With the unlisted kinds spread over several weights, Flux's alphabetical order
 reverses some of them for any group name (an `autoscaling` HorizontalPodAutoscaler before a
 `batch` Job; a custom resource of group `acme.io` before an `apps` DaemonSet). That reorders
-objects across two library stages, which 0012:D5:R1 forbids. Only equal weights leave the
+objects across two library stages, which enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") forbids. Only equal weights leave the
 tie-break as a refinement. The library loses its own grading among those kinds (volumes before
 workloads, Ingresses after workloads, autoscalers last); Kubernetes' eventual consistency covers
-each of them (a Pod waits for its claim, an autoscaler retries its target), as 0012:D5 already
+each of them (a Pod waits for its claim, an autoscaler retries its target), as enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") already
 relies on. The narrower reading, comparing ranks only, would keep that grading but leave the
 operator applying those kinds in an order the library forbids.
 
@@ -211,7 +211,7 @@ only real moves.
   exists and then starts; the operator already applies in this order.
 - [A NetworkPolicy still lands after the Pods it selects] → unchanged from today (it weighed 150,
   after the workloads) and the same as Flux; a default-deny policy that must exist first is
-  module-internal ordering, which 0012:D5 leaves to a future Bundle.
+  module-internal ordering, which enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") leaves to a future Bundle.
 - [A Flux bump changes `ReconcileOrder` or the stages] → the literals in `flux_order_test.go` name
   the version, and nothing in the library follows the operator's pin. The operator's next change
   adds a parity test that compares Flux's own staged order with `object.Weight`; it fails on such a

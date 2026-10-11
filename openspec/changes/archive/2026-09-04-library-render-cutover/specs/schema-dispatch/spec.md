@@ -44,12 +44,12 @@ The library SHALL expose every CUE path some production code path reads as expor
 
 ### Requirement: Transformer-context builder
 
-**Reason**: `schema.BuildTransformerContext`, `InstanceView`, `ModuleInstanceContextData` and `ComponentContextData` are deleted with `opm/schema/context.go`. Core `v2.0.0-alpha.7` projects every `#TransformerContext` field except `#runtimeName` from `#moduleInstance` and `#component` (0019 D12); the kernel supplies `#runtimeName` as a literal in the generated glue (`transform-input-fill`, "`#context` is projected by core").
+**Reason**: `schema.BuildTransformerContext`, `InstanceView`, `ModuleInstanceContextData` and `ComponentContextData` are deleted with `opm/schema/context.go`. Core `v2.0.0-alpha.7` projects every `#TransformerContext` field except `#runtimeName` from `#moduleInstance` and `#component` (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"); the kernel supplies `#runtimeName` as a literal in the generated glue (`transform-input-fill`, "`#context` is projected by core").
 
 **Migration**: none; no frontend called the builder.
 
 ### Requirement: Match drops the binding parameter
 
-**Reason**: `opm/compile.Match`, `(*compile.Module).Execute`, `kernel.Match` and `kernel.Compile` are deleted with the compile pipeline (0019 D9/D10). The absence of a cross-artifact `apiVersion` check is already carried by "Module, Instance, Platform structs do not carry APIVersion".
+**Reason**: `opm/compile.Match`, `(*compile.Module).Execute`, `kernel.Match` and `kernel.Compile` are deleted with the compile pipeline (enhancement 0019, "The render step is one CUE build per render" and "Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"). The absence of a cross-artifact `apiVersion` check is already carried by "Module, Instance, Platform structs do not carry APIVersion".
 
 **Migration**: `Render`.

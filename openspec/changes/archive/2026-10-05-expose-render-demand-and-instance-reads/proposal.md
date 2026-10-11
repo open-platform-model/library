@@ -5,7 +5,7 @@ The operator learns which contracts an instance depends on by walking the instan
 `inst.Package` and stores the sorted keys on `ModuleInstance.status.requiredContracts`. The
 removal guard, the shrink refusal and the registration watch filter all trust that list. The walk
 copies kernel knowledge into a frontend, and it fails open: a missing `components` or `#resources`
-reads as no demand. It also cannot see a component that exists only inside the render. 0013:D24
+reads as no demand. It also cannot see a component that exists only inside the render. Enhancement 0013 ("The kernel reports every contract a render required, synthesised components included")
 says the render result lists every contract the render required, synthesised components included,
 and frontends read demand from there. The render build already holds the full component set
 (`_components`, `opm/internal/renderstage/render.cue.tmpl:48`), so the kernel is the one place
@@ -18,7 +18,7 @@ for them: the instance's embedded module metadata (`schema.Module`), its merged 
 The owner decided both (ADR-013, decisions d2 and i3):
 
 - i3: "Kernel export only (no operator stop-gap). Library exports contract demand as typed data in
-  0013:D24 shape, fails closed itself; operator drops demand.go walk. ... fail-open stays until
+  Enhancement 0013 ("The kernel reports every contract a render required, synthesised components included") shape, fails closed itself; operator drops demand.go walk. ... fail-open stays until
   operator migrates."
 - d2: "Additive accessors now (Instance module metadata, merged values, Module debugValues),
   bundled with the i3 demand export in one library change ... Package stays public."
@@ -53,7 +53,7 @@ docs fixes from the beta.1 kernel plan's gate review are folded into this change
 
 Not in this change:
 
-- 0013:D24:R1 (an instance using a secret source depends on that source's contract). The
+- Enhancement 0013 ("The kernel reports every contract a render required, synthesised components included") (an instance using a secret source depends on that source's contract). The
   synthesised secret component exists only in the 0013 target schema, and core has no such
   component yet. The demand field covers whatever `_components` holds, but this change cannot
   prove the secret-source case end to end.

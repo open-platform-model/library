@@ -32,12 +32,12 @@ The Kernel SHALL accept configuration through functional options of type `Option
 
 - **WHEN** a developer inspects the `Kernel` struct and its options after this change
 - **THEN** no logger, tracer or clock field or option exists
-- **AND** the injection surface for the execution half is introduced by enhancement 0009 together with its first reader (revised 0009 D9)
+- **AND** the injection surface for the execution half is introduced by enhancement 0009 together with its first reader (revised enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"))
 
 ## REMOVED Requirements
 
 ### Requirement: Functional Options Pattern
 
-**Reason**: The requirement mandated `WithLogger`, `WithTracer` and `WithClock`, three slots stored by `New` and never read by any kernel operation since they were added; the tracer slot was the sole reason `go.opentelemetry.io/otel/trace` was a direct dependency. Enhancement 0009 D9, which reserved them for the execution half, has been revised: the execution half introduces the injection surface it needs together with its first reader instead of inheriting write-only slots. The options pattern itself survives as the ADDED "Configuration Options" requirement.
+**Reason**: The requirement mandated `WithLogger`, `WithTracer` and `WithClock`, three slots stored by `New` and never read by any kernel operation since they were added; the tracer slot was the sole reason `go.opentelemetry.io/otel/trace` was a direct dependency. Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), which reserved them for the execution half, has been revised: the execution half introduces the injection surface it needs together with its first reader instead of inheriting write-only slots. The options pattern itself survives as the ADDED "Configuration Options" requirement.
 
 **Migration**: Callers passing `WithLogger`, `WithTracer` or `WithClock` delete the argument; no observable behavior changes because nothing ever read the injected values. The one known caller is `opm-operator`'s `cmd/main.go` (`WithLogger`), migrated in the same PR wave.

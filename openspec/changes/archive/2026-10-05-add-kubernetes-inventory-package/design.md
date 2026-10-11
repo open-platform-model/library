@@ -40,7 +40,7 @@ and in tests. The operator uses `K8sIdentityEqual` inside `ComputeStaleSet`, and
 
 **Decision**: `opm/k8s/inventory` exports exactly `Entry`, `NewEntry`, `SameObject`,
 `StaleSet`, `Digest` and `RenderDigest`. No component-aware comparison is exported, because
-0012:D7 leaves no rule that needs one. No list helper (`Entries`) is added: a frontend's loop
+Enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") leaves no rule that needs one. No list helper (`Entries`) is added: a frontend's loop
 over `[]object.Exported` is three lines, and the frontends keep their own mapping to the wire
 anyway. The inventory digest is `Digest` and not `InventoryDigest`, because
 `inventory.InventoryDigest` stutters. `RenderDigest` keeps its name, since `inventory.Digest`
@@ -83,12 +83,12 @@ func NewEntry(obj *unstructured.Unstructured) Entry
 JSON tags (suggesting the library owns the wire) is caught. `NewEntry` reads the same fields as
 both frontends' `NewEntryFromResource`, and a missing label gives an empty `Component`.
 
-**Rationale**: 0012:D7:R2. The digest must not depend on serialisation, and the library must
+**Rationale**: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"). The digest must not depend on serialisation, and the library must
 not own the CRD wire while 0012:OQ9 is open. With no tags there is nothing to depend on.
 
 ### KI3: StaleSet is component-blind and keeps previous order
 
-**Context**: 0012:D7:R1. The cli computes stale entries component-aware and then removes every
+**Context**: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"). The cli computes stale entries component-aware and then removes every
 stale entry for which some current entry has the same group, kind, namespace and name under
 another component. The operator computes it component-blind in one step.
 
@@ -97,7 +97,7 @@ if no current entry matches it on the four identity fields and component, and if
 entry matches the four fields with a different component. Together that means no current entry
 matches the four fields at all. That is the operator's condition. Both iterate `previous` in
 order, so the order is equal too. The outcome is equal, and dropping the filter changes no
-behaviour, as 0012:D7 states.
+behaviour, as enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") states.
 
 **Decision**:
 
@@ -114,12 +114,12 @@ The implementation indexes `current` in a map keyed by the four identity fields,
 O(n+m) where both copies cost O(n·m). It iterates `previous`, so map order never reaches the
 output. Duplicate previous entries are each returned.
 
-**Rationale**: One rule, the one that needs no rescue filter (0012:D7). The non-nil empty
+**Rationale**: One rule, the one that needs no rescue filter (enhancement 0012, "The stale set is component-blind, and the inventory digest hashes a canonical field encoding"). The non-nil empty
 result matches both frontends, whose callers range over it and log its length.
 
 ### KI4: The inventory digest hashes a versioned, length-prefixed field encoding
 
-**Context**: 0012:D7:R2/R3 and the owner's "NEW canonical field-by-field encoding (independent
+**Context**: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding") and the owner's "NEW canonical field-by-field encoding (independent
 of JSON tags)".
 
 **Decision**: `Digest(entries)` returns `"sha256:" + lowercase hex` of SHA-256 over these
@@ -149,11 +149,11 @@ records with length prefixes already parse unambiguously. The tag line makes a f
 a new tag, and that change would be a stored-digest change with its own migration note.
 
 **Rationale**: The encoding is defined field by field, so the digest is a property of the
-definition and not of an encoder (0012:D7, Alternatives).
+definition and not of an encoder (enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"), Alternatives).
 
 ### KI5: The render digest re-decodes the export, blanks one value and hashes sorted-key JSON
 
-**Context**: 0012:D6:R2/R3. The input has to be the one export `object.Export` makes. Its doc
+**Context**: enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"). The input has to be the one export `object.Export` makes. Its doc
 comment (`opm/k8s/object/export.go`) states the rule: "The caller drops its Resources after
 the export to release the CUE build they pin." The operator renders inside a bounded render
 slot and drops the CUE values when it leaves it.
@@ -195,7 +195,7 @@ hash in input order. The duplicates check refuses that render, but the digest do
 rely on it.
 
 **Rationale**: Exactly one label value is ignored and every other byte of every object counts
-(0012:D6:R3). The input is bytes, so the digest needs no CUE value and the caller may release
+(enhancement 0012, "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"). The input is bytes, so the digest needs no CUE value and the caller may release
 the build first.
 
 ### KI6: Cross-runtime parity is proved in two tests, one on each side of the fence
@@ -229,7 +229,7 @@ Not possible: Go's internal rule keeps `opm/internal/registrytest` out of reach.
   differ only in the managed-by value, and different for every other change (KI7).
 
 Together: a runtime name changes only that value, and the digest ignores only that value, so
-the two runtimes' digests of one render are equal (0012:D6:R2). The tier owns only the second
+the two runtimes' digests of one render are equal (enhancement 0012, "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"). The tier owns only the second
 half. The first half holds for the catalogs the kernel test renders, and a catalog that wrote
 `#runtimeName` anywhere but `#context.labels` would break it. The spec states the tier's
 property and names that condition. Section 1 of tasks.md writes
@@ -285,7 +285,7 @@ change that needs a new tag and a migration note.
 `AGENTS.md` (the rules line `opm/k8s/` (`labels`, `object`) and the layout block) and
 `CONSTITUTION.md` (Principle III's tier bullet) add `inventory`. ADR-011's Status gets one
 sentence: the `inventory` package has landed, with the component-blind stale set and the two
-digests of 0012:D6 and 0012:D7. The `labels.ComponentName` doc comment says the label is
+digests of enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value" and "The stale set is component-blind, and the inventory digest hashes a canonical field encoding"). The `labels.ComponentName` doc comment says the label is
 recorded in inventory entries as provenance and that the stale set ignores it.
 
 ## Risks / Trade-offs
@@ -296,7 +296,7 @@ recorded in inventory entries as provenance and that the stale set ignores it.
 - **The render digest decodes each object a second time.** The cost is one JSON decode per
   object at digest time, on bytes the caller already holds. Rendered objects are small next to
   the CUE build that produced them, so the peak stays the CUE evaluation.
-- **Digest values change once in both frontends.** This is decided (0012:D7, Alternatives).
+- **Digest values change once in both frontends.** This is decided (enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"), Alternatives).
   The adoption changes carry the migration note. The operator applies every instance once after
   its upgrade, bounded by the shared render slots.
 - **Mixed-version window.** Until both frontends pin a release with this package, a handoff

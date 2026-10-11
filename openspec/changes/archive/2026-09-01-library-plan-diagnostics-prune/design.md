@@ -57,7 +57,7 @@ Constraints that shape the approach:
 
 ### D4: Drop `ModuleFQN` from `InstanceView` rather than keeping the interface stable
 
-**Context**: `BuildTransformerContext` fills `#moduleInstanceMetadata.fqn` from `InstanceFQN()` (the instance's own identity, 0010 D41); `ModuleFQN()` exists beside it and nothing calls it.
+**Context**: `BuildTransformerContext` fills `#moduleInstanceMetadata.fqn` from `InstanceFQN()` (the instance's own identity, enhancement 0010 ("Instance identity derives from the module's registry path, not from its FQN")); `ModuleFQN()` exists beside it and nothing calls it.
 
 **Explored**: Keeping the member for interface stability. Rejected: the interface is library-owned with one production implementer; a member no caller reads is exactly the surface under removal, and a test fake carrying an extra method stays valid Go regardless.
 
@@ -68,7 +68,7 @@ Constraints that shape the approach:
 ## Risks / Trade-offs
 
 - [A future frontend wants per-miss records without the fail-gate] → `Match` still returns the full plan without failing; `Unresolved` is that record. If a distinct "miss" shape is ever needed, it returns with its reader.
-- [0012 lands and wants a shared resource type after all] → It gets a Kubernetes-native one per 0012 D2; the deleted neutral tuple would not have satisfied it (its own analysis).
+- [0012 lands and wants a shared resource type after all] → It gets a Kubernetes-native one per enhancement 0012 ("The library is written for Kubernetes; no portability abstraction is maintained on its behalf"); the deleted neutral tuple would not have satisfied it (its own analysis).
 - [Spec drift: the modified `artifact-types`/`schema-dispatch` requirements keep stale binding-era wording] → Accepted; wording beyond the touched clauses is a separate hygiene pass, as the 2026-08-31 sweep also recorded.
 
 ## Migration Plan

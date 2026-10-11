@@ -21,7 +21,7 @@ The `opm/inventory` package is removed from the library. It was introduced to ho
 
 ### Requirement: Canonical Stale-Set Computation
 
-**Reason**: `ComputeStaleSet` is per-actor policy. D31 recorded that the CLI's and operator's stale-set implementations already diverge (component-aware `IdentityEqual` vs component-agnostic `K8sIdentityEqual`, open as OQ15 in `enhancements/0006`) — sharing this package was not preventing that divergence.
+**Reason**: `ComputeStaleSet` is per-actor policy. D31 recorded that the CLI's and operator's stale-set implementations already diverge (component-aware `IdentityEqual` vs component-agnostic `K8sIdentityEqual`, open as OQ15 in enhancement 0006) — sharing this package was not preventing that divergence.
 **Migration**: None. Each actor keeps its own stale-set computation.
 
 ### Requirement: Component-Rename Prune Safety
@@ -31,5 +31,5 @@ The `opm/inventory` package is removed from the library. It was introduced to ho
 
 ### Requirement: Pure Pre-Apply Collision Predicate
 
-**Reason**: The collision predicate was never adopted outside this package, and D31's investigation found the operator's apply path has no equivalent guard at all (open as OQ16 in `enhancements/0006`) — whether and how to build one is an operator-local design question, not a shared-package one.
+**Reason**: The collision predicate was never adopted outside this package, and D31's investigation found the operator's apply path has no equivalent guard at all (open as OQ16 in enhancement 0006) — whether and how to build one is an operator-local design question, not a shared-package one.
 **Migration**: None. The CLI keeps its existing `PreApplyExistenceCheck`; whether the operator gains an equivalent is tracked by OQ16, independently of this package.

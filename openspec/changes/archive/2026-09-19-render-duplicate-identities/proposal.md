@@ -1,6 +1,6 @@
 ## Why
 
-Two rendered objects with the same apiVersion, kind, namespace and name reach apply as two writes to one object, and the last one wins silently: nothing in the kernel, the CLI or the operator notices. Enhancement 0015 D15 names the case that motivates fixing it now: a module shipping two `transformer-registration` components renders two cluster-scoped `TransformerRegistration` objects under one instance-derived name (D12), so the second overwrites the first at server-side apply and the claim that survives is whichever was applied last. D15 says a second registration is refused loudly, naming both carrying components, before apply. The refusal is not registration-specific at all: it is "a render must not produce two objects with one identity", which the kernel's render output makes checkable in one place, with the provenance the rows already carry (`Compiled.Component`, `Compiled.Transformer`).
+Two rendered objects with the same apiVersion, kind, namespace and name reach apply as two writes to one object, and the last one wins silently: nothing in the kernel, the CLI or the operator notices. Enhancement 0015 ("One registration per module") names the case that motivates fixing it now: a module shipping two `transformer-registration` components renders two cluster-scoped `TransformerRegistration` objects under one instance-derived name (D12), so the second overwrites the first at server-side apply and the claim that survives is whichever was applied last. D15 says a second registration is refused loudly, naming both carrying components, before apply. The refusal is not registration-specific at all: it is "a render must not produce two objects with one identity", which the kernel's render output makes checkable in one place, with the provenance the rows already carry (`Compiled.Component`, `Compiled.Transformer`).
 
 ## What Changes
 
@@ -11,7 +11,7 @@ Two rendered objects with the same apiVersion, kind, namespace and name reach ap
 
 ## Classification
 
-**MINOR, additive** (Principle VI): one new package under `opm/helper/` with three exported types, one function and one error; nothing outside `opm/helper/` changes. Complexity added: one scan over the rendered set, with two named readers before it ships (the cli and operator changes that follow) and one motivating decision (0015 D15). A per-runtime copy was the alternative; two copies of one refusal with two wordings is what the helper tier exists to avoid.
+**MINOR, additive** (Principle VI): one new package under `opm/helper/` with three exported types, one function and one error; nothing outside `opm/helper/` changes. Complexity added: one scan over the rendered set, with two named readers before it ships (the cli and operator changes that follow) and one motivating decision (enhancement 0015, "One registration per module"). A per-runtime copy was the alternative; two copies of one refusal with two wordings is what the helper tier exists to avoid.
 
 ## Downstream consumers
 

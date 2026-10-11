@@ -15,7 +15,7 @@ loops decide differently.
   branches, so a second frontend that wants the same answer has to copy them.
 
 Enhancement 0012 gives the whole deletion sequence to the library: the plan, the transition that
-names the next action and the verdict on releasing the hold (0012:D4, 0012:D1:R1/R2/R5/R6). 0012:D4
+names the next action and the verdict on releasing the hold (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"). Enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply")
 reads: "Deletion protocol only, in opm/k8s/lifecycle, owned by 0012 (DeletionPlan, serialisable
 State, Advance, MayReleaseHold), used by both frontends' delete paths; closes the ownership half of
 0012:OQ10. No hook semantics." ADR-008
@@ -26,7 +26,7 @@ package and handed to the same plan.
 The pieces the plan stands on have shipped in library v1.0.0-beta.6: `inventory.Entry` and
 `inventory.StaleSet` (`opm/k8s/inventory`), `ownership.CanDelete` and `ownership.SafetyExcluded`
 (`opm/k8s/ownership`), and `object.Sort` with `object.Descending` (`opm/k8s/object`). This change
-is the library half of the 0012:D4 deletion protocol. The frontends adopt it in their own changes.
+is the library half of the enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") deletion protocol. The frontends adopt it in their own changes.
 
 ## What Changes
 
@@ -44,7 +44,7 @@ is the library half of the 0012:D4 deletion protocol. The frontends adopt it in 
     instance delete and its stale-set prune pass `Prune: true`.
   - `State`: a JSON-serialisable value the caller owns. It records the next step, what the state
     awaits and one outcome per finished step. Because it is serialisable, a controller can carry
-    it across reconciles (0012:D4:R5). the operator's adoption change plans to rebuild it each pass from
+    it across reconciles (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"). the operator's adoption change plans to rebuild it each pass from
     `status.inventory` plus the live objects, with no new CRD field (ADR-008, Deletion plans). The
     cli holds it in memory for one command. A golden test pins its JSON encoding.
   - `Advance(plan, state, event) (State, Action, error)`: one action per call. An action is one
@@ -79,7 +79,7 @@ is the library half of the 0012:D4 deletion protocol. The frontends adopt it in 
     Its inputs do not depend on who bears the hold, so the open questions 0012:OQ5 (the
     `spec.prune` default) and 0012:OQ6 (whether a CLI-owned instance carries a hold) stay open.
   - The protocol has no hook semantics. Its actions are reads, deletions and skips of the plan's
-    own inventory entries, plus the hold verdict (0012:D4:R6).
+    own inventory entries, plus the hold verdict (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 - **Docs**: the `opm/k8s/` package lists in `README.md`, `AGENTS.md` and `CONSTITUTION.md` gain
   `lifecycle`. ADR-011's Status gains the sentence "Amended 2026-10-05 by
   `add-kubernetes-lifecycle-package`".
@@ -105,7 +105,7 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   between the read and the delete becomes a per-resource Conflict error and the instance is kept,
   where today the new object is deleted. The cli's adoption change states the exit-code effect. Each frontend keeps its own
   status messages, events, dry-run reporting and exit codes.
-- **Hook semantics.** No step a module declares runs as part of deletion (0012:D4:R6). The rest of
+- **Hook semantics.** No step a module declares runs as part of deletion (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"). The rest of
   0012:OQ10 stays with 0009:OQ7.
 - **A stored plan or a new CRD field.** The plan is rebuilt from the inventory on each pass
   (ADR-008, Deletion plans).
@@ -118,7 +118,7 @@ operator compile unchanged. SemVer class: MINOR. Release class of the PR: `feat`
   needs it. It needs a delete loop to observe, so it lands with the frontend loops in the operator
   and cli adoption changes, or in a later library test-helper change they call. This change ships no loop and does
   not deliver it.
-- **The operator install's admitted deletions** (0012:D8:R7). They act on objects outside the
+- **The operator install's admitted deletions** (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"). They act on objects outside the
   inventory, so they are not inventory steps. The install calls `ownership.CanDelete` with `Admit`
   directly, as it does today.
 
@@ -145,6 +145,6 @@ None.
   still open.
 - Ordering: this change follows #203 (inventory) and #202 (ownership), both merged. Another
   library change runs beside it and may edit the same doc lines. Whichever merges second merges `origin/main` into its branch.
-- `enhancement.yaml` declares 0012 and claims no decision. 0012:D4 and the deletion halves of
-  0012:D1:R1/R2/R5/R6 are delivered only when both frontends' delete paths run this protocol, so
+- `enhancement.yaml` declares 0012 and claims no decision. Enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") and the deletion halves of
+  Enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") are delivered only when both frontends' delete paths run this protocol, so
   that claim belongs to the frontends' adoption changes. Under-claiming is the safe direction.

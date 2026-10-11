@@ -103,7 +103,7 @@ func (p *Platform) Contracts() (*ContractInventory, error)
 **Context**: 0010 OQ3 asks how a render says "defined by a subscribed catalog, unimplemented"; D18 says the refusal names the defining catalog beside the demanding component.
 **Explored**: a new diagnostics table keyed by contract; membership in `#contracts.unfulfilled`; a `definedBy` field on the unresolved row read from `#contracts.definedBy`.
 **Decision**: the field on the row.
-**Rationale**: the row is what a frontend words (0019 D10: rows as data, no joins in Go), so the fact belongs on it; `unfulfilled` covers provider-fulfilled keys only, while a catalog-fulfilled key a catalog lists and no transformer implements is the same diagnostic; `definedBy` is the registry key core binds to the catalog's identity, never a prefix parsed off the FQN (0010 D17).
+**Rationale**: the row is what a frontend words (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"): rows as data, no joins in Go), so the fact belongs on it; `unfulfilled` covers provider-fulfilled keys only, while a catalog-fulfilled key a catalog lists and no transformer implements is the same diagnostic; `definedBy` is the registry key core binds to the catalog's identity, never a prefix parsed off the FQN (enhancement 0010, "The primitive-under-catalog-path constraint is a publish gate, not a schema constraint").
 
 ### The in-build guard stays, and is not switched to `#contracts.overSubscribed`
 

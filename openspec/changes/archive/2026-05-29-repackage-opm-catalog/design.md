@@ -19,7 +19,7 @@ Constraints: pure-CUE module work + Taskfile + CI; no `opm/` Go API surface touc
 - Conventional-commit/release-please-driven versioning or per-catalog changelogs (explicitly deferred — see Decisions).
 - Rewiring workspace `modules/*` (jellyfin, garage, …) onto the new catalog tag (separate non-blocking wave per D23).
 - Any `opm/` Go kernel change; any change to the Go-module release-please flow.
-- Per-primitive SemVer or introspection sibling maps on `#Catalog` (rejected/deferred in 0001 D18/D19).
+- Per-primitive SemVer or introspection sibling maps on `#Catalog` (rejected/deferred in enhancement 0001 ("Catalog-monolithic SemVer; every primitive's `metadata.version` is `Catalog.Version`" and "`#Catalog` is a top-level definition with schema-enforced subpath stamping; supersedes D7 + D15; amends D9")).
 
 ## Decisions
 
@@ -42,7 +42,7 @@ A dedicated `cue:publish:catalog` task does the D9/D19 stamping (rsync → `.bui
 
 - *Why standalone, not RP:* the library repo already runs release-please for the **Go module** with **bare `vX.Y.Z`** tags, which `go get` requires. Adding the catalog as an RP component with `include-component-in-tag: true` would prefix *every* tag (`library-v…`), breaking the Go module's tag contract. Keeping the Go flow untouched and giving the catalog a standalone publisher avoids that collision entirely.
 - *Why registry-presence over checksum content-diff:* the existing `cue:publish:smart` checksum approach must write the new checksum back to `cue-versions.yml`, which in an unattended `push: main` workflow means a bot commit-back that can re-trigger the run; it also auto-patch-bumps, mislabelling breaking primitive changes as patches. Registry-presence is stateless and keeps version intent (major/minor/patch) in the author's hands. It is the proven `publish-cue.yml` pattern.
-- *Alternatives considered:* (1) **checksum content-diff + auto-bump** (`cue:publish:smart` style) — needs CI commit-back, dishonest semver; rejected. (2) **multi-component RP** with mixed per-package tag formats — uncertain RP supports bare-for-one + prefixed-for-another, higher risk to `go get`; deferred. (3) extract the catalog to its own repo (clean core-style RP) — contradicts 0001 D23 + graduation ("at `library/modules/opm/`"), biggest restructure; deferred. Revisitable if conventional-commit versioning becomes a real need.
+- *Alternatives considered:* (1) **checksum content-diff + auto-bump** (`cue:publish:smart` style) — needs CI commit-back, dishonest semver; rejected. (2) **multi-component RP** with mixed per-package tag formats — uncertain RP supports bare-for-one + prefixed-for-another, higher risk to `go get`; deferred. (3) extract the catalog to its own repo (clean core-style RP) — contradicts enhancement 0001 ("Catalog repackage is a hard switch; first new-shape tag is `opmodel.dev/catalogs/opm@0.1.0`; no graceful coexistence with the legacy `@v1` shape") + graduation ("at `library/modules/opm/`"), biggest restructure; deferred. Revisitable if conventional-commit versioning becomes a real need.
 
 ### D-D: Version layering — `v`-prefixed OCI tag, bare FQN
 

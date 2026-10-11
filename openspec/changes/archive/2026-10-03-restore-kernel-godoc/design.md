@@ -58,7 +58,7 @@ Every failure names the block it expected and what it found (the block's Go type
 ### Where the flattening came from
 
 **Context**: The fix should not be undone by the same tool.
-**Explored**: `git show --stat 7729b92` touches dozens of files. `opm/kernel/doc.go` is the only one rewrapped wholesale (315 changed lines); the others carry reference rewrites to the `NNNN:Dn` form (for example `0019:D5`). The commit adds no formatter to `Taskfile.yml` or `.golangci.yml`, and `task fmt` is `go fmt` plus `goimports`. Neither rewraps comments. A grep over library, cli and opm-operator finds no other flattened list or code comment.
+**Explored**: `git show --stat 7729b92` touches dozens of files. `opm/kernel/doc.go` is the only one rewrapped wholesale (315 changed lines); the others carry reference rewrites to the `NNNN:Dn` form (for example enhancement 0019 ("A platform imports its catalog and embeds it whole into the registry entry, which derives everything else")). The commit adds no formatter to `Taskfile.yml` or `.golangci.yml`, and `task fmt` is `go fmt` plus `goimports`. Neither rewraps comments. A grep over library, cli and opm-operator finds no other flattened list or code comment.
 **Decision**: Treat the rewrap as a one-off manual edit. The guard test is the only prevention added.
 **Rationale**: There is no tool to disable. The test catches a repeat by any means.
 

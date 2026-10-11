@@ -1,6 +1,6 @@
 ## Why
 
-OPM's deployable artifact is being renamed from the `Release` vocabulary to `Instance` across the whole stack (enhancement [`0002`](../../../enhancements/0002/), slice **L1**). "Release" is Helm's word and foregrounds a shipping event, when the construct's defining property is *multiplicity* — one `#Module` materialized as many concrete deployments. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the kernel every front-end embeds; until its Go surface, its pinned core, and its wire-coupled strings follow, nothing downstream (`opm-operator`, `cli`) can advance.
+OPM's deployable artifact is being renamed from the `Release` vocabulary to `Instance` across the whole stack (enhancement 0002, slice **L1**). "Release" is Helm's word and foregrounds a shipping event, when the construct's defining property is *multiplicity* — one `#Module` materialized as many concrete deployments. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the kernel every front-end embeds; until its Go surface, its pinned core, and its wire-coupled strings follow, nothing downstream (`opm-operator`, `cli`) can advance.
 
 This is a **BREAKING** change to the `opm/` public API (Principle VI MAJOR) and ships on the v1 prerelease line (`v1.0.0-alpha.N`, enhancement D13).
 

@@ -50,7 +50,7 @@ The old per-binding cache lived on `*v1alpha2.binding` and was justified by "one
 **Trade-off:** two test runs in the same `go test` invocation share the cache. Mitigation: any test that wants a fresh schema build must use a separate process, which `go test` does anyway for separate `_test.go` packages.
 
 ### D4: `apis/core/` is re-synced from the new `core` repo, flat layout
-`library/apis/core/v1alpha2/*.cue` is deleted. The contents of `core/src/*.cue` (from the new repo — sources live under `src/`, not at the repo root) land at `library/apis/core/*.cue` directly (package `core`, no `v1alpha2/` subdir). `cue.mod/module.cue` is copied verbatim — the new module identifier is `opmodel.dev/core@v0` per enhancement 0001 D12. `embed.go`'s `go:embed` pattern changes from `v1alpha2/*.cue` to `*.cue`.
+`library/apis/core/v1alpha2/*.cue` is deleted. The contents of `core/src/*.cue` (from the new repo — sources live under `src/`, not at the repo root) land at `library/apis/core/*.cue` directly (package `core`, no `v1alpha2/` subdir). `cue.mod/module.cue` is copied verbatim — the new module identifier is `opmodel.dev/core@v0` per enhancement 0001 ("Schema lands on `opmodel.dev/core@v0`; no `@v1` cut until `core` is signalled stable"). `embed.go`'s `go:embed` pattern changes from `v1alpha2/*.cue` to `*.cue`.
 
 The file set on the day of re-sync includes `catalog.cue` and `module_context.cue` — both introduced by enhancement 0001's core slice (D19/D25 and D1–D4) ahead of Part B landing. Part B does not consume either file (Go-side reads paths via `opm/schema`, and neither `#Catalog` nor `#ReleaseIdentity` is referenced by the kernel until 0001's library slice lands). Copy the directory contents wholesale rather than enumerating files — the enumeration drifts every time 0001 adds a file.
 
@@ -97,7 +97,7 @@ The re-sync (D4) lands the post-enhancement-0001 `core` schema: `#Platform.#regi
 - `library/testdata/modules/web_app/{module,components}.cue` imports `opmodel.dev/core/v1alpha2@v1` and references the `opmodel.dev/modules/opm` catalog at MAJOR-only `@v1` FQNs.
 - `opm/kernel/flow_integration_test.go` + `flow_synth_integration_test.go` consume both.
 
-A partial rewrite — change the import path but keep the registry shape — does not produce a unifiable value; it just shifts the failure point. A full rewrite requires authoring against `#Subscription`, `#ctx`, and SemVer FQNs, which is enhancement 0001's library-slice design implementation. Per enhancement 0001 D22, folding design implementation into Part B "defeats reviewability."
+A partial rewrite — change the import path but keep the registry shape — does not produce a unifiable value; it just shifts the failure point. A full rewrite requires authoring against `#Subscription`, `#ctx`, and SemVer FQNs, which is enhancement 0001's library-slice design implementation. Per enhancement 0001 ("This entry lands on top of the core split's Part B; library + modules slices gated on `remove-api-binding-dispatch` shipping first"), folding design implementation into Part B "defeats reviewability."
 
 **Decision:** Part B quarantines the affected fixtures (delete or guard with an unset build tag) and `t.Skip`s the two integration tests with an explicit pointer to this D10 + 0001's library slice. The test suite stays green; the broken-for-now state is announced in code rather than implicit.
 

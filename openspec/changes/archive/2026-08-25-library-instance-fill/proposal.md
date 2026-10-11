@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- `executePair` fills `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `components` (siblings included), `#module`, `metadata`, `values`. No masking, no metadata-only wrapper (0019 D3 and D11). `opm/schema` gains the path constant for the slot.
+- `executePair` fills `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `components` (siblings included), `#module`, `metadata`, `values`. No masking, no metadata-only wrapper (enhancement 0019, "`#moduleInstance` is filled by the kernel; it is not removed from the schema" and "Sibling access through `#moduleInstance` stays reachable and is discouraged by contract, never narrowed structurally"). `opm/schema` gains the path constant for the slot.
 - The self-referential read is covered: the instance filled into `#moduleInstance` contains the component filled into `#component`, and a transformer reading its own component through the instance renders concretely with no cycle. A hermetic regression test asserts both the plain read (`#moduleInstance.metadata.*`) and the self-referential one.
 - The parity harness's `instance-probe :: web` row loses its `ExpectedDivergence` entry (the harness fails until it does). The four `divergenceContextLabelOrder` rows are untouched; they are D12's.
 - `#context` construction is unchanged. It remains a Go projection of the same values until D12's `core` slice replaces it.

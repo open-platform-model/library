@@ -4,7 +4,7 @@ This file is the brief for the worker agent that implements this change and for 
 
 ## Change set
 
-Four OpenSpec changes, planned together on 2026-09-29, each in its own repo. Together they make the render build's provider count the only count: core computes it once as `#contracts.providedBy`, the library render reads it instead of its own guard, and the operator and cli name the providing catalogs from it. No enhancement entry backs them (they correct the delivery of 0015:D2/D18, and 0015 is being closed as delivered), so none carries an `enhancement.yaml`.
+Four OpenSpec changes, planned together on 2026-09-29, each in its own repo. Together they make the render build's provider count the only count: core computes it once as `#contracts.providedBy`, the library render reads it instead of its own guard, and the operator and cli name the providing catalogs from it. No enhancement entry backs them (they correct the delivery of enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry" and "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation"), and 0015 is being closed as delivered), so none carries an `enhancement.yaml`.
 
 | ID | Repo | Change | Branch | Wave | Starts when | Merges when |
 | --- | --- | --- | --- | --- | --- | --- |

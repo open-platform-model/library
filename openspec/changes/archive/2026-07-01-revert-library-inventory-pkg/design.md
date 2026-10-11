@@ -12,7 +12,7 @@ No downstream repo consumes the package: `opm-operator/go.mod` is still pinned t
 - Keep the change small and single-purpose per Principle VIII — this is a deletion plus dependency cleanup plus documentation, nothing else.
 
 **Non-Goals:**
-- Re-deciding whether shared inventory logic is the right design — that decision (D31) was already made in `enhancements/0006`; this change only executes it.
+- Re-deciding whether shared inventory logic is the right design — that decision (D31) was already made in enhancement 0006; this change only executes it.
 - Touching `opm-operator/internal/inventory` or `cli/pkg/inventory` — neither ever depended on this package, so there is nothing to migrate on either side.
 - Rewriting `openspec/changes/archive/2026-06-30-library-inventory-pkg/` — archives are immutable historical record, not live documentation.
 

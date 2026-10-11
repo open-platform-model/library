@@ -1,7 +1,7 @@
 ## Why
 
 `ownership.CanApply` judges ownership only for objects outside the applying instance's recorded
-inventory (0012:D8:R1). An object inside it applies whatever its live labels and annotations say.
+inventory (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"). An object inside it applies whatever its live labels and annotations say.
 That leaves one hand-over unguarded (enhancements#103): instance B adopts an object, by the adopt
 annotation `opmodel.dev/adopt=<B's UUID>`, while instance A still records the object in its
 inventory. A never judges the object, so it applies it again on every reconcile and relabels it
@@ -12,7 +12,7 @@ The owner settled enhancements#103: A refuses it too. A's apply guard also refus
 A's inventory whose live adopt annotation names another instance, and A drops the object from its
 next inventory. The annotation alone triggers it: a UUID label naming another instance does not,
 so an instance whose UUID changes (a module moved to a new path) keeps applying its own objects, except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID.
-This extends 0012:D8 with one requirement, 0012:D8:R8, added by the enhancements amendment that
+This extends enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") with one requirement, enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), added by the enhancements amendment that
 merges first (design.md AD7).
 
 Two gaps follow from "A drops it", and the change closes both so that the hand-over ends with B
@@ -67,7 +67,7 @@ Not in this change:
 - Any frontend edit. Neither the cli nor the operator calls `CanApply` yet; both adopt it in their
   ownership changes after the next library release, and they take this behaviour at once,
   including dropping a refused in-inventory object from their next inventory.
-- The enhancements amendment of 0012:D8 and the `#ApplyRefusalReason` and `#SkipReason`
+- The enhancements amendment of enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") and the `#ApplyRefusalReason` and `#SkipReason`
   literals in `0012/contracts/contracts.cue` (planned in parallel in the enhancements repo).
 - Any change to the `foreign-object`, `other-instance`, `terminating`, `not-opm-managed`,
   `owner-mismatch`, `safety-excluded` or `already-absent` outcomes for an input that produces one
@@ -116,7 +116,7 @@ None.
   record next. No type or signature changes, and `task api:diff` is clean.
 - **Downstream:** the cli and opm-operator ownership adoption changes must drop an object refused
   as `adopted-elsewhere` from the inventory they record, keep applying the rest, never delete it
-  for that refusal, and report the refusal like the other ownership refusals. The 0012:D8
+  for that refusal, and report the refusal like the other ownership refusals. The enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override")
   amendment carries these frontend obligations.
-- **Merge order:** this PR merges only after the enhancements PR that adds 0012:D8:R8 and the
+- **Merge order:** this PR merges only after the enhancements PR that adds enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") and the
   `adopted-elsewhere` literal to `#ApplyRefusalReason` and `#SkipReason` has merged.

@@ -48,7 +48,7 @@ which is a CUE error list, is not verified. Section 1 measures it.
 **Cancellation today.** `Render` checks `ctx.Err()` after input validation (`render.go:362`) and
 after staging (`:404`), and returns the bare context error. The other five verbs discard the
 context (`acquire.go:96, :228, :263, :320`, `synth.go:109`). The two registry verbs pass it to
-`reg.Fetch` only. `cue/load` takes no context, so nothing can reach inside a load (0009:D9).
+`reg.Fetch` only. `cue/load` takes no context, so nothing can reach inside a load (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface").
 
 ## Goals / Non-Goals
 
@@ -56,7 +56,7 @@ context (`acquire.go:96, :228, :263, :320`, `synth.go:109`). The two registry ve
 
 - A caller tells a fetch or resolution failure by type: `errors.Is(err, oerrors.ErrTransient)`
   for "retrying may help", and `errors.As(err, &fe)` with `fe.Kind` for which kind of failure.
-  No message text is needed (0021:D8:R12).
+  No message text is needed (enhancement 0021, "A beta line reaches GA only when its exit criteria hold").
 - The text matching the flattened CUE forms need lives in one library function, pinned against the
   embedded CUE version, so the frontends drop their probes.
 - An author defect is never marked transient, and an unrecognised error is never wrapped.
@@ -68,7 +68,7 @@ context (`acquire.go:96, :228, :263, :320`, `synth.go:109`). The two registry ve
 **Non-Goals:**
 
 - Frontend migration (the cli probes, the operator retry policy).
-- Cancellation inside a stage (0009:D9).
+- Cancellation inside a stage (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface").
 - Retrying inside the library. The caller owns retries.
 
 ## Decisions
@@ -312,7 +312,7 @@ package or the helper tier, so no depguard rule changes.
 
 ### Typed chain versus text
 
-**Context**: 0021:D8:R12 forbids message matching in the caller. CUE flattens most `cue/load`
+**Context**: enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") forbids message matching in the caller. CUE flattens most `cue/load`
 causes into strings.
 **Explored**: CUE v0.17.1 `mod/modregistry/client.go`, `internal/mod/modpkgload/import.go`,
 ociregistry `error.go` and `ociclient/client.go`. The cli probes and their comments, which record

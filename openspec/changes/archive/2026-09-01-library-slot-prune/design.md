@@ -1,10 +1,10 @@
 ## Context
 
-See proposal.md, Why. The 2026-09-01 kernel review re-verified the 0009 D9 measurement: `k.logger`, `k.tracer` and `k.clock` are assigned in `New` and by their options and read by nothing; `kernel_test.go`'s option tests assert acceptance only ("Clock is internal; we exercise the option to confirm it is accepted"). The tracer slot is the sole reason `go.opentelemetry.io/otel/trace` is a direct dependency.
+See proposal.md, Why. The 2026-09-01 kernel review re-verified the enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") measurement: `k.logger`, `k.tracer` and `k.clock` are assigned in `New` and by their options and read by nothing; `kernel_test.go`'s option tests assert acceptance only ("Clock is internal; we exercise the option to confirm it is accepted"). The tracer slot is the sole reason `go.opentelemetry.io/otel/trace` is a direct dependency.
 
 Constraints that shape the approach:
 
-- Enhancement 0009 D9 currently reserves the slots and explicitly rejected this removal. 0009 is `draft`, so D9 MUST be revised in place (enhancements repo rules) before this change lands; the revision, not this change, is where the reversal is decided and recorded.
+- Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") currently reserves the slots and explicitly rejected this removal. 0009 is `draft`, so D9 MUST be revised in place (enhancements repo rules) before this change lands; the revision, not this change, is where the reversal is decided and recorded.
 - Principle VI: removing the options is MAJOR. Pre-GA, consumers migrate in the same PR wave and the record is changelog plus archive (migrations policy, dormant until GA).
 - Principle I is unaffected either way: the kernel never logged; removing the slots removes the appearance of an observability story, not an actual one.
 
@@ -18,7 +18,7 @@ Constraints that shape the approach:
 
 **Non-Goals:**
 
-- Any change to the cancellation half of 0009 D9 (`context.Context` parameters stay exactly as they are).
+- Any change to the cancellation half of enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") (`context.Context` parameters stay exactly as they are).
 - Designing the execution half's future injection surface. That is 0009's, with its first reader.
 - Any behavior change. Nothing read the slots, so no output, error or log line changes.
 
@@ -40,7 +40,7 @@ Constraints that shape the approach:
 
 **Explored**: Landing the removal and letting 0009 catch up later. Rejected: the library would be contradicting a live design decision for however long the gap lasted, and `enhancement.yaml` could not truthfully declare what the change implements.
 
-**Decision**: The D9 revision lands in `enhancements/0009` before implementation starts (tasks 1.1). The revised D9 states: slots removed now; the execution half introduces the injection surface it needs together with its first reader; the cancellation half is unchanged. This change declares `implements: 0009/D9`.
+**Decision**: The D9 revision lands in enhancement 0009 before implementation starts (tasks 1.1). The revised D9 states: slots removed now; the execution half introduces the injection surface it needs together with its first reader; the cancellation half is unchanged. This change declares `implements: 0009/D9`.
 
 **Rationale**: The reversal is a design decision and belongs in the design record, not in a library changelog. Ordering it first keeps every artifact truthful at every point.
 
@@ -61,7 +61,7 @@ Constraints that shape the approach:
 
 ## Migration Plan
 
-1. `enhancements/0009`: revise D9 in place, append the history event.
+1. enhancement 0009: revise D9 in place, append the history event.
 2. `library`: implement tasks 2 through 4; `task check`.
 3. `opm-operator` (same PR wave): drop the `WithLogger` argument and unused imports; `task dev:fmt dev:vet dev:test`.
 

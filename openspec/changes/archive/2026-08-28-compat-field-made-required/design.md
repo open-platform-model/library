@@ -31,11 +31,11 @@ The addition rule in the new-side loop becomes `required(sel, nit.Value())`, so 
 
 ### Why the leaf subsume cannot see this
 **Context**: alpha.5 → alpha.6 of `catalogs/opm` slipped a made-required through a gate that exists for exactly this.
-**Explored**: 2026-08-28: the gate log shows `0 compared … 39 prerelease-exempt` (the line is exempt, cli 0011 D26); independently, `Subsume(prev, cue.Schema(), cue.Raw())` on `string` vs `string` with different constraint markers reports nothing, because subsumption is over value domains and the marker is a property of the selector.
+**Explored**: 2026-08-28: the gate log shows `0 compared … 39 prerelease-exempt` (the line is exempt, cli enhancement 0011 ("The compatibility gate ignores dev builds and stands down while the module line is itself a prerelease")); independently, `Subsume(prev, cue.Schema(), cue.Raw())` on `string` vs `string` with different constraint markers reports nothing, because subsumption is over value domains and the marker is a property of the selector.
 **Decision**: a struct-walk rule, beside the added-field rule.
 **Rationale**: the walk already has both selectors in hand; this is the one place the marker is visible.
 
 ## Risks / Trade-offs
 
-- [False positive on a field that was `?` because it was truly optional and is now `!` deliberately] → that is the D27 break the rule exists for; the escape hatch is a new `apiVersion` (0010 D4), which the gate does not compare against the old one.
+- [False positive on a field that was `?` because it was truly optional and is now `!` deliberately] → that is the D27 break the rule exists for; the escape hatch is a new `apiVersion` (enhancement 0010, "A contract is keyed by its own API version; an implementation is keyed by its build"), which the gate does not compare against the old one.
 - [`Fields(cue.All())` iteration of `!` fields] → measured by the existing "add required field" case, which iterates `y: string`; add the `y!:` spelling to the table to pin it.

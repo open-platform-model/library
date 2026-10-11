@@ -16,7 +16,7 @@ changed since the research:
   (OW4); the delete side is narrower.
 
 The contract is enhancement 0012 as merged in enhancements#88 and amended on 2026-10-04:
-0012:D8:R1 to R7, 0012:D1:R4/R7, 0012:D4:R1/R2, and the sketch in
+Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") to R7, enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), and the sketch in
 `0012/contracts/contracts.cue` (`#SkipReason`, `#ApplyRefusalReason`, `#safetyExcluded`).
 
 ## Goals / Non-Goals
@@ -26,7 +26,7 @@ The contract is enhancement 0012 as merged in enhancements#88 and amended on 202
 - One pure delete verdict with the contract's four skip reasons, carrying what a DELETE
   precondition needs.
 - One pure apply verdict with the contract's three refusal reasons and the adopt override.
-- The operator install's admission (0012:D8:R6/R7) as an input both verdicts honour, narrowly.
+- The operator install's admission (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") as an input both verdicts honour, narrowly.
 - Messages worded once, in the library.
 
 **Non-Goals:**
@@ -39,7 +39,7 @@ The contract is enhancement 0012 as merged in enhancements#88 and amended on 202
 
 ### OW1: The adopt key is `opmodel.dev/adopt`, declared in `opm/k8s/labels`
 
-**Context**: 0012:D8 fixes the key in the implementing change: "indicatively
+**Context**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") fixes the key in the implementing change: "indicatively
 `opmodel.dev/adopt`", and ADR-013, decision e4 uses the same example.
 **Explored**: The OPM keys at HEAD fall into two families (`opm/k8s/labels/labels.go`).
 Identity labels use a subject-prefixed domain (`module-instance.opmodel.dev/uuid`,
@@ -103,7 +103,7 @@ frontend can skip the live read for a protected kind, as the cli's `recordUnread
 
 ### OW3: The apply verdict, in order
 
-**Context**: 0012:D8:R1/R2/R5 and 0012:D1:R7. An object that does not exist is never refused.
+**Context**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"). An object that does not exist is never refused.
 **Decision**: `CanApply` decides in this order and returns at the first match:
 
 1. `Live == nil`: apply.
@@ -132,14 +132,14 @@ func (v ApplyVerdict) Allowed() bool
 Two identity edge cases, both decided toward the existing tolerance or toward refusal:
 
 - An OPM-managed object outside the inventory with no UUID label is applied. It predates UUID
-  stamping and carries no other instance's identity, which is what 0012:D8:R1 refuses. This is
+  stamping and carries no other instance's identity, which is what enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") refuses. This is
   the tolerance both frontends' delete paths apply today.
 - An empty `InstanceUUID` cannot be adopted into (step 4 never matches), and any non-empty live
   UUID counts as another instance's (step 6). Every rendered object carries the instance UUID
   (core stamps `module-instance.opmodel.dev/uuid`), so a frontend always has one to pass. An
   empty value is a caller defect, and refusing is the safe direction.
 
-The UUID label is the only identity the verdict compares. 0012:D8:R6 says a proven object
+The UUID label is the only identity the verdict compares. Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") says a proven object
 "carries no OPM instance identity", and an object could in principle carry another instance's
 `module-instance.opmodel.dev/name` with no UUID label. The verdict does not compare the name: the
 instance name is not one of its inputs, and an object without a UUID label predates UUID
@@ -149,28 +149,28 @@ Step 3 also means an inventoried object is applied whatever its adopt annotation
 object between two live instances therefore needs the instance that owns it to stop rendering it
 first (see Risks), and the `other-instance` remedy says so.
 
-**Rationale**: Terminating before inventory makes 0012:D8:R5 hold for every object. Adoption
-before the two ownership tests means one annotation lifts both, as 0012:D8:R2 says, and the
+**Rationale**: Terminating before inventory makes enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") hold for every object. Adoption
+before the two ownership tests means one annotation lifts both, as enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") says, and the
 annotation is read only when the guard would otherwise refuse.
 
 ### OW4: The install admission is narrower than adoption
 
-**Context**: 0012:D8:R6 admits, "as if adopted", exactly the objects the operator install proves
+**Context**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") admits, "as if adopted", exactly the objects the operator install proves
 an earlier operator release's install manifest created. A proven object "carries no OPM instance
-identity". 0012:D8:R7 lets install delete the proven earlier Deployment and superseded role
+identity". Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") lets install delete the proven earlier Deployment and superseded role
 bindings outside the inventory, and never a CustomResourceDefinition, a Namespace or a custom
 resource. The cli's `MigrationPlan.Admit()` admits proven objects, the Deployment it recreates,
 and rendered objects that already carry the instance's own UUID.
 **Explored**: A first draft let `Admit` lift both ownership refusals, like the annotation.
-0012:D8:R6 is narrower: a proven object carries no instance identity, so it could never meet
+Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") is narrower: a proven object carries no instance identity, so it could never meet
 `other-instance`.
 **Decision**: `Admit` lifts only `foreign-object` on apply and only `not-opm-managed` on delete.
 On apply it lifts only when the live object carries no UUID label or carries `InstanceUUID`. On
-delete it lifts only when the live object carries no UUID label at all, since 0012:D8:R7 lets
-install delete outside the inventory only objects proven as 0012:D8:R6 states, and those carry
+delete it lifts only when the live object carries no UUID label at all, since enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") lets
+install delete outside the inventory only objects proven as enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") states, and those carry
 no OPM instance identity. On delete it also lifts `not-opm-managed` only for the kinds
-0012:D8:R7 lets install delete: `apps` `Deployment`, and `rbac.authorization.k8s.io`
-`RoleBinding` and `ClusterRoleBinding` (the cli's 0012:D8:R7 set, `internal/operator/legacy.go`). An admitted object of any other kind, a ConfigMap or a custom
+Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") lets install delete: `apps` `Deployment`, and `rbac.authorization.k8s.io`
+`RoleBinding` and `ClusterRoleBinding` (the cli's enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") set, `internal/operator/legacy.go`). An admitted object of any other kind, a ConfigMap or a custom
 resource among them, still skips as `not-opm-managed`. It never lifts `terminating`,
 `other-instance`, `owner-mismatch`, `safety-excluded` or `already-absent`. The caller sets
 `Admit` only for an object it has proven. The library cannot check the proof, which needs the
@@ -181,9 +181,9 @@ refuses it even if a caller's proof has a hole. The delete bound is enforced by 
 `safety-excluded` is, because it sees group and kind and need not trust the caller for it. The
 apply side keeps no kind bound: the cli's admit set covers every kind of the earlier manifest
 (Namespace, ClusterRole, ServiceAccount and so on), and applying over a proven object is what
-0012:D8:R6 asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
+Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") asks for. Every object in the cli's set passes as before: proven objects carry no identity, and
 `Ours` objects carry the instance's own. Delete-side `Admit` stays, because without it the
-install's 0012:D8:R7 deletes could not go through `CanDelete`, and ADR-013, decision e4 puts every
+install's enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") deletes could not go through `CanDelete`, and ADR-013, decision e4 puts every
 delete path through it. The delete side needs no `InstanceUUID` case: the superseded bindings
 have names the module does not render, so they never get the instance UUID, and a recreated
 Deployment that carries it is already OPM-managed and passes without admission.
@@ -228,9 +228,9 @@ count one as a deletion.
 
 ### OW6: The library words every message
 
-**Context**: 0012:D1:R7 says the verdict is the same on both frontends, so its wording should be
+**Context**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") says the verdict is the same on both frontends, so its wording should be
 too. A user can adopt only with the key and the instance UUID in hand, and a ModuleInstance's
-UUID is known only after render. 0012:D8:R3 says no message names another override.
+UUID is known only after render. Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") says no message names another override.
 **Decision**: Every refusal and every skip carries `Message`. The object is written
 `Kind/namespace/name`, or `Kind/name` when cluster-scoped, as the cli's install lines write it.
 The ownership refusals end with the remedy, which names the key and this instance's UUID, for
@@ -278,7 +278,7 @@ both frontends then report the same token.
   Every render stamps the UUID, so this fires only on a caller defect. The tests pin it.
 - [lib-e3 and lib-f5 edit the same doc lines, and append to the same main spec on archive] →
   Merge `origin/main` into the branch at PR time, before archiving. The edits are list items.
-- [Two live instances can take an object from each other] → 0012:D8 judges only objects outside
+- [Two live instances can take an object from each other] → enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") judges only objects outside
   the applying instance's inventory. If a user annotates an object for instance B while
   instance A still renders it, B applies and records it, A's next apply passes at step 3 and
   takes the UUID label back (the annotation is no field A manages, so it stays), and the two
@@ -286,4 +286,4 @@ both frontends then report the same token.
   the guard beyond 0012:D8's scope; instead the `other-instance` remedy tells the user to remove
   the object from the owning instance first, and a scenario pins that an inventoried object
   whose adopt annotation names another instance still applies. Refusing such an object inside
-  the inventory is an owner question for a later amendment of 0012:D8.
+  the inventory is an owner question for a later amendment of enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").

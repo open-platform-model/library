@@ -40,7 +40,7 @@ derive inventory entries from that one converted set.
   use, with `IsOPMManagedBy`. Every constant in the frontends' `pkg/core/labels.go` has a
   consumer at `origin/main`, so all of them move. Names drop the package stutter (design KO2).
   The package names and recognises labels and never stamps them: stamping stays in CUE at render
-  (0012:D6). A depguard rule holds the package to the standard library.
+  (enhancement 0012, "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"). A depguard rule holds the package to the standard library.
 - **`opm/k8s/object`** (new, on `k8s.io/apimachinery`):
   - `Resource` is the frontends' wrapper, field for field (`Value cue.Value` plus `Instance`,
     `Component` and `Transformer`). It keeps the accessors (`Kind`, `Name`, `Namespace`,
@@ -59,7 +59,7 @@ derive inventory entries from that one converted set.
     `GetWeight` becomes `Weight`.
   - `Stages` cuts an apply set into the stages the order implies: the cluster definitions
     (CustomResourceDefinitions and core Namespaces) first, then one stage per distinct weight,
-    ascending. This is the input the operator needs to apply one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011). It is the same definition the cli's two-stage apply uses.
+    ascending. This is the input the operator needs to apply one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-011). It is the same definition the cli's two-stage apply uses.
   - `Duplicates`, `Duplicate`, `Identity`, `Producer` and `DuplicateIdentitiesError` are copied
     from `opm/helper/objectset` with their behaviour and wording unchanged.
   - A documentation-only test lists Flux's `ReconcileOrder` kinds (fluxcd/pkg/ssa v0.77.0, the
@@ -149,11 +149,11 @@ None.
   pin), `README.md`, `AGENTS.md`, `CONSTITUTION.md`, `adr/011-kubernetes-tier-beside-the-kernel.md`.
 - Downstream: cli and opm-operator compile unchanged against this tree. The consumer-build job
   must stay green. Their adoption changes (cli-e2e5, op-e2e5) gate on the first library release
-  that contains this change. The operator applies one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011),
+  that contains this change. The operator applies one library weight group per Flux `ApplyAll`, so Flux refines and never contradicts the library order (enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-011),
   using `Stages`.
 - Ordering (wave-2 serialization): this change follows lib-consolidate and lib-c2 (both merged).
   lib-d1d3 rebases on its `go.mod`. lib-e3, lib-e4 and lib-f5 build on these packages, and
   lib-e4 adds the adopt annotation key to `opm/k8s/labels`.
-- `enhancement.yaml` declares 0012 with no decision claimed. 0012:D3, 0012:D5 and 0012:D6 are
+- `enhancement.yaml` declares 0012 with no decision claimed. Enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module", "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle" and "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value") are
   delivered only when the frontends adopt (ADR-011 item 3), so the claim belongs to those
   changes. Under-claiming is the safe direction.

@@ -7,7 +7,7 @@
 - `Check` reports a new violation kind, `field made required`, when a field present in both definitions was optional (`?`) or defaulted in the prior definition and is required (`!`) or a plain non-defaulted regular field in the new one. The opposite direction (required → optional, or gaining a default) is widening and reports nothing.
 - The existing rules are unchanged; a posture change that also narrows the domain reports both kinds at the path, as `default changed` + `domain narrowed` already do.
 
-Not in scope: whether the prerelease line stays exempt from the gate (that is `cli`'s `internal/publish/compat.go`, 0011 D26); the transformer-side fix for the alpha.6 break (`catalog_opm`).
+Not in scope: whether the prerelease line stays exempt from the gate (that is `cli`'s `internal/publish/compat.go`, enhancement 0011 ("The compatibility gate ignores dev builds and stands down while the module line is itself a prerelease")); the transformer-side fix for the alpha.6 break (`catalog_opm`).
 
 ## Capabilities
 
@@ -24,4 +24,4 @@ None.
 - `opm/compat` (`compat.go` `walkStruct`, one new `Kind*` constant); `compat_test.go` table cases. No signature change: `Violation.Kind` is a string discriminator, so a new kind is additive for `cli` (`opm catalog publish` / `registry check --compat` print kinds verbatim).
 - SemVer: MINOR (`feat(compat)`): the gate can refuse a catalog it accepted before. That is the point.
 - Complexity: one selector comparison in a loop that already iterates both sides.
-- Enhancement: 0010 D27 (rule) and 0011 D9 (gate). Create `enhancement.yaml` declaring both.
+- Enhancement: enhancement 0010 ("Inside one API version a contract is additive-only, and both ends enforce it") (rule) and enhancement 0011 ("`opm catalog publish` refuses a build that breaks a contract it already published") (gate). Create `enhancement.yaml` declaring both.

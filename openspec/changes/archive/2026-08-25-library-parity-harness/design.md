@@ -7,7 +7,7 @@ See `proposal.md` for motivation. The constraints that shape the approach:
 - The kernel accepts an import-authored `#ModuleInstance` package via `Kernel.LoadInstancePackage` followed by `ProcessModuleInstance` and `Compile`; `opm/kernel/flow_synth_imported_test.go` already exercises that path. The existing flow fixture instead assembles its instance with `LookupPath`+`FillPath`, which severs `#instance` and hardcodes a `uuid`; that fixture is repaired by the next 0019 slice, not this one.
 - None of the 50 published transformers reads a definition field, so a shipped-catalog-only harness is green on landing and cannot show the strip. The D1 evidence needs transformers that read `#component.#names` and `#moduleInstance`.
 - Hermetic catalogs are already served in tests through `opm/internal/registrytest` (`standardCatalog`, `UniquePath`), and both `cue/load` and the kernel loaders accept a registry mapping, so a probe catalog can be resolved identically by both renderers without publishing anything.
-- Ordering is part of the contract (0019 D14). `Syntax(cue.Final())` is the very pass that reorders, so the comparison must not route either value through it.
+- Ordering is part of the contract (enhancement 0019, "CUE's natural, unfinalized ordering is the render output contract"). `Syntax(cue.Final())` is the very pass that reorders, so the comparison must not route either value through it.
 
 ## Goals / Non-Goals
 
@@ -20,8 +20,8 @@ See `proposal.md` for motivation. The constraints that shape the approach:
 **Non-Goals:**
 
 - Changing any kernel behaviour, including repairing the existing flow fixture.
-- Specifying matching. The oracle's match is the predicate rung only; the pair-set check exists to keep the two universes visibly aligned on the fixtures, not to be the matcher's spec (0019 D10 owns that).
-- Comparing `#context`. Until 0019 D12 lands the two sides derive it differently by construction; every case starts at `output-fields-only`.
+- Specifying matching. The oracle's match is the predicate rung only; the pair-set check exists to keep the two universes visibly aligned on the fixtures, not to be the matcher's spec (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted") owns that).
+- Comparing `#context`. Until enhancement 0019 ("`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone") lands the two sides derive it differently by construction; every case starts at `output-fields-only`.
 - Performance. The harness runs the web_app fixture and a two-transformer probe catalog; that is seconds, not a benchmark.
 
 ## Decisions
@@ -52,7 +52,7 @@ testdata/parity/
 
 **Module path:** `testing.opmodel.dev/...` per the workspace registry policy (fixtures never squat `opmodel.dev/*`). It is never published; the path only needs to be a valid module identity for intra-module imports.
 
-**Alternatives:** `cue.mod/local-module.cue` directory replacements to avoid copying (rejected for this slice: the mechanism belongs to 0019 D9 and is not yet in the kernel's own loaders, so it would make the harness the first consumer of an unlanded mechanism); a generated fixture written into `t.TempDir()` (rejected for the shipped-catalog cases: reviewable on-disk CUE is the point of an oracle).
+**Alternatives:** `cue.mod/local-module.cue` directory replacements to avoid copying (rejected for this slice: the mechanism belongs to enhancement 0019 ("The render step is one CUE build per render") and is not yet in the kernel's own loaders, so it would make the harness the first consumer of an unlanded mechanism); a generated fixture written into `t.TempDir()` (rejected for the shipped-catalog cases: reviewable on-disk CUE is the point of an oracle).
 
 ### D3: Probe transformers ride a hermetic catalog served by `registrytest`, with the oracle's `cue.mod` written per run
 
@@ -67,7 +67,7 @@ testdata/parity/
 | `names-probe :: web` | `FinalizeValue strips #names from #component` (kernel: incomplete `output`, oracle: concrete fqdn) |
 | `instance-probe :: web` | `#moduleInstance is never filled` (kernel: incomplete `output`, oracle: concrete name) |
 
-Ordering (0019 D14 / OQ14), measured on the first run (2026-08-24): four of the five shipped pairs (every object carrying the context-derived label set) diverge by field order only, same labels and values. The cause is not the strip but `opm/schema/context.go`, which decodes `metadata.labels` into a Go map and re-encodes it sorted, so the kernel hands `#transform` a sorted label map where unification hands it CUE's evaluation order. Recorded as `divergenceContextLabelOrder` on those four rows; the D12 projection slice retires it. The HPA pairs carry no such labels and agree. Experiment 07's guarded-env hoisting is reproduced by the parity-only `worker` component added to the `web_app` copy (env assembled from plain fields, a guarded block and a comprehension): the kernel emits the guarded `METRICS_*` entries ahead of the plainly declared `SERVICE_*`, the oracle keeps declaration order. Recorded as `divergenceFinalizeHoisting` on the `worker :: deployment-transformer` row (which also carries the label-order cause) and pinned by a dedicated env-order subtest that `library-finalize-removal` retires.
+Ordering (enhancement 0019 ("CUE's natural, unfinalized ordering is the render output contract") / OQ14), measured on the first run (2026-08-24): four of the five shipped pairs (every object carrying the context-derived label set) diverge by field order only, same labels and values. The cause is not the strip but `opm/schema/context.go`, which decodes `metadata.labels` into a Go map and re-encodes it sorted, so the kernel hands `#transform` a sorted label map where unification hands it CUE's evaluation order. Recorded as `divergenceContextLabelOrder` on those four rows; the D12 projection slice retires it. The HPA pairs carry no such labels and agree. Experiment 07's guarded-env hoisting is reproduced by the parity-only `worker` component added to the `web_app` copy (env assembled from plain fields, a guarded block and a comprehension): the kernel emits the guarded `METRICS_*` entries ahead of the plainly declared `SERVICE_*`, the oracle keeps declaration order. Recorded as `divergenceFinalizeHoisting` on the `worker :: deployment-transformer` row (which also carries the label-order cause) and pinned by a dedicated env-order subtest that `library-finalize-removal` retires.
 
 **Alternatives:** a checked-in probe catalog under `testdata/parity/` imported intra-module by the oracle (rejected: the kernel side reaches transformers only through a platform's registry subscription, which needs a resolvable catalog module, so the kernel could not see it); adding the probes to `catalog_opm` (rejected: a published catalog is not a place for test probes, and the sweep that would read `#names` is gated on this harness existing first).
 
@@ -79,11 +79,11 @@ Ordering (0019 D14 / OQ14), measured on the first run (2026-08-24): four of the 
 
 **Why not `Syntax(cue.Final())` + `format.Node`:** that is the finalization pass D14 names as the source of reordering; routing both sides through it would hide the very difference the harness must be able to see.
 
-**Pair sets:** the kernel's `MatchPlan.MatchedPairs()` and the oracle's `pairs` are compared as sets first. A kernel-side refusal caused by the always-unify rung (0019 D10, the D30 carve-out) is the single exemption and is reported, not silently accepted; on the shipped fixtures it is empty.
+**Pair sets:** the kernel's `MatchPlan.MatchedPairs()` and the oracle's `pairs` are compared as sets first. A kernel-side refusal caused by the always-unify rung (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"), the D30 carve-out) is the single exemption and is reported, not silently accepted; on the shipped fixtures it is empty.
 
 ### D5: Case rows mirror `#ParityCase` field for field
 
-A Go struct with `Name`, `Instance`, `Component`, `Transformer`, `Equality` (`structural` | `output-fields-only`), `ExpectedDivergence` (string, empty means "must agree"). `OrderSensitive` is not a field: it is fixed true by the contract, so it is a property of the comparator. A row with `ExpectedDivergence` set passes only when the kernel side fails or differs; when it agrees, the test fails with a message telling the author to delete the entry (0019 D4: every entry is emptied by the time the entry is `implemented`).
+A Go struct with `Name`, `Instance`, `Component`, `Transformer`, `Equality` (`structural` | `output-fields-only`), `ExpectedDivergence` (string, empty means "must agree"). `OrderSensitive` is not a field: it is fixed true by the contract, so it is a property of the comparator. A row with `ExpectedDivergence` set passes only when the kernel side fails or differs; when it agrees, the test fails with a message telling the author to delete the entry (enhancement 0019 ("The work lands as several small slices, ordered by what each one removes"): every entry is emptied by the time the entry is `implemented`).
 
 ## Risks / Trade-offs
 

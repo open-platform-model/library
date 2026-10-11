@@ -102,4 +102,4 @@ A missing FQN SHALL be reported as a structured `MissingFQN` value carrying the 
 
 ### Requirement: Defensive Ambiguity Handling
 
-**Reason**: superseded by 0010 D32/D37 — multiple satisfied candidates for a catalog-fulfilled contract legitimately all pair (catalog buckets measured holding 3–8 transformers); exclusivity is a property only of provider-fulfilled contracts and is enforced structurally at materialize (single-provider guard), not defensively at pairing.
+**Reason**: superseded by enhancement 0010 ("Two providers supplying one contract is a materialize-time error" and "A contract declares where its fulfilment comes from, and a provider-fulfilled contract admits exactly one provider") — multiple satisfied candidates for a catalog-fulfilled contract legitimately all pair (catalog buckets measured holding 3–8 transformers); exclusivity is a property only of provider-fulfilled contracts and is enforced structurally at materialize (single-provider guard), not defensively at pairing.

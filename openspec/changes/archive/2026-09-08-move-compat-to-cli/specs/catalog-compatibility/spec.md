@@ -14,6 +14,6 @@
 
 ### Requirement: Predecessor Selection
 
-**Reason**: `HighestStable` is the template-resolution float selector (0011 D23), called only by the cli's scaffold. It never belonged beside the comparator.
+**Reason**: `HighestStable` is the template-resolution float selector (enhancement 0011, "Predecessor selection is D9's literal rule: a backward scan of the published history, prereleases included"), called only by the cli's scaffold. It never belonged beside the comparator.
 
 **Migration**: an unexported selector in `cli/internal/scaffold` with the same rule (highest stable, unparseable entries skipped, highest overall when no stable exists) and the same four test cases.

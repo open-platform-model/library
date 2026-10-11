@@ -48,7 +48,7 @@ This narrows what the existing no-response match claims and adds one anchored va
 
 **Context**: The task asked that no message-text match be added. The review held the change on that line and on the fetch-403 case.
 
-**Decision**: The owner accepted the one anchored match as a recorded exception to the strict reading of 0021:D8:R12, and decided that a library-owned registry transport is not planned now. Accepted as built: a fetch whose token endpoint answers 403 stays `FetchNotFound`; a token endpoint's 404 reads `FetchNotFound`; a token endpoint's 429 is no longer transient. `adr/014-one-text-match-for-a-token-endpoint-answer.md` is the record, and the comment at `textTokenAnswer` names it.
+**Decision**: The owner accepted the one anchored match as a recorded exception to the strict reading of enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"), and decided that a library-owned registry transport is not planned now. Accepted as built: a fetch whose token endpoint answers 403 stays `FetchNotFound`; a token endpoint's 404 reads `FetchNotFound`; a token endpoint's 429 is no longer transient. `adr/014-one-text-match-for-a-token-endpoint-answer.md` is the record, and the comment at `textTokenAnswer` names it.
 
 ### The refresh-token path
 

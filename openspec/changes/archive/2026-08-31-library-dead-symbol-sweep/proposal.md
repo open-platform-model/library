@@ -12,11 +12,11 @@ All removals are **BREAKING** by SemVer rule; none has a caller in `cli` or `opm
 - **BREAKING** `opm/materialize/cache`: remove the package (`MaterializeCache`, `LRU`, `Key`). The one long-running consumer holds a single generation-keyed slot instead and never adopted it.
 - **BREAKING** `opm/helper/loader/bytes`: remove the doc-only package; it has exported nothing since it was scaffolded.
 - **BREAKING** `opm/helper/loader/registry` and `opm/kernel`: remove the value-only `LoadModulePackage` and its wrapper `Kernel.LoadModuleFromRegistry`. `LoadModulePackageWithSource` and `Kernel.AcquireModuleFromRegistry` are the acquisition path both consumers use.
-- **BREAKING** `opm/compat`: remove `StripProvenance`. The comparison walk implements 0010 D30 by skipping provenance fields at every depth, and the matcher excludes provenance from the unify verdict; the standalone strip has no caller.
+- **BREAKING** `opm/compat`: remove `StripProvenance`. The comparison walk implements enhancement 0010 ("Provenance is excluded by a Go-side operand filter over a fixed denylist") by skipping provenance fields at every depth, and the matcher excludes provenance from the unify verdict; the standalone strip has no caller.
 - Spec hygiene in the same sweep: retire the `kernel-runtime` requirement for a `ParseModuleInstance` deprecated alias that never shipped, and the `ModuleResult aliased` scenario.
 - Docs: `CLAUDE.md` layout table and materialize-cache paragraph, `README.md` layout, `opm/helper/doc.go`, `MIGRATIONS.md` entry under Unreleased, Breaking.
 
-Out of scope (owned elsewhere): `context.Context` threading and the `WithLogger` / `WithTracer` / `WithClock` slots (enhancement 0009 D9); `Plan`, `Kernel.Validate`, `CompileInput.Values` and the typed validation wrappers (`library-phase-and-values-prune`).
+Out of scope (owned elsewhere): `context.Context` threading and the `WithLogger` / `WithTracer` / `WithClock` slots (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface"); `Plan`, `Kernel.Validate`, `CompileInput.Values` and the typed validation wrappers (`library-phase-and-values-prune`).
 
 ## Capabilities
 

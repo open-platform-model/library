@@ -1,6 +1,6 @@
 ## Context
 
-This is slice **L1** of cross-cutting enhancement [`0002`](../../../enhancements/0002/) — renaming OPM's deployable-artifact family from `Release` to `Instance` vocabulary. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the second hard gate in the wave (`C1 → L1 → {opm-operator ‖ cli}`); both `opm-operator` and `cli` pin the published library tag, so nothing downstream advances until this lands and is tagged.
+This is slice **L1** of cross-cutting enhancement 0002 — renaming OPM's deployable-artifact family from `Release` to `Instance` vocabulary. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the second hard gate in the wave (`C1 → L1 → {opm-operator ‖ cli}`); both `opm-operator` and `cli` pin the published library tag, so nothing downstream advances until this lands and is tagged.
 
 The library is the OPM kernel — a single cohesive Go module embedded by every front-end. Its `opm/` surface is contractual (Principle VI). This change is a hard, breaking rename of that surface plus the wire strings that couple it to `core@v1`. No behavior changes.
 

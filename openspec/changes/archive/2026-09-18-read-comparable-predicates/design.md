@@ -99,7 +99,7 @@ Section 2 opened with a throwaway read through `contractsKernel` on every served
 
 ### No render-time tripwire
 
-**Context**: 0015 D5 fixes the guard at platform-package generation and calls render-build tripwires "defense in depth, not the gate". The kernel's render gate today raises `OverSubscribedContractsError` from render-time diagnostics (`RenderDiagnostics`), a different path from the platform inventory.
+**Context**: enhancement 0015 ("Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated") fixes the guard at platform-package generation and calls render-build tripwires "defense in depth, not the gate". The kernel's render gate today raises `OverSubscribedContractsError` from render-time diagnostics (`RenderDiagnostics`), a different path from the platform inventory.
 **Explored**: reading `Contracts().Discriminated` inside `Render` and refusing; leaving the refusal to the two consumers, each of which acquires the platform once.
 **Decision**: no tripwire here.
 **Rationale**: the property belongs to the platform, not to a render, and evaluating the inventory per render pays the pairwise fold on every instance for a fact the consumer can ask once at acquisition. The operator's generation gate and `opm platform check` are the named sites; the CLI's local-build path (a platform module directory, no generation step) is the one runtime with no gate today and decides in the cli slice whether to read the inventory at platform resolution. A kernel tripwire remains an additive follow-up if a runtime turns out to need it.

@@ -2,7 +2,7 @@
 
 ### Requirement: A held Render output keeps its build alive
 
-The kernel SHALL retain no built value between calls. Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, so a caller that holds one keeps the build alive until it releases it; retention is bounded by what the caller holds, the rule ADR-007 states for an acquired artifact's `Package`. ADR-005 and the `opm/kernel` package documentation SHALL state this rule and SHALL NOT state that a caller cannot obtain a built value to hold. ADR-005 SHALL record that Render output moves from `cue.Value` to bytes before GA at the latest. The bytes deadline is 0021:D8:R11; the retention rule is ADR-007 rule 1.
+The kernel SHALL retain no built value between calls. Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, so a caller that holds one keeps the build alive until it releases it; retention is bounded by what the caller holds, the rule ADR-007 states for an acquired artifact's `Package`. ADR-005 and the `opm/kernel` package documentation SHALL state this rule and SHALL NOT state that a caller cannot obtain a built value to hold. ADR-005 SHALL record that Render output moves from `cue.Value` to bytes before GA at the latest. The bytes deadline is enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"); the retention rule is ADR-007 rule 1.
 
 #### Scenario: The documentation states the holder-bounded rule
 

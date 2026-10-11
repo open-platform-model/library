@@ -79,7 +79,7 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 ### Requirement: Phase-Explicit Methods on Kernel
 
-**Reason**: `Match` and `Compile` are removed with the old pipeline (0019 D9/D10); `Render` is the single render verb and its input struct is specified by `single-build-render`.
+**Reason**: `Match` and `Compile` are removed with the old pipeline (enhancement 0019, "The render step is one CUE build per render" and "Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"); `Render` is the single render verb and its input struct is specified by `single-build-render`.
 
 **Migration**: `Compile` callers use `Render`; `Match` callers use `Render` and read `RenderDiagnostics.Pairs` and `Unmatched`, discarding `Compiled`.
 
@@ -97,7 +97,7 @@ When values are non-empty, the kernel SHALL validate them against the Module's `
 
 ### Requirement: Materialize Method on Kernel
 
-**Reason**: `opm/materialize` is deleted (0019 D5): the platform module's own imports replace pull-plus-index, and `#composedTransformers` is derived by core.
+**Reason**: `opm/materialize` is deleted (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"): the platform module's own imports replace pull-plus-index, and `#composedTransformers` is derived by core.
 
 **Migration**: acquire the platform module from disk (`AcquirePlatformFromDir`) and pass it to `Render`; the render build resolves the catalogs.
 

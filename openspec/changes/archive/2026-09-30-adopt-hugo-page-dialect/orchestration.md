@@ -34,7 +34,7 @@ Where this file and your change's artifacts disagree, stop and ask the superviso
 - **Scope.**
   - Stay inside your change's scope and "Touches" list.
   - Never add `enhancement.yaml`, even where a repo's propose skill or `openspec/config.yaml` says to write one (O7). Name related 0018 decisions in proposal prose only.
-  - Cite enhancement decisions as `0018:D14` or `0018:D7:R1`, never as a bare `D14`.
+  - Cite enhancement decisions as enhancement 0018 ("Figures are hand-built inline SVG with one visual language" and "Every page declares one type, a title and a one-line description"), never as a bare `D14`.
 
 ## 2. The change set
 
@@ -126,7 +126,7 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
    - Delete its 5 `import ... from '@components/diagrams/...'` lines.
    - Replace each `<ModuleToCluster />`, `<RolesAndArtifacts />`, `<ComponentToObjects />`, `<WhereThingsLive />` and `<ThreeWaysToDeploy />` line with the matching `{{< opm/<name> >}}` (section 4).
 2. **What OPM is.** `git mv docs/site/start/what-is-opm.mdx docs/site/start/what-is-opm.md`. Delete its 3 import lines; replace `<HelmAndOpm />`, `<ModuleToCluster />` and `<ComponentToObjects />`.
-3. **Docs home.** `git mv docs/site/index.md docs/site/_index.md` and remove its `type: explanation` line: an overview declares no type (0018:D7). In its planning comment, "the docs home, an explanation. It keeps this front matter" becomes "the docs home, an overview (no type, 0018:D7). It keeps this front matter".
+3. **Docs home.** `git mv docs/site/index.md docs/site/_index.md` and remove its `type: explanation` line: an overview declares no type (enhancement 0018, "Every page declares one type, a title and a one-line description"). In its planning comment, "the docs home, an explanation. It keeps this front matter" becomes "the docs home, an overview (no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")). It keeps this front matter".
 4. **Asides.** The two in `docs/site/start/quickstart.md` (lines 144 and 209) become GitHub alerts in the section 4 form.
 5. **Weights.** Every `sidebar:` / `  order: N` block becomes `weight: N`, with the same number (8 files).
 6. **Stale paths.** In the planning comments of `docs/site/_index.md` and `docs/site/reference/glossary.md`, `opmodel.dev/site/content/docs/<s>/index.md` becomes `opmodel.dev/site/content/docs/<s>/_index.md`, and `opmodel.dev/site/content/docs/start/index.md` becomes `opm/docs/site/start/_index.md`.
@@ -187,7 +187,7 @@ This contract applies to every file under `<repo>/docs/site/` in opm, core, cata
 |---|---|---|---|
 | `title` | required | required | non-empty string |
 | `description` | required | required | a one-line, non-empty string (the index entry and search snippet) |
-| `type` | required | **forbidden** (an overview declares no type, 0018:D7) | one of `tutorial`, `how-to`, `explanation`, `reference` (0018:D7:R1) |
+| `type` | required | **forbidden** (an overview declares no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")) | one of `tutorial`, `how-to`, `explanation`, `reference` (enhancement 0018, "Every page declares one type, a title and a one-line description") |
 | `weight` | optional | optional | a positive integer. Order within the section: lower first, then title. 0 means unset in Hugo |
 
 Forbidden: `sidebar:` (write `weight: N`), and every other key (`slug`, `draft`, `template`, `hero`, `aliases` ...).
@@ -229,13 +229,13 @@ No other shortcode may appear in a source page: not Hextra's `callout`, `tabs`, 
 - `import ... from` lines, inside code fences too (O4: "any");
 - any line starting with `:::`, inside code fences too (O4: "any");
 - JSX or component tags such as `<ModuleToCluster />`;
-- images, as `![...]` or `<img>` (0018:D14 keeps figures in the engine).
+- images, as `![...]` or `<img>` (enhancement 0018 ("Figures are hand-built inline SVG with one visual language") keeps figures in the engine).
 
 **Allowed.** HTML planning comments (`<!-- ... -->`). A keeps them out of every published output: the HTML, `llms.txt` and the Markdown outputs.
 
 **Trade-off, accepted by the owner.** github.com renders the alerts but shows `{{< opm/... >}}` as literal text.
 
-**Rules beyond O4's list.** O4 names the lint's rules; the contract adds the key allowlist (which forbids `aliases`, `draft` and `slug`), the link rules, the ban on images and non-`.md` files, kebab-case names, `weight` >= 1 (0018's `#Page` allows 0; Hugo reads 0 as unset), the exact alert marker, and tagged code fences. Their bases (0018:D7, 0018:D7:R3, 0018:D14 and Hugo behaviour) are listed in A's `design.md`. Supervisor ruling 2026-09-30, under the owner's "rewrite it to how it needs to be": all of them hold. `draft` stays forbidden because a draft is a silently dropped page (Q2). `aliases` stays forbidden while nothing is published; allowing it for a moved page after go-live is a contract change (a planning commit that updates every copy of this file and the lint).
+**Rules beyond O4's list.** O4 names the lint's rules; the contract adds the key allowlist (which forbids `aliases`, `draft` and `slug`), the link rules, the ban on images and non-`.md` files, kebab-case names, `weight` >= 1 (0018's `#Page` allows 0; Hugo reads 0 as unset), the exact alert marker, and tagged code fences. Their bases (enhancement 0018 ("Every page declares one type, a title and a one-line description" and "Figures are hand-built inline SVG with one visual language") and Hugo behaviour) are listed in A's `design.md`. Supervisor ruling 2026-09-30, under the owner's "rewrite it to how it needs to be": all of them hold. `draft` stays forbidden because a draft is a silently dropped page (Q2). `aliases` stays forbidden while nothing is published; allowing it for a moved page after go-live is a contract change (a planning commit that updates every copy of this file and the lint).
 
 ### 4.1 The dialect lint and the page-order helper (POSIX shell tools)
 

@@ -1,6 +1,6 @@
 ## Why
 
-Enhancement 0015 D3 gives transformers a second path onto a platform: a provider module ships a cluster-scoped `TransformerRegistration` claim naming a catalog it says implements platform contracts. `opm-operator` landed the CRD and its RBAC gate (PR 133); the acceptance path is the next slice, and three of its checks all need the same thing — **the claimed catalog artifact, fetched from the registry and evaluated**:
+Enhancement 0015 ("A transformer registration is a cluster-scoped CR, gated by the RBAC the operator already enforces") gives transformers a second path onto a platform: a provider module ships a cluster-scoped `TransformerRegistration` claim naming a catalog it says implements platform contracts. `opm-operator` landed the CRD and its RBAC gate (PR 133); the acceptance path is the next slice, and three of its checks all need the same thing — **the claimed catalog artifact, fetched from the registry and evaluated**:
 
 - **D10**: import the claimed artifact's root package and require a `#Catalog` value, so a module artifact is refused by shape rather than by a maintained rule.
 - **D11**: re-derive `provides` as a fold over the catalog's own `#transformers` — every required contract whose value carries `fulfilment: "provider"` — and compare it to the claim for exact equality.

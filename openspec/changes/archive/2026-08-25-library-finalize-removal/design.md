@@ -28,7 +28,7 @@ See `proposal.md` for motivation. What shapes the approach:
 
 `finalize.go` is removed, `Kernel.Finalize` is removed, the `dataComponents` parameter is removed. No shim, no alias.
 
-**Why:** the deprecation window already happened (step 2 marked the parameter deprecated and moved the strip off the path; step 3 landed on top). There is no external caller to protect, and the line is pre-release. Keeping a shim would keep the strip's mechanism in the codebase, which is the thing 0019 D1 removes.
+**Why:** the deprecation window already happened (step 2 marked the parameter deprecated and moved the strip off the path; step 3 landed on top). There is no external caller to protect, and the line is pre-release. Keeping a shim would keep the strip's mechanism in the codebase, which is the thing enhancement 0019 ("Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour") removes.
 
 **Alternative:** keep `FinalizeValue` as a public utility with no kernel role. Rejected: the security-audit skill and the design docs would keep pointing at it as if it were a boundary, and D1's direction is removal.
 

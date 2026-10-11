@@ -13,7 +13,7 @@
 
 - [x] 2.1 Delete `library/apis/core/v1alpha2/` (recursive, including testdata).
 - [x] 2.2 Copy every `*.cue` file from `core/src/` (the new core repo's source directory) into `library/apis/core/*.cue` (flat layout, package `core`). As of 2026-05-26 the file set is: `blueprint.cue`, `catalog.cue`, `component.cue`, `helpers_autosecrets.cue`, `module.cue`, `module_context.cue`, `module_release.cue`, `platform.cue`, `resource.cue`, `schemas.cue`, `trait.cue`, `transformer.cue`, `types.cue`. `catalog.cue` and `module_context.cue` were introduced by enhancement 0001's `core/` slice (D19/D25 and D1–D4 respectively) — copy whatever is in `core/src/` at sync time rather than relying on this enumerated list. Skip `INDEX.md` (generated doc).
-- [x] 2.3 Copy `core/src/cue.mod/module.cue` verbatim — the module identifier is `opmodel.dev/core@v0` per enhancement 0001 D12.
+- [x] 2.3 Copy `core/src/cue.mod/module.cue` verbatim — the module identifier is `opmodel.dev/core@v0` per enhancement 0001 ("Schema lands on `opmodel.dev/core@v0`; no `@v1` cut until `core` is signalled stable").
 - [x] 2.4 Update `library/apis/core/embed.go`: change `//go:embed cue.mod/module.cue v1alpha2/*.cue` → `//go:embed cue.mod/module.cue *.cue`.
 - [x] 2.5 Re-run schema load via a tiny throwaway main if needed; confirm `schema.SchemaValue` returns a value whose `#ModuleRelease` exists. (Build runs first.) The re-synced schema is the post-0001 `core` shape: `#Module` has `#ctx` (no `#defines`); `#Platform.#registry` is path-keyed `#Subscription`; `#FQNType` uses SemVer; `#Catalog` is a top-level definition. Consumer fixtures that still use the old shapes will fail unification — see task 12 for the quarantine + D10 in `design.md` for the scope boundary.
 
