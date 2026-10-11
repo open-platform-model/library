@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Parity comparator for the render-parity harness (0019:D1/D4/D14;
+// Parity comparator for the render-parity harness (enhancement 0019;
 // openspec changes library-parity-harness and library-render-cutover). The
 // oracle is plain CUE unification of a transformer's #transform with its
 // declared inputs in one build; the kernel is Kernel.Render. Where they
@@ -22,11 +22,11 @@ import (
 // unfinalized field order is the render output contract, so the encoder used
 // here must preserve evaluation order rather than sort. cue.Value.MarshalJSON
 // does (TestParityEncoder_ReportsReordering proves it); Syntax(cue.Final())
-// is deliberately not used because finalization is the very pass 0019:D14 names as
+// is deliberately not used because finalization is the very pass that enhancement 0019 names as
 // the source of today's reordering.
 
 // parityEquality mirrors #ParityCase.equality in
-// enhancements/0019/contracts/contracts.cue.
+// the contracts file of enhancement 0019.
 type parityEquality string
 
 // equalityStructural compares the whole rendered value. It is the only
@@ -48,7 +48,7 @@ type parityCase struct {
 	// ExpectedDivergence names the kernel behaviour that makes this case
 	// diverge today. Empty means the two sides MUST agree. Non-empty means
 	// the kernel side MUST fail or differ; when it unexpectedly agrees the
-	// case fails, telling the author to delete the entry (0019:D4: every
+	// case fails, telling the author to delete the entry (enhancement 0019: every
 	// entry is emptied by the time the enhancement is implemented).
 	ExpectedDivergence string
 }
@@ -165,9 +165,9 @@ func compareRendered(kernel, oracle []cue.Value) string {
 			class := "values differ beyond ordering"
 			switch {
 			case equalModuloOrder(ek, eo):
-				class = "ordering-only divergence: same fields and values, different struct field order (0019:D14)"
+				class = "ordering-only divergence: same fields and values, different struct field order (enhancement 0019)"
 			case equalModuloAllOrder(ek, eo):
-				class = "ordering-only divergence: same fields and values, different list element order (0019:D14)"
+				class = "ordering-only divergence: same fields and values, different list element order (enhancement 0019)"
 			}
 			return fmt.Sprintf("object[%d] differs at %s (%s)\n  kernel: %s\n  oracle: %s",
 				i, firstDiffPath(kernel[i], oracle[i]), class, ek, eo)
@@ -184,7 +184,7 @@ func compareRendered(kernel, oracle []cue.Value) string {
 // delete.
 func checkParity(c parityCase, kernel, oracle parityRender) error {
 	if c.Equality != equalityStructural {
-		return fmt.Errorf("case %q: equality %q is not admitted; %q is the only mode (the output-fields-only interim mode was retired with 0019:D12)", c.Name, c.Equality, equalityStructural)
+		return fmt.Errorf("case %q: equality %q is not admitted; %q is the only mode (the output-fields-only interim mode was retired with enhancement 0019)", c.Name, c.Equality, equalityStructural)
 	}
 	if oracle.Err != nil {
 		return fmt.Errorf("case %q (%s :: %s): the pure-CUE oracle must render; a failing oracle is a broken fixture, not a kernel divergence: %w",
@@ -201,13 +201,13 @@ func checkParity(c parityCase, kernel, oracle parityRender) error {
 
 	if c.ExpectedDivergence == "" {
 		if divergence != "" {
-			return fmt.Errorf("case %q (%s :: %s): kernel diverges from pure-CUE unification (0019:D1: the kernel is the defective side; close this by removing kernel behaviour, not by loosening the comparison)\n%s",
+			return fmt.Errorf("case %q (%s :: %s): kernel diverges from pure-CUE unification (enhancement 0019: the kernel is the defective side; close this by removing kernel behaviour, not by loosening the comparison)\n%s",
 				c.Name, c.Component, c.Transformer, divergence)
 		}
 		return nil
 	}
 	if divergence == "" {
-		return fmt.Errorf("case %q (%s :: %s): expected divergence %q no longer reproduces; the kernel now agrees with the oracle. Delete this case's ExpectedDivergence entry (0019:D4)",
+		return fmt.Errorf("case %q (%s :: %s): expected divergence %q no longer reproduces; the kernel now agrees with the oracle. Delete this case's ExpectedDivergence entry (enhancement 0019)",
 			c.Name, c.Component, c.Transformer, c.ExpectedDivergence)
 	}
 	return nil
