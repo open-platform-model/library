@@ -69,7 +69,7 @@ Constraints that shape the approach:
 
 - [A consumer branch not yet on `main` references a removed identifier] → The grep was run against `cli` and `opm-operator` `main` on 2026-08-30. `MIGRATIONS.md` names every identifier and its replacement; the fix on such a branch is mechanical.
 - [`AnnotationDefaultNamespace` was the only Go-side spelling of an ADR-001 key] → The key is declared in core's `#Module` and is a schema fact, not a library one. ADR-001 is unchanged; the migration entry says where the key lives.
-- [Removing `StripProvenance` looks like reopening enhancement 0010 ("Provenance is excluded by a Go-side operand filter over a fixed denylist")] → The design records that D30 has two live implementations that stay. The `catalog-compatibility` delta says so in its Reason.
+- [Removing `StripProvenance` looks like reopening enhancement 0010 ("Provenance is excluded by a Go-side operand filter over a fixed denylist")] → The design records that the provenance denylist has two live implementations that stay. The `catalog-compatibility` delta says so in its Reason.
 - [Three MAJOR removals in a row (`library-finalize-removal`, this, `library-phase-and-values-prune`) accumulate under one `Unreleased, Breaking` bucket] → Each carries its own `MIGRATIONS.md` entry keyed by change slug; release-please graduates them together, which is the intended alpha cadence.
 
 ## Migration Plan

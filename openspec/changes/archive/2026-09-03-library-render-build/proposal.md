@@ -1,8 +1,8 @@
 ## Why
 
-Enhancement 0019 Phase B collapses the render to one CUE build per render (D9): the kernel stages the instance and the platform into a generated render module, evaluates it once in a context that dies with the render (D8), and reads `rendered` and `diagnostics` off the built value. Nothing crosses a build boundary, so parity with pure CUE stops being a property the harness polices and becomes one the kernel cannot violate. This change builds that path; it does not switch anything over to it.
+Enhancement 0019 Phase B collapses the render to one CUE build per render: the kernel stages the instance and the platform into a generated render module, evaluates it once in a context that dies with the render, and reads `rendered` and `diagnostics` off the built value. Nothing crosses a build boundary, so parity with pure CUE stops being a property the harness polices and becomes one the kernel cannot violate. This change builds that path; it does not switch anything over to it.
 
-This change is `library-render-build`, the second library slice of 0019 Phase B. It consumes `library-platform-source` (the `Source` fields on instance and platform) and the released D5/D17 core schema (`core-registry-import`: registry entries carry the catalog by import, `#matchers` gone). It implements D9 (the single build), D13 (the promoted `cue.mod` and the refusal invariant), D7/D18 (skew detection and policy), D10 (matching in the build, verdicts as data), and the per-render context lifetime rule of D8.
+This change is `library-render-build`, the second library slice of 0019 Phase B. It consumes `library-platform-source` (the `Source` fields on instance and platform) and the released core schema of that enhancement (`core-registry-import`: registry entries carry the catalog by import, `#matchers` gone). It implements the single build, the promoted `cue.mod` and the refusal invariant, skew detection and policy, matching in the build (verdicts as data), and the per-render context lifetime rule.
 
 ## What Changes
 

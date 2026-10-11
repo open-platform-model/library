@@ -6,7 +6,7 @@ Constraints that shape the approach:
 
 - Principle VI: MAJOR; pre-GA, consumers migrate in the same wave (here: nothing to migrate) and the record is changelog plus archive.
 - Principle VII bounds the list to zero-reader identifiers: `MatchPlan.Unmatched`, `ModuleVersion()`, `TransformError.ComponentName` and `alternativesFor` all have readers and stay.
-- 0019 owns `Kernel.Match`/`MatchInput` (D10 retires the Go matcher) and the platform file-load path (D6/D9); neither is touched here.
+- 0019 owns `Kernel.Match`/`MatchInput` (enhancement 0019 retires the Go matcher) and the platform file-load path; neither is touched here.
 - 0012 is `draft`; its OQ3 is answered in place per the enhancements rules, with this change cited.
 
 ## Goals / Non-Goals

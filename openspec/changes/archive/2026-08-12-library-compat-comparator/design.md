@@ -127,7 +127,7 @@ The experiment dispatches on `StructKind` vs leaf. The shipped tests MUST additi
 
 ### Known deferrals (owned by cli-catalog-gates)
 
-- Member enumeration over `<kind>/<apiVersion>/` filing (enhancement 0010, "Contract kinds file under a version segment (`<kind>/<apiVersion>/`) derived from the key") and `kindPrefix` (D42).
+- Member enumeration over `<kind>/<apiVersion>/` filing (enhancement 0010, "Contract kinds file under a version segment (`<kind>/<apiVersion>/`) derived from the key") and `kindPrefix` (enhancement 0010).
 - Predecessor *fetch* (`enumerateVersions` + `pullCatalog` composition) and the member-absent-in-predecessor policy ("no predecessor → pass" vs backward scan).
 - Prerelease-predecessor policy: both mainline catalogs publish only `1.0.0-alpha.*` today, so `HighestStable`'s fallback branch (highest overall) is the live path. Whether a publish gate should compare against a prerelease predecessor is gate policy; `HighestStable` keeps its measured semantics.
 - Refusal message rendering (0011 06-operational message 9), including its grouping header.

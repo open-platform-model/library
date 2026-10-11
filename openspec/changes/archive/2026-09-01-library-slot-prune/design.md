@@ -4,7 +4,7 @@ See proposal.md, Why. The 2026-09-01 kernel review re-verified the enhancement 0
 
 Constraints that shape the approach:
 
-- Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") currently reserves the slots and explicitly rejected this removal. 0009 is `draft`, so D9 MUST be revised in place (enhancements repo rules) before this change lands; the revision, not this change, is where the reversal is decided and recorded.
+- Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") currently reserves the slots and explicitly rejected this removal. 0009 is `draft`, so its injection-surface decision MUST be revised in place (enhancements repo rules) before this change lands; the revision, not this change, is where the reversal is decided and recorded.
 - Principle VI: removing the options is MAJOR. Pre-GA, consumers migrate in the same PR wave and the record is changelog plus archive (migrations policy, dormant until GA).
 - Principle I is unaffected either way: the kernel never logged; removing the slots removes the appearance of an observability story, not an actual one.
 
@@ -56,12 +56,12 @@ Constraints that shape the approach:
 
 ## Risks / Trade-offs
 
-- [0009 later re-adds similar options and the churn looks wasteful] → Accepted deliberately in the revised D9: the future surface is shaped by its first reader (planner/runner spans, step logs, deterministic time), which the current slots were guesses at. The otel dependency returning with a real tracer consumer is the correct time to pay for it.
+- [0009 later re-adds similar options and the churn looks wasteful] → Accepted deliberately in the revised decision: the future surface is shaped by its first reader (planner/runner spans, step logs, deterministic time), which the current slots were guesses at. The otel dependency returning with a real tracer consumer is the correct time to pay for it.
 - [A downstream embedder outside the workspace passes an option today] → None exists (the library is pre-1.0 and workspace-consumed); the compile error names the removed identifier.
 
 ## Migration Plan
 
-1. enhancement 0009: revise D9 in place, append the history event.
+1. enhancement 0009: revise the injection-surface decision in place, append the history event.
 2. `library`: implement tasks 2 through 4; `task check`.
 3. `opm-operator` (same PR wave): drop the `WithLogger` argument and unused imports; `task dev:fmt dev:vet dev:test`.
 

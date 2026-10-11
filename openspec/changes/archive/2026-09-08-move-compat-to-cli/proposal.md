@@ -25,7 +25,7 @@ This is slice 5 of the eight-slice simplification plan reviewed on 2026-09-05, t
 **Enhancements (a separate commit in `enhancements/`, tasked here so it is not forgotten):**
 
 - 0020 (draft): "Cross-Repo Coordination" item 3 and the four `schemas/target.cue` comments naming `library/opm/compat` retarget to `cli/internal/compat`; the "library before cli" ordering for the comparator collapses to cli-only.
-- 0011 (accepted): `enhancement.yaml` in this change declares D9 so the archive step logs the relocation in `0011/delivery.yaml` with a summary naming the new home.
+- 0011 (accepted): `enhancement.yaml` in this change declares the publish-gate decision so the archive step logs the relocation in `0011/delivery.yaml` with a summary naming the new home.
 
 **Not in this change:** any edit to the comparator, the ladder or the selector; the cli's `publish` package beyond one import path; the cli's OpenSpec record for the moved capability (the cli PR adds it); the slice 4 shapes in `opm/errors`.
 

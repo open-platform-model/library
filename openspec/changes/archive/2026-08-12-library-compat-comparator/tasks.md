@@ -4,7 +4,7 @@
 
 ## 1. Package scaffold + level ladder
 
-- [x] 1.1 Create `opm/compat` with package doc: pure logic, no I/O, callers compose enumeration/pull/policy; consumers are the 0011 publish gate, `opm catalog registry check --compat`, and `library-matching`'s D34/D30 reads.
+- [x] 1.1 Create `opm/compat` with package doc: pure logic, no I/O, callers compose enumeration/pull/policy; consumers are the 0011 publish gate, `opm catalog registry check --compat`, and the ladder and provenance-strip reads of `library-matching` (enhancement 0010).
 - [x] 1.2 `level.go`: `Level` (`LevelAlpha`, `LevelBeta`, `LevelGA`), `ParseLevel`, `Enforced`, `CompareAPIVersions` (total, transitive). Regex identical to core `#APIVersionType` (`core/src/types.cue:83` — digit required after `alpha`/`beta`).
 - [x] 1.3 `level_test.go`: ladder cases (`v1alpha1` alpha, `v1beta1` beta, `v1`/`v2` GA, `v1alpha` rejected, `V1` rejected), `Enforced` per level, `CompareAPIVersions` transitivity over the measured pathological triple (`v1alpha1`, `v2`, `v10` — same order regardless of input order), core-regex parity pin with source comment.
 - [x] 1.4 `task check:fast` green.
@@ -38,5 +38,5 @@
 ## 6. Verify & record
 
 - [x] 6.1 `task check` clean.
-- [x] 6.2 Record back in enhancement 0011: slice `library-compat-comparator` → `done`, `openspec_ref: "library/library-compat-comparator"`, history event. Record the D30 scope addition in **both** entries' notes (0011 history event text + a 0010 history event noting D30's strip implementation landed here, application still owed by `library-matching`).
+- [x] 6.2 Record back in enhancement 0011: slice `library-compat-comparator` → `done`, `openspec_ref: "library/library-compat-comparator"`, history event. Record the provenance-strip scope addition in **both** entries' notes (0011 history event text + a 0010 history event noting the strip implementation landed here, application still owed by `library-matching`).
 - [x] 6.3 Confirm the `library-acquire-and-subscription` slice of the plan of enhancement 0010 is now unblocked (`task plan:ready ID=0010`).

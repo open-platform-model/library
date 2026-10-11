@@ -1,8 +1,8 @@
 ## Why
 
-Enhancement 0019 Phase B makes the render one CUE build per render (D9): the build imports the instance and the platform as packages, so the kernel's inputs stop being evaluated `cue.Value`s and become source trees with a `cue.mod`. Today only `module.Module` carries its staged source (`module.Source`, stamped by the registry acquire path); `module.Instance` discards the staged tree `synth.Instance` builds, and `platform.Platform` has no source at all — `Materialize` consumes the evaluated value instead. This slice adds the source plumbing everywhere the render-build slice will consume it, with no behavior change: nothing reads the new fields yet.
+Enhancement 0019 Phase B makes the render one CUE build per render: the build imports the instance and the platform as packages, so the kernel's inputs stop being evaluated `cue.Value`s and become source trees with a `cue.mod`. Today only `module.Module` carries its staged source (`module.Source`, stamped by the registry acquire path); `module.Instance` discards the staged tree `synth.Instance` builds, and `platform.Platform` has no source at all — `Materialize` consumes the evaluated value instead. This slice adds the source plumbing everywhere the render-build slice will consume it, with no behavior change: nothing reads the new fields yet.
 
-This change is `library-platform-source`, the first library slice of 0019 Phase B (D9's input shape; groundwork for D5/D8/D10/D13). It lands against the current core pin and does not depend on core's `core-registry-import`.
+This change is `library-platform-source`, the first library slice of 0019 Phase B (the input shape of the single build; groundwork for the registry import, shares-nothing, matching and promotion decisions). It lands against the current core pin and does not depend on core's `core-registry-import`.
 
 ## What Changes
 
@@ -21,7 +21,7 @@ MAJOR by the letter of Principle VI (a public helper signature changes: `synth.I
 
 - `opm/module` (Source broadened, Instance field), `opm/platform` (field + alias), `opm/helper/synth` (return plumbing), `opm/kernel` (stamping in `SynthesizeInstance`, two new acquire methods).
 - **`cli` / `opm-operator`**: no action. Both go through `Kernel.SynthesizeInstance` / `Kernel.LoadPlatformPackage`, whose signatures are unchanged; a workspace grep for direct `synth.Instance` callers outside this repo is a verification task. The new acquire methods become the recommended entry points when the render-build slice lands.
-- Later 0019 slices consume this one: `library-render-build` reads `Source` on both inputs for staging and `cue.mod` promotion (D13) and the skew comparison (D7/D18).
+- Later 0019 slices consume this one: `library-render-build` reads `Source` on both inputs for staging and `cue.mod` promotion and the skew comparison.
 
 ## Complexity justification
 

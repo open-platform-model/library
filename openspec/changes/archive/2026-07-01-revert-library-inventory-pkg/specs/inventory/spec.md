@@ -1,6 +1,6 @@
 # inventory (REMOVED)
 
-The `opm/inventory` package is removed from the library. It was introduced to home entry-identity, digest, stale-set, and prune-safety logic shared by the CLI and the operator (enhancement `0006` slice A3); decision D31 (`0006/03-decisions.md`) found only the `InventoryEntry` wire shape is actually cross-actor-critical, and that shape is already anchored by the `ModuleInstance` CRD schema plus the kernel's render-digest parity — not by sharing this package. Every requirement in this capability is removed. The behavior each requirement described continues to exist, duplicated per-actor, in `cli/pkg/inventory` and `opm-operator/internal/inventory` — those are not governed by a library-level spec.
+The `opm/inventory` package is removed from the library. It was introduced to home entry-identity, digest, stale-set, and prune-safety logic shared by the CLI and the operator (enhancement `0006` slice A3); enhancement 0006 found only the `InventoryEntry` wire shape is actually cross-actor-critical, and that shape is already anchored by the `ModuleInstance` CRD schema plus the kernel's render-digest parity — not by sharing this package. Every requirement in this capability is removed. The behavior each requirement described continues to exist, duplicated per-actor, in `cli/pkg/inventory` and `opm-operator/internal/inventory` — those are not governed by a library-level spec.
 
 ## REMOVED Requirements
 

@@ -79,7 +79,7 @@ Ordering (enhancement 0019 ("CUE's natural, unfinalized ordering is the render o
 
 **Why not `Syntax(cue.Final())` + `format.Node`:** that is the finalization pass D14 names as the source of reordering; routing both sides through it would hide the very difference the harness must be able to see.
 
-**Pair sets:** the kernel's `MatchPlan.MatchedPairs()` and the oracle's `pairs` are compared as sets first. A kernel-side refusal caused by the always-unify rung (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"), the D30 carve-out) is the single exemption and is reported, not silently accepted; on the shipped fixtures it is empty.
+**Pair sets:** the kernel's `MatchPlan.MatchedPairs()` and the oracle's `pairs` are compared as sets first. A kernel-side refusal caused by the always-unify rung (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"), the carve-out) is the single exemption and is reported, not silently accepted; on the shipped fixtures it is empty.
 
 ### D5: Case rows mirror `#ParityCase` field for field
 

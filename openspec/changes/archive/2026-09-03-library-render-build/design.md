@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. The architecture was decided and measured in enhancement 0019 (D7 to D10, D13, D17, D18; experiments 01 to 08); this document maps it onto this repo. Prerequisites: `library-platform-source` (Source on both inputs) and a published core prerelease carrying D5/D17 (`core-registry-import`: `#CatalogEntry`, derived `#composedTransformers`, no `#matchers`).
+See `proposal.md` § Why. The architecture was decided and measured in enhancement 0019 (skew, shares-nothing, the single build, matching, promotion and the imported-catalog registry; experiments 01 to 08); this document maps it onto this repo. Prerequisites: `library-platform-source` (Source on both inputs) and a published core prerelease carrying D5/D17 (`core-registry-import`: `#CatalogEntry`, derived `#composedTransformers`, no `#matchers`).
 
 The render module's target shape (0019 `02-design.md` § The render build):
 

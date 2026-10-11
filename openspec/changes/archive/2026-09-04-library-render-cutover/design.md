@@ -20,7 +20,7 @@ Frontend call sites today: `cli/internal/platform/materialize.go` (`SynthesizePl
 - No frontend edits (`cli-render-switch`, `operator-render-switch` own them; this change names the call sites only).
 - No component summary on `RenderResult` (`compile.ComponentSummary` was presentation data; the CLI derives it from `RenderDiagnostics.Pairs` plus the instance, or adds a helper on its side).
 - No render memoization, pooling or scheduling (D8; pool sizing is the consumer's, by memory).
-- No 0015 work (the guard's eventual relocation to platform-package generation with the D1 inventory).
+- No 0015 work (the guard's eventual relocation to platform-package generation with the contract inventory of enhancement 0015).
 
 ## Research & Decisions
 
