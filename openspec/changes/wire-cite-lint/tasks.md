@@ -13,4 +13,4 @@
 ## 3. Verify and archive
 
 - [x] 3.1 `openspec validate wire-cite-lint --strict` passes.
-- [x] 3.2 Archive the change and commit.
+- [ ] 3.2 Archive the change and commit.
