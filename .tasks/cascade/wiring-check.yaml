@@ -14,3 +14,5 @@ notify:
   tag: ${{ needs.release-please.outputs.tag_name }}
 publish:
   labels-managed: false
+extra-references:
+  - {file: lint.yml, kind: cite-lint}
