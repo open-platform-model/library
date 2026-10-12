@@ -4,7 +4,7 @@
 
 ### Requirement: Compatibility Comparison
 
-The library SHALL provide a pure comparison (`opm/compat.Check`) that, given a prior and a new definition of the same contract as `cue.Value`s, reports every violation of 0010 D27's additive-only rule: fields and options MAY be added and MUST NOT be removed; a newly added field MUST be optional or defaulted; an existing field's default MUST NOT change. The comparison SHALL be a field-wise walk — struct recursion for the removed-field and optional-or-defaulted rules, forward subsumption at leaves for the value domain, and explicit default comparison at every level — and SHALL NOT be implemented as a single subsumption call in either direction. Each violation SHALL carry the dotted path from the compared root and a stable kind discriminator; default-change violations SHALL carry the rendered old and new values.
+The library SHALL provide a pure comparison (`opm/compat.Check`) that, given a prior and a new definition of the same contract as `cue.Value`s, reports every violation of the additive-only rule of enhancement 0010: fields and options MAY be added and MUST NOT be removed; a newly added field MUST be optional or defaulted; an existing field's default MUST NOT change. The comparison SHALL be a field-wise walk — struct recursion for the removed-field and optional-or-defaulted rules, forward subsumption at leaves for the value domain, and explicit default comparison at every level — and SHALL NOT be implemented as a single subsumption call in either direction. Each violation SHALL carry the dotted path from the compared root and a stable kind discriminator; default-change violations SHALL carry the rendered old and new values.
 
 #### Scenario: Field removal reported
 
@@ -73,7 +73,7 @@ The library SHALL provide predecessor selection over a published-version list (`
 
 ### Requirement: Provenance Stripping
 
-The library SHALL provide a provenance strip (`opm/compat.StripProvenance`) implementing 0010 D30's denylist — exactly `metadata.catalogVersion` and `metadata.description` — via a syntax round-trip that reaches the definition as well as the instance, preserves closedness, and inlines imports so the result is self-contained. All other fields, including identity fields and labels, SHALL remain in the value.
+The library SHALL provide a provenance strip (`opm/compat.StripProvenance`) implementing the provenance denylist of enhancement 0010 — exactly `metadata.catalogVersion` and `metadata.description` — via a syntax round-trip that reaches the definition as well as the instance, preserves closedness, and inlines imports so the result is self-contained. All other fields, including identity fields and labels, SHALL remain in the value.
 
 #### Scenario: Comparison across catalog releases
 

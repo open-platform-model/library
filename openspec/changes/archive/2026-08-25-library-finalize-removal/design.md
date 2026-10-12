@@ -28,7 +28,7 @@ See `proposal.md` for motivation. What shapes the approach:
 
 `finalize.go` is removed, `Kernel.Finalize` is removed, the `dataComponents` parameter is removed. No shim, no alias.
 
-**Why:** the deprecation window already happened (step 2 marked the parameter deprecated and moved the strip off the path; step 3 landed on top). There is no external caller to protect, and the line is pre-release. Keeping a shim would keep the strip's mechanism in the codebase, which is the thing 0019 D1 removes.
+**Why:** the deprecation window already happened (step 2 marked the parameter deprecated and moved the strip off the path; step 3 landed on top). There is no external caller to protect, and the line is pre-release. Keeping a shim would keep the strip's mechanism in the codebase, which is the thing enhancement 0019 ("Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour") removes.
 
 **Alternative:** keep `FinalizeValue` as a public utility with no kernel role. Rejected: the security-audit skill and the design docs would keep pointing at it as if it were a boundary, and D1's direction is removal.
 
@@ -52,7 +52,7 @@ A small test in `opm/kernel` asserts, via `reflect`, that `*Kernel` has no metho
 
 - [A downstream caller of `Execute` exists outside the grep'd repos] → the only known embedders are `cli` and `opm-operator`, both grep-clean; the `MIGRATIONS.md` recipe covers anyone else (drop the fourth argument).
 - [Release gate refuses the breaking commit] → the `## Unreleased — Breaking` entry lands in the same change, keyed by the change slug the commit's `Migration:` trailer names.
-- [The alpha line graduates before this lands, turning the break into a `/v2` module path] → not the case at `v1.0.0-alpha.14`; the ordering constraint is recorded in 0019 06-operational and this is the slice that discharges it for the library.
+- [The alpha line graduates before this lands, turning the break into a `/v2` module path] → not the case at `v1.0.0-alpha.14`; the ordering constraint is recorded in the operational plan of enhancement 0019 and this is the slice that discharges it for the library.
 - [Security-audit rewrite weakens the audit] → the rewrite replaces a claim about a removed mechanism with the stronger, measured one (unification closedness); the audit gains the parity harness as an explicit check.
 
 ## Migration Plan

@@ -1,6 +1,6 @@
 ## Why
 
-`Catalog.Provides()` (`opm/catalog/provides.go`) derives the provider-fulfilled contracts a catalog implements by walking its `#transformers` in Go. The same rule was written twice more in core: once in `#Platform.#contracts._providerSet` and once again by the operator's 0015:D11 claim check, which compares a `TransformerRegistration`'s claimed `provides` against `Provides()`. ADR-012 (`adr/012-matching-stays-in-the-library-glue.md`) lets one derived rule at a time move into core, with a parity test, and names the per-catalog provider set as the next one.
+`Catalog.Provides()` (`opm/catalog/provides.go`) derives the provider-fulfilled contracts a catalog implements by walking its `#transformers` in Go. The same rule was written twice more in core: once in `#Platform.#contracts._providerSet` and once again by the operator's enhancement 0015 ("Every field of the claim is derived or stamped; the only authored fact is the module's catalog dependency version") claim check, which compares a `TransformerRegistration`'s claimed `provides` against `Provides()`. ADR-012 (`adr/012-matching-stays-in-the-library-glue.md`) lets one derived rule at a time move into core, with a parity test, and names the per-catalog provider set as the next one.
 
 The owner decided this as ADR-013, decision h2:
 
@@ -48,7 +48,7 @@ None.
   - `testdata/parity/cue.mod` (the catalog pin the parity harness reads), and the `shippedCases` rows only if they fail at the new build;
   - `.cascade-frozen` (two new entries, at the end of the file).
 - Downstream:
-  - opm-operator's `transformerregistration_controller.go` calls `Provides()` for the 0015:D11 claim check. It gets the same answer for every catalog, published or new. Its old-catalog test is a separate opm-operator change, not this one.
+  - opm-operator's `transformerregistration_controller.go` calls `Provides()` for the enhancement 0015 ("Every field of the claim is derived or stamped; the only authored fact is the module's catalog dependency version") claim check. It gets the same answer for every catalog, published or new. Its old-catalog test is a separate opm-operator change, not this one.
   - The cli does not call `Provides()`.
   - Both frontends pick up the core pin through the deps cascade. The library pin bump changes no Go API they use. Both frontends are built against this head by the `consumer-build` job.
 - Ordering: gated on the core `v2.0.0-beta.3` release, which is out. It touches neither the acquire/load chain nor `go.mod`, so it waits on no other open library change, but it overlaps two textually: the change that adds the `#resources`/`#traits` readers edits `opm/schema/paths.go` (the DebugValues comment directly below `CatalogProvides`); the change that moves `opm/helper/objectset` to `opm/k8s/object` edits the `AGENTS.md` layout block near this change's `catalog/` line and the `.cascade-frozen` file this change appends to. That change keeps `opm/helper/objectset` as a `Deprecated:` wrapper and removes it later (deprecate, then remove), so its frozen entry stays. Whichever merges second brings its branch up to date by merging `origin/main`; the new frozen entries go at the end of the file to keep that merge trivial.
@@ -56,4 +56,4 @@ None.
   - catalog_opm republished against core `v2.0.0-beta.3`, a separate catalog_opm change; until it ships, every published opm catalog takes the deprecated fold;
   - the operator's old-catalog test, a separate opm-operator change;
   - the later change that deletes `providesFold` before GA.
-- No `enhancement.yaml`. The decision is ADR-013, decision h2, not an enhancement decision. The 0015:D11 claim check is unchanged, and this change logs no delivery against it.
+- No `enhancement.yaml`. The decision is ADR-013, decision h2, not an enhancement decision. The enhancement 0015 ("Every field of the claim is derived or stamped; the only authored fact is the module's catalog dependency version") claim check is unchanged, and this change logs no delivery against it.

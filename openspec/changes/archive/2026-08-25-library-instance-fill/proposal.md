@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- `executePair` fills `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `components` (siblings included), `#module`, `metadata`, `values`. No masking, no metadata-only wrapper (0019 D3 and D11). `opm/schema` gains the path constant for the slot.
+- `executePair` fills `#transform.#moduleInstance` with the instance's evaluated `#ModuleInstance` value, whole: `components` (siblings included), `#module`, `metadata`, `values`. No masking, no metadata-only wrapper (enhancement 0019, "`#moduleInstance` is filled by the kernel; it is not removed from the schema" and "Sibling access through `#moduleInstance` stays reachable and is discouraged by contract, never narrowed structurally"). `opm/schema` gains the path constant for the slot.
 - The self-referential read is covered: the instance filled into `#moduleInstance` contains the component filled into `#component`, and a transformer reading its own component through the instance renders concretely with no cycle. A hermetic regression test asserts both the plain read (`#moduleInstance.metadata.*`) and the self-referential one.
 - The parity harness's `instance-probe :: web` row loses its `ExpectedDivergence` entry (the harness fails until it does). The four `divergenceContextLabelOrder` rows are untouched; they are D12's.
 - `#context` construction is unchanged. It remains a Go projection of the same values until D12's `core` slice replaces it.
@@ -24,6 +24,6 @@ _None._
 
 - **SemVer: MINOR.** One new exported path constant in `opm/schema`; no signature changes. Transformers receive strictly more than before; every shipped transformer's rendered output is unchanged because none reads `#moduleInstance` (re-verified 2026-08-20 at 50 transformers), and the parity harness's shipped rows prove it rather than assume it. `cli` and `opm-operator` need no change.
 - **Packages:** `opm/schema` (`paths.go`), `opm/compile` (`execute.go`), `opm/kernel` (regression test, `parity_probe_test.go` row update).
-- **Enhancement 0019:** implements D3's `#moduleInstance` half, in D1's direction (the kernel supplies what unification supplies). D11 is the authoring contract this fill makes reachable; it is excused in the entry's `no_work` and not declared here. Closes library#65. Declared in `enhancement.yaml`.
+- **Enhancement 0019:** implements the `#moduleInstance` half of the fill decision, in the oracle direction (the kernel supplies what unification supplies). The authoring decision is the contract this fill makes reachable; it is excused in the entry's `no_work` and not declared here. Closes library#65. Declared in `enhancement.yaml`.
 - **Complexity (Principle VII):** one `FillPath` and one path constant; no new type, no new phase.
 - **Risk:** filling a closed, independently built instance value into the transformer is the same shape as the `#component` fill this repo already carries under ADR-003's guard; the shipped parity rows and `composed_open_test.go` catch corruption as a value divergence rather than a silent wrong render.

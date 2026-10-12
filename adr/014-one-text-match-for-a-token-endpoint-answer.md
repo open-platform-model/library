@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-08). Records the owner's decision of 2026-10-08 on the change `classify-token-endpoint-refusal`. It is an exception to the strict reading of 0021:D8:R12, recorded in ADR-013, decision d1.
+Accepted (2026-10-08). Records the owner's decision of 2026-10-08 on the change `classify-token-endpoint-refusal`. It is an exception to the strict reading of enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"), recorded in ADR-013, decision d1.
 
 ## Context
 

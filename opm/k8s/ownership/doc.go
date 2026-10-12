@@ -10,7 +10,7 @@
 // with a read error is the frontend's own policy.
 //
 // A frontend consults a verdict on every apply, prune and delete path
-// (0012:D4:R1/R2). A refusal or skip carries a reason, which is the
+// (enhancement 0012). A refusal or skip carries a reason, which is the
 // contract's literal, and a message the library words, so both frontends
 // report it in the same words.
 //

@@ -58,7 +58,7 @@ func NewRegistry(cfg RegistryConfig) (ModFileSource, error) {
 // file, selecting the maximum version per major-qualified path, the roots
 // participating in the maximum. This is minimum version selection as
 // `cue mod tidy` computes it, run once, when the platform module is
-// generated (0019:D13). Unlike tidy it does not prune modules no import
+// generated (enhancement 0019). Unlike tidy it does not prune modules no import
 // reaches; such a pin names a path nothing evaluates and is harmless.
 // Derived entries carry no default-major marker; `cue mod tidy` writes none
 // for a platform either, because the platform imports nothing unqualified.

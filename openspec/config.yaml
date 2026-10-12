@@ -1,5 +1,9 @@
 schema: spec-driven
 
+references:
+  - id: opm-enhancements
+    remote: https://github.com/open-platform-model/enhancements.git
+
 context: |
   # OPM Library Development Constitution
 
@@ -141,8 +145,10 @@ context: |
 
   ### Comments
   - Default to no enhancement reference: say what the code does and why, in the comment's own words.
-  - When the rationale genuinely lives in an enhancement, cite it once at the symbol as `0011:D9` — enhancement id, colon, decision id, no space. One enhancement, several decisions: `0011:D16/D18/D21`. Across enhancements: `0011:D9, 0010:D34`. One requirement of a decision: `0011:D9:R2`; several: `0011:D9:R1/R2`. A bare `D9` names nothing, because decision numbers restart per enhancement.
-  - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `slice C2`, `task 4.2`, `design LD3`). They are not stable identifiers; a requirement number (`R2`) is.
+  - In all text (proposal, design, specs, docs and comments), cite an enhancement only beside a reason in words, such as `(enhancement 0011)` after the sentence it explains, once at the symbol. Several enhancements: `(enhancements 0010 and 0011)`. An enhancement id is never alone, and never comes with a decision number (no `NNNN:Dn`, no `NNNN Dn`, no `NNNN:OQn`, no bare `Dn`): the store has no decision numbers.
+  - To read an enhancement entry, run `openspec show <id>-<slug> --store opm-enhancements`.
+  - If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`. No agent runs `openspec store register`.
+  - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `slice C2`, `task 4.2`, `design LD3`). They are not stable identifiers.
   - Never put a reference in a scaffold template, a generated file, a fixture a user copies, or a CLI output string. Those reach people with no access to the enhancements repo.
   - No `Was:` rename history in comments; `git log` owns it.
   - In CUE, the reference goes in a `// WHY` block separated from the doc comment by one blank line, never in the doc comment itself: `cue lsp` hover, `Value.Doc()` and `cue def` replay a doc comment verbatim.
@@ -169,8 +175,10 @@ rules:
       consumer must pick up a published pin mid-change, add exactly one line to the proposal,
       `Delivery: one PR per section (<consumer> needs <pin> after section <N>)`, and the change
       ships section by section. In that mode the change stays active on main between PRs, and
-      spec sync and enhancement delivery logging wait for archive after the last PR."
-    - "If this change implements decisions from an enhancement in the sibling enhancements/ repo, create enhancement.yaml in this change directory declaring it (implements: [{enhancement: \"NNNN\", decisions: [D1, ...], resolves: []}]). Write it at creation time, while the enhancement is in context; it is what makes archive-time delivery logging mechanical."
+      spec sync waits for archive after the last PR."
+    - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one line `Delivers NNNN, task X.Y.` per task; otherwise `None.`"
+    - Cite an enhancement only as its id beside a reason in words (`enhancement 0011`), never alone
+      and never with a decision number.
 
   design:
     - "Focus: HOW we'll implement it technically"
@@ -188,14 +196,17 @@ rules:
     - Include Go pseudo-code or CUE snippets where they clarify intent.
     - Detail the impact across the affected packages / pipeline phases.
     - Call out any change to the public surface in `opm/`.
+    - Cite an enhancement only as its id beside a reason in words (`enhancement 0011`), never alone
+      and never with a decision number.
 
   specs:
     - "Focus: WHAT behavior is changing (not HOW it's implemented)"
     - "Updates when: New or changed requirements emerge"
     - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
-    - When a requirement implements an enhancement requirement, cite `NNNN:DN:Rn` in its body
-      (first sentence or a trailing `Source:` line), never inside the `### Requirement:` header,
-      which tools read as the requirement's name.
+    - When a requirement implements an enhancement requirement, name the enhancement id beside the
+      reason in words in its body (first sentence or a trailing `Source:` line), never inside the
+      `### Requirement:` header, which tools read as the requirement's name, and never with a
+      decision number.
     - Describe observable behavior (returned errors, rendered output, surfaced validation results).
     - Use ADDED/MODIFIED/REMOVED sections to show deltas.
     - Include scenarios demonstrating library behavior (e.g., valid load vs invalid load, render success vs render failure).
@@ -248,8 +259,8 @@ operations:
       - "Delivery mode: unless proposal.md carries `Delivery: one PR per section`, all section
         commits ship in one PR after the last section and the PR title carries the change's
         release class. In per-section mode each section commit is the PR title and therefore a
-        release trigger; the change stays active on main between PRs, and spec sync and
-        enhancement delivery logging wait for archive after the last PR."
+        release trigger; the change stays active on main between PRs, and spec sync waits for
+        archive after the last PR."
   archive:
     guidance:
-      - "If this change directory contains enhancement.yaml, finish the archive by logging the landing: from the workspace root run `task enhancements:delivery:log FROM=<archived-change-path> SUMMARY=\"<one line: what landed>\"`. It appends a CUE-validated entry to each declared enhancement's delivery.yaml; confirm it printed 'logged' for every declared enhancement."
+      - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."

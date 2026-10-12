@@ -58,7 +58,7 @@ The Kernel SHALL accept configuration through functional options of type `Option
 
 - **WHEN** a developer inspects the `Kernel` struct and its options after this change
 - **THEN** no logger, tracer or clock field or option exists
-- **AND** the injection surface for the execution half is introduced by enhancement 0009 together with its first reader (revised 0009 D9)
+- **AND** the injection surface for the execution half is introduced by enhancement 0009 together with its first reader (revised enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"))
 
 ### Requirement: Goroutine Safety Contract
 
@@ -332,7 +332,7 @@ User values SHALL reach the kernel through exactly three public inputs, each car
 
 ### Requirement: A held Render output keeps its build alive
 
-The kernel SHALL retain no built value between calls. Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, so a caller that holds one keeps the build alive until it releases it; retention is bounded by what the caller holds, the rule ADR-007 states for an acquired artifact's `Package`. ADR-005 and the `opm/kernel` package documentation SHALL state this rule and SHALL NOT state that a caller cannot obtain a built value to hold. ADR-005 SHALL record that Render output moves from `cue.Value` to bytes before GA at the latest. The bytes deadline is 0021:D8:R11; the retention rule is ADR-007 rule 1.
+The kernel SHALL retain no built value between calls. Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, so a caller that holds one keeps the build alive until it releases it; retention is bounded by what the caller holds, the rule ADR-007 states for an acquired artifact's `Package`. ADR-005 and the `opm/kernel` package documentation SHALL state this rule and SHALL NOT state that a caller cannot obtain a built value to hold. ADR-005 SHALL record that Render output moves from `cue.Value` to bytes before GA at the latest. The bytes deadline is enhancement 0021 ("A beta line reaches GA only when its exit criteria hold"); the retention rule is ADR-007 rule 1.
 
 #### Scenario: The documentation states the holder-bounded rule
 
@@ -420,7 +420,7 @@ Where `CONSTITUTION.md` Principle III lists the `Kernel` verbs, it SHALL list th
 
 `Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`, `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance` SHALL check their context after their argument checks and between their stages: after the directory is read, after the values sources are merged, after the package is built and before the next stage starts. The registry acquire verbs SHALL check it after the registry fetch returns and after the package is built, and `Kernel.Render` SHALL check it after its input checks, after staging and after the render build. When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.Canceled)`.
 
-A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage boundary. The `opm/kernel` package doc SHALL say so. Cancellation inside a stage is outside this requirement. Source: 0009:D9, as revised on 2026-10-03.
+A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage boundary. The `opm/kernel` package doc SHALL say so. Cancellation inside a stage is outside this requirement. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: A cancelled context stops each directory verb
 
@@ -454,7 +454,7 @@ A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at th
 
 ### Requirement: Each runtime contract has one home
 
-Each runtime contract of the library SHALL be stated in the doc comment of the package, type or function that owns it; the rationale behind a contract SHALL live in an ADR under `adr/`, and its testable obligations in a requirement under `openspec/specs/`. `README.md`, `AGENTS.md` and `docs/getting-started.md` SHALL link to a contract's home instead of restating it, and MAY keep a short orientation sentence that names the home. A doc comment that the docs bundle publishes (any exported package under `opm/`) SHALL NOT carry an `ADR-NNN` pointer; a package that wants one keeps it in a non-doc comment. No committed file outside `openspec/changes/` SHALL cite a session-local decision, one recorded only in an agent run's own log (a numbered decision kept in that log, or an agent role named as the source), as a source: it states the rule and cites a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as `0012:D3`; a pull request; or an archived change). Source: ADR-013, decision c4.
+Each runtime contract of the library SHALL be stated in the doc comment of the package, type or function that owns it; the rationale behind a contract SHALL live in an ADR under `adr/`, and its testable obligations in a requirement under `openspec/specs/`. `README.md`, `AGENTS.md` and `docs/getting-started.md` SHALL link to a contract's home instead of restating it, and MAY keep a short orientation sentence that names the home. A doc comment that the docs bundle publishes (any exported package under `opm/`) SHALL NOT carry an `ADR-NNN` pointer; a package that wants one keeps it in a non-doc comment. No committed file outside `openspec/changes/` SHALL cite a session-local decision, one recorded only in an agent run's own log (a numbered decision kept in that log, or an agent role named as the source), as a source: it states the rule and cites a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); a pull request; or an archived change). Source: ADR-013, decision c4.
 
 #### Scenario: The render contract is stated once
 

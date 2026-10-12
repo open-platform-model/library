@@ -28,7 +28,7 @@ Task 1.1's spike (`TestStageBuild_LocalReplacementsResolveInOneBuild`, kept as a
 
 **Goals:**
 
-- A developer's `cue.mod/local-module.cue` in a module, instance or platform directory reaches the render build under the precedence 0019 D13 fixes for dependencies.
+- A developer's `cue.mod/local-module.cue` in a module, instance or platform directory reaches the render build under the precedence enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") fixes for dependencies.
 - The kernel never silently drops the file again: it is either honoured (opt-in) or refused.
 - Render output and diagnostics for inputs without the file are byte-identical to today.
 
@@ -93,7 +93,7 @@ for path := range repl {
 
 - [cue/load refuses a directory replacement whose `cue.mod/module.cue` declares a different path than the replaced one] → that is `checkReplaceDirModulePath` working as designed; the error names both paths. Task 1.1 exercises the happy path; a mismatched directory is the developer's error and is reported verbatim.
 - [A module-path replacement target is not listed with a version] → cue refuses with "replacement target … must be listed as a dependency with a version"; the local view carries the target entry, promotion carries it through, so a tidy local file passes. Not special-cased.
-- [The cli renders with a replacement, applies, and the operator's re-render diverges] → by design (0006 D7.4 digest abort); provenance already flips to `source: local` on file presence.
+- [The cli renders with a replacement, applies, and the operator's re-render diverges] → by design (enhancement 0006 ("`opm instance handoff`, the migration feature").4 digest abort); provenance already flips to `source: local` on file presence.
 - [Two changes editing `Stage`] → sequenced after `overlay-served-in-memory`; rebase cost is one function.
 - [A platform developing a never-published catalog lists it version-less and replaces it, while the instance pins a published build] → `CompareSkew` compared `"v4.2.0"` against `""` and failed with a semver error naming neither input. It now skips the comparison when either side is empty (the row still carries both strings, `Newer` false), the one guard added to a function this change otherwise leaves alone. Pinned by `TestCompareSkew_VersionlessReplacedPathIsNotCompared`.
 - [A local file replaces one of the two render inputs' own module paths] → refused by `Promote` ("replaces …, a render input"): the inputs are served from their staged directories by construction, and a row pointing elsewhere would misreport what executed.

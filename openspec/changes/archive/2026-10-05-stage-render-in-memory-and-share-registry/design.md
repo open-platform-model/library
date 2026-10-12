@@ -14,7 +14,7 @@ the following:
   replacement;
 - promotes the dependency lists;
 - writes `cue.mod/module.cue` and `cue.mod/local-module.cue` (`:126-145`);
-- reads `module.cue` back from disk for the 0019:D13 tripwire `VerifyCoverage` (`:147-154`);
+- reads `module.cue` back from disk for the enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") tripwire `VerifyCoverage` (`:147-154`);
 - compares skew, renders the glue and writes `render.cue` (`:181-184`).
 
 `Build` (`:197-220`) runs `load.Instances(".")` with `Dir = ModuleRoot = staged.Dir` and the
@@ -95,7 +95,7 @@ instead of `/tmp/opm-render-123/render.cue`).
 
 ### D2. The tripwire re-parses the bytes the build is served
 
-The 0019:D13 tripwire exists so that coverage is checked on what cue/load will read, not on the
+The enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") tripwire exists so that coverage is checked on what cue/load will read, not on the
 promotion's in-memory list. Today "what cue/load reads" is the file re-read from disk. After this
 change it is the overlay entry. `Stage` therefore stores `promotion.ModuleFile()`'s bytes at
 `RenderRoot/cue.mod/module.cue` first, then looks that entry up in `Staged.Overlay` and passes

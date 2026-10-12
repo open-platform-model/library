@@ -6,7 +6,7 @@ Constraints that shape the approach:
 
 - Principle VI: every removal of an exported identifier is MAJOR, even with no known caller. Under alpha the cost is a `MIGRATIONS.md` entry per identifier group, not a compatibility shim.
 - Principle VII: the removal list is bounded by "zero readers today", not by taste. An identifier with one production reader stays, even if that reader is thin.
-- Enhancement 0009 D9 owns the kernel's cancellation path and the logger, tracer and clock slots. They are unread today and are not touched here.
+- Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface") owns the kernel's cancellation path and the logger, tracer and clock slots. They are unread today and are not touched here.
 - `library-phase-and-values-prune` owns `Plan`, `Kernel.Validate`, `CompileInput.Values` and the typed validation wrappers. Not touched here.
 
 ## Goals / Non-Goals
@@ -20,7 +20,7 @@ Constraints that shape the approach:
 **Non-Goals:**
 
 - Any behaviour change. No rendered value, no error message reachable from a consumer, no match verdict changes.
-- Any change to `Kernel` fields or options (0009 D9).
+- Any change to `Kernel` fields or options (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface").
 - Cleaning up the stale binding-era prose in `platform-artifact` (`Paths()`, slice numbers); that spec has no requirement this change affects and gets its own hygiene pass.
 
 ## Decisions
@@ -37,7 +37,7 @@ Constraints that shape the approach:
 
 ### D2: Remove `StripProvenance` although the compat spec names it
 
-**Context**: `opm/compat.StripProvenance` implements 0010 D30 via a syntax round-trip. The matcher's comment records why it does not use it (the round-trip cannot rebuild kernel-side schema-derived operands and opens closed definitions), and the comparison walk skips provenance at every depth on its own. Zero production callers.
+**Context**: `opm/compat.StripProvenance` implements enhancement 0010 ("Provenance is excluded by a Go-side operand filter over a fixed denylist") via a syntax round-trip. The matcher's comment records why it does not use it (the round-trip cannot rebuild kernel-side schema-derived operands and opens closed definitions), and the comparison walk skips provenance at every depth on its own. Zero production callers.
 
 **Explored**: Keeping it for a future publish-gate consumer in `cli`. Rejected: the `cli` gate already calls `compat.CheckAtLevel`, whose walk carries the skip, so the future consumer already exists and does not use it.
 
@@ -49,7 +49,7 @@ Constraints that shape the approach:
 
 **Context**: The package was designed as opt-in memoization the kernel would not hold. The operator wrote a single generation-keyed slot instead; the CLI relies on CUE's disk cache.
 
-**Explored**: Keeping `Key` alone as a stable content hash of a platform's registry. Rejected: no caller, and 0019 D5 changes what a registry entry carries (the catalog by import), so the key's normalised shape is about to be wrong anyway.
+**Explored**: Keeping `Key` alone as a stable content hash of a platform's registry. Rejected: no caller, and enhancement 0019 ("A platform imports its catalog and embeds it whole into the registry entry, which derives everything else") changes what a registry entry carries (the catalog by import), so the key's normalised shape is about to be wrong anyway.
 
 **Decision**: Delete the package. The Principle I statement ("the kernel holds no materialize cache") moves to the `Materialize` method's doc comment, where it already appears.
 
@@ -69,7 +69,7 @@ Constraints that shape the approach:
 
 - [A consumer branch not yet on `main` references a removed identifier] → The grep was run against `cli` and `opm-operator` `main` on 2026-08-30. `MIGRATIONS.md` names every identifier and its replacement; the fix on such a branch is mechanical.
 - [`AnnotationDefaultNamespace` was the only Go-side spelling of an ADR-001 key] → The key is declared in core's `#Module` and is a schema fact, not a library one. ADR-001 is unchanged; the migration entry says where the key lives.
-- [Removing `StripProvenance` looks like reopening 0010 D30] → The design records that D30 has two live implementations that stay. The `catalog-compatibility` delta says so in its Reason.
+- [Removing `StripProvenance` looks like reopening enhancement 0010 ("Provenance is excluded by a Go-side operand filter over a fixed denylist")] → The design records that the provenance denylist has two live implementations that stay. The `catalog-compatibility` delta says so in its Reason.
 - [Three MAJOR removals in a row (`library-finalize-removal`, this, `library-phase-and-values-prune`) accumulate under one `Unreleased, Breaking` bucket] → Each carries its own `MIGRATIONS.md` entry keyed by change slug; release-please graduates them together, which is the intended alpha cadence.
 
 ## Migration Plan

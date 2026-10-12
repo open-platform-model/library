@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. Enhancement 0019 D9's render build consumes source trees, not evaluated values; this slice threads the trees through the artifact types so the render-build slice has them to consume. Current state: `module.Source` exists (registry-staged, overlay-only, stamped by `Kernel.AcquireModuleFromRegistry`); `synth.Instance` builds a staged tree in `buildOverlay` and discards it after the build; `platform.Platform` and `module.Instance` carry no source.
+See `proposal.md` § Why. The render build of enhancement 0019 consumes source trees, not evaluated values; this slice threads the trees through the artifact types so the render-build slice has them to consume. Current state: `module.Source` exists (registry-staged, overlay-only, stamped by `Kernel.AcquireModuleFromRegistry`); `synth.Instance` builds a staged tree in `buildOverlay` and discards it after the build; `platform.Platform` and `module.Instance` carry no source.
 
 ## Goals / Non-Goals
 

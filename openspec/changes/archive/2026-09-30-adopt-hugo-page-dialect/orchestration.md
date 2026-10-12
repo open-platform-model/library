@@ -34,7 +34,7 @@ Where this file and your change's artifacts disagree, stop and ask the superviso
 - **Scope.**
   - Stay inside your change's scope and "Touches" list.
   - Never add `enhancement.yaml`, even where a repo's propose skill or `openspec/config.yaml` says to write one (O7). Name related 0018 decisions in proposal prose only.
-  - Cite enhancement decisions as `0018:D14` or `0018:D7:R1`, never as a bare `D14`.
+  - Cite enhancement decisions as enhancement 0018 ("Figures are hand-built inline SVG with one visual language" and "Every page declares one type, a title and a one-line description"), never as a bare `D14`.
 
 ## 2. The change set
 
@@ -102,7 +102,7 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
 1. **Config.** Add `openspec/config.yaml` in the house style of cli and catalog_opm: a `context` constitution, `rules` for proposal, design and tasks, and `operations` for apply and archive. Every `rules:` entry must be a plain string; a mapping entry silently disables that artifact's rules. The text says:
    - the theme is Hextra, vendored as files;
    - the gates are `task check`, `task build`, `task test:site` and `task qa`;
-   - 0021:OQ15 is an open question;
+   - one open question of enhancement 0021 is still open;
    - no npm on the host.
 2. **Schema.** Add `openspec/schemas/docs-site-change/`, copied from `catalog_opm/openspec/schemas/catalog-change/` (read it from catalog_opm's `origin/main`, for example with `git -C WS/catalog_opm show origin/main:<path>`, because the main checkout is stale). Remove the CUE wording and rename `name: catalog-change` to `name: docs-site-change`. It holds proposal, design and tasks, and no specs.
 3. **Skills.** Add `.claude/skills/openspec-*`, copied from catalog_opm's `origin/main`.
@@ -112,7 +112,7 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
    - Prove it by following the copied `openspec-propose/SKILL.md` step 3, not a bare CLI call: `cd <wt> && openspec new change w0-probe`; then overwrite `openspec/changes/w0-probe/.openspec.yaml` exactly as the patched skill says; check that it reads `schema: docs-site-change` and `skip_specs: true`; add stub `proposal.md`, `design.md` and `tasks.md` from the schema's templates; run `cd <wt> && openspec validate w0-probe --strict --no-interactive`; then delete `openspec/changes/w0-probe`.
 4. **Taskfile.** Add `openspec:check` (`openspec validate --all --strict --no-interactive`) and call it from `task check`. Add no `openspec:install`.
 5. **Ignore.** Add `.claude/worktrees/` to `.gitignore`.
-6. **Archive.** Give `openspec/changes/docs-catalog-contract/.openspec.yaml` the content `schema: docs-site-change`, `created: 2026-08-18`, `skip_specs: true`. Then run `cd <wt> && openspec archive docs-catalog-contract --yes --skip-specs`. Do not edit its text; its delivery is already logged in `enhancements/archive/0010/delivery.yaml`.
+6. **Archive.** Give `openspec/changes/docs-catalog-contract/.openspec.yaml` the content `schema: docs-site-change`, `created: 2026-08-18`, `skip_specs: true`. Then run `cd <wt> && openspec archive docs-catalog-contract --yes --skip-specs`. Do not edit its text; its delivery is already logged in the delivery log of enhancement 0010.
 7. **Sections.**
    - Section 1 is items 1-4 plus the `.openspec.yaml`. Commit `chore(openspec): add the docs-site-change workspace`.
    - Section 2 is the archive and item 5. Commit `chore(openspec): archive docs-catalog-contract`.
@@ -126,7 +126,7 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
    - Delete its 5 `import ... from '@components/diagrams/...'` lines.
    - Replace each `<ModuleToCluster />`, `<RolesAndArtifacts />`, `<ComponentToObjects />`, `<WhereThingsLive />` and `<ThreeWaysToDeploy />` line with the matching `{{< opm/<name> >}}` (section 4).
 2. **What OPM is.** `git mv docs/site/start/what-is-opm.mdx docs/site/start/what-is-opm.md`. Delete its 3 import lines; replace `<HelmAndOpm />`, `<ModuleToCluster />` and `<ComponentToObjects />`.
-3. **Docs home.** `git mv docs/site/index.md docs/site/_index.md` and remove its `type: explanation` line: an overview declares no type (0018:D7). In its planning comment, "the docs home, an explanation. It keeps this front matter" becomes "the docs home, an overview (no type, 0018:D7). It keeps this front matter".
+3. **Docs home.** `git mv docs/site/index.md docs/site/_index.md` and remove its `type: explanation` line: an overview declares no type (enhancement 0018, "Every page declares one type, a title and a one-line description"). In its planning comment, "the docs home, an explanation. It keeps this front matter" becomes "the docs home, an overview (no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")). It keeps this front matter".
 4. **Asides.** The two in `docs/site/start/quickstart.md` (lines 144 and 209) become GitHub alerts in the section 4 form.
 5. **Weights.** Every `sidebar:` / `  order: N` block becomes `weight: N`, with the same number (8 files).
 6. **Stale paths.** In the planning comments of `docs/site/_index.md` and `docs/site/reference/glossary.md`, `opmodel.dev/site/content/docs/<s>/index.md` becomes `opmodel.dev/site/content/docs/<s>/_index.md`, and `opmodel.dev/site/content/docs/start/index.md` becomes `opm/docs/site/start/_index.md`.
@@ -165,11 +165,11 @@ Workspace root: `/var/home/emil/dev/open-platform-model` (called WS below). Ever
 
 0018 is `draft`, so its decisions are revised in place, with no `Amends:` line. Follow the enhancements repo's `AGENTS.md` and its `enhancements` skill.
 
-1. **D14 decision body** (`0018/03-decisions.md`): "A figure on the site is an Astro component in the site engine ... and a page in any repository uses it through the site's import alias for components" becomes "A figure on the site is a figure component in the site engine that draws inline SVG by hand, and a page in any repository uses it through the engine's figure shortcode". Everything else in D14 stays.
-2. **D14 alternatives.** "the site build copies only Markdown and MDX files" becomes "copies only Markdown files". Keep the astro-d2 rejection evidence as it is.
-3. **`0018/README.md:103`.** Replace the whole bullet body. "**Site presentation.** The site generator, theme, search and styling. The site is built with Astro and Starlight; how it looks is not this entry's to decide." becomes "**Site presentation.** The site generator, theme, search and styling are not this entry's to decide."
+1. **Decision body of the figure decision** (the decisions file of enhancement 0018): "A figure on the site is an Astro component in the site engine ... and a page in any repository uses it through the site's import alias for components" becomes "A figure on the site is a figure component in the site engine that draws inline SVG by hand, and a page in any repository uses it through the engine's figure shortcode". Everything else in D14 stays.
+2. **Alternatives of the figure decision.** "the site build copies only Markdown and MDX files" becomes "copies only Markdown files". Keep the astro-d2 rejection evidence as it is.
+3. **The bullet on site presentation in the overview of enhancement 0018.** Replace the whole bullet body. "**Site presentation.** The site generator, theme, search and styling. The site is built with Astro and Starlight; how it looks is not this entry's to decide." becomes "**Site presentation.** The site generator, theme, search and styling are not this entry's to decide."
 4. **Section.** One. Commit `docs(0018): make the figure decision engine-neutral`.
-5. **Touches.** `0018/03-decisions.md`, `0018/README.md`.
+5. **Touches.** The decisions and the overview of enhancement 0018.
 
 ## 4. Dialect contract for source pages
 
@@ -187,7 +187,7 @@ This contract applies to every file under `<repo>/docs/site/` in opm, core, cata
 |---|---|---|---|
 | `title` | required | required | non-empty string |
 | `description` | required | required | a one-line, non-empty string (the index entry and search snippet) |
-| `type` | required | **forbidden** (an overview declares no type, 0018:D7) | one of `tutorial`, `how-to`, `explanation`, `reference` (0018:D7:R1) |
+| `type` | required | **forbidden** (an overview declares no type, enhancement 0018 ("Every page declares one type, a title and a one-line description")) | one of `tutorial`, `how-to`, `explanation`, `reference` (the same enhancement) |
 | `weight` | optional | optional | a positive integer. Order within the section: lower first, then title. 0 means unset in Hugo |
 
 Forbidden: `sidebar:` (write `weight: N`), and every other key (`slug`, `draft`, `template`, `hero`, `aliases` ...).
@@ -229,13 +229,13 @@ No other shortcode may appear in a source page: not Hextra's `callout`, `tabs`, 
 - `import ... from` lines, inside code fences too (O4: "any");
 - any line starting with `:::`, inside code fences too (O4: "any");
 - JSX or component tags such as `<ModuleToCluster />`;
-- images, as `![...]` or `<img>` (0018:D14 keeps figures in the engine).
+- images, as `![...]` or `<img>` (enhancement 0018 ("Figures are hand-built inline SVG with one visual language") keeps figures in the engine).
 
 **Allowed.** HTML planning comments (`<!-- ... -->`). A keeps them out of every published output: the HTML, `llms.txt` and the Markdown outputs.
 
 **Trade-off, accepted by the owner.** github.com renders the alerts but shows `{{< opm/... >}}` as literal text.
 
-**Rules beyond O4's list.** O4 names the lint's rules; the contract adds the key allowlist (which forbids `aliases`, `draft` and `slug`), the link rules, the ban on images and non-`.md` files, kebab-case names, `weight` >= 1 (0018's `#Page` allows 0; Hugo reads 0 as unset), the exact alert marker, and tagged code fences. Their bases (0018:D7, 0018:D7:R3, 0018:D14 and Hugo behaviour) are listed in A's `design.md`. Supervisor ruling 2026-09-30, under the owner's "rewrite it to how it needs to be": all of them hold. `draft` stays forbidden because a draft is a silently dropped page (Q2). `aliases` stays forbidden while nothing is published; allowing it for a moved page after go-live is a contract change (a planning commit that updates every copy of this file and the lint).
+**Rules beyond O4's list.** O4 names the lint's rules; the contract adds the key allowlist (which forbids `aliases`, `draft` and `slug`), the link rules, the ban on images and non-`.md` files, kebab-case names, `weight` >= 1 (0018's `#Page` allows 0; Hugo reads 0 as unset), the exact alert marker, and tagged code fences. Their bases (enhancement 0018 ("Every page declares one type, a title and a one-line description" and "Figures are hand-built inline SVG with one visual language") and Hugo behaviour) are listed in A's `design.md`. Supervisor ruling 2026-09-30, under the owner's "rewrite it to how it needs to be": all of them hold. `draft` stays forbidden because a draft is a silently dropped page (Q2). `aliases` stays forbidden while nothing is published; allowing it for a moved page after go-live is a contract change (a planning commit that updates every copy of this file and the lint).
 
 ### 4.1 The dialect lint and the page-order helper (POSIX shell tools)
 
@@ -269,7 +269,7 @@ for dir in "$@"; do
       *.mdx) echo "$f:0: MDX file; rename to .md and replace components with {{< opm/... >}} shortcodes" >> "$out"; continue ;;
       index.md|*/index.md) echo "$f:0: index.md is a leaf bundle in Hugo; a section page is _index.md" >> "$out" ;;
       *.md) ;;
-      *) echo "$f:0: not a page; docs/site holds only .md files (no images or data, 0018:D14)" >> "$out"; continue ;;
+      *) echo "$f:0: not a page; docs/site holds only .md files (no images or data, enhancement 0018)" >> "$out"; continue ;;
     esac
     if ! printf '%s\n' "$rel" | grep -Eq '^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|index|[a-z0-9]+(-[a-z0-9]+)*)\.md$'; then
       echo "$f:0: file and directory names are lower-case kebab-case (a-z, 0-9, -)" >> "$out"
@@ -325,7 +325,7 @@ for dir in "$@"; do
       /^[ \t]*>[ \t]*\[!/ {
         if ($0 !~ /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/) err(NR, "alert marker must be exactly \"> [!NOTE]\" (or TIP, IMPORTANT, WARNING, CAUTION) alone on its line")
       }
-      /!\[/ || /<[Ii][Mm][Gg][ \t>\/]/ { err(NR, "image; docs/site pages carry no images (0018:D14)") }
+      /!\[/ || /<[Ii][Mm][Gg][ \t>\/]/ { err(NR, "image; docs/site pages carry no images (enhancement 0018)") }
       /[Hh][Rr][Ee][Ff][ \t]*=|[Ss][Rr][Cc][ \t]*=/ { err(NR, "raw HTML link or source; write a Markdown link [text](/docs/<section>/<page>/)") }
       /^ ? ? ?\[[^]^][^]]*\]:/ {
         t = $0; sub(/^ ? ? ?\[[^]]+\]:[ \t]*/, "", t); sub(/[ \t].*$/, "", t); sub(/^</, "", t); sub(/>$/, "", t)
@@ -346,7 +346,7 @@ for dir in "$@"; do
         if (LEAF == 1) {
           if (!("type" in val)) err(1, "missing type (tutorial, how-to, explanation or reference)")
           else { t = unq(val["type"]); if (t !~ /^(tutorial|how-to|explanation|reference)$/) err(line["type"], "invalid type \"" t "\"") }
-        } else if ("type" in val) err(line["type"], "a section overview (_index.md) declares no type (0018:D7)")
+        } else if ("type" in val) err(line["type"], "a section overview (_index.md) declares no type (enhancement 0018)")
         if ("weight" in val) { w = unq(val["weight"]); if (w !~ /^[1-9][0-9]*$/) err(line["weight"], "weight must be a positive integer") }
       }' "$f" >> "$out"
   done < "$out.files"

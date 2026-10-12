@@ -16,7 +16,7 @@ See `proposal.md` for motivation. Current state, read 2026-09-15 at alpha.30:
 **Goals**
 
 - A catalog is acquirable by the same two routes a module is, with the same guarantees and the same sentinels.
-- A non-catalog artifact is refused by shape, so 0015 D10's restriction costs no maintained rule.
+- A non-catalog artifact is refused by shape, so the restriction of enhancement 0015 costs no maintained rule.
 - The provider-fulfilled set and the committed requirements are readable off the artifact, so the operator needs no CUE of its own.
 
 **Non-Goals**
@@ -34,11 +34,11 @@ This is the load-bearing decision and the one a reviewer should attack. The kern
 The argument, recorded in `adr/009-catalog-is-an-acquired-kind.md`:
 
 1. **A catalog is already a kernel input, transitively.** Every platform build resolves and evaluates the subscribed catalogs; the kernel has always read catalogs, just never as an entry point. This makes an existing dependency explicit rather than introducing one.
-2. **The need is proven by one consumer that cannot proceed without it**, which is the test `CONSTITUTION.md` line 138 sets — the operator implements D8, D10 and D11 or 0015's acceptance path does not ship. `cli/internal/publish` is deliberately NOT cited as a second consumer: its `loadPublishedPackage` probes published subpackages for member-shape compat, gating to no kind and treating absence as a scan signal, and its directory peer carries source positions for refusal messages. Both would fail this change's kind gate. One honest consumer is the argument; two inflated ones would be a worse one.
+2. **The need is proven by one consumer that cannot proceed without it**, which is the test `CONSTITUTION.md` line 138 sets — the operator implements the build-compatibility, artifact-shape and derived-claim decisions of enhancement 0015, or the acceptance path of that enhancement does not ship. `cli/internal/publish` is deliberately NOT cited as a second consumer: its `loadPublishedPackage` probes published subpackages for member-shape compat, gating to no kind and treating absence as a scan signal, and its directory peer carries source positions for refusal messages. Both would fail this change's kind gate. One honest consumer is the argument; two inflated ones would be a worse one.
 3. **The alternative reverses a completed migration.** The operator reaching for `cue/load.Instances` in `internal/` puts CUE loading back in the controller, which the kernel migration removed, and makes it the third copy of OCI-fetch-and-evaluate.
 4. **The boundary that actually matters is read versus judge, and it is preserved.** The kernel returns a validated catalog and a derived set; every verdict stays with the consumer. That is the same line `Platform.Contracts()` draws — "Reports, never refusals".
 
-**Alternative considered — a narrower answer: the operator asks the kernel to validate a claim.** A verb such as `VerifyRegistration(claim) → verdict` keeps the catalog type out of the public surface. Rejected: it moves 0015's *policy* into the library, which is the boundary this design is trying to hold. The library would then own what a refusal says, and D8, D11 and D12's diagnostics are explicitly left to the operator slice.
+**Alternative considered — a narrower answer: the operator asks the kernel to validate a claim.** A verb such as `VerifyRegistration(claim) → verdict` keeps the catalog type out of the public surface. Rejected: it moves 0015's *policy* into the library, which is the boundary this design is trying to hold. The library would then own what a refusal says, and the other diagnostics (enhancement 0015) are explicitly left to the operator slice.
 
 **Alternative considered — leave it in the frontends.** Honest and cheapest today. Rejected because the only frontend that would hold it is the operator, which has no CUE machinery left after the kernel migration; putting `load.Instances` back in `internal/` to serve one controller path is what slice 07 (five changes, 2026-09-13) spent its effort undoing. Note this is a weaker rejection than it would be with two consumers — with one, it turns entirely on where CUE loading belongs, not on deduplication.
 

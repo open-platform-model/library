@@ -26,7 +26,7 @@
       `### Removed — \`revert-library-inventory-pkg\`` — the `opm/inventory`
       package (shipped in `1.0.0-alpha.4`) is deleted in full; no known
       importer exists (`opm-operator` remained pinned to `v1.0.0-alpha.3`,
-      `cli` never depended on it). Reference D31 (`enhancements/0006`).
+      `cli` never depended on it). Reference the revert decision of enhancement 0006.
 
 ## 5. Validation gates
 
@@ -51,6 +51,6 @@
       the main spec tree. (The delta was already applied directly in the PR
       itself — `openspec/specs/inventory/spec.md` was deleted in the same
       commit — so archiving here is a move-only operation, no further sync.)
-- [x] 6.4 Update `enhancements/0006/planned-changes.md` (A3 row: `reverted-pending`
+- [x] 6.4 Update the planned-changes file of enhancement 0006 (A3 row: `reverted-pending`
       → `reverted`, with the real PR/commit + this change's slug) and append a
-      `history` event to `enhancements/0006/config.yaml`.
+      `history` event to the config of enhancement 0006.

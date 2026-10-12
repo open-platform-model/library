@@ -36,7 +36,7 @@ Today's fold, `opm/catalog/provides.go:44-107` (with `collectProviders`), walks 
 **Non-Goals:**
 
 - Removing the fold. That is a later change, before GA, after catalog_opm is republished.
-- Any change to `Provides()`'s signature or result, or to the operator's 0015:D11 claim check.
+- Any change to `Provides()`'s signature or result, or to the operator's enhancement 0015 ("Every field of the claim is derived or stamped; the only authored fact is the module's catalog dependency version") claim check.
 - Republishing catalog_opm and the operator's old-catalog test; each is a separate change in its own repo.
 - A floor. An old catalog is answered, not refused.
 
@@ -81,7 +81,7 @@ func (c *Catalog) Provides() ([]string, error) {
 }
 ```
 
-- **Core age decides when the catalog carries a Source.** `pinsCoreBeforeProvides` reads the committed core pin with `c.Requires()` (`modversion.CorePath`) and reports whether it is older than `schema.ProvidesSince` (`modversion.Compare`). This is the owner's wording: h2 says the fold answers "for older catalogs", which is about core age. It also closes the gap the Context describes: a catalog built against core `v2.0.0-beta.2` or older that authors a `provides` beside its embedded `#Catalog` still gets the fold's derived answer. Without that rule, the operator's 0015:D11 claim check would compare a claim against an authored list.
+- **Core age decides when the catalog carries a Source.** `pinsCoreBeforeProvides` reads the committed core pin with `c.Requires()` (`modversion.CorePath`) and reports whether it is older than `schema.ProvidesSince` (`modversion.Compare`). This is the owner's wording: h2 says the fold answers "for older catalogs", which is about core age. It also closes the gap the Context describes: a catalog built against core `v2.0.0-beta.2` or older that authors a `provides` beside its embedded `#Catalog` still gets the fold's derived answer. Without that rule, the operator's enhancement 0015 ("Every field of the claim is derived or stamped; the only authored fact is the module's catalog dependency version") claim check would compare a claim against an authored list.
 - **Presence decides only when core age is unknown.** That covers a catalog with no Source (`NewCatalogFromValue`), a Source with no core requirement, and a core requirement carrying no version (a local replacement). Such a value is answered from `provides` when present, and by the fold otherwise.
 - **An unreadable committed module file is an error.** A catalog carrying a Source whose `cue.mod/module.cue` `Requires()` refuses is reported, not silently treated as "age unknown". Acquisition already parsed that file, so this does not happen in practice, but a silent fallback would hide a defect. An invalid version string is reported the same way.
 - **The `#transformers` evaluation check runs first and is shared.** Core's comprehension guards each demand map with `!= _|_`, so a bottom demand map could be left out of `provides` when the fold would report it. Running the check before either path keeps one error rule.

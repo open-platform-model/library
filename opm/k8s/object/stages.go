@@ -28,7 +28,7 @@ type Stage[T any] struct {
 // agrees with the staged apply order of Flux's ssa package wherever that
 // orders two kinds, so an engine that re-sorts with Flux's order can take the
 // whole set or any one stage in a call and only refine the library's order,
-// never contradict it (0012:D5:R1).
+// never contradict it (enhancement 0012).
 func Stages[T any](items []T, gvkOf func(T) schema.GroupVersionKind) []Stage[T] {
 	sorted := make([]T, len(items))
 	copy(sorted, items)

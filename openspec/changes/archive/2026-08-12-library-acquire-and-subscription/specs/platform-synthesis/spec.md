@@ -4,7 +4,7 @@
 
 ### Requirement: Subscriptions and filters map onto the registry
 
-**Reason**: 0010 D14 — the filter vocabulary does not exist in core v2, so the synthesis surface can no longer express one. Replaced by the Subscription Synthesis requirement below (required `version` scalar; Enable semantics and the invalid-path scenario carry over unchanged).
+**Reason**: enhancement 0010 ("A subscription names exactly one catalog build") — the filter vocabulary does not exist in core v2, so the synthesis surface can no longer express one. Replaced by the Subscription Synthesis requirement below (required `version` scalar; Enable semantics and the invalid-path scenario carry over unchanged).
 
 ## ADDED Requirements
 

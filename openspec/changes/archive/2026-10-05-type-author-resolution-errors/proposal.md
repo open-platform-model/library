@@ -1,6 +1,6 @@
 ## Why
 
-0021:D8:R12 is a GA exit criterion: a caller tells each fetch or resolution failure the library
+Enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") is a GA exit criterion: a caller tells each fetch or resolution failure the library
 returns by type, without matching on message text, including which kind of resolution failed.
 Library PR #205 typed every failed registry interaction as a `*FetchError`, and left the
 author-defect resolution failures unclassified on purpose: `opm/errors.Classify` returns them
@@ -88,6 +88,6 @@ None.
   `Classify(err) == err` for these forms sees a different value. No frontend does: the cli's
   `unprovidedImport` checks only for a `*FetchError`.
 - Downstream: neither frontend needs a code change to keep building or to keep its exit codes.
-- SemVer: MINOR (additive). Release class `feat`. Completes 0021:D8:R12 on the library side for
+- SemVer: MINOR (additive). Release class `feat`. Completes enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") on the library side for
   the resolution failures design.md lists; "Where resolution ends" lists the load failures it
   leaves as they are, and why.

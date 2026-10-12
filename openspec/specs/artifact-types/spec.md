@@ -214,7 +214,7 @@ Required identity fields are those the schema never defaults:
 
 - Module: `metadata.name`, `metadata.modulePath`, `metadata.version`.
 - Instance: `metadata.name`, `metadata.namespace`, and `#module` present with `#module.kind == "Module"`.
-- Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(true)`. Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (0019 D5), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
+- Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(true)`. Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
 
 A required identity field declared as a disjunction with a default (for example `#VersionType | *"1.0.1"`) is NOT concrete for the purpose of this gate: the gate judges the value as authored, before default finalization. When the gate rejects such a field, the error SHALL name the default arm's value and state that identity fields must be concrete literals.
 
@@ -414,7 +414,7 @@ The library SHALL provide constructor helpers that build the module and platform
 
 `ConfigSchema()` and `Values()` SHALL return the zero `cue.Value` (not an error) when the receiver is `nil` or the field they read is absent. `ConfigSchema()` returns it as well when the instance carries no `#module` or the embedded module declares no `#config`. `ModuleMetadata()` SHALL return nil when the receiver is `nil`, when the instance carries no `#module`, or when the embedded module's metadata does not decode. Each call decodes afresh from `Package`; the returned struct is a copy, and mutating it does not change `Package`. No accessor SHALL consult a version or binding.
 
-The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection. The render build reads none of these accessors: the transformer context is projected by core (0019:D12), and the glue reads the instance by import.
+The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection. The render build reads none of these accessors: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import.
 
 #### Scenario: Components accessor
 

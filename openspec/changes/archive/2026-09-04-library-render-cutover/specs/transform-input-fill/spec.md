@@ -56,7 +56,7 @@ When the render build executes a matched pair, `#transform.#moduleInstance` SHAL
 
 ### Requirement: `#context` is projected by core; the kernel supplies `#runtimeName` only
 
-The kernel SHALL supply exactly one context value into the build, `#context.#runtimeName`, as a formatted literal in the generated glue. Every other `#TransformerContext` field SHALL come from core's projection of `#moduleInstance` and `#component` (core `v2.0.0-alpha.7`, 0019 D12). The kernel SHALL carry no Go-side context builder.
+The kernel SHALL supply exactly one context value into the build, `#context.#runtimeName`, as a formatted literal in the generated glue. Every other `#TransformerContext` field SHALL come from core's projection of `#moduleInstance` and `#component` (core `v2.0.0-alpha.7`, enhancement 0019 ("`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone")). The kernel SHALL carry no Go-side context builder.
 
 #### Scenario: No Go context mirror
 

@@ -51,7 +51,7 @@ type Dep struct {
 // Input is everything Generate needs. Name and Type are the platform's
 // metadata.name and type; ModulePath is the generated module's own identity
 // (a reserved, never-published platforms path such as
-// "opmodel.dev/platforms/cluster@v0", 0019:D6); Entries are the catalog
+// "opmodel.dev/platforms/cluster@v0", enhancement 0019); Entries are the catalog
 // subscriptions; Deps is the resolved dependency closure (see Closure), which
 // MUST contain a pin for core and for every entry's catalog.
 type Input struct {
@@ -88,7 +88,8 @@ func Roots(entries []Entry) []Dep {
 // byte-identical content. Each registry entry stamps the subscription's
 // version, without its "v" prefix, as the entry's expected `version`, which
 // unifies with the schema's readout of the imported catalog so wrong bytes
-// are a build conflict naming the entry (0019:D13 tripwire).
+// are a build conflict naming the entry (the render-module tripwire,
+// enhancement 0019).
 func Generate(in Input) (Files, error) {
 	if in.Name == "" {
 		return nil, errors.New("platform name is required")

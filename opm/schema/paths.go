@@ -19,7 +19,7 @@ import "cuelang.org/go/cue"
 // Matching and execution read nothing by path from Go: the render build
 // imports the instance and the platform as packages and the generated glue
 // reads `components`, `#composedTransformers` and `#contracts` in CUE
-// (0019:D9/D10).
+// (enhancement 0019).
 //
 // Definition fields (those starting with "#" in CUE) use cue.MakePath with
 // cue.Def selectors; concrete fields use cue.ParsePath. The two forms are

@@ -18,9 +18,9 @@ import (
 // TestFlow_ImportedModule_SynthToRender is the end-to-end imported-module
 // render coverage (spec instance-synthesis, "Imported-module render coverage
 // exists"): a real published module — referenced by IMPORT, named at its
-// snake_case path leaf per core v2's 0010:D8 identity rule — is synthesized into
-// a #ModuleInstance and rendered through Kernel.Render against a 0019:D5-shaped
-// platform to concrete resources. An authored instance.cue importing the
+// snake_case path leaf per core v2's identity rule (enhancement 0010) — is synthesized into
+// a #ModuleInstance and rendered through Kernel.Render against a platform that imports its catalog
+// (enhancement 0019) to concrete resources. An authored instance.cue importing the
 // SAME module is rendered too, and both MUST yield the same rendered set
 // (single-build parity through Kernel.Render, not merely at the
 // instance-value level).

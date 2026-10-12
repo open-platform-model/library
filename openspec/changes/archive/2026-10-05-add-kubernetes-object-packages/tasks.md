@@ -56,7 +56,7 @@ for ported code: cli `origin/main` `0b37e3f2` (re-checked unchanged at `1338e700
 - [x] 2.1 `opm/k8s/labels/labels.go` and `doc.go`. The constants and `IsOPMManagedBy` per
       design KO2, values byte-equal to cli and operator `pkg/core/labels.go`. Each doc comment
       says who writes the label. The package doc says it names and recognises labels and never
-      stamps them on rendered objects, because core's CUE stamps them at render (0012:D6, cited
+      stamps them on rendered objects, because core's CUE stamps them at render (enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"), cited
       once at the package). Verify: `go build ./opm/k8s/...` clean.
 - [x] 2.2 `labels_test.go`:
       - a table pinning each constant to its literal (kubernetes-tier scenario "The vocabulary

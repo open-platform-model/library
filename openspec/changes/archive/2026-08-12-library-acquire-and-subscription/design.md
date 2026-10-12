@@ -21,7 +21,7 @@ builds = append(builds, catalogBuild{sub, ver, cv})
 resolved[sub] = ver
 ```
 
-`pullCatalog` already splits the `@vN` suffix and accepts a `v`-prefixed version — unchanged. The major-agreement check is `strings.SplitN(ver, ".", 2)[0]` vs the key suffix's digits, mirroring the target schema's `_majorAgrees` (`0010/schemas/target.cue:670-691`); a key with no `@vN` suffix is an error (core v2's `#ModulePathType` requires it; defensive, not a supported path).
+`pullCatalog` already splits the `@vN` suffix and accepts a `v`-prefixed version — unchanged. The major-agreement check is `strings.SplitN(ver, ".", 2)[0]` vs the key suffix's digits, mirroring the target schema's `_majorAgrees` (the target schema of enhancement 0010); a key with no `@vN` suffix is an error (core v2's `#ModulePathType` requires it; defensive, not a supported path).
 **Rationale**: D14 verbatim. The check is "a consistency check on what the author wrote rather than a selection step" — it lives beside the subscription read, not in a file of its own.
 
 ### Enumeration's fate: lazy diagnostic
@@ -64,7 +64,7 @@ Value receiver `Error()` naming both values (D11: "a typed error naming both"), 
 - *Catalog materialize*: `metadata.modulePath` == subscription key (both `@vN`-suffixed — direct comparison, no recomposition; this is the operation `#ArtifactRef` exists to make one-field); `metadata.version` == the version just pulled. Partially redundant with the major-agreement check by design — that check validates the *author's* consistency before any I/O, this one validates the *artifact's* honesty after.
 **Rationale**: D9 binds the version clause to "each read point D11 names". Skipping the version at the catalog site would leave the jellyfin defect class (stale `metadata.version` in a published artifact) undetected exactly where catalogs are consumed.
 
-**Amendment (found at implementation)**: strict full-path equality at the acquire site collides with the untouched `registry-module-loading` scenario "Self-referential core@v0 metadata is preserved" and the pinned core-v1 regression fixtures (library#31): a core-v0/v1 module's schema cannot express the major-suffixed form — its `metadata.modulePath` is the major-free *parent* path the module is published under (`modulePath + "/" + snake_case(name)`, the enhancements/0003 convention). The path clause therefore dispatches on the declared shape: a declaration carrying `@` compares strictly (the designed v2 rule); a major-free declaration is verified against the publishing convention (fetched path must sit directly under the declared parent). Both shapes still refuse lying metadata; the version clause is line-independent and applies unchanged.
+**Amendment (found at implementation)**: strict full-path equality at the acquire site collides with the untouched `registry-module-loading` scenario "Self-referential core@v0 metadata is preserved" and the pinned core-v1 regression fixtures (library#31): a core-v0/v1 module's schema cannot express the major-suffixed form — its `metadata.modulePath` is the major-free *parent* path the module is published under (`modulePath + "/" + snake_case(name)`, the enhancement 0003 convention). The path clause therefore dispatches on the declared shape: a declaration carrying `@` compares strictly (the designed v2 rule); a major-free declaration is verified against the publishing convention (fetched path must sit directly under the declared parent). Both shapes still refuse lying metadata; the version clause is line-independent and applies unchanged.
 
 ### The third read point collapses into materialize (recorded deviation)
 
@@ -84,7 +84,7 @@ Value receiver `Error()` naming both values (D11: "a typed error naming both"), 
 
 ### D41 residue: the instance FQN in the transformer context
 
-**Context**: `schema/context.go:59` fills `#moduleInstanceMetadata.fqn` with `inst.ModuleFQN()` — the module's FQN under an instance-shaped name. Core v2 defines the instance's own `metadata.fqn` (`registryPath:name:namespace`) and `uuid`. Measured free: no shipped transformer reads `.fqn` from that block. 02-design left `Version` "removed or repurposed".
+**Context**: `schema/context.go:59` fills `#moduleInstanceMetadata.fqn` with `inst.ModuleFQN()` — the module's FQN under an instance-shaped name. Core v2 defines the instance's own `metadata.fqn` (`registryPath:name:namespace`) and `uuid`. Measured free: no shipped transformer reads `.fqn` from that block. The design of enhancement 0010 left `Version` "removed or repurposed".
 **Decision**: `InstanceMetadata` gains `FQN` (decoded via the existing `schema.MetadataFQN` path from the instance value); `context.go` fills the block's `fqn` from it. `Version` **stays**, fed by `inst.ModuleVersion()` — post-this-change that value is acquire-verified, which *is* the "repurposed to the resolved coordinate" reading: declared and resolved are now proven equal, so the field needs no new source.
 **Rationale**: Smallest true implementation of D41's one-line residue; no context shape change, no transformer breakage possible (measured zero readers).
 

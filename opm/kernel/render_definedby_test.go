@@ -12,7 +12,7 @@ import (
 )
 
 // The defining catalog on an unresolved-demand row (single-build-render,
-// "Unresolved demands are diagnosed with alternatives"; 0015:D18): the row
+// "Unresolved demands are diagnosed with alternatives"; enhancement 0015): the row
 // carries the registry key of the enabled catalog whose contract maps list the
 // demanded key, read inside the build from platform.#contracts.definedBy, and
 // the refusal's wording distinguishes "defined by a catalog, implemented by

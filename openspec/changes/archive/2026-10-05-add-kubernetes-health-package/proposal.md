@@ -1,6 +1,6 @@
 ## Why
 
-ADR-011 and 0012:D3 put readiness evaluation in the Kubernetes tier, and ADR-011 item 1 names
+ADR-011 and enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") put readiness evaluation in the Kubernetes tier, and ADR-011 item 1 names
 `health` among the indicative packages. Today the only evaluator OPM has is the cli's
 `internal/kubernetes/health.go` (cli `origin/main` `bd4d1a7c`). It decides when a Deployment,
 StatefulSet or DaemonSet has rolled out, when a Job is complete, what a PersistentVolumeClaim's
@@ -106,6 +106,6 @@ None.
   lib-e4 (`opm/k8s/ownership`). All three are new packages, but each edits the same `opm/k8s/`
   package lines in `README.md`, `AGENTS.md`, `CONSTITUTION.md` and the ADR-011 Status, so
   whichever merges second merges `origin/main` and keeps every package in those lines.
-- `enhancement.yaml` declares 0012 with no decision claimed. 0012:D3 lists readiness evaluation
+- `enhancement.yaml` declares 0012 with no decision claimed. Enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") lists readiness evaluation
   among the tier's decisions, but it is delivered only once both frontends use the tier
   (ADR-011 item 3), so the claim belongs to the adoption changes.

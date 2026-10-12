@@ -81,7 +81,7 @@ Adding the harness SHALL NOT alter any value the kernel renders, any error it re
 
 ### Requirement: The old path was proven equal to Render before deletion
 
-Before the old render path was removed, the harness SHALL have rendered every parity case through both `Compile` (against the subscription-shaped platform on the prior core pin) and `Render` (against a D5-shaped platform importing the same published catalog bytes) and asserted the rendered values equal per case, order-sensitively, with any ordering-only difference recorded per case. The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only.
+Before the old render path was removed, the harness SHALL have rendered every parity case through both `Compile` (against the subscription-shaped platform on the prior core pin) and `Render` (against a platform module importing the same published catalog bytes, enhancement 0019) and asserted the rendered values equal per case, order-sensitively, with any ordering-only difference recorded per case. The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only.
 
 #### Scenario: Proof gated the deletion
 
@@ -90,7 +90,7 @@ Before the old render path was removed, the harness SHALL have rendered every pa
 
 ### Requirement: Equality is structural and order-sensitive
 
-Each case SHALL compare the whole rendered value (`structural`). Comparison SHALL be order-sensitive: two values whose fields or list elements appear in different orders SHALL compare unequal. The harness MUST NOT sort, canonicalise, or otherwise reorder either value before comparing. The `output-fields-only` mode is retired: with the context projected by core (D12) there is no runtime-built projection to exclude, and the harness SHALL refuse a table entry that declares it.
+Each case SHALL compare the whole rendered value (`structural`). Comparison SHALL be order-sensitive: two values whose fields or list elements appear in different orders SHALL compare unequal. The harness MUST NOT sort, canonicalise, or otherwise reorder either value before comparing. The `output-fields-only` mode is retired: with the context projected by core (enhancement 0019) there is no runtime-built projection to exclude, and the harness SHALL refuse a table entry that declares it.
 
 #### Scenario: Reordered output fails
 
@@ -104,7 +104,7 @@ Each case SHALL compare the whole rendered value (`structural`). Comparison SHAL
 
 ### Requirement: The shipped catalog stays discriminated
 
-The shipped parity group SHALL, in a test function of its own beside the one rendering its cases, read the contract inventory off the platform fixture that imports the published `catalogs/opm` build both renderers resolve, and SHALL assert that the inventory reports no comparable transformer pair and reads discriminated (enhancement 0015 D5; core derives the report and imports no catalog, so this is the one place the published catalog is checked against it). The read SHALL NOT live inside the render-case function: a catalog release that breaks discrimination has to fail by name under `-run`, and a render-case divergence and a discrimination break must never mask each other. The assertion SHALL be gated exactly as the shipped group is: skipped under `-short` and when the public registry is unreachable, and forced by the same variable CI sets. A published catalog build that ships two transformers whose predicates are comparable over a shared catalog-fulfilled contract SHALL fail the harness with a message naming both transformer FQNs and the shared contracts, so the break is attributed to the catalog release, not to a platform that later embeds it.
+The shipped parity group SHALL, in a test function of its own beside the one rendering its cases, read the contract inventory off the platform fixture that imports the published `catalogs/opm` build both renderers resolve, and SHALL assert that the inventory reports no comparable transformer pair and reads discriminated (enhancement 0015 ("Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated"); core derives the report and imports no catalog, so this is the one place the published catalog is checked against it). The read SHALL NOT live inside the render-case function: a catalog release that breaks discrimination has to fail by name under `-run`, and a render-case divergence and a discrimination break must never mask each other. The assertion SHALL be gated exactly as the shipped group is: skipped under `-short` and when the public registry is unreachable, and forced by the same variable CI sets. A published catalog build that ships two transformers whose predicates are comparable over a shared catalog-fulfilled contract SHALL fail the harness with a message naming both transformer FQNs and the shared contracts, so the break is attributed to the catalog release, not to a platform that later embeds it.
 
 #### Scenario: The published catalog is discriminated
 

@@ -44,7 +44,7 @@ var errNotObject = errors.New("the JSON is not an object")
 // The managed-by value is the one value ignored: it is the runtime's name
 // (opm-cli or opm-controller), so the cli and the operator digest one render
 // equally, while any other change, including adding or removing the label,
-// moves the digest (0012:D6). The empty set hashes the tag line alone.
+// moves the digest (enhancement 0012). The empty set hashes the tag line alone.
 //
 // An object whose JSON is not a single JSON object fails with an error naming
 // its index. RenderDigest never changes objs, their JSON or their Object.

@@ -66,6 +66,6 @@ For each case the harness SHALL compare the set of (component, transformer) pair
 
 ### Requirement: Equality is stated per case and is order-sensitive
 
-**Reason**: its interim `output-fields-only` mode existed only while `#context` was built in Go; core projects the context (0019 D12) and the render build hands the transformer the projected value, so the whole rendered value is comparable. Restated as "Equality is structural and order-sensitive".
+**Reason**: its interim `output-fields-only` mode existed only while `#context` was built in Go; core projects the context (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone") and the render build hands the transformer the projected value, so the whole rendered value is comparable. Restated as "Equality is structural and order-sensitive".
 
 **Migration**: every table entry declares `structural`.

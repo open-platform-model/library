@@ -11,7 +11,7 @@
 
 ## 3. Enhancement declaration
 
-- [x] 3.1 Create `enhancement.yaml` declaring `implements: [{enhancement: "0010", decisions: [D27]}, {enhancement: "0011", decisions: [D9]}]`.
+- [x] 3.1 Create `enhancement.yaml` declaring that the change implements the additive-only rule of enhancement 0010 and the publish gate of enhancement 0011.
 
 ## 4. Validation gates
 

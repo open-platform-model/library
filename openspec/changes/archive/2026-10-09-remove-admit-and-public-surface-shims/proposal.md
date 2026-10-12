@@ -1,9 +1,9 @@
 ## Why
 
-Two things on the public surface must go before `v1.0.0`, or they are contract for good (CONSTITUTION VI: the module path has no major suffix, so a later removal is a path change). The owner wants both in one breaking beta, so the count of releases without a breaking change (0021:D8:R14) restarts once.
+Two things on the public surface must go before `v1.0.0`, or they are contract for good (CONSTITUTION VI: the module path has no major suffix, so a later removal is a path change). The owner wants both in one breaking beta, so the count of releases without a breaking change (enhancement 0021, "A beta line reaches GA only when its exit criteria hold") restarts once.
 
 1. The two deprecated shims ADR-015 kept for opm-operator: the value forms of `errors.IdentityError` with its `As` method, and the alias `catalog.Source`. opm-operator left them in opm-operator#273; the cli never used them.
-2. The install admission: `Admit` on the ownership verdict inputs. The enhancement record withdrew it (0012:D8:R6 and 0012:D8:R7 removed on 2026-10-09, enhancements#109). The cli, its only caller, stops setting it in cli#357. The adopt rule 0012:D8:R8 stays and does not change.
+2. The install admission: `Admit` on the ownership verdict inputs. The enhancement record withdrew it (the admission requirements of enhancement 0012, removed on 2026-10-09, enhancements#109). The cli, its only caller, stops setting it in cli#357. The adopt rule of enhancement 0012 stays and does not change.
 
 ## What Changes
 
@@ -71,7 +71,7 @@ None.
 
 ### Modified Capabilities
 
-- `kubernetes-tier`: the requirement on the operator install admission is removed; the apply verdict requirement loses its two admission clauses; the adopt annotation requirement cites 0012:D8:R3 in place of the withdrawn 0012:D8:R6; a requirement is added that the verdict inputs carry no field whose only effect is to lift a refusal.
+- `kubernetes-tier`: the requirement on the operator install admission is removed; the apply verdict requirement loses its two admission clauses; the adopt annotation requirement cites the adopt-annotation requirement of enhancement 0012 in place of the withdrawn admission requirement; a requirement is added that the verdict inputs carry no field whose only effect is to lift a refusal.
 - `config-validation`: the requirement that held both the validation marker rule and the receiver rule is split in two; the receiver rule loses its `IdentityError` exception and the scenario for the deprecated value target.
 - `platform-artifact`: `opm/catalog` no longer exports the alias `Source`.
 
@@ -81,4 +81,4 @@ None.
 - Docs: `AGENTS.md` (layout lines for `errors/`, `labels/`, `ownership/`), `docs/site/diagnostics/identity-mismatch.md`, ADR-015 (closing note), a new ADR-016 for the admission removal.
 - Not touched: the kernel, any rename, the unexported `providesFold` fallback in `opm/catalog` (deprecated by ADR-013, decision h2, before library#223; its own removal).
 - Security: the change removes the one input whose only effect was to lift an ownership refusal on the caller's word. The caller still supplies inventory membership (`InInventory`) and the instance UUID, which the library trusts as the frontend's ownership record; that is unchanged. It adds no trust boundary, input or secret.
-- No `enhancement.yaml`: the change delivers no decision. It removes what 0012:D8 withdrew, and the delivery log has no entry kind for a withdrawal.
+- No `enhancement.yaml`: the change delivers no decision. It removes what enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") withdrew, and the delivery log has no entry kind for a withdrawal.

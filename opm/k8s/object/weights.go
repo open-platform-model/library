@@ -3,8 +3,8 @@
 // to Weight. Its values have since been aligned with the staged apply order of
 // Flux's ssa package (github.com/fluxcd/pkg/ssa v0.77.0, the version the
 // operator pins): the operator hands the whole set to Flux's ApplyAllStaged,
-// which re-sorts it, and 0012:D5:R1 lets that engine refine the library's
-// order and never contradict it. flux_order_test.go fails on any pair the two
+// which re-sorts it; the rule is that the engine may refine the library's
+// order and never contradict it (enhancement 0012). flux_order_test.go fails on any pair the two
 // orders put the opposite way round.
 
 package object
@@ -16,7 +16,7 @@ import (
 )
 
 // Kind-class ordering weights for Kubernetes apply and delete. Lower weights
-// are applied first and deleted last (0012:D5). They follow Flux's staged
+// are applied first and deleted last (enhancement 0012). They follow Flux's staged
 // apply order: the cluster definitions, then the class kinds, then Flux's
 // ReconcileOrder. Every kind Flux does not list weighs [WeightDefault], so
 // Flux's alphabetical fallback among those kinds only refines the order.

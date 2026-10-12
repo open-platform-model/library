@@ -9,7 +9,7 @@
 
 ## 2. Module-acquire verification (green pre-step)
 
-- [x] 2.1 `opm/helper/loader/registry/module.go`: after the shape gate, compare declared `metadata.modulePath` vs requested path and declared `metadata.version` vs tag (v-stripped); return `oerrors.IdentityError` on mismatch. One insertion point covering both entrypoints. *(Amended: major-free v0/v1-shaped declarations verify the enhancements/0003 parent-path convention — see design.md amendment.)*
+- [x] 2.1 `opm/helper/loader/registry/module.go`: after the shape gate, compare declared `metadata.modulePath` vs requested path and declared `metadata.version` vs tag (v-stripped); return `oerrors.IdentityError` on mismatch. One insertion point covering both entrypoints. *(Amended: major-free v0/v1-shaped declarations verify the enhancement 0003 parent-path convention — see design.md amendment.)*
 - [x] 2.2 Tests via `registrytest`: publish a module whose metadata declares a different path; a different version; assert the typed error carries both values. Happy path unchanged.
 - [x] 2.3 `task check:fast` green (materialize still on the old resolution — untouched so far).
 
@@ -49,5 +49,5 @@
 
 - [x] 8.1 `MIGRATIONS.md` `## Unreleased — Breaking` — `### Changed — \`library-acquire-and-subscription\``: scalar subscription (author `version:`; absent-from-registry now fails), synth `Filter` → `Version`, new `IdentityError` on acquire/materialize. PR carries `Migration:` trailer if the guard workflow is live.
 - [x] 8.2 `task check` clean; `task cue:check` clean against GHCR.
-- [x] 8.3 Record back in `enhancements/0010/`: slice → `done` + history event + two recorded deviations (third read point collapsed into materialize; operator CRD `Subscription.Filter` contradicts 02-design's "no operator feature code" — flagged for `operator-library-retarget`).
+- [x] 8.3 Record back in enhancement 0010: slice → `done` + history event + two recorded deviations (third read point collapsed into materialize; operator CRD `Subscription.Filter` contradicts 02-design's "no operator feature code" — flagged for `operator-library-retarget`).
 - [x] 8.4 Downstream heads-up notes in the record: `cli/internal/platform` `wireFilter` breakage lands in `cli-coordinate-adoption`; template shape in `cli/internal/config/templates.go` moves `filter: range:` → `version:` there too.

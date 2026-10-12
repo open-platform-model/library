@@ -1,6 +1,6 @@
 # Delta: platform-materialization (closedness-canary-and-filter-tests)
 
-No behavior change. The Version Enumeration and Filtering requirement gains scenarios for the pre-release-range opt-in and mixed-family ordering it already specifies in prose (the enhancement 0006 OQ18 mechanism), so the semantics are test-pinned before OQ18 is decided.
+No behavior change. The Version Enumeration and Filtering requirement gains scenarios for the pre-release-range opt-in and mixed-family ordering it already specifies in prose (the mechanism behind an open question of enhancement 0006), so the semantics are test-pinned before that question is decided.
 
 ## MODIFIED Requirements
 

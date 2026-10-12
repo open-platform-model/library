@@ -19,7 +19,7 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// Render-parity harness (0019:D1/D4/D14; openspec changes
+// Render-parity harness (enhancement 0019; openspec changes
 // library-parity-harness and library-render-cutover). Every case is rendered
 // twice from the SAME fixture bytes and the SAME dependency pins: once
 // through the kernel's public path (AcquireInstanceFromDir +
@@ -35,7 +35,7 @@ import (
 // (parity_probe_test.go): transformers that read #component.#names and
 // #moduleInstance. Every case compares the whole rendered value,
 // order-sensitively, and carries no expected divergence: with #context
-// projected by core (0019:D12) there is no runtime-built value left to
+// projected by core (enhancement 0019) there is no runtime-built value left to
 // exclude.
 //
 // Gating applies to the shipped group only, mirroring the flow test: skipped
@@ -74,7 +74,7 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	// ── oracle side ──────────────────────────────────────────────────
 	oracle := loadOracle(t, parityDir, "./shipped", registry)
 
-	// ── one catalog build on both sides (0019:OQ3, executable) ───────
+	// ── one catalog build on both sides (an open question of enhancement 0019, executable) ───────
 	// The oracle imports the catalog through the parity module's cue.mod;
 	// Render resolves it through the platform module's. The two pins must
 	// name one build, or the comparison is between two catalogs.
@@ -116,7 +116,7 @@ func TestParity_ShippedCatalog(t *testing.T) {
 // opm_platform fixture is the one place the library resolves the published
 // catalogs/opm build into a #Platform, so it is the one place that build can
 // be measured against the comparable-predicate report core derives
-// (0015:D5; core imports no catalog and cannot check itself).
+// (enhancement 0015; core imports no catalog and cannot check itself).
 // A separate function from the shipped render group, gated identically: a
 // catalog release that breaks discrimination fails by name under -run, and
 // a render-case divergence and a discrimination break never mask each other.
@@ -186,7 +186,7 @@ func resolveShippedCases(rows []parityCase, version string) []parityCase {
 // oracle matches for the web_app fixture. Transformer holds the bare name;
 // resolveShippedCases builds the id at the pinned catalog build. The
 // oracle's pair list is asserted to equal this set, so a new pair cannot go
-// untested. Every row is structural with no expected divergence (0019:D4:
+// untested. Every row is structural with no expected divergence (enhancement 0019:
 // the table is empty of divergences once the enhancement is implemented).
 var shippedCases = []parityCase{
 	{
@@ -218,7 +218,7 @@ var shippedCases = []parityCase{
 		Equality:    equalityStructural,
 	},
 	{
-		// The guarded-env component (0019:D14): the env MAP assembled from
+		// The guarded-env component (enhancement 0019): the env MAP assembled from
 		// plain fields, a feature-guarded block and a comprehension, folded
 		// into the Kubernetes env LIST by the deployment transformer, so any
 		// hoisting of comprehension-produced fields reaches rendered bytes.
@@ -339,7 +339,7 @@ func kernelRender(res *kernel.RenderResult, renderErr error, p kernel.RenderPair
 }
 
 // assertPairSetsAgree compares Render's matched pairs with the oracle's.
-// No exemption exists (0019:D10): the always-unify rung is plain unification
+// No exemption exists (enhancement 0019): the always-unify rung is plain unification
 // on both sides, so the two sets must be equal.
 func assertPairSetsAgree(t *testing.T, kernelPairs, oracle []kernel.RenderPair) {
 	t.Helper()

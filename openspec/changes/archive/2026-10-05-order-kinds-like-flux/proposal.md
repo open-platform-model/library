@@ -1,6 +1,6 @@
 ## Why
 
-0012:D5:R1 says the cli and the operator order the same objects identically, and that an apply
+Enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") says the cli and the operator order the same objects identically, and that an apply
 engine's own staging may refine that order within a stage but never contradict it. The operator
 applies through Flux's `ApplyAllStaged` (`github.com/fluxcd/pkg/ssa` v0.77.0) over the whole set,
 so Flux's order is the order the operator's objects reach the cluster in. The library's weight
@@ -110,7 +110,7 @@ None.
   every changed constant with its old and new value and the moved kinds.
 - SemVer: the next beta, release class `feat!`. It is a breaking change of the beta line (ADR-010),
   and it changes the apply, prune and delete order of every frontend that orders through
-  `opm/k8s/object`, to the one the operator's engine already applies by and 0012:D5:R1 requires
+  `opm/k8s/object`, to the one the operator's engine already applies by and enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") requires
   of both frontends.
 - cli: its apply, prune, delete, `tree` and manifest output order change on the bump.
   `internal/kubernetes/order_parity_test.go` pins the retired literals and fails on the bump PR by
@@ -121,5 +121,5 @@ None.
   that compares Flux's staged order, through the Flux module itself, with `object.Weight`; that
   test, not the library, notices a Flux bump that reorders kinds.
 - `enhancement.yaml` links this change to enhancement 0012 like the earlier library slices of it,
-  with no decision claimed: 0012:D5 is delivered only once both frontends adopt the Kubernetes tier
+  with no decision claimed: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") is delivered only once both frontends adopt the Kubernetes tier
   (ADR-011 item 3), and this change corrects the table they will adopt.

@@ -44,7 +44,7 @@ type Staged struct {
 	// on-disk input is not in it and is read from its own directory.
 	Overlay map[string][]byte
 
-	// Skew holds the per-path resolved-versions rows (0019:D18), instance list
+	// Skew holds the per-path resolved-versions rows (enhancement 0019), instance list
 	// against platform list.
 	Skew []VersionRow
 
@@ -153,7 +153,7 @@ func Stage(instance, platform *module.Source, runtimeName string, opts StageOpti
 	}
 	overlay[filepath.Join(root, filepath.FromSlash(LocalModFileName))] = localBytes
 
-	// The 0019:D13 tripwire: re-parse the bytes the build is served, never
+	// The coverage tripwire (enhancement 0019): re-parse the bytes the build is served, never
 	// the in-memory list.
 	if err := VerifyCoverage(overlay[modulePath], modulePath, map[string]*ModFile{"instance": instMF, "platform": platMF}); err != nil {
 		return nil, err

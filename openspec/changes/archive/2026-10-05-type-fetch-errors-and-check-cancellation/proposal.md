@@ -8,13 +8,13 @@ error's text. The library wraps every such failure in a plain `fmt.Errorf`
 import into a string before the library sees it. So the cli carries three text probes
 (`internal/cuemod/connectivity.go` "cannot do HTTP request", `internal/publish/check.go`
 "not found", `internal/publish/compat.go` "cannot find module providing package"), and the operator
-cannot separate a registry blip from an author defect. 0021:D8:R12 makes this a GA exit
+cannot separate a registry blip from an author defect. Enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") makes this a GA exit
 criterion: a caller tells each fetch or resolution failure by type, transient or not, and which
 kind of fetch failed, without matching on message text.
 
 Five kernel verbs also discard their context (`AcquireModuleFromDir`, `AcquireCatalogFromDir`,
 `AcquirePlatformFromDir`, `AcquireInstanceFromDir` and `SynthesizeInstance` take `_ context.Context`).
-A caller that cancels still pays for every stage. 0009:D9, as amended on 2026-10-03, allows
+A caller that cancels still pays for every stage. Enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as amended on 2026-10-03, allows
 context checks at a verb's entry and between its stages to land on their own. Cancellation inside a
 stage stays with 0009.
 
@@ -63,7 +63,7 @@ Not in this change:
 - The cli's `internal/config/platform.go` hint probe ("module not found", "cannot find package",
   "cannot expand module graph"). The owner's decision counts three probes. `Classify` covers these
   forms, so the cli may move it in the same change if it wants to.
-- Cancellation inside a stage (0009:D9). `cue/load` takes no context.
+- Cancellation inside a stage (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface"). `cue/load` takes no context.
 - A migration fragment: `migrations/` is dormant until GA, and nothing here breaks.
 
 ## Capabilities
@@ -93,4 +93,4 @@ Not in this change:
   lists included) still match. A verb called with an already-cancelled or expired context now fails
   fast with the context error instead of completing. Both frontends pass live contexts.
 - Downstream: neither frontend needs a code change to keep building.
-- SemVer: MINOR (additive). Release class `feat`. Satisfies 0021:D8:R12 on the library side.
+- SemVer: MINOR (additive). Release class `feat`. Satisfies enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") on the library side.

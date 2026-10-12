@@ -51,7 +51,7 @@ rides on both `RenderResult.Diagnostics` (`:106-115`) and `RenderError.Diagnosti
 **Non-Goals:**
 
 - Any operator or cli change. Those are op-i3g2 and cli-d2-accessors.
-- A richer per-component demand row. 0013:D24 asks for a list, and a sibling field can be added
+- A richer per-component demand row. Enhancement 0013 ("The kernel reports every contract a render required, synthesised components included") asks for a list, and a sibling field can be added
   later without breaking this one.
 - Deprecating any read path. `Package` stays public (ADR-013, decision d2).
 
@@ -85,7 +85,7 @@ _demand: {
 
 The struct keys remove duplicates, and `list.SortStrings` sorts in byte order, which is the order
 of the operator's `slices.Sort`. The computation is in the build, not in a Go walk of
-`Instance.Components()`. 0013:D24 counts components the kernel synthesises, and those exist only
+`Instance.Components()`. Enhancement 0013 ("The kernel reports every contract a render required, synthesised components included") counts components the kernel synthesises, and those exist only
 inside the render module. When 0013's synthesised components land, the change that adds them
 SHALL make them part of the set this field iterates (today `_components`), and its tests SHALL
 extend the parity fixtures.
@@ -100,7 +100,7 @@ rejected for the synthesised-component reason above.
 ```go
 // RequiredContracts is every contract key a component of the instance
 // requires: each component's #resources and #traits keys, sorted and
-// deduplicated (0013:D24). It counts every component of the render, one
+// deduplicated (enhancement 0013). It counts every component of the render, one
 // omitted under RenderInput.SkipUnprovided included, and it is not
 // narrowed to provider-fulfilled contracts. Empty, never nil, for an
 // instance with no components.
@@ -238,7 +238,7 @@ func (m *Module) DebugValues() cue.Value
 ```
 
 Both mirror `Components()` and `ConfigSchema()`. They return `cue.Value` on the artifact, as the
-existing accessors do. 0021:D8:R11 (no `cue.Value` in public output) is about render output, and
+existing accessors do. Enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (no `cue.Value` in public output) is about render output, and
 these accessors are not on `RenderResult`. There is no `Module.InitValues()`: d2 names `debugValues` only.
 
 ### D8. Spec and docs folds
@@ -288,7 +288,7 @@ these accessors are not on `RenderResult`. There is no `Module.InitValues()`: d2
 **Decision**: One field, `RenderDiagnostics.RequiredContracts` (D2). op-i3g2 reads
 `Diagnostics.RequiredContracts`.
 
-**Rationale**: One value to keep correct instead of two, and it meets 0013:D24 on both success and
+**Rationale**: One value to keep correct instead of two, and it meets enhancement 0013 ("The kernel reports every contract a render required, synthesised components included") on both success and
 refusal. It follows the owner's "exports contract demand as typed data" over the plan's literal
 placement.
 

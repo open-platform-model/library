@@ -4,14 +4,14 @@
 
 One new pure package, `opm/compat`, carrying four related pieces of publish-side logic: the D27 comparison walk, the D34 level ladder, the D9 predecessor selection (moved from `materialize/filter.go`), and the D30 provenance strip. The package does no I/O, holds no state, and depends only on `cuelang.org/go` and `github.com/Masterminds/semver/v3`. Callers (the future `cli-catalog-gates`, `library-matching`'s unify rung) compose it with enumeration, pulling, and policy.
 
-The reference implementation is `enhancements/0011/experiments/03-d27-compat-gate` (concluded, cue v0.17.1) — a demonstration of shape and feasibility, explicitly not code to copy. The shipped API fixes three of its shortcuts: the error/violation channel conflation, the level regex divergence from core, and the non-concrete-default false positive.
+The reference implementation is the compatibility-gate experiment of enhancement 0011 (concluded, cue v0.17.1) — a demonstration of shape and feasibility, explicitly not code to copy. The shipped API fixes three of its shortcuts: the error/violation channel conflation, the level regex divergence from core, and the non-concrete-default false positive.
 
 ## Research & Decisions
 
 ### Why a field-wise walk and not Subsume
 
 **Context**: D27's additive-only rule must be enforced mechanically at publish.
-**Explored**: `enhancements/0011/experiments/03-d27-compat-gate` — 14 cases covering every change class D27 names, against cue v0.17.1.
+**Explored**: the compatibility-gate experiment of enhancement 0011 — 14 cases covering every change class the additive-only rule names, against cue v0.17.1.
 **Options considered**:
 1. `next.Subsume(prev)` — 10/14. Misses disjunction widening (less specific) and defaults.
 2. `prev.Subsume(next)` — 8/14, failing on a disjoint set. Misses struct-field addition (more specific) and defaults.
@@ -127,7 +127,7 @@ The experiment dispatches on `StructKind` vs leaf. The shipped tests MUST additi
 
 ### Known deferrals (owned by cli-catalog-gates)
 
-- Member enumeration over `<kind>/<apiVersion>/` filing (0010 D49) and `kindPrefix` (D42).
+- Member enumeration over `<kind>/<apiVersion>/` filing (enhancement 0010, "Contract kinds file under a version segment (`<kind>/<apiVersion>/`) derived from the key") and `kindPrefix` (enhancement 0010).
 - Predecessor *fetch* (`enumerateVersions` + `pullCatalog` composition) and the member-absent-in-predecessor policy ("no predecessor → pass" vs backward scan).
 - Prerelease-predecessor policy: both mainline catalogs publish only `1.0.0-alpha.*` today, so `HighestStable`'s fallback branch (highest overall) is the live path. Whether a publish gate should compare against a prerelease predecessor is gate policy; `HighestStable` keeps its measured semantics.
-- Refusal message rendering (0011 06-operational message 9), including its grouping header.
+- Refusal message rendering (message 9 of the operational plan of enhancement 0011), including its grouping header.

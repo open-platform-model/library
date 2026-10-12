@@ -78,7 +78,7 @@
 // there is nothing to gain from constructing more than one. Concurrency is
 // across operations, never within one.
 //
-// [Kernel.Render] shares nothing between renders (0019:D8). Each
+// [Kernel.Render] shares nothing between renders (enhancement 0019). Each
 // render is its own CUE build in a fresh cue.Context created for that call;
 // the kernel drops its own references to it when Render returns and retains
 // no built value between calls. A [Compiled] the caller holds keeps its
@@ -113,7 +113,7 @@
 // not interrupted: cue/load takes no context, so cancellation lands at the
 // next stage boundary. Only the registry fetch itself observes the context
 // while it runs; a cancellation it sees comes back wrapped in the fetch
-// error, and errors.Is(err, context.Canceled) still holds (0009:D9).
+// error, and errors.Is(err, context.Canceled) still holds (enhancement 0009).
 //
 // # One-Kernel-per-process example
 //
@@ -222,7 +222,7 @@
 // (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits,
 // OverSubscribed, Collisions, Routable, ResolvedVersions). There is no
 // separate match verb. Beside the pairing diagnosis, RequiredContracts is
-// the instance's contract demand (0013:D24): every #resources and #traits key
+// the instance's contract demand (enhancement 0013): every #resources and #traits key
 // of every component, omitted ones included, set on every RenderResult and
 // every [*RenderError].
 //

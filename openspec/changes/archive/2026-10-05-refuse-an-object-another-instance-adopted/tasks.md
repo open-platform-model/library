@@ -12,7 +12,7 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
   completed hand-over) refuses as `adopted-elsewhere` ahead of `other-instance`, and after
   `other-instance` a non-blank annotation refuses as `adopted-elsewhere` (AD2, AD4). Add the
   messages of design AD6, naming the annotation's value as the other instance. Rewrite the
-  `CanApply` doc's order to match, and cite `0012:D8:R8` once at the symbol.
+  `CanApply` doc's order to match, and cite enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") once at the symbol.
 - [x] 1.2 `opm/k8s/ownership/apply.go`: the `ApplyInput.InInventory` doc says an inventoried object
   is judged only for another instance's adoption, and that a frontend drops an object refused as
   `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal.
@@ -65,17 +65,17 @@ copied (never symlinked) from the main checkout. Every design.md assumption is c
 
 ## 3. docs: package map, layout and ADR-011
 
-- [x] 3.1 Merge gate: this change merges only after the enhancements PR that adds 0012:D8:R8 and
+- [x] 3.1 Merge gate: this change merges only after the enhancements PR that adds enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") and
   the `adopted-elsewhere` literal to `#ApplyRefusalReason` and `#SkipReason` in
   `0012/contracts/contracts.cue` has merged. Before merging, check the merged requirement number;
-  if it is not `R8`, correct every `0012:D8:R8` in this change's code, docs and spec delta, then
+  if it is not `R8`, correct every enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") in this change's code, docs and spec delta, then
   run the gates again. The PR body states the gate; the amendment is enhancements#105, and the
   merger confirms it has merged with R8 unchanged before merging this change.
 - [x] 3.2 `AGENTS.md` § Repository Layout, the `ownership/` line: `CanDelete` also skips
   adopted-elsewhere; `CanApply` also refuses adopted-elsewhere, inside the inventory (the frontend
   drops it from its next inventory) and outside it. `README.md` lists no reasons; leave it.
 - [x] 3.3 `adr/011-kubernetes-tier-beside-the-kernel.md`: append to the Status paragraph
-  "Amended 2026-10-05 by `refuse-an-object-another-instance-adopted` (0012:D8:R8): `CanApply`
+  "Amended 2026-10-05 by `refuse-an-object-another-instance-adopted` (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"): `CanApply`
   refuses as `adopted-elsewhere` an object whose adopt annotation names another instance, inside the inventory too, and
   the frontend drops it from its next inventory; `CanDelete` leaves an object annotated for
   another instance in place." (with the number from 3.1).

@@ -2,7 +2,7 @@
 
 The owner decided this as ADR-013, decision j3:
 
-> j3: Bind attachment map keys to metadata.fqn on all five maps (component #resources/#traits/#blueprints and the catalog.cue member maps), as a hard vet error. Breaking core beta tightening: rewrite core's short-key pins and re-vet catalog_opm and the module fleet first (owner sign-off if a published catalog member is mis-keyed, 0021:D7 R5).
+> j3: Bind attachment map keys to metadata.fqn on all five maps (component #resources/#traits/#blueprints and the catalog.cue member maps), as a hard vet error. Breaking core beta tightening: rewrite core's short-key pins and re-vet catalog_opm and the module fleet first (owner sign-off if a published catalog member is mis-keyed, enhancement 0021 ("A `-beta.N` release line is pre-stable on the path to GA, and breaks only as a declared, migrated change") R5).
 
 Core did its half in core#125 and released it as core `v2.0.0-beta.4` (core#126, published to GHCR on 2026-10-05). A key in a component's `#resources`, `#traits` or `#blueprints`, or in a `#Catalog` member map, that differs from the member's `metadata.fqn` now fails vet. The re-vet found no mis-keyed member in any published catalog (opm 4.1.0 to 4.6.0, every k8s release), catalog_opm, the modules fleet or opm-modules, so the owner's stop did not fire.
 

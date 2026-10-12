@@ -7,7 +7,7 @@
 - **BREAKING** `compile.FinalizeValue` is deleted (`opm/compile/finalize.go` goes). It has no caller in `library` outside tests, none in `cli`, none in `opm-operator` (grep, 2026-08-25).
 - **BREAKING** `Kernel.Finalize` is deleted from `opm/kernel/phases.go`, together with `TestKernel_Finalize`.
 - **BREAKING** `compile.Module.Execute` drops the deprecated `dataComponents` parameter: `Execute(ctx, inst, components, plan)`. `Kernel.Compile` and the `opm/compile` tests are the only callers.
-- The security-audit skill's "finalization before fill" guidance is rewritten: constraint enforcement is CUE unification itself; the audit points are the fixed fill paths and the closedness guards, not a strip step (0019 05-risks, mitigation for the invalidated security claim).
+- The security-audit skill's "finalization before fill" guidance is rewritten: constraint enforcement is CUE unification itself; the audit points are the fixed fill paths and the closedness guards, not a strip step (the risks of enhancement 0019, mitigation for the invalidated security claim).
 - Pipeline wording "finalize → match → execute → emit" in `CLAUDE.md`, `README.md`, `CONSTITUTION.md` and the `kernel-runtime` spec (the "Validate + Match + Execute + Finalize" scenarios) becomes "match → execute → emit". `docs/design/transformer-output-hidden-field-scope-bug.md` is a dated investigation record and keeps its historical references.
 - `MIGRATIONS.md` gains the `## Unreleased — Breaking` entry with the recipe for each removed identifier.
 
@@ -23,8 +23,8 @@ _None._
 
 ## Impact
 
-- **SemVer: MAJOR** (three `opm/` removals). The library is on the `v1.0.0-alpha` line, so the break is absorbed as an alpha increment with no `/v2` module path (0019 06-operational: land Phase A breaks before the line graduates out of alpha). Downstream migration cost: `cli` and `opm-operator` re-pin; neither calls any removed identifier, so no code changes. The Conventional Commit for this slice carries `!` and a `Migration: library-finalize-removal` trailer per `MIGRATIONS.md`'s maintenance rules.
+- **SemVer: MAJOR** (three `opm/` removals). The library is on the `v1.0.0-alpha` line, so the break is absorbed as an alpha increment with no `/v2` module path (the operational plan of enhancement 0019: land Phase A breaks before the line graduates out of alpha). Downstream migration cost: `cli` and `opm-operator` re-pin; neither calls any removed identifier, so no code changes. The Conventional Commit for this slice carries `!` and a `Migration: library-finalize-removal` trailer per `MIGRATIONS.md`'s maintenance rules.
 - **Packages:** `opm/compile` (`finalize.go` deleted, `module.go` signature, `compile_test.go` helpers), `opm/kernel` (`phases.go`, `compile.go` call site, `phase_test.go`), `.claude/skills/security-audit/SKILL.md`, `CLAUDE.md`, `README.md`, `CONSTITUTION.md`, `MIGRATIONS.md`.
 - **Rendered output:** unchanged. Nothing on the render path is touched; the parity harness is the proof.
-- **Enhancement 0019:** implements D1 (the strip leaves the surface, a removal) and completes the Phase A library sequence; D14's ordering note already shipped with step 2. Declared in `enhancement.yaml` as `[D1]`.
+- **Enhancement 0019:** implements the oracle direction (the strip leaves the surface, a removal) and completes the Phase A library sequence; the ordering note already shipped with step 2. Declared in `enhancement.yaml`.
 - **Complexity (Principle VII):** net removal: one file, one method, one parameter, one test.

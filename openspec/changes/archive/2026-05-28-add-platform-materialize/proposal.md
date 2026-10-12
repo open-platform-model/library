@@ -1,6 +1,6 @@
 ## Why
 
-Core `@v0.3.0` reshaped `#Platform.#registry` into a path-keyed map of catalog *subscriptions* and downgraded `#composedTransformers` / `#matchers` to optional, kernel-filled slots (enhancement 0001, D13/D14). Nothing in the library realizes those subscriptions yet: there is no step that turns a subscription spec into a usable transformer index, so the matcher has nothing to consult on the new schema. This slice adds that realization step — `Materialize` — as the additive foundation the match rewrite then builds on.
+Core `@v0.3.0` reshaped `#Platform.#registry` into a path-keyed map of catalog *subscriptions* and downgraded `#composedTransformers` / `#matchers` to optional, kernel-filled slots (enhancement 0001, "`#Platform.#registry` is path-keyed; one subscription per catalog path" and "`Materialize` is explicit and caller-driven; kernel holds no cache; library ships opt-in cache helpers"). Nothing in the library realizes those subscriptions yet: there is no step that turns a subscription spec into a usable transformer index, so the matcher has nothing to consult on the new schema. This slice adds that realization step — `Materialize` — as the additive foundation the match rewrite then builds on.
 
 ## What Changes
 

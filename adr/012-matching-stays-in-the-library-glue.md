@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted (2026-10-03). Records ADR-013, decision d5: where the matching algorithm lives. Leaves 0019:D10 and 0019:D17 (workspace root, `enhancements/archive/0019/03-decisions.md`) standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
+Accepted (2026-10-03). Records ADR-013, decision d5: where the matching algorithm lives. Leaves enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted" and "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") standing. Answers core#62, "Adopt #Match from the library render glue into core", with "not now". Recorded by `record-walkthrough-decisions`, which ships no code.
 
 ## Context
 
-0019:D10 moved matching out of Go and into the render build. The generated render module's glue, `opm/internal/renderstage/render.cue.tmpl`, defines `#Match`: from the platform's composed transformers and the instance's components it derives the pairs, the demand buckets, the unresolved demands, the unify failures and the optional-trait warnings, and it emits all of them as data the kernel decodes. 0019:D17 removed `#Platform.#matchers` from core, on the grounds that the render build's glue owns the reverse index and nothing else consumes it. The template is about 570 lines today, of which `#Match` is the larger part.
+Enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted") moved matching out of Go and into the render build. The generated render module's glue, `opm/internal/renderstage/render.cue.tmpl`, defines `#Match`: from the platform's composed transformers and the instance's components it derives the pairs, the demand buckets, the unresolved demands, the unify failures and the optional-trait warnings, and it emits all of them as data the kernel decodes. Enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") removed `#Platform.#matchers` from core, on the grounds that the render build's glue owns the reverse index and nothing else consumes it. The template is about 570 lines today, of which `#Match` is the larger part.
 
-core#62 proposes moving `#Match` into core as a definition beside `#Platform`, with three arguments. A platform author or a second runtime cannot read what matches from core without embedding the kernel, because the contract exists only in the glue and in prose in core's `SPEC.md`. Core already owns analogous derivations: 0019:D12 moved the `#context` projection into core so the glue would not hand-roll it, and core carries the `#composedTransformers` fold. And the matcher is the one render semantic chosen by the kernel binary rather than by the platform's pinned `opmodel.dev/core` version. The issue itself notes that the move reverses half of 0019:D17 and needs its own decision entry, and that the kernel's decoder would then read field names whose version the platform pins.
+core#62 proposes moving `#Match` into core as a definition beside `#Platform`, with three arguments. A platform author or a second runtime cannot read what matches from core without embedding the kernel, because the contract exists only in the glue and in prose in core's `SPEC.md`. Core already owns analogous derivations: enhancement 0019 ("`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone") moved the `#context` projection into core so the glue would not hand-roll it, and core carries the `#composedTransformers` fold. And the matcher is the one render semantic chosen by the kernel binary rather than by the platform's pinned `opmodel.dev/core` version. The issue itself notes that the move reverses half of enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") and needs its own decision entry, and that the kernel's decoder would then read field names whose version the platform pins.
 
 One derived rule has already moved. `read-provider-count-from-core` made the glue read the provider count from the platform's `#contracts.providedBy`, a field core derives, instead of computing it. `opm/kernel/render_inventory_parity_test.go` is the tripwire: it checks that the render's verdict rows name exactly the registry keys the platform inventory's `providedBy` holds, so a drift between core's derivation and the glue's use of it fails a test rather than a render.
 
@@ -16,14 +16,14 @@ Core v2 is a beta line. A change to a rule core owns is a core release, a break 
 
 ## Decision
 
-The matching algorithm stays in the library's render glue. 0019:D10 and 0019:D17 stand.
+The matching algorithm stays in the library's render glue. Enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted" and "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index") stand.
 
 A single derived rule may move into core, one at a time, when core can compute it from core shapes alone. Each move is an additive core release and ships with a parity test proving that the core field and the verdict or derivation it replaces agree over the served fixtures, the way `render_inventory_parity_test.go` does for `#contracts.providedBy`. The per-catalog provider set, which `Catalog.Provides()` derived in Go, was the next candidate. It moved in core `v2.0.0-beta.3` as `#Catalog.provides`: `Provides()` decodes it, `opm/catalog/provides_parity_test.go` is its parity test, and the Go fold stays only as a deprecated fallback for catalogs built against an older core, removed before GA.
 
 Rejected alternatives:
 
-- **Move `#Match` whole into core (core#62).** Not now. Every matching fix would become a core release, and every matching break a `feat!` on core (a new major after GA), the decoder's field names would become core contract, and it reverses half of 0019:D17, which needs an enhancement decision rather than an ADR. The readability argument is real; moving rules one at a time answers part of it without taking on the rest of the cost at once.
-- **A core reverse index, reversing 0019:D17.** It brings back the shape 0019:D17 removed, a core field the glue does not consume, and has the same release cost for every change to it.
+- **Move `#Match` whole into core (core#62).** Not now. Every matching fix would become a core release, and every matching break a `feat!` on core (a new major after GA), the decoder's field names would become core contract, and it reverses half of enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index"), which needs an enhancement decision rather than an ADR. The readability argument is real; moving rules one at a time answers part of it without taking on the rest of the cost at once.
+- **A core reverse index, reversing enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index").** It brings back the shape that enhancement 0019 removed, a core field the glue does not consume, and has the same release cost for every change to it.
 
 ## Consequences
 
@@ -33,4 +33,4 @@ Rejected alternatives:
 
 **Trade-off:** One rule at a time is slower than one move, and each move costs a core release plus a library re-pin. In exchange no move is larger than one parity test can check.
 
-**Follow-up outside this ADR:** core#62 is to be closed as not now, with a comment pointing at this ADR. Moving `#Match` whole later needs an enhancement decision amending 0019:D17, and this ADR would then be superseded.
+**Follow-up outside this ADR:** core#62 is to be closed as not now, with a comment pointing at this ADR. Moving `#Match` whole later needs an enhancement decision amending enhancement 0019 ("`#Platform.#matchers` is removed, and the render build's glue owns the reverse index"), and this ADR would then be superseded.

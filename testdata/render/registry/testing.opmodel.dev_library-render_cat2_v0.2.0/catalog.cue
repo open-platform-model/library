@@ -3,7 +3,7 @@
 // contract. A platform carrying cat and this build supplies that key from
 // two registry entries: the platform's derived contract inventory counts
 // them in #contracts.providedBy and reports the key over-subscribed
-// (0015:D18), and the in-build single-provider guard (0010:D32/D37), which
+// (enhancement 0015), and the in-build single-provider guard (enhancement 0010), which
 // reads that count, refuses naming the key and both registry keys. Like
 // 0.1.0 it defines no contract of its own: its contract maps stay empty.
 package cat2
