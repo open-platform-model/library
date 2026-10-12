@@ -246,8 +246,9 @@ task fmt        # gofmt + goimports
 task vet        # go vet ./...
 task lint       # golangci-lint
 task test       # go test ./...
-task check      # all four, then docs:bundle:check, cascade:wiring:check and api:diff:test (use before merge)
+task check      # all four, then docs:bundle:check, cascade:wiring:check, cite-lint and api:diff:test (use before merge)
 task check:fast # skips lint
+task cite-lint  # enh cite-lint: the enhancement citation rule for Go and CUE comments
 
 task test:run TEST=TestName          # single Go test
 task test:verbose                    # -v across all packages
