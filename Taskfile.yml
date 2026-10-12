@@ -211,6 +211,19 @@ tasks:
     cmds:
       - bash .tasks/cascade/wiring-check.sh
 
+  cite-lint:
+    desc: Check the Go and CUE comments against the enhancement citation rule (enh cite-lint, the commit .github cite-lint.yml uses)
+    # No excludes: the tool reports 0 findings on the whole tree. If one is
+    # needed later, put it in the --exclude flags here AND in the `exclude`
+    # input of the cite-lint job in .github/workflows/lint.yml, each with its
+    # reason; keep the two lists equal.
+    # The module commit is the default `enh-ref` of .github cite-lint.yml at
+    # the .github pin of this repo; move both together.
+    vars:
+      ENH_REF: e0335b2ec44e659c0191bc3523d79d17f26f8e7d
+    cmds:
+      - go run github.com/open-platform-model/enhancements/tools/enh@{{.ENH_REF}} cite-lint --root . .
+
   docs:bundle:check:
     desc: Check the docs-kit pins agree, then build and lint the library docs bundle into a temporary directory
     deps: [tools:opm-docs]
@@ -221,7 +234,7 @@ tasks:
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the api:diff tests and the consumer-build script tests
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the cite-lint rule, the api:diff tests and the consumer-build script tests
     cmds:
       - task: fmt
       - task: vet
@@ -229,6 +242,7 @@ tasks:
       - task: test
       - task: docs:bundle:check
       - task: cascade:wiring:check
+      - task: cite-lint
       - task: consumer-build:test
       - task: api:diff:test
 
