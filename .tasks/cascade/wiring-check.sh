@@ -43,6 +43,7 @@
 #     labels-managed: false        # a YAML boolean
 #   extra-references:              # optional: more pinned .github references
 #     - {file: module-deps.yml, kind: resolver}  # one entry per reference
+#     - {file: ci.yml, kind: cite-lint}  # a job calling cite-lint.yml
 #
 # Beyond the cascade key it also binds the release App key: every job that
 # reads RELEASE_APP_PRIVATE_KEY declares `environment: release`, and only
@@ -138,12 +139,14 @@ else
   [ "$(y '.publish // "none"' "$CONFIG")" = none ] || cfg_err "publish is only for a receiver"
 fi
 
-# More .github references the repo declares, one item each. The only kind is
-# resolver, a checkout of .github (opm-operator's module-deps.yml); each
+# More .github references the repo declares, one item each. Two kinds:
+# resolver, a checkout of .github (opm-operator's module-deps.yml), and
+# cite-lint, a job that calls the reusable cite-lint.yml workflow; each
 # declared one is held to the fixed references' rules below. Only a receiver
-# declares one, at most one per file, and never in a file that already holds
-# a fixed reference (a second resolver beside cascade-task.yml's, or a
-# checkout inside a key-holding workflow).
+# declares a resolver; any repo declares cite-lint. At most one per kind and
+# file, and never in a file that already holds a fixed reference (a second
+# resolver beside cascade-task.yml's, or a job inside a key-holding workflow).
+CITE_LINT_TARGET=open-platform-model/.github/.github/workflows/cite-lint.yml
 EXTRA_REFS=""
 if [ "$(y 'has("extra-references")' "$CONFIG")" = true ]; then
   [ "$(y '.["extra-references"] | type' "$CONFIG")" = '!!seq' ] || cfg_err "extra-references must be a list"
@@ -156,14 +159,18 @@ if [ "$(y 'has("extra-references")' "$CONFIG")" = true ]; then
     ef=$(I=$i y '.["extra-references"][env(I)].file' "$CONFIG")
     ek=$(I=$i y '.["extra-references"][env(I)].kind' "$CONFIG")
     [[ $ef =~ ^[A-Za-z0-9._-]+\.ya?ml$ ]] || cfg_err "$it: file [$ef] is not a workflow file name"
-    [ "$ek" = resolver ] || cfg_err "$it: kind [$ek] is not resolver, the only kind"
-    [ "$RECEIVER" = true ] || cfg_err "$it: extra-references is only for a receiver"
+    case "$ek" in
+      resolver) [ "$RECEIVER" = true ] || cfg_err "$it: a resolver is only for a receiver" ;;
+      cite-lint) ;;
+      *) cfg_err "$it: kind [$ek] is not resolver or cite-lint" ;;
+    esac
     case "$ef" in
       release.yml | deps-cascade.yml | cascade-gates.yml | cascade-task.yml)
         cfg_err "$it: $ef already holds a fixed .github reference" ;;
     esac
-    ! grep -qxF -- "$ef resolver" <<<"$EXTRA_REFS" || cfg_err "$it: $ef is declared twice"
-    EXTRA_REFS+="$ef resolver"$'\n'
+    if [ "$ek" = resolver ]; then et=resolver; else et=$CITE_LINT_TARGET; fi
+    ! grep -qxF -- "$ef $et" <<<"$EXTRA_REFS" || cfg_err "$it: $ef is declared twice"
+    EXTRA_REFS+="$ef $et"$'\n'
   done
 fi
 
@@ -428,6 +435,38 @@ while IFS= read -r line; do
   [ -n "$line" ] || continue
   eq "pin comment on [${line% *}]" "$PIN_COMMENT" "$(printf '%s' "$line" | sed -E 's/^[^ ]+ [^ ]+ //')"
 done <<<"$refs"
+
+# A job that calls cite-lint.yml (declared or not; an undeclared one is already
+# refused above) is a plain call: only name, permissions, uses and with; the
+# permissions exactly contents: read, so the job holds no write scope; with
+# only paths and exclude (the enh pin lives in cite-lint.yml, a caller does
+# not pass enh-ref); no mention of the secrets context anywhere in the job
+# (secrets: inherit included); and its workflow does not start on
+# pull_request_target or workflow_run, which run in the base context.
+CL_RE="(?i)^${CITE_LINT_TARGET//./\\.}@"
+cl_bad=""
+for f in "$W"/*.yml "$W"/*.yaml; do
+  [ -e "$f" ] || continue
+  b=${f##*/}
+  cl_jobs=$(R="$CL_RE" yq -r '.jobs // {} | to_entries[] | select((.value.uses // "") | test(strenv(R))) | .key' "$f")
+  [ -n "$cl_jobs" ] || continue
+  cl_bad+=$(yq -r '.on // {} | ([select(tag == "!!map") | keys | .[]] + [select(tag == "!!seq") | .[]] + [select(tag == "!!str")])
+    | .[] | select(. == "pull_request_target" or . == "workflow_run") | "trigger " + .' "$f" | sed "s|^|$b:|")$'\n'
+  while IFS= read -r j; do
+    [ -n "$j" ] || continue
+    # Arrays joined with +, not the comma operator: yq's comma returns nothing
+    # when its left side is empty.
+    cl_bad+=$(J="$j" yq -r '.jobs[strenv(J)] | (
+        [keys | .[] | select(. != "name" and . != "permissions" and . != "uses" and . != "with") | "key " + .]
+        + [(.with // {}) | select(tag == "!!map") | keys | .[] | select(. != "paths" and . != "exclude") | "input " + .]
+        + [.. | select(tag == "!!str") | select(test("(?i)secrets")) | "secrets at " + (path | join("."))]
+      ) | .[]' "$f" | sed "s|^|$b:$j |")$'\n'
+    [ "$(J="$j" yj '.jobs[strenv(J)].permissions' "$f")" = '{"contents":"read"}' ] || cl_bad+="$b:$j permissions"$'\n'
+    [[ $(J="$j" y '.jobs[strenv(J)].with | tag' "$f") =~ ^'!!'(map|null)$ ]] || cl_bad+="$b:$j with must be a map"$'\n'
+  done <<<"$cl_jobs"
+done
+eq "cite-lint.yml calls that break the plain-call rule (only name, permissions contents: read, uses, with paths and exclude; no secrets; no pull_request_target or workflow_run)" \
+  "" "$(printf '%s' "$cl_bad" | sed '/^$/d' | tr '\n' ';' | sed 's/;$//')"
 
 # Every .github checkout (the resolver, fixed or declared) is actions/checkout
 # at a full SHA with exactly repository, ref, path and persist-credentials:
