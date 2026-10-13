@@ -11,8 +11,8 @@ Router only. Facts and rules are in `AGENTS.md`.
 | Start a feature change | `openspec/config.yaml` | `.claude/skills/` (`openspec-*`) |
 | Write or fix a test, or a registry fixture | `references/testing.md` | `opm/internal/registrytest`, `opm/kernel/render_test.go` |
 | Bump CUE, `cuelang.org/go` or apimachinery | `references/cue-toolchain.md` | `docs/design/` |
-| A schema change from `core` | `opm/schema/` | `opm/internal/renderstage/render.cue.tmpl` |
-| Release cascade, `deps/cascade` PR or a workflow pin | `references/release-cascade.md` | `RELEASING.md` at the workspace root |
+| Adapt the Go code to a new core schema shape | `opm/schema/` | `opm/internal/renderstage/render.cue.tmpl` |
+| Move the default core release (`DefaultSchemaModule`), a `deps/cascade` PR or a workflow pin | `references/release-cascade.md` | `RELEASING.md` at the workspace root |
 | A red `Consumer build` or `API diff` job | `references/ci-gates.md` | `.tasks/consumer-build.sh`, `.tasks/api-diff.sh` |
 | Docs bundle, a site page or a doc comment on an exported symbol | `references/docs-bundle.md` | `docs/site/`, `docs-kit.cue` |
 | Choose a commit type, or fix a stalled release | `references/commit-style.md` | `migrations/README.md` |
