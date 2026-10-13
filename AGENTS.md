@@ -1,170 +1,62 @@
 # Library repository guide
 
-## Commit and PR Attribution — Plain Co-Author Line Only
+The OPM kernel, the reference Go runtime for Open Platform Model, consumed as a Go library by every
+frontend (`cli`, `opm-operator`, a planned Crossplane composition function). The repo ships no binary
+and has no `main` package. It must never grow command, controller or output concerns: those belong to
+the frontends.
 
-AI attribution is allowed in exactly one form — the plain co-author trailer:
+## Repository rules
 
-`Co-Authored-By: Claude <noreply@anthropic.com>`
+- `CONSTITUTION.md` is the human-readable principle source and `openspec/config.yaml` is normative.
+  Their principles are not restated here.
+- Mergeable sections (Principle VIII) have a hard gate. A request that cannot be cut into about five
+  `tasks.md` sections, each ending green and closing with its own commit, gets the gate phrase from
+  `openspec/config.yaml` (Execution Gate) and a proposed split. This keeps `main` releasable.
+- Kernel neutrality (Principle I). The kernel is consumed by several runtimes, so it holds no global
+  mutable state or package-level singleton, no `os.Exit`, no direct stdout or stderr output, no shell
+  invocation, no hidden environment lookup (config arrives as arguments) and no non-determinism.
+- The public surface is `opm/` only. It imports no `k8s.io/client-go`, controller-runtime or Flux,
+  and `k8s.io/apimachinery` only under `opm/k8s/`. Nothing in `opm/` acts on a cluster: each frontend
+  does that with its own client (ADR-008, ADR-011). Moving a function across a tier changes SemVer.
+  The tiers and the allow lists are written out in the tiers reference.
+- I/O lives at the edges (`internal/loader`, registry calls) and takes caller-supplied config. Logging
+  is passed by the caller as a parameter or in `context.Context`.
+- A statement has one home (ADR-013, decision c4). A runtime contract goes in the godoc of the package,
+  type or function that owns it. Rationale goes in an ADR under `adr/`. A SHALL requirement goes in an
+  `openspec/specs` capability. `README.md`, this file and `docs/getting-started.md` link to those homes
+  and never restate a contract. Cite a source a reader can open: an ADR, a pull request, an archived
+  change, or an enhancement by id beside the reason (enhancement 0012, the Kubernetes tier). Never cite
+  a decision recorded only in an agent session.
+- Edit the godoc, do not restate it. The render contract (single verb, shares-nothing context, verdicts
+  as data, fail-closed gate, catalog skew, `WithRegistry`) is the `opm/kernel` package doc
+  (`opm/kernel/doc.go`). The render steps and gate cause order are the `Kernel.Render` doc and the
+  `RenderError` doc. Staging, promotion, skew and local replacements are the `opm/internal/renderstage`
+  package doc. The schema cache contract is the `schema.Cache` and `Kernel.SchemaCache` godoc.
+- The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier
+  (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and the free-function entry points
+  (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are
+  gone, and `opm/kernel/kernel_test.go` pins their absence. Do not bring them back. Do not add an
+  `opm/validate/` package: validation is `ValidateConfigDetailed`. Do not reintroduce `#ModuleDebug`.
+- Loading a published module by `path@version` lives in the library (`Kernel.AcquireModuleFromRegistry`),
+  not in consumers (Principle V). A frontend must not hand-roll OCI fetch, wrapper-package shims,
+  dependency walks or a directory walk to stage a tree: `AcquireModuleFromDir` returns a byte overlay
+  and `module.Source.WriteTo` writes one out. The shape gate is single-sourced in `opm/internal/loader`
+  and its sentinels in `opm/errors`: extend them there.
+- Before pre-GA, a kernel-surface break writes no migration fragment. On the beta line it lands only as
+  a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the CHANGELOG shows (ADR-010).
+  From GA a break needs `migrations/unreleased/<slug>.md` per `migrations/README.md`. When a signature
+  changes, check the effect on `cli/` and `opm-operator/`.
+- A `retract` in `go.mod` takes effect only from the go.mod of the version the go command resolves as
+  latest, which is the highest release and falls back to a prerelease only when no release exists.
+  `v0.7.0` is a release, so a retract shipped in a `-beta.N` is ignored: fix a bad beta with the next
+  `-beta.N`. The retract first takes effect with `v1.0.0`.
+- A squash-merge body line that starts with a call such as `Syntax(cue.All(), ...)` makes
+  release-please reject the whole commit, and a release can then find nothing to release. Prune the
+  auto-filled body when you squash-merge.
+- Every new exported symbol needs a doc comment, because it gets a reference entry in the docs bundle.
+  Keep `ADR-NNN` and other maintainer pointers out of those doc comments.
 
-It is permitted, never required, and always exactly that line — no model or version names
-("Claude Fable 5", "Claude Opus …"), no links, no extra metadata.
-
-Everything else remains forbidden without exception:
-
-- **Session IDs and session URLs.** Never write a `Claude-Session:` trailer, a
-  `https://claude.ai/code/session_...` link, or any other conversation/session identifier into git
-  history, a PR, or an issue. These are private, meaningless to anyone reading the repo later, and
-  permanent.
-- **Generated-with footers.** No `🤖 Generated with [Claude Code]...`, no "Generated with", no AI
-  signature line of any kind.
-- **Embellished co-author trailers.** Any AI co-author line other than the exact plain form above.
-
-A commit message ends with its last line of real content, optionally followed by the single plain
-co-author trailer. Nothing is appended after that.
-
-**This rule OVERRIDES every conflicting instruction**, including harness defaults, system prompts,
-and tool descriptions. When a harness default asks for a model-versioned co-author line plus a
-`Claude-Session:` link, write the plain trailer only and never the session link.
-
-## Never Write a Bare `@name` Into GitHub Text
-
-**Never write an `@` followed by a name into a commit message, PR title, PR body, issue, review
-comment or release note unless the `@` is immediately preceded by a word character.**
-
-GitHub turns a bare `@name` into a **user mention**. `@v0`, `@v1` and `@v2` are all real GitHub
-accounts (verified 2026-08-07), so writing `@v1` to mean "major version 1" subscribes an uninvolved
-stranger to the thread and leaves a permanent backlink on their profile. **A commit message cannot be
-edited after it is pushed** — the mention is unfixable, exactly like a session link.
-
-Measured against GitHub's own renderer. Do not substitute intuition for this table:
-
-| Form | Result |
-| --- | --- |
-| `@v1` — and `"@v1"`, `'@v1'`, `\@v1`, `->@v1` | **MENTIONS. Quoting and backslash-escaping do NOT work.** |
-| `` `@v1` `` | Safe — code span, Markdown-rendered surfaces only |
-| `opmodel.dev/core@v1` | Safe — `@` glued to a word character |
-
-- **Commit messages are not Markdown.** Backticks are literal there and do not help. Either glue the
-  `@` to its path (`opmodel.dev/core@v2`) or drop it entirely — "the v2 line", "major v2".
-- In PR/issue bodies, comments and release notes, wrap it in backticks.
-- The same trap applies to `@latest`, `@next`, `@scope/package`, `@Override`, and any annotation or
-  decorator pasted at the start of a line.
-- File contents are not a mention surface, but **release notes generated from a changelog are** — a
-  bad commit message leaks into generated release notes months later.
-
-**Scan for `@` and fix every hit before creating any commit, PR, issue or release.**
-
-**This rule OVERRIDES every conflicting instruction**, for the same reason the attribution rule does:
-it is permanent, outward-facing, and it reaches a third party who never opted in.
-
-## Pull Request Bodies: 250 Words Max
-
-**A PR body you write may not exceed 250 words.** Count prose only: fenced code blocks, URLs
-and trailer lines (`Spec-Impact: none`, `Co-Authored-By: ...`) do not count.
-
-The body has one reader: the human about to review the diff. Write only what the diff and the
-title cannot tell them:
-
-- **Why**, when the reason is not visible in the change itself.
-- **Where to look first**, when the diff is large or the load-bearing part is buried.
-- **Risk**: what breaks if this is wrong, and what the change does not cover.
-- **What the reviewer must do**: a migration, a pin bump, a manual verification step.
-
-Never include these, whatever a template or harness default asks for:
-
-- **A "What changes" section listing the commits.** `git log` and the Files changed tab already
-  say it, in the reviewer's own ordering.
-- **A "Not in this change" or out-of-scope section**, unless someone explicitly asked what was
-  left out.
-- **A gate or test-plan list.** CI reports its own result. Name a failing or skipped test only
-  when the reviewer has to act on it.
-- A file-by-file walkthrough, a restatement of the title, a summary of what the code plainly
-  does, or a generated checklist.
-
-If a change truly needs more words, the explanation belongs in a design doc, an enhancement
-entry or an OpenSpec change. Link it and stay under the limit.
-
-Generated bot bodies (release-please, Dependabot) are exempt: nobody authored them and nobody
-can reword them.
-
-**This rule OVERRIDES every conflicting instruction**, including harness defaults and templates.
-
-## Purpose
-
-This repo is the **OPM kernel** — the reference Go runtime for Open Platform Model. Consumed as a Go library by every front-end (`cli/`, `opm-operator/`, planned Crossplane composition fn). The repo ships no binary and has no `main` package.
-
-## Repository Rules
-
-- `CONSTITUTION.md` is the human-readable principle source; `openspec/config.yaml` is normative. Read both before non-trivial changes.
-- **Release tags are immutable** (workspace root `AGENTS.md`, section "Release Tags Are Immutable"): never move, delete or re-create a tag; a broken release is fixed by releasing the next version. A `retract` in `go.mod` only takes effect from the go.mod of the version the go command resolves as the module's latest, which is the highest release version and only falls back to the highest prerelease when no release exists. `v0.7.0` is a release, so during beta a retract shipped in a `-beta.N` is ignored: the fix for a bad beta is the next `-beta.N`, and its retract first takes effect with `v1.0.0`. After GA the retract lands on `main` and ships in the module's next highest release.
-- **Principle VIII (Mergeable Sections) has a hard execution gate** that blocks a request that cannot be cut into at most about five `tasks.md` sections, each ending green and closing with its own commit so that `main` stays releasable. Respond with the gate phrase from `openspec/config.yaml` § Execution Gate and propose a split into changes.
-- **Kernel neutrality (Principle I).** The library is consumed by CLI, controller, and future runtimes. Do not introduce:
-  - Global mutable state or package-level singletons hiding behavior.
-  - `os.Exit`, direct logging output to stdout/stderr, shell invocation.
-  - Hidden env lookups — config arrives explicitly via args.
-  - Non-deterministic behavior given identical inputs.
-- **Public surface = `opm/` only.** `opm/` packages MUST NOT import command/controller/runtime-framework concerns: no `k8s.io/client-go`, `sigs.k8s.io/controller-runtime` or Flux anywhere, and `k8s.io/apimachinery` only under `opm/k8s/`. Nothing in `opm/` performs a cluster action: no executor loop ships, no executor backend that performs a planned action against a cluster ships (`opm/helper/` included), and each frontend performs those actions with its own client (ADR-008, ADR-011). Opt-in executor backends that perform no planned action against a cluster (the non-cluster hosts of enhancement 0009) may live under `opm/helper/`; enhancement 0012 amends enhancement 0009 so that its cluster-acting Ops are performed by the frontend. Output formatting and presentation stay outside the library. Three tiers ([ADR-011](adr/011-kubernetes-tier-beside-the-kernel.md)): the kernel binds every frontend; everything under `opm/helper/` is opt-in, and a frontend MAY skip it and call the kernel directly; `opm/k8s/` (`labels`, `object`, `health`, `ownership`, `inventory`, `lifecycle`) binds every frontend that targets Kubernetes and is fenced so no other `opm/` package imports it. Moving a function across a tier boundary changes SemVer and adoption obligations.
-- I/O lives at edges (`internal/loader`, registry calls) and accepts caller-supplied config. Logging is caller-passed via parameter or `context.Context`.
-
-## Entrypoint
-
-Read these on entry:
-
-- `AGENTS.md` — repo working rules (this file).
-- `CONSTITUTION.md` — design principles (full text).
-- `openspec/config.yaml` — normative constitution + OpenSpec artifact rules.
-- `README.md` — same big picture as below, slightly fuller prose.
-- `migrations/README.md` — migration-docs policy (per-change fragments, dormant through alpha and beta until GA; on the beta line the migration note is the `feat!` commit's `BREAKING CHANGE:` footer, ADR-010).
-- `docs/getting-started.md` — end-to-end embedding walkthrough.
-- `docs/design/` — CUE evaluator notes: the v0.17.x closedness regression and its canary, plus historical bug records whose code no longer exists.
-
-## Repository Layout
-
-```text
-opm/
-  errors/                     Verdict rows (data, no Error method: UnresolvedDemand, UnifyRefusal, UnmatchedComponent, CandidateVerdict, OverSubscribedContract, ContractCollision) + grouped CUE diagnostics (alias as oerrors in consumers); pointer-receiver gate causes aggregating those rows (match.go, unmatched.go, oversubscribed.go, collision.go, skew.go), plus the rowless NotRoutableError catch-all (collision.go); PlatformCoreTooOldError (coretooold.go), the re-pin-core refusal of Render and Platform.Contracts; the fetch and resolution classification (fetch.go, resolution.go, classify.go): *FetchError with its FetchKind, *ResolutionError with its ResolutionKind (author-defect resolution failures, never transient), the ErrTransient sentinel (network-level only) and Classify, the one place that matches registry and cue/load error text; *ConfigValidationError (validation.go), the marker Kernel.ValidateConfigDetailed puts around the CUE error tree of values that fail the schema. Every error type here has a pointer receiver and none declares an As method (ADR-015; identity_test.go scans for both)
-  kernel/                     PUBLIC ENTRY POINT — Kernel struct, acquire / synthesize / validate methods, Render (render.go + render_decode.go)
-  module/                     *module.Module / *module.Instance types + value-validation accessors; module.Source (staged tree, byte overlay) and its one writer, Source.WriteTo(dir) → sorted dir-relative paths
-  platform/                   *platform.Platform — a CUE module importing its catalogs; Render's sole platform input
-  catalog/                    *catalog.Catalog — the acquired #Catalog (ADR-009): Metadata, Package, Source, plus the on-demand derivations Provides() (provider-fulfilled contracts its own transformers require, read from core's derived `provides`; a deprecated Go fold answers a catalog whose committed core predates schema.ProvidesSince) and Requires() (its committed cue.mod deps, path → version). Reads and derives; never renders, never judges
-  schema/                     OPM core schema loader (OCILoader, Cache) + the three CUE paths a consumer reads (Metadata, Module, CatalogProvides) and the two core-release constants (ProvidedBySince, ProvidesSince); each decoded metadata type is declared with its artifact (module, platform, catalog)
-  helper/                     OPT-IN convenience for frontends (a frontend MAY skip this entire tree; a depguard rule in .golangci.yml forbids every package outside it from importing it)
-    platformmodule/           Platform CUE module from catalog coordinates (enhancement 0019): Generate (pure files), Roots + Closure (once-at-generation tidy via caller-configured ModFileSource), Files.WriteTo; core pin defaults to schema.DefaultSchemaVersion()
-  k8s/                        The Kubernetes tier beside the kernel (ADR-011, enhancement 0012). Mandatory for a Kubernetes frontend, fenced by depguard (nothing else under opm/ imports it; non-test files import only the standard library, cuelang.org/go/cue, k8s.io/apimachinery and the library's own opm/ packages, a strict allow list; never client-go, controller-runtime, Flux, a cluster client, opm/helper or opm/internal)
-    health/                   Readiness evaluation (enhancement 0012): the Status strings, Evaluate (one fetched object), IsHealthy, Aggregate (statuses plus a count of missing or unreadable objects), ProgressDeadlineExceeded (a stalled Deployment rollout). Pure: the frontend fetches every object, read after its apply and uncached. Ported from the cli with its rules and status strings unchanged; standard library and apimachinery only (its own depguard rule)
-    inventory/                Entry (no struct tags) + NewEntry, SameObject (group, kind, namespace, name), StaleSet (component-blind, previous order, enhancement 0012), Digest (the canonical opm-inventory-v1 field encoding, length-prefixed, independent of JSON tags), RenderDigest (over object.Exported JSON, re-decoded with number literals, the managed-by value blanked, sorted-key JSON under opm-render-v1, enhancement 0012). Owns no wire shape
-    labels/                   OPM label keys and values + IsOPMManagedBy, and AnnotationAdopt (opmodel.dev/adopt, written only by users, enhancement 0012). Standard library only (its own depguard rule). Names and recognises labels, never stamps them: core's CUE stamps at render (enhancement 0012)
-    lifecycle/                The deletion protocol (enhancement 0012, ADR-008 rules 1 to 3): NewDeletionPlan (the only constructor; inventory entries, the persisted inventory or a prune's StaleSet, in descending kind weight, CRD and Namespace steps marked safety-excluded up front; no render, no stored plan); Advance (one action per call: read, delete with Foreground propagation and the UID precondition from ownership.CanDelete, skip, done; classifies the caller's raw errors with apimachinery; a failure or a live object answering the wrong step is recorded and the plan moves on; each call appends the outcomes it finished); State (caller-owned, JSON encoding pinned by a golden test); MayReleaseHold (prune-disabled, inventory-empty, force-orphan, identity-unavailable, cleanup-incomplete, cleanup-forbidden, cleanup-complete, in the operator's handleDeletion order). No hook semantics, no I/O, no clock, no goroutine
-    object/                   Resource (kernel.Compiled with Kubernetes accessors; NewResource, Resources), Export (each object exported from CUE once: JSON, decoded Unstructured, provenance; ExportError with the failing step), the kind-class Weight table, aligned with Flux's staged apply order + Sort + Stages (cluster definitions, then one stage per weight), Duplicates + DuplicateIdentitiesError (enhancement 0015): every Kubernetes apply identity two or more rendered objects share, with each producing component and transformer, and the refusal a runtime raises between render and apply. The kernel never calls it
-    ownership/                Pure per-object verdicts over a live object the frontend reads (enhancement 0012): SafetyExcluded (core Namespace, apiextensions.k8s.io CRD, on group and kind); CanDelete (skips safety-excluded, already-absent, not-opm-managed, owner-mismatch, adopted-elsewhere when the adopt annotation names another instance; a proceed verdict carries the judged UID and resourceVersion, and Preconditions is the UID only, nil on a skip or empty UID); CanApply (refuses terminating on every apply; outside the inventory foreign-object, other-instance and adopted-elsewhere (a completed hand-over, annotation and UUID label naming the same other instance, reports adopted-elsewhere); inside it adopted-elsewhere only when the adopt annotation names another instance, and the frontend drops that object from its next inventory; the opmodel.dev/adopt annotation naming this instance is the only override outside the inventory; no input exists only to lift a refusal or a skip, while InInventory and InstanceUUID are the caller's own record, trusted and not checked: ADR-016). Messages are worded here for both frontends
-  internal/loader/            The kernel's one artifact loader: the shape gate + its four ArtifactSpecs (sentinels declared in opm/errors), LoadDir (the one build-and-gate step, for a directory or a byte overlay) and FetchArtifact (a published artifact by path@version: Fetch, stage as an overlay, then build through LoadDir like a directory artifact) with FetchModule the #Module entry over it, adding the coordinate identity check that is the module's alone. Internal: reached only through the kernel's acquire verbs
-  internal/synth/             Instance(cueCtx, coreVersion, Input) → the synthesized #ModuleInstance value + its staged tree, built through loader.LoadDir inside the module's own overlay. Internal: reached only through Kernel.SynthesizeInstance; no platform synthesis
-  internal/valuesfile/        Render(pkg, values) → the source of a package file declaring the top-level `values` field; the one renderer behind instance synthesis (internal/synth) and the extra values Kernel.AcquireInstanceFromDir layers onto an on-disk instance package
-  internal/corepath/          The CUE paths the kernel's Go code reads on an artifact and no consumer needs (Components, Values, Config, DebugValues, the #contracts paths, the catalog fold paths); a consumer reaches those fields through the artifact accessors. Each path is declared once, here or in opm/schema, and `opm/schema/surface_test.go` pins the exported three
-  internal/modversion/        The library's one home for version helpers: Canonical / Bare spelling, Major (the @vN qualifier), Valid and Compare (SemVer validity and precedence), and the CoreModule / CorePath / LanguageFloor constants; the only importer of golang.org/x/mod/semver (depguard rule one-semver-implementation)
-  internal/cueenv/            The one CUE_REGISTRY / CUE_CACHE_DIR override (Override: nil when nothing is overridden, else a copy of the process environment with the variables replaced or appended; never os.Setenv) every cue/load and modconfig call site under opm/ passes as its Env; and the Kernel's shared registry client (Registry: one resolver + transport per Kernel, built on first use, retried on a construction error, dropped after a failed registry call; Operation: a fresh modcache per kernel operation over it, so no fetch failure outlives its operation)
-  internal/sourcetree/        Walking, reading and naming a module.Source in both modes: PackageName, OverlayFromDir / OverlayFromFS (.cue files only, cue.mod/module.cue included), SyntheticRoot, ReadFile, CheckRootAbsent (the one refusal of an in-memory build root that exists on disk, used for RenderRoot and every SyntheticRoot), IsSynthetic; shared by the kernel's values overlay, the registry loader's staged overlay and the render stage. Writing an overlay out is module.Source.WriteTo, not this package
-  internal/renderstage/       Single-build render staging (enhancement 0019): modfile intake (module.cue + the optional local-module.cue view), promotion (local replacements under the opt-in) + coverage invariant, skew comparison, embedded render.cue.tmpl glue (matching, execution, diagnostics, gate), in-memory staging under the synthetic RenderRoot (nothing written) + one cue/load build
-  internal/registrytest/      Test-only in-process OCI registry (mod/modregistrytest) serving inline #Catalog and module fixtures or a committed fixture tree; every constructor points CUE_CACHE_DIR at a private per-test module cache (schematest.PrivateCacheDir), so served coordinates extract fresh per test and nothing is ever deleted from the shared cache; NewRegistryWithCore also serves a stand-in opmodel.dev/core, into a cache that shares nothing (schematest.IsolatedCacheDir)
-  internal/cueregression/     Canary pair for the v0.17.x closedness regression
-  internal/schematest/        Test-only cache helpers: SetEnv / NewCache build against the shared workspace cache (.cue-cache, the opmodel.dev tier); PrivateCacheDir hands a test its own cache whose opmodel.dev subtrees are symlinks into the shared one; IsolatedCacheDir hands it one that shares nothing (for a served stand-in core)
-adr/                          Architecture decision records (use TEMPLATE.md)
-openspec/                     OpenSpec proposals/specs/archives (active change workflow)
-modules/                      Test-only CUE modules (opm, opm_platform) — fixtures, not shipped
-testdata/                     CUE module fixtures consumed by package tests (synth fixture + test cue.mod; `parity/` is the render-parity oracle module for `opm/kernel/parity_*_test.go`; `render/` is the single-build render fixture set for `opm/kernel/render_test.go`: a registrytest-served catalog + module tree under `registry/`, platforms that import their catalog, an instance and per-outcome scenario packages, all pinned to the default core release (`schema.DefaultSchemaModule`) and served in-process, so not discovered by the CUE tasks)
-docs/getting-started.md       End-to-end embedding walkthrough
-docs/design/                  CUE evaluator notes (closedness regression + canary) and historical bug records
-docs/site/                    Authored site pages (diagnostics how-tos, Embed the kernel); ship in the library docs bundle (Docs bundles below), while opmodel.dev still reads them from git on main until it reads the library from bundles (docs-kit gate G2-switch)
-docs-kit.cue                  The docs bundle config (docs-kit): the go-api source over ./opm/... and the markdown source over docs/site
-.opm-docs-version             The pinned docs-kit release (opm-docs and publish.yml), one line
-.tasks/opm-docs.sh            Installs the pinned opm-docs into .bin/ (checksum-verified) and checks the two pins agree; catalog_opm's, byte for byte
-migrations/                   Per-change migration fragments + policy (README.md; dormant through beta until GA, CI-enforced after — ADR-004; beta notes live in the CHANGELOG footer, ADR-010)
-.cue-cache/                   Gitignored shared CUE module cache: the opmodel.dev tier (core + GHCR catalogs) every test and test process reads; served fixtures live in per-test private caches, and nothing in the test tree deletes from it
-```
-
-### Four artifact types — and nothing else
-
-The kernel accepts exactly:
+## Four artifact types, and nothing else
 
 | Artifact         | Schema (`opmodel.dev/core@v2`) | Go type              |
 | ---------------- | ------------------------------ | -------------------- |
@@ -173,170 +65,17 @@ The kernel accepts exactly:
 | `Platform`       | `#Platform`                    | `*platform.Platform` |
 | `Catalog`        | `#Catalog`                     | `*catalog.Catalog`   |
 
-`Catalog` is the fourth, admitted by **ADR-009** on stated terms: the kernel acquires, reads and derives; every verdict about what it reads stays with the caller. A catalog is never rendered. ADR-009 also states, in writing, the four-part test a FIFTH kind must pass — do not add one without meeting it there.
+`Catalog` is the fourth, admitted by ADR-009 on stated terms: the kernel acquires, reads and derives, and
+every verdict about what it reads stays with the caller. A catalog is never rendered. ADR-009 also states
+the four-part test a fifth kind must pass. `debugValues` is a field on `Module`, and whether a frontend
+layers it into the values stack is helper-layer policy.
 
-`#ModuleDebug` was retired. `debugValues` is now a field on `Module`; whether the frontend layers it into the values stack is helper-layer policy. Don't reintroduce `ModuleDebug` as a top-level artifact.
+## OPM schema versioning
 
-## Environment Notes
-
-Use the workspace env vars (`CUE_REGISTRY`, `OPM_REGISTRY`) from the root `AGENTS.md` (Registry Policy: `opmodel.dev/*` reads resolve from GHCR). No local registry is needed for `cue:discover` / `cue:fmt` / `cue:vet` / `cue:tidy` / `cue:check` / the Go test suite — CI runs all of it against GHCR.
-
-The local registry at `localhost:5000` is required only for:
-
-- `task cue:publish` / `task cue:publish:smart` — local fixture/catalog publishes; gated, run only on explicit user request (Registry Policy rule 2). The tasks force the local mapping in-script.
-- Nothing else. The tests that name a `localhost:5000` mapping (`opm/internal/loader/load_test.go`) only assert the override is plumbed and never dial it. New tests use the in-process registry in `opm/internal/registrytest`; `opm/kernel/render_test.go` shows the pattern.
-
-### Test module cache: two tiers
-
-`go test ./...` runs every package as its own process, and CUE's module cache assumes an extracted directory is immutable while any process can read it (readers hold no lock). The test tree therefore keeps two cache tiers and never deletes from the shared one:
-
-- **Shared:** `.cue-cache/` (gitignored) holds the `opmodel.dev` namespace — `opmodel.dev/core@v2` and the GHCR catalogs — for every test and test process. A cold checkout fetches core once through CUE's own lock-protected fetch path; nothing removes entries from it. Tests that need only `opmodel.dev` (schema cache, file loader, synth unit, flow test) use `schematest.SetEnv` / `NewCache` and build here directly.
-- **Private:** every `registrytest` constructor points `CUE_CACHE_DIR` at `schematest.PrivateCacheDir(t)`, a temp cache whose `mod/extract/opmodel.dev` and `mod/download/opmodel.dev` are symlinks into the shared tier. Served fixture prefixes (`test.example`, `testing.opmodel.dev/...`) extract into it fresh, so a committed fixture edited under a fixed version is always built from its current bytes, two packages serving the same coordinate never touch the same directory, and the cache is removed at test end (read-only extracted directories included).
-- **Isolated:** `registrytest.NewRegistryWithCore` serves a stand-in `opmodel.dev/core` (a core lacking a definition, for the synth-build failure test) and so uses `schematest.IsolatedCacheDir(t)`, a temp cache with no link into the shared tier: the stand-in never reaches `.cue-cache`.
-
-If `.cue-cache` ever holds `test.example` or `testing.opmodel.dev` entries, they predate this layout and can be deleted by hand once; the suite no longer writes them there.
-
-### CUE toolchain pin
-
-Two independent knobs — do not conflate them:
-
-- **SDK** — `cuelang.org/go` in `go.mod`, currently **`v0.17.1`**. Because Go uses MVS, every embedder (`cli`, `opm-operator`) resolves *at least* this version; the library effectively sets their CUE floor.
-- **`k8s.io/apimachinery`** — in `go.mod` for the Kubernetes tier, currently **`v0.36.4`**. By the same MVS rule it is every embedder's apimachinery floor, as `cuelang.org/go` is their CUE floor. No bump policy is set here.
-- **Declared `language.version`** — what the CUE modules here (`modules/opm_platform`, `testdata/**`, and the one Go constant `modversion.LanguageFloor` in `opm/internal/modversion`, which sets the render floor, the generated platform module and the `opm/internal/registrytest` fixtures) declare, currently **`v0.17.0`**. This is a *consumer* floor: a module declaring `vX` is rejected by every `cue` older than `vX`. Declare `v0.17.0` — the minimum enabling `cue.mod/local-module.cue` — not `v0.17.1`, which would lock out v0.17.0 tools for no gain.
-
-**`v0.17.x` carries an unfixed evaluator closedness regression** (`docs/design/cue-closedness-regression-alpha2.md`). The pin is safe only because the catalog encodes the hoisted-guard workaround; `opm/internal/cueregression/closedness_test.go` is the canary pair that fails when upstream fixes it (trigger form) or when the workaround shape breaks on a CUE bump (hoisted form). Do not treat a passing suite as evidence the bug is gone.
-
-**CUE CLI in CI** is a third thing a CUE bump checks: `v0.17.1` in three places, `.github/workflows/cue.yml` (`setup-cue` `version`), `.github/workflows/cascade-task.yml` (the same), and the `cue-version` default of the reusable `cascade-receive.yml` at the pinned `.github` SHA, which `deps-cascade.yml` does not override (wiring contract §5.2). Move the first two in the bump PR; if the reusable default lags, raise it in `.github` and move the cascade pin (`RELEASING.md` "Moving the cascade pin").
-
-### Schema cache lifetime contract
-
-The schema cache contract is godoc: `schema.Cache` (one memoized load per cache into a
-private context, the on-disk cache two caches share, no package-level singleton),
-`kernel.New` (no load at construction, and which calls load) and `Kernel.SchemaCache`
-(one cache per Kernel for its lifetime). Edit the godoc; do not restate it here. Facts the godoc does not carry:
-
-- On a pinned kernel (the default), the only calls that load the schema are the
-  consumers' own: the cli publish gate and the operator's startup smoke check call
-  `SchemaCache().Get`.
-- Frontends set `CUE_REGISTRY` (the library applies no default, `opm/schema` package
-  doc); tests use the workspace-local cache through `opm/internal/schematest` (see
-  "Test module cache: two tiers").
-
-### Render contract
-
-The render contract is the `opm/kernel` package doc (`go doc ./opm/kernel`; source
-`opm/kernel/doc.go`): the single render verb, every operation building in a context of
-its own, verdicts as data, the fail-closed gate, catalog skew, the `WithRegistry`
-mapping and the local-replacements opt-in are specified there. Edit the godoc; do not
-restate it here. Two rules are for this repo's tests only:
-
-- Tests serve catalogs and modules from the in-process registry
-  (`opm/internal/registrytest`) while resolving `opmodel.dev/core@v2` from the warm
-  workspace cache; the production stage → build → decode path runs unchanged.
-- The parity harness (`opm/kernel/parity_*_test.go` against `testdata/parity`, the
-  pure-CUE oracle) is the oracle for rendered values, and `task test` runs `opm/kernel`
-  and `opm/internal/renderstage` under `-race` to keep the shares-nothing claim checked.
-
-## Build And Dev Commands
-
-### Core commands
-
-```bash
-task fmt        # gofmt + goimports
-task vet        # go vet ./...
-task lint       # golangci-lint
-task test       # go test ./...
-task check      # all four, then docs:bundle:check, cascade:wiring:check, cite-lint and api:diff:test (use before merge)
-task check:fast # skips lint
-task cite-lint  # enh cite-lint: the enhancement citation rule for Go and CUE comments
-
-task test:run TEST=TestName          # single Go test
-task test:verbose                    # -v across all packages
-task test:coverage                   # writes coverage.out + coverage.html
-
-task build      # go build ./... (no binary produced)
-task tidy       # go mod tidy
-task api:diff   # incompatible changes to the exported opm/ API since the last release tag (BASE=<tag> to pick one)
-task api:diff:test  # offline tests of the api:diff script
-
-task deps:release-check   # G1 release-pin gate; CI runs it on release-please-- branches
-
-task tools:opm-docs       # install or reuse .bin/opm-docs, the checksum-verified docs-kit release in .opm-docs-version
-task docs:bundle          # build the library docs bundle of the work tree into out/library/ (gitignored), a local preview of edge
-task docs:pins:check      # refuse a docs-kit publish.yml@ ref naming another release than .opm-docs-version (offline; the Tests workflow runs it)
-task docs:bundle:check    # docs:pins:check, then opm-docs check (build and lint into a temporary directory)
-```
-
-### Docs bundles
-
-`docs-kit.cue` declares one docs bundle, `library`: the Go API reference that docs-kit's `opm-docs` generates from the doc comments of every exported package under `opm/` (`opm/internal/` excluded) at `reference/library/` (the Library section), plus the authored pages under `docs/site/`; opmodel.dev pulls it from `ghcr.io/open-platform-model/docs/library` (docs-kit `docs/contracts.md` C5, C15, C20). Nothing here commits generated pages. `docs.yml` checks the bundle on every pull request (`Docs / check`) and publishes `edge` from every push to `main`; `release.yml`'s `publish-docs` job publishes each release from its tag, after release-please. Preview with `task docs:bundle`, or browse it with `.bin/opm-docs serve` (docs-kit 0.5.0 on; it builds edge from the work tree, rebuilds on change and needs the host's `hugo`). A release with no bundle (a backfill, or a `publish-docs` run that failed) is published with `gh workflow run docs.yml --ref main -f mode=release -f tag=vX.Y.Z`; `main`'s `docs-kit.cue` builds a tag that has none. The backfill floor is `v1.0.0-beta.1`: older tags are never backfilled. A released page is fixed with a docs revision, `gh workflow run docs.yml --ref main -f mode=revision -f tag=vX.Y.Z -f fix=<40-hex sha>`, applying one comment-only or Markdown-only commit on `main` that cherry-picks cleanly onto the tag to that release; revisions are dispatched by hand (library#164). Once the site reads the library from bundles, an authored fix on `main` reaches readers only through a release or a revision. Every new exported symbol needs a doc comment, because it gets a reference entry; keep `ADR-NNN` and other maintainer pointers out of doc comments. `.opm-docs-version` and every `publish.yml@` ref name one docs-kit release and move together in one PR, after opmodel.dev runs that release (C12); Dependabot ignores them.
-
-### CUE-module tasks
-
-The repo vendors CUE modules under `modules/opm_platform`, `testdata/modules/*` and `testdata/parity` (the pure-CUE render oracle the parity harness compares the kernel against; enhancement 0019) for tests and fixtures; production schema resolution is via `CUE_REGISTRY` against the published `opmodel.dev/core@v2`, and the OPM catalog is consumed from GHCR (`opmodel.dev/catalogs/opm@v4`, the consolidated line authored/published in the `catalog_opm` repo). Modules are auto-discovered via `CUE_MODULE_GLOBS` in `Taskfile.yml`.
-
-```bash
-task cue:discover            # list discovered modules + deps
-task cue:fmt                 # cue fmt across all
-task cue:vet                 # cue vet across all (CONCRETE=true for -c)
-task cue:check               # fmt + vet
-task cue:tidy                # cue mod tidy across all
-task cue:publish:smart       # checksum-detect changes, bump, publish in dep order (DRY_RUN=true to preview)
-task cue:publish PATH=modules/opm_platform [VERSION=vX.Y.Z]
-task cue:deps:update         # cue mod get + tidy across all
-```
-
-### Release cascade task
-
-The release cascade (workspace `RELEASING.md`, section "The cascade") moves the library's upstream pins with `task -x deps:cascade`: core in `DefaultSchemaModule`, then the core pin of `testdata/cue.mod` and every `testdata/render` tree as text, and core and the opm catalog in the `CUE_MODULE_GLOBS` modules through explicit-version `cue mod get` and `tidy`. It edits the working tree only and exits 0 when the tree changed, 3 when there was nothing to do, anything else on error; always run it with `-x`, since plain `task` turns 3 into 201. A core move carries the `need-human-review` label: re-verify the glue against the new core before merging. The same run moves the core release in the `OCILoader` `Module` examples of `docs/getting-started.md` and this file to the new core; any other core release either file names, in prose or another major, is left alone and warned about. `.cascade-frozen` and `.cascade-hold` steer it. `task -x deps:cascade:title` and `task -x deps:cascade:body` print the PR title and body through the shared resolver in `open-platform-model/.github`, found beside the workspace or through `CASCADE_RESOLVER`. `task -x deps:cascade:test` runs its scenarios in throwaway copies against the resolver stub (`CASCADE_TEST_SET=offline` is the `Go tests` step; the full set is the non-required `Cascade task (network)` workflow). `deps:cascade:test` needs no resolver; set `CASCADE_RESOLVER_REAL` to the real one to run S5 too. Without a sibling `.github` checkout, prefix the other three with `CASCADE_RESOLVER=$PWD/.tasks/cascade/testdata/stub-resolve.sh` to run them against the stub. `task cue:deps:update` stays the hand-run task.
-
-In CI (Phase 3 wiring contract version 3.1, archived in `.github` as `openspec/changes/archive/2026-10-04-add-release-cascade-workflows/contract.md`), `deps-cascade.yml` runs the task on core and catalog_opm releases, daily and by hand, and keeps one rolling `deps/cascade` PR (a core move labelled `need-human-review`). Its `cascade` job calls the reusable `cascade-receive.yml` in `open-platform-model/.github` (compute and gates, with no secret in reach); its own `publish` job declares `environment: cascade` and runs the `cascade-publish` action. `release.yml`'s `notify-downstream` job likewise declares `environment: cascade` and runs the `cascade-notify` action, which tells opm-operator and cli about each library release; there is no reusable notify workflow. The App key is read only in those two caller-owned jobs, as the `private-key` input of the pinned action; they have no checkout or `run:` step and no `env:`, `container:` or `services:`, and no call passes `secrets:`. `cascade-gates.yml` posts `cascade/freshness` and `cascade/settled` on every PR through the reusable `cascade-gates.yml`. Every cascade reference (the two actions, the two reusable workflows, and the `ref:` of the resolver checkout in `cascade-task.yml`) names the same full `.github` `main` commit SHA with the comment `# .github main` (owner decision 24 for the actions; the join-release-cascade change extended it to the two reusable workflows and the resolver checkout). A `.github` change reaches the library only through a `ci(deps): pin the cascade to .github <sha7>` PR that moves all five together (`.github` README "Pinning and bumps"; `RELEASING.md` "Moving the cascade pin"); Dependabot ignores them. `task cascade:wiring:check` (`.tasks/cascade/wiring-check.sh`, part of `task check` and a step of `Go tests`) refuses any other shape: one SHA and the pin comment everywhere, the exact keys, permissions, `runs-on: ubuntu-latest` and inputs of the two key-holding jobs, no workflow-level `env` in `release.yml`, and the exact dry-run expressions; it guards against mistakes, and review plus the `main` ruleset guard against a deliberate edit. Repo variables steer it: the receiver stays a dry run until `CASCADE_DRY_RUN` is `false` (GitHub compares it case-insensitively), `CASCADE_NOTIFY=off` stops the release job's dispatch, and `CASCADE_G2_MODE`/`CASCADE_G3_MODE` (default `warn`) set whether those two statuses warn or fail.
-
-Workflow security (security pass of 2026-10-04, `openspec/changes/archive/2026-10-04-harden-release-workflows`): the only workflow here that reads `RELEASE_APP_PRIVATE_KEY` is `release.yml`'s `release-please` job, which declares `environment: release` (an Environment that admits `main` only), holds no `GITHUB_TOKEN` grant, and mints an App token scoped to this repo with `contents` and `pull-requests` write. The Environment keeps the key from other branches only once the organization secret of the same name no longer reaches the library: until the owner stores the key in `release` and removes the library from the organization secret (or deletes it), a workflow on any branch that skips the Environment can still read it. Every workflow declares `permissions:` (`release.yml` `{}` with per-job grants; `api-diff.yml`, `consumer-build.yml`, `cue.yml`, `lint.yml` and `test.yml` `contents: read`), so the repo default token can be read-only, and every checkout here sets `persist-credentials: false`. `lint.yml` installs golangci-lint from its release archive checked against the sha256 in the step's `env`; a bump moves `GOLANGCI_LINT_VERSION` and `GOLANGCI_LINT_SHA256` together. `.github/CODEOWNERS` puts `.github/`, `.tasks/`, the Taskfiles, the release-please config and manifest, and `.cascade-frozen` under code-owner review.
-
-Consumer build (ADR-013, decision j4, `openspec/changes/archive/2026-10-05-add-consumer-build-job`): `consumer-build.yml` runs `Consumer build (cli)` and `Consumer build (opm-operator)` on a same-repo pull request that touches `opm/**`, `go.mod`, `go.sum`, the workflow or `.tasks/consumer-build.sh`; fork PRs skip it, and nothing runs it under `pull_request_target`. Each job clones the consumer at `main`, installs the Go its `go.mod` names, and runs `.tasks/consumer-build.sh` with `GOTOOLCHAIN=local`: `go work init <consumer> <library>` in a directory under `$RUNNER_TEMP`, then `go build ./...` and `go vet ./...` in the consumer with `GOWORK` pointing there, against the PR's merge commit. No `replace`, `go.work` or `go.work.sum` lands in either checkout; the script compares both trees' `git status --porcelain` with a snapshot taken before the build and fails if either changed. The jobs are not required checks: a consumer break turns its job red without blocking a merge, and the job summary names the consumer commit, the failing step and the compiler's error lines (which name the broken symbol). Read a red run as: this PR changes API that the consumer's `main` still uses. Deprecate it instead (a `Deprecated:` comment, the API kept) and remove it in a later change once both consumers have migrated. A red run can also come from the consumer's own `main` (check the commit in the summary) or, at `go work init`, from a library `go` line above the consumer's. To run it locally, clone the consumer and run `GOTOOLCHAIN=local bash .tasks/consumer-build.sh <consumer-checkout> . [<work-dir>]` from the repo root; a library worktree with uncommitted edits is fine. `task consumer-build:test` (in `task check` and the `Go tests` job) tests the script offline against synthetic git repos, including a pipefail mutant and a mutant per tree check, each of which must fail.
-
-API diff (ADR-013, decision j4): `api-diff.yml` runs `task api:diff` (`.tasks/api-diff.sh`) on every pull request that touches Go code, the module files, `Taskfile.yml` or the check itself. It compares the exported API at the base release tag with the pull request head using `apidiff`. The base tag is the nearest `v[0-9]*` tag reachable from the pull request's base commit, never the highest tag, so `v0.7.0` does not decide while the beta line runs. An incompatible change the base commit already carries since that tag is listed as inherited and never charged to the pull request. The tag alone sets the outcome. A prerelease tag warns and passes: each new change is a warning annotation, and the job summary says it needs a `feat!` commit with a `BREAKING CHANGE:` footer (ADR-010). A release tag, from GA on, fails: the summary says a breaking change is MAJOR (CONSTITUTION VI) and needs a migration fragment per `migrations/README.md` (ADR-004). A failure of the check itself (tool build, no reachable tag) is red in both modes (exit 2), and `BASE=<tag>` works only locally. In CI the base commit is the first parent of the checked-out merge commit. The tool is built from the tools module `.tasks/apidiff/`, whose committed `go.sum` the build verifies with `-mod=readonly`; the library's `go.mod` does not require it. Its pin is the newest `golang.org/x/exp` whose `go` directive does not exceed the library's, moved by hand (Dependabot does not watch it). The job is not a required status check. A release-cascade core move changes the `schema.DefaultSchemaModule` constant, which `apidiff` counts as incompatible; one fixed allow line in the script's `ALLOW` array (a literal prefix that matches that value change and nothing else) lists it as allowed and never charges it. `task api:diff:test` (`.tasks/api-diff-test.sh`, part of `task check` and the `Go tests` job) tests the split, the modes and the exit codes offline against `.tasks/apidiff/testdata`, and runs the script end to end with `APIDIFF_BIN` (ignored in CI) set to the stub tool there. The route for a deliberate break after GA is an open point for GA (`openspec/changes/archive/2026-10-05-add-api-diff-check/design.md`).
-
-### Flow test
-
-```bash
-task cue:test:flow                              # acquire→render integration test against the published catalog (skips if registry unreachable; OPM_FLOW_TEST_FORCE=1 to require it)
-```
-
-## Coding Standards
-
-### Kernel API and render pipeline
-
-The kernel's surface and the render pipeline are specified in godoc. Edit the godoc;
-do not restate it here:
-
-- Verbs, the one-tier surface, the `WithRegistry` mapping, the shares-nothing context
-  rule, goroutine safety and values validation: the `opm/kernel` package doc
-  (`opm/kernel/doc.go`).
-- The render steps, the gate and its cause order: the `Kernel.Render` doc, the package
-  doc § Rendering, and the `RenderError` doc.
-- Staging, promotion, coverage, skew and local replacements: the
-  `opm/internal/renderstage` package doc. The glue's matching shape is the header of
-  `opm/internal/renderstage/render.cue.tmpl`.
-- `*kernel.Compiled` as terminal output with no platform-native identity: the
-  `Compiled` doc. Don't push platform-native identity into the kernel.
-
-Facts for maintainers that no godoc carries:
-
-- The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value
-  tier (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and the
-  free-function entry points (`compile.CompileModuleInstance`,
-  `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are gone, and
-  `opm/kernel/kernel_test.go` pins their absence. Do not bring any of them back, and do
-  not add a standalone `opm/validate/` package: validation is `ValidateConfigDetailed`.
-- `opm/kernel/render_inventory_parity_test.go` is the tripwire that a render refuses on
-  a collision or an over-subscription exactly when `Platform.Contracts()` reads not
-  routable, over every served platform.
-
-### OPM schema versioning
-
-The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime via `CUE_REGISTRY` and cached per-Kernel in `*schema.Cache`. Versioning is per-OCI-module-version. The default loader pins an exact release, `opmodel.dev/core@v2.X.Y[-pre]` (`schema.DefaultSchemaModule`); the bare major `opmodel.dev/core@v2` is opt-in and resolves to the highest published release of that major.
+The schema lives in the `opmodel.dev/core` CUE module, resolved at runtime through `CUE_REGISTRY` and
+cached per Kernel in `*schema.Cache`. Versioning is per OCI module version. The default loader pins an
+exact release, `opmodel.dev/core@v2.X.Y[-pre]` (`schema.DefaultSchemaModule`). The bare major
+`opmodel.dev/core@v2` is opt-in and resolves to the highest published release of that major.
 
 A consumer that wants its own pin, or the bare major, passes its own loader, for example:
 
@@ -344,129 +83,76 @@ A consumer that wants its own pin, or the bare major, passes its own loader, for
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.4"}))
 ```
 
-Inspect what got resolved at runtime via `k.SchemaCache().ResolvedVersion()` after the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the schema, so a consumer that wants the diagnostic makes that call itself).
+After the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the
+schema), `k.SchemaCache().ResolvedVersion()` shows what resolved.
 
-A shape-breaking schema change is a coordinated event: the `core` repo publishes the new shape, the library's Go code in `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (plus the glue template) adapts to the new paths, and downstream consumers re-pin. Within a major, an additive schema change needs no Go API change: artifacts take it up by re-pinning core in their own `cue.mod`, and `DefaultSchemaModule` (the core release the schema cache loads and a generated platform module pins; synthesis takes only its major for the core import) moves separately, in the cascade's `fix(deps)` PR, which re-verifies the glue.
+A shape-breaking schema change is a coordinated event: `core` publishes the new shape, the Go code in
+`opm/schema`, `opm/kernel` and `opm/internal/renderstage` (and the glue template) adapts, and consumers
+re-pin. Within a major, an additive change needs no Go API change: artifacts re-pin core in their own
+`cue.mod`, and `DefaultSchemaModule` moves separately in the cascade's `fix(deps)` PR, which re-verifies
+the glue. Two compat tracks never mix: Go-module SemVer for Go types (a break is a MAJOR library bump),
+and OPM schema versioning for CUE module versions (the kernel must adapt to additive changes).
 
-Two independent compat tracks, never confuse:
-
-- **Go-module SemVer** — Go types/signatures consumed by binaries. Breaking change → MAJOR library bump.
-- **OPM schema versioning** — CUE module versions resolved via `CUE_REGISTRY`. Within a major, kernel MUST adapt to additive schema changes. A shape break in the schema is itself a library-breaking event.
-
-### Imports + style
-
-Standard Go grouping with blank lines between groups: stdlib → external (incl. `cuelang.org/go`) → `github.com/open-platform-model/library/...`. Let `gofmt`/`goimports` handle it. Accept interfaces, return concrete structs. Propagate `context.Context` through I/O and CUE evaluation. Wrap errors: `fmt.Errorf("loading module: %w", err)`. Reuse `opm/errors` types.
-
-### Commit style
-
-Conventional Commits v1: `type(scope): description` — lowercase, imperative mood, no trailing period, first line under 72 chars. Add a body (blank-line separated) only when the what/why isn't obvious from the subject. Scopes match packages: `core`, `loader`, `module`, `kernel`, `errors`, `schema` (plus `platform`, `helper`, `render`, `renderstage`, and `k8s` for the Kubernetes tier). The workspace `/commit` skill (`.claude/skills/commit/SKILL.md`) is the canonical workflow — follow it. One logical change per commit; prefer `git add <file>` over `git add -A`. Commit or push only when asked; if on the default branch, branch first. release-please hides `chore`, `test`, `ci`, `build` and `docs`, so those never release; `feat`, `fix`, `perf`, `revert`, `deps` and `refactor` do. Go and CUE deps the kernel embeds (`go.mod`, `cue.mod`) bump as `deps`/`fix(deps)`; the parity platform and other test fixture pins bump as `test(fixtures)`.
-
-**Squash-body hazard (release-blocking).** release-please parses the squash merge commit's *entire message*, and a body line that begins with a code-like call — `Syntax(cue.All(), …)` at the start of a line — scans as a malformed commit header. The parser then rejects the whole commit, and if it was the only commit since the last release, the release run "succeeds" having found nothing to release (this stalled the release after PR 58; the same class stalled core's alpha.5). Never let a merge-commit body line start with `word(`: prune the auto-filled body when squash-merging, keep code references off the start of body lines, or set the repo's squash-message default to blank so only the (title-checked) PR title reaches main.
-
-**Commit attribution: plain co-author line only.** The single permitted (optional) form is `Co-Authored-By: Claude <noreply@anthropic.com>` — never a `Claude-Session:` trailer, a claude.ai session URL, a "Generated with …" footer, or any embellished variant. See the Attribution section at the top of this file.
-
-### Where a statement lives
-
-Each statement has one home, and every other copy links to it (ADR-013, decision c4;
-openspec `kernel-runtime`, "Each runtime contract has one home"):
-
-- A runtime contract goes in the godoc of the package, type or function that owns it.
-- Rationale goes in an ADR under `adr/`.
-- A SHALL requirement goes in an `openspec/specs` capability.
-- `README.md`, `AGENTS.md` and `docs/getting-started.md` link to those homes. They may
-  keep a short orientation sentence that names the home, never a second statement of
-  the contract.
-- A source is one a reader can open: an ADR; a decision ADR-013 records, cited as
-  `ADR-013, decision <id>`; an enhancement, named by its id beside the reason (enhancement 0012, the Kubernetes tier); a pull request; or an
-  archived change. Never a decision recorded only in an agent session.
-
-### Enhancement references in comments
-
-Default is none: a comment says what the code does and why, in its own words.
-
-- In all text (proposal, design, specs, docs and comments), when a rationale genuinely lives in an enhancement, cite it **once at the symbol** (in a comment): the enhancement id beside a reason in words, such as `(enhancement 0011)` after the sentence it explains. Several enhancements: `(enhancements 0010 and 0011)`. The id is never alone, and a comment that is only an id is wrong. Read an entry with `openspec show <id>-<slug> --store opm-enhancements`.
-- Never a decision number. The store has no decision numbers; a citation such as an id with a colon and `D9`, or a bare `D9`, names nothing. `enh cite-lint` rejects it in comments.
-- Never a section, slice, phase, task or design-doc-local number (`§8.1`, `slice C2`, `task 4.2`, `design LD3`). They are not stable identifiers.
-- Never in scaffold templates, generated files, fixtures a user copies, or CLI output strings. Those reach people who have no access to the enhancements repo.
-- No `Was:` rename history. `git log` owns it.
-- In CUE files the reference goes in a `// WHY` block separated from the doc comment by one blank line, never in the doc comment itself: `cue lsp` hover, `Value.Doc()` and `cue def` replay a doc comment verbatim.
-
-## Coding Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
+## Layout
 
 ```text
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+opm/kernel/        PUBLIC ENTRY POINT: Kernel, acquire / synthesize / validate verbs, Render
+opm/module/        *module.Module, *module.Instance and module.Source
+opm/platform/      *platform.Platform, Render's sole platform input
+opm/catalog/       *catalog.Catalog: the acquired #Catalog (ADR-009)
+opm/schema/        core schema loader (OCILoader, Cache) and the CUE paths a consumer reads
+opm/errors/        verdict rows, gate causes and fetch / resolution classification
+opm/helper/        opt-in convenience for frontends; nothing outside it may import it
+opm/k8s/           the Kubernetes tier beside the kernel (ADR-011); fenced by depguard
+opm/internal/      loader, synth, renderstage, cueenv, modversion, registrytest and other internals
+adr/               architecture decision records (use TEMPLATE.md)
+openspec/          OpenSpec specs, active changes and archive
+modules/           test-only CUE modules (fixtures, not shipped)
+testdata/          CUE fixtures for package tests, including the parity oracle and render fixtures
+migrations/        migration policy and fragments (dormant through beta until GA, ADR-004)
+docs/              getting-started walkthrough, CUE evaluator notes (design/), site pages (site/)
+docs-kit.cue       the docs bundle config; .opm-docs-version pins the docs-kit release
+.cue-cache/        gitignored shared CUE module cache; tests never delete from it
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+## Environment
 
-## Working Style for Agents
+Set `CUE_REGISTRY` and `OPM_REGISTRY` as the workspace registry reference says. Nothing needs a local
+registry: `opmodel.dev/*` reads resolve from GHCR, and the Go suite runs against it. Only
+`task cue:publish` and `task cue:publish:smart` use `localhost:5000`, and they run only when the user
+asks. New tests use the in-process registry in `opm/internal/registrytest`; `opm/kernel/render_test.go`
+shows the pattern.
 
-- Apply the mergeable-sections gate before starting work — split requests that do not cut into a handful of green, committable sections using `openspec/config.yaml` § Execution Gate phrasing.
-- Pick the right destination for new work:
-  - **Cross-cutting OPM design** (spans `core/`, `library/`, `catalog/`, `opm-operator/`, etc.) — the `enhancements` repo, an OpenSpec store with the id `opm-enhancements` (read an entry with `openspec show <id>-<slug> --store opm-enhancements`). The library's own old proposals 001 to 007 are retired from the tree and live in git history; cite one as `legacy:NNN`.
-  - **Library-scoped slice of a cross-cutting enhancement** — OpenSpec change under `openspec/changes/` here. If the change delivers a line of an enhancement's `tasks.md`, its proposal has a `## Enhancement` section with one line `Delivers NNNN, task X.Y.` per task; otherwise the section says `None.`. The rule is in `openspec/config.yaml`. If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`. If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line.
-  - **Architecture decision purely about library internals** — `adr/<NNN>-<slug>.md` (use `adr/TEMPLATE.md`).
-  - **Schema change** — almost always `core/`. Catalog primitives built on top → `catalog/`. Editing `core/*.cue` requires the `core-schema-edit` skill (`core/.claude/skills/core-schema-edit/SKILL.md`) — SPEC.md co-update is pre-commit-gated.
-- Run `task check:fast` for iterative work, `task check` before merge.
-- When changing kernel-exposed signatures, check downstream impact in `cli/` and `opm-operator/` consumers. Pre-GA no migration fragment is written (consumers migrate in the same PR wave); on the beta line a break lands only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the CHANGELOG shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)); from GA a breaking change requires `migrations/unreleased/<slug>.md` per `migrations/README.md`.
-- Don't reintroduce removed top-level artifacts (`#ModuleDebug`) or free-function entry points (`compile.CompileModuleInstance`, etc.).
-- "Load a published module by `path@version`" lives in the library (`Kernel.AcquireModuleFromRegistry`, over `opm/internal/loader.FetchModule`), **not** in consumers — Principle V (CUE-native module resolution). Frontends MUST NOT hand-roll OCI fetch, wrapper-package shims, dependency walks, or a directory walk to stage a module's tree: `AcquireModuleFromDir` returns it as a byte overlay and `module.Source.WriteTo` writes one back out. The shape gate is single-sourced in `opm/internal/loader` and its sentinels in `opm/errors` — extend them there.
+## Commands
+
+| Command | What it does | When |
+| --- | --- | --- |
+| `task fmt` / `task vet` / `task lint` / `task test` | gofmt + goimports, go vet, golangci-lint, go test | while working |
+| `task check:fast` | the four above without lint | iterative work |
+| `task check` | the four, then `docs:bundle:check`, `cascade:wiring:check`, `cite-lint`, `api:diff:test` | before merge |
+| `task test:run TEST=TestName` | one Go test | debugging |
+| `task cite-lint` | the enhancement citation rule for Go and CUE comments | after editing comments |
+| `task api:diff` | incompatible changes to the exported `opm/` API since the last release tag (`BASE=<tag>` to pick one) | before a kernel-surface change |
+| `task cue:check` | cue fmt and vet across `modules/` and `testdata/` (auto-discovered through `CUE_MODULE_GLOBS`) | after a CUE fixture edit |
+| `task cue:test:flow` | acquire-to-render test against the published catalog (`OPM_FLOW_TEST_FORCE=1` to require it) | before a render change |
+| `task -x deps:cascade` | moves the upstream pins; always pass `-x`, since plain `task` turns exit 3 into 201 | when the cascade runs |
+| `task docs:bundle` | builds the library docs bundle into `out/library/` | before a docs change |
+| `task deps:release-check` | release-pin gate; CI runs it on `release-please--` branches | on a release PR |
+
+The cascade task also rewrites the core release in the `OCILoader` `Module` example of this file and of
+`docs/getting-started.md`; keep that example above.
+
+## Style
+
+- Standard Go import grouping (stdlib, external including `cuelang.org/go`, then
+  `github.com/open-platform-model/library/...`); `gofmt` and `goimports` handle it.
+- Accept interfaces, return concrete structs. Pass `context.Context` through I/O and CUE evaluation.
+  Wrap errors (`fmt.Errorf("loading module: %w", err)`) and reuse the `opm/errors` types.
+- Commits are Conventional Commits v1 with a package scope (`core`, `loader`, `module`, `kernel`,
+  `errors`, `schema`, `platform`, `helper`, `render`, `renderstage`, `k8s`). `chore`, `test`, `ci`,
+  `build` and `docs` never release. Go and CUE deps the kernel embeds bump as `deps` or `fix(deps)`;
+  test fixture pins bump as `test(fixtures)`.
+- A comment cites an enhancement only once, at the symbol, as the id beside a reason in words, such as
+  `(enhancement 0011)`. Never cite a decision number or a section, slice or task number.
+
+@CONTEXT.md
