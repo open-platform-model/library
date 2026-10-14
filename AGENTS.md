@@ -10,8 +10,8 @@ the frontends.
 - `CONSTITUTION.md` is the human-readable principle source and `openspec/config.yaml` is normative.
   Their principles are not restated here.
 - Mergeable sections (Principle VIII) have a hard gate. A request that cannot be cut into about five
-  `tasks.md` sections, each ending green and closing with its own commit, gets the gate phrase from
-  `openspec/config.yaml` (Execution Gate) and a proposed split. This keeps `main` releasable.
+  task sections, each ending green and closing with its own commit, gets the gate phrase from
+  `openspec/config.yaml` and a proposed split. This keeps `main` releasable.
 - Kernel neutrality (Principle I). The kernel is consumed by several runtimes, so it holds no global
   mutable state or package-level singleton, no `os.Exit`, no direct stdout or stderr output, no shell
   invocation, no hidden environment lookup (config arrives as arguments) and no non-determinism.
@@ -28,29 +28,28 @@ the frontends.
   change, or an enhancement by id beside the reason (enhancement 0012, the Kubernetes tier). Never cite
   a decision recorded only in an agent session.
 - Edit the godoc, do not restate it. The render contract (single verb, shares-nothing context, verdicts
-  as data, fail-closed gate, catalog skew, `WithRegistry`) is the `opm/kernel` package doc
-  (`opm/kernel/doc.go`). The render steps and gate cause order are the `Kernel.Render` doc and the
+  as data, fail-closed gate, catalog skew, `WithRegistry`) is the `opm/kernel` package doc.
+  The render steps and gate cause order are the `Kernel.Render` doc and the
   `RenderError` doc. Staging, promotion, skew and local replacements are the `opm/internal/renderstage`
-  package doc. The schema cache contract is the `schema.Cache` and `Kernel.SchemaCache` godoc.
-- The old verbs (`Compile`, `Match`, `Materialize`, `SynthesizePlatform`), the raw value tier
-  (`LoadModulePackage`, `LoadInstancePackage`, `LoadPlatformPackage`) and the free-function entry points
-  (`compile.CompileModuleInstance`, `compile.ProcessModuleInstance`, `module.ParseModuleInstance`) are
-  gone, and `opm/kernel/kernel_test.go` pins their absence. Do not bring them back. Do not add an
-  `opm/validate/` package: validation is `ValidateConfigDetailed`. Do not reintroduce `#ModuleDebug`.
-- Loading a published module by `path@version` lives in the library (`Kernel.AcquireModuleFromRegistry`),
-  not in consumers (Principle V). A frontend must not hand-roll OCI fetch, wrapper-package shims,
-  dependency walks or a directory walk to stage a tree: `AcquireModuleFromDir` returns a byte overlay
-  and `module.Source.WriteTo` writes one out. The shape gate is single-sourced in `opm/internal/loader`
+  package doc. The schema cache contract is the cache godoc in `opm/schema/`.
+- The old verb set (compile, match, materialize, synthesize), the raw value-loading tier and the
+  free-function entry points are gone, and a test in `opm/kernel/` pins their absence. Do not bring them
+  back. Do not add an `opm/validate/` package: validation is a kernel verb. Do not reintroduce the
+  retired debug module definition.
+- Loading a published module by path and version lives in the library, not in consumers (Principle V).
+  A frontend must not hand-roll OCI fetch, wrapper-package shims, dependency walks or a directory walk
+  to stage a tree: the kernel acquire verbs return a byte overlay and `module.Source` writes one out.
+  The shape gate is single-sourced in `opm/internal/loader`
   and its sentinels in `opm/errors`: extend them there.
 - Before pre-GA, a kernel-surface break writes no migration fragment. On the beta line it lands only as
   a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the CHANGELOG shows (ADR-010).
-  From GA a break needs `migrations/unreleased/<slug>.md` per `migrations/README.md`. When a signature
+  From GA a break needs a migration fragment under `migrations/`, per the policy there. When a signature
   changes, check the effect on `cli/` and `opm-operator/`.
 - A `retract` in `go.mod` takes effect only from the go.mod of the version the go command resolves as
   latest, which is the highest release and falls back to a prerelease only when no release exists.
-  `v0.7.0` is a release, so a retract shipped in a `-beta.N` is ignored: fix a bad beta with the next
-  `-beta.N`. The retract first takes effect with `v1.0.0`.
-- A squash-merge body line that starts with a call such as `Syntax(cue.All(), ...)` makes
+  While a release exists, a retract shipped in a prerelease is ignored: fix a bad beta with the next
+  beta.
+- A squash-merge body line that starts with a function call makes
   release-please reject the whole commit, and a release can then find nothing to release. Prune the
   auto-filled body when you squash-merge.
 - Every new exported symbol needs a doc comment, because it gets a reference entry in the docs bundle.
@@ -83,8 +82,8 @@ A consumer that wants its own pin, or the bare major, passes its own loader, for
 k := kernel.New(kernel.WithSchemaLoader(schema.OCILoader{Module: "opmodel.dev/core@v2.0.0-beta.4"}))
 ```
 
-After the first schema-touching call (`SchemaCache().Get()`; on a pinned kernel no verb touches the
-schema), `k.SchemaCache().ResolvedVersion()` shows what resolved.
+After the first schema-touching call (on a pinned kernel no verb touches the schema), the kernel's
+schema cache reports what resolved.
 
 A shape-breaking schema change is a coordinated event: `core` publishes the new shape, the Go code in
 `opm/schema`, `opm/kernel` and `opm/internal/renderstage` (and the glue template) adapts, and consumers
@@ -105,13 +104,13 @@ opm/errors/        verdict rows, gate causes and fetch / resolution classificati
 opm/helper/        opt-in convenience for frontends; nothing outside it may import it
 opm/k8s/           the Kubernetes tier beside the kernel (ADR-011); fenced by depguard
 opm/internal/      loader, synth, renderstage, cueenv, modversion, registrytest and other internals
-adr/               architecture decision records (use TEMPLATE.md)
+adr/               architecture decision records (the template is inside)
 openspec/          OpenSpec specs, active changes and archive
 modules/           test-only CUE modules (fixtures, not shipped)
 testdata/          CUE fixtures for package tests, including the parity oracle and render fixtures
 migrations/        migration policy and fragments (dormant through beta until GA, ADR-004)
 docs/              getting-started walkthrough, CUE evaluator notes (design/), site pages (site/)
-docs-kit.cue       the docs bundle config; .opm-docs-version pins the docs-kit release
+docs-kit.cue       the docs bundle config
 .cue-cache/        gitignored shared CUE module cache; tests never delete from it
 ```
 
@@ -120,8 +119,8 @@ docs-kit.cue       the docs bundle config; .opm-docs-version pins the docs-kit r
 Set `CUE_REGISTRY` and `OPM_REGISTRY` as the workspace registry reference says. Nothing needs a local
 registry: `opmodel.dev/*` reads resolve from GHCR, and the Go suite runs against it. Only
 `task cue:publish` and `task cue:publish:smart` use `localhost:5000`, and they run only when the user
-asks. New tests use the in-process registry in `opm/internal/registrytest`; `opm/kernel/render_test.go`
-shows the pattern.
+asks. New tests use the in-process registry in `opm/internal/registrytest`; tests in
+`opm/kernel/` show the pattern.
 
 ## Commands
 
