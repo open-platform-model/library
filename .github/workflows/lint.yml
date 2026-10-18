@@ -52,7 +52,7 @@ jobs:
         run: task lint
 
   # The comment rule of the enhancements store, run by the shared reusable
-  # workflow of .github (its README, "cite-lint"). The tool commit lives in that
+  # workflow of .github (its references/cite-lint.md). The tool commit lives in that
   # workflow; `task cite-lint` runs the same tool at the same commit.
   # No excludes: the tree has 0 findings. Keep the exclude list equal to the one
   # in the Taskfile.yml task cite-lint if one is added.

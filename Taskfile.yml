@@ -207,7 +207,7 @@ tasks:
       - bash .tasks/consumer-build-test.sh
 
   cascade:wiring:check:
-    desc: Check the release-cascade caller workflows offline (.github README, "The wiring check"; CI adds --pin-on-main)
+    desc: Check the release-cascade caller workflows offline (.github references/cascade-wiring-check.md; CI adds --pin-on-main)
     cmds:
       - bash .tasks/cascade/wiring-check.sh
 

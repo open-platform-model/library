@@ -37,8 +37,8 @@ jobs:
         with:
           version: 3.x
 
-      # The release-cascade callers keep the shapes the .github README ("The
-      # wiring check") gives them: the caller-owned key-holding jobs, the
+      # The release-cascade callers keep the shapes the .github
+      # references/cascade-wiring-check.md gives them: the caller-owned key-holding jobs, the
       # release key only in `environment: release` jobs, no Actions cache in
       # a publishing workflow, and one .github SHA on every cascade reference,
       # which --pin-on-main confirms is on .github's main. The script is a
