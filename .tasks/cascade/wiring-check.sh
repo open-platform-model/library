@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The release-cascade wiring check: compares a product repo's cascade caller
-# workflows with the shapes the open-platform-model/.github README documents
-# for the commit this file comes from. Canonical copy:
+# workflows with the shapes the open-platform-model/.github references/
+# cascade files document for the commit this file comes from. Canonical copy:
 # open-platform-model/.github .github/scripts/cascade/wiring-check.sh. Each of
 # core, catalog_opm, library, opm-operator and cli keeps a byte-identical copy
 # at .tasks/cascade/wiring-check.sh, taken from the .github commit its cascade
@@ -587,7 +587,7 @@ if [ "$PIN_ON_MAIN" = true ]; then
     exit 1
   }
   cmp -s "$pinned" "$SELF" || {
-    echo "cascade wiring: $SELF differs from $CANON at .github $shas; replace it with that file (.github README, \"Keeping the copy in sync\")" >&2
+    echo "cascade wiring: $SELF differs from $CANON at .github $shas; replace it with that file (.github references/cascade-wiring-check.md)" >&2
     exit 1
   }
 fi
