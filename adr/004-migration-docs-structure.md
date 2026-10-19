@@ -44,7 +44,7 @@ under `migrations/`, and enforcement is deferred until the first GA release.
 - **Correlation (carried forward from `add-migration-guard`):** one slug flows through the
   OpenSpec change directory, the breaking commit's `Migration: <slug>` trailer (placed in
   the PR body; squash-only merges with `squash_merge_commit_message=PR_BODY` land it on
-  `main`), and the fragment filename. `Migration: none — <reason>` stays the escape hatch.
+  `main`), and the fragment filename. `Migration: none, <reason>` stays the escape hatch.
   Breaking detection uses a real Conventional Commits parser, the same signal
   release-please uses.
 - **Enforcement (armed at GA, not before):** a required PR-time check (breaking commit
