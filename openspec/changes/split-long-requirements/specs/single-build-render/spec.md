@@ -652,7 +652,7 @@ The generated render module SHALL carry the switch as a literal, so its own `gat
 - **THEN** The generated render module SHALL carry the switch as a literal, so its own `gate` field agrees with the kernel's verdict under both values.
 
 ### Requirement: A render checks the core floor of the platform before staging
-`Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the platform's `#contracts` carries `providedBy`, as recorded when the platform was constructed and reported by `Platform.CoreFloor()` (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from.
+`Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the platform's `#contracts` carries `providedBy`, as recorded when the platform was constructed and reported by `Platform.CoreFloor()` (`platform-artifact`, "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError"). The check is sound because the render build evaluates the platform module's own core pin, the same one its `Package` was built from.
 
 #### Scenario: A current-core platform is not affected
 
@@ -676,7 +676,8 @@ The refusal with `PlatformCoreTooOldError` SHALL NOT be a `*RenderError`, SHALL 
 - **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no staging file is written
 
 ### Requirement: The check reads the recorded floor and not the platform's Package
-The check of the platform's core floor SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`.
+The check of the platform's core floor SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call. Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`.
+**Source**: `platform-artifact`, "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError" and "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call".
 
 #### Scenario: A render reads no platform Package
 
