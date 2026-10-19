@@ -771,7 +771,7 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **THEN** the verdict applies
 
 ### Requirement: An adopt annotation with any other value lifts nothing
-An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
+An adopt annotation whose value does not equal the instance UUID SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 #### Scenario: An annotation naming another instance lifts nothing
 
@@ -882,7 +882,7 @@ The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the f
 - **THEN** the digest of those entries, given in another order, equals `sha256:` and the hex SHA-256 of the hand-written bytes, and equals the committed golden value
 
 ### Requirement: The inventory digest depends only on the entries' field values
-The digest SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests. Source: enhancement 0012.
+The digest SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 
 #### Scenario: Input order does not matter
 
@@ -895,7 +895,7 @@ The digest SHALL depend only on the entries' field values: not on their input or
 - **THEN** the digest differs from the original inventory's
 
 ### Requirement: The empty inventory hashes the tag line and a new encoding uses a new tag line
-The empty inventory SHALL hash the tag line alone. The function SHALL leave its input unchanged. A change to this encoding SHALL use a new tag line. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
+The inventory digest of the empty inventory SHALL hash the tag line `opm-inventory-v1` alone. The inventory digest function SHALL leave its input unchanged. A change to the encoding of the inventory digest SHALL use a new tag line. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: Empty and nil inventories agree
 
@@ -1038,7 +1038,7 @@ A safety-excluded step SHALL be reported as skipped with the reason `safety-excl
 - **AND** no read is named for that step
 
 ### Requirement: Every other step is read, judged, and then skipped or deleted
-Every other step SHALL be read before it is judged, and the library's delete verdict SHALL judge it against the plan's instance UUID. A skip verdict SHALL be reported as skipped with the verdict's reason and message. A proceed verdict SHALL name a delete with Foreground propagation and the verdict's UID precondition. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+Every step that is not safety-excluded SHALL be read before it is judged, and the library's delete verdict SHALL judge it against the plan's instance UUID. A skip verdict SHALL be reported as skipped with the verdict's reason and message. A proceed verdict SHALL name a delete with Foreground propagation and the verdict's UID precondition. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: An owned object is read, then deleted with Foreground propagation
 
@@ -1391,7 +1391,7 @@ Outside the inventory an empty instance UUID SHALL never match an adopt annotati
 - **AND** the message is `Deployment/web/api is being adopted by module instance u-1; this instance does not apply it`, with no remedy clause
 
 ### Requirement: The docs state the frontend's part of the hand-over
-The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012 (the apply guard and its only override) (enhancements#103).
+The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012 (enhancements#103).
 
 #### Scenario: The docs state the frontend's part of the hand-over
 
@@ -1399,7 +1399,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 - **THEN** each says a frontend drops an object refused as `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal
 
 ### Requirement: The adopted-elsewhere message names the object, the adopter and the way back
-The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012 (the apply guard and its only override) (enhancements#103).
+The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012 (enhancements#103).
 
 #### Scenario: An inventoried object annotated for another instance is refused
 

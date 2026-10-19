@@ -553,7 +553,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | An adopt annotation whose value equals the instance UUID SHALL lift the `foreign-object`, `othe... | An adopt annotation naming the instance lifts an ownership refusal | verbatim |
 | The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is... | An adopt annotation naming the instance lifts an ownership refusal | verbatim |
-| An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say... | An adopt annotation with any other value lifts nothing | verbatim |
+| An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say... | An adopt annotation with any other value lifts nothing | the subject restates the old condition: "with any other value" becomes "whose value does not equal the instance UUID" (the plain negation of the first sentence of the old body); the rest is verbatim |
 | The refusal message for `foreign-object` and `other-instance` SHALL name the object, the annota... | A refusal names the adopt annotation key and the UUID to set | verbatim |
 | The `other-instance` message SHALL ask the user to remove the object from the instance that own... | The other-instance refusal asks to remove the object from its owner first | verbatim |
 | No message SHALL name any other way past a refusal, such as a command-line flag. | No refusal message names another way past the refusal | verbatim |
@@ -599,7 +599,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | No component-aware comparison and no separate component-rename filter SHALL exist in the packag... | The package exports one identity comparison and no component-aware one | verbatim |
 | Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a... | The stale set keeps the previous order and is never nil; The package exports one identity comparison and no co... | verbatim |
 
-**The inventory digest hashes a canonical field encoding**: form c2 (REMOVED plus ADDED); old body 1155 characters; new bodies 497, 273, 435.
+**The inventory digest hashes a canonical field encoding**: form c2 (REMOVED plus ADDED); old body 1155 characters; new bodies 497, 435, 354.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -615,10 +615,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Each entry SHALL be written as its group, kind, namespace, name, version and component, in that... | The inventory digest is sha256 over a tagged, length-prefixed encoding | verbatim |
 | The digest SHALL depend only on the entries' field values: not on their input order and not on... | The inventory digest depends only on the entries' field values | verbatim |
 | Two inventories that differ in their entries, or in any field of an entry, SHALL produce differ... | The inventory digest depends only on the entries' field values | verbatim |
-| The empty inventory SHALL hash the tag line alone. | The empty inventory hashes the tag line and a new encoding uses a new tag line | verbatim |
-| The function SHALL leave its input unchanged. | The empty inventory hashes the tag line and a new encoding uses a new tag line | verbatim |
-| A change to this encoding SHALL use a new tag line. | The empty inventory hashes the tag line and a new encoding uses a new tag line | verbatim |
-| Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a... | The empty inventory hashes the tag line and a new encoding uses a new tag line | verbatim |
+| The empty inventory SHALL hash the tag line alone. | The empty inventory hashes the tag line and a new encoding uses a new tag line | "The empty inventory" becomes "The inventory digest of the empty inventory", and the tag line `opm-inventory-v1` is named (both from the old body); the rest is verbatim |
+| The function SHALL leave its input unchanged. | The empty inventory hashes the tag line and a new encoding uses a new tag line | "The function" becomes "The inventory digest function"; the rest is verbatim |
+| A change to this encoding SHALL use a new tag line. | The empty inventory hashes the tag line and a new encoding uses a new tag line | "this encoding" becomes "the encoding of the inventory digest"; the rest is verbatim |
+| Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a... | The empty inventory hashes the tag line and a new encoding uses a new tag line | the first title stays here; the second title ("The Kubernetes runtime surface homes ...") moved whole to the block "The inventory digest depends only on the entries' field values", so the line fits 500 |
 
 **The render digest ignores only the managed-by label value**: form c2 (REMOVED plus ADDED); old body 2177 characters; new bodies 415, 421, 275, 426, 221, 389, 274, 264.
 
@@ -691,7 +691,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The deletion transition SHALL take the plan, the caller's state and the outcome of the action i... | The deletion transition returns the next state and one action | verbatim |
 | It SHALL perform no action itself. | The deletion transition returns the next state and one action | verbatim |
 | A safety-excluded step SHALL be reported as skipped with the reason `safety-excluded` without a... | A safety-excluded step is skipped without a read | verbatim |
-| Every other step SHALL be read before it is judged, and the library's delete verdict SHALL judg... | Every other step is read, judged, and then skipped or deleted | verbatim |
+| Every other step SHALL be read before it is judged, and the library's delete verdict SHALL judg... | Every other step is read, judged, and then skipped or deleted | "Every other step" becomes "Every step that is not safety-excluded" (the negation of the sentence before it in the old body); the rest is verbatim |
 | A skip verdict SHALL be reported as skipped with the verdict's reason and message. | Every other step is read, judged, and then skipped or deleted | verbatim |
 | A proceed verdict SHALL name a delete with Foreground propagation and the verdict's UID precond... | Every other step is read, judged, and then skipped or deleted | verbatim |
 | When the policy does not prune, the first call SHALL name done and no step SHALL be read or del... | A plan that does not prune names done at once | verbatim |
@@ -845,7 +845,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL a... | "The apply verdict decides in a fixed order" and scenario "The apply verdict order"; terminating also in "Nothing lifts a terminating refusal"; UUID change in "... | the ordered conditions move to the THEN and AND lines of the new scenario, wording verbatim; the body keeps the SHALL, the first-match rule and the outcomes, and names the scenario |
 | Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL r... | "The apply verdict decides in a fixed order" and scenario "The apply verdict order"; terminating also in "Nothing lifts a terminating refusal"; UUID change in "... | the ordered conditions move to the THEN and AND lines of the new scenario, wording verbatim; the body keeps the SHALL, the first-match rule and the outcomes, and names the scenario |
 | Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non... | Outside the inventory an empty instance UUID fails closed | verbatim |
-| Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outsid... | see "Source line placement" | the first-paragraph Source (514 characters) is split by title; the second-paragraph Source is kept in a short form with its number on both blocks that hold the second paragraph |
+| Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outsid... | see "Source line placement" | the first-paragraph Source (514 characters) is split by title; the second-paragraph Source is kept as `Source: enhancement 0012 (enhancements#103).` on both blocks that hold the second paragraph (the title is dropped whole, the issue reference stays) |
 | The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an objec... | The docs state the frontend's part of the hand-over | verbatim |
 | The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation nam... | The adopted-elsewhere message names the object, the adopter and the way back | verbatim |
 | For an inventoried object it SHALL say that this instance no longer applies the object and drop... | The adopted-elsewhere message names the object, the adopter and the way back | verbatim |

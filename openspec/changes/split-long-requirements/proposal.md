@@ -2,7 +2,7 @@
 
 OpenSpec 1.14.1 raises "Requirement text is very long (>500 characters)" from INFO to WARNING. `openspec validate --strict` fails on any warning, and no config key or flag turns it off: the limit is a constant in the validator. The warning is right on the merits. A long requirement usually holds several behaviors, and one behavior per requirement makes each one testable by its own scenarios.
 
-On `main`, 152 requirements in 23 of the 26 main specs are over the limit, so `openspec validate --specs --strict` fails today (153 WARNING lines in `openspec validate --all --strict`; the 153rd sits in the open change `publish-go-api-bundle`, which is not ours). The library cannot turn `--strict` back on as a gate until they are rewritten. This change rewrites them so that `--strict` can pass again with no rule lost or changed. The CI gate that keeps the problem from returning moves to a separate change after `publish-go-api-bundle` lands (swarm decision of 2026-10-19 14:05).
+On `main`, 152 requirements in 23 of the 26 main specs are over the limit, so `openspec validate --specs --strict` fails today (153 WARNING lines in `openspec validate --all --strict`; the 153rd sits in the open change `publish-go-api-bundle`, which is not ours). The library cannot turn `--strict` back on as a gate until they are rewritten. This change rewrites them so that `--strict` can pass again with no rule lost or changed. The CI gate that keeps the problem from returning moves to a separate change after `publish-go-api-bundle` lands (owner decision of 2026-10-19).
 
 ## What Changes
 
