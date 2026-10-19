@@ -101,7 +101,7 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 #### Scenario: The default reports the earlier inventories
 
 - **WHEN** the default release is read
-- **THEN** the per-registry-entry provider count (`providedBy`), the comparable-predicate report (`comparable` and `discriminated`; enhancement 0015)
+- **THEN** the release reports the per-registry-entry provider count (`providedBy`), the comparable-predicate report (`comparable` and `discriminated`; enhancement 0015)
 
 ### Requirement: The default release reports the registry shape and the context projection
 `2.0.0-alpha.13` SHALL report contract collisions on top of the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry) and the context projection (enhancement 0019: the kernel fills `#runtimeName` alone).
@@ -109,7 +109,7 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 #### Scenario: The default reports the registry shape
 
 - **WHEN** the default release is read
-- **THEN** the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry)
+- **THEN** the release reports the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry)
 
 ### Requirement: The default is not the render floor
 The default is not the render floor: `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on, and a platform pinning a release between the floor and `2.0.0-alpha.13` decodes an absent collision report as no collision.
@@ -241,7 +241,7 @@ The library SHALL expose `opm/schema.OCILoader` as the sole public implementatio
 #### Scenario: Load mutates no process-global state
 
 - **WHEN** `OCILoader.Load` runs
-- **THEN** MUST NOT mutate process-global state (no `os.Setenv`)
+- **THEN** `OCILoader.Load` MUST NOT mutate process-global state (no `os.Setenv`)
 
 ### Requirement: OCILoader reports its pinned core release without any I/O
 `OCILoader` SHALL report, without any I/O, the exact core release its module identifier names: `PinnedVersion()` returns that release and `true` when `Module` (or `DefaultSchemaModule` when `Module` is empty) names a full release, and `("", false)` when it names a bare major.
@@ -316,8 +316,8 @@ The library MUST NOT cache the `Loader`'s result at package scope. There SHALL b
 - **WHEN** two distinct `*Cache` values built from logically-equivalent Loaders are each called with `Get`
 - **THEN** each Cache runs its own Load invocation in its own context; populating one does not populate the other
 
-### Requirement: Every other path lives in opm/internal/corepath
-Every other path SHALL live in the internal package `opm/internal/corepath`, where no consumer can import or reassign it; a frontend reaches those fields through the artifact accessors (`Instance.Components`, `Instance.Values`, `Instance.ConfigSchema`, `Module.ConfigSchema`, `Module.DebugValues`, `Platform.Contracts`, `Catalog.Provides`). The paths and their readers are listed in scenario "The internal paths and their readers". The inventory SHALL be exactly these paths.
+### Requirement: Every path other than the exported three lives in opm/internal/corepath
+Every path other than `Metadata`, `Module` and `CatalogProvides` SHALL live in the internal package `opm/internal/corepath`, where no consumer can import or reassign it; a frontend reaches those fields through the artifact accessors (`Instance.Components`, `Instance.Values`, `Instance.ConfigSchema`, `Module.ConfigSchema`, `Module.DebugValues`, `Platform.Contracts`, `Catalog.Provides`). The paths and their readers are listed in scenario "The internal paths and their readers".
 
 #### Scenario: The internal paths and their readers
 
@@ -331,6 +331,14 @@ Every other path SHALL live in the internal package `opm/internal/corepath`, whe
 - **AND** `ContractsCollisions` and `ContractsCollidingEntries`: they name fields that the inventory decode reads relative to `Contracts` and the render glue reads in CUE. In Go only tests read the variables, which document the collision report.
 - **AND** `Transformers`: `Catalog.Provides()` reads it on both of its paths, to refuse an unevaluated `#transformers`, and the deprecated provider-set fold, for a catalog built against a core older than `schema.ProvidesSince`, reads every transformer through it.
 - **AND** `RequiredResources`, `RequiredTraits` and `Fulfilment`: the deprecated fold reads them relative to a transformer and to its demand entries, not from an artifact root.
+
+### Requirement: The inventory is exactly the exported and the internal paths
+The paths and their readers are listed in scenarios "The exported paths and their readers" and "The internal paths and their readers". The inventory SHALL be exactly these paths.
+
+#### Scenario: The inventory is exactly the listed paths
+
+- **WHEN** a developer reads the inventory
+- **THEN** The inventory SHALL be exactly these paths.
 
 ### Requirement: opm/schema exports the core-release constants ProvidedBySince and ProvidesSince
 `opm/schema` SHALL export the core-release constants `ProvidedBySince` (the render floor) and `ProvidesSince` (which path `Catalog.Provides` takes), and SHALL NOT export a constant for the first core release that reports contract collisions: no code reads one.

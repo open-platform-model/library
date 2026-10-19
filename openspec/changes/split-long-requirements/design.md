@@ -184,7 +184,7 @@ Last unit (`LAST=1`, the sixth): it judges the main specs and the change, not ot
 ### Batch library-B2: the form choices and the limits of the verbatim rule
 
 **Context**: B2 holds `single-build-render` (19 long requirements) and `schema-dispatch` (9). Eleven bodies run past 1400 characters, and several sentences run past 500 on their own.
-**Decision**: 5 requirements use form b because another requirement or a code comment cites the header ("Local replacements are honoured only when the caller opts in", "Trait posture governs unhandled traits", "The render module's own gate agrees with the kernel's refusal", "A caller may skip unprovided provider-fulfilled demands", "Path inventory exposed as package-level vars"). 23 use c2. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary (the lead is repeated, the last "," or ";" of the list becomes "."). The words added are only these: a subject or condition copied from the same old requirement (the clause tables name each), the keyword SHALL where a sentence has none (the strength table), the lead "With the switch on:" copied from the old list, and a pointer to a scenario where a rule table moved into THEN lines (the Path inventory readers and the retired matcher paths). Two citations of a renamed requirement are updated in place: "DefaultSchemaModule constant" and "OCILoader is the only public Loader". Three code comments cite a removed requirement name ("Unresolved demands are diagnosed with alternatives" in `opm/errors/match_test.go` and `opm/kernel/render_definedby_test.go`, "Matching runs inside the build with verdicts as data" in `opm/kernel/render_decode_internal_test.go`); the last unit updates them (owner ruling of 2026-10-19). Reversibility: high.
+**Decision**: 5 requirements use form b because another requirement or a code comment cites the header ("Local replacements are honoured only when the caller opts in", "Trait posture governs unhandled traits", "The render module's own gate agrees with the kernel's refusal", "A caller may skip unprovided provider-fulfilled demands", "Path inventory exposed as package-level vars"). 23 use c2. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary (the lead is repeated, the last "," or ";" of the list becomes "."). The words added are only these: a subject or condition copied from the same old requirement (the clause tables name each), the keyword SHALL where a sentence has none (the strength table), the lead "With the switch on:" copied from the old list, and a pointer to a scenario where a rule table moved into THEN lines (the Path inventory readers and the retired matcher paths). Two citations of a renamed requirement are updated in place: "DefaultSchemaModule constant" and "OCILoader is the only public Loader". Five code comments cite a removed requirement name, two of them wrapped over two lines ("Unresolved demands are diagnosed with alternatives" in `opm/errors/match_test.go` and `opm/kernel/render_definedby_test.go`, "Matching runs inside the build with verdicts as data" in `opm/kernel/render_decode_internal_test.go`, "A render reports every contract its instance requires" in `opm/kernel/render_demand_test.go`, "DefaultSchemaModule constant" in `opm/schema/loader_test.go`); the last unit updates them (owner ruling of 2026-10-19). Those four cited headers use c2 although they are cited: form b would keep the scenarios of every other rule in the parent and add one restatement scenario per split piece, and the comment update is a known, listed task. Reversibility: high.
 **Rationale**: A header that others cite stays (form b); where the old scenarios belong to different rules they move with their rule (form c2) and need no new scenario.
 
 Source lines of B2 (the whole line is repeated where it fits; a title drops whole, never paraphrased):
@@ -192,7 +192,7 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 | Old requirement | Old Source line (characters) | Handling |
 | --- | --- | --- |
 | The single-provider guard runs inside the build | 430 | Three titles. `Source: enhancement 0010 and enhancement 0015.` on two blocks; `Source: enhancement 0015.` on the block with the longest body; the two titles of enhancement 0015 and the core change on the block "Provenance is the registry key, so two majors of one catalog are two providers"; the title of enhancement 0010 and the core change on "Keys with default fulfilment may be supplied by any number of transformers". Every title stays in one block. |
-| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on 6 of 9 blocks. The parent and 2 other blocks carry the line without its last clause "as amended by core changes ...", which the other blocks carry. |
+| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on 7 of 9 blocks. The parent and 1 other block carry the line without its last clause "as amended by core changes ...", which the other blocks carry. |
 | A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on one block. The other five carry it without the parenthetical about the interim safety net, which has no title. |
 | A render reports every contract its instance requires | 114 | The whole line on the block that holds the first paragraph, because the old text ties it to that paragraph. |
 
@@ -1211,7 +1211,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The generated render module SHALL carry a `gate` field that evaluates to an error exactly when ... | The render module's own gate agrees with the kernel's refusal | verbatim |
 | The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed cau... | The kernel's decoded refusal is authoritative and never reads the gate... | verbatim |
 
-**A caller may skip unprovided provider-fulfilled demands**: form b (MODIFIED parent plus ADDED); old body 2172 characters; new bodies 464, 306, 340, 427, 387, 296, 475, 318, 319.
+**A caller may skip unprovided provider-fulfilled demands**: form b (MODIFIED parent plus ADDED); old body 2172 characters; new bodies 464, 306, 340, 427, 491, 296, 495, 318, 319.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1248,11 +1248,11 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A skipped resource demand SHALL NOT refuse the render, and its component SHALL be omitted: no p... | A skipped resource demand omits its component | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | A skipped resource demand omits its component | verbatim |
 | Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the cont... | Every skipped demand is reported as a skipped-demand row | verbatim |
-| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | Every skipped demand is reported as a skipped-demand row | verbatim |
-| ^. | Every skipped demand is reported as a skipped-demand row | added words (not in the old body) |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | Every skipped demand is reported as a skipped-demand row | verbatim |
 | With the switch on: | The omission flag is set on every skipped row of an omitted component | verbatim |
 | The omission flag SHALL be set on every skipped row of an omitted component, trait rows include... | The omission flag is set on every skipped row of an omitted component | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | The omission flag is set on every skipped row of an omitted component | verbatim |
+| With the switch on: | Every other refusal stands with the switch on | verbatim |
 | Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled de... | Every other refusal stands with the switch on | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | Every other refusal stands with the switch on | verbatim |
 | ^. | Every other refusal stands with the switch on | added words (not in the old body) |
@@ -1262,22 +1262,26 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The generated render module SHALL carry the switch as a literal, so its own `gate` field agrees... | The render module carries the switch as a literal | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | The render module carries the switch as a literal | verbatim |
 
-**A render refuses a platform whose core predates the provider count**: form c2 (REMOVED plus ADDED); old body 1487 characters; new bodies 455, 483, 446, 192.
+**A render refuses a platform whose core predates the provider count**: form c2 (REMOVED plus ADDED); old body 1487 characters; new bodies 455, 325, 232, 475, 192.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
 | A current-core platform is not affected | A render checks the core floor of the platform before staging, same name | no, byte for byte (checked) |
-| An older-core platform is refused before staging | A platform that predates the provider count is refused with PlatformCoreTooOldError, same name | no, byte for byte (checked) |
+| An older-core platform is refused before staging | The refusal of a platform that predates the provider count stages nothing and does not fall back, same name | no, byte for byte (checked) |
 | A render reads no platform Package | The check reads the recorded floor and not the platform's Package, same name | no, byte for byte (checked) |
 | A platform shared by concurrent renders stays race-free | One acquired platform stays shareable across concurrent renders, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "An older core raises the typed error" in "A platform that predates the provider count is refused with PlatformCoreTooOldError"
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | `Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the pl... | A render checks the core floor of the platform before staging | verbatim |
 | The check is sound because the render build evaluates the platform module's own core pin, the s... | A render checks the core floor of the platform before staging | verbatim |
-| When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carri... | A platform that predates the provider count is refused with PlatformCo... | verbatim |
-| The refusal SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back... | A platform that predates the provider count is refused with PlatformCo... | verbatim |
-| The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructo... | The check reads the recorded floor and not the platform's Package | verbatim |
+| When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carri... | A platform that predates the provider count is refused with PlatformCo... | "it does not" names the floor test of the first sentence: the platform's `#contracts` carries `providedBy` |
+| The refusal SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back... | The refusal of a platform that predates the provider count stages noth... | "The refusal" names the error of the sentence before it |
+| The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructo... | The check reads the recorded floor and not the platform's Package | "The check" names the check of the first sentence of the old requirement |
 | Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | The check reads the recorded floor and not the platform's Package | the verb "reads" gets the keyword SHALL, as an ADDED block needs |
 | Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | One acquired platform stays shareable across concurrent renders | the verb "reads" gets the keyword SHALL, as an ADDED block needs |
 | One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on o... | One acquired platform stays shareable across concurrent renders | verbatim |
@@ -1356,7 +1360,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | ADR-012 records this. | The matching algorithm stays in the library's render glue | verbatim |
 | A single derived rule MAY move into core when core can compute it from core shapes alone. Each ... | A derived rule moves into core one at a time with a parity test | verbatim |
 
-**A render reports every contract its instance requires**: form c2 (REMOVED plus ADDED); old body 1438 characters; new bodies 450, 460, 213, 417.
+**A render reports every contract its instance requires**: form c2 (REMOVED plus ADDED); old body 1438 characters; new bodies 450, 460, 251, 437.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1375,8 +1379,8 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Source: enhancement 0013 ("The kernel reports every contract a render required, synthesised com... | A render reports the instance's contract demand as data on RequiredCon... | verbatim |
 | The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredCo... | The contract demand is computed inside the build from the matcher's co... | verbatim |
 | The demand SHALL be computed inside the build, from the same component set the matcher iterates... | The contract demand is computed inside the build from the matcher's co... | verbatim |
-| The field SHALL be set on every `RenderResult` and on every `*RenderError`. A render that retur... | The field is set on every RenderResult and every RenderError | verbatim |
-| Computing the demand SHALL fail closed. A component's `#resources` is read with no presence tes... | Computing the demand fails closed | verbatim |
+| The field SHALL be set on every `RenderResult` and on every `*RenderError`. A render that retur... | The field is set on every RenderResult and every RenderError | "The field" names the field of the first sentence |
+| Computing the demand SHALL fail closed. A component's `#resources` is read with no presence tes... | Computing the demand fails closed | "the demand" names the instance's contract demand of the first sentence |
 
 **Each render is its own in-memory build in its own context**: form c2 (REMOVED plus ADDED); old body 1109 characters; new bodies 367, 332, 408.
 
@@ -1539,7 +1543,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A caller that must compile a value against the schema obtains the schema's context from the ret... | The Cache does not retry a failed Load | verbatim |
 | The library MUST NOT cache the `Loader`'s result at package scope. There SHALL be no package-le... | No Loader result is cached at package scope | verbatim |
 
-**Path inventory exposed as package-level vars**: form b (MODIFIED parent plus ADDED); old body 3777 characters; new bodies 466, 475, 260, 448.
+**Path inventory exposed as package-level vars**: form b (MODIFIED parent plus ADDED); old body 3777 characters; new bodies 466, 479, 178, 260, 448.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1552,7 +1556,8 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
 
 - "The exported paths and their readers" in "Path inventory exposed as package-level vars"
-- "The internal paths and their readers" in "Every other path lives in opm/internal/corepath"
+- "The internal paths and their readers" in "Every path other than the exported three lives in opm/internal/corepath"
+- "The inventory is exactly the listed paths" in "The inventory is exactly the exported and the internal paths"
 - "The core-release constants are exported" in "opm/schema exports the core-release constants ProvidedBySince and ProvidesSince"
 - "A path no kernel code reads is removed" in "The paths of the retired matcher, executor and context builder stay removed"
 
@@ -1561,9 +1566,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The library SHALL keep every CUE path the kernel's Go code reads on an OPM artifact as one pack... | Path inventory exposed as package-level vars | verbatim |
 | `opm/schema` SHALL export exactly the three paths a frontend reads on an artifact `Package` for... | Path inventory exposed as package-level vars | verbatim |
 | The paths and their readers are listed in scenario "The exported paths and their readers". | Path inventory exposed as package-level vars | added words (not in the old body) |
-| Every other path SHALL live in the internal package `opm/internal/corepath`, where no consumer ... | Every other path lives in opm/internal/corepath | verbatim |
-| The paths and their readers are listed in scenario "The internal paths and their readers". | Every other path lives in opm/internal/corepath | added words (not in the old body) |
-| The inventory SHALL be exactly these paths. | Every other path lives in opm/internal/corepath | verbatim |
+| Every other path SHALL live in the internal package `opm/internal/corepath`, where no consumer ... | Every path other than the exported three lives in opm/internal/corepat... | "other" names the three exported paths of the sibling sentence |
+| The paths and their readers are listed in scenario "The internal paths and their readers". | Every path other than the exported three lives in opm/internal/corepat... | added words (not in the old body) |
+| The paths and their readers are listed in scenarios "The exported paths and their readers" and ... | The inventory is exactly the exported and the internal paths | added words (not in the old body) |
+| The inventory SHALL be exactly these paths. | The inventory is exactly the exported and the internal paths | verbatim |
 | `opm/schema` SHALL export the core-release constants `ProvidedBySince` (the render floor) and `... | opm/schema exports the core-release constants ProvidedBySince and Prov... | verbatim |
 | The paths the retired Go matcher, executor and context builder read | The paths of the retired matcher, executor and context builder stay re... | verbatim |
 | (listed in scenario "Matcher and transformer paths are gone") | The paths of the retired matcher, executor and context builder stay re... | added words (not in the old body) |

@@ -118,7 +118,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 
 ### Requirement: A render refuses a platform whose core predates the provider count
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "A render checks the core floor of the platform before staging", "A platform that predates the provider count is refused with PlatformCoreTooOldError", "The check reads the recorded floor and not the platform's Package" and "One acquired platform stays shareable across concurrent renders".
+**Migration**: See "A render checks the core floor of the platform before staging", "A platform that predates the provider count is refused with PlatformCoreTooOldError", "The refusal of a platform that predates the provider count stages nothing and does not fall back", "The check reads the recorded floor and not the platform's Package" and "One acquired platform stays shareable across concurrent renders".
 
 ### Requirement: A render refuses a platform whose enabled entries share contract keys
 **Reason**: Split into requirements that each state one behavior.
@@ -303,7 +303,7 @@ The fail-closed demand gate SHALL hold: an unresolved demand that was not skippe
 #### Scenario: The gate refuses beside readable diagnostics
 
 - **WHEN** an unresolved demand was not skipped
-- **THEN** refuses the render while the diagnostics remain readable and decoded
+- **THEN** the gate refuses the render while the diagnostics remain readable and decoded
 
 ### Requirement: The glue unifies each matched pair's transform once
 Failed pairs are not a glue verdict. The glue SHALL unify each matched pair's transform once, in `rendered`, and SHALL NOT evaluate it a second time for diagnostics.
@@ -548,7 +548,7 @@ With the switch on: A skipped resource demand SHALL NOT refuse the render, and i
 - **THEN** its component SHALL be omitted: no pair of that component SHALL render, and the component SHALL NOT be reported as unmatched
 
 ### Requirement: Every skipped demand is reported as a skipped-demand row
-Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the contract key, the kind (`resource` or `trait`), the defining catalog's registry key (empty when no enabled catalog lists the key), the same-base alternatives the platform implements, and whether the component was omitted. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`.
+Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the contract key, the kind (`resource` or `trait`), the defining catalog's registry key (empty when no enabled catalog lists the key), the same-base alternatives the platform implements, and whether the component was omitted. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: A skipped demand row carries the component and the kind
 
@@ -564,7 +564,7 @@ With the switch on: The omission flag SHALL be set on every skipped row of an om
 - **THEN** The omission flag SHALL be set on every skipped row of an omitted component, trait rows included.
 
 ### Requirement: Every other refusal stands with the switch on
-Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified, an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`.
+With the switch on: Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified, an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`.
 
 #### Scenario: Skipped rows are readable beside a refusal
 
@@ -596,7 +596,15 @@ The generated render module SHALL carry the switch as a literal, so its own `gat
 - **THEN** the core floor raises no error and the render proceeds to staging
 
 ### Requirement: A platform that predates the provider count is refused with PlatformCoreTooOldError
-When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it. The refusal SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it.
+When the platform's `#contracts` does not carry `providedBy` (the platform module pins a core release older than `2.0.0-alpha.12`, or carries no `#contracts` at all), `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it.
+
+#### Scenario: An older core raises the typed error
+
+- **WHEN** the platform module pins a core release older than `2.0.0-alpha.12`
+- **THEN** `Render` SHALL return an error wrapping the typed `PlatformCoreTooOldError` that names the platform, the missing field and the first core release carrying it.
+
+### Requirement: The refusal of a platform that predates the provider count stages nothing and does not fall back
+The refusal with `PlatformCoreTooOldError` SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back to a count of the kernel's own: a render never runs on a platform whose inventory would disagree with it.
 
 #### Scenario: An older-core platform is refused before staging
 
@@ -604,7 +612,7 @@ When it does not (the platform module pins a core release older than `2.0.0-alph
 - **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no staging file is written
 
 ### Requirement: The check reads the recorded floor and not the platform's Package
-The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`.
+The check of the platform's core floor SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform records its core floor and contract inventory at construction"). Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`.
 
 #### Scenario: A render reads no platform Package
 
@@ -737,7 +745,7 @@ The render SHALL report the instance's contract demand as data on `RenderDiagnos
 - **THEN** the render succeeds and `RequiredContracts` is an empty, non-nil slice
 
 ### Requirement: The field is set on every RenderResult and every RenderError
-The field SHALL be set on every `RenderResult` and on every `*RenderError`. A render that returns a plain error carries no demand. That covers a refusal before evaluation and a build or diagnostics-decode failure.
+The field `RenderDiagnostics.RequiredContracts` SHALL be set on every `RenderResult` and on every `*RenderError`. A render that returns a plain error carries no demand. That covers a refusal before evaluation and a build or diagnostics-decode failure.
 
 #### Scenario: Demand on a refusal
 
@@ -745,7 +753,7 @@ The field SHALL be set on every `RenderResult` and on every `*RenderError`. A re
 - **THEN** the returned `*RenderError`'s `Diagnostics.RequiredContracts` lists every contract key the instance's components declare, the unresolved one included
 
 ### Requirement: Computing the demand fails closed
-Computing the demand SHALL fail closed. A component's `#resources` is read with no presence test, so a component whose `#resources` is missing or does not evaluate makes the render return an error and no result. It never reads as a component with no demand. An absent `#traits` contributes nothing. `#traits` is read with the same presence test the matcher uses, so the demand covers exactly the traits matching sees.
+Computing the instance's contract demand SHALL fail closed. A component's `#resources` is read with no presence test, so a component whose `#resources` is missing or does not evaluate makes the render return an error and no result. It never reads as a component with no demand. An absent `#traits` contributes nothing. `#traits` is read with the same presence test the matcher uses, so the demand covers exactly the traits matching sees.
 
 #### Scenario: A component without resources refuses
 
