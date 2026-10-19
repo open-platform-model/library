@@ -1,0 +1,89 @@
+## REMOVED Requirements
+
+### Requirement: Migration documentation lives in per-change fragments under migrations/
+**Reason**: Split into requirements that each state one behavior.
+**Migration**: See "Migration fragments are one per breaking change and carry no version number when authored" and "The repository maintains no monolithic migrations document and MIGRATIONS.md is a tombstone".
+
+### Requirement: Pre-GA dormancy
+**Reason**: Split into requirements that each state one behavior.
+**Migration**: See "No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive", "From the first beta a breaking change lands only as a feat! commit whose BREAKING CHANGE footer is the migration note" and "Repo guidance states the pre-GA migration policy".
+
+### Requirement: Enforcement design is recorded and armed at GA
+**Reason**: Split into requirements that each state one behavior.
+**Migration**: See "The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA", "The enforcement mechanisms do not run before GA" and "ADR-004, README.md and migrations/README.md name enhancement 0021 as the GA exit criteria".
+
+## ADDED Requirements
+
+### Requirement: Migration fragments are one per breaking change and carry no version number when authored
+Migration documentation SHALL live in the `migrations/` directory as one fragment per breaking change, named `<slug>.md` where `<slug>` is the OpenSpec change slug. Fragments SHALL be authored under `migrations/unreleased/` and SHALL NOT carry version numbers in their names; at release, automation graduates them to `migrations/vX.Y.Z/` and regenerates the index in `migrations/README.md`.
+
+#### Scenario: Policy is discoverable at the directory root
+
+- **WHEN** a contributor opens `migrations/README.md`
+- **THEN** it states the fragment layout (`unreleased/` → `vX.Y.Z/`), the fragment format,
+  the release-time graduation move, and the enforcement design with its arming condition
+
+#### Scenario: No version numbers at authoring time
+
+- **WHEN** a fragment is authored in a breaking PR
+- **THEN** it is created as `migrations/unreleased/<slug>.md`, with no version in path or
+  filename
+
+### Requirement: The repository maintains no monolithic migrations document and MIGRATIONS.md is a tombstone
+The repository SHALL NOT maintain a monolithic migrations document; `MIGRATIONS.md` remains only as a tombstone pointing at `migrations/README.md`.
+
+#### Scenario: The old monolith redirects
+
+- **WHEN** a reader opens `MIGRATIONS.md`
+- **THEN** it contains no migration entries and points at `migrations/README.md`
+
+### Requirement: No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive
+Until the library's first GA release, through its alpha and beta lines alike, no migration fragment SHALL be required for a breaking change. The breaking-change record pre-GA SHALL be `CHANGELOG.md` (release-please) plus the OpenSpec archive.
+
+#### Scenario: Breaking change during alpha
+
+- **WHEN** a breaking change lands while the library is pre-GA
+- **THEN** no `migrations/` fragment is required, and the change is recorded via its Conventional Commit (CHANGELOG) and its OpenSpec change archive
+
+### Requirement: From the first beta a breaking change lands only as a feat! commit whose BREAKING CHANGE footer is the migration note
+From the first beta on, a breaking change SHALL land only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note, so the CHANGELOG entry release-please generates from it carries the migration guidance for that beta; the library SHALL record this rule in an ADR.
+
+#### Scenario: Breaking change during beta
+
+- **WHEN** a breaking change lands while the library is on its beta line
+- **THEN** no `migrations/` fragment is required, the commit is typed `feat!` and carries a `BREAKING CHANGE:` footer stating how consumers migrate, the release it lands in advances the `-beta.N` counter, and the CHANGELOG entry for that release shows the footer as the migration note
+
+### Requirement: Repo guidance states the pre-GA migration policy
+Repo guidance (`AGENTS.md`, `README.md`, `migrations/README.md`) SHALL state this policy (Requirement: No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive) (Requirement: From the first beta a breaking change lands only as a feat! commit whose BREAKING CHANGE footer is the migration note) rather than instruct authors to update a migrations document.
+
+#### Scenario: Repo guidance matches the policy
+
+- **WHEN** a contributor follows `AGENTS.md`'s working-style guidance for a kernel-surface change pre-GA
+- **THEN** it directs them to check downstream consumers and, on the beta line, to write the migration note as the commit's `BREAKING CHANGE:` footer, not to write a migration entry
+
+### Requirement: The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA
+The GA-time enforcement design SHALL be recorded in ADR-004 and summarized in `migrations/README.md` before GA: a `Migration: <slug>` trailer on breaking PRs (escape hatch `Migration: none, <reason>`), a PR-time gate requiring `migrations/unreleased/<slug>.md` in the diff of a breaking PR, a release-time backstop that re-derives the breaking set and performs the graduation move, and a `migration` skill that authors fragments.
+
+#### Scenario: Arming condition is written down
+
+- **WHEN** the GA release is prepared
+- **THEN** ADR-004 and `migrations/README.md` name the gates, the trailer convention, and
+  the graduation job that must be implemented and enabled as part of GA
+
+### Requirement: The enforcement mechanisms do not run before GA
+These mechanisms (Requirement: The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA) SHALL NOT run pre-GA.
+
+#### Scenario: No gate runs pre-GA
+
+- **WHEN** a PR is opened while the library is pre-GA
+- **THEN** no migration-guard check is required on it
+
+### Requirement: ADR-004, README.md and migrations/README.md name enhancement 0021 as the GA exit criteria
+ADR-004, `README.md` and `migrations/README.md` SHALL name enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") as the GA exit criteria that carry the arming condition (enhancement 0021, "A beta line reaches GA only when its exit criteria hold"), and SHALL NOT refer to a GA release checklist.
+
+#### Scenario: The GA exit criteria are linked
+
+- **WHEN** a developer reads ADR-004, `README.md` § API stability → Beta promise or `migrations/README.md` § Status
+- **THEN** each names enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") as the GA exit criteria, and `README.md` names the library's
+  own criteria among them
+- **AND** none refers to a GA release checklist

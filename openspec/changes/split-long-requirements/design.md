@@ -228,6 +228,12 @@ One more code comment cites a requirement whose rule moved: `opm/kernel/synth_te
 **Decision**: 3 requirements use form b: "The shipped catalog stays discriminated" (a comment in `opm/kernel/parity_harness_test.go` names the header), "Pure-CUE unification is the render oracle" (the last sentence leaves) and "Catalog acquisition from a registry and from a directory" (the last two sentences leave). In each, the parent keeps all its scenarios and a shorter body, and the cut sentences go to ADDED blocks with a restatement scenario; the scenario "A comparable pair in a catalog release fails the harness" stays in the parent, because a live scenario cannot move to an ADDED block. 11 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out). The comment at `opm/kernel/parity_harness_test.go:115` cites the kept header "The shipped catalog stays discriminated" for rules that now sit in the ADDED blocks "The discrimination read lives in a test function of its own beside the render cases" and "The discrimination assertion is gated as the shipped group is"; the last unit updates it with the code comments listed above. Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table below), a subject copied from the same old requirement ("The registry module loader" for "It"; `AcquireCatalogFromRegistry` and `AcquireCatalogFromDir` for "Neither"; "The shipped parity group" repeated at the cut; "the update task" for "the task"), and a pointer "(Requirement: <exact header>)" to the requirement of the same spec that holds the referent ("The verification", "the set", "both sources", "The result", "The staged source", "The registry mapping", "that entry point", "The proof", "the default", "the held resolution", "that pin", "The assertion", "a listed location", "A listed file", "the same typed error", "either value", "the inventory", "The module file", "A dependency", "The two paths"). Sentences over 500 characters on their own are cut at a list boundary with the lead repeated and the closing "," or ";" turned into ".": the entry-point sentence of "Acquire a module from the registry" (one block per item of its list, "is" becomes "SHALL be") and the sentence of "The shipped catalog stays discriminated" (cut at ", and SHALL assert", the subject repeated). The citation parenthesis of the first sentence of "The catalog's committed dependency requirements are readable" (two enhancement titles) moved whole, word for word, to a `**Source**:` line, because the sentence with it measures 573 characters; the rule text stays in the body. Two descriptive sentences keep no keyword, because their block carries SHALL: "That module is the one the oracle builds in." and "A listed file can still read the derived version in other places, for example to find the pin it replaces with an old one." The first commit of this unit gave the two `single-build-render` lines that cite "A platform records its core floor and contract inventory at construction" for rules now in other blocks exact-header pointers into `platform-artifact`: the check of the core floor cites "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError", and the line on the recorded floor cites that header in its body; its second clause, the decode on a platform the constructor did not build, moved to a block of its own with a pointer to "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call" (a pointer is rule text and does not sit in a `**Source**:` line). Reversibility: high.
 **Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice.
 
+### Batch library-B6: the form choices and the limits of the verbatim rule
+
+**Context**: B6 holds `migration-docs` (3 long requirements), `release-pipeline` (3), `duplicate-object-identities` (2), `helper-packages` (2) and `test-fixture-registry` (2): 12 in all, which completes the 152 of the change. After it the only WARNING left on `validate --all --strict` is the one in the open change `publish-go-api-bundle`.
+**Decision**: 2 requirements use form b because a file outside `openspec/` cites the header: "Helper Boundary at opm/helper/" (a comment in `.golangci.yml`) and "The opmodel.dev namespace resolves through the shared tier" (a comment in `opm/internal/schematest/schematest_test.go`). In each, the parent keeps all its scenarios and a shorter body, and the cut sentences go to ADDED blocks with a restatement scenario. The parent of the helper boundary keeps the import-graph rule and the lint gate rule; the sentence on the `opm/helper/` subdirectory, the tiers and the six exported packages leave, so the last unit updates the `.golangci.yml` comment to cite the block that now holds the opt-in sentence. 10 use c2. Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table below), a subject copied from the same old requirement ("The release-pin check" for "The check", "The `notify-downstream` job" for "The job" and "it", "The release-please job" for "The job", `secrets.CASCADE_APP_PRIVATE_KEY` before "the key"), and a pointer "(Requirement: <exact header>)" to the requirement of the same spec that holds the referent ("this policy", "These mechanisms", "kernel-tier package", "Rows", "The same check", "that private cache", "The private cache", "the shared tier", "this error", "the message", "the identity", "The one current subpackage", "in this convention", "The exported identity type", "return no rows"). The list sentence of "Release PRs refuse dev and replaced pins" measures 500 characters with its old subject and 512 with "The release-pin check", so it is cut at a list boundary (items 1 to 3 and items 4 and 5) with the lead repeated and the closing ";" of item 3 turned into ".". The Source lines are repeated whole as `**Source**:` lines in every block of the old requirement that carried them. The em-dash of the escape-hatch trailer in "Enforcement design is recorded and armed at GA" became a comma, so the trailer reads `Migration: none, <reason>` in the new block; `migrations/README.md` and ADR-004 keep their own wording. Reversibility: high.
+**Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -3821,6 +3827,265 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Release-cascade tooling SHALL NOT rewrite a version literal at a listed location. | Release-cascade tooling does not rewrite a version literal at a listed location | pointer (Requirement: <exact header>) added after "at a listed location" |
 
 
+### Ledger: migration-docs
+
+**Migration documentation lives in per-change fragments under migrations/**: form c2 (REMOVED plus ADDED); old body 538 characters; new bodies 390, 147.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Policy is discoverable at the directory root | Migration fragments are one per breaking change and carry no version number when authored, same name | no, byte for byte (checked) |
+| The old monolith redirects | The repository maintains no monolithic migrations document and MIGRATIONS.md is a tombstone, same name | no, byte for byte (checked) |
+| No version numbers at authoring time | Migration fragments are one per breaking change and carry no version number when authored, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Migration documentation SHALL live in the `migrations/` directory as one fragment per breaking chang... | Migration fragments are one per breaking change and carry no version number when authored | verbatim |
+| Fragments SHALL be authored under `migrations/unreleased/` and SHALL NOT carry version numbers in th... | Migration fragments are one per breaking change and carry no version number when authored | verbatim |
+| The repository SHALL NOT maintain a monolithic migrations document; `MIGRATIONS.md` remains only as ... | The repository maintains no monolithic migrations document and MIGRATIONS.md is a tombstone | verbatim |
+
+**Pre-GA dormancy**: form c2 (REMOVED plus ADDED); old body 674 characters; new bodies 242, 280, 416.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Breaking change during alpha | No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive, same name | no, byte for byte (checked) |
+| Repo guidance matches the policy | Repo guidance states the pre-GA migration policy, same name | no, byte for byte (checked) |
+| Breaking change during beta | From the first beta a breaking change lands only as a feat! commit whose BREAKING CHANGE footer is the migration note, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Until the library's first GA release, through its alpha and beta lines alike, no migration fragment ... | No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive | verbatim |
+| The breaking-change record pre-GA SHALL be `CHANGELOG.md` (release-please) plus the OpenSpec archive... | No migration fragment is required before GA and the breaking-change record is the CHANGELOG plus the OpenSpec archive | verbatim |
+| From the first beta on, a breaking change SHALL land only as a `feat!` commit whose `BREAKING CHANGE... | From the first beta a breaking change lands only as a feat! commit whose BREAKING CHANGE footer is the migration note | verbatim |
+| Repo guidance (`AGENTS.md`, `README.md`, `migrations/README.md`) SHALL state this policy rather than... | Repo guidance states the pre-GA migration policy | verbatim; pointer (Requirement: <exact header>) added after "state this policy" |
+
+**Enforcement design is recorded and armed at GA**: form c2 (REMOVED plus ADDED); old body 787 characters; new bodies 429, 156, 317.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Arming condition is written down | The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA, same name | no, byte for byte (checked) |
+| No gate runs pre-GA | The enforcement mechanisms do not run before GA, same name | no, byte for byte (checked) |
+| The GA exit criteria are linked | ADR-004, README.md and migrations/README.md name enhancement 0021 as the GA exit criteria, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The GA-time enforcement design SHALL be recorded in ADR-004 and summarized in `migrations/README.md`... | The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA | the em-dash of "`Migration: none — <reason>`" becomes a comma: "`Migration: none, <reason>`" |
+| These mechanisms SHALL NOT run pre-GA. | The enforcement mechanisms do not run before GA | verbatim; pointer (Requirement: <exact header>) added after "These mechanisms" |
+| ADR-004, `README.md` and `migrations/README.md` SHALL name enhancement 0021 ("A beta line reaches GA... | ADR-004, README.md and migrations/README.md name enhancement 0021 as the GA exit criteria | verbatim |
+
+### Ledger: release-pipeline
+
+**Release PRs refuse dev and replaced pins**: form c2 (REMOVED plus ADDED); old body 1026 characters; new bodies 187, 311, 292, 84, 159, 139.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Clean release PR passes | The release-pin check runs as a step of the Go tests job, same name | no, byte for byte (checked) |
+| Replace directive on a release PR | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin, same name | no, byte for byte (checked) |
+| OPM Go module at a pseudo-version | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin, same name | no, byte for byte (checked) |
+| Third-party pseudo-versions are allowed | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin, same name | no, byte for byte (checked) |
+| Dev CUE pin in a cue.mod | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin, same name | no, byte for byte (checked) |
+| Dev core pin in the shipped default | The release-pin check fails the Go tests check on a dev core literal in Go source or a tracked cue.mod/local-module.cue, same name | no, byte for byte (checked) |
+| Tracked CUE local replacement | The release-pin check fails the Go tests check on a dev core literal in Go source or a tracked cue.mod/local-module.cue, same name | no, byte for byte (checked) |
+| Ordinary PR is not gated | The library's CI runs a release-pin check on every release PR, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The failing check names each offender" in "The release-pin check names every offending file and line or module"
+- "The check runs locally through the Taskfile" in "The release-pin check is runnable locally through the Taskfile"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library's CI SHALL run a release-pin check on every release PR, identified by a branch name (`gi... | The library's CI runs a release-pin check on every release PR | verbatim |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The library's CI runs a release-pin check on every release PR | the whole Source line, as a `**Source**:` line |
+| The check SHALL fail the PR's `Go tests` check when the PR head carries any of: - a `replace` direct... | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin | "The check" becomes "The release-pin check" (the name the first sentence gives it); the list is cut at a list boundary (items 1 to 3), the lead repeated, the closing ";" of item 3 becomes "." |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The release-pin check fails the Go tests check on a replace directive, an OPM Go pseudo-version or a dev CUE pin | the whole Source line, as a `**Source**:` line |
+| The check SHALL fail the PR's `Go tests` check when the PR head carries any of: - a `replace` direct... | The release-pin check fails the Go tests check on a dev core literal in Go source or a tracked cue.mod/local-module.cue | "The check" becomes "The release-pin check"; the list is cut at a list boundary (items 4 and 5), the lead repeated; the wrapped line of item 4 is joined |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The release-pin check fails the Go tests check on a dev core literal in Go source or a tracked cue.mod/local-module.cue | the whole Source line, as a `**Source**:` line |
+| On failure the check SHALL name every offending file and line or module. | The release-pin check names every offending file and line or module | "the check" becomes "the release-pin check" |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The release-pin check names every offending file and line or module | the whole Source line, as a `**Source**:` line |
+| The check SHALL run as a step of the existing `Go tests` job, not as a job of its own, so it can nev... | The release-pin check runs as a step of the Go tests job | "The check" becomes "The release-pin check" |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The release-pin check runs as a step of the Go tests job | the whole Source line, as a `**Source**:` line |
+| The same check SHALL be runnable locally through the Taskfile. | The release-pin check is runnable locally through the Taskfile | verbatim; pointer (Requirement: <exact header>) added after "The same check" |
+| Source: workspace RELEASING.md, section "Gates" (G1). | The release-pin check is runnable locally through the Taskfile | the whole Source line, as a `**Source**:` line |
+
+**A release notifies the library's downstream repos**: form c2 (REMOVED plus ADDED); old body 1317 characters; new bodies 248, 291, 488, 72, 136.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A release is cut | The release workflow has a notify-downstream job that runs cascade-notify with the release tag, same name | no, byte for byte (checked) |
+| No release is cut | The notify-downstream job depends on the release-please job only and runs only for a release with CASCADE_NOTIFY not off, same name | no, byte for byte (checked) |
+| Notify is switched off | The notify-downstream job depends on the release-please job only and runs only for a release with CASCADE_NOTIFY not off, same name | no, byte for byte (checked) |
+| The docs bundle fails | The documentation-bundle job does not gate the notify-downstream job, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The key is passed only to the cascade action" in "Only the caller-owned notify-downstream job reads the cascade App key"
+- "Dispatch targets and the Go proxy wait belong to the action" in "Which repos notify-downstream dispatches to and the Go proxy wait are the action's behaviour"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The release workflow SHALL have a job `notify-downstream`, the last job of the workflow, that runs t... | The release workflow has a notify-downstream job that runs cascade-notify with the release tag | verbatim |
+| Source: workspace `RELEASING.md`, sections "Notify after publish" and "repository_dispatch"; owner d... | The release workflow has a notify-downstream job that runs cascade-notify with the release tag | the whole Source line, as a `**Source**:` line |
+| The job SHALL depend on the release-please job only, SHALL run only when that job's `releases_create... | The notify-downstream job depends on the release-please job only and runs only for a release with CASCADE_NOTIFY not off | "The job" becomes "The `notify-downstream` job" |
+| Source: workspace `RELEASING.md`, sections "Notify after publish" and "repository_dispatch"; owner d... | The notify-downstream job depends on the release-please job only and runs only for a release with CASCADE_NOTIFY not off | the whole Source line, as a `**Source**:` line |
+| The key SHALL be read only in the caller-owned `notify-downstream` job, which declares `environment:... | Only the caller-owned notify-downstream job reads the cascade App key | "The key SHALL" becomes "`secrets.CASCADE_APP_PRIVATE_KEY`: the key SHALL" (the key name is copied from the same sentence, as in `cascade-wiring`) |
+| Source: workspace `RELEASING.md`, sections "Notify after publish" and "repository_dispatch"; owner d... | Only the caller-owned notify-downstream job reads the cascade App key | the whole Source line, as a `**Source**:` line |
+| The documentation-bundle job SHALL NOT gate it. | The documentation-bundle job does not gate the notify-downstream job | "it" becomes "the `notify-downstream` job" |
+| Source: workspace `RELEASING.md`, sections "Notify after publish" and "repository_dispatch"; owner d... | The documentation-bundle job does not gate the notify-downstream job | the whole Source line, as a `**Source**:` line |
+| Which repos it dispatches to, and the Go proxy wait before it does, are the action's behaviour, not ... | Which repos notify-downstream dispatches to and the Go proxy wait are the action's behaviour | "it" (first) becomes `notify-downstream`; "are" becomes "SHALL be", as the block needs a keyword |
+| Source: workspace `RELEASING.md`, sections "Notify after publish" and "repository_dispatch"; owner d... | Which repos notify-downstream dispatches to and the Go proxy wait are the action's behaviour | the whole Source line, as a `**Source**:` line |
+
+**The release App key is read only in the release Environment**: form c2 (REMOVED plus ADDED); old body 753 characters; new bodies 353, 357.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A release run on main | The release workflow declares no workflow-level permissions and the release-please job mints a narrow App token, same name | no, byte for byte (checked) |
+| A workflow on another branch reaches for the key | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment, same name | no, byte for byte (checked) |
+| The secret is not yet in the Environment | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment, same name | no, byte for byte (checked) |
+| The organization secret still reaches the library | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every job that reads `RELEASE_APP_PRIVATE_KEY` SHALL declare `environment: release`, the Environment... | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment | verbatim |
+| Today that is the release workflow's release-please job, which SHALL be granted no `GITHUB_TOKEN` pe... | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment | verbatim |
+| Source: owner selection 29; security pass finding GOV-2. | Every job that reads RELEASE_APP_PRIVATE_KEY declares the release Environment | the whole Source line, as a `**Source**:` line |
+| The release workflow SHALL declare `permissions: {}` at the workflow level, so each of its jobs carr... | The release workflow declares no workflow-level permissions and the release-please job mints a narrow App token | verbatim |
+| The job SHALL mint the App token for this repository only (`owner`, `repositories`) with `contents: ... | The release workflow declares no workflow-level permissions and the release-please job mints a narrow App token | "The job" becomes "The release-please job" |
+| Source: owner selection 29; security pass finding GOV-2. | The release workflow declares no workflow-level permissions and the release-please job mints a narrow App token | the whole Source line, as a `**Source**:` line |
+
+### Ledger: duplicate-object-identities
+
+**Duplicate rendered identities are detected with their producers**: form c2 (REMOVED plus ADDED); old body 1364 characters; new bodies 190, 404, 483, 250, 167, 201.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Two components render one cluster-scoped object | Each returned row carries the identity of the first object rendered with it and every producer of it, same name | no, byte for byte (checked) |
+| Three objects, two identities | A function in opm/k8s/object returns every apply identity that two or more rendered objects share, same name | no, byte for byte (checked) |
+| A clean render returns nothing | A render with no shared identity returns no rows, same name | no, byte for byte (checked) |
+| One object under two versions of its group | Two objects share an apply identity when their API group, kind, namespace and name agree and the version part of apiVersion does not distinguish them, same name | no, byte for byte (checked) |
+| An object with no apiVersion falls in the core group | Two objects share an apply identity when their API group, kind, namespace and name agree and the version part of apiVersion does not distinguish them, same name | no, byte for byte (checked) |
+| One kind and name in two groups stays distinct | Two objects share an apply identity when their API group, kind, namespace and name agree and the version part of apiVersion does not distinguish them, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Rows follow the order of the first render of each identity" in "Rows are returned in the order the first object of each identity was rendered"
+- "The identity type keeps its four fields" in "The exported identity type keeps its fields"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL provide, in the Kubernetes tier package `opm/k8s/object`, a function that scans a ... | A function in opm/k8s/object returns every apply identity that two or more rendered objects share | verbatim |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | A function in opm/k8s/object returns every apply identity that two or more rendered objects share | the whole Source line, as a `**Source**:` line |
+| Two objects SHALL share an apply identity when they carry the same API group (the part of `apiVersio... | Two objects share an apply identity when their API group, kind, namespace and name agree and the version part of apiVersion does not distinguish them | verbatim |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | Two objects share an apply identity when their API group, kind, namespace and name agree and the version part of apiVersion does not distinguish them | the whole Source line, as a `**Source**:` line |
+| Each returned row SHALL carry the identity of the first object rendered with it (its `apiVersion` ve... | Each returned row carries the identity of the first object rendered with it and every producer of it | verbatim; pointer (Requirement: <exact header>) added after "carry the identity" |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | Each returned row carries the identity of the first object rendered with it and every producer of it | the whole Source line, as a `**Source**:` line |
+| Rows SHALL be returned in the order the first object of each identity was rendered, so the result is... | Rows are returned in the order the first object of each identity was rendered | verbatim; pointer (Requirement: <exact header>) added after "Rows" |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | Rows are returned in the order the first object of each identity was rendered | the whole Source line, as a `**Source**:` line |
+| A render with no shared identity SHALL return no rows. | A render with no shared identity returns no rows | verbatim; pointer (Requirement: <exact header>) added after "return no rows" |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | A render with no shared identity returns no rows | the whole Source line, as a `**Source**:` line |
+| The exported identity type SHALL keep its fields (apiVersion, kind, namespace, name). | The exported identity type keeps its fields | verbatim; pointer (Requirement: <exact header>) added after "exported identity type" |
+| Source: enhancement 0015 ("One registration per module" and "The rendered CR's name is instance-deri... | The exported identity type keeps its fields | the whole Source line, as a `**Source**:` line |
+
+**The refusal is worded once**: form c2 (REMOVED plus ADDED); old body 596 characters; new bodies 231, 359, 202.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The message names both carrying components | opm/k8s/object provides an error type that aggregates duplicate rows in one wording, same name | no, byte for byte (checked) |
+| The message names a version mismatch | The aggregated error names each producer's apiVersion only when the producers of a row differ, same name | no, byte for byte (checked) |
+| A same-version row carries no versions | The aggregated error names each producer's apiVersion only when the producers of a row differ, same name | no, byte for byte (checked) |
+| A missing apiVersion is worded | The aggregated error names each producer's apiVersion only when the producers of a row differ, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The kernel leaves the aggregated error to the runtime" in "The kernel does not return the aggregated duplicate-identity error"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `opm/k8s/object` SHALL provide an error type aggregating duplicate rows, whose message names each id... | opm/k8s/object provides an error type that aggregates duplicate rows in one wording | verbatim |
+| When the producers of a row do not all carry the same `apiVersion`, the message SHALL name each prod... | The aggregated error names each producer's apiVersion only when the producers of a row differ | verbatim; pointer (Requirement: <exact header>) added after "`apiVersion`, the message" |
+| The kernel SHALL NOT return this error: it is raised by the runtime that calls the check, before app... | The kernel does not return the aggregated duplicate-identity error | verbatim; pointer (Requirement: <exact header>) added after "return this error" |
+
+### Ledger: helper-packages
+
+**Helper Boundary at opm/helper/**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 1270 characters; new bodies 491, 120, 472, 232.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Helper boundary documented | Helper Boundary at opm/helper/, kept in place | no, byte for byte (checked) |
+| Kernel imports nothing under the helper tree | Helper Boundary at opm/helper/, kept in place | no, byte for byte (checked) |
+| A frontend that skips the helper tree can drive the whole pipeline | Helper Boundary at opm/helper/, kept in place | no, byte for byte (checked) |
+| Lint gate refuses a helper import from the kernel | Helper Boundary at opm/helper/, kept in place | no, byte for byte (checked) |
+| No publish-side package in the library | Helper Boundary at opm/helper/, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The helper subdirectory is opt-in" in "The library maintains an opm/helper subdirectory of opt-in frontend conveniences"
+- "The packages outside the helper tree fall into two tiers" in "Two tiers lie outside opm/helper"
+- "The exported packages outside the helper and Kubernetes trees are the six kernel packages" in "The exported packages outside opm/helper and opm/k8s are exactly the six kernel packages"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The helper boundary SHALL be real in the import graph: no kernel-tier package SHALL import a package... | Helper Boundary at opm/helper/ (kept) | verbatim; pointer (Requirement: <exact header>) added after "no kernel-tier package" |
+| The rule SHALL be enforced by the repository lint gate, not only by documentation. | Helper Boundary at opm/helper/ (kept) | verbatim |
+| The library SHALL maintain a `opm/helper/` subdirectory whose subpackages are opt-in, opinionated fr... | The library maintains an opm/helper subdirectory of opt-in frontend conveniences | verbatim |
+| The packages outside `opm/helper/` SHALL fall into two tiers: the kernel (`opm/kernel`, `opm/module`... | Two tiers lie outside opm/helper | verbatim |
+| Neither tier SHALL be described as opt-in. | Two tiers lie outside opm/helper | verbatim |
+| The exported packages outside `opm/helper/` and `opm/k8s/` SHALL be exactly `opm/kernel`, `opm/modul... | The exported packages outside opm/helper and opm/k8s are exactly the six kernel packages | verbatim |
+
+**Helper Layout for Future Subpackages**: form c2 (REMOVED plus ADDED); old body 746 characters; new bodies 195, 413, 222, 149.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Platform helper landing place | The one current helper subpackage is platformmodule, same name | no, byte for byte (checked) |
+| Duplicate-identity helper landing place | The earlier opm/helper/objectset does not exist and the check lives in opm/k8s/object, same name | no, byte for byte (checked) |
+| Values helper subpackage no longer exists | Collapsed subpackages do not appear as exemplars of the helper convention, same name | no, byte for byte (checked) |
+| Loader and synth subpackages no longer exist | The one current helper subpackage is platformmodule, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A future helper follows the convention" in "Future opt-in helpers follow the opm/helper/<name>/ convention and are added by their owning slices"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Future opt-in helpers SHALL follow the `opm/helper/<name>/` convention. | Future opt-in helpers follow the opm/helper/<name>/ convention and are added by their owning slices | verbatim |
+| Subpackages SHALL be added by their owning slices and not as part of the originating slice that esta... | Future opt-in helpers follow the opm/helper/<name>/ convention and are added by their owning slices | verbatim |
+| Past examples of helper subpackages in this convention SHALL reflect the current package layout; sub... | Collapsed subpackages do not appear as exemplars of the helper convention | verbatim; pointer (Requirement: <exact header>) added after "in this convention" |
+| The one current subpackage is `platformmodule` (platform module generation from catalog coordinates)... | The one current helper subpackage is platformmodule | "is" becomes "SHALL be", as the block needs a keyword; pointer (Requirement: <exact header>) added after "one current subpackage" |
+| The earlier `opm/helper/objectset` (duplicate rendered object identities) SHALL NOT exist: the check... | The earlier opm/helper/objectset does not exist and the check lives in opm/k8s/object | verbatim |
+
+### Ledger: test-fixture-registry
+
+**Served fixtures resolve from a per-test module cache**: form c2 (REMOVED plus ADDED); old body 615 characters; new bodies 292, 337, 208.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Committed fixture edited under a fixed coordinate | A served coordinate is fetched into the private cache on first use and no earlier bytes are visible, same name | no, byte for byte (checked) |
+| Two packages serve the same coordinate concurrently | Every fixture registry the harness stands up gives the test a private CUE module cache directory, same name | no, byte for byte (checked) |
+| Same test name in two packages | Every fixture registry the harness stands up gives the test a private CUE module cache directory, same name | no, byte for byte (checked) |
+| Private cache is cleaned up | The private cache is removed when the test ends, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every fixture registry the harness stands up (inline catalog fixtures, inline module fixtures, commi... | Every fixture registry the harness stands up gives the test a private CUE module cache directory | verbatim |
+| A coordinate the registry serves SHALL be fetched and extracted into that private cache on first use... | A served coordinate is fetched into the private cache on first use and no earlier bytes are visible | verbatim; pointer (Requirement: <exact header>) added after "that private cache" |
+| The private cache SHALL be removed when the test ends, read-only extracted directories included. | The private cache is removed when the test ends | verbatim; pointer (Requirement: <exact header>) added after "The private cache" |
+
+**The opmodel.dev namespace resolves through the shared tier**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 521 characters; new bodies 460, 134.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Warm core is reused | The opmodel.dev namespace resolves through the shared tier, kept in place | no, byte for byte (checked) |
+| Cold core is fetched once | The opmodel.dev namespace resolves through the shared tier, kept in place | no, byte for byte (checked) |
+| Concurrent cold fetch | The opmodel.dev namespace resolves through the shared tier, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The harness writes nothing into the shared tier" in "The harness itself writes nothing into the shared tier"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Within a private cache, the `opmodel.dev` module namespace (`opmodel.dev/core`, `opmodel.dev/catalog... | The opmodel.dev namespace resolves through the shared tier (kept) | verbatim |
+| The harness itself SHALL write nothing into the shared tier. | The harness itself writes nothing into the shared tier | verbatim; pointer (Requirement: <exact header>) added after "the shared tier" |
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -3935,3 +4200,5 @@ Sentences of unit 7 (library-B5 second half) that gained SHALL, or changed a ver
 | The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only. | The proof (Requirement: The old render path was compared with Render on every parity case before it was removed) SHALL live in the archive as the record; after deletion the harness SHALL compare `Render` against the oracle only. | The proof of the comparison lives in the archive and after deletion the harness compares Render against the oracle only |
 | Core in the test modules moves only together with the default, never on its own. | Core in the test modules SHALL move only together with the default, never on its own. | The update task requests core at the release the kernel default names and core moves only together with the default |
 | A file qualifies when its literal names an older release a floor, skew or pre-collision test needs, or when the literal is synthetic: a default move does not break it, because it is parsed or compiled in memory, or coupl... | A file (Requirement: The repository root carries a .cascade-frozen file listing every test file that keeps a version literal on purpose) SHALL qualify when its literal names an older release a floor, skew or pre-collision test needs, or when the literal is syn... | A file qualifies for the frozen list when its literal names an older release a test needs or is synthetic |
+| The one current subpackage is `platformmodule` (platform module generation from catalog coordinates). | The one current subpackage SHALL be `platformmodule` (platform module generation from catalog coordinates). | The one current helper subpackage is platformmodule |
+| Which repos it dispatches to, and the Go proxy wait before it does, are the action's behaviour, not the library's. | Which repos `notify-downstream` dispatches to, and the Go proxy wait before it does, SHALL be the action's behaviour, not the library's. | Which repos notify-downstream dispatches to and the Go proxy wait are the action's behaviour |
