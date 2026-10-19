@@ -35,7 +35,7 @@ kept as written).
 **Explored**: `git grep -nIiw 'operators?'` and the residue regex of task 3.6 over the
 worktree.
 **Decision**: rename every product hit; keep the four human-role hits above.
-**Rationale**: the vocabulary rule of 0032:D1: "controller" is the product; the human role is not
+**Rationale**: the owner's vocabulary rule of 2026-10-05: "controller" is the product; the human role is not
 renamed.
 
 ## Risks / Trade-offs

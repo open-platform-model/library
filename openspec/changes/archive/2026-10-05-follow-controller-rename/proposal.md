@@ -1,7 +1,7 @@
 ## Why
 
 The Kubernetes controller `opm-operator` is renamed `opm-controller`: the repository, the Go module,
-the image, and the word for the product (0032:D1, the owner's decision of 2026-10-05).
+the image, and the word for the product (the owner's decision of 2026-10-05).
 "Operator" in the Kubernetes sense means a controller carrying application-specific day-2
 knowledge, and OPM's is a generic delivery engine. The library names its consumer in a CI workflow,
 a script, its godoc, its lint messages, its docs and its specs. After the GitHub rename those names
