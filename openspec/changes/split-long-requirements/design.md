@@ -181,6 +181,21 @@ Last unit (`LAST=1`, the sixth): it judges the main specs and the change, not ot
 **Decision**: The unit also runs the same comparison per old requirement: for each old requirement, each of its scenarios must appear in the delta with identical lines. That per-requirement run prints no `DIFF` and no `LOST`. The shared names stay as they are: a scenario name is unique inside a requirement, and the delta moves each copy with its own requirement.
 **Rationale**: A rename would break the byte check for a kept scenario. Reversibility: high.
 
+### Batch library-B2: the form choices and the limits of the verbatim rule
+
+**Context**: B2 holds `single-build-render` (19 long requirements) and `schema-dispatch` (9). Eleven bodies run past 1400 characters, and several sentences run past 500 on their own.
+**Decision**: 5 requirements use form b because another requirement or a code comment cites the header ("Local replacements are honoured only when the caller opts in", "Trait posture governs unhandled traits", "The render module's own gate agrees with the kernel's refusal", "A caller may skip unprovided provider-fulfilled demands", "Path inventory exposed as package-level vars"). 23 use c2. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary (the lead is repeated, the last "," or ";" of the list becomes "."). The words added are only these: a subject or condition copied from the same old requirement (the clause tables name each), the keyword SHALL where a sentence has none (the strength table), the lead "With the switch on:" copied from the old list, and a pointer to a scenario where a rule table moved into THEN lines (the Path inventory readers and the retired matcher paths). Two citations of a renamed requirement are updated in place: "DefaultSchemaModule constant" and "OCILoader is the only public Loader". Three code comments cite a removed requirement name ("Unresolved demands are diagnosed with alternatives" in `opm/errors/match_test.go` and `opm/kernel/render_definedby_test.go`, "Matching runs inside the build with verdicts as data" in `opm/kernel/render_decode_internal_test.go`); the last unit updates them (owner ruling of 2026-10-19). Reversibility: high.
+**Rationale**: A header that others cite stays (form b); where the old scenarios belong to different rules they move with their rule (form c2) and need no new scenario.
+
+Source lines of B2 (the whole line is repeated where it fits; a title drops whole, never paraphrased):
+
+| Old requirement | Old Source line (characters) | Handling |
+| --- | --- | --- |
+| The single-provider guard runs inside the build | 430 | Three titles. `Source: enhancement 0010 and enhancement 0015.` on two blocks; `Source: enhancement 0015.` on the block with the longest body; the two titles of enhancement 0015 and the core change on the block "Provenance is the registry key, so two majors of one catalog are two providers"; the title of enhancement 0010 and the core change on "Keys with default fulfilment may be supplied by any number of transformers". Every title stays in one block. |
+| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on 6 of 9 blocks. The parent and 2 other blocks carry the line without its last clause "as amended by core changes ...", which the other blocks carry. |
+| A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on one block. The other five carry it without the parenthetical about the interim safety net, which has no title. |
+| A render reports every contract its instance requires | 114 | The whole line on the block that holds the first paragraph, because the old text ties it to that paragraph. |
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -939,3 +954,689 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The check SHALL NOT be a required status check by this change. | The check is not a required status check by this change | verbatim |
 | The same check SHALL run locally through `task api:diff`, with an optional `BASE` tag override... | The check runs locally through task api:diff | verbatim |
 | Source: library#181 (the workflow hardening pass); workflow-hardening. | The check runs read-only with a committed tool checksum; The library's go.mod does not require the diff tool;... | verbatim |
+
+### Ledger: single-build-render
+
+**The render module's dependency list is derived by promotion**: form c2 (REMOVED plus ADDED); old body 1800 characters; new bodies 357, 127, 428, 284, 253, 183, 162.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Platform wins a shared path | The platform's dependency list wins in the render module, same name | no, byte for byte (checked) |
+| Instance-only paths survive | The platform's dependency list wins in the render module, same name | no, byte for byte (checked) |
+| An input's unqualified self-import resolves | Each input module's own path is listed as a default major, same name | no, byte for byte (checked) |
+| A platform replacement of its catalog is honoured | Promoted local replacements follow the precedence of the dependencies, same name | no, byte for byte (checked) |
+| An instance replacement on a platform-named path is inert | Promoted local replacements follow the precedence of the dependencies, same name | no, byte for byte (checked) |
+| An instance replacement on an instance-only path is honoured | A promoted replacement is written as the input wrote it with a relative target resolved against the input, same name | no, byte for byte (checked) |
+| A replace-only dependency is listed with a placeholder | A replaced path that the promoted list does not carry is listed with a placeholder version, same name | no, byte for byte (checked) |
+| A version-less dependency without a replacement is refused | A version-less dependency without a promoted replacement is refused before staging, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Inputs enter through directory replacements" in "The two input trees enter the build through directory replacements"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated render module's dependency list SHALL be derived by promotion: the platform modul... | The platform's dependency list wins in the render module | verbatim |
+| No tidy-equivalent and no registry consultation SHALL run at render time to compute the list. | The platform's dependency list wins in the render module | verbatim |
+| The two input trees SHALL enter the build through build-local directory replacements; neither i... | The two input trees enter the build through directory replacements | verbatim |
+| Each input module's own path SHALL be listed in the render module's `cue.mod/module.cue` with a... | Each input module's own path is listed as a default major | verbatim |
+| When local replacements are enabled for the render, each input's own `cue.mod/local-module.cue`... | Promoted local replacements follow the precedence of the dependencies | verbatim |
+| A promoted replacement SHALL be written into the render module's main-module view exactly as th... | A promoted replacement is written as the input wrote it with a relativ... | verbatim |
+| A replaced path the promoted dependency list does not carry SHALL be listed with a placeholder ... | A replaced path that the promoted list does not carry is listed with a... | verbatim |
+| An input dependency that carries no version and is covered by no promoted replacement SHALL be ... | A version-less dependency without a promoted replacement is refused be... | verbatim |
+
+**Local replacements are honoured only when the caller opts in**: form b (MODIFIED parent plus ADDED); old body 663 characters; new bodies 369, 335.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Replacement without opt-in refused | Local replacements are honoured only when the caller opts in, same name | no, byte for byte (checked) |
+| Inputs without the file are unaffected | Local replacements are honoured only when the caller opts in, same name | no, byte for byte (checked) |
+| Replacement rows are data | Local replacements are honoured only when the caller opts in, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Honoured replacements are rows" in "Honoured local replacements are reported as rows, not as message strings"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.Render` SHALL accept a per-render opt-in for local replacements, off by default. When i... | Local replacements are honoured only when the caller opts in | verbatim |
+| An input without the file SHALL behave identically under either setting. | Local replacements are honoured only when the caller opts in | verbatim |
+| When the per-render opt-in for local replacements is on, | Honoured local replacements are reported as rows, not as message strin... | added words (not in the old body) |
+| promoted replacements SHALL be reported on the render diagnostics as rows carrying the replaced... | Honoured local replacements are reported as rows, not as message strin... | verbatim |
+
+**Version skew is detected from the two committed resolutions and the response is caller-configured**: form c2 (REMOVED plus ADDED); old body 859 characters; new bodies 337, 347, 214.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Prerelease builds compare by SemVer precedence | The skew check compares the instance's requirement with the platform's tidied entry by SemVer 2 precedence, same name | no, byte for byte (checked) |
+| Newer module warns and renders by default | A newer instance requirement is warned or refused by the caller's policy, same name | no, byte for byte (checked) |
+| Refuse policy stops the render | A newer instance requirement is warned or refused by the caller's policy, same name | no, byte for byte (checked) |
+| Older module is data, not a warning | An older instance requirement is plain data, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| For each OPM-namespace path, the kernel SHALL compare the instance module's `cue.mod` requireme... | The skew check compares the instance's requirement with the platform's... | verbatim |
+| Newer and older SHALL follow SemVer 2 precedence, prerelease builds included (`2.0.0-beta.2` is... | The skew check compares the instance's requirement with the platform's... | verbatim |
+| When the instance requires a NEWER build than the platform carries, the configured policy decid... | A newer instance requirement is warned or refused by the caller's poli... | verbatim |
+| The kernel SHALL NOT render the skew as a message string; a frontend formats the row. | A newer instance requirement is warned or refused by the caller's poli... | verbatim |
+| A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions co... | An older instance requirement is plain data | "no such mark" names the mark of the sibling sentence, as the old sentence before it states |
+
+**Matching runs inside the build with verdicts as data**: form c2 (REMOVED plus ADDED); old body 2778 characters; new bodies 389, 497, 422, 350, 264, 333, 414, 165, 496, 156.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A unify refusal names its conflicts once | The glue reports the matched pairs, the unify refusals, the unhandled-trait table and the over-subscription rows as data, same name | no, byte for byte (checked) |
+| Verdicts decode beside a failing gate | The glue reports each unresolved demand with its same-base alternatives as data, same name | no, byte for byte (checked) |
+| An unmatched component carries its candidates on the diagnostics | The glue reports each unmatched component with its candidates as data, same name | no, byte for byte (checked) |
+| An omitted component leaves the pair set | The reported pair set agrees with plain predicate matching, same name | no, byte for byte (checked) |
+| Healthy pairs render beside a failing pair | The kernel names the failed pairs from each matched pair's rendered output, same name | no, byte for byte (checked) |
+| Failed pairs are reported on a gate refusal | FailedPairs is filled on every RenderError raised after the build, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A skipped demand is a verdict as data" in "The glue reports each demand skipped under the caller's switch as data"
+- "A rung sees only a component's candidates" in "The rungs are evaluated only for a component's candidates"
+- "The gate refuses beside readable diagnostics" in "The fail-closed demand gate holds while the diagnostics stay readable"
+- "A matched pair is unified once" in "The glue unifies each matched pair's transform once"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated glue SHALL express matching over the platform's derived `#composedTransformers` w... | The glue reports the matched pairs, the unify refusals, the unhandled-... | verbatim |
+| the matched pair set; | The glue reports the matched pairs, the unify refusals, the unhandled-... | verbatim |
+| every candidate the always-unify rung refused, with its conflicting FQNs; | The glue reports the matched pairs, the unify refusals, the unhandled-... | verbatim |
+| the unhandled-trait table; the over-subscription rows. | The glue reports the matched pairs, the unify refusals, the unhandled-... | verbatim |
+| The generated glue SHALL express matching over the platform's derived `#composedTransformers` w... | The glue reports each unresolved demand with its same-base alternative... | verbatim |
+| every unresolved demand with the same-base alternatives the platform implements (sorted in the ... | The glue reports each unresolved demand with its same-base alternative... | the final ";" of the list becomes "." |
+| The generated glue SHALL express matching over the platform's derived `#composedTransformers` w... | The glue reports each unmatched component with its candidates as data | verbatim |
+| every unmatched component with every candidate the demand walk reached for it and, for a predic... | The glue reports each unmatched component with its candidates as data | the final ";" of the list becomes "." |
+| The generated glue SHALL express matching over the platform's derived `#composedTransformers` w... | The glue reports each demand skipped under the caller's switch as data | verbatim |
+| every demand skipped under the caller's switch (see "A caller may skip unprovided provider-fulf... | The glue reports each demand skipped under the caller's switch as data | the final ";" of the list becomes "." |
+| The always-unify and predicate rungs SHALL be evaluated only for a component's candidates (the ... | The rungs are evaluated only for a component's candidates | verbatim |
+| The always-unify rung SHALL be plain unification with no provenance exclusion. | The rungs are evaluated only for a component's candidates | verbatim |
+| Matching semantics are those of the render-parity oracle: with the skip switch off, the pair se... | The reported pair set agrees with plain predicate matching | verbatim |
+| The fail-closed demand gate SHALL hold: an unresolved demand that was not skipped, or an unmatc... | The fail-closed demand gate holds while the diagnostics stay readable | verbatim |
+| Failed pairs are not a glue verdict. | The glue unifies each matched pair's transform once | verbatim |
+| The glue SHALL unify each matched pair's transform once, in `rendered`, and SHALL NOT evaluate ... | The glue unifies each matched pair's transform once | verbatim |
+| The kernel SHALL name the failed pairs on `RenderDiagnostics.FailedPairs`, in pair order, from ... | The kernel names the failed pairs from each matched pair's rendered ou... | verbatim |
+| The kernel SHALL fill `FailedPairs` on every `RenderError` raised after the build, a gate refus... | FailedPairs is filled on every RenderError raised after the build | verbatim |
+
+**Rendered output decodes with provenance and per-pair concreteness**: form c2 (REMOVED plus ADDED); old body 560 characters; new bodies 176, 233, 149.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Provenance on every object | Rendered output decodes with provenance in the build's deterministic order, same name | no, byte for byte (checked) |
+| One compiled-output type | Compiled is declared in opm/kernel only, same name | no, byte for byte (checked) |
+| Incomplete pair output refuses | The kernel validates per-pair output concreteness itself, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| On a passing gate, `Render` SHALL decode `rendered` into `[]*kernel.Compiled`, each carrying in... | Rendered output decodes with provenance in the build's deterministic o... | verbatim |
+| `Compiled` SHALL be declared in `opm/kernel`, beside the verb that produces it, with exactly th... | Compiled is declared in opm/kernel only | verbatim |
+| The kernel SHALL validate per-pair output concreteness itself: an incomplete (non-error) pair o... | The kernel validates per-pair output concreteness itself | verbatim |
+
+**Render is the kernel's sole render path**: form c2 (REMOVED plus ADDED); old body 1124 characters; new bodies 308, 366, 467.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Old entry points are gone | Render is the only way the kernel renders an instance against a platform, same name | no, byte for byte (checked) |
+| A subscription-shaped platform is refused | A platform module importing its catalogs is the only platform shape the kernel accepts, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The default pin carries the registry shape" in "The kernel's default core pin carries the registry shape of the platform import"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.Render` SHALL be the only way the kernel renders an instance against a platform. | Render is the only way the kernel renders an instance against a platfo... | verbatim |
+| The kernel SHALL expose no `Compile`, `Match` or `Materialize` method and no materialized-platf... | Render is the only way the kernel renders an instance against a platfo... | verbatim |
+| The kernel's default core schema pin SHALL be a release carrying the enhancement 0019 ("A platf... | The kernel's default core pin carries the registry shape of the platfo... | the citation names the renamed requirement of schema-dispatch |
+| A platform module importing its catalogs is the only platform shape the kernel accepts: the pla... | A platform module importing its catalogs is the only platform shape th... | verbatim |
+| Core derives the entry's `version` from the embedded catalog's stamped identity, and with no ca... | A platform module importing its catalogs is the only platform shape th... | verbatim |
+
+**The single-provider guard runs inside the build**: form c2 (REMOVED plus ADDED); old body 2056 characters; new bodies 482, 493, 482, 481, 467.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Inventory and render agree on every served platform | The render and the platform's contract inventory read one provider count, same name | no, byte for byte (checked) |
+| Providers count when the defining catalog is disabled | The provider count lists the registry keys that require each provider-fulfilled contract, same name | no, byte for byte (checked) |
+| Two majors of one provider catalog are two providers | Provenance is the registry key, so two majors of one catalog are two providers, same name | no, byte for byte (checked) |
+| Second provider refused in-build | An over-subscribed contract is reported as a row and refuses the render, same name | no, byte for byte (checked) |
+| Catalog-fulfilled plurality allowed | Keys with default fulfilment may be supplied by any number of transformers, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated glue SHALL read the platform's provider count from core's derived contract invent... | The render and the platform's contract inventory read one provider cou... | verbatim |
+| Because both the render and the platform's `Contracts()` read this one count, a render SHALL re... | The render and the platform's contract inventory read one provider cou... | verbatim |
+| Source: enhancement 0010 and enhancement 0015. | The render and the platform's contract inventory read one provider cou... | added words (not in the old body) |
+| The count is `#Platform.#contracts.providedBy`: for every contract key declared `fulfilment: "p... | The provider count lists the registry keys that require each provider-... | "The count is" becomes "The provider count SHALL be": the subject is the phrase of the first sentence, and the verb gets the keyword an ADDED block needs |
+| Source: enhancement 0015. | The provider count lists the registry keys that require each provider-... | added words (not in the old body) |
+| Provenance is the registry key, never a value parsed out of an FQN or read off the transformer,... | Provenance is the registry key, so two majors of one catalog are two p... | the verb "is" becomes "SHALL be", the keyword an ADDED block needs |
+| Source: enhancement 0015 (^ | Provenance is the registry key, so two majors of one catalog are two p... | added words (not in the old body) |
+| "One provider per contract stands; provider classes are rejected in this entry" | Provenance is the registry key, so two majors of one catalog are two p... | verbatim |
+| and | Provenance is the registry key, so two majors of one catalog are two p... | added words (not in the old body) |
+| "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-pa... | Provenance is the registry key, so two majors of one catalog are two p... | verbatim |
+| ^), | Provenance is the registry key, so two majors of one catalog are two p... | added words (not in the old body) |
+| as recounted by core change `count-providers-per-registry-entry`. | Provenance is the registry key, so two majors of one catalog are two p... | verbatim |
+| Every key core lists in `#contracts.overSubscribed` SHALL be reported as an over-subscription r... | An over-subscribed contract is reported as a row and refuses the rende... | verbatim |
+| The rows SHALL be built by iterating `providedBy` unconditionally, so a platform value lacking ... | An over-subscribed contract is reported as a row and refuses the rende... | verbatim |
+| Source: enhancement 0010 and enhancement 0015. | An over-subscribed contract is reported as a row and refuses the rende... | added words (not in the old body) |
+| The generated glue SHALL read the platform's provider count from core's derived contract invent... | Keys with default fulfilment may be supplied by any number of transfor... | verbatim |
+| Keys with default (`catalog`) fulfilment MAY be supplied by any number of transformers from any... | Keys with default fulfilment may be supplied by any number of transfor... | verbatim |
+| Source: enhancement 0010 (^ | Keys with default fulfilment may be supplied by any number of transfor... | added words (not in the old body) |
+| "A contract declares where its fulfilment comes from, and a provider-fulfilled contract admits ... | Keys with default fulfilment may be supplied by any number of transfor... | verbatim |
+| ^), | Keys with default fulfilment may be supplied by any number of transfor... | added words (not in the old body) |
+| as recounted by core change `count-providers-per-registry-entry`. | Keys with default fulfilment may be supplied by any number of transfor... | verbatim |
+
+**Unresolved demands are diagnosed with alternatives**: form c2 (REMOVED plus ADDED); old body 2237 characters; new bodies 371, 451, 470, 437, 196, 207, 436, 299.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Different apiVersion named | An unresolved demand is reported with its component, key, kind and alternatives, same name | no, byte for byte (checked) |
+| A defined but unimplemented contract names its catalog | An unresolved-demand row names the enabled catalog that lists the demanded key, same name | no, byte for byte (checked) |
+| A disabled catalog defines nothing | An unresolved-demand row names the enabled catalog that lists the demanded key, same name | no, byte for byte (checked) |
+| A colliding contract row names its entries | An unresolved-demand row names the colliding entries and each disqualified candidate, same name | no, byte for byte (checked) |
+| A catalog-fulfilled row is not marked | An unresolved-demand row marks an unprovided demand on every render, same name | no, byte for byte (checked) |
+| An unprovided row says so | An unprovided row's message says that the contract is provider-fulfilled, same name | no, byte for byte (checked) |
+| Undemandable resource fails the render | The unresolved-demand row distinguishes four cases, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "An unskipped unresolved demand fails the render" in "Render fails on any unresolved demand that the caller's switch did not skip"
+- "Diagnostic fields do not change the refusal" in "The defining catalog and the colliding entries of a row are diagnostic only"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| A demanded contract for which the platform holds no candidate, or for which every candidate is ... | An unresolved demand is reported with its component, key, kind and alt... | verbatim |
+| the component, the contract key, the kind, | An unresolved demand is reported with its component, key, kind and alt... | verbatim |
+| the same-base alternatives the platform does implement (sorted in the build on the apiVersion l... | An unresolved demand is reported with its component, key, kind and alt... | the final "," of the list becomes "." |
+| A demanded contract for which the platform holds no candidate, or for which every candidate is ... | An unresolved-demand row names the enabled catalog that lists the dema... | verbatim |
+| the registry key of the enabled catalog that lists the demanded key in its contract maps (empty... | An unresolved-demand row names the enabled catalog that lists the dema... | the final "," of the list becomes "." |
+| A demanded contract for which the platform holds no candidate, or for which every candidate is ... | An unresolved-demand row names the colliding entries and each disquali... | verbatim |
+| the registry keys of the enabled entries defining the key when it is a collision (read from `#c... | An unresolved-demand row names the colliding entries and each disquali... | verbatim |
+| and, when candidates existed, each disqualified candidate's transformer with the FQNs it confli... | An unresolved-demand row names the colliding entries and each disquali... | verbatim |
+| A demanded contract for which the platform holds no candidate, or for which every candidate is ... | An unresolved-demand row marks an unprovided demand on every render | verbatim |
+| whether the demand is unprovided (its contract declares `fulfilment: "provider"` and no enabled... | An unresolved-demand row marks an unprovided demand on every render | the final "," of the list becomes "." |
+| The unprovided marker SHALL be computed on every render, whatever the skip switch says. | An unresolved-demand row marks an unprovided demand on every render | verbatim |
+| An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and ... | An unprovided row's message says that the contract is provider-fulfill... | verbatim |
+| Every resource a component declares is a required demand. | Render fails on any unresolved demand that the caller's switch did not... | verbatim |
+| `Render` SHALL fail on any unresolved demand that the caller's switch did not skip, through the... | Render fails on any unresolved demand that the caller's switch did not... | verbatim |
+| The row SHALL distinguish four cases: "defined by `<catalog>` and nothing on this platform impl... | The unresolved-demand row distinguishes four cases | "The row" becomes "The unresolved-demand row", the phrase of the first sentence |
+| The defining catalog and the colliding entries are diagnostic only (enhancement 0015, "An unful... | The defining catalog and the colliding entries of a row are diagnostic... | names the row they belong to |
+
+**Trait posture governs unhandled traits**: form b (MODIFIED parent plus ADDED); old body 509 characters; new bodies 387, 121.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Optional trait warns | Trait posture governs unhandled traits, same name | no, byte for byte (checked) |
+| Load-bearing trait fails | Trait posture governs unhandled traits, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "An unstated posture fails closed" in "An unstated trait posture fails closed as a build error"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| An unhandled trait's effect SHALL be governed by its effective `optional` value read from the c... | Trait posture governs unhandled traits | verbatim |
+| The kernel SHALL NOT render an unhandled trait as a message string; a frontend formats the tabl... | Trait posture governs unhandled traits | verbatim |
+| An unstated posture (non-concrete `optional`) SHALL fail closed as a build error naming the tra... | An unstated trait posture fails closed as a build error | verbatim |
+
+**A render result carries no presentation strings**: form c2 (REMOVED plus ADDED); old body 778 characters; new bodies 439, 338.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Advisory facts are rows | A render result and a render refusal expose verdicts as structured rows only, same name | no, byte for byte (checked) |
+| A skipped demand is a row | A render result and a render refusal expose verdicts as structured rows only, same name | no, byte for byte (checked) |
+| A gate cause is the diagnostics rows | A typed gate cause carries the same rows as the diagnostics, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| A render result and a render refusal SHALL expose verdicts as structured rows only. | A render result and a render refusal expose verdicts as structured row... | verbatim |
+| The kernel SHALL NOT attach human-readable warning or advisory messages to a result; every advi... | A render result and a render refusal expose verdicts as structured row... | verbatim |
+| Each row-carrying typed gate cause (colliding contracts, unresolved demands, unmatched componen... | A typed gate cause carries the same rows as the diagnostics | verbatim |
+| The not-routable cause carries no rows: it is raised only from the decoded routable diagnostic. | A typed gate cause carries the same rows as the diagnostics | verbatim |
+
+**The render module's own gate agrees with the kernel's refusal**: form b (MODIFIED parent plus ADDED); old body 596 characters; new bodies 390, 205.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Refusal is visible in the module | The render module's own gate agrees with the kernel's refusal, same name | no, byte for byte (checked) |
+| Success is visible in the module | The render module's own gate agrees with the kernel's refusal, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The decoded refusal decides" in "The kernel's decoded refusal is authoritative and never reads the gate field"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated render module SHALL carry a `gate` field that evaluates to an error exactly when ... | The render module's own gate agrees with the kernel's refusal | verbatim |
+| The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed cau... | The kernel's decoded refusal is authoritative and never reads the gate... | verbatim |
+
+**A caller may skip unprovided provider-fulfilled demands**: form b (MODIFIED parent plus ADDED); old body 2172 characters; new bodies 464, 306, 340, 427, 387, 296, 475, 318, 319.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Switch off refuses an unprovided trait as before | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| An unprovided trait is skipped and its component renders | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| An unprovided resource omits its component | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| A catalog-fulfilled demand still refuses | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| A provider that exists but does not match still refuses | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| Over-subscription still refuses | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+| The module's own gate agrees under the switch | A caller may skip unprovided provider-fulfilled demands, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The switch off changes nothing" in "With the switch off a render is as without the switch"
+- "A skipped trait leaves its pairs" in "A skipped trait demand does not refuse the render"
+- "A skipped resource omits the component" in "A skipped resource demand omits its component"
+- "A skipped demand row carries the component and the kind" in "Every skipped demand is reported as a skipped-demand row"
+- "The flag is set on trait rows too" in "The omission flag is set on every skipped row of an omitted component"
+- "Skipped rows are readable beside a refusal" in "Every other refusal stands with the switch on"
+- "An optional trait stays in its table" in "An unhandled optional trait is never a skipped row"
+- "The switch is a literal" in "The render module carries the switch as a literal"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip ... | A caller may skip unprovided provider-fulfilled demands | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | A caller may skip unprovided provider-fulfilled demands | verbatim |
+| ^. | A caller may skip unprovided provider-fulfilled demands | added words (not in the old body) |
+| With the switch off, the render's verdicts, refusals and rendered output SHALL be exactly those... | With the switch off a render is as without the switch | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | With the switch off a render is as without the switch | verbatim |
+| With the switch on: | A skipped trait demand does not refuse the render | verbatim |
+| A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it ma... | A skipped trait demand does not refuse the render | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | A skipped trait demand does not refuse the render | verbatim |
+| With the switch on: | A skipped resource demand omits its component | verbatim |
+| A skipped resource demand SHALL NOT refuse the render, and its component SHALL be omitted: no p... | A skipped resource demand omits its component | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | A skipped resource demand omits its component | verbatim |
+| Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the cont... | Every skipped demand is reported as a skipped-demand row | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | Every skipped demand is reported as a skipped-demand row | verbatim |
+| ^. | Every skipped demand is reported as a skipped-demand row | added words (not in the old body) |
+| With the switch on: | The omission flag is set on every skipped row of an omitted component | verbatim |
+| The omission flag SHALL be set on every skipped row of an omitted component, trait rows include... | The omission flag is set on every skipped row of an omitted component | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | The omission flag is set on every skipped row of an omitted component | verbatim |
+| Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled de... | Every other refusal stands with the switch on | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | Every other refusal stands with the switch on | verbatim |
+| ^. | Every other refusal stands with the switch on | added words (not in the old body) |
+| With the switch on: | An unhandled optional trait is never a skipped row | verbatim |
+| An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table ent... | An unhandled optional trait is never a skipped row | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | An unhandled optional trait is never a skipped row | verbatim |
+| The generated render module SHALL carry the switch as a literal, so its own `gate` field agrees... | The render module carries the switch as a literal | verbatim |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | The render module carries the switch as a literal | verbatim |
+
+**A render refuses a platform whose core predates the provider count**: form c2 (REMOVED plus ADDED); old body 1487 characters; new bodies 455, 483, 446, 192.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A current-core platform is not affected | A render checks the core floor of the platform before staging, same name | no, byte for byte (checked) |
+| An older-core platform is refused before staging | A platform that predates the provider count is refused with PlatformCoreTooOldError, same name | no, byte for byte (checked) |
+| A render reads no platform Package | The check reads the recorded floor and not the platform's Package, same name | no, byte for byte (checked) |
+| A platform shared by concurrent renders stays race-free | One acquired platform stays shareable across concurrent renders, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.Render` SHALL check, before staging, that the platform's core floor is met: that the pl... | A render checks the core floor of the platform before staging | verbatim |
+| The check is sound because the render build evaluates the platform module's own core pin, the s... | A render checks the core floor of the platform before staging | verbatim |
+| When it does not (the platform module pins a core release older than `2.0.0-alpha.12`, or carri... | A platform that predates the provider count is refused with PlatformCo... | verbatim |
+| The refusal SHALL NOT be a `*RenderError`, SHALL stage no render module and SHALL NOT fall back... | A platform that predates the provider count is refused with PlatformCo... | verbatim |
+| The check SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructo... | The check reads the recorded floor and not the platform's Package | verbatim |
+| Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | The check reads the recorded floor and not the platform's Package | the verb "reads" gets the keyword SHALL, as an ADDED block needs |
+| Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | One acquired platform stays shareable across concurrent renders | the verb "reads" gets the keyword SHALL, as an ADDED block needs |
+| One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on o... | One acquired platform stays shareable across concurrent renders | verbatim |
+
+**A render refuses a platform whose enabled entries share contract keys**: form c2 (REMOVED plus ADDED); old body 1969 characters; new bodies 442, 383, 387, 419, 388, 425.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A colliding bridge platform is refused instead of rendering twice | The glue emits one collision row for each key in the collision report, same name | no, byte for byte (checked) |
+| A platform pinning a core without the report renders unchanged | The glue emits no collision row when the platform carries no collision report, same name | no, byte for byte (checked) |
+| A collision refuses under the skip switch | The kernel refuses a colliding platform for every instance and skip switch, same name | no, byte for byte (checked) |
+| A collision and an over-subscription are both named, collision first | The collision cause is the first joined cause, same name | no, byte for byte (checked) |
+| Collision rows equal the inventory on every served platform | The render's collision rows equal the inventory's CollidingEntries, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The message names the keys and the definers" in "The collision cause message names each key, its definers and the remedy"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated glue SHALL read the platform's contract collisions from core's derived contract i... | The glue emits one collision row for each key in the collision report | verbatim |
+| Source: an open question of enhancement 0026 | The glue emits one collision row for each key in the collision report | verbatim |
+| ^, core change | The glue emits one collision row for each key in the collision report | added words (not in the old body) |
+| `fold-colliding-contract-keys` | The glue emits one collision row for each key in the collision report | verbatim |
+| ^. | The glue emits one collision row for each key in the collision report | added words (not in the old body) |
+| The glue SHALL emit the rows only when the platform value carries `collisions`, and SHALL emit ... | The glue emits no collision row when the platform carries no collision... | "the rows" names the collision rows of the first sentence |
+| Source: an open question of enhancement 0026 | The glue emits no collision row when the platform carries no collision... | verbatim |
+| ^, core change | The glue emits no collision row when the platform carries no collision... | added words (not in the old body) |
+| `fold-colliding-contract-keys` | The glue emits no collision row when the platform carries no collision... | verbatim |
+| ^. | The glue emits no collision row when the platform carries no collision... | added words (not in the old body) |
+| The kernel SHALL decode the rows onto the render diagnostics and SHALL refuse the render, throu... | The kernel refuses a colliding platform for every instance and skip sw... | "the rows" names the collision rows of the glue sentence |
+| The refusal is platform-wide: it SHALL hold for every instance and whatever the caller's skip s... | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
+| Source: an open question of enhancement 0026 | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
+| ^, core change | The kernel refuses a colliding platform for every instance and skip sw... | added words (not in the old body) |
+| `fold-colliding-contract-keys` | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
+| ^. | The kernel refuses a colliding platform for every instance and skip sw... | added words (not in the old body) |
+| When a render refuses for several reasons, the collision cause SHALL be the first joined cause,... | The collision cause is the first joined cause | verbatim |
+| Source: an open question of enhancement 0026 | The collision cause is the first joined cause | verbatim |
+| ^, core change | The collision cause is the first joined cause | added words (not in the old body) |
+| `fold-colliding-contract-keys` | The collision cause is the first joined cause | verbatim |
+| ^. | The collision cause is the first joined cause | added words (not in the old body) |
+| The cause's message SHALL name, per row, the key, the number of enabled registry entries defini... | The collision cause message names each key, its definers and the remed... | "The cause" names the collision cause of the sentences before it |
+| Source: an open question of enhancement 0026 | The collision cause message names each key, its definers and the remed... | verbatim |
+| ^, core change | The collision cause message names each key, its definers and the remed... | added words (not in the old body) |
+| `fold-colliding-contract-keys` | The collision cause message names each key, its definers and the remed... | verbatim |
+| ^. | The collision cause message names each key, its definers and the remed... | added words (not in the old body) |
+| Because the render and the platform's `Contracts()` read the same report, the render's collisio... | The render's collision rows equal the inventory's CollidingEntries | verbatim |
+| Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement,... | The render's collision rows equal the inventory's CollidingEntries | verbatim |
+
+**A render refuses a not-routable platform no row explains**: form c2 (REMOVED plus ADDED); old body 544 characters; new bodies 283, 280.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| An unexplained not-routable verdict refuses | The kernel refuses a not-routable platform that no row explains, same name | no, byte for byte (checked) |
+| No served platform raises the catch-all | The not-routable cause is never raised where the rows explain routable, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL decode core's `#contracts.routable` onto the render diagnostics, and SHALL ref... | The kernel refuses a not-routable platform that no row explains | verbatim |
+| The cause SHALL be the last joined cause. | The kernel refuses a not-routable platform that no row explains | verbatim |
+| It exists so that the kernel's decision agrees with the render module's own gate (which reads `... | The not-routable cause is never raised where the rows explain routable | "It" names the not-routable cause of the sentences before it |
+
+**Matching stays in the glue and derived rules move into core one at a time**: form c2 (REMOVED plus ADDED); old body 810 characters; new bodies 395, 414.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| ADR-012 records where matching lives | The matching algorithm stays in the library's render glue, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A derived rule moves with a parity test" in "A derived rule moves into core one at a time with a parity test"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The matching algorithm (which transformers a component is paired with, the demand buckets, and ... | The matching algorithm stays in the library's render glue | verbatim |
+| ADR-012 records this. | The matching algorithm stays in the library's render glue | verbatim |
+| A single derived rule MAY move into core when core can compute it from core shapes alone. Each ... | A derived rule moves into core one at a time with a parity test | verbatim |
+
+**A render reports every contract its instance requires**: form c2 (REMOVED plus ADDED); old body 1438 characters; new bodies 450, 460, 213, 417.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Demand on a successful render | A render reports the instance's contract demand as data on RequiredContracts, same name | no, byte for byte (checked) |
+| A component without traits | A render reports the instance's contract demand as data on RequiredContracts, same name | no, byte for byte (checked) |
+| A component with traits and no resources | A render reports the instance's contract demand as data on RequiredContracts, same name | no, byte for byte (checked) |
+| The demand equals the declared contracts of the instance | The contract demand is computed inside the build from the matcher's component set, same name | no, byte for byte (checked) |
+| An omitted component's demand is reported | The contract demand is computed inside the build from the matcher's component set, same name | no, byte for byte (checked) |
+| No components | The contract demand is computed inside the build from the matcher's component set, same name | no, byte for byte (checked) |
+| Demand on a refusal | The field is set on every RenderResult and every RenderError, same name | no, byte for byte (checked) |
+| A component without resources refuses | Computing the demand fails closed, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredCo... | A render reports the instance's contract demand as data on RequiredCon... | verbatim |
+| Source: enhancement 0013 ("The kernel reports every contract a render required, synthesised com... | A render reports the instance's contract demand as data on RequiredCon... | verbatim |
+| The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredCo... | The contract demand is computed inside the build from the matcher's co... | verbatim |
+| The demand SHALL be computed inside the build, from the same component set the matcher iterates... | The contract demand is computed inside the build from the matcher's co... | verbatim |
+| The field SHALL be set on every `RenderResult` and on every `*RenderError`. A render that retur... | The field is set on every RenderResult and every RenderError | verbatim |
+| Computing the demand SHALL fail closed. A component's `#resources` is read with no presence tes... | Computing the demand fails closed | verbatim |
+
+**Each render is its own in-memory build in its own context**: form c2 (REMOVED plus ADDED); old body 1109 characters; new bodies 367, 332, 408.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Repeated renders share nothing | Each render creates a fresh context, evaluates once and shares no built value, same name | no, byte for byte (checked) |
+| Concurrent renders share the synthetic root | Each render creates a fresh context, evaluates once and shares no built value, same name | no, byte for byte (checked) |
+| The synthetic roots are absolute | The render module is staged in memory under a synthetic root that does not exist on disk, same name | no, byte for byte (checked) |
+| An existing render root is refused | The render module is staged in memory under a synthetic root that does not exist on disk, same name | no, byte for byte (checked) |
+| The render module is served from memory | The render module and the overlay-mode inputs are served from the load overlay, same name | no, byte for byte (checked) |
+| Local replacements resolve from an in-memory render module | The render module and the overlay-mode inputs are served from the load overlay, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Render` SHALL create a fresh `cue.Context` for the render, evaluate the staged render module e... | Each render creates a fresh context, evaluates once and shares no buil... | verbatim |
+| The render module SHALL be staged in memory under a fixed synthetic root, an absolute path on e... | The render module is staged in memory under a synthetic root that does... | verbatim |
+| The render module's generated `cue.mod/module.cue`, `cue.mod/local-module.cue` and glue file, a... | The render module and the overlay-mode inputs are served from the load... | verbatim |
+
+**A render writes no staging file**: form c2 (REMOVED plus ADDED); old body 720 characters; new bodies 450, 308.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A successful render leaves the temp directory untouched | Kernel.Render writes no staging file, same name | no, byte for byte (checked) |
+| A refusal leaves the temp directory untouched | Kernel.Render writes no staging file, same name | no, byte for byte (checked) |
+| A render that writes is caught | A test that asserts that a render writes no staging file owns its temp directory, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.Render` SHALL write no staging file: it SHALL create, write or remove nothing under the... | Kernel.Render writes no staging file | verbatim |
+| A test that asserts this SHALL point the process temp directory at a directory owned by that te... | A test that asserts that a render writes no staging file owns its temp... | "this" names the rule of the first sentence |
+
+### Ledger: schema-dispatch
+
+**DefaultSchemaModule constant**: form c2 (REMOVED plus ADDED); old body 3861 characters; new bodies 428, 450, 432, 259, 280, 291, 337, 291, 275, 338, 184, 396.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Empty Module resolves the v2 default | DefaultSchemaModule names an exact core release, same name | no, byte for byte (checked) |
+| ResolvedVersion reports the v2 resolution | DefaultSchemaModule names an exact core release, same name | no, byte for byte (checked) |
+| No doc comment cites a deleted package or the floating major | Doc comments cite the default by the constant's name, same name | no, byte for byte (checked) |
+| A default move edits no test file | The constant is the only Go source that a default move edits, same name | no, byte for byte (checked) |
+| The pin assertion checks shape, not the release | The schema tests assert the shape of the constant, same name | no, byte for byte (checked) |
+| Served fixtures pin the default release | Every served test fixture declares the default core version, same name | no, byte for byte (checked) |
+| An older-core test survives a default move | Every served test fixture declares the default core version, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The documentation names the release of the collision report" in "2.0.0-alpha.13 is the first release that reports contract collisions"
+- "The default reports the earlier inventories" in "The default release reports the provider count, the comparable report and the contract inventory"
+- "The default reports the registry shape" in "The default release reports the registry shape and the context projection"
+- "A platform between the floor and the default renders" in "The default is not the render floor"
+- "The default advances through a reviewed change" in "The default advances only through a deliberate change that re-verifies the glue and fixtures"
+- "A test reads the current core from the harness" in "No test spells the default release where it means the current core"
+- "A synthetic literal is declared frozen" in "Synthetic, floor and skew literals stay literal and are declared frozen"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `schema.DefaultSchemaModule` SHALL name an exact core release, not the floating `opmodel.dev/co... | DefaultSchemaModule names an exact core release | verbatim |
+| It is the release the kernel's render glue, fixtures and parity oracle were verified against. | DefaultSchemaModule names an exact core release | verbatim |
+| The constant is the only record of which release that is: this specification, the doc comments ... | DefaultSchemaModule names an exact core release | verbatim |
+| `OCILoader.Load` with an empty `Module` field SHALL resolve this identifier. | DefaultSchemaModule names an exact core release | verbatim |
+| `2.0.0-alpha.13` remains the first release that reports contract collisions on the derived `#Pl... | 2.0.0-alpha.13 is the first release that reports contract collisions | verbatim |
+| The default's documentation SHALL keep naming `2.0.0-alpha.13` as that release and SHALL NOT at... | 2.0.0-alpha.13 is the first release that reports contract collisions | verbatim |
+| It reports them on top of | The default release reports the provider count, the comparable report ... | "It reports them" becomes "`2.0.0-alpha.13` SHALL report contract collisions": the subject and the object are the words of the sentence before it, and the verb gets the keyword an ADDED block needs |
+| the per-registry-entry provider count (`providedBy`), | The default release reports the provider count, the comparable report ... | verbatim |
+| the comparable-predicate report (`comparable` and `discriminated`; enhancement 0015), | The default release reports the provider count, the comparable report ... | verbatim |
+| the contract inventory (enhancement 0015: contracts are published as members beside transformer... | The default release reports the provider count, the comparable report ... | the final "," of the list becomes "." |
+| It reports them on top of | The default release reports the registry shape and the context project... | "It reports them" becomes "`2.0.0-alpha.13` SHALL report contract collisions": the subject and the object are the words of the sentence before it, and the verb gets the keyword an ADDED block needs |
+| the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into t... | The default release reports the registry shape and the context project... | verbatim |
+| and the context projection (enhancement 0019: the kernel fills `#runtimeName` alone). | The default release reports the registry shape and the context project... | verbatim |
+| The default is not the render floor: `Kernel.Render` and `Platform.Contracts()` accept every co... | The default is not the render floor | the verb "accept" gets the keyword SHALL, as an ADDED block needs |
+| The constant advances only through a deliberate change that re-verifies the glue and fixtures a... | The default advances only through a deliberate change that re-verifies... | the verb "advances" gets the keyword SHALL, as an ADDED block needs |
+| The deliberate re-verification is the review of the change that advances it. | The default advances only through a deliberate change that re-verifies... | verbatim |
+| Doc comments that cite the default module identifier (`opm/kernel`, `opm/schema`) SHALL cite it... | Doc comments cite the default by the constant's name | verbatim |
+| The constant SHALL be the only Go source that the default move edits. | The constant is the only Go source that a default move edits | verbatim |
+| The fixture harness's declared core version SHALL be derived from it, never kept as a second li... | The constant is the only Go source that a default move edits | verbatim |
+| Advancing the default therefore edits the constant and the fixture `cue.mod` pins, and no test ... | The constant is the only Go source that a default move edits | verbatim |
+| No test SHALL spell the default release where it means the current core: a test that expects th... | No test spells the default release where it means the current core | verbatim |
+| Synthetic, floor and skew literals that happen to equal or predate the default are not "the cur... | Synthetic, floor and skew literals stay literal and are declared froze... | the verb "stay" gets the keyword SHALL, as an ADDED block needs |
+| Test files that keep an older or synthetic core literal on purpose are declared as frozen (capa... | Synthetic, floor and skew literals stay literal and are declared froze... | verbatim |
+| The schema tests SHALL assert the constant's shape: an exact release on the `v2` major whose ve... | The schema tests assert the shape of the constant | verbatim |
+| They SHALL NOT repeat the release as a literal. | The schema tests assert the shape of the constant | verbatim |
+| The core version every served test fixture declares SHALL be the same release, so a fixture nev... | Every served test fixture declares the default core version | verbatim |
+| A test that exercises an older core copies a fixture and re-pins the copy. | Every served test fixture declares the default core version | verbatim |
+| It never commits a fixture pinning another release, and it reads the fixture's current pin from... | Every served test fixture declares the default core version | verbatim |
+
+**Schema Loader interface**: form c2 (REMOVED plus ADDED); old body 574 characters; new bodies 342, 249.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Loader is the contract not the implementation | The Loader interface has a single method Load, same name | no, byte for byte (checked) |
+| No second public Loader | The library exports no Loader implementation other than OCILoader, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL define `opm/schema.Loader` as an interface with a single method `Load(ctx *cu... | The Loader interface has a single method Load | verbatim |
+| The library SHALL NOT export any `Loader` implementation other than `OCILoader` (see "OCILoader... | The library exports no Loader implementation other than OCILoader | the citation names the renamed requirement |
+
+**OCILoader is the only public Loader**: form c2 (REMOVED plus ADDED); old body 1349 characters; new bodies 239, 345, 292, 362, 165.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Zero-value OCILoader resolves defaults | OCILoader is the sole public implementation of Loader, same name | no, byte for byte (checked) |
+| Explicit overrides take precedence over env | OCILoader.Load resolves its empty fields, same name | no, byte for byte (checked) |
+| Load failures are wrapped | OCILoader.Load builds the instance and wraps its errors, same name | no, byte for byte (checked) |
+| A module that loads but does not build is a load failure | OCILoader.Load treats a built value that carries an error as a load failure, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Load mutates no process-global state" in "OCILoader.Load uses no custom OCI client and mutates no process-global state"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose `opm/schema.OCILoader` as the sole public implementation of `Loader`. ... | OCILoader is the sole public implementation of Loader | verbatim |
+| `OCILoader.Load(ctx)` SHALL: | OCILoader.Load resolves its empty fields | verbatim |
+| Resolve `Module` to `DefaultSchemaModule` when the field is empty. | OCILoader.Load resolves its empty fields | verbatim |
+| Resolve `Registry` to the value derived from `os.Environ`'s `CUE_REGISTRY` when the field is em... | OCILoader.Load resolves its empty fields | verbatim |
+| Resolve `CacheDir` to the value derived from `os.Environ`'s `CUE_CACHE_DIR` (or CUE's default w... | OCILoader.Load resolves its empty fields | verbatim |
+| `OCILoader.Load(ctx)` SHALL: | OCILoader.Load builds the instance and wraps its errors | verbatim |
+| Invoke `cuelang.org/go/cue/load.Instances([]string{module}, &load.Config{Env: derivedEnv})` wit... | OCILoader.Load builds the instance and wraps its errors | verbatim |
+| Call `ctx.BuildInstance` on the returned instance and return the resulting `cue.Value` and any ... | OCILoader.Load builds the instance and wraps its errors | verbatim |
+| `OCILoader.Load(ctx)` SHALL: | OCILoader.Load treats a built value that carries an error as a load fa... | verbatim |
+| Treat a built value that carries an error (`Value.Err()` non-nil, e.g. an unresolved reference ... | OCILoader.Load treats a built value that carries an error as a load fa... | verbatim |
+| `OCILoader.Load` MUST NOT use any custom OCI client (e.g., `oras-go`), MUST NOT bypass CUE's mo... | OCILoader.Load uses no custom OCI client and mutates no process-global... | verbatim |
+
+**A pinned schema release is known without a load**: form c2 (REMOVED plus ADDED); old body 615 characters; new bodies 276, 338.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Default loader is pinned | OCILoader reports its pinned core release without any I/O, same name | no, byte for byte (checked) |
+| Bare major is not pinned | OCILoader reports its pinned core release without any I/O, same name | no, byte for byte (checked) |
+| Synthesis on a pinned kernel loads no schema | A kernel derives the synthesis release from the loader's pin or from its schema cache, same name | no, byte for byte (checked) |
+| Synthesis on a bare-major kernel resolves through the cache | A kernel derives the synthesis release from the loader's pin or from its schema cache, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `OCILoader` SHALL report, without any I/O, the exact core release its module identifier names: ... | OCILoader reports its pinned core release without any I/O | verbatim |
+| A kernel whose configured loader pins an exact release SHALL derive the core release its synthe... | A kernel derives the synthesis release from the loader's pin or from i... | verbatim |
+
+**Schema Cache memoizes a single Load per instance**: form c2 (REMOVED plus ADDED); old body 1435 characters; new bodies 489, 446, 324, 173.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Repeated Get returns the cached value | Cache.Get invokes the Loader exactly once per Cache, same name | no, byte for byte (checked) |
+| Concurrent first Get is safe | Cache.Get invokes the Loader exactly once per Cache, same name | no, byte for byte (checked) |
+| A zero value from the Loader is an unusable schema | The Cache treats a loaded value that carries an error as a load failure, same name | no, byte for byte (checked) |
+| Loader errors are cached | The Cache does not retry a failed Load, same name | no, byte for byte (checked) |
+| An errored schema build is memoised as an error | The Cache does not retry a failed Load, same name | no, byte for byte (checked) |
+| The schema context is private | The Cache does not retry a failed Load, same name | no, byte for byte (checked) |
+| Two Cache instances do not share state | No Loader result is cached at package scope, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose `opm/schema.Cache` as a struct with at minimum a `Loader Loader` field... | Cache.Get invokes the Loader exactly once per Cache | verbatim |
+| `(*Cache).Get() (cue.Value, error)` SHALL invoke `Loader.Load(ctx)` exactly once per `Cache` in... | Cache.Get invokes the Loader exactly once per Cache | verbatim |
+| Subsequent calls — including the call that loses the race — SHALL return the cached `cue.Value`... | Cache.Get invokes the Loader exactly once per Cache | verbatim |
+| Whatever `Loader` it wraps, the Cache SHALL treat a loaded value that carries an error (`Value.... | The Cache treats a loaded value that carries an error as a load failur... | verbatim |
+| That covers both a value whose build failed and the zero `cue.Value` a Loader returns with a ni... | The Cache treats a loaded value that carries an error as a load failur... | verbatim |
+| The Cache SHALL NOT retry a failed Load: an error, including one for a schema whose build faile... | The Cache does not retry a failed Load | verbatim |
+| A caller that must compile a value against the schema obtains the schema's context from the ret... | The Cache does not retry a failed Load | verbatim |
+| The library MUST NOT cache the `Loader`'s result at package scope. There SHALL be no package-le... | No Loader result is cached at package scope | verbatim |
+
+**Path inventory exposed as package-level vars**: form b (MODIFIED parent plus ADDED); old body 3777 characters; new bodies 466, 475, 260, 448.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Consumer references a path directly | Path inventory exposed as package-level vars, same name | no, byte for byte (checked) |
+| Paths with an accessor are not exported | Path inventory exposed as package-level vars, same name | no, byte for byte (checked) |
+| Matcher and transformer paths are gone | Path inventory exposed as package-level vars, same name | no, byte for byte (checked) |
+| Platform view and context sub-paths are not exported | Path inventory exposed as package-level vars, same name | no, byte for byte (checked) |
+| Instance and module reads go through the inventory | Path inventory exposed as package-level vars, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The exported paths and their readers" in "Path inventory exposed as package-level vars"
+- "The internal paths and their readers" in "Every other path lives in opm/internal/corepath"
+- "The core-release constants are exported" in "opm/schema exports the core-release constants ProvidedBySince and ProvidesSince"
+- "A path no kernel code reads is removed" in "The paths of the retired matcher, executor and context builder stay removed"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL keep every CUE path the kernel's Go code reads on an OPM artifact as one pack... | Path inventory exposed as package-level vars | verbatim |
+| `opm/schema` SHALL export exactly the three paths a frontend reads on an artifact `Package` for... | Path inventory exposed as package-level vars | verbatim |
+| The paths and their readers are listed in scenario "The exported paths and their readers". | Path inventory exposed as package-level vars | added words (not in the old body) |
+| Every other path SHALL live in the internal package `opm/internal/corepath`, where no consumer ... | Every other path lives in opm/internal/corepath | verbatim |
+| The paths and their readers are listed in scenario "The internal paths and their readers". | Every other path lives in opm/internal/corepath | added words (not in the old body) |
+| The inventory SHALL be exactly these paths. | Every other path lives in opm/internal/corepath | verbatim |
+| `opm/schema` SHALL export the core-release constants `ProvidedBySince` (the render floor) and `... | opm/schema exports the core-release constants ProvidedBySince and Prov... | verbatim |
+| The paths the retired Go matcher, executor and context builder read | The paths of the retired matcher, executor and context builder stay re... | verbatim |
+| (listed in scenario "Matcher and transformer paths are gone") | The paths of the retired matcher, executor and context builder stay re... | added words (not in the old body) |
+| and `ModuleMetadataPath` SHALL stay removed: the render build reads the instance's components a... | The paths of the retired matcher, executor and context builder stay re... | verbatim |
+| A path that no kernel code reads, by variable or relative to an inventory path, is removed, not... | The paths of the retired matcher, executor and context builder stay re... | verbatim |
+
+**Metadata decoders are free functions**: form c2 (REMOVED plus ADDED); old body 1222 characters; new bodies 310, 416, 494.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Decoders are not exported | Each artifact's metadata decodes through one unexported free function in the package of its caller, same name | no, byte for byte (checked) |
+| Provider metadata falls back to caller-supplied name | Each artifact's metadata decodes through one unexported free function in the package of its caller, same name | no, byte for byte (checked) |
+| Decoding a module artifact | Each decoder reads a raw cue.Value and returns the canonical metadata struct or an error, same name | no, byte for byte (checked) |
+| Decoding a catalog artifact | Each decoder reads a raw cue.Value and returns the canonical metadata struct or an error, same name | no, byte for byte (checked) |
+| Platform metadata hoists top-level type | Each decoder reads a raw cue.Value and returns the canonical metadata struct or an error, same name | no, byte for byte (checked) |
+| Each metadata type has one name | Each decoder reads a raw cue.Value and returns the canonical metadata struct or an error, same name | no, byte for byte (checked) |
+| Missing metadata is fatal for module/instance/platform | Consumers reach decoded metadata through constructors and a constructor adds no error prefix, same name | no, byte for byte (checked) |
+| Missing metadata is fatal for a catalog | Consumers reach decoded metadata through constructors and a constructor adds no error prefix, same name | no, byte for byte (checked) |
+| A decode failure names its artifact once | Consumers reach decoded metadata through constructors and a constructor adds no error prefix, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL decode each artifact's metadata through one unexported free function per arti... | Each artifact's metadata decodes through one unexported free function ... | verbatim |
+| Each decoder MUST accept a raw `cue.Value` at the artifact root, read it through the `opm/schem... | Each decoder reads a raw cue.Value and returns the canonical metadata ... | verbatim |
+| Consumers reach decoded metadata only through the artifact constructors and the kernel's acquis... | Consumers reach decoded metadata through constructors and a constructo... | verbatim |
+| A constructor (`NewModuleFromValue`, `NewPlatformFromValue`, `NewCatalogFromValue`) SHALL retur... | Consumers reach decoded metadata through constructors and a constructo... | verbatim |
+
+**Front-door docs describe the default core as an exact pin**: form c2 (REMOVED plus ADDED); old body 621 characters; new bodies 321, 319.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The API stability section says pinned by default | Front-door docs state an exact pin for the default core, same name | no, byte for byte (checked) |
+| The schema versioning section says pinned by default | Front-door docs state an exact pin for the default core, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "An additive change is explained" in "Front-door docs say how an additive schema change reaches a render"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Where `README.md` or `AGENTS.md` states which core the default schema loader uses, it SHALL sta... | Front-door docs state an exact pin for the default core | verbatim |
+| Neither SHALL present floating-major resolution as the mechanism that absorbs additive schema c... | Front-door docs state an exact pin for the default core | verbatim |
+| Where either says that an additive schema change within a major needs no Go API change, it SHAL... | Front-door docs say how an additive schema change reaches a render | "either" names the two files of the first sentence |
+
+**Single OPM schema, externally resolved and pinned by default**: form c2 (REMOVED plus ADDED); old body 730 characters; new bodies 218, 168, 112, 229.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Schema resolved via the default module identifier | The library consumes one OPM CUE schema resolved through CUE's module system, same name | no, byte for byte (checked) |
+| Caller-pinned earlier major still loads | The library consumes one OPM CUE schema resolved through CUE's module system, same name | no, byte for byte (checked) |
+| Default resolves the pinned release | The default loader resolves the exact release and the bare major is opt-in, same name | no, byte for byte (checked) |
+| Bare major resolves within the v2 major (opt-in) | The default loader resolves the exact release and the bare major is opt-in, same name | no, byte for byte (checked) |
+| No in-tree schema source | The library vendors or embeds no schema source, same name | no, byte for byte (checked) |
+| Evaluated module has no apiVersion field | The schema defines no top-level ApiVersion and artifact roots carry no apiVersion field, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL consume exactly one OPM CUE schema package: `opmodel.dev/core@v2` (or a calle... | The library consumes one OPM CUE schema resolved through CUE's module ... | verbatim |
+| The default loader SHALL resolve the exact release `schema.DefaultSchemaModule` names; the bare... | The default loader resolves the exact release and the bare major is op... | verbatim |
+| The library MUST NOT vendor or embed the schema source under `library/apis/core/` or any other ... | The library vendors or embeds no schema source | verbatim |
+| The schema package MUST NOT define a top-level `#ApiVersion` constant. | The schema defines no top-level ApiVersion and artifact roots carry no... | verbatim |
+| Artifact roots (`#Module`, `#ModuleInstance`, `#Component`, `#ComponentTransformer`, `#Platform... | The schema defines no top-level ApiVersion and artifact roots carry no... | verbatim |
+
+## Strength table
+
+Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| Provenance is the registry key, never a value parsed out of an FQN or read off the transformer, so two majors of one catalog are two providers and two transformers of one entry are one. | Provenance SHALL be the registry key, never a value parsed out of an FQN or read off the transformer, so two majors of one catalog are two providers and two transformers of one entry are one. | Provenance is the registry key, so two majors of one catalog are two providers |
+| The count is `#Platform.#contracts.providedBy`: for every contract key declared ... | The provider count SHALL be `#Platform.#contracts.providedBy`: for every contract key declared ... | The provider count lists the registry keys that require each provider-fulfilled contract |
+| Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`. | The check reads the recorded floor and not the platform's Package; One acquired platform stays shareable across concurrent renders |
+| It reports them on top of ... | `2.0.0-alpha.13` SHALL report contract collisions on top of ... | The default release reports the provider count, the comparable report and the contract inventory; The default release reports the registry shape and the context projection |
+| ... `Kernel.Render` and `Platform.Contracts()` accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | ... `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | The default is not the render floor |
+| The constant advances only through a deliberate change ... | The constant SHALL advance only through a deliberate change ... | The default advances only through a deliberate change that re-verifies the glue and fixtures |
+| ... they stay literal and are declared in `.cascade-frozen` ... | ... they SHALL stay literal and are declared in `.cascade-frozen` ... | Synthetic, floor and skew literals stay literal and are declared frozen |
