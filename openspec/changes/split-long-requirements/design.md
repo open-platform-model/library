@@ -196,6 +196,12 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 | A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on one block. The other five carry it without the parenthetical about the interim safety net, which has no title. |
 | A render reports every contract its instance requires | 114 | The whole line on the block that holds the first paragraph, because the old text ties it to that paragraph. |
 
+### Batch library-B3: the form choices and the limits of the verbatim rule
+
+**Context**: B3 holds `kernel-runtime` (17 long requirements) and `artifact-types` (11). Nine bodies run past 1500 characters, and four sentences run past 500 on their own.
+**Decision**: 4 requirements use form b because another file cites the header: "Goroutine Safety Contract" (ADR-002), "Each runtime contract has one home" (ADR-013), "An overlay source can be written to a directory" (a comment in `opm/module/source_test.go`) and "Instance verbs refuse an unset required config value" (two requirements of `kernel-runtime`, one of them a scenario that stays byte for byte). 24 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out), so B3 adds no stale code-comment name to the seven listed above. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary and its lead is repeated (the register option, `AcquireInstanceFromDir`, `AcquireModuleFromDir`, the single registry client, the values sources of `AcquireInstanceFromDir`, the failed synthesis build, the committed-file citation rule and the `SynthesizeInstance` refusal parity sentence). The words added are only these: a keyword (the strength table), a subject or referent copied from the same old requirement (the clause tables name each), and a pointer to another requirement of the same spec by its exact header, where a body used "this", "that build" or "these checks" and the old content cannot fit (16:55 ruling). The Source lines are repeated whole where they fit. Where they do not fit, a block carries the title of the line (`Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").`) and the clause "as revised on 2026-10-03" stays on the last block of that requirement; the second block of the refusal parity pair carries only the second clause of its Source line, `opm-operator#258 for the report of both checks`, because its body needs the room. Reversibility: high.
+**Rationale**: The 500-character limit, the rule that a citation stays in the body of the block that carries the rule, and the rule that no word is dropped leave no other choice.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -1657,6 +1663,726 @@ The should-fix findings of the review of library-B2 (DECISIONS.md 2026-10-19 20:
 
 Strength rows of this pass: "reads false" to "SHALL read false" in "Routable reads false exactly when the render carries an over-subscription row or a collision row"; "is outside this rule" to "SHALL be outside this rule" in "A frontend's readiness gating is outside the cross-module ordering rule"; "After it comes" to "After it SHALL come" in "Stages after the first follow ascending weight".
 
+### Ledger: kernel-runtime
+
+**Kernel Type and Construction**: form c2 (REMOVED plus ADDED); old body 621 characters; new bodies 292, 328.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Default construction | The Kernel is one struct that only kernel.New constructs, same name | no, byte for byte (checked) |
+| Registry option seeds the schema loader | The schema cache is backed by the OCI loader of the kernel's registry mapping, same name | no, byte for byte (checked) |
+| Construction with options | The schema cache is backed by the OCI loader of the kernel's registry mapping, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose a `Kernel` struct in `opm/kernel/` that serves as the single public an... | The Kernel is one struct that only kernel.New constructs | verbatim |
+| The struct SHALL be constructible only via the `kernel.New(opts ...Option)` function. | The Kernel is one struct that only kernel.New constructs | verbatim |
+| Absent `WithSchemaLoader`, the schema cache SHALL be backed by an OCI loader whose registry map... | The schema cache is backed by the OCI loader of the kernel's registry mapping | verbatim |
+| An explicit `WithSchemaLoader` SHALL take precedence regardless of option order. | The schema cache is backed by the OCI loader of the kernel's registry mapping | verbatim |
+| Construction SHALL create no `cue.Context` and perform no CUE evaluation. | The Kernel is one struct that only kernel.New constructs | verbatim |
+
+**The Kernel owns no build context**: form c2 (REMOVED plus ADDED); old body 969 characters; new bodies 164, 357, 164, 287.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Repeated acquisitions retain nothing | Each build operation creates and drops its own cue.Context, same name | no, byte for byte (checked) |
+| Artifacts cross Kernels | No kernel method takes a cue.Value as a values input or returns one to unify across calls, same name | no, byte for byte (checked) |
+| No context accessor | The Kernel holds no cue.Context, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A held value keeps its operation's runtime alive" in "Returned values keep their operation's runtime alive while the caller holds them"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The Kernel SHALL hold no `cue.Context`. | The Kernel holds no cue.Context | verbatim |
+| Every kernel operation that builds an artifact (module, platform and instance acquisition, synt... | Each build operation creates and drops its own cue.Context | verbatim |
+| The values an operation returns (an artifact's `Package`, a validated value) keep that operatio... | Returned values keep their operation's runtime alive while the caller holds them | SHALL added: the old sentence has no keyword |
+| No kernel method SHALL take a `cue.Value` from the caller as a values input (the schema `Valida... | No kernel method takes a cue.Value as a values input or returns one to unify across calls | verbatim |
+| The only long-lived evaluation state the Kernel owns is its schema cache, which holds a private... | The Kernel holds no cue.Context | verbatim |
+
+**Goroutine Safety Contract**: form b (MODIFIED parent plus ADDED); old body 1578 characters; new bodies 439, 307, 312, 188, 408, 108.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Documentation states the contract | Goroutine Safety Contract, same name | no, byte for byte (checked) |
+| Documentation retracts the shared-platform model | Goroutine Safety Contract, same name | no, byte for byte (checked) |
+| Repeated renders retain nothing | Goroutine Safety Contract, same name | no, byte for byte (checked) |
+| Concurrent acquisitions on one Kernel | Goroutine Safety Contract, same name | no, byte for byte (checked) |
+| Race detector runs on the render packages | Goroutine Safety Contract, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A held value keeps its context alive" in "A returned value keeps its operation's context alive as long as the caller holds it"
+- "A render shares nothing with another render" in "Kernel.Render shares nothing between renders"
+- "Several goroutines render on one Kernel" in "Concurrency is across operations, never within one"
+- "The documentation sizes a render pool by memory" in "The package documentation states the concurrency rule and the render pool size"
+- "The retracted model does not appear" in "The retracted shared-platform model is not a supported shape"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| A single `Kernel` SHALL be safe for concurrent use across its own method calls: no operation sh... | Goroutine Safety Contract | verbatim |
+| A value the operation returns (an artifact's `Package`, a `*kernel.Compiled`) keeps that contex... | A returned value keeps its operation's context alive as long as the caller holds it | SHALL added: the old sentence has no keyword |
+| A consumer that needs concurrent operations uses one `Kernel` per process; the package document... | Goroutine Safety Contract | verbatim |
+| `Kernel.Render` SHALL share nothing between renders: each render is its own CUE build in a fres... | Kernel.Render shares nothing between renders | verbatim |
+| A `*kernel.Compiled` the caller holds keeps its render's build alive until the caller releases ... | Kernel.Render shares nothing between renders | verbatim |
+| Concurrency is across operations, never within one; a consumer rendering from several goroutine... | Concurrency is across operations, never within one | SHALL added: the old clause has no keyword |
+| The package documentation SHALL state this, SHALL NOT present a value built into a shared conte... | The package documentation states the concurrency rule and the render pool size | verbatim |
+| The retracted shared-materialized-platform model and its mutex stopgap SHALL NOT appear as supp... | The retracted shared-platform model is not a supported shape | verbatim |
+| (added words) | A returned value keeps its operation's context alive as long as the caller holds it | pointer to the parent for 'that context' |
+| (added words) | The package documentation states the concurrency rule and the render pool size | pointer for 'this' |
+
+**Canonical Implementations Live on Kernel**: form c2 (REMOVED plus ADDED); old body 573 characters; new bodies 368, 204.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| ValidateConfigDetailed is a kernel method | Layered validation and instance processing live on the Kernel, same name | no, byte for byte (checked) |
+| ValidateConfig is a kernel method | Layered validation and instance processing live on the Kernel, same name | no, byte for byte (checked) |
+| ValidateConfigPartial is a kernel method | Layered validation and instance processing live on the Kernel, same name | no, byte for byte (checked) |
+| ProcessModuleInstance is a kernel method | Layered validation and instance processing live on the Kernel, same name | no, byte for byte (checked) |
+| opm/validate package is gone | No standalone validate or ParseModuleInstance function remains, same name | no, byte for byte (checked) |
+| opm/helper/values package is gone | No standalone validate or ParseModuleInstance function remains, same name | no, byte for byte (checked) |
+| module.ParseModuleInstance free function is gone | No standalone validate or ParseModuleInstance function remains, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The canonical Go implementation of layered values validation and of instance processing (concre... | Layered validation and instance processing live on the Kernel | verbatim |
+| Instance processing SHALL be kernel-internal: it is reached only through `AcquireInstanceFromDi... | Layered validation and instance processing live on the Kernel | verbatim |
+| No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleInstance` free ... | No standalone validate or ParseModuleInstance function remains | verbatim |
+
+**Kernel.LoadSourceFromFile auto-unwraps the values field**: form c2 (REMOVED plus ADDED); old body 774 characters; new bodies 275, 483, 120.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Values file is auto-unwrapped | A compiled file source unwraps a top-level values field, same name | no, byte for byte (checked) |
+| File without values field passes through | A compiled file source unwraps a top-level values field, same name | no, byte for byte (checked) |
+| Syntax errors fail at load, schema errors at use | LoadSourceFromFile reads and parses the file and evaluates nothing, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The method does not depend on LoadValuesFile" in "LoadSourceFromFile does not depend on loaderfile.LoadValuesFile"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The `*Kernel.LoadSourceFromFile(path string)` method SHALL read the file at `path`, parse it fo... | LoadSourceFromFile reads and parses the file and evaluates nothing | verbatim |
+| The method SHALL NOT evaluate CUE. | LoadSourceFromFile reads and parses the file and evaluates nothing | verbatim |
+| When a kernel operation compiles that source, it SHALL load it through cue/load at the file's d... | A compiled file source unwraps a top-level values field | verbatim |
+| - If the evaluated value contains a top-level `values:` field whose `Exists()` is true and `Err... | A compiled file source unwraps a top-level values field | verbatim |
+| - Otherwise the compiled source SHALL be the whole evaluated value. | A compiled file source unwraps a top-level values field | verbatim |
+| The method SHALL NOT depend on `loaderfile.LoadValuesFile` (which is removed). | LoadSourceFromFile does not depend on loaderfile.LoadValuesFile | subject copied from the first sentence |
+| (added words) | A compiled file source unwraps a top-level values field | subject for 'that source' |
+
+**Registry Configuration Option**: form c2 (REMOVED plus ADDED); old body 950 characters; new bodies 373, 426, 56, 164, 141.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Registry option used for resolution | WithRegistry sets the mapping for the render build, registry acquisition and directory acquisition, same name | no, byte for byte (checked) |
+| Directory acquisition uses the kernel mapping | WithRegistry sets the mapping for the render build, registry acquisition and directory acquisition, same name | no, byte for byte (checked) |
+| Values source compilation uses the kernel mapping | WithRegistry sets the mapping for synthesis, file-backed values sources and the default schema cache, same name | no, byte for byte (checked) |
+| No per-call registry parameter | No acquire verb takes a per-call registry override, same name | no, byte for byte (checked) |
+| No default applied | Absent WithRegistry the kernel inherits CUE_REGISTRY and applies no default, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The option mutates no process environment" in "WithRegistry mutates no process environment"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI registry mappin... | WithRegistry sets the mapping for the render build, registry acquisition and directory acquisition | verbatim part |
+| The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI registry mappin... | WithRegistry sets the mapping for the render build, registry acquisition and directory acquisition | verbatim list part (tail '.') |
+| The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI registry mappin... | WithRegistry sets the mapping for synthesis, file-backed values sources and the default schema cache | verbatim part |
+| The `Kernel` SHALL accept a `WithRegistry(string)` option that sets the one OCI registry mappin... | WithRegistry sets the mapping for synthesis, file-backed values sources and the default schema cache | verbatim list part (tail '.') |
+| No acquire verb SHALL take a per-call registry override. | No acquire verb takes a per-call registry override | verbatim |
+| Absent the option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHA... | Absent WithRegistry the kernel inherits CUE_REGISTRY and applies no default | referent copied from the first sentence |
+| The option MUST NOT mutate process environment state; the mapping is plumbed into each operatio... | WithRegistry mutates no process environment | referent copied from the first sentence |
+
+**Kernel.SynthesizeInstance method**: form c2 (REMOVED plus ADDED); old body 2412 characters; new bodies 438, 409, 299, 155, 333, 491, 149, 160, 364.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| SynthesizeInstance produces an end-to-end instance | SynthesizeInstance takes an InstanceInput, same name | no, byte for byte (checked) |
+| SynthesizeInstance rejects unconcrete result | SynthesizeInstance builds the instance in one build and decodes its metadata, same name | no, byte for byte (checked) |
+| SynthesizeInstance attributes a values violation to its source | A values error is framed and names each violating source, same name | no, byte for byte (checked) |
+| SynthesizeInstance attributes a values conflict that fails the build | A failed synthesis build is built again without the rendered values file, same name | no, byte for byte (checked) |
+| A build failure with clean values is returned unchanged | Every other build failure is returned unchanged, same name | no, byte for byte (checked) |
+| Incomplete values do not mask a build failure | Every other build failure is returned unchanged, same name | no, byte for byte (checked) |
+| SynthesizeInstance surfaces synth errors before validation | A missing input fails with an opm/errors sentinel, same name | no, byte for byte (checked) |
+| SynthesizeInstance refuses a subpackage module | A missing input fails with an opm/errors sentinel, same name | no, byte for byte (checked) |
+| SynthesizeInstance uses the Kernel's cue.Context | The synthesis build runs in a context the method creates and releases, same name | no, byte for byte (checked) |
+| Operator-shaped caller needs no cue.Context | The synthesis build runs in a context the method creates and releases, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The synthesized package imports the schema release's major" in "The synthesized package imports core at the major of the kernel's schema release"
+- "A failed build validates the compiled values without concreteness" in "A failed synthesis build validates the compiled values against the values-free #config"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The `*Kernel` type SHALL expose a method `SynthesizeInstance(ctx context.Context, in InstanceIn... | SynthesizeInstance takes an InstanceInput | verbatim |
+| It SHALL build the instance spec by single-build CUE evaluation inside the module's staged sour... | SynthesizeInstance builds the instance in one build and decodes its metadata | subject copied from the first sentence |
+| The synthesized package imports `core` at the major of the kernel's schema release (read from t... | The synthesized package imports core at the major of the kernel's schema release | SHALL added: the old sentence has no keyword |
+| The build SHALL run in a context the method creates and releases; the method SHALL NOT consult ... | The synthesis build runs in a context the method creates and releases | subject copied from the first sentence |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure... | A failed synthesis build is built again without the rendered values file | subject copied from the first sentence |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure... | A failed synthesis build is built again without the rendered values file | verbatim list part (tail '.') |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure... | A failed synthesis build validates the compiled values against the values-free #config | subject copied from the first sentence |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure... | A failed synthesis build validates the compiled values against the values-free #config | verbatim list part (tail '.') |
+| A values error SHALL be returned framed `Kernel.SynthesizeInstance: instance "<name>": …`, with... | A values error is framed and names each violating source | verbatim |
+| In every other case (no values, the values-free build also fails, or the values are clean) the ... | Every other build failure is returned unchanged | subject copied from the first sentence |
+| A missing required input SHALL fail with an error wrapping the corresponding `opm/errors` senti... | A missing input fails with an opm/errors sentinel | verbatim |
+| (added words) | A failed synthesis build validates the compiled values against the values-free #config | pointer for 'that build' and 'it' |
+| (added words) | A failed synthesis build validates the compiled values against the values-free #config | keyword copied from the old sentence |
+
+**Tier-2 validation runs where values are applied**: form c2 (REMOVED plus ADDED); old body 790 characters; new bodies 205, 451, 138.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Kernel re-validates after Detailed | Both instance verbs check the sources against #config at their own positions, same name | no, byte for byte (checked) |
+| Kernel validates without Detailed | The kernel validates non-empty values against #config where they are applied, same name | no, byte for byte (checked) |
+| Render does not re-validate | Render performs no second validation pass, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| When values are non-empty, the kernel SHALL validate them against the Module's `#config` schema... | The kernel validates non-empty values against #config where they are applied | verbatim |
+| Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources int... | Both instance verbs check the sources against #config at their own positions | SHALL added: the old sentence has no keyword |
+| `Kernel.Render` SHALL NOT perform a second validation pass: the render build imports the instan... | Render performs no second validation pass | verbatim |
+
+**Values enter as sources**: form c2 (REMOVED plus ADDED); old body 628 characters; new bodies 433, 194.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A single pre-unified value is a one-element source list | User values reach the kernel through exactly three public inputs, same name | no, byte for byte (checked) |
+| ProcessModuleInstance takes a single value | The kernel accepts no cue.Value as a values argument, same name | no, byte for byte (checked) |
+| ValidateConfigDetailed takes a slice of Source | User values reach the kernel through exactly three public inputs, same name | no, byte for byte (checked) |
+| Extra values enter the instance build | User values reach the kernel through exactly three public inputs, same name | no, byte for byte (checked) |
+| Synthesized values are sources | User values reach the kernel through exactly three public inputs, same name | no, byte for byte (checked) |
+| Empty values is the zero value | User values reach the kernel through exactly three public inputs, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| User values SHALL reach the kernel through exactly three public inputs, each carrying values as... | User values reach the kernel through exactly three public inputs | verbatim |
+| The kernel SHALL NOT accept `[]cue.Value` or a bare `cue.Value` as a values argument on any pub... | The kernel accepts no cue.Value as a values argument | verbatim |
+
+**A held Render output keeps its build alive**: form c2 (REMOVED plus ADDED); old body 706 characters; new bodies 327, 417, 234.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The documentation states the holder-bounded rule | ADR-005 and the package documentation state the holder-bounded rule, same name | no, byte for byte (checked) |
+| The move to bytes is recorded | ADR-005 records that Render output moves to bytes before GA, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The kernel retains no built value" in "The kernel retains no built value between calls"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL retain no built value between calls. | The kernel retains no built value between calls | verbatim |
+| Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, s... | The kernel retains no built value between calls | verbatim |
+| Each `*kernel.Compiled` that `Render` returns carries a `cue.Value` into that render's build, s... | ADR-005 and the package documentation state the holder-bounded rule | verbatim |
+| ADR-005 and the `opm/kernel` package documentation SHALL state this rule and SHALL NOT state th... | ADR-005 and the package documentation state the holder-bounded rule | verbatim |
+| ADR-005 SHALL record that Render output moves from `cue.Value` to bytes before GA at the latest... | ADR-005 records that Render output moves to bytes before GA | verbatim |
+| The bytes deadline is enhancement 0021 ("A beta line reaches GA only when its exit criteria hol... | ADR-005 records that Render output moves to bytes before GA | verbatim |
+
+**The kernel package doc renders its verb list and examples**: form c2 (REMOVED plus ADDED); old body 606 characters; new bodies 309, 296.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| go doc renders the Surface list as a list | The package documentation renders its verb list and examples as a list and code blocks, same name | no, byte for byte (checked) |
+| go doc renders each example as code | The package documentation renders its verb list and examples as a list and code blocks, same name | no, byte for byte (checked) |
+| Flattening the Surface list fails the guard test | A test parses the package documentation and fails when a list or code block is flattened, same name | no, byte for byte (checked) |
+| Flattening a code example fails the guard test | A test parses the package documentation and fails when a list or code block is flattened, same name | no, byte for byte (checked) |
+| Flattening one loop of an example fails the guard test | A test parses the package documentation and fails when a list or code block is flattened, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The `opm/kernel` package documentation SHALL present the `Surface` section's verbs as a Go doc ... | The package documentation renders its verb list and examples as a list and code blocks | verbatim |
+| When parsed with `go/doc` and `go/doc/comment`, the package doc SHALL yield a `*comment.List` a... | A test parses the package documentation and fails when a list or code block is flattened | verbatim |
+| A test in `opm/kernel` SHALL parse the package doc this way and SHALL fail when the list or any... | A test parses the package documentation and fails when a list or code block is flattened | verbatim |
+
+**SynthesizeInstance is documented as the typed-input entry point**: form c2 (REMOVED plus ADDED); old body 853 characters; new bodies 340, 416, 195.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Documentation directs callers to the kernel method | The documentation names SynthesizeInstance as the typed-input entry point, same name | no, byte for byte (checked) |
+| SynthesizeInstance godoc names its directory mirror and module sources | The documentation names SynthesizeInstance as the typed-input entry point, same name | no, byte for byte (checked) |
+| Pinned kernel synthesizes without touching the schema cache | The documentation states which core release the synthesized package imports, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "No helper-level composition is presented" in "The documentation presents no helper-level composition"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that `Synthesiz... | The documentation names SynthesizeInstance as the typed-input entry point | verbatim |
+| The documentation SHALL state that the synthesized package imports `core` at the major of the k... | The documentation states which core release the synthesized package imports | subject copied from the first sentence |
+| The documentation SHALL NOT present a helper-level composition that reaches synthesis or instan... | The documentation presents no helper-level composition | subject copied from the first sentence |
+
+**Front-door docs list the kernel's verbs and packages as built**: form c2 (REMOVED plus ADDED); old body 775 characters; new bodies 329, 363, 334.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Principle III names the verbs as built | CONSTITUTION Principle III lists the Kernel verbs as built, same name | no, byte for byte (checked) |
+| The pipeline ends in kernel.Compiled | A front-door pipeline ends in kernel.Compiled, same name | no, byte for byte (checked) |
+| The README layout names only real packages | The README layout lists only packages that exist, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Where `CONSTITUTION.md` Principle III lists the `Kernel` verbs, it SHALL list them as acquire, ... | CONSTITUTION Principle III lists the Kernel verbs as built | verbatim |
+| Where it shows a pipeline, the pipeline SHALL show acquisition or synthesis producing the artif... | A front-door pipeline ends in kernel.Compiled | referent copied from the first sentence |
+| None of these SHALL name a load or process verb, a separate schema-validation stage, or a packa... | CONSTITUTION Principle III lists the Kernel verbs as built | verbatim |
+| None of these SHALL name a load or process verb, a separate schema-validation stage, or a packa... | A front-door pipeline ends in kernel.Compiled | verbatim |
+| None of these SHALL name a load or process verb, a separate schema-validation stage, or a packa... | The README layout lists only packages that exist | verbatim |
+| Where `README.md` carries a layout block, it SHALL list only packages that exist under `opm/`, ... | The README layout lists only packages that exist | verbatim |
+
+**Kernel verbs check cancellation at entry and between stages**: form c2 (REMOVED plus ADDED); old body 1246 characters; new bodies 489, 330, 416, 228, 351.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A cancelled context stops each directory verb | Verbs check their context between stages, same name | no, byte for byte (checked) |
+| A cancelled context stops synthesis | Verbs check their context between stages, same name | no, byte for byte (checked) |
+| Argument errors come first | Verbs check their context between stages, same name | no, byte for byte (checked) |
+| A fetch served from the cache still observes cancellation | A cancellation inside the registry fetch is still a context error, same name | no, byte for byte (checked) |
+| A cancellation during a stage lands at the next check | A running load or build is not interrupted, same name | no, byte for byte (checked) |
+| The godoc states where cancellation lands | A running load or build is not interrupted, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Registry verbs and Render check the context" in "The registry acquire verbs and Render check their context"
+- "A done context returns its own error and no artifact" in "A cancelled check returns the context's own error and no artifact"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`,... | Verbs check their context between stages | verbatim |
+| The registry acquire verbs SHALL check it after the registry fetch returns and after the packag... | The registry acquire verbs and Render check their context | verbatim |
+| When one of these checks finds the context done, the verb SHALL return the context's own error ... | A cancelled check returns the context's own error and no artifact | verbatim |
+| A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.C... | A cancellation inside the registry fetch is still a context error | verbatim |
+| A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage bo... | A running load or build is not interrupted | verbatim |
+| The `opm/kernel` package doc SHALL say so. | A running load or build is not interrupted | verbatim |
+| Cancellation inside a stage is outside this requirement. | A running load or build is not interrupted | verbatim |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | Verbs check their context between stages | citation: whole title kept, the clause 'as revised' is on the last block of this requirement (tail '.') |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | The registry acquire verbs and Render check their context | citation: whole title kept (tail '.') |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A cancelled check returns the context's own error and no artifact | citation: whole title kept (tail '.') |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A cancellation inside the registry fetch is still a context error | citation: whole title kept (tail '.') |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A running load or build is not interrupted | verbatim |
+| (added words) | A cancelled check returns the context's own error and no artifact | pointer for 'these checks' |
+
+**Each runtime contract has one home**: form b (MODIFIED parent plus ADDED); old body 1191 characters; new bodies 461, 204, 247, 411.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The render contract is stated once | Each runtime contract has one home, same name | no, byte for byte (checked) |
+| The env-override rule is stated in its homes | Each runtime contract has one home, same name | no, byte for byte (checked) |
+| Published doc comments carry no ADR pointer | Each runtime contract has one home, same name | no, byte for byte (checked) |
+| No session-local citation | Each runtime contract has one home, same name | no, byte for byte (checked) |
+| A walkthrough decision resolves through ADR-013 | Each runtime contract has one home, same name | no, byte for byte (checked) |
+| No walkthrough id without ADR-013 | Each runtime contract has one home, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A published doc comment has no ADR pointer" in "A published doc comment carries no ADR pointer"
+- "A session-local decision is not cited as a source" in "No committed file cites a session-local decision as a source"
+- "A committed file states the rule and cites a source a reader can open" in "A committed file cites a source a reader can open"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Each runtime contract of the library SHALL be stated in the doc comment of the package, type or... | Each runtime contract has one home | verbatim |
+| `README.md`, `AGENTS.md` and `docs/getting-started.md` SHALL link to a contract's home instead ... | Each runtime contract has one home | verbatim |
+| A doc comment that the docs bundle publishes (any exported package under `opm/`) SHALL NOT carr... | A published doc comment carries no ADR pointer | verbatim |
+| No committed file outside `openspec/changes/` SHALL cite a session-local decision, one recorded... | No committed file cites a session-local decision as a source | verbatim list part (tail '.') |
+| No committed file outside `openspec/changes/` SHALL cite a session-local decision, one recorded... | A committed file cites a source a reader can open | keyword and subject: the old clause continues the sentence about a committed file |
+| Source: ADR-013, decision c4. | Each runtime contract has one home | verbatim |
+| Source: ADR-013, decision c4. | A published doc comment carries no ADR pointer | verbatim |
+| Source: ADR-013, decision c4. | No committed file cites a session-local decision as a source | verbatim |
+| Source: ADR-013, decision c4. | A committed file cites a source a reader can open | verbatim |
+
+**One registry client per Kernel**: form c2 (REMOVED plus ADDED); old body 2131 characters; new bodies 334, 356, 402, 362, 179, 423, 114, 245, 180.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Operations on one Kernel build one client | A Kernel hands its registry client to registry acquisition, same name | no, byte for byte (checked) |
+| A file-backed values source resolves through the client | A Kernel hands its registry client to synthesis, values sources and the render build, same name | no, byte for byte (checked) |
+| Construction builds no client | The registry client is built on first use and its settings are read then, same name | no, byte for byte (checked) |
+| A failed construction is retried | A failure to build the client is returned and not kept, same name | no, byte for byte (checked) |
+| A construction failure keeps its wording | A failure to build the client is returned and not kept, same name | no, byte for byte (checked) |
+| A transient fetch failure is not remembered | Each operation wraps the client in a module cache of its own, same name | no, byte for byte (checked) |
+| A cancelled fetch is not remembered | Each operation wraps the client in a module cache of its own, same name | no, byte for byte (checked) |
+| The cache directory is read for each operation | Each operation wraps the client in a module cache of its own, same name | no, byte for byte (checked) |
+| Concurrent operations share the client | A Kernel hands its registry client to registry acquisition, same name | no, byte for byte (checked) |
+| The schema loader keeps its own client | The registry client does not replace the schema cache's loader, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Directory acquisition uses the one client" in "A Kernel hands its registry client to directory acquisition"
+- "A failed registry call drops the client" in "A failed registry call drops the shared client"
+- "No exported signature changes for the client" in "The helper platformmodule registry stays caller-built and no exported signature changes"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to registry acquisition | verbatim part |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to registry acquisition | verbatim list part (tail '.') |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to directory acquisition | verbatim part |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to directory acquisition | verbatim list part (tail '.') |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to synthesis, values sources and the render build | verbatim part |
+| A `Kernel` SHALL own one registry client, meaning the resolver and the OCI transport behind it ... | A Kernel hands its registry client to synthesis, values sources and the render build | verbatim list part (tail '.') |
+| The client SHALL be built from the kernel's registry mapping (`WithRegistry`, else the process ... | The registry client is built on first use and its settings are read then | referent copied from the first sentence |
+| A failure to build the client SHALL be returned to the operation that needed it and SHALL NOT b... | A failure to build the client is returned and not kept | referent copied from the first sentence |
+| Each operation SHALL wrap the client in a module cache of its own, over the cache directory rea... | Each operation wraps the client in a module cache of its own | referent copied from the first sentence |
+| A registry call that fails SHALL also drop the shared client, so that the next operation builds... | A failed registry call drops the shared client | referent copied from the first sentence |
+| The registry mapping and the credentials configuration SHALL be read when the client is built, ... | The registry client is built on first use and its settings are read then | verbatim |
+| The client SHALL NOT replace the schema cache's own loader: an `OCILoader` is configured on its... | The registry client does not replace the schema cache's loader | referent copied from the first sentence |
+| The opt-in `helper/platformmodule` registry stays caller-built. | The helper platformmodule registry stays caller-built and no exported signature changes | verbatim |
+| No exported signature SHALL change for this: the client is not an option, a parameter or an exp... | The helper platformmodule registry stays caller-built and no exported signature changes | referent copied from the first sentence |
+
+**Instance verbs refuse an unset required config value**: form b (MODIFIED parent plus ADDED); old body 3121 characters; new bodies 308, 323, 447, 423, 348, 381, 370, 345, 418, 298, 359, 394, 400.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Synthesis refuses an unread required value | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| Directory acquisition refuses an unread required value | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A required field marker is refused when absent | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A field declared `_` is named by its path | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| Optional and defaulted fields are not required | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| The refused set matches ValidateConfigDetailed | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| Instances refused before keep their error | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A value the built spec refuses is reported once | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A value a component reads is named at its field | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A value a catalog resource reads is named at its field | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| Every unset value is named, read or not, nested or not | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A component defect waits for complete values | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| A written bare type hides the component findings it causes | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+| Other values defects keep their text | Instance verbs refuse an unset required config value, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The effective values are the built spec's values" in "The effective values are the built spec's values"
+- "A required value is one that concreteness refuses" in "A required value is one that concreteness refuses"
+- "Both verbs run both checks in one step" in "Both concreteness checks run in one instance processing step"
+- "The refusal is CUE's own error tree" in "The refusal is CUE's own error tree framed with the verb and the instance"
+- "The refusal holds the findings of the values only" in "The refusal holds the value findings of the built-spec check"
+- "The refusal names every other unset value" in "The refusal names every other unset required value at values.<field>"
+- "A finding carries the position of its declaration" in "A finding carries the position of the field's #config declaration"
+- "Component findings are left out of the refusal" in "Findings outside values are left out of the refusal"
+- "Positions decide nothing" in "The kernel does not decide from positions whether an unset value causes a finding"
+- "A caller finds the tree with errors.As" in "A caller identifies the refusal by CUE's error type"
+- "SynthesizeInstance refuses what ValidateConfigDetailed refuses" in "SynthesizeInstance refuses what ValidateConfigDetailed refuses"
+- "SynthesizeInstance may refuse more" in "SynthesizeInstance may refuse more only through the concreteness check on the built spec"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `SynthesizeInstance` and `AcquireInstanceFromDir` SHALL refuse an instance whose effective valu... | Instance verbs refuse an unset required config value | verbatim |
+| The effective values are the built spec's `values`: the package's own `values` plus the trailin... | The effective values are the built spec's values | SHALL added: the old sentence has no keyword |
+| A required value is one that `cue.Concrete(true)` refuses on those values unified with `#config... | A required value is one that concreteness refuses | SHALL added: the old sentence has no keyword |
+| An optional field (`foo?:`) and a field with a default are not required. | A required value is one that concreteness refuses | verbatim |
+| Both concreteness checks, the one on the built spec and the one on the values unified with `#co... | Both concreteness checks run in one instance processing step | verbatim |
+| The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully ... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
+| When the values leave no required value unset, the refusal SHALL be the error of the built-spec... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal holds the value findings of the built-spec check | verbatim |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal names every other unset required value at values.<field> | verbatim |
+| 1. every finding of the built-spec check at a path under `values` (a value the instance's value... | The refusal holds the value findings of the built-spec check | verbatim |
+| 2. one finding for every other unset required value, at the path `values.<field>` (the full pat... | The refusal names every other unset required value at values.<field> | verbatim |
+| A finding SHALL carry the position of the field's `#config` declaration wherever CUE records on... | A finding carries the position of the field's #config declaration | verbatim |
+| A path SHALL be reported once. | A finding carries the position of the field's #config declaration | verbatim |
+| Every finding of the built-spec check outside `values` SHALL be left out of that refusal: the c... | Findings outside values are left out of the refusal | verbatim |
+| Such a field that is still incomplete once the values are complete is then refused with the bui... | Findings outside values are left out of the refusal | verbatim |
+| The kernel SHALL NOT decide from the positions of a finding whether an unset value causes it. | The kernel does not decide from positions whether an unset value causes a finding | verbatim |
+| A caller identifies the refusal as it did before this requirement changed: `errors.As` with CUE... | A caller identifies the refusal by CUE's error type | SHALL added: the old sentence has no keyword |
+| When a required value is unset, every finding of the tree is a values finding. | The kernel does not decide from positions whether an unset value causes a finding | verbatim |
+| For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance refuses what ValidateConfigDetailed refuses | verbatim list part (tail '.') |
+| For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance may refuse more only through the concreteness check on the built spec | verbatim list part (tail ';') |
+| For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance may refuse more only through the concreteness check on the built spec | verbatim list part (tail '.') |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | Instance verbs refuse an unset required config value | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | The effective values are the built spec's values | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | A required value is one that concreteness refuses | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | Both concreteness checks run in one instance processing step | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | The refusal holds the value findings of the built-spec check | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | The refusal names every other unset required value at values.<field> | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | A finding carries the position of the field's #config declaration | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | Findings outside values are left out of the refusal | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | The kernel does not decide from positions whether an unset value causes a finding | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | A caller identifies the refusal by CUE's error type | verbatim |
+| Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | SynthesizeInstance refuses what ValidateConfigDetailed refuses | verbatim |
+| (added words) | SynthesizeInstance may refuse more only through the concreteness check on the built spec | the second clause of the old Source line, whole |
+
+### Ledger: artifact-types
+
+**Uniform Artifact Shape**: form c2 (REMOVED plus ADDED); old body 632 characters; new bodies 385, 251.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Module type shape | Every artifact type is a struct with exactly three exported fields, same name | no, byte for byte (checked) |
+| ModuleInstance type shape | The Metadata, Package and Source fields hold a projection, the source of truth and the staged source, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every OPM artifact type accepted by the kernel (`module.Module`, `module.Instance`, `platform.P... | Every artifact type is a struct with exactly three exported fields | verbatim |
+| The `Metadata` pointer holds a decoded ergonomic projection; the `Package` field carries the so... | The Metadata, Package and Source fields hold a projection, the source of truth and the staged source | SHALL added: the old sentence has no keyword |
+| No artifact struct SHALL carry an API version field (`schema-dispatch`, "Module, Instance, Plat... | Every artifact type is a struct with exactly three exported fields | verbatim |
+
+**Kernel Artifact Type Set**: form c2 (REMOVED plus ADDED); old body 760 characters; new bodies 213, 224, 327.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| No top-level ModuleDebug type | ModuleDebug is not a kernel artifact type, same name | no, byte for byte (checked) |
+| debugValues accessible via Module.Package | ModuleDebug is not a kernel artifact type, same name | no, byte for byte (checked) |
+| Documentation explicitly retires the construct | ModuleDebug is not a kernel artifact type, same name | no, byte for byte (checked) |
+| The fourth type is a read, never a render | Catalog is admitted on the terms of ADR-009 and a catalog is never rendered, same name | no, byte for byte (checked) |
+| The enumerated set is stated once and agrees everywhere | The kernel accepts exactly four artifact types, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL accept exactly four artifact types: `Module`, `ModuleInstance`, `Platform` and... | The kernel accepts exactly four artifact types | verbatim |
+| `#ModuleDebug` SHALL NOT be a kernel artifact type. | ModuleDebug is not a kernel artifact type | verbatim |
+| Debug values are carried as a `debugValues` field within `Module.Package`; whether they partici... | ModuleDebug is not a kernel artifact type | verbatim |
+| `Catalog` is admitted on the terms ADR-009 records and on no others: the kernel acquires it, re... | Catalog is admitted on the terms of ADR-009 and a catalog is never rendered | SHALL added: the old sentence has no keyword |
+| A catalog is never rendered and never executed; the transformers it carries reach a render only... | Catalog is admitted on the terms of ADR-009 and a catalog is never rendered | verbatim |
+| The set SHALL NOT grow again without the candidate meeting, in writing, the four-part test ADR-... | The kernel accepts exactly four artifact types | verbatim |
+
+**Artifacts carry their staged source**: form c2 (REMOVED plus ADDED); old body 1020 characters; new bodies 374, 126, 208, 309.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Overlay entries are bytes | module.Source describes a staged source tree in two modes, same name | no, byte for byte (checked) |
+| Value-constructed instance has no source | Every instance the kernel returns carries a non-nil Source, same name | no, byte for byte (checked) |
+| Value-constructed module has no source | A module's Source is populated by acquisition and nil for a bare value, same name | no, byte for byte (checked) |
+| Directory-acquired module has an overlay source | A module's Source is populated by acquisition and nil for a bare value, same name | no, byte for byte (checked) |
+| On-disk source mode | module.Source describes a staged source tree in two modes, same name | no, byte for byte (checked) |
+| Synth gate unchanged | A module's Source is populated by acquisition and nil for a bare value, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Pkg names the package directory" in "module.Source carries a Pkg field"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `module.Source` SHALL describe the staged source tree an artifact was loaded or synthesized fro... | module.Source describes a staged source tree in two modes | verbatim |
+| `Overlay` SHALL map each absolute file path to that file's contents as bytes. | module.Source describes a staged source tree in two modes | verbatim |
+| `module.Source` SHALL carry a `Pkg` field naming the package directory relative to `Root`; empt... | module.Source carries a Pkg field | verbatim |
+| `module.Instance` SHALL expose `Source *module.Source`; every instance the kernel returns carri... | Every instance the kernel returns carries a non-nil Source | verbatim |
+| `module.Module.Source` SHALL be populated in overlay mode by both `AcquireModuleFromRegistry` a... | A module's Source is populated by acquisition and nil for a bare value | verbatim |
+
+**Instance acquisition from a directory**: form c2 (REMOVED plus ADDED); old body 1752 characters; new bodies 271, 386, 79, 176, 61, 123, 358, 231, 323, 112.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Acquired instance carries its source | An acquired instance's Source describes the directory, same name | no, byte for byte (checked) |
+| Acquired subpackage names its module root | A directory with no enclosing module is its own root, same name | no, byte for byte (checked) |
+| Validation failures propagate | AcquireInstanceFromDir loads a package through the shape gate and processes it, same name | no, byte for byte (checked) |
+| Loader failures propagate | AcquireInstanceFromDir loads a package through the shape gate and processes it, same name | no, byte for byte (checked) |
+| Registry mapping is the kernel's | The registry mapping for an instance's imports is the kernel's, same name | no, byte for byte (checked) |
+| Extra values layer onto the package | Values sources are unified in order, same name | no, byte for byte (checked) |
+| Layered instance renders | The unified values are rendered as a values file beside the package's files, same name | no, byte for byte (checked) |
+| Conflicting extra values fail at acquisition | The package is built in one pass through the instance shape gate, same name | no, byte for byte (checked) |
+| No option type for values | Values sources are unified in order, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Without values the overlay is nil" in "An instance acquired without values has an on-disk source"
+- "A layered instance carries an overlay source" in "A layered instance's Source is in overlay mode"
+- "Acquisition writes nothing and fills nothing from Go" in "Instance acquisition writes nothing into the caller's directory"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which loads a `#M... | AcquireInstanceFromDir loads a package through the shape gate and processes it | verbatim list part (tail '.') |
+| The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which loads a `#M... | An acquired instance's Source describes the directory | verbatim part |
+| The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which loads a `#M... | An acquired instance's Source describes the directory | verbatim list part (tail '.') |
+| A directory with no enclosing module is its own root with an empty `Pkg`. | A directory with no enclosing module is its own root | SHALL added: the old sentence has no keyword |
+| The registry mapping used for the instance's imports SHALL be the kernel's (`WithRegistry`), ap... | The registry mapping for an instance's imports is the kernel's | verbatim |
+| With no values, `Source.Overlay` is nil (on-disk mode). | An instance acquired without values has an on-disk source | SHALL added: the old sentence has no keyword |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | Values sources are unified in order | verbatim part |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | Values sources are unified in order | verbatim list part (tail '.') |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The unified values are rendered as a values file beside the package's files | verbatim part |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The unified values are rendered as a values file beside the package's files | verbatim list part (tail '.') |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The package is built in one pass through the instance shape gate | verbatim part |
+| With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The package is built in one pass through the instance shape gate | verbatim list part (tail '.') |
+| The returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` c... | A layered instance's Source is in overlay mode | verbatim |
+| The kernel MUST NOT write into the caller's directory and MUST NOT fill values into the evaluat... | Instance acquisition writes nothing into the caller's directory | verbatim |
+| (added words) | A layered instance's Source is in overlay mode | pointer for 'then' |
+
+**Internal call sites use schema paths**: form c2 (REMOVED plus ADDED); old body 554 characters; new bodies 361, 197.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Render build reads artifacts by import | The render path reads no artifact sub-value in Go, same name | no, byte for byte (checked) |
+| Instance processing uses schema paths | Kernel-internal call sites read an artifact's Package through the path inventory, same name | no, byte for byte (checked) |
+| Metadata reads go through the metadata path | Kernel-internal call sites read an artifact's Package through the path inventory, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every kernel-internal Go call site that reads a sub-value of an artifact's `Package` SHALL read... | Kernel-internal call sites read an artifact's Package through the path inventory | verbatim |
+| The render path reads no artifact sub-value in Go: the instance and the platform enter the rend... | The render path reads no artifact sub-value in Go | SHALL added: the old sentence has no keyword |
+
+**Module acquisition from a directory**: form c2 (REMOVED plus ADDED); old body 1081 characters; new bodies 252, 402, 239, 157, 174, 54.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Acquired module carries an overlay source | An acquired module's Source has a Root and a Pkg, same name | no, byte for byte (checked) |
+| Acquired module synthesizes like a registry module | An acquired module can be passed to SynthesizeInstance without further staging, same name | no, byte for byte (checked) |
+| Shape-gate failures propagate | AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module, same name | no, byte for byte (checked) |
+| Frontends stop staging module sources themselves | An acquired module can be passed to SynthesizeInstance without further staging, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The overlay holds every cue file under Root" in "An acquired module's Source Overlay holds every cue file under Root"
+- "The module's imports use the kernel's mapping" in "The registry mapping for a module's imports is the kernel's"
+- "Module acquisition writes nothing" in "Module acquisition writes nothing into the caller's directory"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module | verbatim list part (tail '.') |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source has a Root and a Pkg | verbatim part |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source has a Root and a Pkg | verbatim list part (tail '.') |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim part |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim part |
+| The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim list part (tail '.') |
+| The acquired module SHALL satisfy the synthesis precondition (`Module.HasSource()` true) so it ... | An acquired module can be passed to SynthesizeInstance without further staging | verbatim |
+| The registry mapping used for the module's imports SHALL be the kernel's (`WithRegistry`), appl... | The registry mapping for a module's imports is the kernel's | verbatim |
+| The kernel MUST NOT write into the caller's directory. | Module acquisition writes nothing into the caller's directory | verbatim |
+
+**Acquisition shape gate**: form c2 (REMOVED plus ADDED); old body 2434 characters; new bodies 458, 421, 234, 344, 444, 359, 129, 195.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Wrong artifact type rejected | The gate rejects a non-struct root, a wrong kind and more than one instance, same name | no, byte for byte (checked) |
+| Missing identity field rejected | The gate rejects a package whose required identity field is absent or not concrete, same name | no, byte for byte (checked) |
+| Defaulted identity field rejected with the default named | A defaulted identity field is not concrete for the gate, same name | no, byte for byte (checked) |
+| Instance embedding a non-module rejected | The required identity fields are those the schema never defaults, same name | no, byte for byte (checked) |
+| Registry entry with no embedded catalog rejected | A registry entry with no embedded catalog fails as a missing required field, same name | no, byte for byte (checked) |
+| Non-struct root rejected | The gate rejects a non-struct root, a wrong kind and more than one instance, same name | no, byte for byte (checked) |
+| Conflicting package clauses rejected | The gate rejects a non-struct root, a wrong kind and more than one instance, same name | no, byte for byte (checked) |
+| Registry and directory gate identically | A directory-acquired and a registry-acquired artifact are gated identically, same name | no, byte for byte (checked) |
+| Sentinels live in one package | opm/errors exports the three gate sentinels, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The gate runs after the build and judges structure only" in "A shape gate runs right after the package is built"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every kernel acquisition from a directory or a registry (`AcquireModuleFromDir`, `AcquireModule... | A shape gate runs right after the package is built | verbatim |
+| The gate validates structural identity only; it SHALL NOT perform full schema validation of the... | A shape gate runs right after the package is built | verbatim |
+| The gate SHALL reject a package when any of the following hold, returning an error that wraps t... | The gate rejects a non-struct root, a wrong kind and more than one instance | verbatim |
+| The gate SHALL reject a package when any of the following hold, returning an error that wraps t... | The gate rejects a package whose required identity field is absent or not concrete | verbatim |
+| - The built root value is not a struct, or the package load resolved other than exactly one ins... | The gate rejects a non-struct root, a wrong kind and more than one instance | verbatim |
+| - The concrete `kind` literal does not match the artifact the verb acquires (`"Module"`, `"Modu... | The gate rejects a non-struct root, a wrong kind and more than one instance | verbatim |
+| - A required identity field is absent or not concrete: wraps `ErrMissingRequiredField`. | The gate rejects a package whose required identity field is absent or not concrete | verbatim |
+| Required identity fields are those the schema never defaults: | The required identity fields are those the schema never defaults | SHALL added: the old sentence has no keyword |
+| - Module: `metadata.name`, `metadata.modulePath`, `metadata.version`. | The required identity fields are those the schema never defaults | verbatim |
+| - Instance: `metadata.name`, `metadata.namespace`, and `#module` present with `#module.kind == ... | The required identity fields are those the schema never defaults | verbatim |
+| - Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(t... | The required identity fields are those the schema never defaults | verbatim |
+| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhan... | A registry entry with no embedded catalog fails as a missing required field | SHALL added: the old sentence has no keyword |
+| This is the refusal `single-build-render` relies on for a subscription-shaped platform. | A registry entry with no embedded catalog fails as a missing required field | verbatim |
+| A required identity field declared as a disjunction with a default (for example `#VersionType /... | A defaulted identity field is not concrete for the gate | verbatim |
+| When the gate rejects such a field, the error SHALL name the default arm's value and state that... | A defaulted identity field is not concrete for the gate | verbatim |
+| A directory-acquired artifact and a registry-acquired artifact SHALL be gated identically and f... | A directory-acquired and a registry-acquired artifact are gated identically | verbatim |
+| `opm/errors` SHALL export `ErrInvalidPackage`, `ErrWrongKind` and `ErrMissingRequiredField` so ... | opm/errors exports the three gate sentinels | verbatim |
+
+**An overlay source can be written to a directory**: form b (MODIFIED parent plus ADDED); old body 696 characters; new bodies 264, 233, 196.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A fetched module is written to disk | An overlay source can be written to a directory, same name | no, byte for byte (checked) |
+| On-disk source refused | An overlay source can be written to a directory, same name | no, byte for byte (checked) |
+| Entry outside the root refused | An overlay source can be written to a directory, same name | no, byte for byte (checked) |
+| Frontends stop copying fetched modules themselves | An overlay source can be written to a directory, same name | no, byte for byte (checked) |
+| The render stage writes nothing for an overlay input | An overlay source can be written to a directory, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "WriteTo refuses before it writes" in "WriteTo validates before it writes"
+- "WriteTo is the one overlay writer" in "WriteTo is the library's one overlay writer"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `module.Source` SHALL expose `WriteTo(dir string) ([]string, error)`, which writes every entry ... | An overlay source can be written to a directory | verbatim |
+| The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, s... | WriteTo validates before it writes | subject copied from the first sentence |
+| `WriteTo` SHALL be the library's one overlay writer, for frontends that need a fetched tree on ... | WriteTo is the library's one overlay writer | verbatim |
+
+**Directory acquisition reads its tree once and builds from that read**: form c2 (REMOVED plus ADDED); old body 1291 characters; new bodies 338, 355, 327, 163, 126, 169.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A missing directory fails before any tree read | A directory acquire verb checks the directory and a missing path fails, same name | no, byte for byte (checked) |
+| A file path is refused as not a directory | A directory acquire verb refuses a path that is not a directory, same name | no, byte for byte (checked) |
+| Module and catalog are built from the overlay they carry | An overlay-mode verb reads the cue files once and builds from that overlay, same name | no, byte for byte (checked) |
+| Values attribution reuses the authored read | A failed layered build is attributed from the overlay already read, same name | no, byte for byte (checked) |
+| A module embedding a non-CUE file acquires from a directory | A package that embeds a non-CUE file acquires from a directory, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Platform acquisition keeps the on-disk mode" in "Platform acquisition and instance acquisition without values keep the on-disk mode"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every directory acquire verb (`AcquireModuleFromDir`, `AcquireCatalogFromDir`, `AcquirePlatform... | A directory acquire verb checks the directory and a missing path fails | verbatim |
+| Every directory acquire verb (`AcquireModuleFromDir`, `AcquireCatalogFromDir`, `AcquirePlatform... | A directory acquire verb refuses a path that is not a directory | verbatim |
+| A path that does not exist SHALL fail with `accessing <label> directory "<absolute path>"` wrap... | A directory acquire verb checks the directory and a missing path fails | verbatim list part (tail '.') |
+| A path that does not exist SHALL fail with `accessing <label> directory "<absolute path>"` wrap... | A directory acquire verb refuses a path that is not a directory | capital letter only |
+| A verb that stamps its `Source` in overlay mode (`AcquireModuleFromDir`, `AcquireCatalogFromDir... | An overlay-mode verb reads the cue files once and builds from that overlay | verbatim |
+| When the layered instance build fails, the kernel SHALL attribute the failure to the values sou... | A failed layered build is attributed from the overlay already read | verbatim |
+| Platform acquisition and instance acquisition without values sources keep the on-disk mode thei... | Platform acquisition and instance acquisition without values keep the on-disk mode | SHALL added: the old sentence has no keyword |
+| A package that embeds a non-CUE file stored beside it SHALL acquire from a directory as it does... | A package that embeds a non-CUE file acquires from a directory | verbatim |
+
+**Module and platform constructors from cue.Value**: form c2 (REMOVED plus ADDED); old body 727 characters; new bodies 359, 49, 251, 137.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| NewModuleFromValue success path | Constructor helpers build module and platform artifacts from a cue.Value, same name | no, byte for byte (checked) |
+| NewModuleFromValue with missing metadata | Constructor helpers build module and platform artifacts from a cue.Value, same name | no, byte for byte (checked) |
+| NewModuleFromValue with unknown apiVersion | Constructor helpers build module and platform artifacts from a cue.Value, same name | no, byte for byte (checked) |
+| NewPlatformFromValue hoists the platform type | Constructor helpers build module and platform artifacts from a cue.Value, same name | no, byte for byte (checked) |
+| Constructors take no context owner | Constructor helpers build module and platform artifacts from a cue.Value, same name | no, byte for byte (checked) |
+| No kernel constructor wrappers | The kernel does not wrap the constructors, same name | no, byte for byte (checked) |
+| No instance constructor | No instance constructor is exported, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A constructed artifact has no Source" in "A constructed artifact carries no Source"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL provide constructor helpers that build the module and platform artifacts from... | Constructor helpers build module and platform artifacts from a cue.Value | verbatim |
+| Each constructor SHALL take only the artifact value, decode `Metadata` from the value's `metada... | Constructor helpers build module and platform artifacts from a cue.Value | verbatim |
+| The constructed artifact carries no `Source`. | A constructed artifact carries no Source | SHALL added: the old sentence has no keyword |
+| The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package cons... | The kernel does not wrap the constructors | referent copied from the first sentence |
+| No instance constructor SHALL be exported: an instance is produced only by the kernel's acquisi... | No instance constructor is exported | verbatim |
+
+**Instance exposes its components, config schema, values and module metadata**: form c2 (REMOVED plus ADDED); old body 1538 characters; new bodies 270, 196, 197, 262, 274, 183, 289.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Components accessor | Instance exposes Components and Values, same name | no, byte for byte (checked) |
+| No metadata-mirroring accessors | No accessor consults a version or mirrors a metadata field, same name | no, byte for byte (checked) |
+| Config schema reachable on a well-formed instance | Instance exposes ConfigSchema, same name | no, byte for byte (checked) |
+| Config schema is the zero value on a missing #module | ConfigSchema and Values return the zero value rather than an error, same name | no, byte for byte (checked) |
+| Config schema is the zero value on a missing #config | ConfigSchema and Values return the zero value rather than an error, same name | no, byte for byte (checked) |
+| Config schema on a nil instance is the zero value | ConfigSchema and Values return the zero value rather than an error, same name | no, byte for byte (checked) |
+| Values accessor | Instance exposes Components and Values, same name | no, byte for byte (checked) |
+| Values on a nil instance is the zero value | ConfigSchema and Values return the zero value rather than an error, same name | no, byte for byte (checked) |
+| Module metadata of an acquired instance | Instance exposes ModuleMetadata, same name | no, byte for byte (checked) |
+| Module metadata is nil when it cannot be read | ModuleMetadata returns nil when it cannot be read and decodes afresh, same name | no, byte for byte (checked) |
+| Module metadata reads the package | ModuleMetadata returns nil when it cannot be read and decodes afresh, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The render build reads no accessor" in "The render build reads none of the instance accessors"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `*module.Instance` SHALL expose the following accessors: | Instance exposes Components and Values | verbatim |
+| `*module.Instance` SHALL expose the following accessors: | Instance exposes ConfigSchema | verbatim |
+| `*module.Instance` SHALL expose the following accessors: | Instance exposes ModuleMetadata | verbatim |
+| - `Components()`: the instance's evaluated components value, definition fields included, read t... | Instance exposes Components and Values | verbatim |
+| - `ConfigSchema()`: the embedded module's `#config`, read as `Package.LookupPath(schema.Module)... | Instance exposes ConfigSchema | verbatim |
+| - `Values()`: the instance's merged values as evaluated, read through `corepath.Values`. | Instance exposes Components and Values | verbatim |
+| - `ModuleMetadata()`: the metadata of the module the instance was built from, decoded from `Pac... | Instance exposes ModuleMetadata | verbatim |
+| `ConfigSchema()` and `Values()` SHALL return the zero `cue.Value` (not an error) when the recei... | ConfigSchema and Values return the zero value rather than an error | verbatim |
+| `ConfigSchema()` returns it as well when the instance carries no `#module` or the embedded modu... | ConfigSchema and Values return the zero value rather than an error | verbatim |
+| `ModuleMetadata()` SHALL return nil when the receiver is `nil`, when the instance carries no `#... | ModuleMetadata returns nil when it cannot be read and decodes afresh | verbatim |
+| Each call decodes afresh from `Package`; the returned struct is a copy, and mutating it does no... | ModuleMetadata returns nil when it cannot be read and decodes afresh | verbatim |
+| No accessor SHALL consult a version or binding. | No accessor consults a version or mirrors a metadata field | verbatim |
+| The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`... | No accessor consults a version or mirrors a metadata field | verbatim |
+| The render build reads none of these accessors: the transformer context is projected by core (e... | The render build reads none of the instance accessors | SHALL added: the old sentence has no keyword; referent copied from the first sentence |
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -1670,3 +2396,47 @@ Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an AD
 | ... `Kernel.Render` and `Platform.Contracts()` accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | ... `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | The default is not the render floor |
 | The constant advances only through a deliberate change ... | The constant SHALL advance only through a deliberate change ... | The default advances only through a deliberate change that re-verifies the glue and fixtures |
 | ... they stay literal and are declared in `.cascade-frozen` ... | ... they SHALL stay literal and are declared in `.cascade-frozen` ... | Synthetic, floor and skew literals stay literal and are declared frozen |
+
+Sentences of unit 3 that gained SHALL (the old sentence or clause has no keyword), or changed a verb form to take it:
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| The values an operation returns (an artifact's `Package`, a validated value) keep that operation's runtime alive for exactly as long as the caller holds them. | The values an operation returns (an artifact's `Package`, a validated value) SHALL keep that operation's runtime alive for exactly as long as the caller holds them. | Returned values keep their operation's runtime alive while the caller holds them |
+| A value the operation returns (an artifact's `Package`, a `*kernel.Compiled`) keeps that context alive for as long as the caller holds it, and no longer: the context's lifetime is bounded by its holder (ADR-007). | A value the operation returns (an artifact's `Package`, a `*kernel.Compiled`) SHALL keep that context alive for as long as the caller holds it, and no longer: the context's lifetime is bounded by its holder (ADR-007). | A returned value keeps its operation's context alive as long as the caller holds it |
+| Concurrency is across operations, never within one; a consumer rendering from several goroutines calls `Render` on one Kernel, with no shared materialized platform value and no mutex. | Concurrency is across operations, never within one; a consumer rendering from several goroutines SHALL call `Render` on one Kernel, with no shared materialized platform value and no mutex. | Concurrency is across operations, never within one |
+| The method SHALL NOT depend on `loaderfile.LoadValuesFile` (which is removed). | The `*Kernel.LoadSourceFromFile(path string)` method SHALL NOT depend on `loaderfile.LoadValuesFile` (which is removed). | LoadSourceFromFile does not depend on loaderfile.LoadValuesFile |
+| Absent the option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHALL NOT auto-apply a built-in default registry. | Absent the `WithRegistry(string)` option, the kernel SHALL inherit `CUE_REGISTRY` from the process environment and SHALL NOT auto-apply a built-in default registry. | Absent WithRegistry the kernel inherits CUE_REGISTRY and applies no default |
+| The option MUST NOT mutate process environment state; the mapping is plumbed into each operation's load configuration. | The `WithRegistry(string)` option MUST NOT mutate process environment state; the mapping is plumbed into each operation's load configuration. | WithRegistry mutates no process environment |
+| It SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. | `Kernel.SynthesizeInstance` SHALL build the instance spec by single-build CUE evaluation inside the module's staged source with the unified values rendered into the package, check the values sources against the module's `#config` at their own positions after the build, assert concreteness on the built spec, decode instance metadata, and return the constructed `*module.Instance` with its `Source` populated. | SynthesizeInstance builds the instance in one build and decodes its metadata |
+| The synthesized package imports `core` at the major of the kernel's schema release (read from the loader's pin with no schema load when it names an exact release, resolved through the schema cache otherwise); the release that import resolves to comes from the module's own `cue.mod/module.cue`. | The synthesized package SHALL import `core` at the major of the kernel's schema release (read from the loader's pin with no schema load when it names an exact release, resolved through the schema cache otherwise); the release that import resolves to comes from the module's own `cue.mod/module.cue`. | The synthesized package imports core at the major of the kernel's schema release |
+| The build SHALL run in a context the method creates and releases; the method SHALL NOT consult any additional values source. | The `SynthesizeInstance` build SHALL run in a context the method creates and releases; `SynthesizeInstance` SHALL NOT consult any additional values source. | The synthesis build runs in a context the method creates and releases |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: | When the build fails and the call's merged values exist, `SynthesizeInstance` SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: | A failed synthesis build is built again without the rendered values file |
+| When the build fails and the call's merged values exist, the method SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: | When the build fails and the call's merged values exist, `SynthesizeInstance` SHALL attribute the failure to the values sources the way `AcquireInstanceFromDir` does: | A failed synthesis build validates the compiled values against the values-free #config |
+| In every other case (no values, the values-free build also fails, or the values are clean) the method SHALL return the original build error unchanged. | In every other case (no values, the values-free build also fails, or the values are clean) `SynthesizeInstance` SHALL return the original build error unchanged. | Every other build failure is returned unchanged |
+| Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources into the package overlay, and `SynthesizeInstance` renders them into the synthesized package; both then check the sources against `#config` so a violation is reported at the sources' own positions, and both assert concreteness on the whole built spec and on the values unified with `#config` (see "Instance verbs refuse an unset required config value"). | Values are applied inside a CUE build: `AcquireInstanceFromDir` renders the unified sources into the package overlay, and `SynthesizeInstance` renders them into the synthesized package; both SHALL then check the sources against `#config` so a violation is reported at the sources' own positions, and both assert concreteness on the whole built spec and on the values unified with `#config` (see "Instance verbs refuse an unset required config value"). | Both instance verbs check the sources against #config at their own positions |
+| The documentation SHALL state that the synthesized package imports `core` at the major of the kernel's schema release (read from the configured loader without a schema load when that loader pins an exact release, and resolved through the kernel's schema cache otherwise), and that the release that import resolves to comes from the module's own `cue.mod/module.cue`. | The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL state that the synthesized package imports `core` at the major of the kernel's schema release (read from the configured loader without a schema load when that loader pins an exact release, and resolved through the kernel's schema cache otherwise), and that the release that import resolves to comes from the module's own `cue.mod/module.cue`. | The documentation states which core release the synthesized package imports |
+| The documentation SHALL NOT present a helper-level composition that reaches synthesis or instance processing directly, since neither is exported. | The package documentation and the `Kernel.SynthesizeInstance` godoc SHALL NOT present a helper-level composition that reaches synthesis or instance processing directly, since neither is exported. | The documentation presents no helper-level composition |
+| Where it shows a pipeline, the pipeline SHALL show acquisition or synthesis producing the artifacts and one render build over an instance and a platform, ending in `[]*kernel.Compiled`, and SHALL NOT send a `Catalog` into render. | Where `CONSTITUTION.md` shows a pipeline, the pipeline SHALL show acquisition or synthesis producing the artifacts and one render build over an instance and a platform, ending in `[]*kernel.Compiled`, and SHALL NOT send a `Catalog` into render. | A front-door pipeline ends in kernel.Compiled |
+| it states the rule and cites a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); a pull request; or an archived change) | A committed file outside `openspec/changes/` SHALL state the rule and cite a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); a pull request; or an archived change) | A committed file cites a source a reader can open |
+| The client SHALL be built from the kernel's registry mapping (`WithRegistry`, else the process `CUE_REGISTRY`) on its first use, never in `kernel.New`, so construction still evaluates nothing and fails on nothing. | The registry client SHALL be built from the kernel's registry mapping (`WithRegistry`, else the process `CUE_REGISTRY`) on its first use, never in `kernel.New`, so construction still evaluates nothing and fails on nothing. | The registry client is built on first use and its settings are read then |
+| A failure to build the client SHALL be returned to the operation that needed it and SHALL NOT be kept: the next operation that needs a client SHALL try to build it again. | A failure to build the registry client SHALL be returned to the operation that needed it and SHALL NOT be kept: the next operation that needs a client SHALL try to build it again. | A failure to build the client is returned and not kept |
+| Each operation SHALL wrap the client in a module cache of its own, over the cache directory read when that operation starts (`CUE_CACHE_DIR`, else the user cache directory), so that no fetch failure (a refused connection, an error status, a version not yet published, a cancelled or expired context) is served to a later operation, and a later change to `CUE_CACHE_DIR` reaches the next operation as it does today. | Each operation SHALL wrap the registry client in a module cache of its own, over the cache directory read when that operation starts (`CUE_CACHE_DIR`, else the user cache directory), so that no fetch failure (a refused connection, an error status, a version not yet published, a cancelled or expired context) is served to a later operation, and a later change to `CUE_CACHE_DIR` reaches the next operation as it does today. | Each operation wraps the client in a module cache of its own |
+| A registry call that fails SHALL also drop the shared client, so that the next operation builds it again. | A registry call that fails SHALL also drop the shared registry client, so that the next operation builds it again. | A failed registry call drops the shared client |
+| The client SHALL NOT replace the schema cache's own loader: an `OCILoader` is configured on its own (it may override the cache directory) and the schema cache loads once per Kernel, and a caller-supplied `schema.Loader` is the caller's. | The registry client SHALL NOT replace the schema cache's own loader: an `OCILoader` is configured on its own (it may override the cache directory) and the schema cache loads once per Kernel, and a caller-supplied `schema.Loader` is the caller's. | The registry client does not replace the schema cache's loader |
+| No exported signature SHALL change for this: the client is not an option, a parameter or an exported field. | No exported signature SHALL change for this: the registry client is not an option, a parameter or an exported field. | The helper platformmodule registry stays caller-built and no exported signature changes |
+| The effective values are the built spec's `values`: the package's own `values` plus the trailing sources on `AcquireInstanceFromDir`, the merged `InstanceInput.Values` on `SynthesizeInstance`. | The effective values SHALL be the built spec's `values`: the package's own `values` plus the trailing sources on `AcquireInstanceFromDir`, the merged `InstanceInput.Values` on `SynthesizeInstance`. | The effective values are the built spec's values |
+| A required value is one that `cue.Concrete(true)` refuses on those values unified with `#config`: a required field (`foo!:`) that is absent, or a field that resolves to no concrete value (a bare type such as `string` or `_`, with no default). | A required value SHALL be one that `cue.Concrete(true)` refuses on those values unified with `#config`: a required field (`foo!:`) that is absent, or a field that resolves to no concrete value (a bare type such as `string` or `_`, with no default). | A required value is one that concreteness refuses |
+| A caller identifies the refusal as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. | A caller SHALL identify the refusal as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. | A caller identifies the refusal by CUE's error type |
+| The `Metadata` pointer holds a decoded ergonomic projection; the `Package` field carries the source-of-truth CUE value; `Source` is the staged source tree the artifact was acquired or synthesized from, nil for an artifact built from a bare value. | The `Metadata` pointer SHALL hold a decoded ergonomic projection; the `Package` field carries the source-of-truth CUE value; `Source` is the staged source tree the artifact was acquired or synthesized from, nil for an artifact built from a bare value. | The Metadata, Package and Source fields hold a projection, the source of truth and the staged source |
+| `Catalog` is admitted on the terms ADR-009 records and on no others: the kernel acquires it, reads it and derives from it, and every verdict about what it reads stays with the caller. | `Catalog` SHALL be admitted on the terms ADR-009 records and on no others: the kernel acquires it, reads it and derives from it, and every verdict about what it reads stays with the caller. | Catalog is admitted on the terms of ADR-009 and a catalog is never rendered |
+| A directory with no enclosing module is its own root with an empty `Pkg`. | A directory with no enclosing module SHALL be its own root with an empty `Pkg`. | A directory with no enclosing module is its own root |
+| With no values, `Source.Overlay` is nil (on-disk mode). | With no values, `Source.Overlay` SHALL be nil (on-disk mode). | An instance acquired without values has an on-disk source |
+| The render path reads no artifact sub-value in Go: the instance and the platform enter the render build by import, and the generated glue reads `components` and `#composedTransformers` in CUE. | The render path SHALL read no artifact sub-value in Go: the instance and the platform enter the render build by import, and the generated glue reads `components` and `#composedTransformers` in CUE. | The render path reads no artifact sub-value in Go |
+| Required identity fields are those the schema never defaults: | Required identity fields SHALL be those the schema never defaults: | The required identity fields are those the schema never defaults |
+| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. | Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, SHALL fail here as a missing required field naming the entry. | A registry entry with no embedded catalog fails as a missing required field |
+| The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. | `WriteTo` SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. | WriteTo validates before it writes |
+| a path that is not a directory SHALL fail with `<label> path "<absolute path>" is not a directory`, where `<label>` is `module`, `catalog`, `platform` or `instance` | A path that is not a directory SHALL fail with `<label> path "<absolute path>" is not a directory`, where `<label>` is `module`, `catalog`, `platform` or `instance` | A directory acquire verb refuses a path that is not a directory |
+| Platform acquisition and instance acquisition without values sources keep the on-disk mode their own requirements state. | Platform acquisition and instance acquisition without values sources SHALL keep the on-disk mode their own requirements state. | Platform acquisition and instance acquisition without values keep the on-disk mode |
+| The constructed artifact carries no `Source`. | The constructed artifact SHALL carry no `Source`. | A constructed artifact carries no Source |
+| The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. | The kernel SHALL NOT wrap the constructors `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. | The kernel does not wrap the constructors |
+| The render build reads none of these accessors: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import. | The render build SHALL read none of the accessors of `*module.Instance`: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import. | The render build reads none of the instance accessors |

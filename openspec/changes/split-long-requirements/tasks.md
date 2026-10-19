@@ -26,13 +26,13 @@ Specs: `single-build-render` (19), `schema-dispatch` (9). Gate `N=56`.
 
 Specs: `kernel-runtime` (17), `artifact-types` (11). Gate `N=84`.
 
-- [ ] 3.1 List `openspec/changes/` and confirm no open change other than `publish-go-api-bundle` edits a spec of this batch; list each spec's long requirements with `openspec validate <spec> --type spec --strict --json 2>&1`; the count must equal 28 (a difference is explained in the commit body or stops the section)
-- [ ] 3.2 For each long requirement choose the form (a, b, c2 or d) by the design.md table after reading its text, and search the repo for its old header before any rename, split or c2
-- [ ] 3.3 Write the delta in `specs/<spec>/spec.md` of this change for each spec of the batch: every body 500 or less with SHALL or MUST, each new requirement with a scenario that has a body, no `**Key**:` line, no heading of level 5 or deeper and no fenced block in a body
-- [ ] 3.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table)
-- [ ] 3.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger
-- [ ] 3.6 Run the gate block of design.md with `N=84`: `GATE PASS`, WARNING lines fell by 84 from 153, no new ERROR item, no "Archive would refuse" line
-- [ ] 3.7 `task check` green, then commit `docs(openspec): split the long requirements of library-B3`
+- [x] 3.1 List `openspec/changes/` and confirm no open change other than `publish-go-api-bundle` edits a spec of this batch; list each spec's long requirements with `openspec validate <spec> --type spec --strict --json 2>&1`; the count must equal 28 (a difference is explained in the commit body or stops the section)
+- [x] 3.2 For each long requirement choose the form (a, b, c2 or d) by the design.md table after reading its text, and search the repo for its old header before any rename, split or c2
+- [x] 3.3 Write the delta in `specs/<spec>/spec.md` of this change for each spec of the batch: every body 500 or less with SHALL or MUST, each new requirement with a scenario that has a body, no `**Key**:` line, no heading of level 5 or deeper and no fenced block in a body
+- [x] 3.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table)
+- [x] 3.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger
+- [x] 3.6 Run the gate block of design.md with `N=84`: `GATE PASS`, WARNING lines fell by 84 from 153, no new ERROR item, no "Archive would refuse" line
+- [x] 3.7 `task test` green (spec-only unit; `task check` is left to the last unit), then commit `docs(openspec): split the long requirements of library-B3`
 
 ## 4. Batch library-B4: 28 requirements
 
