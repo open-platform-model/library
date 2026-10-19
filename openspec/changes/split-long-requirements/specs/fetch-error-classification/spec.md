@@ -43,7 +43,7 @@ Every library path that returns a registry fetch failure or a `cue/load` depende
 
 ### Requirement: A token endpoint's answer is a registry answer
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "A token endpoint's answer classifies by its status and never as FetchUnreachable", "A token endpoint's answer classifies the same on a typed chain and on a chain flattened into text", "A refused token refresh is classified by the status the token endpoint answered", "A caller tells a refused credential from a refused permission by Status" and "A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer".
+**Migration**: See "A token endpoint's answer classifies by its status and never as FetchUnreachable", "A token endpoint's answer classifies the same on a typed chain and on a chain flattened into text", "A refused token refresh is classified by the status the token endpoint answered", "A caller tells a refused credential from a refused permission by Status", "A 403 or a 404 on a module version lookup drops the status, also for the token endpoint's answer" and "A 403 or a 404 on a module version lookup classifies as FetchNotFound".
 
 ### Requirement: An author-defect resolution failure is a typed error
 **Reason**: Split into requirements that each state one behavior.
@@ -51,7 +51,7 @@ Every library path that returns a registry fetch failure or a `cue/load` depende
 
 ### Requirement: Classify recognises fetch failures and author-defect resolution failures, and leaves every other error unchanged
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged", "Classify returns a FetchError that wraps the error for a failed registry interaction", "Classify returns a ResolutionError that wraps the error for an author-defect resolution failure no failed registry interaction caused", "A fetch form wins over an author-defect form in the same text", "The first author-defect form decides when the text carries several", "Classify reads the typed chain first and matches text only when no typed cause is found", "A net.Error is FetchUnreachable except for the answered token request", "The text fallback is the only place in the library that matches the text of a registry or cue/load error", "The text fallback covers the fetch forms before the author-defect forms", "The answered token request is the first fetch form", "The answered token request classifies by its status and never as FetchUnreachable", "Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class", "The module not found and exact-version package forms are fetch forms", "The generic cannot fetch form is FetchOther", "The author-defect forms are matched in a fixed order", "cannot expand module graph is not matched on its own" and "A test produces each covered form through the embedded CUE".
+**Migration**: See "Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged", "Classify returns a FetchError that wraps the error for a failed registry interaction", "Classify returns a ResolutionError that wraps the error for an author-defect resolution failure no failed registry interaction caused", "A fetch form wins over an author-defect form in the same text", "The first author-defect form decides when the text carries several", "Classify reads the typed chain first and matches text only when no typed cause is found", "A net.Error is FetchUnreachable except for the answered token request", "The text fallback is the only place in the library that matches the text of a registry or cue/load error", "Classify covers the fetch forms before the author-defect forms", "The answered token request is the first fetch form", "The answered token request classifies by its status and never as FetchUnreachable", "Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class", "The module not found and exact-version package forms are fetch forms", "The generic cannot fetch form is FetchOther", "The author-defect forms are matched in a fixed order", "cannot expand module graph is not matched on its own" and "A test produces each covered form through the embedded CUE".
 
 ## ADDED Requirements
 
@@ -144,8 +144,16 @@ It (Requirement: A token endpoint's answer classifies by its status and never as
 - **WHEN** a token endpoint answers 401 or 403
 - **THEN** a caller tells the refused credential (401) from the refused permission (403) by `Status`
 
-### Requirement: A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer
-One case is outside this requirement (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable). The embedded CUE's registry client reports a 403 or a 404 on a module version lookup as `modregistry.ErrNotFound` and drops the status, and it does so for the token endpoint's answer too. That case SHALL classify as `FetchNotFound`, as the requirement "A fetch or resolution failure is a typed error" says for a forbidden tag lookup.
+### Requirement: A 403 or a 404 on a module version lookup drops the status, also for the token endpoint's answer
+One case SHALL be outside this requirement (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable). The embedded CUE's registry client reports a 403 or a 404 on a module version lookup as `modregistry.ErrNotFound` and drops the status, and it does so for the token endpoint's answer too.
+
+#### Scenario: A 403 or a 404 on a module version lookup drops the status
+
+- **WHEN** the embedded CUE's registry client reports a 403 or a 404 on a module version lookup as `modregistry.ErrNotFound`
+- **THEN** the status is dropped, also for the token endpoint's answer
+
+### Requirement: A 403 or a 404 on a module version lookup classifies as FetchNotFound
+That case (Requirement: A 403 or a 404 on a module version lookup drops the status, also for the token endpoint's answer) SHALL classify as `FetchNotFound`, as the requirement "A fetch or resolution failure is a typed error" says for a forbidden tag lookup (Requirement: FetchNotFound and FetchUnauthorized classify an absent module and a refused credential).
 
 #### Scenario: A forbidden token on a version lookup is not found
 
@@ -286,6 +294,7 @@ When the text carries several author-defect forms, the first in the order of ste
 
 ### Requirement: Classify reads the typed chain first and matches text only when no typed cause is found
 `Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPError` status, `modregistry.ErrNotFound`, the ociregistry not-found, unauthorized and denied codes, and `net.Error`. Only when no typed cause is found SHALL it match text.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: The typed chain is read before the text
 
@@ -294,6 +303,7 @@ When the text carries several author-defect forms, the first in the order of ste
 
 ### Requirement: A net.Error is FetchUnreachable except for the answered token request
 A `net.Error` SHALL be `FetchUnreachable`, except when the text of the chain is the answered token request of step 1 below (Requirement: The answered token request is the first fetch form), which classifies by its status: the embedded registry client leaves no typed status for a refused token refresh.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A net.Error is unreachable
 
@@ -302,16 +312,18 @@ A `net.Error` SHALL be `FetchUnreachable`, except when the text of the chain is 
 
 ### Requirement: The text fallback is the only place in the library that matches the text of a registry or cue/load error
 The text fallback, with that one `net.Error` exception (Requirement: A net.Error is FetchUnreachable except for the answered token request), SHALL be the only place in the library that matches the text of a registry or `cue/load` error.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: Only the text fallback matches error text
 
 - **WHEN** the library meets the text of a registry or `cue/load` error
 - **THEN** only the text fallback of `Classify` matches it, with that one `net.Error` exception
 
-### Requirement: The text fallback covers the fetch forms before the author-defect forms
+### Requirement: Classify covers the fetch forms before the author-defect forms
 `Classify` SHALL cover the forms the embedded CUE version produces when `cue/load` flattens a failure, in this order:
 1. The fetch forms.
 2. The author-defect forms.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: The fetch forms come before the author-defect forms
 
@@ -320,6 +332,7 @@ The text fallback, with that one `net.Error` exception (Requirement: A net.Error
 
 ### Requirement: The answered token request is the first fetch form
 The fetch forms. First SHALL be the answered token request: `cannot do HTTP request: ` followed on the same line by a request and `: <code> <status text>` at the end of the line, where the status text is the one HTTP gives the code and the code is 400 or higher.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A request line that ends in an HTTP status of 400 or higher
 
@@ -328,6 +341,7 @@ The fetch forms. First SHALL be the answered token request: `cannot do HTTP requ
 
 ### Requirement: The answered token request classifies by its status and never as FetchUnreachable
 The embedded registry client writes that form (Requirement: The answered token request is the first fetch form) only when the token endpoint of a token-authenticated registry answered the token request with that status, so it SHALL classify by the status, as a registry answer does, and never as `FetchUnreachable`.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A flattened token refusal is not unreachable
 
@@ -335,7 +349,8 @@ The embedded registry client writes that form (Requirement: The answered token r
 - **THEN** it returns a `*FetchError` of kind `FetchUnauthorized` with `Status` 403, and `errors.Is(err, ErrTransient)` is false
 
 ### Requirement: Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class
-The fetch forms. Then come `cannot do HTTP request` in any other form, which SHALL be `FetchUnreachable`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient.
+The fetch forms. Then come `cannot do HTTP request` in any other form (Requirement: The answered token request is the first fetch form), which SHALL be `FetchUnreachable`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A request that got no response stays unreachable
 
@@ -344,6 +359,7 @@ The fetch forms. Then come `cannot do HTTP request` in any other form, which SHA
 
 ### Requirement: The module not found and exact-version package forms are fetch forms
 The fetch forms SHALL also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). Only a standalone `path@version` load produces that form, after it asks the registry for that version.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A flattened not-found form is classified
 
@@ -357,6 +373,7 @@ The fetch forms SHALL also include `module not found`, and `cannot find module p
 
 ### Requirement: The generic cannot fetch form is FetchOther
 Last among the fetch forms is `cannot fetch`, which SHALL be `FetchOther`.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: The generic cannot fetch form is FetchOther
 
@@ -368,6 +385,7 @@ The author-defect forms SHALL be, in this order:
 - `cannot find module providing package` followed by a path without an exact version, which is `ResolutionImportUnprovided`;
 - `ambiguous import`, which is `ResolutionImportAmbiguous`;
 - `cannot parse module file`, or `import failed: ` followed directly by a module coordinate at an exact version and `: `, which is `ResolutionModuleFileInvalid`.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A dependency module file that does not parse on the direct import path is a typed author defect
 
@@ -381,6 +399,7 @@ The author-defect forms SHALL be, in this order:
 
 ### Requirement: cannot expand module graph is not matched on its own
 `cannot expand module graph` SHALL NOT be matched on its own, because it wraps both fetch failures and a malformed dependency's module file. `cannot expand module graph` classifies through the form it carries.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A dependency whose module file does not parse is a typed author defect
 
@@ -389,6 +408,7 @@ The author-defect forms SHALL be, in this order:
 
 ### Requirement: A test produces each covered form through the embedded CUE
 A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version changes one.
+**Source**: enhancement 0021 (the GA exit criteria).
 
 #### Scenario: A changed CUE form fails the test
 

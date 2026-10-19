@@ -81,7 +81,7 @@ Where the inventory is refused, it SHALL record the refusal (a missing `#contrac
 
 ### Requirement: Platform Type Shape
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Platform has the uniform artifact shape of Metadata, Package and Source", "No exported field of Platform holds a decoded derived CUE view", "Contracts returns a decoded ContractInventory, decoded once at construction", "The inventory reports DefinedBy and RequiredBy", "The inventory reports ProvidedBy", "The inventory reports Unfulfilled and OverSubscribed", "The inventory reports Comparable", "The inventory reports Collisions and CollidingEntries", "The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision", "A colliding key is left out of the other reports and no caller reads Fulfilled or Discriminated as safe while Collisions is non-empty", "A disabled entry never counts as a definer", "Providers are counted per registry entry", "The accessor does not decode defined", "The accessor does not refuse on a report", "The accessor does not default a report the value does not carry", "A missing providedBy is refused with PlatformCoreTooOldError" and "An absent collision report decodes as empty and a present one that fails to decode is refused".
+**Migration**: See "Platform has the uniform artifact shape of Metadata, Package and Source", "No exported field of Platform holds a decoded derived CUE view", "Contracts returns a decoded ContractInventory, decoded once at construction", "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call", "The inventory reports DefinedBy and RequiredBy", "The inventory reports ProvidedBy", "The inventory reports Unfulfilled and OverSubscribed", "The inventory reports Comparable", "The inventory reports Collisions and CollidingEntries", "The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision", "A colliding key is left out of the other reports and no caller reads Fulfilled or Discriminated as safe while Collisions is non-empty", "A disabled entry never counts as a definer", "Providers are counted per registry entry", "The accessor does not decode defined", "The accessor does not refuse on a report", "The accessor does not default a report the value does not carry", "A missing providedBy is refused with PlatformCoreTooOldError" and "An absent collision report decodes as empty and a present one that fails to decode is refused".
 
 ### Requirement: Platform acquisition from a directory returns a source-carrying artifact
 **Reason**: Split into requirements that each state one behavior.
@@ -112,13 +112,21 @@ No exported field SHALL hold a decoded derived CUE view (`#composedTransformers`
 - **THEN** no exported field holds a decoded derived CUE view (`#composedTransformers`, `#contracts`), and `#composedTransformers` is not decoded in Go
 
 ### Requirement: Contracts returns a decoded ContractInventory, decoded once at construction
-The contract inventory core derives on `#Platform.#contracts` SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decoded once when the constructor builds the platform; a platform the constructor did not build SHALL decode `Package` once, on its first `CoreFloor()` or `Contracts()` call ("A platform records its core floor and contract inventory at construction").
+The contract inventory core derives on `#Platform.#contracts` SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decoded once when the constructor builds the platform.
 **Source**: enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One provider per contract stands; provider classes are rejected in this entry", "Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated" and "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation"
 
 #### Scenario: The inventory of a healthy platform reads as fulfilled and routable
 
 - **WHEN** an acquired platform embeds one enabled catalog whose contract maps list a provider-fulfilled contract (a resource or a trait) and whose transformers require it, and whose transformers sharing a catalog-fulfilled contract each add a required label value or a required trait the others do not
 - **THEN** `Contracts()` returns `DefinedBy` mapping that contract to the catalog's registry key, `RequiredBy` listing the requiring transformer, `ProvidedBy` mapping that contract to the one registry key, empty `Unfulfilled`, `OverSubscribed`, `Comparable`, `Collisions` and `CollidingEntries`, and `Fulfilled`, `Routable` and `Discriminated` all true
+
+### Requirement: A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call
+A platform the constructor did not build SHALL decode `Package` once, on its first `CoreFloor()` or `Contracts()` call ("A platform records its core floor and contract inventory at construction") (Requirement: A Platform the constructor did not build decodes the same facts from its Package once).
+
+#### Scenario: A platform the constructor did not build decodes Package on its first call
+
+- **WHEN** a platform the constructor did not build receives its first `CoreFloor()` or `Contracts()` call
+- **THEN** it decodes `Package` once
 
 ### Requirement: The inventory reports DefinedBy and RequiredBy
 The contract inventory core derives on `#Platform.#contracts` SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`: `DefinedBy` (contract FQN to the registry key of the enabled catalog listing it, for keys exactly one enabled entry lists), `RequiredBy` (each such defined contract FQN to the implementation FQNs of the enabled transformers requiring it).
@@ -208,8 +216,7 @@ The `Contracts()` accessor SHALL NOT decode `defined`: its values are the catalo
 - **THEN** `Contracts()` returns empty maps and lists, `Collisions` and `CollidingEntries` included, with `Fulfilled`, `Routable` and `Discriminated` all true, and `defined` is not part of the returned value
 
 ### Requirement: The accessor does not refuse on a report
-The `Contracts()` accessor SHALL NOT refuse on `Fulfilled: false`, `Routable: false`, `Discriminated: false` or a non-empty `Collisions`: all are reports; whether a generation step withholds a platform package on them is that step's decision, outside the accessor.
-**Source**: enhancement 0015, "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation" and "Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated"
+The `Contracts()` accessor SHALL NOT refuse on `Fulfilled: false`, `Routable: false`, `Discriminated: false` or a non-empty `Collisions`: all are reports (enhancement 0015, "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation" and "Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated"); whether a generation step withholds a platform package on them is that step's decision, outside the accessor.
 
 #### Scenario: A report is not a refusal
 
