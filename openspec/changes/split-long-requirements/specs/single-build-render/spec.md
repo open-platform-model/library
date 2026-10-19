@@ -45,7 +45,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 - **THEN** the built value's `gate` field is `true`
 
 ### Requirement: A caller may skip unprovided provider-fulfilled demands
-`Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip every **unprovided** demand: a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+`Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip every **unprovided** demand. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: Switch off refuses an unprovided trait as before
 
@@ -571,13 +571,13 @@ With the switch off, the render's verdicts, refusals and rendered output SHALL b
 - **WHEN** the switch is off
 - **THEN** the render's verdicts, refusals and rendered output SHALL be exactly those of a render without the switch
 
-### Requirement: An unprovided demand's key is absent from the provider count
-The contract key of an unprovided demand of requirement "A caller may skip unprovided provider-fulfilled demands" SHALL be absent from core's `#contracts.providedBy`, the count the single-provider guard reads. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+### Requirement: An unprovided demand is one no enabled registry entry provides
+Every **unprovided** demand SHALL be a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
-#### Scenario: An unprovided demand's key is absent from the count
+#### Scenario: An unprovided demand is one no enabled registry entry provides
 
-- **WHEN** a demand is unprovided
-- **THEN** its contract key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads
+- **WHEN** a demand is a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key
+- **THEN** it is an unprovided demand, and its key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads
 
 ### Requirement: A skipped trait demand does not refuse the render
 With the switch on: A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it matched, and nothing SHALL render for the trait. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.

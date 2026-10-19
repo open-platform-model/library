@@ -219,7 +219,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The deletion plan orders inventory entries by kind-class delete order
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The deletion plan orders its entries by delete weight", "Protected kinds are marked safety-excluded in the plan before any live read", "A deletion plan needs no render and no stored plan", "The plan constructor is the only way to build a plan with steps".
+**Migration**: See "The library provides a deletion plan built from inventory entries, a policy and a UUID", "The deletion plan orders its entries by delete weight", "Protected kinds are marked safety-excluded in the plan before any live read", "A deletion plan needs no render and no stored plan", "The plan constructor is the only way to build a plan with steps".
 
 ### Requirement: The deletion transition names one action per call
 **Reason**: Split into requirements that each state one behavior.
@@ -1024,8 +1024,16 @@ An object whose JSON does not decode to a single JSON object SHALL fail with an 
 - **WHEN** the second object in the list carries JSON that is a list, that is `null`, or that is not valid JSON
 - **THEN** the render digest fails with an error naming position 1
 
+### Requirement: The library provides a deletion plan built from inventory entries, a policy and a UUID
+The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 (Deletion plans).
+
+#### Scenario: A deletion plan is built from entries, a policy and a UUID
+
+- **WHEN** a caller uses `opm/k8s/lifecycle`
+- **THEN** it can build a deletion plan from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID
+
 ### Requirement: The deletion plan orders its entries by delete weight
-The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. The plan SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+The plan of requirement "The library provides a deletion plan built from inventory entries, a policy and a UUID" SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 (Deletion plans).
 
 #### Scenario: Entries are ordered for deletion
 

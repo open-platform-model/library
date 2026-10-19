@@ -192,7 +192,7 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 | Old requirement | Old Source line (characters) | Handling |
 | --- | --- | --- |
 | The single-provider guard runs inside the build | 430 | Three titles. `Source: enhancement 0010 and enhancement 0015.` on two blocks; `Source: enhancement 0015.` on the block with the longest body; the two titles of enhancement 0015 and the core change on the block "Provenance is the registry key, so two majors of one catalog are two providers"; the title of enhancement 0010 and the core change on "Keys with default fulfilment may be supplied by any number of transformers". Every title stays in one block. |
-| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on all 12 blocks, with its clause "as amended by core changes ...". Where the whole line did not fit, the body was split further (the parenthetical of the parent moved to "An unprovided demand's key is absent from the provider count"; "Every other refusal stands with the switch on" became three blocks). |
+| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on all 12 blocks, with its clause "as amended by core changes ...". Where the whole line did not fit, the body was split further (the parenthetical of the parent moved to "An unprovided demand is one no enabled registry entry provides"; "Every other refusal stands with the switch on" became three blocks). |
 | A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on 9 of 11 blocks. Two blocks ("The glue emits no collision row when the platform carries no collision report" and "The collision cause comes first because a colliding key distorts the inventory") carry the first title with its parenthetical, whole, and drop the title "core change `fold-colliding-contract-keys`", which stays on the other blocks. No clause inside a title is dropped. |
 | A render reports every contract its instance requires | 114 | The whole line on the block that holds the first paragraph, because the old text ties it to that paragraph. |
 
@@ -675,7 +675,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A change to this encoding SHALL use a new tag line. | The render digest orders the encoded objects and hashes them after a tag line | verbatim |
 | Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores th... | The render digest reads only exported JSON; The render digest blanks the managed-by value and sorts object key... | verbatim |
 
-**The deletion plan orders inventory entries by kind-class delete order**: form c2 (REMOVED plus ADDED); old body 1249 characters; new bodies 490, 493, 372, 500.
+**The deletion plan orders inventory entries by kind-class delete order**: form c2 (REMOVED plus ADDED); old body 1249 characters; new bodies 308, 330, 493, 372, 500.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -685,14 +685,16 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A prune hands its stale set to the same plan | A deletion plan needs no render and no stored plan, same name | no, byte for byte (checked) |
 | Changing the listed steps does not change the plan | The plan constructor is the only way to build a plan with steps, same name | no, byte for byte (checked) |
 
+New scenario (restates the first sentence of the old body): "A deletion plan is built from entries, a policy and a UUID" in "The library provides a deletion plan built from inventory entries, a policy and a UUID".
+
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of invento... | The deletion plan orders its entries by delete weight | verbatim |
-| The plan SHALL order the entries by the tier's weight table in descending order, keeping the re... | The deletion plan orders its entries by delete weight | verbatim |
+| The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of invento... | The library provides a deletion plan built from inventory entries, a policy and a UUID | verbatim |
+| The plan SHALL order the entries by the tier's weight table in descending order, keeping the re... | The deletion plan orders its entries by delete weight | verbatim; "The plan" gets a pointer to the requirement that holds the first sentence |
 | Every CustomResourceDefinition and Namespace entry, as the tier's safety exclusion matches them... | Protected kinds are marked safety-excluded in the plan before any live read | verbatim |
 | Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the per... | A deletion plan needs no render and no stored plan | verbatim |
 | The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the t... | The plan constructor is the only way to build a plan with steps | verbatim |
-| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Protected kinds are marked safety-excluded in the plan before any live read (whole line); the three pieces that carried `Source: enhancement 0012; ADR-008 (Deletion plans).` now carry one title of it, the first piece without the ADR clause (it does not fit), the last with both titles | verbatim, whole titles only; no clause inside a title dropped |
+| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Protected kinds are marked safety-excluded in the plan before any live read (whole line); the pieces that carried `Source: enhancement 0012; ADR-008 (Deletion plans).` now carry one title of it and the ADR clause (the first sentence was split from the ordering sentence to make room), the last with both titles | verbatim, whole titles only; no clause inside a title dropped |
 
 **The deletion transition names one action per call**: form c2 (REMOVED plus ADDED); old body 1561 characters; new bodies 428, 348, 273, 471, 288, 338.
 
@@ -1242,7 +1244,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 - "A skipped resource omits the component" in "A skipped resource demand omits its component"
 - "A skipped demand row carries the component and the kind" in "Every skipped demand is reported as a skipped-demand row"
 - "The flag is set on trait rows too" in "The omission flag is set on every skipped row of an omitted component"
-- "An unprovided demand's key is absent from the count" in "An unprovided demand's key is absent from the provider count"
+- "An unprovided demand is one no enabled registry entry provides" in "An unprovided demand is one no enabled registry entry provides"
 - "A catalog-fulfilled or unmatched provider-fulfilled demand still refuses" in "Every other refusal stands with the switch on"
 - "An over-subscribed contract or an unmatched component still refuses" in "An over-subscribed contract and an unmatched component still refuse with the switch on"
 - "Skipped rows are readable beside a refusal" in "The skipped-demand rows are readable beside a refusal with the switch on"
@@ -1251,9 +1253,9 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| `Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip ... | A caller may skip unprovided provider-fulfilled demands | verbatim, cut before the parenthetical (the whole Source line does not fit beside it) |
-| (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads) | An unprovided demand's key is absent from the provider count | the parentheses go; "the key is absent" becomes "The contract key of an unprovided demand of requirement ... SHALL be absent": "contract key" and "unprovided demand" are copied from the sentence, the pointer names the parent by its exact header, "is" takes SHALL (strength table) |
-| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes ... | A caller may skip unprovided provider-fulfilled demands; An unprovided demand's key is absent from the provider count | verbatim, the whole line in both blocks (the earlier blocks lacked the clause "as amended by ...") |
+| `Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip ... | A caller may skip unprovided provider-fulfilled demands | verbatim, cut at the colon (the whole Source line does not fit beside the definition) |
+| a resource or trait demand whose contract declares ... (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads) | An unprovided demand is one no enabled registry entry provides | verbatim from the colon on, with the lead "Every **unprovided** demand SHALL be" (subject copied from the sentence; the colon takes the keyword, strength table) |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes ... | A caller may skip unprovided provider-fulfilled demands; An unprovided demand is one no enabled registry entry provides | verbatim, the whole line in both blocks (the earlier blocks lacked the clause "as amended by ...") |
 | With the switch off, the render's verdicts, refusals and rendered output SHALL be exactly those... | With the switch off a render is as without the switch | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | With the switch off a render is as without the switch | verbatim |
 | With the switch on: | A skipped trait demand does not refuse the render | verbatim |
@@ -1663,11 +1665,11 @@ Strength rows of this pass: "reads false" to "SHALL read false" in "Routable rea
 
 ### Ledger: fix pass of library-B3 (T4.13-u3-fix)
 
-The findings of the review of library-B3 that the first fix left open (DECISIONS.md 2026-10-19 22:10), under the verbatim-sentence rule (15:50). Each touched body was re-read against `origin/main`. Source lines are whole where they fit; where they did not, the body was split further (17:15, 18:40, 19:15). The other rows of the ledgers above that changed carry the new text in their clause tables.
+The findings of the review of library-B3 that the first fix left open, under the rule that a new body is built from whole old sentences. Each touched body was re-read against `origin/main`. A Source line is whole; where it did not fit, the body was split at a list or clause boundary. The other rows of the ledgers above that changed carry the new text in their clause tables.
 
 | Block | Old text on `origin/main` | New text | Row |
 | --- | --- | --- | --- |
-| single-build-render: A caller may skip unprovided provider-fulfilled demands | "...requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). ... Source: core `SPEC.md` ..., as amended by core changes ..." | the parenthetical moves to "An unprovided demand's key is absent from the provider count"; both blocks carry the whole Source line | verbatim except the pointer subject and "SHALL be" (strength table) |
+| single-build-render: A caller may skip unprovided provider-fulfilled demands | "...requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). ... Source: core `SPEC.md` ..., as amended by core changes ..." | the parenthetical moves to "An unprovided demand is one no enabled registry entry provides"; both blocks carry the whole Source line | verbatim except the pointer subject and "SHALL be" (strength table) |
 | single-build-render: Every other refusal stands with the switch on (three blocks) | one bullet: "Every other refusal SHALL stand: <four items> SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal." | cut at the list boundary before the third item and at the sentence boundary; each block has the lead "With the switch on:", the predicate repeated, and the whole Source line | verbatim; pointer in the third block |
 | single-build-render: five collision blocks | one body of six sentences with the Source line "an open question of enhancement 0026 (the interim safety net ..., ...), core change ..." | each block carries the whole line, or (two blocks) the first title with its parenthetical; the sentence is cut at the colon, ", and SHALL emit none otherwise", the sentence boundary, ", because" and ", and SHALL say" | verbatim; "it" becomes "the generated glue"; pointers in two blocks |
 | kernel-runtime: Verbs check their context between stages / after the build | "...after the directory is read, after the values sources are merged, after the package is built and before the next stage starts. ..." | cut at ", after the package is built"; the lead repeated; the whole Source line in both | verbatim |
@@ -2414,7 +2416,7 @@ Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an AD
 | ... `Kernel.Render` and `Platform.Contracts()` accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | ... `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | The default is not the render floor |
 | The constant advances only through a deliberate change ... | The constant SHALL advance only through a deliberate change ... | The default advances only through a deliberate change that re-verifies the glue and fixtures |
 | ... they stay literal and are declared in `.cascade-frozen` ... | ... they SHALL stay literal and are declared in `.cascade-frozen` ... | Synthetic, floor and skew literals stay literal and are declared frozen |
-| ... (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads) | The contract key of an unprovided demand of requirement "A caller may skip unprovided provider-fulfilled demands" SHALL be absent from core's `#contracts.providedBy`, the count the single-provider guard reads. | An unprovided demand's key is absent from the provider count |
+| `Kernel.Render` ... skip every **unprovided** demand: a resource or trait demand whose contract declares ... (the key is absent from ...) | Every **unprovided** demand SHALL be a resource or trait demand whose contract declares ... (the key is absent from ...). | An unprovided demand is one no enabled registry entry provides |
 
 Sentences of unit 3 that gained SHALL (the old sentence or clause has no keyword), or changed a verb form to take it:
 
