@@ -210,6 +210,12 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 
 One more code comment cites a requirement whose rule moved: `opm/kernel/synth_test.go:168` names "Instance synthesis input" for "InstanceInput carries no schema cache", which is now "InstanceInput carries no schema cache and no cue.Context". The last unit updates it with the comments listed above.
 
+### Batch library-B4, second half: the form choices and the limits of the verbatim rule
+
+**Context**: The second half of B4 holds `cascade-wiring` (6 long requirements), `config-validation` (6) and `workflow-hardening` (1): 13 in all, which completes the 28 of B4.
+**Decision**: 2 requirements use form b because another text cites the header: "Single Kernel Validation Primitive" (a comment in `opm/kernel/kernel_test.go`) and "File-Backed Sources Resolve Imports Through the Kernel Mapping" (a sentence of the primitive's old body names it, and that sentence keeps the citation in its new block). In both, the parent keeps all its scenarios and a shorter body; the cut sentences go to ADDED blocks. 11 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out). Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table), a subject copied from the same old requirement (a file path, a type name or a key name for "It", "Its" or "The key"; `publish` in "The `publish` job's `if:`"), and a pointer "(Requirement: <exact header>)" to another requirement of the same spec where a sentence needs a referent that the old requirement gave in a sibling sentence ("this", "these references", "the option", "the rule", "So", "the marker"). One long sentence is cut at a list boundary with subject and verb repeated (the wiring-check script sentence that checks, runs offline and runs in the `Go tests` job). The citation of each split block is the whole old `Source:` line as a `**Source**:` metadata line (the human's decision of 2026-10-20); the rule text stays in the body. Em-dashes of the old bodies became `,` or `:`.
+**Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice. Reversibility: high.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -2780,6 +2786,296 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | (added pointer) | A missing required field fails before any build runs | pointer to the parent requirement that holds the fields |
 | No public package under `opm/` SHALL export a second synthesis entry point or input type; the bui... | No public package exports a second synthesis entry point or input type | verbatim |
 
+### Ledger: cascade-wiring
+
+**The receiver runs on dispatch, daily and by hand**: form c2 (REMOVED plus ADDED); old body 1050 characters; new bodies 380, 373, 237.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| An upstream release arrives | The receiver workflow calls cascade-receive.yml and runs on dispatch, on a schedule and by hand, same name | no, byte for byte (checked) |
+| The daily sweep | The receiver workflow calls cascade-receive.yml and runs on dispatch, on a schedule and by hand, same name | no, byte for byte (checked) |
+| A gates-only run does not displace a pending real run | The receiver workflow uses a concurrency group by run kind, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The workflow keys and the cascade job grants are fixed" in "The receiver workflow has fixed top-level keys and its cascade job has fixed grants"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL have a workflow `.github/workflows/deps-cascade.yml` whose job `cascade` calls... | The receiver workflow calls cascade-receive.yml and runs on dispatch, on a schedule and by hand | verbatim |
+| It SHALL run on `repository_dispatch` of type `upstream-released`, on a daily schedule at `17 5 *... | The receiver workflow calls cascade-receive.yml and runs on dispatch, on a schedule and by hand | verbatim |
+| Its top-level keys SHALL be exactly `name`, `on`, `permissions`, `concurrency` and `jobs`, with `... | The receiver workflow has fixed top-level keys and its cascade job has fixed grants | verbatim; `Its` becomes `.github/workflows/deps-cascade.yml`: its (the path of the first sentence, a colon, the pronoun in lower case) |
+| The `cascade` job SHALL be granted only `contents: read`, `pull-requests: read` and `statuses: wr... | The receiver workflow has fixed top-level keys and its cascade job has fixed grants | verbatim |
+| It SHALL use the concurrency group `deps-cascade` without cancelling for real runs on `main`, `de... | The receiver workflow uses a concurrency group by run kind | verbatim; `It` becomes `.github/workflows/deps-cascade.yml`: it (the path of the first sentence, a colon, the pronoun in lower case) |
+| Source: workspace `RELEASING.md`, sections "The receiver" and "Concurrency"; Phase 3... | The receiver workflow calls cascade-receive.yml and runs on dispatch, on a schedule and by hand | the whole Source line, as a `**Source**:` line |
+| Source: workspace `RELEASING.md`, sections "The receiver" and "Concurrency"; Phase 3... | The receiver workflow has fixed top-level keys and its cascade job has fixed grants | the whole Source line, as a `**Source**:` line |
+| Source: workspace `RELEASING.md`, sections "The receiver" and "Concurrency"; Phase 3... | The receiver workflow uses a concurrency group by run kind | the whole Source line, as a `**Source**:` line |
+
+**The receiver publishes only from its own caller-owned publish job**: form c2 (REMOVED plus ADDED); old body 1319 characters; new bodies 463, 168, 479, 77.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A live run with a change to push | The receiver has a publish job of a fixed shape with one step, same name | no, byte for byte (checked) |
+| Compute plans nothing to publish | The receiver has a publish job of a fixed shape with one step, same name | no, byte for byte (checked) |
+| A reusable call is given the secrets | Only the caller-owned notify-downstream or publish job reads the App key and no reusable call passes secrets, same name | no, byte for byte (checked) |
+| Another job reaches the key through a variant spelling | No other job in any library workflow declares the cascade Environment, same name | no, byte for byte (checked) |
+| A gates-only run never reaches publish | The publish job never starts for a gates-only run, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `deps-cascade.yml` SHALL have a job `publish` that needs `cascade`, runs on `ubuntu-latest`, decl... | The receiver has a publish job of a fixed shape with one step | verbatim |
+| The job's `if:` SHALL require `inputs.gates_only != true`, read from the caller's own input and n... | The publish job never starts for a gates-only run | verbatim; `publish` added after `The` to name the job (copied from the same old requirement) |
+| The key SHALL be read only in the caller-owned `notify-downstream` or `publish` job, which declar... | Only the caller-owned notify-downstream or publish job reads the App key and no reusable call passes secrets | verbatim; the prefix `secrets.CASCADE_APP_PRIVATE_KEY`: names the key and `The` becomes `the` |
+| No other job in any library workflow SHALL declare the `cascade` Environment. | No other job in any library workflow declares the cascade Environment | verbatim |
+| Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `R... | The receiver has a publish job of a fixed shape with one step | the whole Source line, as a `**Source**:` line |
+| Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `R... | The publish job never starts for a gates-only run | the whole Source line, as a `**Source**:` line |
+| Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `R... | Only the caller-owned notify-downstream or publish job reads the App key and no reusable call passes secrets | the whole Source line, as a `**Source**:` line |
+| Source: Phase 3 wiring contract (version 3.1) §2.2, §5 and §10.1 item 9; workspace `R... | No other job in any library workflow declares the cascade Environment | the whole Source line, as a `**Source**:` line |
+
+**The receiver pushes nothing until CASCADE_DRY_RUN is false**: form c2 (REMOVED plus ADDED); old body 1092 characters; new bodies 378, 461, 228.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The variable is unset | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run, same name | no, byte for byte (checked) |
+| Live, but a manual dry run | The receiver publishes only when CASCADE_DRY_RUN is false and the run is not a manual dry run, same name | no, byte for byte (checked) |
+| Nothing to move on main | A dry run writes its plan to the job summary and changes nothing, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The dry-run expression reaches both consumers" in "The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run"
+- "The gate statuses are still posted in a dry run" in "A dry run writes its plan to the job summary and changes nothing"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `deps-cascade.yml` SHALL pass `${{ inputs.dry_run == true \|\| vars.CASCADE_DRY_RUN != 'false' }}... | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run | verbatim |
+| So the receiver SHALL publish only when the repo variable `CASCADE_DRY_RUN` is `false` (GitHub co... | The receiver publishes only when CASCADE_DRY_RUN is false and the run is not a manual dry run | verbatim |
+| An unset, deleted or any other value SHALL mean a dry run. | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run | verbatim |
+| In a dry run the receiver computes the diff, title, body and labels and writes them to the job su... | A dry run writes its plan to the job summary and changes nothing | SHALL added: the old sentence has no keyword; the verbs take the infinitive after `SHALL` |
+| The gate statuses SHALL still be posted in a dry run. | A dry run writes its plan to the job summary and changes nothing | verbatim |
+| Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract (v... | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run | the whole Source line, as a `**Source**:` line |
+| Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract (v... | The receiver publishes only when CASCADE_DRY_RUN is false and the run is not a manual dry run | the whole Source line, as a `**Source**:` line |
+| Source: workspace `RELEASING.md`, section "Stop switches"; Phase 3 wiring contract (v... | A dry run writes its plan to the job summary and changes nothing | the whole Source line, as a `**Source**:` line |
+
+**A core bump reaches the cascade PR as need-human-review**: form c2 (REMOVED plus ADDED); old body 730 characters; new bodies 328, 407.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Core moved | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never removes the label, same name | no, byte for byte (checked) |
+| Only the opm catalog moved | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never removes the label, same name | no, byte for byte (checked) |
+| Dry run of a core move | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never removes the label, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The publish step leaves label creation to the action" in "The need-human-review label comes from the pin report's core row and from the cascade-publish action"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| When a cascade run moves `DefaultSchemaModule`, the resulting PR SHALL carry the label `need-huma... | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
+| The library SHALL get this from its pin report's core row label and from the `cascade-publish` ac... | The need-human-review label comes from the pin report's core row and from the cascade-publish action | verbatim |
+| A catalog-only move SHALL NOT add the label. | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
+| The bot SHALL NOT remove the label once set. | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); w... | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | the whole Source line, as a `**Source**:` line |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); w... | The need-human-review label comes from the pin report's core row and from the cascade-publish action | the whole Source line, as a `**Source**:` line |
+
+**Every PR carries the cascade gate statuses**: form c2 (REMOVED plus ADDED); old body 775 characters; new bodies 476, 205.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| An ordinary PR | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code, same name | no, byte for byte (checked) |
+| A release PR in warn mode | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code, same name | no, byte for byte (checked) |
+| A shipped pin is behind | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A newer run cancels an older run of the same PR" in "The cascade gates cancel an older run per PR and are no required check"
+- "The gate statuses are not required checks" in "The cascade gates cancel an older run per PR and are no required check"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL have a workflow `.github/workflows/cascade-gates.yml` that runs on `pull_reques... | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | verbatim |
+| It SHALL check out no PR code. | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | verbatim |
+| The concurrency group SHALL be per PR number, cancelling an older run. | The cascade gates cancel an older run per PR and are no required check | verbatim |
+| Neither `cascade/freshness` nor `cascade/settled` SHALL become a required check in this change. | The cascade gates cancel an older run per PR and are no required check | verbatim |
+| Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 1... | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | the whole Source line, as a `**Source**:` line |
+| Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 1... | The cascade gates cancel an older run per PR and are no required check | the whole Source line, as a `**Source**:` line |
+
+**The cascade references carry one .github SHA, checked on every PR**: form c2 (REMOVED plus ADDED); old body 2633 characters; new bodies 496, 88, 177, 434, 432, 348, 318.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The wiring is as the contract gives it | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy, same name | no, byte for byte (checked) |
+| One reference moves alone | Every cascade reference names the same full .github main SHA and no branch or tag, same name | no, byte for byte (checked) |
+| A key-holding job gains an env | The wiring check refuses shapes of this capability and runs offline through task cascade:wiring:check, same name | no, byte for byte (checked) |
+| A .github cascade change lands | Every cascade reference names the same full .github main SHA and no branch or tag, same name | no, byte for byte (checked) |
+| A pin that is not on .github main | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy, same name | no, byte for byte (checked) |
+| The copy drifts from .github | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin, same name | no, byte for byte (checked) |
+| CI catches a copy that differs from the pin | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy, same name | no, byte for byte (checked) |
+| A run step before the wiring step | The test.yml workflow keeps a narrow env and only pinned actions before the wiring step, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A missing resolver fails the task" in "cascade-task.yml fails, not skips S5, when the resolver is missing"
+- "Dependabot leaves the .github pin alone" in "Dependabot ignores the .github repository and waits 7 days on github-actions"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every cascade reference in the library's workflows SHALL name the same full 40-character SHA of a... | Every cascade reference names the same full .github main SHA and no branch or tag | verbatim |
+| No reference SHALL name a branch or a tag. | Every cascade reference names the same full .github main SHA and no branch or tag | verbatim |
+| `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit. | cascade-task.yml fails, not skips S5, when the resolver is missing | verbatim |
+| `.github/dependabot.yml` SHALL ignore `open-platform-model/.github*` under `github-actions`. | Dependabot ignores the .github repository and waits 7 days on github-actions | verbatim |
+| `.github/dependabot.yml` SHALL give the `github-actions` entry a cooldown of 7 days. | Dependabot ignores the .github repository and waits 7 days on github-actions | verbatim |
+| The script `.tasks/cascade/wiring-check.sh` SHALL be a byte-identical copy of `.github/scripts/ca... | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin | verbatim |
+| It SHALL check these references and the shapes of this capability, SHALL refuse any `release.yml`... | The wiring check refuses shapes of this capability and runs offline through task cascade:wiring:check | verbatim up to the list boundary; `It` becomes `.tasks/cascade/wiring-check.sh`: it, the pointer (Requirement: ...) follows `these references` and a closing `.` ends the sentence |
+| and, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH... | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy | verbatim from the list boundary; `and,` becomes `.tasks/cascade/wiring-check.sh`: it SHALL run, (the subject and the verb repeated from the cut sentence) |
+| In `test.yml`, the workflow's and the `test` job's `env` SHALL name only `CUE_*`, `OPM_*`, `REGIS... | The test.yml workflow keeps a narrow env and only pinned actions before the wiring step | verbatim |
+| The copy moves only with the pin. | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin | verbatim |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | Every cascade reference names the same full .github main SHA and no branch or tag | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | cascade-task.yml fails, not skips S5, when the resolver is missing | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | Dependabot ignores the .github repository and waits 7 days on github-actions | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | The wiring check refuses shapes of this capability and runs offline through task cascade:wiring:check | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy | the whole Source line, as a `**Source**:` line |
+| Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | The test.yml workflow keeps a narrow env and only pinned actions before the wiring step | the whole Source line, as a `**Source**:` line |
+
+### Ledger: config-validation
+
+**Source Type and Layered Input**: form c2 (REMOVED plus ADDED); old body 752 characters; new bodies 306, 269, 175.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Source struct shape | A Source pairs CUE source bytes with its origin and carries no cue.Value and no display label, same name | no, byte for byte (checked) |
+| Partial option | The Source struct is the one values input of every values-taking kernel entry, same name | no, byte for byte (checked) |
+| Stack ordering for layered inputs | The Source struct is the one values input of every values-taking kernel entry, same name | no, byte for byte (checked) |
+| One values shape everywhere | The Source struct is the one values input of every values-taking kernel entry, same name | no, byte for byte (checked) |
+| Positions survive compilation at use | Each kernel entry compiles its sources with cue.Filename(Origin) in the context of the schema they meet, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose a `Source` struct in `opm/kernel/` describing one values input for every... | The Source struct is the one values input of every values-taking kernel entry | verbatim |
+| A `Source` pairs the values payload, as CUE source bytes, with its stable origin; it SHALL carry... | A Source pairs CUE source bytes with its origin and carries no cue.Value and no display label | verbatim |
+| Each kernel entry SHALL compile the sources it receives in the context of the schema they meet, w... | Each kernel entry compiles its sources with cue.Filename(Origin) in the context of the schema they meet | verbatim |
+| No kernel entry SHALL take values in any other shape. | The Source struct is the one values input of every values-taking kernel entry | verbatim |
+
+**File-Backed Sources Resolve Imports Through the Kernel Mapping**: form b (MODIFIED plus ADDED); old body 683 characters; new bodies 267, 493.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Values file importing a registry module | File-Backed Sources Resolve Imports Through the Kernel Mapping, same name | no, byte for byte (checked) |
+| Same mapping on every compiling path | File-Backed Sources Resolve Imports Through the Kernel Mapping, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Absent the option the load reads CUE_REGISTRY" in "A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not mutated"
+- "A source compiled from bytes is unaffected" in "A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not mutated"
+- "The process environment is not mutated" in "A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not mutated"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| When a `Source` is file-backed (its `Origin` is an absolute path naming an existing file), the op... | File-Backed Sources Resolve Imports Through the Kernel Mapping | verbatim |
+| Absent the option, the load SHALL read the process `CUE_REGISTRY` unchanged. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
+| This SHALL hold on every path that compiles sources: `ValidateConfigDetailed`, `AcquireInstanceFr... | File-Backed Sources Resolve Imports Through the Kernel Mapping | verbatim |
+| A source compiled from bytes carries no imports and is unaffected. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
+| The process environment SHALL NOT be mutated. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
+
+**Internal Closed-Schema Workaround**: form c2 (REMOVED plus ADDED); old body 731 characters; new bodies 268, 486.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Disallowed field in closed schema produces positioned error | The disallowed-field error Path returns one selector segment per field label and a label with dots is one segment, same name | no, byte for byte (checked) |
+| A label containing dots is one path segment | The disallowed-field error Path returns one selector segment per field label and a label with dots is one segment, same name | no, byte for byte (checked) |
+| Internal types not exported | The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The disallowed-field error is a cueerrors.Error" in "The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private internals of `opm... | The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error | verbatim |
+| The error type SHALL implement `cuelang.org/go/cue/errors.Error` so that disallowed-field diagnos... | The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error | verbatim |
+| The error's `Path()` SHALL return `values` followed by one segment per field label on the way to... | The disallowed-field error Path returns one selector segment per field label and a label with dots is one s... | verbatim |
+| A label that contains dots SHALL be one segment, so joining the segments with `.` gives the field... | The disallowed-field error Path returns one selector segment per field label and a label with dots is one s... | verbatim |
+
+**Single Kernel Validation Primitive**: form b (MODIFIED plus ADDED); old body 1448 characters; new bodies 431, 420, 300, 467.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| ValidateConfigDetailed signature and behavior | Single Kernel Validation Primitive, same name | no, byte for byte (checked) |
+| No single-value or partial variant is exported | Single Kernel Validation Primitive, same name | no, byte for byte (checked) |
+| Empty inputs short-circuit to success | Single Kernel Validation Primitive, same name | no, byte for byte (checked) |
+| Errors carry source positions when filename was set at compile time | Single Kernel Validation Primitive, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Sources are compiled in the schema's context and unified in stack order" in "ValidateConfigDetailed compiles each source in the schema's context, unifies in stack order, walks disallowed fields and asserts concreteness"
+- "A failed validation step is a ConfigValidationError" in "A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged"
+- "A source that fails to load is returned without the marker" in "A source that fails to compile or to load is returned without the ConfigValidationError marker"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateCo... | Single Kernel Validation Primitive | verbatim |
+| (cue.Value, error)`. | Single Kernel Validation Primitive | verbatim |
+| It SHALL compile each source in the schema's own context so that every position names the source'... | ValidateConfigDetailed compiles each source in the schema's context, unifies in stack order, walks disallow... | verbatim; `It` becomes `ValidateConfigDetailed`: it |
+| A failure of the validation step (the disallowed-field walk, the unification with the schema, or... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim |
+| SHALL be returned as a `*ConfigValidationError` (`opm/errors`) that wraps the CUE-native error tr... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim |
+| A source that fails to compile or to load is returned as before, without the marker: such a failu... | A source that fails to compile or to load is returned without the ConfigValidationError marker | SHALL added: the old sentence has no keyword; `is returned` becomes `SHALL be returned`; the pointer (Requirement: ...) is added before the sentence |
+| The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-ele... | Single Kernel Validation Primitive | verbatim |
+
+**A validation failure has one marker type and no projection**: form c2 (REMOVED plus ADDED); old body 674 characters; new bodies 306, 392.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| opm/errors carries no validation projections | ConfigValidationError projects nothing and the library has no parallel walking API and none of the retired error names, same name | no, byte for byte (checked) |
+| Frontends rely on cuelang.org/go/cue/errors | ConfigValidationError projects nothing and the library has no parallel walking API and none of the retired error names, same name | no, byte for byte (checked) |
+| A validation failure is matched by type | ConfigValidationError in opm/errors is the one Go type of a validation failure and carries the CUE error tree, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL define exactly one Go type for a configuration validation failure: `ConfigValid... | ConfigValidationError in opm/errors is the one Go type of a validation failure and carries the CUE error tree | verbatim |
+| It SHALL carry the tree in its `Err` field, return it from `Unwrap`, and return the tree's own te... | ConfigValidationError in opm/errors is the one Go type of a validation failure and carries the CUE error tree | verbatim |
+| It SHALL NOT project, group, re-order or reword the CUE errors, and the library SHALL NOT provide... | ConfigValidationError projects nothing and the library has no parallel walking API and none of the retired... | verbatim; `It` becomes `ConfigValidationError`: it |
+| The names `ConfigError`, `ValidationError`, `FieldError`, `ErrorLocation`, `GroupedError`, `Multi... | ConfigValidationError projects nothing and the library has no parallel walking API and none of the retired... | verbatim |
+
+**Every typed error has a pointer receiver**: form c2 (REMOVED plus ADDED); old body 550 characters; new bodies 227, 407.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Every typed error matches through a pointer target | Every error type in opm/errors declares Error on its pointer receiver, same name | no, byte for byte (checked) |
+| No typed error keeps a value receiver | Every error type in opm/errors declares Error on its pointer receiver, same name | no, byte for byte (checked) |
+| The value type is not an error | IdentityError follows the pointer-receiver rule and a value-typed IdentityError target does not match, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "IdentityError is returned as a pointer" in "IdentityError follows the pointer-receiver rule and a value-typed IdentityError target does not match"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every error type in `opm/errors` that has an `Error` method SHALL declare it on the pointer recei... | Every error type in opm/errors declares Error on its pointer receiver | verbatim |
+| `IdentityError` SHALL follow the rule: the library returns `*IdentityError`, the type declares `E... | IdentityError follows the pointer-receiver rule and a value-typed IdentityError target does not match | verbatim; the pointer (Requirement: ...) is added after `the rule` and the colon stays |
+| A value-typed `IdentityError` target SHALL NOT match: `errors.AsType[IdentityError]` does not com... | IdentityError follows the pointer-receiver rule and a value-typed IdentityError target does not match | verbatim |
+
+### Ledger: workflow-hardening
+
+**Every workflow states least-privilege token grants**: form c2 (REMOVED plus ADDED); old body 634 characters; new bodies 280, 288.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The repo default token becomes read-only | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant, same name | no, byte for byte (checked) |
+| A same-repo PR runs the tests | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A checkout does not persist credentials" in "Every checkout step sets persist-credentials false"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every workflow file under `.github/workflows/` SHALL declare `permissions:` at the workflow level... | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant | verbatim |
+| No job that runs on `pull_request` SHALL hold a write grant. | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant | verbatim |
+| Every checkout step in this repository's workflow files SHALL set `persist-credentials: false`, s... | Every checkout step sets persist-credentials false | verbatim |
+| (A reusable workflow called from another repository, such as docs-kit's `publish.yml`, owns its o... | Every checkout step sets persist-credentials false | verbatim |
+| Source: owner selection 30; security pass findings N4 and GOV-3. | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant | the whole Source line, as a `**Source**:` line |
+| Source: owner selection 30; security pass findings N4 and GOV-3. | Every checkout step sets persist-credentials false | the whole Source line, as a `**Source**:` line |
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -2848,3 +3144,10 @@ Sentences of unit 4 (library-B4 first half) that gained SHALL, or changed a verb
 | `cueCtx` is the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`), and `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the... | `synth.Instance`: `cueCtx` SHALL the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`). | The cueCtx and coreVersion parameters of synth.Instance are the call context and the core release |
 | `cueCtx` is the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`), and `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the... | `synth.Instance`: `Input` SHALL be the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the... | The Input parameter of synth.Instance is the package-internal input |
 | A module acquired from a directory has a real root on disk and is not checked. | A module acquired from a directory has a real root on disk and SHALL NOT be checked. | A module acquired from a directory is not checked for a synthetic root |
+
+Sentences of unit 5 (library-B4 second half) that gained SHALL, or changed a verb form to take it:
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| In a dry run the receiver computes the diff, title, body and labels and writes them to the job summary, and pushes nothing, opens or edits no PR, and adds no label or comment. | In a dry run the receiver SHALL compute the diff, title, body and labels and write them to the job summary, and push nothing, open or edit no PR, and add no label or comment. | A dry run writes its plan to the job summary and changes nothing |
+| A source that fails to compile or to load is returned as before, without the marker: such a failure can be a registry or a file failure, which is not a statement about the values. | A source that fails to compile or to load SHALL be returned as before, without the marker: such a failure can be a registry or a file failure, which is not a statement about the values. | A source that fails to compile or to load is returned without the ConfigValidationError marker |
