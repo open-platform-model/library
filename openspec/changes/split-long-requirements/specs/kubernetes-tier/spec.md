@@ -297,7 +297,7 @@ For non-test files under `opm/k8s/` the repository lint gate SHALL also enforce 
 - **THEN** `task lint` fails naming the import
 
 ### Requirement: One test file of the Kubernetes tier imports the deprecated objectset
-The one exception SHALL be the test file `opm/k8s/object/objectset_parity_test.go`, which imports the deprecated `opm/helper/objectset` to check the duplicate-object-identities parity requirement; the change that removes `opm/helper/objectset` deletes it. Source: enhancement 0012 (the fenced Kubernetes tier).
+The one exception to the `opm/helper/` import denial of `opm/k8s/` SHALL be the test file `opm/k8s/object/objectset_parity_test.go`, which imports the deprecated `opm/helper/objectset` to check the duplicate-object-identities parity requirement; the change that removes `opm/helper/objectset` deletes it. Source: enhancement 0012 (the fenced Kubernetes tier).
 
 #### Scenario: The parity test file is the one exception
 
@@ -519,7 +519,7 @@ Order within a stage SHALL be the stable sort order. The input SHALL NOT be reor
 - **THEN** they keep that order within their stage, the input is not reordered and no stage is empty
 
 ### Requirement: A Flux frontend may submit a whole set or one stage
-Because the weight table never contradicts Flux's staged apply order, the stages SHALL let a frontend whose apply engine is Flux's staged apply submit the whole set or any one stage in one call: the engine then only refines the library's order. Source: enhancement 0012.
+The weight table SHALL NOT contradict Flux's staged apply order, so a frontend whose apply engine is Flux's staged apply MAY submit the whole set or any one stage in one call: the engine then only refines the library's order. Source: enhancement 0012.
 
 #### Scenario: A frontend submits one stage in one call
 
@@ -627,7 +627,7 @@ The aggregate of a list of statuses and a count of tracked objects that have no 
 - **THEN** the aggregate is `Unknown` with 0 ready out of 0
 
 ### Requirement: ProgressDeadlineExceeded tells a stalled rollout from one in progress
-The package SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose controller has observed its current generation carries a Progressing condition with the reason `ProgressDeadlineExceeded`, false for any other object, so a frontend can tell a stalled rollout from one in progress without reading conditions itself. Source: enhancement 0012.
+`opm/k8s/health` SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose controller has observed its current generation carries a Progressing condition with the reason `ProgressDeadlineExceeded`, false for any other object, so a frontend can tell a stalled rollout from one in progress without reading conditions itself. Source: enhancement 0012.
 
 #### Scenario: A stalled Deployment is told apart from one rolling out
 
@@ -866,7 +866,7 @@ The result SHALL keep the previous inventory's order, SHALL be a non-nil empty l
 - **THEN** the stale set is a non-nil list of length zero
 
 ### Requirement: The package exports one identity comparison and no component-aware one
-The same identity comparison SHALL be exported on its own. No component-aware comparison and no separate component-rename filter SHALL exist in the package. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
+The identity comparison of the stale set SHALL be exported on its own from `opm/k8s/inventory`. No component-aware comparison and no separate component-rename filter SHALL exist in the package. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 
 #### Scenario: The package exports no other comparison
 
@@ -1364,7 +1364,7 @@ When the live object has a deletion timestamp, the apply verdict SHALL refuse as
 - **THEN** the verdict refuses as `terminating` when the object is in the inventory, when it is outside it, when it carries the adopt annotation naming this instance, and when it carries the adopt annotation naming another instance
 
 ### Requirement: An instance whose UUID changed keeps applying its own inventoried objects
-An object in the instance's recorded inventory with no non-blank adopt annotation SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Source: enhancement 0012.
+An object in the instance's recorded inventory with no deletion timestamp and no non-blank adopt annotation SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Source: enhancement 0012.
 
 #### Scenario: An inventoried object labelled for another instance without an annotation is applied
 
@@ -1391,7 +1391,7 @@ Outside the inventory an empty instance UUID SHALL never match an adopt annotati
 - **AND** the message is `Deployment/web/api is being adopted by module instance u-1; this instance does not apply it`, with no remedy clause
 
 ### Requirement: The docs state the frontend's part of the hand-over
-The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012.
+The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012 (the apply guard and its only override) (enhancements#103).
 
 #### Scenario: The docs state the frontend's part of the hand-over
 
@@ -1399,7 +1399,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 - **THEN** each says a frontend drops an object refused as `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal
 
 ### Requirement: The adopted-elsewhere message names the object, the adopter and the way back
-The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012.
+The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012 (the apply guard and its only override) (enhancements#103).
 
 #### Scenario: An inventoried object annotated for another instance is refused
 

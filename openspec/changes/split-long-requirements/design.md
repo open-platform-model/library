@@ -130,19 +130,19 @@ Last unit (`LAST=1`, the sixth): it judges the main specs and the change, not ot
 
 ### The CI gate moves to a separate change
 
-**Decision**: This change does not add the Taskfile tasks or the CI job that run `openspec validate --all --strict`. The gate moves to a separate change after `publish-go-api-bundle` lands (DECISIONS.md 2026-10-19 14:05), because until then `validate --all --strict` covers that open change and exits 1 on its one warning. The per-unit gate block above stays: it runs in a scratch copy and is not the CI gate. Reversibility: high.
+**Decision**: This change does not add the Taskfile tasks or the CI job that run `openspec validate --all --strict`. The gate moves to a separate change after `publish-go-api-bundle` lands (owner decision of 2026-10-19), because until then `validate --all --strict` covers that open change and exits 1 on its one warning. The per-unit gate block above stays: it runs in a scratch copy and is not the CI gate. Reversibility: high.
 
 ### Batch library-B1: the form choices that later batches copy
 
 **Context**: B1 holds `kubernetes-tier` (25 long requirements, 85 KB) and `api-diff-check` (3). Most long bodies hold several rules and a long `Source:` line.
-**Decision**: Form a (MODIFIED) was not enough, because the excess was rules, not examples. 8 requirements use b (MODIFIED parent kept, split-off rules ADDED under new names) and 20 use c2 (REMOVED plus ADDED), where the old scenarios belong to different rules. A c2 split names each piece after the one rule it states, and every old scenario moves to the piece it tests, with its WHEN and THEN lines unchanged. Rule tables (the weights, the escape rules of the render digest, the field list of the label package, and the ordered conditions of the delete verdict, the apply verdict and the hold verdict) move into the THEN and AND lines of one new scenario; the body keeps the SHALL, the first-match rule and the outcomes, and names the scenario (DECISIONS.md 2026-10-19 15:15). A new requirement gets a restatement scenario, built from words of the old text, where the old scenarios cannot move to it (DECISIONS.md 2026-10-19 14:48). Where an old sentence had no SHALL and its new body needs one, the verb "is" becomes "SHALL be"; the ledger lists each such change in its clause table.
+**Decision**: Form a (MODIFIED) was not enough, because the excess was rules, not examples. 8 requirements use b (MODIFIED parent kept, split-off rules ADDED under new names) and 20 use c2 (REMOVED plus ADDED), where the old scenarios belong to different rules. A c2 split names each piece after the one rule it states, and every old scenario moves to the piece it tests, with its WHEN and THEN lines unchanged. Rule tables (the weights, the escape rules of the render digest, the field list of the label package, and the ordered conditions of the delete verdict, the apply verdict and the hold verdict) move into the THEN and AND lines of one new scenario; the body keeps the SHALL and the first-match rule, names the scenario and, for the delete and apply verdicts, lists the outcomes (owner ruling of 2026-10-19). A new requirement gets a restatement scenario, built from words of the old text, where the old scenarios cannot move to it (owner ruling of 2026-10-19). Where an old sentence had no SHALL and its new body needs one, the verb "is" becomes "SHALL be"; the ledger lists each such change in its clause table.
 **Rationale**: One rule per requirement is the point of the limit. Reversibility: high.
 
 ### Source line placement
 
 **Context**: A `Source:` line counts toward the 500 characters. Three `kubernetes-tier` requirements have a Source line of 495, 514 and 517 characters, which no body can carry whole, and other long Source lines leave little room for the rule.
-**Decision**: A split block repeats the old requirement's whole `Source:` line when it fits (DECISIONS.md 2026-10-19 14:48). When it does not fit, the block carries the short form `Source: enhancement 0012.` (the enhancement that every line cites), or the title that supports its rule. Every title of an old Source line stays in at least one block of the same old requirement. The old text does not tie a title to a clause, so the assignment of a title to a block is a judgement: it follows the topic of the title (the deletion sequence, the order, the apply guard, the tier placement). The three requirements whose line cannot sit in one body split their titles; the table lists how each old requirement was handled.
-**Rationale**: The 500-character limit and the rule that the citation stays in the body of the block that carries the rule leave no other choice. A reviewer who reads a title beside the wrong block records it as a finding, and the cost of a wrong tie is a changed citation, not a changed rule. Reversibility: high.
+**Decision**: A split block repeats the old requirement's whole `Source:` line when it fits (owner ruling of 2026-10-19). When it does not fit, the block carries the short form `Source: enhancement 0012.` (the enhancement that every line cites), or the title that supports its rule. Every title of an old Source line stays in at least one block of the same old requirement. Where the old text ties a Source line to a paragraph (the second paragraph of the apply-verdict requirement), the blocks of that paragraph keep that citation. Elsewhere the old text does not tie a title to a clause, so the assignment of a title to a block is a judgement: it follows the topic of the title (the deletion sequence, the order, the apply guard, the tier placement). The three requirements whose line cannot sit in one body split their titles; the table lists how each old requirement was handled.
+**Rationale**: The 500-character limit and the rule that the citation stays in the body of the block that carries the rule leave no other choice. A title beside the wrong block is a citation error, not a rule change. Reversibility: high.
 
 | Old requirement | Old Source line (characters) | Whole line repeated | Short form `Source: enhancement 0012.` or inline |
 | --- | --- | --- | --- |
@@ -219,7 +219,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | ADR-011 records the placement. | The Kubernetes tier is part of the library's Go module | verbatim |
 | Source: enhancement 0012 (the fenced Kubernetes tier). | The Kubernetes tier lives under opm/k8s outside the kernel and the helper tier; No kernel or helper package im... | verbatim |
 
-**The Kubernetes tier imports no cluster client or controller framework**: form b (MODIFIED parent plus ADDED); old body 1240 characters; new bodies 388, 216, 418, 438, 310.
+**The Kubernetes tier imports no cluster client or controller framework**: form b (MODIFIED parent plus ADDED); old body 1240 characters; new bodies 388, 216, 418, 438, 359.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -242,7 +242,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | No file under `opm/k8s/` SHALL import `k8s.io/client-go`, `sigs.k8s.io/controller-runtime`, any... | parent (cluster client and controller framework) and "The Kubernetes tier imports no internal or helper package and one Kubernetes module" | one sentence cut at "any cluster client"; the words are unchanged |
 | The repository lint gate SHALL enforce these denials, including the refusal of every other `k8s... | "The lint gate enforces the import denials of the Kubernetes tier" | "these denials" is restated as the list of denials, in parentheses |
 | For non-test files the gate SHALL also enforce the allowed set as a strict allow list: the Go s... | "Non-test files of the Kubernetes tier import from a strict allow list" | "the gate" becomes "the repository lint gate" and the scope "under `opm/k8s/`" is named; the rest is verbatim |
-| The one exception is the test file `opm/k8s/object/objectset_parity_test.go`, which imports the... | "One test file of the Kubernetes tier imports the deprecated objectset" | "is" becomes "SHALL be", the keyword an ADDED block needs |
+| The one exception is the test file `opm/k8s/object/objectset_parity_test.go`, which imports the... | "One test file of the Kubernetes tier imports the deprecated objectset" | "is" becomes "SHALL be", the keyword an ADDED block needs; the denial it is an exception to is named |
 | Source: enhancement 0012 (the fenced Kubernetes tier). | The Kubernetes tier imports no cluster client or controller framework; The Kubernetes tier imports no internal... | verbatim |
 
 **Nothing in the library performs a cluster action**: form c2 (REMOVED plus ADDED); old body 1838 characters; new bodies 483, 248, 318, 436, 232, 346.
@@ -408,7 +408,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The library SHALL provide a stable sort by weight, ascending for apply and descending for delet... | The library sorts by weight with a stable sort | verbatim |
 | Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-inter... | One weight table orders apply and delete; The weight table agrees with the staged apply order of Flux; The lib... | verbatim |
 
-**Apply stages follow the weight table**: form b (MODIFIED parent plus ADDED); old body 1023 characters; new bodies 425, 395, 270.
+**Apply stages follow the weight table**: form b (MODIFIED parent plus ADDED); old body 1023 characters; new bodies 425, 395, 251.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -429,10 +429,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | After it comes one stage per distinct weight of the remaining objects, in ascending weight. | Apply stages follow the weight table | verbatim |
 | Order within a stage SHALL be the stable sort order. | Apply stages keep the stable sort order and are never empty | verbatim |
 | The input SHALL NOT be reordered, and no stage SHALL be empty. | Apply stages keep the stable sort order and are never empty | verbatim |
-| Because the weight table never contradicts Flux's staged apply order, a frontend whose apply en... | "A Flux frontend may submit a whole set or one stage" | "MAY submit" becomes "the stages SHALL let a frontend ... submit", the keyword an ADDED block needs; the permission is the same |
+| Because the weight table never contradicts Flux's staged apply order, a frontend whose apply en... | "A Flux frontend may submit a whole set or one stage" | the MAY clause is kept word for word; the SHALL comes from "The weight table SHALL NOT contradict Flux's staged apply order", the old "never contradicts" as a rule (the Flux test requirement states the same rule) |
 | Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Apply stages keep the stable sort order and are never empty | verbatim |
 
-**Readiness evaluation is a pure function over fetched objects**: form c2 (REMOVED plus ADDED); old body 3347 characters; new bodies 466, 289, 493, 494, 435, 499, 447, 473, 283, 375, 367.
+**Readiness evaluation is a pure function over fetched objects**: form c2 (REMOVED plus ADDED); old body 3347 characters; new bodies 466, 289, 493, 494, 435, 499, 447, 473, 283, 375, 372.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -471,7 +471,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | - Any other kind is `Ready` when its `Ready` condition is `True`, `NotReady` when that conditio... | "A claim reports its phase and any other kind reports its Ready condition" | the bullet becomes a sentence; "is" becomes "SHALL be" (or "reports" becomes "SHALL report"), the keyword an ADDED block needs; the condition text is verbatim |
 | `Ready`, `Applied`, `Complete` and `Bound` SHALL be the healthy statuses, and every other strin... | Four statuses are healthy and every other string is unhealthy | verbatim |
 | The aggregate of a list of statuses and a count of tracked objects that have no status (missing... | The aggregate counts missing and unreadable objects against ready | verbatim |
-| The package SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose c... | ProgressDeadlineExceeded tells a stalled rollout from one in progress | verbatim |
+| The package SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose c... | "ProgressDeadlineExceeded tells a stalled rollout from one in progress" | "The package" becomes `opm/k8s/health`, so the block names its subject |
 | A strict lint rule SHALL hold the package's non-test files to the Go standard library and `k8s.... | "Lint holds the health package to the standard library and apimachinery" | "the package's non-test files" becomes "the non-test files of `opm/k8s/health`" |
 | Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, b... | Readiness is judged by a pure function over fetched objects; Lint holds the health package to the standard lib... | verbatim |
 
@@ -580,7 +580,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Each frontend maps entries to its own CRD or record fields. | The entry type carries no struct tags | verbatim |
 | Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tie... | The entry constructor reads identity from the object and component from its label; The entry type carries no s... | verbatim |
 
-**The stale set is component-blind**: form c2 (REMOVED plus ADDED); old body 864 characters; new bodies 300, 432, 443.
+**The stale set is component-blind**: form c2 (REMOVED plus ADDED); old body 864 characters; new bodies 300, 432, 480.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -595,7 +595,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. | The stale set compares group, kind, namespace and name only | verbatim |
 | It SHALL return every entry of the previous inventory for which no entry of the current invento... | The stale set compares group, kind, namespace and name only | verbatim |
 | The result SHALL keep the previous inventory's order, SHALL be a non-nil empty list when nothin... | The stale set keeps the previous order and is never nil | verbatim |
-| The same identity comparison SHALL be exported on its own. | The package exports one identity comparison and no component-aware one | verbatim |
+| The same identity comparison SHALL be exported on its own. | "The package exports one identity comparison and no component-aware one" | "The same identity comparison" becomes "The identity comparison of the stale set", and "in the package" becomes `opm/k8s/inventory`, so the block names its subject |
 | No component-aware comparison and no separate component-rename filter SHALL exist in the packag... | The package exports one identity comparison and no component-aware one | verbatim |
 | Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a... | The stale set keeps the previous order and is never nil; The package exports one identity comparison and no co... | verbatim |
 
@@ -808,7 +808,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A second test SHALL show that the comparison reports a contradiction injected through a modifie... | A second test shows that the comparison reports an injected contradiction | verbatim |
 | Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-inter... | The weight table never contradicts Flux's staged apply order; The test universe of the Flux model covers the t... | verbatim |
 
-**The apply verdict refuses terminating, foreign, other-instance and adopted-elsewhere objects**: form c2 (REMOVED plus ADDED); old body 2959 characters; new bodies 343, 387, 339, 409, 330, 429.
+**The apply verdict refuses terminating, foreign, other-instance and adopted-elsewhere objects**: form c2 (REMOVED plus ADDED); old body 2959 characters; new bodies 343, 387, 365, 409, 389, 488.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -845,7 +845,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | When the object is in the instance's recorded inventory: with an empty instance UUID it SHALL a... | "The apply verdict decides in a fixed order" and scenario "The apply verdict order"; terminating also in "Nothing lifts a terminating refusal"; UUID change in "... | the ordered conditions move to the THEN and AND lines of the new scenario, wording verbatim; the body keeps the SHALL, the first-match rule and the outcomes, and names the scenario |
 | Outside the inventory: when the live managed-by label is not an OPM runtime's value, it SHALL r... | "The apply verdict decides in a fixed order" and scenario "The apply verdict order"; terminating also in "Nothing lifts a terminating refusal"; UUID change in "... | the ordered conditions move to the THEN and AND lines of the new scenario, wording verbatim; the body keeps the SHALL, the first-match rule and the outcomes, and names the scenario |
 | Outside the inventory an empty instance UUID SHALL never match an adopt annotation, and any non... | Outside the inventory an empty instance UUID fails closed | verbatim |
-| Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outsid... | see "Source line placement" | both Source lines (514 and 227 characters) cannot sit in one body: the titles go to the pieces they support, "per-object verdict" to the order piece, "homes in the library tier" to the terminating piece, the apply-guard title with the number to the empty-UUID piece; the other pieces carry the short... |
+| Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outsid... | see "Source line placement" | the first-paragraph Source (514 characters) is split by title; the second-paragraph Source is kept in a short form with its number on both blocks that hold the second paragraph |
 | The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an objec... | The docs state the frontend's part of the hand-over | verbatim |
 | The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation nam... | The adopted-elsewhere message names the object, the adopter and the way back | verbatim |
 | For an inventoried object it SHALL say that this instance no longer applies the object and drop... | The adopted-elsewhere message names the object, the adopter and the way back | verbatim |

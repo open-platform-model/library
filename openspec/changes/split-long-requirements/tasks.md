@@ -8,7 +8,7 @@ Specs: `kubernetes-tier` (25), `api-diff-check` (3). Gate `N=28`. Section 1 also
 - [x] 1.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table)
 - [x] 1.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger
 - [x] 1.6 Run the gate block of design.md with `N=28`: `GATE PASS`, WARNING lines fell by 28 from 153, no new ERROR item, no "Archive would refuse" line
-- [x] 1.7 `task check` green, then commit `docs(openspec): split the long requirements of library-B1`
+- [x] 1.7 `task test` green (spec-only unit; `task check` is left to the last unit), then commit `docs(openspec): split the long requirements of library-B1`
 
 ## 2. Batch library-B2: 28 requirements
 
