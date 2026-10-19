@@ -95,7 +95,7 @@ The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go`
 - **THEN** the task records a warning that names the move and `need-human-review`
 
 ### Requirement: The pin report labels the core row need-human-review
-The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `cascade-labels` marker names that label whenever core moved. Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RELEASING.md`, section "Labels".
+The pin report (Requirement: pins.sh reports the core and catalog pins and reads them without running cue) SHALL carry the label `need-human-review` on the core row, so the PR body's `cascade-labels` marker names that label whenever core moved. Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RELEASING.md`, section "Labels".
 
 #### Scenario: The core row carries the label
 

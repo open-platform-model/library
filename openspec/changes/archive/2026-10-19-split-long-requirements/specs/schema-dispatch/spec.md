@@ -168,7 +168,7 @@ Synthetic, floor and skew literals that happen to equal or predate the default a
 - **THEN** they assert that the constant names an exact release on the `v2` major and that `DefaultSchemaVersion()` is its version suffix, and no assertion spells that release as a literal
 
 ### Requirement: Every served test fixture declares the default core version
-The core version every served test fixture declares SHALL be the same release, so a fixture never pins a core the default kernel does not render against. A test that exercises an older core copies a fixture and re-pins the copy. It never commits a fixture pinning another release, and it reads the fixture's current pin from the fixture harness's declared core version rather than from a literal.
+The core version every served test fixture declares SHALL be the same release (Requirement: DefaultSchemaModule names an exact core release), so a fixture never pins a core the default kernel does not render against. A test that exercises an older core copies a fixture and re-pins the copy. It never commits a fixture pinning another release, and it reads the fixture's current pin from the fixture harness's declared core version rather than from a literal.
 
 #### Scenario: Served fixtures pin the default release
 

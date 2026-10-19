@@ -947,7 +947,7 @@ Every finding of the built-spec check outside `values` SHALL be left out of that
 - **THEN** every finding of the built-spec check outside `values` is left out of that refusal
 
 ### Requirement: The kernel does not decide from positions whether an unset value causes a finding
-The kernel SHALL NOT decide from the positions of a finding whether an unset value causes it. When a required value is unset, every finding of the tree is a values finding. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+The kernel SHALL NOT decide from the positions of a finding whether an unset value causes it. When a required value is unset, every finding of the tree (Requirement: The refusal is CUE's own error tree framed with the verb and the instance) is a values finding. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: Positions decide nothing
 
@@ -955,7 +955,7 @@ The kernel SHALL NOT decide from the positions of a finding whether an unset val
 - **THEN** the kernel does not decide from the positions of a finding whether an unset value causes it, and when a required value is unset every finding of the tree is a values finding
 
 ### Requirement: A caller identifies the refusal by CUE's error type
-A caller SHALL identify the refusal as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+A caller SHALL identify the refusal (Requirement: Instance verbs refuse an unset required config value) as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: A caller finds the tree with errors.As
 

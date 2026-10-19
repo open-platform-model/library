@@ -426,7 +426,8 @@ The provider count of requirement "The provider count lists the registry keys th
 - **THEN** `Render` fails with one over-subscription row naming the gateway key and the registry keys `cat2@v0` and `cat@v1`, and the platform's `Contracts()` reads the same key in `OverSubscribed` and `Routable` false
 
 ### Requirement: Provenance is the registry key, so two majors of one catalog are two providers
-Provenance SHALL be the registry key, never a value parsed out of an FQN or read off the transformer, so two majors of one catalog are two providers and two transformers of one entry are one. Source: enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry" and "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation"), as recounted by core change `count-providers-per-registry-entry`.
+Provenance (Requirement: The provider count lists the registry keys that require each provider-fulfilled contract) SHALL be the registry key, never a value parsed out of an FQN or read off the transformer, so two majors of one catalog are two providers and two transformers of one entry are one.
+**Source**: enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry" and "An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation"), as recounted by core change `count-providers-per-registry-entry`.
 
 #### Scenario: Two majors of one provider catalog are two providers
 
@@ -495,7 +496,7 @@ A demanded contract for which the platform holds no candidate, or for which ever
 - **THEN** the unresolved-demand row is not marked unprovided, and its message carries no provider-fulfilled text
 
 ### Requirement: An unprovided row's message says that the contract is provider-fulfilled
-An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and nothing on the platform provides it, after the case text and before any disqualified-candidate count.
+An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and nothing on the platform provides it, after the case text (Requirement: The unresolved-demand row distinguishes four cases) and before any disqualified-candidate count.
 
 #### Scenario: An unprovided row says so
 

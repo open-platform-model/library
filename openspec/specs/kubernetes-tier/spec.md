@@ -411,7 +411,7 @@ ADR-008 rule 4's "The kernel derives no ordering of its own" SHALL be read as ex
 - **THEN** its Status records the 2026-10-02 amendment pointing at ADR-011, and the rule ending "The kernel derives no ordering of its own" states that it excludes module-specific ordering only
 
 ### Requirement: A prune hands its stale set to the deletion plan
-A prune's stale set SHALL be computed by the inventory package and handed to the same plan. Source: ADR-008; ADR-013, decision j5; the deletion protocol is enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+A prune's stale set SHALL be computed by the inventory package and handed to the same plan (Requirement: The library provides a deletion plan built from inventory entries, a policy and a UUID). Source: ADR-008; ADR-013, decision j5; the deletion protocol is enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: A prune builds the plan from the stale set
 
@@ -545,7 +545,7 @@ The lookups of requirement "A weight is looked up by group, version and kind fir
 - **THEN** it is 6, because no entry matches by group, version and kind and its name ends in `Class`
 
 ### Requirement: Apply stages keep the stable sort order and are never empty
-Order within a stage SHALL be the stable sort order. The input SHALL NOT be reordered, and no stage SHALL be empty. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+Order within a stage SHALL be the stable sort order. The input (Requirement: Apply stages follow the weight table) SHALL NOT be reordered, and no stage SHALL be empty. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: Stages keep input order and are not empty
 
@@ -1191,7 +1191,8 @@ A NotFound read, or a read that returns no object, SHALL count as already absent
 - **AND** the step is not recorded as deleted
 
 ### Requirement: A successful delete is recorded as deleted and any other error as failed
-A successful delete SHALL record the step as deleted. Any error that is not a NotFound SHALL record the step as failed, with the failure class `forbidden`, `conflict` or `error` and the error's text. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+A successful delete SHALL record the step as deleted. Any other error (Requirement: A NotFound read or delete is already absent) SHALL record the step as failed, with the failure class `forbidden`, `conflict` or `error` and the error's text.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: A failed precondition is a conflict
 

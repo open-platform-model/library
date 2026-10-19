@@ -362,7 +362,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | An instance's deletion plan (uninstall) SHALL be built from the persisted inventory plus the li... | Deletion plans come from the inventory and the live objects | verbatim |
 | Building it SHALL NOT need a render and SHALL NOT read a plan stored at apply time. | Deletion plans come from the inventory and the live objects | verbatim |
-| A prune's stale set SHALL be computed by the inventory package and handed to the same plan. | A prune hands its stale set to the deletion plan | verbatim |
+| A prune's stale set SHALL be computed by the inventory package and handed to the same plan. | A prune hands its stale set to the deletion plan | a pointer "(Requirement: The library provides a deletion plan built from inventory entries, a policy and a UUID)" follows "the same plan", the requirement that holds the referent; the rest is verbatim |
 | ADR-008 SHALL record this, and SHALL record that planning from a render and lifecycle transitio... | parent ("ADR-008 SHALL record this.") and "ADR-008 records the deferral of render planning and transition detection" | one sentence cut in two; "SHALL record that" becomes "SHALL also record that" |
 | This deferral does not touch the deletion step transition, which the tier owns as part of the d... | ADR-008 records the deferral of render planning and transition detection | verbatim |
 | Source: ADR-008; ADR-013, decision j5; the deletion protocol is enhancement 0012 ("The library... | Deletion plans come from the inventory and the live objects; A prune hands its stale set to the deletion plan;... | verbatim |
@@ -480,7 +480,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | It is omitted when there are none. | Apply stages follow the weight table | verbatim |
 | After it comes one stage per distinct weight of the remaining objects, in ascending weight. | Apply stages follow the weight table | verbatim |
 | Order within a stage SHALL be the stable sort order. | Apply stages keep the stable sort order and are never empty | verbatim |
-| The input SHALL NOT be reordered, and no stage SHALL be empty. | Apply stages keep the stable sort order and are never empty | verbatim |
+| The input SHALL NOT be reordered, and no stage SHALL be empty. | Apply stages keep the stable sort order and are never empty | a pointer "(Requirement: Apply stages follow the weight table)" follows "The input", the requirement that holds the referent; the rest is verbatim |
 | Because the weight table never contradicts Flux's staged apply order, a frontend whose apply en... | "A Flux frontend may submit a whole set or one stage" | the MAY clause is kept word for word; the SHALL comes from "The weight table SHALL NOT contradict Flux's staged apply order", the old "never contradicts" as a rule (the Flux test requirement states the same rule) |
 | Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Apply stages keep the stable sort order and are never empty | verbatim |
 
@@ -608,7 +608,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say... | An adopt annotation with any other value lifts nothing | copied whole from the old body, with the old sentence before it that trims the value and counts a blank value as no annotation ("The annotation value SHALL be compared with surrounding whitespace trimmed ..."); a pointer "(Requirement: An adopt annotation naming the instance lifts an ownership refusal)" follows "The annotation value" and "any other value", so both keep the old meaning (the instance UUID is the value that block names); the rest is verbatim |
 | The refusal message for `foreign-object` and `other-instance` SHALL name the object, the annota... | A refusal names the adopt annotation key and the UUID to set | verbatim |
 | The `other-instance` message SHALL ask the user to remove the object from the instance that own... | The other-instance refusal asks to remove the object from its owner first | verbatim |
-| No message SHALL name any other way past a refusal, such as a command-line flag. | No refusal message names another way past the refusal | verbatim |
+| No message SHALL name any other way past a refusal, such as a command-line flag. | No refusal message names another way past the refusal | a pointer "(Requirement: A refusal names the adopt annotation key and the UUID to set)" follows "No message", the requirement that holds the referent; the rest is verbatim |
 | No message SHALL carry an enhancement reference. | No refusal message names another way past the refusal | verbatim |
 | Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outsid... | An adopt annotation naming the instance lifts an ownership refusal; An adopt annotation with any other value l... | verbatim |
 
@@ -778,7 +778,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A NotFound read, or a read that returns no object, SHALL count as already absent, and SHALL be... | A NotFound read or delete is already absent | verbatim |
 | A NotFound delete SHALL be skipped as `already-absent`. | A NotFound read or delete is already absent | verbatim |
 | A successful delete SHALL record the step as deleted. | A successful delete is recorded as deleted and any other error as failed | verbatim |
-| Any other error SHALL record the step as failed, with the failure class `forbidden`, `conflict`... | "A successful delete is recorded as deleted and any other error as failed" | "Any other error" becomes "Any error that is not a NotFound", the same set after the two NotFound cases |
+| Any other error SHALL record the step as failed, with the failure class `forbidden`, `conflict`... | "A successful delete is recorded as deleted and any other error as failed" | "Any other error" is the old wording; a pointer "(Requirement: A NotFound read or delete is already absent)" follows it, the requirement that holds the NotFound cases the word "other" excludes |
 | A live object handed back for a read that names a different object than the step, in any identi... | A mismatched live object is never judged or deleted | verbatim |
 | A failure SHALL NOT stop the plan: the next step's action SHALL follow. | A failure does not stop the plan | verbatim |
 | Each call SHALL append, in step order, the outcomes of the steps it finished and only those, an... | Each call appends the outcomes of the steps it finished | a pointer "(Requirement: The deletion transition returns the next state and one action)" follows "Each call", the requirement that defines the call; the rest is verbatim |
@@ -928,7 +928,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | `ownership.ApplyInput` SHALL have exactly the fields `Object`, `Live`, `InInventory` and `Insta... | parent, naming the unchanged scenario "The verdict inputs carry no admission field" | the field lists stay in that scenario, byte for byte; the body keeps the SHALL |
 | Neither SHALL carry a field whose only effect is to lift a refusal or a skip. | The ownership verdicts take no input that only lifts a refusal | verbatim |
-| The caller still supplies two facts the library does not check, as the frontend's own ownership... | The caller supplies the inventory fact and the instance UUID | verbatim |
+| The caller still supplies two facts the library does not check, as the frontend's own ownership... | The caller supplies the inventory fact and the instance UUID | a pointer "(Requirement: Ownership inputs name the object and carry the live object)" follows "The caller", the requirement that holds the referent; the Source line is a `**Source**:` line; the rest is verbatim |
 | Outside the inventory, the adopt annotation on the live object naming the applying instance SHA... | Only an adopt annotation outside the inventory lifts an ownership refusal | verbatim |
 | On delete, nothing SHALL lift the `not-opm-managed` skip. | Only an adopt annotation outside the inventory lifts an ownership refusal | verbatim |
 | A frontend that installs the operator is judged as any other instance. | "The caller supplies the inventory fact and the instance UUID" | "is judged" becomes "SHALL be judged" |
@@ -1155,7 +1155,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Source: enhancement 0010 and enhancement 0015. | The render and the platform's contract inventory read one provider cou... | added words (not in the old body) |
 | The count is `#Platform.#contracts.providedBy`: for every contract key declared `fulfilment: "p... | The provider count lists the registry keys that require each provider-... | "The count is" becomes "The provider count SHALL be": the subject is the phrase of the first sentence, and the verb gets the keyword an ADDED block needs |
 | Source: enhancement 0015. | The provider count lists the registry keys that require each provider-... | added words (not in the old body) |
-| Provenance is the registry key, never a value parsed out of an FQN or read off the transformer,... | Provenance is the registry key, so two majors of one catalog are two p... | the verb "is" becomes "SHALL be", the keyword an ADDED block needs |
+| Provenance is the registry key, never a value parsed out of an FQN or read off the transformer,... | Provenance is the registry key, so two majors of one catalog are two p... | the verb "is" becomes "SHALL be", the keyword an ADDED block needs; a pointer "(Requirement: The provider count lists the registry keys that require each provider-fulfilled contract)" follows "Provenance", the requirement that holds the referent |
 | Source: enhancement 0015 (^ | Provenance is the registry key, so two majors of one catalog are two p... | added words (not in the old body) |
 | "One provider per contract stands; provider classes are rejected in this entry" | Provenance is the registry key, so two majors of one catalog are two p... | verbatim |
 | and | Provenance is the registry key, so two majors of one catalog are two p... | added words (not in the old body) |
@@ -1202,7 +1202,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A demanded contract for which the platform holds no candidate, or for which every candidate is ... | An unresolved-demand row marks an unprovided demand on every render | verbatim |
 | whether the demand is unprovided (its contract declares `fulfilment: "provider"` and no enabled... | An unresolved-demand row marks an unprovided demand on every render | the final "," of the list becomes "." |
 | The unprovided marker SHALL be computed on every render, whatever the skip switch says. | An unresolved-demand row marks an unprovided demand on every render | verbatim |
-| An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and ... | An unprovided row's message says that the contract is provider-fulfill... | verbatim |
+| An unprovided row's message SHALL additionally say that the contract is provider-fulfilled and ... | An unprovided row's message says that the contract is provider-fulfill... | a pointer "(Requirement: The unresolved-demand row distinguishes four cases)" follows "the case text", the requirement that holds the referent; the rest is verbatim |
 | Every resource a component declares is a required demand. | Render fails on any unresolved demand that the caller's switch did not... | verbatim |
 | `Render` SHALL fail on any unresolved demand that the caller's switch did not skip, through the... | Render fails on any unresolved demand that the caller's switch did not... | verbatim |
 | The row SHALL distinguish four cases: "defined by `<catalog>` and nothing on this platform impl... | The unresolved-demand row distinguishes four cases | "The row" becomes "The unresolved-demand row", the phrase of the first sentence |
@@ -1501,7 +1501,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Test files that keep an older or synthetic core literal on purpose are declared as frozen (capa... | Synthetic, floor and skew literals stay literal and are declared froze... | verbatim |
 | The schema tests SHALL assert the constant's shape: an exact release on the `v2` major whose ve... | The schema tests assert the shape of the constant | verbatim |
 | They SHALL NOT repeat the release as a literal. | The schema tests assert the shape of the constant | verbatim |
-| The core version every served test fixture declares SHALL be the same release, so a fixture nev... | Every served test fixture declares the default core version | verbatim |
+| The core version every served test fixture declares SHALL be the same release, so a fixture nev... | Every served test fixture declares the default core version | a pointer "(Requirement: DefaultSchemaModule names an exact core release)" follows "the same release", the requirement that holds the referent; the rest is verbatim |
 | A test that exercises an older core copies a fixture and re-pins the copy. | Every served test fixture declares the default core version | verbatim |
 | It never commits a fixture pinning another release, and it reads the fixture's current pin from... | Every served test fixture declares the default core version | verbatim |
 
@@ -2123,20 +2123,20 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The effective values are the built spec's `values`: the package's own `values` plus the trailin... | The effective values are the built spec's values | SHALL added: the old sentence has no keyword |
 | A required value is one that `cue.Concrete(true)` refuses on those values unified with `#config... | A required value is one that concreteness refuses | SHALL added: the old sentence has no keyword |
 | An optional field (`foo?:`) and a field with a default are not required. | A required value is one that concreteness refuses | verbatim |
-| Both concreteness checks, the one on the built spec and the one on the values unified with `#co... | Both concreteness checks run in one instance processing step | verbatim |
-| The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully ... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
-| When the values leave no required value unset, the refusal SHALL be the error of the built-spec... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
-| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal holds the value findings of the built-spec check | "they" becomes "the values", the subject of the sentence before it in the old body |
-| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal names every other unset required value at values.<field> | "they" becomes "the values", the subject of the sentence before it in the old body |
+| Both concreteness checks, the one on the built spec and the one on the values unified with `#co... | Both concreteness checks run in one instance processing step | a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "both verbs", the requirement that holds the referent; the rest is verbatim |
+| The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully ... | The refusal is CUE's own error tree framed with the verb and the instance | a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "The refusal", the requirement that holds the referent; the rest is verbatim |
+| When the values leave no required value unset, the refusal SHALL be the error of the built-spec... | The refusal is CUE's own error tree framed with the verb and the instance | a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "the refusal", the requirement that holds the referent; the rest is verbatim |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal holds the value findings of the built-spec check | "they" becomes "the values", the subject of the sentence before it in the old body; a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "the refusal", the requirement that holds the referent |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal names every other unset required value at values.<field> | "they" becomes "the values", the subject of the sentence before it in the old body; a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "the refusal", the requirement that holds the referent |
 | 1. every finding of the built-spec check at a path under `values` (a value the instance's value... | The refusal holds the value findings of the built-spec check | verbatim |
 | 2. one finding for every other unset required value, at the path `values.<field>` (the full pat... | The refusal names every other unset required value at values.<field> | verbatim |
 | A finding SHALL carry the position of the field's `#config` declaration wherever CUE records on... | A finding carries the position of the field's #config declaration | verbatim |
 | A path SHALL be reported once. | A finding carries the position of the field's #config declaration | verbatim |
-| Every finding of the built-spec check outside `values` SHALL be left out of that refusal: the c... | Findings outside values are left out of the refusal | verbatim |
+| Every finding of the built-spec check outside `values` SHALL be left out of that refusal: the c... | Findings outside values are left out of the refusal | a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "that refusal", the requirement that holds the referent; the rest is verbatim |
 | Such a field that is still incomplete once the values are complete is then refused with the bui... | Findings outside values are left out of the refusal | verbatim |
 | The kernel SHALL NOT decide from the positions of a finding whether an unset value causes it. | The kernel does not decide from positions whether an unset value causes a finding | verbatim |
-| A caller identifies the refusal as it did before this requirement changed: `errors.As` with CUE... | A caller identifies the refusal by CUE's error type | SHALL added: the old sentence has no keyword |
-| When a required value is unset, every finding of the tree is a values finding. | The kernel does not decide from positions whether an unset value causes a finding | verbatim |
+| A caller identifies the refusal as it did before this requirement changed: `errors.As` with CUE... | A caller identifies the refusal by CUE's error type | SHALL added: the old sentence has no keyword; a pointer "(Requirement: Instance verbs refuse an unset required config value)" follows "the refusal", the requirement that holds the referent |
+| When a required value is unset, every finding of the tree is a values finding. | The kernel does not decide from positions whether an unset value causes a finding | a pointer "(Requirement: The refusal is CUE's own error tree framed with the verb and the instance)" follows "the tree", the requirement that holds the referent; the rest is verbatim |
 | For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance refuses what ValidateConfigDetailed refuses | verbatim list part (tail '.') |
 | For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance may refuse more only through the concreteness check on the built spec | verbatim list part (tail ';') |
 | For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every ... | SynthesizeInstance may refuse more only through the concreteness check on the built spec | verbatim list part (tail '.') |
@@ -2238,7 +2238,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which loads a `#M... | An acquired instance's Source describes the directory | verbatim part |
 | The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, which loads a `#M... | An acquired instance's Source describes the directory | verbatim list part (tail '.') |
 | A directory with no enclosing module is its own root with an empty `Pkg`. | A directory with no enclosing module is its own root | SHALL added: the old sentence has no keyword |
-| The registry mapping used for the instance's imports SHALL be the kernel's (`WithRegistry`), ap... | The registry mapping for an instance's imports is the kernel's | verbatim |
+| The registry mapping used for the instance's imports SHALL be the kernel's (`WithRegistry`), ap... | The registry mapping for an instance's imports is the kernel's | a pointer "(Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it)" follows "the instance's imports", the requirement that holds the referent; the rest is verbatim |
 | With no values, `Source.Overlay` is nil (on-disk mode). | An instance acquired without values has an on-disk source | SHALL added: the old sentence has no keyword |
 | With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | Values sources are unified in order | verbatim part |
 | With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | Values sources are unified in order | verbatim list part (tail '.') |
@@ -2286,8 +2286,8 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim part |
 | The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim part |
 | The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`, which loads a... | An acquired module's Source Overlay holds every cue file under Root | verbatim list part (tail '.') |
-| The acquired module SHALL satisfy the synthesis precondition (`Module.HasSource()` true) so it ... | An acquired module can be passed to SynthesizeInstance without further staging | verbatim |
-| The registry mapping used for the module's imports SHALL be the kernel's (`WithRegistry`), appl... | The registry mapping for a module's imports is the kernel's | verbatim |
+| The acquired module SHALL satisfy the synthesis precondition (`Module.HasSource()` true) so it ... | An acquired module can be passed to SynthesizeInstance without further staging | a pointer "(Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module)" follows "The acquired module", the requirement that holds the referent; the rest is verbatim |
+| The registry mapping used for the module's imports SHALL be the kernel's (`WithRegistry`), appl... | The registry mapping for a module's imports is the kernel's | a pointer "(Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module)" follows "the module's imports", the requirement that holds the referent; the rest is verbatim |
 | The kernel MUST NOT write into the caller's directory. | Module acquisition writes nothing into the caller's directory | verbatim; a pointer "(Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module)" is added after the subject, because the old text names the referent only in its earlier sentences |
 
 **Acquisition shape gate**: form c2 (REMOVED plus ADDED); old body 2434 characters; new bodies 458, 421, 234, 344, 458, 359, 129, 195.
@@ -2370,7 +2370,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A path that does not exist SHALL fail with `accessing <label> directory "<absolute path>"` wrap... | A directory acquire verb checks the directory and a missing path fails | verbatim list part (tail '.') |
 | A path that does not exist SHALL fail with `accessing <label> directory "<absolute path>"` wrap... | A directory acquire verb refuses a path that is not a directory | capital letter only |
 | A verb that stamps its `Source` in overlay mode (`AcquireModuleFromDir`, `AcquireCatalogFromDir... | An overlay-mode verb reads the cue files once and builds from that overlay | verbatim |
-| When the layered instance build fails, the kernel SHALL attribute the failure to the values sou... | A failed layered build is attributed from the overlay already read | verbatim |
+| When the layered instance build fails, the kernel SHALL attribute the failure to the values sou... | A failed layered build is attributed from the overlay already read | a pointer "(Requirement: An overlay-mode verb reads the cue files once and builds from that overlay)" follows "the overlay already read", the requirement that holds the referent; the rest is verbatim |
 | Platform acquisition and instance acquisition without values sources keep the on-disk mode thei... | Platform acquisition and instance acquisition without values keep the on-disk mode | SHALL added: the old sentence has no keyword |
 | A package that embeds a non-CUE file stored beside it SHALL acquire from a directory as it does... | A package that embeds a non-CUE file acquires from a directory | verbatim |
 
@@ -2394,7 +2394,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | The library SHALL provide constructor helpers that build the module and platform artifacts from... | Constructor helpers build module and platform artifacts from a cue.Value | verbatim |
 | Each constructor SHALL take only the artifact value, decode `Metadata` from the value's `metada... | Constructor helpers build module and platform artifacts from a cue.Value | verbatim |
-| The constructed artifact carries no `Source`. | A constructed artifact carries no Source | SHALL added: the old sentence has no keyword |
+| The constructed artifact carries no `Source`. | A constructed artifact carries no Source | SHALL added: the old sentence has no keyword; a pointer "(Requirement: Constructor helpers build module and platform artifacts from a cue.Value)" follows "The constructed artifact", the requirement that holds the referent |
 | The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package cons... | The kernel does not wrap the constructors | referent copied from the first sentence |
 | No instance constructor SHALL be exported: an instance is produced only by the kernel's acquisi... | No instance constructor is exported | verbatim |
 
@@ -2431,7 +2431,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | `ConfigSchema()` returns it as well when the instance carries no `#module` or the embedded modu... | ConfigSchema and Values return the zero value rather than an error | verbatim |
 | `ModuleMetadata()` SHALL return nil when the receiver is `nil`, when the instance carries no `#... | ModuleMetadata returns nil when it cannot be read and decodes afresh | verbatim |
 | Each call decodes afresh from `Package`; the returned struct is a copy, and mutating it does no... | ModuleMetadata returns nil when it cannot be read and decodes afresh | verbatim |
-| No accessor SHALL consult a version or binding. | No accessor consults a version or mirrors a metadata field | verbatim |
+| No accessor SHALL consult a version or binding. | No accessor consults a version or mirrors a metadata field | a pointer "(Requirement: Instance exposes Components and Values)" follows "No accessor", the requirement that holds the referent; the rest is verbatim |
 | The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`... | No accessor consults a version or mirrors a metadata field | verbatim |
 | The render build reads none of these accessors: the transformer context is projected by core (e... | The render build reads none of the instance accessors | SHALL added: the old sentence has no keyword; referent copied from the first sentence |
 
@@ -2488,7 +2488,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest pu... | A core move records a warning that names it and need-human-review | verbatim |
 | When it moves, the task SHALL record a warning that names the move and `need-human-review`. | A core move records a warning that names it and need-human-review | verbatim |
 | Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | A core move records a warning that names it and need-human-review | the whole Source line |
-| The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `casca... | The pin report labels the core row need-human-review | verbatim |
+| The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `casca... | The pin report labels the core row need-human-review | a pointer "(Requirement: pins.sh reports the core and catalog pins and reads them without running cue)" follows "The pin report", the requirement that holds the referent; the rest is verbatim |
 | Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | The pin report labels the core row need-human-review | the whole Source line |
 
 **Text-pinned test trees follow the loader**: form c2 (REMOVED plus ADDED); old body 571 characters; new bodies 386, 406.
@@ -3323,7 +3323,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact shape: `{ Metada... | Platform has the uniform artifact shape of Metadata, Package and Source | verbatim |
 | `Package` is the source of truth; `Metadata` is a decoded cache of the platform-level metadata; `... | Platform has the uniform artifact shape of Metadata, Package and Source | verbatim |
-| No exported field SHALL hold a decoded derived CUE view (`#composedTransformers`, `#contracts`),... | No exported field of Platform holds a decoded derived CUE view | verbatim |
+| No exported field SHALL hold a decoded derived CUE view (`#composedTransformers`, `#contracts`),... | No exported field of Platform holds a decoded derived CUE view | a pointer "(Requirement: Platform has the uniform artifact shape of Metadata, Package and Source)" follows "No exported field", the requirement that holds the referent; the rest is verbatim |
 | The contract inventory core derives on `#Platform.#contracts` | Contracts returns a decoded ContractInventory, decoded once at construction | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
 | SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decod... | Contracts returns a decoded ContractInventory, decoded once at construction | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
 | enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | Contracts returns a decoded ContractInventory, decoded once at construction | the whole citation, as a `**Source**:` line |

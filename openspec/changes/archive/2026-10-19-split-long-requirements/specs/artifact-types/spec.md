@@ -473,7 +473,7 @@ A verb that stamps its `Source` in overlay mode (`AcquireModuleFromDir`, `Acquir
 - **THEN** the package is built from the `.cue` bytes held in the returned `Source.Overlay`, read once before the build
 
 ### Requirement: A failed layered build is attributed from the overlay already read
-When the layered instance build fails, the kernel SHALL attribute the failure to the values sources by building the authored package from the overlay already read.
+When the layered instance build fails, the kernel SHALL attribute the failure to the values sources by building the authored package from the overlay already read (Requirement: An overlay-mode verb reads the cue files once and builds from that overlay).
 
 #### Scenario: Values attribution reuses the authored read
 
@@ -531,7 +531,7 @@ The library SHALL provide constructor helpers that build the module and platform
 - **AND** no `CueContextOwner` interface exists in either package
 
 ### Requirement: A constructed artifact carries no Source
-The constructed artifact SHALL carry no `Source`.
+The constructed artifact (Requirement: Constructor helpers build module and platform artifacts from a cue.Value) SHALL carry no `Source`.
 
 #### Scenario: A constructed artifact has no Source
 
