@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// single-build-render spec, "Matching runs inside the build with verdicts
-// as data": a pair is listed as failed when its output's Value.Err() is
+// single-build-render spec, "The kernel names the failed pairs from each
+// matched pair's rendered output": a pair is listed as failed when its output's Value.Err() is
 // non-nil, an output whose root is incomplete included; a struct or list
 // root whose only defect is non-concrete fields is not listed, and neither
 // is an output that does not exist. The outputs are shaped by the same
