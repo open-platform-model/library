@@ -202,6 +202,12 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 **Decision**: 4 requirements use form b because another file cites the header: "Goroutine Safety Contract" (ADR-002), "Each runtime contract has one home" (ADR-013), "An overlay source can be written to a directory" (a comment in `opm/module/source_test.go`) and "Instance verbs refuse an unset required config value" (two requirements of `kernel-runtime`, one of them a scenario that stays byte for byte). 24 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out), so B3 adds no stale code-comment name to the seven listed above. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary and its lead is repeated (the register option, `AcquireInstanceFromDir`, `AcquireModuleFromDir`, the single registry client, the values sources of `AcquireInstanceFromDir`, the failed synthesis build, the committed-file citation rule and the `SynthesizeInstance` refusal parity sentence). The words added are only these: a keyword (the strength table), a subject or referent copied from the same old requirement (the clause tables name each), and a pointer to another requirement of the same spec by its exact header, where a body used "this", "that build" or "these checks" and the old content cannot fit. The Source lines are repeated whole in every block, with their clauses ("as revised on 2026-10-03"; both clauses of the refusal line). A body that did not fit beside its whole line was split further at a list or clause boundary (the cancellation list and the cancelled-check sentence, the deletion-state conditions). Reversibility: high.
 **Rationale**: The 500-character limit, the rule that a citation stays in the body of the block that carries the rule, and the rule that no word is dropped leave no other choice.
 
+### Batch library-B4, first half: the form choices and the limits of the verbatim rule
+
+**Context**: The first half of B4 holds `deps-cascade` (8 long requirements) and `instance-synthesis` (7). The other three specs of B4 (`cascade-wiring`, `config-validation`, `workflow-hardening`) follow in the second half, with its own ledger.
+**Decision**: 2 requirements use form b because another file cites the header: "The docs examples follow the loader's core" (a sentence of "The cascade task never touches release or steering files" names it, and that sentence keeps the citation in its new block) and "Instance synthesis input" (a comment in `opm/kernel/synth_test.go`). 13 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out). Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table), a subject copied from the same old requirement ("The task" or `task -x deps:cascade` for "It", `InstanceInput` for "It"), the lead sentence of the old body repeated where a later sentence needs its subject or its referent, the closing ";" of a list bullet turned into ".", and a pointer to another requirement of the same spec by its exact header where the old content cannot fit beside the whole Source line (the target and the modules in scope of the catalog requirement, the files and literals of the docs examples requirement, the fields of "Instance synthesis input", the overlay of the staged tree requirement, the synthetic-root check). The Source lines are repeated whole in every block. A body that did not fit beside its whole line was split further at a sentence boundary (the core pin and the docs examples).
+**Rationale**: The 500-character limit, the rule that a citation stays in the body of the block that carries the rule, and the rule that no word is dropped leave no other choice. Reversibility: high.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -2403,6 +2409,371 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`... | No accessor consults a version or mirrors a metadata field | verbatim |
 | The render build reads none of these accessors: the transformer context is projected by core (e... | The render build reads none of the instance accessors | SHALL added: the old sentence has no keyword; referent copied from the first sentence |
 
+### Ledger: deps-cascade
+
+**The cascade task reports its result by exit code**: form c2 (REMOVED plus ADDED); old body 806 characters; new bodies 282, 239, 419.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Nothing to move | The cascade task changes the working tree only and reports its result by exit code, same name | no, byte for byte (checked) |
+| Resolver error | A failing step ends the cascade task with a non-zero code other than 3, same name | no, byte for byte (checked) |
+| Dirty tree | The cascade task refuses a dirty working tree unless told otherwise, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `task -x deps:cascade` SHALL move the library's upstream pins in the working tree only. | The cascade task changes the working tree only and reports its result by exit code | verbatim |
+| It SHALL NOT commit, branch or push. | The cascade task changes the working tree only and reports its result by exit code | verbatim |
+| It SHALL exit 0 when the working tree changed, 3 when nothing changed, and any other code on error. | The cascade task changes the working tree only and reports its result by exit code | verbatim |
+| Source: workspace `RELEASING.md`, section "The receiver". | The cascade task changes the working tree only and reports its result by exit code | the whole Source line |
+| It SHALL refuse a dirty working tree with exit 1 unless `CASCADE_ALLOW_DIRTY=1` is set, in which... | The cascade task refuses a dirty working tree unless told otherwise | subject copied from the first sentence |
+| Source: workspace `RELEASING.md`, section "The receiver". | The cascade task refuses a dirty working tree unless told otherwise | the whole Source line |
+| A failing resolver call, `cue mod get`, `cue mod tidy` or file edit SHALL end the task with a non... | A failing step ends the cascade task with a non-zero code other than 3 | verbatim |
+| The task SHALL NOT fall back to an older or guessed version, and SHALL NOT discard the failing co... | A failing step ends the cascade task with a non-zero code other than 3 | verbatim |
+| Every resolver call that decides a target SHALL run before the first file edit, so a resolver err... | A failing step ends the cascade task with a non-zero code other than 3 | verbatim |
+| Source: workspace `RELEASING.md`, section "The receiver". | A failing step ends the cascade task with a non-zero code other than 3 | the whole Source line |
+
+**Core moves with DefaultSchemaModule and is labelled for human review**: form c2 (REMOVED plus ADDED); old body 960 characters; new bodies 361, 458, 464, 376, 280.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A newer core is published | The core pin moves to the newest published release the resolver returns, same name | no, byte for byte (checked) |
+| The resolver keeps core where it is | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a prerelease, same name | no, byte for byte (checked) |
+| A frozen loader holds back the catalog | A frozen loader keeps the core pin and every later step uses that core, same name | no, byte for byte (checked) |
+| The resolver warns of a new core major | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a prerelease, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A core move is recorded in a warning" in "A core move records a warning that names it and need-human-review"
+- "The core row carries the label" in "The pin report labels the core row need-human-review"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest pu... | The core pin moves to the newest published release the resolver returns | verbatim |
+| It SHALL edit only that string literal. | The core pin moves to the newest published release the resolver returns | verbatim |
+| It SHALL NOT edit any other Go file. | The core pin moves to the newest published release the resolver returns | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | The core pin moves to the newest published release the resolver returns | the whole Source line |
+| The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest pu... | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a... | verbatim |
+| Prereleases SHALL count while the current pin is a prerelease. | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a... | verbatim |
+| The pin SHALL NOT move backwards, SHALL NOT cross a major, and SHALL stop at an in-date `.cascade... | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a... | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | The core pin never moves backwards or across a major, stops at a hold and counts prereleases while it is a... | the whole Source line |
+| The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest pu... | A frozen loader keeps the core pin and every later step uses that core | verbatim |
+| When `.cascade-frozen` lists `opm/schema/loader.go` for `opmodel.dev/core@v2`, the pin SHALL stay... | A frozen loader keeps the core pin and every later step uses that core | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | A frozen loader keeps the core pin and every later step uses that core | the whole Source line |
+| The task SHALL move the core pin `DefaultSchemaModule` in `opm/schema/loader.go` to the newest pu... | A core move records a warning that names it and need-human-review | verbatim |
+| When it moves, the task SHALL record a warning that names the move and `need-human-review`. | A core move records a warning that names it and need-human-review | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | A core move records a warning that names it and need-human-review | the whole Source line |
+| The pin report SHALL carry the label `need-human-review` on the core row, so the PR body's `casca... | The pin report labels the core row need-human-review | verbatim |
+| Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); workspace `RE... | The pin report labels the core row need-human-review | the whole Source line |
+
+**Text-pinned test trees follow the loader**: form c2 (REMOVED plus ADDED); old body 571 characters; new bodies 386, 406.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Every render tree follows | The text-pinned test trees take the core version DefaultSchemaModule names, same name | no, byte for byte (checked) |
+| A lagging tree catches up | The text-pinned test trees take the core version DefaultSchemaModule names, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A render tree keeps its other dependencies" in "The text-pinned test trees keep every other dependency and run no cue command"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The task SHALL set the core `v:` of `testdata/cue.mod/module.cue` and of every `testdata/render/*... | The text-pinned test trees take the core version DefaultSchemaModule names | verbatim |
+| It SHALL rewrite only the `v:` inside the `"opmodel.dev/core@v2"` block. | The text-pinned test trees take the core version DefaultSchemaModule names | verbatim |
+| A file that `.cascade-frozen` lists for `opmodel.dev/core@v2` SHALL be left byte-unchanged. | The text-pinned test trees take the core version DefaultSchemaModule names | verbatim |
+| The task SHALL set the core `v:` of `testdata/cue.mod/module.cue` and of every `testdata/render/*... | The text-pinned test trees keep every other dependency and run no cue command | verbatim |
+| It SHALL NOT change any other dependency in those files, including the synthetic `testing.opmodel... | The text-pinned test trees keep every other dependency and run no cue command | verbatim |
+
+**The opm catalog moves only as far as the loader's core allows**: form c2 (REMOVED plus ADDED); old body 1159 characters; new bodies 274, 309, 360, 429, 437, 485.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Catalog-only move | The opm catalog moves to the newest published v4 release the resolver returns, same name | no, byte for byte (checked) |
+| Catalog needs a newer core | The catalog stays when the core its release pins is newer than the loader's, same name | no, byte for byte (checked) |
+| Frozen module | A frozen key is left out of the get and the task exits 1 if tidy changed it, same name | no, byte for byte (checked) |
+| Tidy raises a frozen key | A frozen key is left out of the get and the task exits 1 if tidy changed it, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A module whose core differs is in scope" in "A module is in scope when its core differs from the loader value or its catalog is below the target"
+- "A module that pins the catalog below the target is in scope" in "A module is in scope when its core differs from the loader value or its catalog is below the target"
+- "A module where nothing moved is left untouched" in "A module is in scope when its core differs from the loader value or its catalog is below the target"
+- "One get and one tidy per module in scope" in "One cue mod get and one cue mod tidy move a module in scope and name the catalog only when it is below the target"
+- "A third-party dependency is not named" in "The get names no third-party dependency and a dependency that tidy raises is a warning"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cue.mod/module.cue`... | The opm catalog moves to the newest published v4 release the resolver returns | verbatim |
+| Prereleases SHALL NOT count while the current pin is a release. | The opm catalog moves to the newest published v4 release the resolver returns | verbatim |
+| A catalog pin above the target SHALL never be lowered. | The opm catalog moves to the newest published v4 release the resolver returns | verbatim |
+| The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cue.mod/module.cue`... | The catalog stays when the core its release pins is newer than the loader's | verbatim |
+| When the core that catalog release pins is newer than `DefaultSchemaModule`, the catalog SHALL st... | The catalog stays when the core its release pins is newer than the loader's | verbatim |
+| The task SHALL move `opmodel.dev/catalogs/opm@v4`, read from `testdata/parity/cue.mod/module.cue`... | A module is in scope when its core differs from the loader value or its catalog is below the target | verbatim |
+| Each module of the `CUE_MODULE_GLOBS` set SHALL be in scope when its core differs from the loader... | A module is in scope when its core differs from the loader value or its catalog is below the target | verbatim |
+| A module where nothing moved SHALL be left untouched. | A module is in scope when its core differs from the loader value or its catalog is below the target | verbatim |
+| For each module in scope, the task SHALL run one `cue mod get` that names core at the loader valu... | One cue mod get and one cue mod tidy move a module in scope and name the catalog only when it is below the... | verbatim |
+| The catalog SHALL be named in a module's get only when that module's catalog is below the target. | One cue mod get and one cue mod tidy move a module in scope and name the catalog only when it is below the... | verbatim |
+| (added pointer) | One cue mod get and one cue mod tidy move a module in scope and name the catalog only when it is below the... | pointer to the requirement that holds the target and the scope |
+| For each module in scope, the task SHALL run one `cue mod get` that names core at the loader valu... | The get names no third-party dependency and a dependency that tidy raises is a warning | verbatim |
+| Third-party dependencies SHALL NOT be named. | The get names no third-party dependency and a dependency that tidy raises is a warning | verbatim |
+| When tidy raises one, that SHALL be a warning, not a revert. | The get names no third-party dependency and a dependency that tidy raises is a warning | verbatim |
+| (added pointer) | The get names no third-party dependency and a dependency that tidy raises is a warning | pointer to the requirement that holds the target and the scope |
+| For each module in scope, the task SHALL run one `cue mod get` that names core at the loader valu... | A frozen key is left out of the get and the task exits 1 if tidy changed it | verbatim |
+| A key that `.cascade-frozen` lists for a module's `cue.mod/module.cue` SHALL be left out of the g... | A frozen key is left out of the get and the task exits 1 if tidy changed it | verbatim |
+| (added pointer) | A frozen key is left out of the get and the task exits 1 if tidy changed it | pointer to the requirement that holds the target and the scope |
+
+**The cascade task never touches release or steering files**: form c2 (REMOVED plus ADDED); old body 780 characters; new bodies 276, 43, 163, 313.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Stale getting-started prose | The cascade task warns when the docs name a core release other than the loader's, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "No release or steering file changes" in "The cascade task modifies no release or steering file"
+- "No publish to a registry" in "The cascade task publishes to no registry"
+- "A newer language version only warns" in "The cascade task warns of a newer language version and edits nothing"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The task SHALL NOT modify these: | The cascade task modifies no release or steering file | verbatim |
+| - `.cascade-frozen` and `.cascade-hold`; | The cascade task modifies no release or steering file | verbatim |
+| - `.release-please-manifest.json`, `release-please-config.json` and `CHANGELOG.md`; | The cascade task modifies no release or steering file | verbatim |
+| - anything under `.github/`; | The cascade task modifies no release or steering file | verbatim |
+| - `.opm-docs-version` and `docs-kit.cue`; | The cascade task modifies no release or steering file | verbatim |
+| - `cue-versions.yml`; | The cascade task modifies no release or steering file | verbatim |
+| - any `language.version`. | The cascade task modifies no release or steering file | verbatim |
+| It SHALL NOT publish to any registry. | The cascade task publishes to no registry | subject copied from the first sentence |
+| It SHALL warn, without editing, when an upstream it moved declares a `language.version` newer tha... | The cascade task warns of a newer language version and edits nothing | subject copied from the first sentence |
+| It SHALL warn when `docs/getting-started.md` or `AGENTS.md` still names a core release other than... | The cascade task warns when the docs name a core release other than the loader's | subject copied from the first sentence |
+
+**Title and body come from the shared resolver**: form c2 (REMOVED plus ADDED); old body 592 characters; new bodies 298, 293.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Core and catalog moved | Title and body come from the shared resolver with the repo's class map, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "pins.sh reports two pins" in "pins.sh reports the core and catalog pins and reads them without running cue"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `task -x deps:cascade:title` and `task -x deps:cascade:body` SHALL call the shared resolver's `ti... | Title and body come from the shared resolver with the repo's class map | verbatim |
+| The class map SHALL classify `testdata/`, `modules/` and `*_test.go` as `test`, and every other p... | Title and body come from the shared resolver with the repo's class map | verbatim |
+| `pins.sh` SHALL report two pins: | pins.sh reports the core and catalog pins and reads them without running cue | verbatim |
+| - `opmodel.dev/core@v2`, read from the loader, class `shipped`, label `need-human-review`; | pins.sh reports the core and catalog pins and reads them without running cue | verbatim |
+| - `opmodel.dev/catalogs/opm@v4`, read from the parity module file, class `test`. | pins.sh reports the core and catalog pins and reads them without running cue | verbatim |
+| `pins.sh` SHALL read them from the working tree or from a git ref without running `cue`. | pins.sh reports the core and catalog pins and reads them without running cue | verbatim |
+
+**The cascade task is tested offline and over the network**: form c2 (REMOVED plus ADDED); old body 1365 characters; new bodies 210, 427, 318, 443, 371, 279.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Idempotent catch-up | The full set runs the older-pins scenario, same name | no, byte for byte (checked) |
+| Lagging docs without a core move | The lagging-docs scenario expects exit 3, an unchanged tree and a warning naming the file, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The stub checksum is asserted" in "The cascade test task runs against the canonical resolver stub and passes only when every selected scenario passes"
+- "The offline set needs no network" in "The offline set needs no network and runs in the required CI job, and a non-required workflow runs the full set"
+- "A frozen module stays byte-unchanged" in "The full set runs the frozen-module scenario"
+- "Title and body are checked with a real resolver" in "The full set runs the title and body scenarios when a real resolver is given"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The cascade test task runs against the canonical resolver stub and passes only when every selected scenario... | verbatim |
+| It SHALL assert the stub's checksum. | The cascade test task runs against the canonical resolver stub and passes only when every selected scenario... | verbatim |
+| It SHALL exit 0 only when every selected scenario passes. | The cascade test task runs against the canonical resolver stub and passes only when every selected scenario... | verbatim |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The offline set needs no network and runs in the required CI job, and a non-required workflow runs the full... | verbatim |
+| With `CASCADE_TEST_SET=offline`, it SHALL run the no-op, resolver-error, dirty-tree, lagging-tree... | The offline set needs no network and runs in the required CI job, and a non-required workflow runs the full... | verbatim |
+| A non-required workflow SHALL run the full set. | The offline set needs no network and runs in the required CI job, and a non-required workflow runs the full... | verbatim |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The lagging-docs scenario expects exit 3, an unchanged tree and a warning naming the file | verbatim |
+| The lagging-docs scenario SHALL give the example in `docs/getting-started.md` an older same-major... | The lagging-docs scenario expects exit 3, an unchanged tree and a warning naming the file | verbatim |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The full set runs the older-pins scenario | verbatim |
+| With the full set, it SHALL also run these scenarios: | The full set runs the older-pins scenario | verbatim |
+| - **older pins:** every location set to an older published version, the two docs examples include... | The full set runs the older-pins scenario | list bullet; the closing ";" becomes "." |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The full set runs the frozen-module scenario | verbatim |
+| With the full set, it SHALL also run these scenarios: | The full set runs the frozen-module scenario | verbatim |
+| - **frozen module:** a module listed in `.cascade-frozen` stays byte-unchanged; in the same run,... | The full set runs the frozen-module scenario | list bullet; the closing ";" becomes "." |
+| `task -x deps:cascade:test` SHALL run the task in throwaway copies of the tree against the canoni... | The full set runs the title and body scenarios when a real resolver is given | verbatim |
+| With the full set, it SHALL also run these scenarios: | The full set runs the title and body scenarios when a real resolver is given | verbatim |
+| - **title and body**, when a real resolver is given, for a core-and-catalog move and for a catalo... | The full set runs the title and body scenarios when a real resolver is given | verbatim |
+
+**The docs examples follow the loader's core**: form b (MODIFIED parent plus ADDED); old body 884 characters; parent body 457 characters; new bodies 308, 354, 240, 274.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Core moves and the examples follow | The docs examples follow the loader's core, same name | no, byte for byte (checked) |
+| A lagging example catches up on the next core move | The docs examples follow the loader's core, same name | no, byte for byte (checked) |
+| No core move, no docs edit | The docs examples follow the loader's core, same name | no, byte for byte (checked) |
+| Another major is left alone | The docs examples follow the loader's core, same name | no, byte for byte (checked) |
+| A release named in prose is left alone | The docs examples follow the loader's core, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Nothing else in the docs files is rewritten" in "The docs examples change nothing else in the docs files"
+- "A run without a core move produces no docs diff" in "The docs examples are not edited in a run that does not move DefaultSchemaModule"
+- "A release of another major is not rewritten" in "The docs examples leave a release of another major alone"
+- "A frozen docs file is left byte-unchanged" in "A frozen docs file stays byte-unchanged"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| In a run that moves `DefaultSchemaModule`, the task SHALL rewrite the version in every `Module: "... | The docs examples follow the loader's core | verbatim |
+| Source: workspace `RELEASING.md`, sections "What each repo's task moves" and "Title from diff cla... | The docs examples follow the loader's core | the whole Source line |
+| It SHALL change nothing else in those files: a core release named anywhere else, in prose include... | The docs examples change nothing else in the docs files | subject copied from the first sentence |
+| (added pointer) | The docs examples change nothing else in the docs files | pointer to the parent requirement that holds the files |
+| Source: workspace `RELEASING.md`, sections "What each repo's task moves" and "Title from diff cla... | The docs examples change nothing else in the docs files | the whole Source line |
+| It SHALL NOT edit either file in a run that does not move `DefaultSchemaModule`, a run with a fro... | The docs examples are not edited in a run that does not move DefaultSchemaModule | subject copied from the first sentence |
+| (added pointer) | The docs examples are not edited in a run that does not move DefaultSchemaModule | pointer to the parent requirement that holds the files |
+| Source: workspace `RELEASING.md`, sections "What each repo's task moves" and "Title from diff cla... | The docs examples are not edited in a run that does not move DefaultSchemaModule | the whole Source line |
+| It SHALL NOT rewrite a release of another major. | The docs examples leave a release of another major alone | subject copied from the first sentence |
+| (added pointer) | The docs examples leave a release of another major alone | pointer to the parent requirement that holds the literals |
+| Source: workspace `RELEASING.md`, sections "What each repo's task moves" and "Title from diff cla... | The docs examples leave a release of another major alone | the whole Source line |
+| A file that `.cascade-frozen` lists for `opmodel.dev/core@v2` SHALL be left byte-unchanged. | A frozen docs file stays byte-unchanged | verbatim |
+| (added pointer) | A frozen docs file stays byte-unchanged | pointer to the parent requirement that holds the files |
+| Source: workspace `RELEASING.md`, sections "What each repo's task moves" and "Title from diff cla... | A frozen docs file stays byte-unchanged | the whole Source line |
+
+### Ledger: instance-synthesis
+
+**Values field is caller-supplied with no implicit fallback**: form c2 (REMOVED plus ADDED); old body 611 characters; new bodies 243, 367.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Caller-supplied values participate in the build | Caller-supplied Values are unified in stack order, rendered into the build and checked against #config, same name | no, byte for byte (checked) |
+| Layered values unify in order | Caller-supplied Values are unified in stack order, rendered into the build and checked against #config, same name | no, byte for byte (checked) |
+| Zero Values is not replaced by debugValues | No implicit source replaces an empty Values, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `SynthesizeInstance` SHALL NOT consult `Module.debugValues` or any other implicit source when `In... | No implicit source replaces an empty Values | verbatim |
+| When `Values` is empty, the kernel SHALL omit the values source and enforce concreteness on the b... | No implicit source replaces an empty Values | verbatim |
+| When `Values` holds one or more sources, the kernel SHALL unify them in stack order, render the r... | Caller-supplied Values are unified in stack order, rendered into the build and checked against #config | verbatim |
+
+**Optional labels and annotations are filled into instance metadata**: form c2 (REMOVED plus ADDED); old body 723 characters; new bodies 225, 191, 305.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Caller labels merged with schema-stamped labels | Caller labels cannot remove schema-stamped labels, same name | no, byte for byte (checked) |
+| Annotations are passed through unchanged | Caller labels and annotations fill instance metadata, same name | no, byte for byte (checked) |
+| Label and annotation order is stable | The staged instance source is deterministic and emits entries in ascending key order, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| When `InstanceInput.Labels` is non-empty, `synth.Instance` SHALL fill `metadata.labels` with thos... | Caller labels and annotations fill instance metadata | verbatim |
+| When `InstanceInput.Annotations` is non-empty, `synth.Instance` SHALL fill `metadata.annotations`... | Caller labels and annotations fill instance metadata | verbatim |
+| The schema's label stamping (Requirement: Derived fields come from schema unification) unifies wi... | Caller labels cannot remove schema-stamped labels | verbatim |
+| The staged instance source SHALL be deterministic: for identical inputs, the bytes synthesis emit... | The staged instance source is deterministic and emits entries in ascending key order | verbatim |
+| Entries SHALL be emitted in ascending key order. | The staged instance source is deterministic and emits entries in ascending key order | verbatim |
+
+**Imported-module render coverage exists**: form c2 (REMOVED plus ADDED); old body 646 characters; new bodies 409, 236.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Real imported module renders to resources | A test renders an instance whose module is referenced by import, on the synth path and an authored-package path, same name | no, byte for byte (checked) |
+| Module importing a catalog subpackage synthesizes and renders | The synth-path coverage includes a module that imports a catalog subpackage, same name | no, byte for byte (checked) |
+| Single-build parity with an authored package | A test renders an instance whose module is referenced by import, on the synth path and an authored-package path, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL include a test that renders an instance whose module is referenced by import (n... | A test renders an instance whose module is referenced by import, on the synth path and an authored-package... | verbatim |
+| This coverage SHALL exist for both the synth path and an authored-package path so that a regressi... | A test renders an instance whose module is referenced by import, on the synth path and an authored-package... | verbatim |
+| The synth-path coverage SHALL include a module that imports a **catalog subpackage** (e.g. a work... | The synth-path coverage includes a module that imports a catalog subpackage | verbatim |
+
+**synth.Instance constructs the instance by single-build CUE evaluation**: form c2 (REMOVED plus ADDED); old body 2503 characters; new bodies 340, 458, 414, 259, 414, 194, 434.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| No scope or Go pre-merge in the construction path | The schema merges the values and the Go code fills only caller-supplied inputs, same name | no, byte for byte (checked) |
+| No fabricated module file | The instance source is overlaid into the module's staged source tree and no module file is fabricated, same name | no, byte for byte (checked) |
+| Values merged in-build by the schema | The schema merges the values and the Go code fills only caller-supplied inputs, same name | no, byte for byte (checked) |
+| Imported-module construction succeeds | The instance source imports the module's package and core, and the module import resolves locally, same name | no, byte for byte (checked) |
+| Single-build parity with an authored package | synth.Instance builds the instance in a single build through the shape gate, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The values file is overlaid beside the instance source" in "A values file rendered from the input's Values is overlaid beside the instance source"
+- "synth.Instance lives off the public surface" in "synth.Instance lives in opm/internal/synth with a fixed Go signature"
+- "The parameters of synth.Instance" in "The parameters in the signature of synth.Instance are the call context, the core release and the package-internal input"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `synth.Instance` SHALL construct the `#ModuleInstance` value by synthesizing an in-memory CUE pac... | synth.Instance builds the instance in a single build through the shape gate | verbatim |
+| The instance source SHALL be overlaid **into the acquired module's own staged source tree** (unde... | The instance source is overlaid into the module's staged source tree and no module file is fabricated | verbatim |
+| `synth.Instance` SHALL NOT fabricate a `cue.mod/module.cue` and SHALL NOT declare a dependency se... | The instance source is overlaid into the module's staged source tree and no module file is fabricated | verbatim |
+| The instance source SHALL **import** the module's own package by its module path and write `#modu... | The instance source imports the module's package and core, and the module import resolves locally | verbatim |
+| Because the instance is built inside the module's main module, the module import resolves **local... | The instance source imports the module's package and core, and the module import resolves locally | SHALL added: the old sentence has no keyword |
+| A values file rendered from the input's `Values` (the unified value of the caller's `InstanceInpu... | A values file rendered from the input's Values is overlaid beside the instance source | verbatim |
+| `synth.Instance` SHALL NOT inject the module via `cue.Scope` / a `userModule` field, and SHALL NO... | The schema merges the values and the Go code fills only caller-supplied inputs | verbatim |
+| The values merge SHALL be performed by the schema in CUE (`#ModuleInstance`'s `unifiedModule = #m... | The schema merges the values and the Go code fills only caller-supplied inputs | verbatim |
+| The Go code SHALL fill only caller-supplied inputs and let CUE derive `metadata.uuid`, `component... | The schema merges the values and the Go code fills only caller-supplied inputs | verbatim |
+| `synth.Instance` lives in `opm/internal/synth`, off the public surface; its Go signature is `Inst... | synth.Instance lives in opm/internal/synth with a fixed Go signature | SHALL added: the old sentence has no keyword |
+| `cueCtx` is the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the ke... | The parameters in the signature of synth.Instance are the call context, the core release and the package-in... | SHALL added: the old sentence has no keyword |
+
+**synth.Instance requires the module's staged source**: form c2 (REMOVED plus ADDED); old body 1229 characters; new bodies 187, 298, 279, 383, 197.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Module without staged source is rejected | A module without staged source is refused and the kernel fetches nothing itself, same name | no, byte for byte (checked) |
+| Module acquired with source synthesizes | Synthesis constructs the instance inside the acquired module's staged source tree, same name | no, byte for byte (checked) |
+| Module acquired from a directory synthesizes | Synthesis constructs the instance inside the acquired module's staged source tree, same name | no, byte for byte (checked) |
+| Subpackage module is refused | A module acquired from a subdirectory of its CUE module is refused, same name | no, byte for byte (checked) |
+| An existing synthetic root refuses a synthesis | An existing synthetic root refuses a synthesis of a registry-acquired module, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A module acquired from a directory is not checked" in "A module acquired from a directory is not checked for a synthetic root"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree... | Synthesis constructs the instance inside the acquired module's staged source tree | verbatim |
+| When `InstanceInput.Module` carries no staged source (it was constructed from a bare value), the... | A module without staged source is refused and the kernel fetches nothing itself | verbatim |
+| The kernel SHALL NOT perform a registry fetch or a directory walk of its own to obtain the module... | A module without staged source is refused and the kernel fetches nothing itself | verbatim |
+| When the module's `Source.Pkg` is non-empty (the module was acquired from a subdirectory of its C... | A module acquired from a subdirectory of its CUE module is refused | verbatim |
+| When the module was acquired from a registry, its staged root is a synthetic root that does not e... | An existing synthetic root refuses a synthesis of a registry-acquired module | verbatim |
+| A module acquired from a directory has a real root on disk and is not checked. | A module acquired from a directory is not checked for a synthetic root | SHALL NOT added: the old sentence has no keyword |
+| (added pointer) | A module acquired from a directory is not checked for a synthetic root | pointer to the requirement that holds the check |
+
+**Synthesis surfaces its staged tree**: form c2 (REMOVED plus ADDED); old body 533 characters; new bodies 374, 261.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The staged tree matches the build | Synthesis stamps the staged source tree on the returned instance, same name | no, byte for byte (checked) |
+| Failure returns no tree | Synthesis stamps the staged source tree on the returned instance, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The overlay is a clone" in "The stamped overlay is a clone"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `SynthesizeInstance` SHALL stamp on the returned instance the staged source tree the single build... | Synthesis stamps the staged source tree on the returned instance | verbatim |
+| The overlay SHALL be a clone, so repeated synthesis from one module remains safe and the caller m... | The stamped overlay is a clone | verbatim |
+| (added pointer) | The stamped overlay is a clone | pointer to the requirement that holds the overlay |
+
+**Instance synthesis input**: form b (MODIFIED parent plus ADDED); old body 928 characters; parent body 392 characters; new bodies 158, 242, 210.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Required inputs validated | Instance synthesis input, same name | no, byte for byte (checked) |
+| One synthesis entry point | Instance synthesis input, same name | no, byte for byte (checked) |
+| Returned value is schema-unified | Instance synthesis input, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "InstanceInput holds no schema cache and no context" in "InstanceInput carries no schema cache and no cue.Context"
+- "A missing required field fails before any build" in "A missing required field fails before any build runs"
+- "No second synthesis entry point or input type" in "No public package exports a second synthesis entry point or input type"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Instance synthesis SHALL be reached only through `Kernel.SynthesizeInstance(ctx, kernel.InstanceI... | Instance synthesis input | verbatim |
+| `InstanceInput` SHALL carry `Module *module.Module` (required, source-carrying), `Name string` (r... | Instance synthesis input | verbatim |
+| It SHALL carry no schema cache and no `cue.Context`: the kernel owns the schema cache, and synthe... | InstanceInput carries no schema cache and no cue.Context | subject copied from the first sentence |
+| A missing required field SHALL fail with an error wrapping the matching `opm/errors` sentinel (`E... | A missing required field fails before any build runs | verbatim |
+| (added pointer) | A missing required field fails before any build runs | pointer to the parent requirement that holds the fields |
+| No public package under `opm/` SHALL export a second synthesis entry point or input type; the bui... | No public package exports a second synthesis entry point or input type | verbatim |
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -2461,3 +2832,12 @@ Sentences of unit 3 that gained SHALL (the old sentence or clause has no keyword
 | The constructed artifact carries no `Source`. | The constructed artifact SHALL carry no `Source`. | A constructed artifact carries no Source |
 | The kernel SHALL NOT wrap these constructors: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. | The kernel SHALL NOT wrap the constructors `module.NewModuleFromValue(v)` and `platform.NewPlatformFromValue(v)`: a frontend holding a value calls the package constructor directly; a frontend that wants a source-carrying artifact uses an acquire verb. | The kernel does not wrap the constructors |
 | The render build reads none of these accessors: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import. | The render build SHALL read none of `Components()`, `ConfigSchema()`, `Values()` and `ModuleMetadata()`: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import. | The render build reads none of the instance accessors |
+
+Sentences of unit 4 (library-B4 first half) that gained SHALL, or changed a verb form to take it:
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| Because the instance is built inside the module's main module, the module import resolves **locally** (no fabricated dependency, no registry round-trip for the module itself). | Because the instance is built inside the module's main module, the module import SHALL resolve **locally** (no fabricated dependency, no registry round-trip for the module itself). | The instance source imports the module's package and core, and the module import resolves locally |
+| `synth.Instance` lives in `opm/internal/synth`, off the public surface; its Go signature is `Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *module.Source, error)`. | `synth.Instance` SHALL live in `opm/internal/synth`, off the public surface; its Go signature is `Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *module.Source, error)`. | synth.Instance lives in opm/internal/synth with a fixed Go signature |
+| `cueCtx` is the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`), and `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the... | `cueCtx` SHALL be the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`), and `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` a... | The parameters in the signature of synth.Instance are the call context, the core release and the package-internal input |
+| A module acquired from a directory has a real root on disk and is not checked. | A module acquired from a directory has a real root on disk and SHALL NOT be checked. | A module acquired from a directory is not checked for a synthetic root |
