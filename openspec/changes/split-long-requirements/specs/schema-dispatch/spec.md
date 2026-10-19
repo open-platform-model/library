@@ -42,7 +42,7 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 
 ### Requirement: DefaultSchemaModule constant
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "DefaultSchemaModule names an exact core release", "2.0.0-alpha.13 is the first release that reports contract collisions", "The default release reports the provider count, the comparable report and the contract inventory", "The default release reports the registry shape and the context projection", "The default is not the render floor", "The default advances only through a deliberate change that re-verifies the glue and fixtures", "Doc comments cite the default by the constant's name", "The constant is the only Go source that a default move edits", "No test spells the default release where it means the current core", "Synthetic, floor and skew literals stay literal and are declared frozen", "The schema tests assert the shape of the constant" and "Every served test fixture declares the default core version".
+**Migration**: See "DefaultSchemaModule names an exact core release", "2.0.0-alpha.13 is the first release that reports contract collisions", "2.0.0-alpha.13 reports the provider count, the comparable report and the contract inventory", "2.0.0-alpha.13 reports the registry shape and the context projection", "The default is not the render floor", "The default advances only through a deliberate change that re-verifies the glue and fixtures", "Doc comments cite the default by the constant's name", "The constant is the only Go source that a default move edits", "No test spells the default release where it means the current core", "Synthetic, floor and skew literals stay literal and are declared frozen", "The schema tests assert the shape of the constant" and "Every served test fixture declares the default core version".
 
 ### Requirement: Schema Loader interface
 **Reason**: Split into requirements that each state one behavior.
@@ -95,20 +95,20 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 - **WHEN** the default's documentation is read
 - **THEN** The default's documentation SHALL keep naming `2.0.0-alpha.13` as that release and SHALL NOT attribute those reports to a beta release.
 
-### Requirement: The default release reports the provider count, the comparable report and the contract inventory
+### Requirement: 2.0.0-alpha.13 reports the provider count, the comparable report and the contract inventory
 `2.0.0-alpha.13` SHALL report contract collisions on top of the per-registry-entry provider count (`providedBy`), the comparable-predicate report (`comparable` and `discriminated`; enhancement 0015), the contract inventory (enhancement 0015: contracts are published as members beside transformers, one provider per contract stands, an unfulfilled contract is reported and only over-subscription refuses platform-package generation).
 
 #### Scenario: The default reports the earlier inventories
 
-- **WHEN** the default release is read
+- **WHEN** the release `2.0.0-alpha.13` is read
 - **THEN** the release reports the per-registry-entry provider count (`providedBy`), the comparable-predicate report (`comparable` and `discriminated`; enhancement 0015)
 
-### Requirement: The default release reports the registry shape and the context projection
+### Requirement: 2.0.0-alpha.13 reports the registry shape and the context projection
 `2.0.0-alpha.13` SHALL report contract collisions on top of the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry) and the context projection (enhancement 0019: the kernel fills `#runtimeName` alone).
 
 #### Scenario: The default reports the registry shape
 
-- **WHEN** the default release is read
+- **WHEN** the release `2.0.0-alpha.13` is read
 - **THEN** the release reports the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry)
 
 ### Requirement: The default is not the render floor
@@ -117,10 +117,10 @@ The default is not the render floor: `Kernel.Render` and `Platform.Contracts()` 
 #### Scenario: A platform between the floor and the default renders
 
 - **WHEN** a platform pins a release between the floor and `2.0.0-alpha.13`
-- **THEN** decodes an absent collision report as no collision
+- **THEN** the platform decodes an absent collision report as no collision
 
 ### Requirement: The default advances only through a deliberate change that re-verifies the glue and fixtures
-The constant SHALL advance only through a deliberate change that re-verifies the glue and fixtures against the new release; a default that floats ahead of the glue breaks every synthesized artifact on a cold cache. The deliberate re-verification is the review of the change that advances it.
+The constant `schema.DefaultSchemaModule` SHALL advance only through a deliberate change that re-verifies the glue and fixtures against the new release; a default that floats ahead of the glue breaks every synthesized artifact on a cold cache. The deliberate re-verification is the review of the change that advances it.
 
 #### Scenario: The default advances through a reviewed change
 
@@ -136,7 +136,7 @@ Doc comments that cite the default module identifier (`opm/kernel`, `opm/schema`
 - **THEN** every citation names the constant `DefaultSchemaModule` (or, on the constant's own line, the exact release it holds), none names the floating major as the default, and none lives in `opm/materialize`, which no longer exists
 
 ### Requirement: The constant is the only Go source that a default move edits
-The constant SHALL be the only Go source that the default move edits. The fixture harness's declared core version SHALL be derived from it, never kept as a second literal. Advancing the default therefore edits the constant and the fixture `cue.mod` pins, and no test file and no doc comment.
+The constant `schema.DefaultSchemaModule` SHALL be the only Go source that the default move edits. The fixture harness's declared core version SHALL be derived from it, never kept as a second literal. Advancing the default therefore edits the constant and the fixture `cue.mod` pins, and no test file and no doc comment.
 
 #### Scenario: A default move edits no test file
 
@@ -160,7 +160,7 @@ Synthetic, floor and skew literals that happen to equal or predate the default a
 - **THEN** Test files that keep an older or synthetic core literal on purpose are declared as frozen (capability `fixture-pin-maintenance`).
 
 ### Requirement: The schema tests assert the shape of the constant
-The schema tests SHALL assert the constant's shape: an exact release on the `v2` major whose version suffix is `DefaultSchemaVersion()`. They SHALL NOT repeat the release as a literal.
+`schema.DefaultSchemaModule` SHALL name an exact core release, not the floating `opmodel.dev/core@v2` major. The schema tests SHALL assert the constant's shape: an exact release on the `v2` major whose version suffix is `DefaultSchemaVersion()`. They SHALL NOT repeat the release as a literal.
 
 #### Scenario: The pin assertion checks shape, not the release
 

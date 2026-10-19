@@ -102,7 +102,7 @@ The library SHALL keep one kind-class weight table in `opm/k8s/object`. The weig
 - **AND** every other kind, among them PersistentVolumes, PersistentVolumeClaims, DaemonSets, ReplicaSets, Jobs, Ingresses, NetworkPolicies, the pod autoscalers and every custom resource, weighs 1000
 
 ### Requirement: Apply stages follow the weight table
-The library SHALL provide a function that returns a sorted copy of an apply set cut into stages. The first stage holds the cluster definitions, which are every CustomResourceDefinition of `apiextensions.k8s.io` and every Namespace of the core group, and is marked as such. It is omitted when there are none. After it comes one stage per distinct weight of the remaining objects, in ascending weight. Source: enhancement 0012.
+The library SHALL provide a function that returns a sorted copy of an apply set cut into stages. The first stage holds the cluster definitions, which are every CustomResourceDefinition of `apiextensions.k8s.io` and every Namespace of the core group, and is marked as such. It is omitted when there are none. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: Stages for a typical module
 
@@ -175,7 +175,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: Kind-class order is a Kubernetes fact that lives in the tier
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The kind-class apply order lives in the Kubernetes tier", "No module-internal ordering is planned", "Ordering across modules belongs to a future Bundle", "ADR-008 rule 4 excludes module-specific ordering only".
+**Migration**: See "The kind-class apply order lives in the Kubernetes tier", "No module-internal ordering is planned", "Ordering across modules belongs to a future Bundle", "A frontend's readiness gating is outside the cross-module ordering rule" and "ADR-008 rule 4 excludes module-specific ordering only".
 
 ### Requirement: The label vocabulary names labels and never stamps them
 **Reason**: Split into requirements that each state one behavior.
@@ -187,7 +187,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: Readiness evaluation is a pure function over fetched objects
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Readiness is judged by a pure function over fetched objects", "Lint holds the health package to the standard library and apimachinery", "Readiness statuses and evaluation rules are the cli's", "A Deployment is ready only when its rollout is complete", "A StatefulSet is ready by its update strategy", "A DaemonSet and a Job are judged by their counts and conditions", "A CronJob and the passive kinds are applied", "A claim reports its phase and any other kind reports its Ready condition", "Four statuses are healthy and every other string is unhealthy", "The aggregate counts missing and unreadable objects against ready", "ProgressDeadlineExceeded tells a stalled rollout from one in progress".
+**Migration**: See "Readiness is judged by a pure function over fetched objects", "Lint holds the health package to the standard library and apimachinery", "Readiness statuses and evaluation rules are the cli's", "A Deployment is ready only when its rollout is complete", "A StatefulSet is ready by its update strategy", "A StatefulSet is ready when its updated replicas and revisions agree", "A DaemonSet and a Job are judged by their counts and conditions", "A CronJob and the passive kinds are applied", "A claim reports its phase and any other kind reports its Ready condition", "Four statuses are healthy and every other string is unhealthy", "The aggregate counts missing and unreadable objects against ready" and "ProgressDeadlineExceeded tells a stalled rollout from one in progress".
 
 ### Requirement: The ownership verdicts are pure
 **Reason**: Split into requirements that each state one behavior.
@@ -195,7 +195,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The delete verdict skips with a reason or proceeds with the judged object's identity
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The delete verdict decides in a fixed order", "Empty UUIDs, blank annotations and deleting objects pass the delete verdict", "A prune or an instance deletion leaves an object handed to another instance", "A proceed verdict carries the judged object's identity", "A skip verdict yields no precondition and carries a message".
+**Migration**: See "The delete verdict decides in a fixed order", "Empty UUIDs and blank annotations pass the delete verdict", "An annotation naming this instance and a deleting object pass the delete verdict", "A prune or an instance deletion leaves an object handed to another instance", "A proceed verdict carries the judged object's identity" and "A skip verdict yields no precondition and carries a message".
 
 ### Requirement: The adopt annotation is the only override and the refusal names it
 **Reason**: Split into requirements that each state one behavior.
@@ -211,7 +211,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The inventory digest hashes a canonical field encoding
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The inventory digest is sha256 over a tagged, length-prefixed encoding", "The inventory digest depends only on the entries' field values", "The empty inventory hashes the tag line and a new encoding uses a new tag line".
+**Migration**: See "The inventory digest is sha256 over a tagged, length-prefixed encoding", "Each entry of the inventory digest is written with length-prefixed fields", "The inventory digest depends only on the entries' field values" and "The empty inventory hashes the tag line and a new encoding uses a new tag line".
 
 ### Requirement: The render digest ignores only the managed-by label value
 **Reason**: Split into requirements that each state one behavior.
@@ -239,7 +239,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The apply verdict refuses terminating, foreign, other-instance and adopted-elsewhere objects
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The apply verdict decides in a fixed order", "Nothing lifts a terminating refusal", "An instance whose UUID changed keeps applying its own inventoried objects", "Outside the inventory an empty instance UUID fails closed", "The docs state the frontend's part of the hand-over", "The adopted-elsewhere message names the object, the adopter and the way back".
+**Migration**: See "The apply verdict decides in a fixed order", "Nothing lifts a terminating refusal", "An instance whose UUID changed keeps applying its own inventoried objects", "Outside the inventory an empty instance UUID fails closed", "The docs state the frontend's part of the hand-over", "The adopted-elsewhere message names the object, the adopter and the way back" and "The adopted-elsewhere message for an inventoried object says it is dropped".
 
 ## ADDED Requirements
 
@@ -313,7 +313,7 @@ Nothing in the library SHALL perform a cluster action, and the Kubernetes tier S
 - **THEN** none exists
 
 ### Requirement: ADR-008 allows only executor backends that perform no cluster action
-ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` SHALL be narrowed to executor backends that perform no planned action against a cluster (0009's wasm, HTTP, `cue.eval` and local container hosts). Source: enhancement 0012.
+ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` SHALL be narrowed to executor backends that perform no planned action against a cluster (0009's wasm, HTTP, `cue.eval` and local container hosts). Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: ADR-008 allows only non-cluster executor backends
 
@@ -370,12 +370,20 @@ No module-internal ordering (`dependsOn` edges, phases within one module) is pla
 - **AND** neither presents module-internal `dependsOn` edges or phases as planned work
 
 ### Requirement: Ordering across modules belongs to a future Bundle
-In the OPM model, ordering across modules belongs to a future Bundle definition, which uses the order its modules are defined in; the library SHALL add none before then. A frontend's readiness gating between its own custom resources, such as the operator's ModulePackage `spec.dependsOn`, is outside this rule; whether a future Bundle definition subsumes it is not decided. Source: enhancement 0012.
+In the OPM model, ordering across modules belongs to a future Bundle definition, which uses the order its modules are defined in; the library SHALL add none before then. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: The library adds no cross-module ordering
 
 - **WHEN** the library orders the objects of several modules
 - **THEN** it adds no ordering across modules before a Bundle definition exists
+
+### Requirement: A frontend's readiness gating is outside the cross-module ordering rule
+The rule is the one of requirement "Ordering across modules belongs to a future Bundle". A frontend's readiness gating between its own custom resources, such as the operator's ModulePackage `spec.dependsOn`, SHALL be outside this rule; whether a future Bundle definition subsumes it is not decided. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+
+#### Scenario: Readiness gating between custom resources is outside the rule
+
+- **WHEN** a frontend gates readiness between its own custom resources, such as the operator's ModulePackage `spec.dependsOn`
+- **THEN** the gating is outside the rule, and whether a future Bundle definition subsumes it is not decided
 
 ### Requirement: ADR-008 rule 4 excludes module-specific ordering only
 ADR-008 rule 4's "The kernel derives no ordering of its own" SHALL be read as excluding module-specific ordering only, and ADR-008 and ADR-011 SHALL say so in their own text. Lifecycle hooks remain the parked 0009 work (an open question of enhancement 0009), carried as build data under ADR-008 rule 4. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
@@ -410,7 +418,7 @@ The library SHALL provide `opm/k8s/labels`, which imports nothing outside the Go
 - **THEN** `task lint` fails naming the import
 
 ### Requirement: The labels package declares the label keys and values both frontends use
-`opm/k8s/labels` SHALL declare the label keys and values both Kubernetes frontends read or write, with values byte-equal to the frontends' copies, as scenario "The package declares these keys and values" lists. The constant for `opmodel.dev/component` SHALL be documented as the OPM object category, not a component name. Source: enhancement 0012.
+`opm/k8s/labels` SHALL declare the label keys and values both Kubernetes frontends read or write, with values byte-equal to the frontends' copies, as scenario "The package declares these keys and values" lists. The constant for `opmodel.dev/component` SHALL be documented as the OPM object category, not a component name. Source: enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value").
 
 #### Scenario: The vocabulary matches the frontends' copies
 
@@ -441,7 +449,7 @@ No function in `opm/k8s/labels` SHALL set a label on an object. Labels on render
 - **THEN** none sets a label on an object, and labels on rendered objects come from the CUE build at render
 
 ### Requirement: A Resource carries a rendered object and its provenance
-The library SHALL provide, in `opm/k8s/object`, a `Resource` that carries a rendered object's CUE value and its instance, component and transformer provenance, together with constructors from the kernel's `*kernel.Compiled`. A nil `Compiled` SHALL yield no Resource. Source: enhancement 0012.
+The library SHALL provide, in `opm/k8s/object`, a `Resource` that carries a rendered object's CUE value and its instance, component and transformer provenance, together with constructors from the kernel's `*kernel.Compiled`. A nil `Compiled` SHALL yield no Resource. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A nil Compiled yields no Resource
 
@@ -449,7 +457,7 @@ The library SHALL provide, in `opm/k8s/object`, a `Resource` that carries a rend
 - **THEN** no Resource is yielded
 
 ### Requirement: A Resource exposes the object's fields and its JSON and unstructured forms
-`Resource` SHALL expose the object's kind, name, namespace, apiVersion, group-version-kind, labels and annotations, each empty or nil when absent rather than an error. It SHALL also expose its JSON form and its `*unstructured.Unstructured` form. Source: enhancement 0012.
+`Resource` SHALL expose the object's kind, name, namespace, apiVersion, group-version-kind, labels and annotations, each empty or nil when absent rather than an error. It SHALL also expose its JSON form and its `*unstructured.Unstructured` form. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: Accessors are best-effort
 
@@ -457,7 +465,7 @@ The library SHALL provide, in `opm/k8s/object`, a `Resource` that carries a rend
 - **THEN** its namespace is the empty string and its annotations are nil, with no error
 
 ### Requirement: One export returns each Resource's JSON, object and provenance
-The library SHALL provide an export of a list of Resources that exports each Resource's value from CUE once and returns, in input order, that JSON, the object decoded from those same bytes, and the provenance. Source: enhancement 0012.
+The library SHALL provide an export of a list of Resources that exports each Resource's value from CUE once and returns, in input order, that JSON, the object decoded from those same bytes, and the provenance. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: One export feeds every consumer of the object
 
@@ -474,7 +482,7 @@ The export SHALL NOT change or release the input Resources. A Resource keeps its
 - **THEN** the list and each Resource's value, instance, component and transformer are unchanged afterwards
 
 ### Requirement: A failing export names the Resource, its position and the step
-A failure SHALL name the failing Resource, its position, and whether the CUE export or the JSON decode failed. A value that exports to JSON that is not an object, `null` included, SHALL fail as a decode failure, so every exported object carries a non-nil object map. Source: enhancement 0012.
+A failure SHALL name the failing Resource, its position, and whether the CUE export or the JSON decode failed. A value that exports to JSON that is not an object, `null` included, SHALL fail as a decode failure, so every exported object carries a non-nil object map. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A failing export names the resource and the step
 
@@ -502,8 +510,16 @@ The library SHALL provide a stable sort by weight, ascending for apply and desce
 - **WHEN** objects of equal weight are sorted ascending or descending
 - **THEN** the sort is stable, ascending for apply and descending for delete
 
-### Requirement: A weight is looked up by group and version, then by group and kind, then by kind
-A weight SHALL be looked up by group, version and kind first; then a CustomResourceDefinition of `apiextensions.k8s.io`, a Namespace of the core group and a ClusterRole of `rbac.authorization.k8s.io` by group and kind in any version; then by kind alone, where a kind named CustomResourceDefinition, Namespace or ClusterRole in another group weighs 6; then any kind whose name ends in `Class` weighs 6; else 1000. Source: enhancement 0012.
+### Requirement: A weight is looked up by group and kind first
+A weight SHALL be looked up by group, version and kind first; then a CustomResourceDefinition of `apiextensions.k8s.io`, a Namespace of the core group and a ClusterRole of `rbac.authorization.k8s.io` by group and kind in any version. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+
+#### Scenario: A kind is looked up by group and kind in any version
+
+- **WHEN** the weight of a CustomResourceDefinition of `apiextensions.k8s.io`, a Namespace of the core group or a ClusterRole of `rbac.authorization.k8s.io` is looked up
+- **THEN** it is looked up by group and kind in any version
+
+### Requirement: A weight falls back to the kind alone, then to the Class weight, then to 1000
+The lookups of requirement "A weight is looked up by group and kind first" come first. A weight SHALL be looked up then by kind alone, where a kind named CustomResourceDefinition, Namespace or ClusterRole in another group weighs 6; then any kind whose name ends in `Class` weighs 6; else 1000. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: A custom kind ending in Class falls back to the Class weight
 
@@ -518,8 +534,16 @@ Order within a stage SHALL be the stable sort order. The input SHALL NOT be reor
 - **WHEN** two Services are staged in a given input order
 - **THEN** they keep that order within their stage, the input is not reordered and no stage is empty
 
+### Requirement: Stages after the first follow ascending weight
+The first stage is the one that requirement "Apply stages follow the weight table" holds. After it SHALL come one stage per distinct weight of the remaining objects, in ascending weight. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+
+#### Scenario: Stages after the first follow ascending weight
+
+- **WHEN** the remaining objects of an apply set are staged after the first stage
+- **THEN** one stage per distinct weight of the remaining objects follows it, in ascending weight
+
 ### Requirement: A Flux frontend may submit a whole set or one stage
-The weight table SHALL NOT contradict Flux's staged apply order, so a frontend whose apply engine is Flux's staged apply MAY submit the whole set or any one stage in one call: the engine then only refines the library's order. Source: enhancement 0012.
+The weight table SHALL NOT contradict Flux's staged apply order, so a frontend whose apply engine is Flux's staged apply MAY submit the whole set or any one stage in one call: the engine then only refines the library's order. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: A frontend submits one stage in one call
 
@@ -564,11 +588,19 @@ A Deployment SHALL be `Ready` only when `status.observedGeneration` has reached 
 - **THEN** its status is `NotReady`
 
 ### Requirement: A StatefulSet is ready by its update strategy
-A StatefulSet SHALL be `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: always under the `OnDelete` strategy; under a RollingUpdate partition greater than zero, when the updated replicas reach `spec.replicas` minus the partition; otherwise when the updated replicas equal `spec.replicas` and the update revision equals the current revision. Otherwise `NotReady`. Source: enhancement 0012.
+A StatefulSet SHALL be `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: always under the `OnDelete` strategy; under a RollingUpdate partition greater than zero, when the updated replicas reach `spec.replicas` minus the partition. Otherwise `NotReady`. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A partitioned StatefulSet is ready at its partition
 
 - **WHEN** a StatefulSet with three replicas, its generation observed and a RollingUpdate partition of 2, reports three ready replicas and one updated replica
+- **THEN** its status is `Ready`
+
+### Requirement: A StatefulSet is ready when its updated replicas and revisions agree
+The cases of requirement "A StatefulSet is ready by its update strategy" come first. A StatefulSet SHALL be `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: otherwise when the updated replicas equal `spec.replicas` and the update revision equals the current revision. Otherwise `NotReady`. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
+
+#### Scenario: A StatefulSet with matching replicas and revisions is ready
+
+- **WHEN** a StatefulSet's generation is observed, its ready replicas equal `spec.replicas`, its updated replicas equal `spec.replicas` and its update revision equals its current revision
 - **THEN** its status is `Ready`
 
 ### Requirement: A DaemonSet and a Job are judged by their counts and conditions
@@ -614,7 +646,7 @@ A PersistentVolumeClaim SHALL report its `status.phase` as the status (`Bound` f
 - **THEN** the four named are healthy and every other string is unhealthy
 
 ### Requirement: The aggregate counts missing and unreadable objects against ready
-The aggregate of a list of statuses and a count of tracked objects that have no status (missing or unreadable) SHALL count each of those objects toward the total and never toward ready, and SHALL be `Unknown` when the total is zero, `Ready` when every counted object is healthy, and `NotReady` otherwise, together with the ready count and the total. Source: enhancement 0012.
+The aggregate of a list of statuses and a count of tracked objects that have no status (missing or unreadable) SHALL count each of those objects toward the total and never toward ready, and SHALL be `Unknown` when the total is zero, `Ready` when every counted object is healthy, and `NotReady` otherwise, together with the ready count and the total. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: Missing and unreadable objects count against the aggregate
 
@@ -627,7 +659,7 @@ The aggregate of a list of statuses and a count of tracked objects that have no 
 - **THEN** the aggregate is `Unknown` with 0 ready out of 0
 
 ### Requirement: ProgressDeadlineExceeded tells a stalled rollout from one in progress
-`opm/k8s/health` SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose controller has observed its current generation carries a Progressing condition with the reason `ProgressDeadlineExceeded`, false for any other object, so a frontend can tell a stalled rollout from one in progress without reading conditions itself. Source: enhancement 0012.
+`opm/k8s/health` SHALL also report, through `ProgressDeadlineExceeded`, whether a Deployment whose controller has observed its current generation carries a Progressing condition with the reason `ProgressDeadlineExceeded`, false for any other object, so a frontend can tell a stalled rollout from one in progress without reading conditions itself. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A stalled Deployment is told apart from one rolling out
 
@@ -697,13 +729,21 @@ The delete verdict SHALL decide in the order that scenario "The delete verdict o
 - **AND** it skips as `adopted-elsewhere` when the live adopt annotation, compared with surrounding whitespace trimmed, is non-blank and differs from the instance's UUID
 - **AND** otherwise it proceeds
 
-### Requirement: Empty UUIDs, blank annotations and deleting objects pass the delete verdict
-An empty UUID on either side SHALL pass the owner comparison. A blank adopt annotation SHALL pass the adoption comparison, and with an empty instance UUID any non-blank adopt annotation SHALL count as another instance's, since an empty UUID can never be the one an annotation names. An adopt annotation naming this instance SHALL change nothing. An object being deleted SHALL NOT be skipped for that reason. Source: enhancement 0012.
+### Requirement: Empty UUIDs and blank annotations pass the delete verdict
+An empty UUID on either side SHALL pass the owner comparison. A blank adopt annotation SHALL pass the adoption comparison, and with an empty instance UUID any non-blank adopt annotation SHALL count as another instance's, since an empty UUID can never be the one an annotation names. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: An empty UUID on either side passes
 
 - **WHEN** the live Deployment is OPM-managed, carries no adopt annotation, and either its UUID label or the instance UUID is empty
 - **THEN** the verdict proceeds
+
+#### Scenario: An empty instance UUID skips an annotated object
+
+- **WHEN** the live Deployment is OPM-managed and its adopt annotation is `u-1`, for an empty instance UUID
+- **THEN** the verdict skips as `adopted-elsewhere`
+
+### Requirement: An annotation naming this instance and a deleting object pass the delete verdict
+The owner comparison and the adoption comparison are those of requirement "Empty UUIDs and blank annotations pass the delete verdict". An adopt annotation naming this instance SHALL change nothing. An object being deleted SHALL NOT be skipped for that reason. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: An object being deleted proceeds
 
@@ -714,11 +754,6 @@ An empty UUID on either side SHALL pass the owner comparison. A blank adopt anno
 
 - **WHEN** the live Deployment is OPM-managed, carries UUID label `u-9`, and its adopt annotation is `u-9`, for instance UUID `u-9`
 - **THEN** the verdict proceeds
-
-#### Scenario: An empty instance UUID skips an annotated object
-
-- **WHEN** the live Deployment is OPM-managed and its adopt annotation is `u-1`, for an empty instance UUID
-- **THEN** the verdict skips as `adopted-elsewhere`
 
 ### Requirement: A prune or an instance deletion leaves an object handed to another instance
 A prune or an instance deletion SHALL NOT delete an object the user is handing to another instance, before or after that instance has applied it. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") (enhancements#103).
@@ -740,7 +775,7 @@ A proceed verdict SHALL carry the UID and the resourceVersion of the live object
 - **AND** its DELETE precondition names UID `u-1` and no resourceVersion
 
 ### Requirement: A skip verdict yields no precondition and carries a message
-A skip verdict, and a proceed verdict whose judged UID is empty, SHALL yield no precondition at all, never a precondition on an empty UID. A skip verdict SHALL carry a message naming the object and the reason. Source: enhancement 0012.
+A skip verdict, and a proceed verdict whose judged UID is empty, SHALL yield no precondition at all, never a precondition on an empty UID. A skip verdict SHALL carry a message naming the object and the reason. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: A skip verdict yields no precondition
 
@@ -811,7 +846,7 @@ No message SHALL name any other way past a refusal, such as a command-line flag.
 - **THEN** it names no other way past the refusal, such as a command-line flag, and carries no enhancement reference
 
 ### Requirement: An inventory entry has exactly six fields and a constructor from an object
-The library SHALL provide, in `opm/k8s/inventory`, an inventory entry with exactly the fields group, kind, namespace, name, version and component, and a constructor that builds one from a `*unstructured.Unstructured`. Source: enhancement 0012.
+The library SHALL provide, in `opm/k8s/inventory`, an inventory entry with exactly the fields group, kind, namespace, name, version and component, and a constructor that builds one from a `*unstructured.Unstructured`. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: The entry has six fields and an object constructor
 
@@ -840,7 +875,7 @@ The entry type SHALL carry no struct tags, so that no serialisation the library 
 - **THEN** there are exactly six string fields and none carries a struct tag
 
 ### Requirement: The stale set compares group, kind, namespace and name only
-The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. It SHALL return every entry of the previous inventory for which no entry of the current inventory has the same group, kind, namespace and name, whatever the component and the version of either entry. Source: enhancement 0012.
+The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. It SHALL return every entry of the previous inventory for which no entry of the current inventory has the same group, kind, namespace and name, whatever the component and the version of either entry. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: A component rename is not stale
 
@@ -874,12 +909,20 @@ The identity comparison of the stale set SHALL be exported on its own from `opm/
 - **THEN** they are exactly `Entry`, `NewEntry`, `SameObject`, `StaleSet`, `Digest` and `RenderDigest`
 
 ### Requirement: The inventory digest is sha256 over a tagged, length-prefixed encoding
-The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the form `sha256:` followed by 64 lowercase hex digits. It SHALL hash the tag line `opm-inventory-v1` with a newline, followed by every entry in order of group, kind, namespace, name, component and version (byte-wise). Each entry SHALL be written as its group, kind, namespace, name, version and component, in that order, each preceded by its byte length as an 8-byte big-endian unsigned integer. Source: enhancement 0012.
+The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the form `sha256:` followed by 64 lowercase hex digits. It SHALL hash the tag line `opm-inventory-v1` with a newline, followed by every entry in order of group, kind, namespace, name, component and version (byte-wise). Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: The encoding is the one defined
 
 - **WHEN** a test writes out by hand the tag line and the length-prefixed fields of the fixture entries (a core-group cluster-scoped entry with empty group and namespace, a namespaced `apps` entry, an entry with an empty component, two `apps` entries whose namespace order and name order disagree, two entries of one kind and namespace whose name order and component order disagree, two entries with one identity whose component order and version order disagree, and two entries that differ only in version), sorted as defined
 - **THEN** the digest of those entries, given in another order, equals `sha256:` and the hex SHA-256 of the hand-written bytes, and equals the committed golden value
+
+### Requirement: Each entry of the inventory digest is written with length-prefixed fields
+The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the form `sha256:` followed by 64 lowercase hex digits. Each entry SHALL be written as its group, kind, namespace, name, version and component, in that order, each preceded by its byte length as an 8-byte big-endian unsigned integer. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
+
+#### Scenario: Each entry is written with length-prefixed fields
+
+- **WHEN** an entry is written for the inventory digest
+- **THEN** it is written as its group, kind, namespace, name, version and component, in that order, each preceded by its byte length as an 8-byte big-endian unsigned integer
 
 ### Requirement: The inventory digest depends only on the entries' field values
 The digest SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
@@ -1111,7 +1154,7 @@ A successful delete SHALL record the step as deleted. Any error that is not a No
 - **AND** it is not recorded as deleted
 
 ### Requirement: A mismatched live object is never judged or deleted
-A live object handed back for a read that names a different object than the step, in any identity field the live object sets, SHALL NOT be judged or deleted: the step SHALL be recorded as failed with class `error` and a message naming both objects. Source: enhancement 0012.
+A live object handed back for a read that names a different object than the step, in any identity field the live object sets, SHALL NOT be judged or deleted: the step SHALL be recorded as failed with class `error` and a message naming both objects. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: A live object for another step is not deleted
 
@@ -1134,7 +1177,7 @@ A failure SHALL NOT stop the plan: the next step's action SHALL follow. Source: 
 - **THEN** the next action reads the second step
 
 ### Requirement: Each call appends the outcomes of the steps it finished
-Each call SHALL append, in step order, the outcomes of the steps it finished and only those, and SHALL NOT change an earlier outcome, so a frontend reports the outcomes appended since the state it passed in. Source: enhancement 0012.
+Each call SHALL append, in step order, the outcomes of the steps it finished and only those, and SHALL NOT change an earlier outcome, so a frontend reports the outcomes appended since the state it passed in. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: One call can finish two steps
 
@@ -1196,7 +1239,7 @@ The JSON encoding SHALL be fixed field by field, so that renaming a field fails 
 - **THEN** the bytes equal `{"next":2,"awaiting":"read","outcomes":[{"step":0,"result":"failed","failure":"forbidden","message":"denied"},{"step":1,"result":"skipped","skip":"already-absent","message":"gone"}]}`
 
 ### Requirement: The hold verdict is decided from the policy, the plan's outcome and the identity
-The library SHALL decide whether an instance's deletion hold may be released from the plan's policy, its steps, the state's outcomes and whether the caller can act as the deleting identity, and from nothing that names the hold's bearer or the frontend. It SHALL check in the order that scenario "The hold verdict order" lists and stop at the first match. Source: enhancement 0012.
+The library SHALL decide whether an instance's deletion hold may be released from the plan's policy, its steps, the state's outcomes and whether the caller can act as the deleting identity, and from nothing that names the hold's bearer or the frontend. It SHALL check in the order that scenario "The hold verdict order" lists and stop at the first match. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: Pruning disabled releases
 
@@ -1364,7 +1407,7 @@ When the live object has a deletion timestamp, the apply verdict SHALL refuse as
 - **THEN** the verdict refuses as `terminating` when the object is in the inventory, when it is outside it, when it carries the adopt annotation naming this instance, and when it carries the adopt annotation naming another instance
 
 ### Requirement: An instance whose UUID changed keeps applying its own inventoried objects
-An object in the instance's recorded inventory with no deletion timestamp and no non-blank adopt annotation SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Source: enhancement 0012.
+An object in the instance's recorded inventory with no deletion timestamp and no non-blank adopt annotation SHALL apply, whatever its live UUID label, so an instance whose UUID changed keeps applying its own objects, except an object whose adopt annotation still names the old UUID, which applies again once re-annotated with the new UUID. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: An inventoried object labelled for another instance without an annotation is applied
 
@@ -1391,7 +1434,7 @@ Outside the inventory an empty instance UUID SHALL never match an adopt annotati
 - **AND** the message is `Deployment/web/api is being adopted by module instance u-1; this instance does not apply it`, with no remedy clause
 
 ### Requirement: The docs state the frontend's part of the hand-over
-The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012 (enhancements#103).
+The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend drops an object refused as `adopted-elsewhere` while it is in the instance's recorded inventory from the inventory it records next, keeps applying the instance's other objects, and never deletes the object for that refusal. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103).
 
 #### Scenario: The docs state the frontend's part of the hand-over
 
@@ -1399,7 +1442,7 @@ The `ApplyInput.InInventory` doc and the package doc SHALL state that a frontend
 - **THEN** each says a frontend drops an object refused as `adopted-elsewhere` from the inventory it records next and never deletes it for that refusal
 
 ### Requirement: The adopted-elsewhere message names the object, the adopter and the way back
-The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. For an inventoried object it SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012 (enhancements#103).
+The `adopted-elsewhere` message SHALL name the object and the instance its adopt annotation names, and SHALL name the annotation key `opmodel.dev/adopt` with the instance UUID to set it to, unless the instance UUID is empty, as the only way for this instance to take the object back. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103).
 
 #### Scenario: An inventoried object annotated for another instance is refused
 
@@ -1418,6 +1461,14 @@ The `adopted-elsewhere` message SHALL name the object and the instance its adopt
 - **WHEN** the object is outside the inventory, OPM-managed, carries this instance's UUID label, and its adopt annotation names a different instance
 - **THEN** the verdict refuses as `adopted-elsewhere`
 - **AND** the message does not say the instance drops it from its inventory
+
+### Requirement: The adopted-elsewhere message for an inventoried object says it is dropped
+For an inventoried object the `adopted-elsewhere` message SHALL say that this instance no longer applies the object and drops it from its inventory. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103).
+
+#### Scenario: The message for an inventoried object says it is dropped
+
+- **WHEN** the `adopted-elsewhere` message is built for an inventoried object
+- **THEN** it says that this instance no longer applies the object and drops it from its inventory
 
 ### Requirement: The caller supplies the inventory fact and the instance UUID
 The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. A frontend that installs the operator SHALL be judged as any other instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") are withdrawn.

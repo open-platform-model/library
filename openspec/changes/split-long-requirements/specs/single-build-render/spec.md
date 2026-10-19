@@ -106,7 +106,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 
 ### Requirement: The single-provider guard runs inside the build
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The render and the platform's contract inventory read one provider count", "The provider count lists the registry keys that require each provider-fulfilled contract", "Provenance is the registry key, so two majors of one catalog are two providers", "An over-subscribed contract is reported as a row and refuses the render" and "Keys with default fulfilment may be supplied by any number of transformers".
+**Migration**: See "The render and the platform's contract inventory read one provider count", "A render refuses on over-subscription exactly when the platform's inventory reads it", "Routable reads false exactly when the render carries an over-subscription row or a collision row", "The provider count lists the registry keys that require each provider-fulfilled contract", "The registry keys of the provider count are the catalog module paths with their major", "The provider count lists a contract whether or not any enabled entry defines it", "Provenance is the registry key, so two majors of one catalog are two providers", "An over-subscribed contract is reported as a row and refuses the render", "The over-subscription rows are built by iterating providedBy unconditionally" and "Keys with default fulfilment may be supplied by any number of transformers".
 
 ### Requirement: Unresolved demands are diagnosed with alternatives
 **Reason**: Split into requirements that each state one behavior.
@@ -242,7 +242,7 @@ When the instance requires a NEWER build than the platform carries, the configur
 - **THEN** `Render` fails before evaluation with an error naming the path and both versions
 
 ### Requirement: An older instance requirement is plain data
-A module requiring an OLDER build SHALL produce no mark of that path's resolved-versions row as newer; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity.
+When the instance requires a NEWER build than the platform carries, the configured policy decides: warn-and-render (the default when no policy is supplied) marks that path's resolved-versions row as newer and proceeds; refuse fails the render before evaluation. A module requiring an OLDER build SHALL produce no such mark; the per-path resolved-versions comparison SHALL always be present in the result as plain data with no severity.
 
 #### Scenario: Older module is data, not a warning
 
@@ -378,15 +378,47 @@ A platform module importing its catalogs is the only platform shape the kernel a
 - **THEN** `AcquirePlatformFromDir` fails with an error wrapping `ErrMissingRequiredField` that names the entry's `version` as a required field the embedded catalog would have supplied, and no render is attempted
 
 ### Requirement: The render and the platform's contract inventory read one provider count
-The generated glue SHALL read the platform's provider count from core's derived contract inventory and SHALL NOT compute a count of its own. Because both the render and the platform's `Contracts()` read this one count, a render SHALL refuse on over-subscription exactly when the platform's inventory reads a non-empty `OverSubscribed`; `Routable` reads false exactly when the render carries an over-subscription row or a collision row. Source: enhancement 0010 and enhancement 0015.
+The generated glue SHALL read the platform's provider count from core's derived contract inventory and SHALL NOT compute a count of its own. Source: enhancement 0010 ("A contract declares where its fulfilment comes from, and a provider-fulfilled contract admits exactly one provider") and enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry").
 
 #### Scenario: Inventory and render agree on every served platform
 
 - **WHEN** the parity test acquires every served render platform (each `testdata/render/platform*` directory), reads `Contracts()` and renders that platform's classified instance fixture against it
 - **THEN** the sorted `OverSubscribed` list equals the keys of the render's over-subscription rows, every row's registry keys equal `ProvidedBy` for its key, `Routable` is true exactly when the render carries neither an over-subscription row nor a collision row, and the decoded routable diagnostic equals `Routable`, whether or not the render also refuses for an unrelated reason
 
+### Requirement: A render refuses on over-subscription exactly when the platform's inventory reads it
+The one count is the provider count of requirement "The render and the platform's contract inventory read one provider count". Because both the render and the platform's `Contracts()` read this one count, a render SHALL refuse on over-subscription exactly when the platform's inventory reads a non-empty `OverSubscribed`. Source: enhancement 0015 ("An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation").
+
+#### Scenario: A render refuses when the inventory reads an over-subscription
+
+- **WHEN** the platform's inventory reads a non-empty `OverSubscribed`
+- **THEN** a render refuses on over-subscription
+
+### Requirement: Routable reads false exactly when the render carries an over-subscription row or a collision row
+The one count is the provider count of requirement "The render and the platform's contract inventory read one provider count". Because both the render and the platform's `Contracts()` read this one count, `Routable` SHALL read false exactly when the render carries an over-subscription row or a collision row. Source: enhancement 0015 ("An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation").
+
+#### Scenario: Routable reads false when the render carries a row
+
+- **WHEN** the render carries an over-subscription row or a collision row
+- **THEN** `Routable` reads false
+
 ### Requirement: The provider count lists the registry keys that require each provider-fulfilled contract
-The provider count SHALL be `#Platform.#contracts.providedBy`: for every contract key declared `fulfilment: "provider"` on a required demand (`requiredResources` and `requiredTraits`) of any transformer of an enabled `#registry` entry, the sorted registry keys (the catalog module paths with their major, bound by core to each entry's `#catalog.metadata.modulePath`) of the entries whose transformers require it, whether or not any enabled entry defines the contract. Source: enhancement 0015.
+The provider count SHALL be `#Platform.#contracts.providedBy`: for every contract key declared `fulfilment: "provider"` on a required demand (`requiredResources` and `requiredTraits`) of any transformer of an enabled `#registry` entry, the sorted registry keys of the entries whose transformers require it. Source: enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry").
+
+#### Scenario: The provider count lists the registry keys that require a contract
+
+- **WHEN** a contract key is declared `fulfilment: "provider"` on a required demand of a transformer of an enabled `#registry` entry
+- **THEN** the provider count lists the sorted registry keys of the entries whose transformers require it
+
+### Requirement: The registry keys of the provider count are the catalog module paths with their major
+The registry keys of requirement "The provider count lists the registry keys that require each provider-fulfilled contract" SHALL be the catalog module paths with their major, bound by core to each entry's `#catalog.metadata.modulePath`. Source: enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry").
+
+#### Scenario: A registry key is a catalog module path with its major
+
+- **WHEN** the provider count lists a registry key
+- **THEN** the key is the catalog module path with its major, bound by core to the entry's `#catalog.metadata.modulePath`
+
+### Requirement: The provider count lists a contract whether or not any enabled entry defines it
+The provider count of requirement "The provider count lists the registry keys that require each provider-fulfilled contract" SHALL list those registry keys whether or not any enabled entry defines the contract. Source: enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry").
 
 #### Scenario: Providers count when the defining catalog is disabled
 
@@ -402,12 +434,20 @@ Provenance SHALL be the registry key, never a value parsed out of an FQN or read
 - **THEN** `Render` fails with one over-subscription row naming the gateway key and the registry keys `cat@v0` and `cat@v1`, and the platform's `Contracts()` reads the same key in `OverSubscribed` and `Routable` false
 
 ### Requirement: An over-subscribed contract is reported as a row and refuses the render
-Every key core lists in `#contracts.overSubscribed` SHALL be reported as an over-subscription row naming the key and the registry keys `providedBy` holds for it, and the render SHALL refuse through the fail-closed gate with one typed over-subscription cause carrying every such row. The rows SHALL be built by iterating `providedBy` unconditionally, so a platform value lacking it fails the build instead of reading as zero providers. Source: enhancement 0010 and enhancement 0015.
+Every key core lists in `#contracts.overSubscribed` SHALL be reported as an over-subscription row naming the key and the registry keys `providedBy` holds for it, and the render SHALL refuse through the fail-closed gate with one typed over-subscription cause carrying every such row. Source: enhancement 0015 ("An unfulfilled contract is reported, never refused; only over-subscription refuses platform-package generation").
 
 #### Scenario: Second provider refused in-build
 
 - **WHEN** two catalogs embedded in the platform each supply a transformer requiring a contract declared `fulfilment: "provider"`
 - **THEN** `Render` fails with a typed over-subscription cause whose row names the key and both registry keys, and the diagnostics remain readable beside the refusal
+
+### Requirement: The over-subscription rows are built by iterating providedBy unconditionally
+The over-subscription rows SHALL be built by iterating `providedBy` unconditionally, so a platform value lacking it fails the build instead of reading as zero providers. Source: enhancement 0010 ("A contract declares where its fulfilment comes from, and a provider-fulfilled contract admits exactly one provider") and enhancement 0015 ("One provider per contract stands; provider classes are rejected in this entry").
+
+#### Scenario: The rows iterate providedBy unconditionally
+
+- **WHEN** the over-subscription rows are built
+- **THEN** they are built by iterating `providedBy` unconditionally, so a platform value lacking it fails the build instead of reading as zero providers
 
 ### Requirement: Keys with default fulfilment may be supplied by any number of transformers
 The generated glue SHALL read the platform's provider count from core's derived contract inventory and SHALL NOT compute a count of its own. Keys with default (`catalog`) fulfilment MAY be supplied by any number of transformers from any number of catalogs. Source: enhancement 0010 ("A contract declares where its fulfilment comes from, and a provider-fulfilled contract admits exactly one provider"), as recounted by core change `count-providers-per-registry-entry`.
@@ -487,7 +527,7 @@ The defining catalog and the colliding entries of an unresolved-demand row are d
 - **THEN** their presence or absence SHALL NOT change whether the demand refuses
 
 ### Requirement: An unstated trait posture fails closed as a build error
-An unstated posture (non-concrete `optional`) SHALL fail closed as a build error naming the trait's own `optional` field.
+An unhandled trait's effect SHALL be governed by its effective `optional` value read from the component's trait attachment. An unstated posture (non-concrete `optional`) SHALL fail closed as a build error naming the trait's own `optional` field.
 
 #### Scenario: An unstated posture fails closed
 
