@@ -478,7 +478,7 @@ In every other case (no values, the values-free build also fails, or the values 
 - **THEN** the returned error is the build error framed `Kernel.SynthesizeInstance: …`, not a missing-field error framed `instance "<name>": …`, and no instance is returned
 
 ### Requirement: A missing input fails with an opm/errors sentinel
-A missing required input SHALL fail with an error wrapping the corresponding `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`); a module without staged source SHALL fail wrapping `ErrMissingSource`; a module whose `Source.Pkg` is non-empty SHALL fail with an error stating that a synthesizable module is its module's root package.
+A missing required input (Requirement: SynthesizeInstance takes an InstanceInput) SHALL fail with an error wrapping the corresponding `opm/errors` sentinel (`ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`); a module without staged source SHALL fail wrapping `ErrMissingSource`; a module whose `Source.Pkg` is non-empty SHALL fail with an error stating that a synthesizable module is its module's root package.
 
 #### Scenario: SynthesizeInstance surfaces synth errors before validation
 
@@ -865,7 +865,8 @@ The effective values SHALL be the built spec's `values`: the package's own `valu
 - **THEN** the effective values are the built spec's `values`: the package's own `values` plus the trailing sources on `AcquireInstanceFromDir`, the merged `InstanceInput.Values` on `SynthesizeInstance`
 
 ### Requirement: A required value is one that concreteness refuses
-A required value SHALL be one that `cue.Concrete(true)` refuses on those values unified with `#config`: a required field (`foo!:`) that is absent, or a field that resolves to no concrete value (a bare type such as `string` or `_`, with no default). An optional field (`foo?:`) and a field with a default are not required. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+A required value SHALL be one that `cue.Concrete(true)` refuses on those values (Requirement: The effective values are the built spec's values) unified with `#config`: a required field (`foo!:`) that is absent, or a field that resolves to no concrete value (a bare type such as `string` or `_`, with no default). An optional field (`foo?:`) and a field with a default are not required.
+**Source**: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: A required value is one that concreteness refuses
 
@@ -899,7 +900,8 @@ When the values leave one or more unset, the refusal (Requirement: Instance verb
 
 ### Requirement: The refusal names every other unset required value at values.<field>
 When the values leave one or more unset, the refusal (Requirement: Instance verbs refuse an unset required config value) SHALL hold findings about the values only:
-2. one finding for every other unset required value, at the path `values.<field>` (the full path for a nested field), whether or not a component reads it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+2. one finding for every other unset required value (Requirement: The refusal holds the value findings of the built-spec check), at the path `values.<field>` (the full path for a nested field), whether or not a component reads it.
+**Source**: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal names every other unset value
 
@@ -907,12 +909,20 @@ When the values leave one or more unset, the refusal (Requirement: Instance verb
 - **THEN** the refusal holds one finding for every other unset required value, at the path `values.<field>`, whether or not a component reads it
 
 ### Requirement: A finding carries the position of the field's #config declaration
-The findings are those of requirement "The refusal names every other unset required value at values.<field>". A finding SHALL carry the position of the field's `#config` declaration wherever CUE records one; a field CUE records no position for (a field declared `_`) is identified by its path only. A path SHALL be reported once. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+The findings are those of requirement "The refusal names every other unset required value at values.<field>". A finding SHALL carry the position of the field's `#config` declaration wherever CUE records one; a field CUE records no position for (a field declared `_`) is identified by its path only. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: A finding carries the position of its declaration
 
 - **WHEN** a finding names an unset field
 - **THEN** it carries the position of the field's `#config` declaration wherever CUE records one, and a path is reported once
+
+### Requirement: A path is reported once in the refusal
+The findings are those of requirements "The refusal holds the value findings of the built-spec check" and "The refusal names every other unset required value at values.<field>". A path SHALL be reported once. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+
+#### Scenario: A path is reported once
+
+- **WHEN** the refusal holds findings
+- **THEN** a path is reported once
 
 ### Requirement: Findings outside values are left out of the refusal
 Every finding of the built-spec check outside `values` SHALL be left out of that refusal (Requirement: Instance verbs refuse an unset required config value): the component fields that read an unset value, and any other incomplete field of the module. Such a field that is still incomplete once the values are complete is then refused with the built-spec error. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
@@ -931,7 +941,7 @@ The kernel SHALL NOT decide from the positions of a finding whether an unset val
 - **THEN** the kernel does not decide from the positions of a finding whether an unset value causes it, and when a required value is unset every finding of the tree is a values finding
 
 ### Requirement: A caller identifies the refusal by CUE's error type
-A caller SHALL identify the refusal (Requirement: Instance verbs refuse an unset required config value) as it did before this requirement changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+A caller SHALL identify the refusal (Requirement: Instance verbs refuse an unset required config value) as it did before the requirement "Instance verbs refuse an unset required config value" changed: `errors.As` with CUE's error type finds the tree, and a finding whose path starts with `values` is a values finding; the kernel adds no error type for it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: A caller finds the tree with errors.As
 

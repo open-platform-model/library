@@ -200,7 +200,7 @@ The kernel SHALL expose `AcquireInstanceFromDir(ctx, dir, values ...Source)`, wh
 - **THEN** the returned `*Instance` has decoded `Metadata`, `Source.Root` equal to the directory's absolute path, an empty `Source.Pkg`, and a nil `Overlay`
 
 ### Requirement: A directory with no enclosing module is its own root
-A directory with no enclosing module SHALL be its own root with an empty `Pkg`.
+A directory (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) with no enclosing module SHALL be its own root with an empty `Pkg`.
 
 #### Scenario: Acquired subpackage names its module root
 
@@ -217,7 +217,7 @@ The registry mapping used for the instance's imports (Requirement: AcquireInstan
 - **AND** the process environment is not mutated
 
 ### Requirement: An instance acquired without values has an on-disk source
-With no values, `Source.Overlay` SHALL be nil (on-disk mode).
+With no values, `Source.Overlay` (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) SHALL be nil (on-disk mode).
 
 #### Scenario: Without values the overlay is nil
 
@@ -225,7 +225,7 @@ With no values, `Source.Overlay` SHALL be nil (on-disk mode).
 - **THEN** `Source.Overlay` is nil (on-disk mode)
 
 ### Requirement: Values sources are unified in order
-With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel SHALL unify them in order.
+With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) SHALL unify them in order.
 
 #### Scenario: Extra values layer onto the package
 
@@ -238,7 +238,7 @@ With one or more values sources (the `Source` type `ValidateConfigDetailed` acce
 - **THEN** neither `AcquireOption` nor `WithValues` exists; values are the variadic trailing argument
 
 ### Requirement: The unified values are rendered as a values file beside the package's files
-With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel SHALL render the result as a values file (`opm-values.cue`, a reserved name so it can never shadow a file the package authored) declaring the package's own package name and the top-level `values` field, place it beside the package's on-disk files in an overlay.
+With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) SHALL render the result as a values file (`opm-values.cue`, a reserved name so it can never shadow a file the package authored) declaring the package's own package name and the top-level `values` field, place it beside the package's on-disk files in an overlay.
 
 #### Scenario: Layered instance renders
 
@@ -246,7 +246,7 @@ With one or more values sources (the `Source` type `ValidateConfigDetailed` acce
 - **THEN** the render build imports the layered package and the rendered objects reflect the extra values
 
 ### Requirement: The package is built in one pass through the instance shape gate
-With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel SHALL build the package in one pass through the instance shape gate, so the schema's own values unification performs the merge in CUE.
+With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) SHALL build the package in one pass through the instance shape gate, so the schema's own values unification performs the merge in CUE.
 
 #### Scenario: Conflicting extra values fail at acquisition
 
@@ -254,7 +254,7 @@ With one or more values sources (the `Source` type `ValidateConfigDetailed` acce
 - **THEN** `AcquireInstanceFromDir` returns the validation error naming the conflicting path, with source positions attributable to the values source, and no partial `*Instance`
 
 ### Requirement: A layered instance's Source is in overlay mode
-The values sources are those of requirement "Values sources are unified in order". With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` carrying every on-disk `.cue` file under the module root (the module's own `cue.mod/module.cue` included) plus the rendered values file, as bytes.
+The values sources are those of requirement "Values sources are unified in order". With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the returned instance's `Source` (Requirement: An acquired instance's Source describes the directory) SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` carrying every on-disk `.cue` file under the module root (the module's own `cue.mod/module.cue` included) plus the rendered values file, as bytes.
 
 #### Scenario: A layered instance carries an overlay source
 
@@ -630,7 +630,7 @@ No instance constructor SHALL be exported: an instance is produced only by the k
 - **THEN** `ModuleMetadata()` returns that module's metadata, decoded from `Package`, with no processing step having run
 
 ### Requirement: No accessor consults a version or mirrors a metadata field
-No accessor (Requirement: Instance exposes Components and Values) SHALL consult a version or binding. The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection.
+No accessor (Requirements: Instance exposes Components and Values, Instance exposes ConfigSchema and Instance exposes ModuleMetadata) SHALL consult a version or binding. The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection.
 
 #### Scenario: No metadata-mirroring accessors
 

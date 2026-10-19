@@ -187,7 +187,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: Readiness evaluation is a pure function over fetched objects
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Readiness is judged by a pure function over fetched objects", "Lint holds the health package to the standard library and apimachinery", "Readiness statuses and evaluation rules are the cli's", "A Deployment is ready only when its rollout is complete", "A StatefulSet is ready by its update strategy", "A StatefulSet is ready when its updated replicas and revisions agree", "A DaemonSet and a Job are judged by their counts and conditions", "A CronJob and the passive kinds are applied", "A claim reports its phase and any other kind reports its Ready condition", "Four statuses are healthy and every other string is unhealthy", "The aggregate counts missing and unreadable objects against ready" and "ProgressDeadlineExceeded tells a stalled rollout from one in progress".
+**Migration**: See "Readiness is judged by a pure function over fetched objects", "Lint holds the health package to the standard library and apimachinery", "Readiness statuses and evaluation rules are the cli's", "A Deployment is ready only when its rollout is complete", "A StatefulSet is ready by its update strategy", "A StatefulSet is ready when its updated replicas and revisions agree", "A DaemonSet and a Job are judged by their counts and conditions", "A CronJob and the passive kinds are applied", "A claim reports its phase", "Any other kind reports its Ready condition", "Four statuses are healthy and every other string is unhealthy", "The aggregate counts missing and unreadable objects against ready" and "ProgressDeadlineExceeded tells a stalled rollout from one in progress".
 
 ### Requirement: The ownership verdicts are pure
 **Reason**: Split into requirements that each state one behavior.
@@ -618,13 +618,17 @@ A CronJob, and every kind of the fixed passive set (ConfigMap, Secret, Service, 
 - **WHEN** a ConfigMap or a CronJob is evaluated
 - **THEN** its status is `Applied`
 
-### Requirement: A claim reports its phase and any other kind reports its Ready condition
-A PersistentVolumeClaim SHALL report its `status.phase` as the status (`Bound` for a bound claim), or `Ready` when it has no phase yet. Any other kind SHALL be `Ready` when its `Ready` condition is `True`, `NotReady` when that condition has any other status, and `Applied` when it has no `Ready` condition. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); ADR-013, decision f5.
+### Requirement: A claim reports its phase
+A PersistentVolumeClaim SHALL report its `status.phase` as the status (`Bound` for a bound claim), or `Ready` when it has no phase yet. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); ADR-013, decision f5.
 
 #### Scenario: A pending claim reports its phase
 
 - **WHEN** a PersistentVolumeClaim with `status.phase` `Pending` is evaluated
 - **THEN** its status is the string `Pending`, and that status is not healthy
+
+### Requirement: Any other kind reports its Ready condition
+Any other kind (Requirements: A Deployment is ready only when its rollout is complete, A StatefulSet is ready by its update strategy, A DaemonSet and a Job are judged by their counts and conditions, A CronJob and the passive kinds are applied and A claim reports its phase) SHALL be `Ready` when its `Ready` condition is `True`, `NotReady` when that condition has any other status, and `Applied` when it has no `Ready` condition.
+**Source**: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); ADR-013, decision f5.
 
 #### Scenario: A custom resource without a Ready condition counts as applied
 
@@ -1362,7 +1366,8 @@ A second test (Requirement: The weight table never contradicts Flux's staged app
 - **THEN** both orders put the CustomResourceDefinition before the Namespace
 
 ### Requirement: The apply verdict decides in a fixed order
-The apply verdict SHALL decide in the order that scenario "The apply verdict order" lists and stop at the first match: apply, or refuse as `terminating`, `foreign-object`, `other-instance` or `adopted-elsewhere`. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+The apply verdict SHALL decide in the order that scenario "The apply verdict order" lists and stop at the first match: apply, or refuse as `terminating`, `foreign-object`, `other-instance` or `adopted-elsewhere`.
+**Source**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") (enhancements#103), enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: A new object is applied
 
