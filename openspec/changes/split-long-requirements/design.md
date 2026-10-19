@@ -216,6 +216,12 @@ One more code comment cites a requirement whose rule moved: `opm/kernel/synth_te
 **Decision**: 2 requirements use form b because another text cites the header: "Single Kernel Validation Primitive" (a comment in `opm/kernel/kernel_test.go`) and "File-Backed Sources Resolve Imports Through the Kernel Mapping" (a sentence of the primitive's old body names it, and that sentence keeps the citation in its new block). In both, the parent keeps all its scenarios and a shorter body; the cut sentences go to ADDED blocks. 11 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out). Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table), a subject copied from the same old requirement (a file path, a type name or a key name for "It", "Its" or "The key"; `publish` in "The `publish` job's `if:`"), and a pointer "(Requirement: <exact header>)" to another requirement of the same spec where a sentence needs a referent that the old requirement gave in a sibling sentence ("this", "these references", "the option", "the rule", "So", "the marker"). One long sentence is cut at a list boundary with subject and verb repeated (the wiring-check script sentence that checks, runs offline and runs in the `Go tests` job). The citation of each split block is the whole old `Source:` line as a `**Source**:` metadata line (the human's decision of 2026-10-20); the rule text stays in the body. Em-dashes of the old bodies became `,` or `:`.
 **Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice. Reversibility: high.
 
+### Batch library-B5, first half: the form choices and the limits of the verbatim rule
+
+**Context**: The first half of B5 holds `fetch-error-classification` (5 long requirements), `platform-artifact` (5) and `platform-module-generation` (4): 14 in all. The other four specs of B5 (`registry-module-loading`, `render-parity`, `catalog-acquisition`, `fixture-pin-maintenance`) follow in the second half, with its own ledger. "Platform Type Shape" runs to 4656 characters, and its inventory sentence runs to about 2400 on its own.
+**Decision**: 6 requirements use form b because another text cites the header or only one sentence has to leave: "A fetch or resolution failure is a typed error" (a sentence of the token-endpoint requirement names it, and that sentence keeps the citation in its new block), "The library classifies every fetch and resolution failure it returns" (the unchanged requirement "The library returns author-defect resolution failures typed" names it), "Platform constructor takes a bare value" (a sentence of "A platform records its core floor and contract inventory at construction" names it), "A platform records its core floor and contract inventory at construction" (the `single-build-render` delta names it twice, and so did "Platform Type Shape"), "Platform carries its render source" (519 characters: the last sentence leaves) and "Registry access is caller-configured" (590: the sentence on the process environment leaves). In each, the parent keeps all its scenarios and a shorter body, and the cut sentences go to ADDED blocks with a restatement scenario. 8 use c2. No removed header is cited outside `openspec/` (grep over the repository, archive left out) and none is cited inside a kept text except as listed, so no code comment goes stale in this unit. Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table below), a subject copied from the same old requirement (`Classify` or the constructor for "It", `Contracts()` accessor for "The accessor", the verb `AcquirePlatformFromDir(ctx, dir)` for "the verb", "the fetch forms" for "They"), a pointer "(Requirement: <exact header>)" to the requirement of the same spec that holds the referent ("This", "It", "this requirement", "that form", "the recorded floor", "these facts", "step 1 below", "step 2 below", "The result", "A missing"), and the list numbers "1." and "2." of the step list. Sentences over 500 characters on their own are cut at a list boundary with the lead repeated and the closing "," or "and" turned into ".": the inventory sentence of "Platform Type Shape" (the lead up to "`ContractInventory`", then one block per field or pair of fields), the stamped fields of `AcquirePlatformFromDir` (`Overlay` and `Root` in one block, `Pkg` in the other), the constructor's decode list (`Metadata` and `type` stay in the parent, `Package` and `Source` go to the new block) and the `platform.cue` sentence (embed, declare and import in one block, the `#registry` entry in the other, "`platform.cue` SHALL" repeated). The Source line of the three specs that have one ("Source: enhancement 0021 (the GA exit criteria).") is repeated whole as a `**Source**:` line in every block that came from the paragraph that carried it. "Platform Type Shape" carries its citations inside two sentences, as a parenthesis: the four titles of enhancement 0015 after "`#Platform.#contracts`" and the two after "all are reports". A body cannot hold the lead and its parenthesis together (the lead plus the parenthesis is 760 characters), so each parenthesis moved whole, word for word, to the `**Source**:` line of every block that repeats its lead (the human's decision of 2026-10-20 allows a citation there and nothing else). The two parentheses that cite enhancement 0019 in `platform-module-generation` ("Generation is pure and deterministic", "The dependency closure is derived from published module files") hold rule text ("tripwire: it unifies with core's readout of the imported catalog"; "tidying happens once, at generation"), so they stay in their bodies. Reversibility: high.
+**Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -3076,6 +3082,431 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Source: owner selection 30; security pass findings N4 and GOV-3. | Every workflow declares permissions at the workflow level and no pull_request job holds a write grant | the whole Source line, as a `**Source**:` line |
 | Source: owner selection 30; security pass findings N4 and GOV-3. | Every checkout step sets persist-credentials false | the whole Source line, as a `**Source**:` line |
 
+### Ledger: fetch-error-classification
+
+**A fetch or resolution failure is a typed error**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 1307 characters; new bodies 447, 326, 355, 138.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The message is the cause's message | A fetch or resolution failure is a typed error, kept in place | no, byte for byte (checked) |
+| The cause stays reachable | A fetch or resolution failure is a typed error, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A refused credential is unauthorized" in "FetchNotFound and FetchUnauthorized classify an absent module and a refused credential"
+- "A 403 on a module tag lookup classifies as not found" in "FetchNotFound and FetchUnauthorized classify an absent module and a refused credential"
+- "A refused connection is unreachable" in "FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code"
+- "A 429 answer or an archive that does not unzip is another failed interaction" in "FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code"
+- "A resolution failure no registry interaction caused" in "An author-defect resolution failure is a ResolutionError and never a FetchError"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `opm/errors` SHALL export `FetchKind` with the values `FetchOther`, `FetchNotFound`, `FetchUnauth... | A fetch or resolution failure is a typed error | verbatim |
+| `(*FetchError).Error()` SHALL return the text of `Err` unchanged, and `Unwrap` SHALL return `Err`... | A fetch or resolution failure is a typed error | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | A fetch or resolution failure is a typed error | the whole citation, as a `**Source**:` line |
+| `FetchNotFound` means the module, version or package is absent. | FetchNotFound and FetchUnauthorized classify an absent module and a refused credential | verbatim |
+| `FetchUnauthorized` means the registry refused the credentials (401), or refused the access (403)... | FetchNotFound and FetchUnauthorized classify an absent module and a refused credential | verbatim |
+| CUE's registry client reports a 403 on a module tag lookup as not-found, so that case SHALL class... | FetchNotFound and FetchUnauthorized classify an absent module and a refused credential | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | FetchNotFound and FetchUnauthorized classify an absent module and a refused credential | the whole citation, as a `**Source**:` line |
+| `FetchUnreachable` means no HTTP response was received: a refused connection, a DNS or TLS failur... | FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code | "`FetchUnreachable` means" becomes "`FetchUnreachable` SHALL mean" |
+| `FetchOther` is any other failed registry interaction, such as a 429 answer or a fetched archive... | FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code | verbatim |
+| `Status` is the HTTP status the registry answered with, or 0 when there was none or it is unknown. | FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code | the whole citation, as a `**Source**:` line |
+| An author-defect resolution failure, which no failed registry interaction caused, is a `*Resoluti... | An author-defect resolution failure is a ResolutionError and never a FetchError | "is a `*ResolutionError`" becomes "SHALL be a `*ResolutionError`" |
+| Source: enhancement 0021 (the GA exit criteria). | An author-defect resolution failure is a ResolutionError and never a FetchError | the whole citation, as a `**Source**:` line |
+
+**A token endpoint's answer is a registry answer**: form c2 (REMOVED plus ADDED); old body 1425 characters; new bodies 484, 320, 351, 188, 467.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A push whose token endpoint refuses the credentials | A token endpoint's answer classifies the same on a typed chain and on a chain flattened into text, same name | no, byte for byte (checked) |
+| A push whose token endpoint refuses the permission | A token endpoint's answer classifies by its status and never as FetchUnreachable, same name | no, byte for byte (checked) |
+| A directory module whose dependency registry refuses the token | A token endpoint's answer classifies the same on a typed chain and on a chain flattened into text, same name | no, byte for byte (checked) |
+| A registry fetch whose token endpoint refuses the credentials | A token endpoint's answer classifies by its status and never as FetchUnreachable, same name | no, byte for byte (checked) |
+| A refused token refresh on a direct call | A refused token refresh is classified by the status the token endpoint answered, same name | no, byte for byte (checked) |
+| A token endpoint that fails stays transient | A token endpoint's answer classifies by its status and never as FetchUnreachable, same name | no, byte for byte (checked) |
+| A token endpoint that throttles is not transient | A token endpoint's answer classifies by its status and never as FetchUnreachable, same name | no, byte for byte (checked) |
+| A forbidden token on a version lookup is not found | A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Status tells a refused credential from a refused permission" in "A caller tells a refused credential from a refused permission by Status"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| When a registry uses token authentication and its token endpoint answers the token request with a... | A token endpoint's answer classifies by its status and never as FetchUnreachable | verbatim |
+| It SHALL NOT classify as `FetchUnreachable`, and it SHALL satisfy `errors.Is(err, ErrTransient)`... | A token endpoint's answer classifies by its status and never as FetchUnreachable | verbatim |
+| This SHALL hold on a chain that keeps the typed cause and on a chain that the embedded CUE flatte... | A token endpoint's answer classifies the same on a typed chain and on a chain flattened into text | "This SHALL" becomes "This (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable) SHALL" |
+| It SHALL also hold when the client was refreshing a token it held: the embedded registry client t... | A refused token refresh is classified by the status the token endpoint answered | "It SHALL" becomes "It (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable) SHALL" |
+| A caller tells a refused credential from a refused permission by `Status` (401 or 403). | A caller tells a refused credential from a refused permission by Status | "A caller tells" becomes "(Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable) A caller SH..." |
+| One case is outside this requirement. | A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer | "this requirement" becomes "this requirement (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreach..." |
+| The embedded CUE's registry client reports a 403 or a 404 on a module version lookup as `modregis... | A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer | verbatim |
+| That case SHALL classify as `FetchNotFound`, as the requirement "A fetch or resolution failure is... | A 403 or a 404 on a module version lookup is not found, also for the token endpoint's answer | verbatim |
+
+**The library classifies every fetch and resolution failure it returns**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 845 characters; new bodies 498, 274, 190.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Acquiring an unpublished version | The library classifies every fetch and resolution failure it returns, kept in place | no, byte for byte (checked) |
+| A directory module whose dependency registry is down | The library classifies every fetch and resolution failure it returns, kept in place | no, byte for byte (checked) |
+| A values file whose import registry is down | The library classifies every fetch and resolution failure it returns, kept in place | no, byte for byte (checked) |
+| A malformed package is not a fetch failure | The library classifies every fetch and resolution failure it returns, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A classified failure keeps its wrap text and its sentinels" in "The wrap text and the existing sentinels of a classified failure stay unchanged"
+- "A shape-gate failure is not classified" in "An evaluation error is not classified"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Every library path that returns a registry fetch failure or a `cue/load` dependency resolution fa... | The library classifies every fetch and resolution failure it returns | verbatim |
+| These paths are the registry acquire verbs (`FetchArtifact`, with `Coordinate` set to the fetched... | The library classifies every fetch and resolution failure it returns | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | The library classifies every fetch and resolution failure it returns | the whole citation, as a `**Source**:` line |
+| The wrap text SHALL be unchanged, and every existing sentinel (`ErrInvalidPackage`, `ErrWrongKind... | The wrap text and the existing sentinels of a classified failure stay unchanged | "The wrap text" becomes "(Requirement: The library classifies every fetch and resolution failure it returns) The wrap text" |
+| Source: enhancement 0021 (the GA exit criteria). | The wrap text and the existing sentinels of a classified failure stay unchanged | the whole citation, as a `**Source**:` line |
+| An evaluation error (a built value's error, a shape-gate or concreteness failure) SHALL NOT be cl... | An evaluation error is not classified | "An evaluation error" becomes "(Requirement: The library classifies every fetch and resolution failure it returns) An evaluation error" |
+| Source: enhancement 0021 (the GA exit criteria). | An evaluation error is not classified | the whole citation, as a `**Source**:` line |
+
+**An author-defect resolution failure is a typed error**: form c2 (REMOVED plus ADDED); old body 1245 characters; new bodies 308, 302, 102, 165, 173, 156.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The message is the cause's message | A ResolutionError returns the text of its cause and unwraps to it, same name | no, byte for byte (checked) |
+| An author defect is never transient | A ResolutionError is never transient and holds a FetchError only when its cause does, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "ResolutionOther is never built" in "opm/errors exports ResolutionKind and ResolutionError and Classify never builds ResolutionOther"
+- "An import of a package no module of the build provides" in "ResolutionImportUnprovided means no module of the build provides an imported package"
+- "An imported package that more than one module of the build provides" in "ResolutionImportAmbiguous means more than one module of the build provides an imported package"
+- "A dependency module file that does not parse" in "ResolutionModuleFileInvalid means a dependency's module file does not parse"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `opm/errors` SHALL export `ResolutionKind` with the values `ResolutionOther`, `ResolutionImportUn... | opm/errors exports ResolutionKind and ResolutionError and Classify never builds ResolutionOther | verbatim |
+| `ResolutionOther` is the zero value, and `Classify` SHALL NOT build it. | opm/errors exports ResolutionKind and ResolutionError and Classify never builds ResolutionOther | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | opm/errors exports ResolutionKind and ResolutionError and Classify never builds ResolutionOther | the whole citation, as a `**Source**:` line |
+| `ResolutionImportUnprovided` means no module of the build provides an imported package. | ResolutionImportUnprovided means no module of the build provides an imported package | "`ResolutionImportUnprovided` means" becomes "`ResolutionImportUnprovided` SHALL mean" |
+| It covers an import of a package missing from the main module's own path, an import of a module t... | ResolutionImportUnprovided means no module of the build provides an imported package | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | ResolutionImportUnprovided means no module of the build provides an imported package | the whole citation, as a `**Source**:` line |
+| `ResolutionImportAmbiguous` means more than one module of the build provides an imported package. | ResolutionImportAmbiguous means more than one module of the build provides an imported package | "`ResolutionImportAmbiguous` means" becomes "`ResolutionImportAmbiguous` SHALL mean" |
+| Source: enhancement 0021 (the GA exit criteria). | ResolutionImportAmbiguous means more than one module of the build provides an imported package | the whole citation, as a `**Source**:` line |
+| `ResolutionModuleFileInvalid` means a dependency's module file does not parse, whether the depend... | ResolutionModuleFileInvalid means a dependency's module file does not parse | "`ResolutionModuleFileInvalid` means" becomes "`ResolutionModuleFileInvalid` SHALL mean" |
+| Source: enhancement 0021 (the GA exit criteria). | ResolutionModuleFileInvalid means a dependency's module file does not parse | the whole citation, as a `**Source**:` line |
+| `(*ResolutionError).Error()` SHALL return the text of `Err` unchanged, and `Unwrap` SHALL return... | A ResolutionError returns the text of its cause and unwraps to it | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | A ResolutionError returns the text of its cause and unwraps to it | the whole citation, as a `**Source**:` line |
+| A `*ResolutionError` SHALL NOT satisfy `errors.Is(err, ErrTransient)`, and `errors.As` SHALL NOT... | A ResolutionError is never transient and holds a FetchError only when its cause does | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | A ResolutionError is never transient and holds a FetchError only when its cause does | the whole citation, as a `**Source**:` line |
+
+**Classify recognises fetch failures and author-defect resolution failures, and leaves every other error unchanged**: form c2 (REMOVED plus ADDED); old body 3522 characters; new bodies 258, 233, 145, 259, 171, 264, 302, 236, 165, 262, 315, 257, 261, 74, 395, 209, 110.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| An author defect stays a plain error | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged, same name | no, byte for byte (checked) |
+| A flattened not-found form is classified | The module not found and exact-version package forms are fetch forms, same name | no, byte for byte (checked) |
+| An exact version the registry does not provide is not found | The module not found and exact-version package forms are fetch forms, same name | no, byte for byte (checked) |
+| An unresolvable import is a typed author defect | Classify returns a ResolutionError that wraps the error for an author-defect resolution failure no failed registry interaction caused, same name | no, byte for byte (checked) |
+| A dependency whose module file does not parse is a typed author defect | cannot expand module graph is not matched on its own, same name | no, byte for byte (checked) |
+| A dependency module file that does not parse on the direct import path is a typed author defect | The author-defect forms are matched in a fixed order, same name | no, byte for byte (checked) |
+| An ambiguous import is a typed author defect | The author-defect forms are matched in a fixed order, same name | no, byte for byte (checked) |
+| The first author-defect form decides | The first author-defect form decides when the text carries several, same name | no, byte for byte (checked) |
+| A registry failure beside an unprovided import is a fetch failure | A fetch form wins over an author-defect form in the same text, same name | no, byte for byte (checked) |
+| An archive that does not unzip beside an unprovided import stays a fetch failure | A fetch form wins over an author-defect form in the same text, same name | no, byte for byte (checked) |
+| Cancellation is not a fetch failure | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged, same name | no, byte for byte (checked) |
+| Classifying twice changes nothing | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged, same name | no, byte for byte (checked) |
+| A flattened token refusal is not unreachable | The answered token request classifies by its status and never as FetchUnreachable, same name | no, byte for byte (checked) |
+| A request that got no response stays unreachable | Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A failed registry interaction is returned as a FetchError" in "Classify returns a FetchError that wraps the error for a failed registry interaction"
+- "The typed chain is read before the text" in "Classify reads the typed chain first and matches text only when no typed cause is found"
+- "A net.Error is unreachable" in "A net.Error is FetchUnreachable except for the answered token request"
+- "Only the text fallback matches error text" in "The text fallback is the only place in the library that matches the text of a registry or cue/load error"
+- "The fetch forms come before the author-defect forms" in "The text fallback covers the fetch forms before the author-defect forms"
+- "A request line that ends in an HTTP status of 400 or higher" in "The answered token request is the first fetch form"
+- "The generic cannot fetch form is FetchOther" in "The generic cannot fetch form is FetchOther"
+- "A changed CUE form fails the test" in "A test produces each covered form through the embedded CUE"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `opm/errors` SHALL export `Classify(err error) error`. | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged | verbatim |
+| It SHALL return nil for nil. | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged | verbatim |
+| It SHALL return `err` unchanged when the chain already holds a `*FetchError` or a `*ResolutionErr... | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | Classify returns nil for nil and leaves an already classified error, a cancellation and an unrecognised error unchanged | the whole citation, as a `**Source**:` line |
+| It SHALL return a `*FetchError` that wraps `err` for a failed registry interaction: a fetch that... | Classify returns a FetchError that wraps the error for a failed registry interaction | "It SHALL" becomes "`Classify` SHALL" |
+| Source: enhancement 0021 (the GA exit criteria). | Classify returns a FetchError that wraps the error for a failed registry interaction | the whole citation, as a `**Source**:` line |
+| It SHALL return a `*ResolutionError` that wraps `err` for an author-defect resolution failure tha... | Classify returns a ResolutionError that wraps the error for an author-defect resolution failure no failed registry interaction caused | "It SHALL" becomes "`Classify` SHALL" |
+| Source: enhancement 0021 (the GA exit criteria). | Classify returns a ResolutionError that wraps the error for an author-defect resolution failure no failed registry interaction caused | the whole citation, as a `**Source**:` line |
+| When the text carries both a fetch form and an author-defect form, the fetch form SHALL win, the... | A fetch form wins over an author-defect form in the same text | verbatim |
+| Source: enhancement 0021 (the GA exit criteria). | A fetch form wins over an author-defect form in the same text | the whole citation, as a `**Source**:` line |
+| When the text carries several author-defect forms, the first in the order of step 2 below SHALL d... | The first author-defect form decides when the text carries several | "step 2 below" becomes "step 2 below (Requirement: The author-defect forms are matched in a fixed order)" |
+| Source: enhancement 0021 (the GA exit criteria). | The first author-defect form decides when the text carries several | the whole citation, as a `**Source**:` line |
+| `Classify` SHALL read the typed chain first: `context.DeadlineExceeded`, an `ociregistry.HTTPErro... | Classify reads the typed chain first and matches text only when no typed cause is found | verbatim |
+| Only when no typed cause is found SHALL it match text. | Classify reads the typed chain first and matches text only when no typed cause is found | verbatim |
+| A `net.Error` is `FetchUnreachable`, except when the text of the chain is the answered token requ... | A net.Error is FetchUnreachable except for the answered token request | "A `net.Error` is" becomes "A `net.Error` SHALL be"; "step 1 below" becomes "step 1 below (Requirement: The answered token request is the first fetch form)" |
+| The text fallback, with that one `net.Error` exception, SHALL be the only place in the library th... | The text fallback is the only place in the library that matches the text of a registry or cue/load error | "that one `net.Error` exception" becomes "that one `net.Error` exception (Requirement: A net.Error is FetchUnreachable except for the answered token..." |
+| It SHALL cover the forms the embedded CUE version produces when `cue/load` flattens a failure, in... | The text fallback covers the fetch forms before the author-defect forms | "It SHALL" becomes "`Classify` SHALL"; list numbers "1.", "2." added |
+| The fetch forms. | The text fallback covers the fetch forms before the author-defect forms | verbatim; list numbers "1.", "2." added |
+| The author-defect forms, in this order: | The text fallback covers the fetch forms before the author-defect forms | "The author-defect forms, in this order:" becomes "The author-defect forms."; list numbers "1.", "2." added |
+| The fetch forms. | The answered token request is the first fetch form | verbatim |
+| First is the answered token request: `cannot do HTTP request: ` followed on the same line by a re... | The answered token request is the first fetch form | "First is" becomes "First SHALL be" |
+| The embedded registry client writes that form only when the token endpoint of a token-authenticat... | The answered token request classifies by its status and never as FetchUnreachable | "that form" becomes "that form (Requirement: The answered token request is the first fetch form)"; "so it classifies" becomes "so it SHALL classify" |
+| The fetch forms. | Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class | verbatim |
+| Then come `cannot do HTTP request` in any other form, which is `FetchUnreachable`, and an HTTP st... | Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class | "which is `FetchUnreachable`" becomes "which SHALL be `FetchUnreachable`" |
+| They also include `module not found`, and `cannot find module providing package` followed by a pa... | The module not found and exact-version package forms are fetch forms | "They also include" becomes "The fetch forms SHALL also include" |
+| Only a standalone `path@version` load produces that form, after it asks the registry for that ver... | The module not found and exact-version package forms are fetch forms | verbatim |
+| Last among them is `cannot fetch`, which is `FetchOther`. | The generic cannot fetch form is FetchOther | "Last among them" becomes "Last among the fetch forms"; "which is" becomes "which SHALL be" |
+| The author-defect forms, in this order: | The author-defect forms are matched in a fixed order | "The author-defect forms, in this order:" becomes "The author-defect forms SHALL be, in this order:" |
+| - `cannot find module providing package` followed by a path without an exact version, which is `R... | The author-defect forms are matched in a fixed order | verbatim |
+| - `ambiguous import`, which is `ResolutionImportAmbiguous`; | The author-defect forms are matched in a fixed order | verbatim |
+| - `cannot parse module file`, or `import failed: ` followed directly by a module coordinate at an... | The author-defect forms are matched in a fixed order | verbatim |
+| `cannot expand module graph` SHALL NOT be matched on its own, because it wraps both fetch failure... | cannot expand module graph is not matched on its own | verbatim |
+| It classifies through the form it carries. | cannot expand module graph is not matched on its own | "It classifies" becomes "`cannot expand module graph` classifies" |
+| A test SHALL produce each covered form through the embedded CUE and SHALL fail when a CUE version... | A test produces each covered form through the embedded CUE | verbatim |
+
+### Ledger: platform-artifact
+
+**Platform Type Shape**: form c2 (REMOVED plus ADDED); old body 4656 characters; new bodies 323, 152, 405, 392, 396, 356, 451, 406, 299, 302, 48, 191, 135, 264, 306, 264, 494.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Platform struct fields | Platform has the uniform artifact shape of Metadata, Package and Source, same name | no, byte for byte (checked) |
+| PlatformMetadata fields | Platform has the uniform artifact shape of Metadata, Package and Source, same name | no, byte for byte (checked) |
+| The inventory of a healthy platform reads as fulfilled and routable | Contracts returns a decoded ContractInventory, decoded once at construction, same name | no, byte for byte (checked) |
+| An over-subscribed platform is reported, not refused | The inventory reports Unfulfilled and OverSubscribed, same name | no, byte for byte (checked) |
+| An undiscriminated platform is reported, not refused | The inventory reports Comparable, same name | no, byte for byte (checked) |
+| An unlisted demand leaves the inventory empty | The accessor does not decode defined, same name | no, byte for byte (checked) |
+| An inventory that predates the comparable-predicate report is refused | The accessor does not default a report the value does not carry, same name | no, byte for byte (checked) |
+| Two majors of one provider catalog are two providers | Providers are counted per registry entry, same name | no, byte for byte (checked) |
+| A disabled definer does not hide over-subscription | A disabled entry never counts as a definer, same name | no, byte for byte (checked) |
+| An inventory that predates the provider count is refused | A missing providedBy is refused with PlatformCoreTooOldError, same name | no, byte for byte (checked) |
+| Two majors sharing contract keys are reported as collisions | The inventory reports Collisions and CollidingEntries, same name | no, byte for byte (checked) |
+| A colliding key is left out of the other reports | A colliding key is left out of the other reports and no caller reads Fulfilled or Discriminated as safe while Collisions is non-empty, same name | no, byte for byte (checked) |
+| Collision and over-subscription are reported together | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision, same name | no, byte for byte (checked) |
+| An inventory that predates the collision report reads no collision | An absent collision report decodes as empty and a present one that fails to decode is refused, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "No exported field holds a decoded derived view" in "No exported field of Platform holds a decoded derived CUE view"
+- "DefinedBy and RequiredBy read the enabled entries" in "The inventory reports DefinedBy and RequiredBy"
+- "ProvidedBy maps a required contract to the registry keys" in "The inventory reports ProvidedBy"
+- "A report is not a refusal" in "The accessor does not refuse on a report"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact shape: `{ Metada... | Platform has the uniform artifact shape of Metadata, Package and Source | verbatim |
+| `Package` is the source of truth; `Metadata` is a decoded cache of the platform-level metadata; `... | Platform has the uniform artifact shape of Metadata, Package and Source | verbatim |
+| No exported field SHALL hold a decoded derived CUE view (`#composedTransformers`, `#contracts`),... | No exported field of Platform holds a decoded derived CUE view | verbatim |
+| The contract inventory core derives on `#Platform.#contracts` | Contracts returns a decoded ContractInventory, decoded once at construction | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decod... | Contracts returns a decoded ContractInventory, decoded once at construction | "a platform the constructor did not build decodes" becomes "a platform the constructor did not build SHALL decode"; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | Contracts returns a decoded ContractInventory, decoded once at construction | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory reports DefinedBy and RequiredBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory reports DefinedBy and RequiredBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `DefinedBy` (contract FQN to the registry key of the enabled catalog listing it, for keys exactly... | The inventory reports DefinedBy and RequiredBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `RequiredBy` (each such defined contract FQN to the implementation FQNs of the enabled transforme... | The inventory reports DefinedBy and RequiredBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory reports DefinedBy and RequiredBy | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory reports ProvidedBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory reports ProvidedBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `ProvidedBy` (every provider-fulfilled contract FQN some enabled transformer requires, whether or... | The inventory reports ProvidedBy | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory reports ProvidedBy | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory reports Unfulfilled and OverSubscribed | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory reports Unfulfilled and OverSubscribed | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Unfulfilled` (defined provider-fulfilled contract FQNs no enabled entry provides) | The inventory reports Unfulfilled and OverSubscribed | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `OverSubscribed` (provider-fulfilled contract FQNs `ProvidedBy` maps to two or more registry entr... | The inventory reports Unfulfilled and OverSubscribed | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory reports Unfulfilled and OverSubscribed | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory reports Comparable | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory reports Comparable | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Comparable` (every pair of enabled transformers whose match predicates are comparable over at le... | The inventory reports Comparable | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory reports Comparable | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory reports Collisions and CollidingEntries | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory reports Collisions and CollidingEntries | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Collisions` (every contract FQN that two or more enabled registry entries' catalogs list in thei... | The inventory reports Collisions and CollidingEntries | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `CollidingEntries` (each `Collisions` key to the ascending registry keys, path plus major, of the... | The inventory reports Collisions and CollidingEntries | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory reports Collisions and CollidingEntries | the whole citation, as a `**Source**:` line |
+| The contract inventory core derives on `#Platform.#contracts` | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory` | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| the booleans `Fulfilled`, `Routable` and `Discriminated` | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Routable` SHALL be true exactly when `OverSubscribed` and `Collisions` are both empty. | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "`#Catalog` publishes its contracts as members, beside its transformers", "One... | The inventory carries the booleans Fulfilled, Routable and Discriminated, and Routable needs no over-subscription and no collision | the whole citation, as a `**Source**:` line |
+| A colliding key is in none of `DefinedBy`, `RequiredBy`, `Unfulfilled` or `Comparable`, so `Fulfi... | A colliding key is left out of the other reports and no caller reads Fulfilled or Discriminated as safe while Collisions is non-empty | "the accessor's documentation" becomes "the `Contracts()` accessor's documentation" |
+| A disabled entry never counts as a definer. | A disabled entry never counts as a definer | "never counts" becomes "SHALL never count" |
+| Providers are counted per registry entry, the same count the render's single-provider guard reads... | Providers are counted per registry entry | "Providers are counted" becomes "Providers SHALL be counted" |
+| The accessor SHALL NOT decode `defined`: its values are the catalogs' member schemas, which a cal... | The accessor does not decode defined | "The accessor SHALL" becomes "The `Contracts()` accessor SHALL" |
+| The accessor SHALL NOT refuse on `Fulfilled: false`, `Routable: false`, `Discriminated: false` or... | The accessor does not refuse on a report | "The accessor SHALL" becomes "The `Contracts()` accessor SHALL"; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| whether a generation step withholds a platform package on them is that step's decision, outside t... | The accessor does not refuse on a report | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| enhancement 0015, "An unfulfilled contract is reported, never refused; only over-subscription ref... | The accessor does not refuse on a report | the whole citation, as a `**Source**:` line |
+| The accessor SHALL NOT default a report the value does not carry: a platform whose `#contracts` p... | The accessor does not default a report the value does not carry | "The accessor SHALL" becomes "The `Contracts()` accessor SHALL" |
+| A missing `providedBy` SHALL be refused with the typed `PlatformCoreTooOldError` (field `provided... | A missing providedBy is refused with PlatformCoreTooOldError | "A missing" becomes "(Requirement: The accessor does not default a report the value does not carry) A missing" |
+| The one exception is the collision report: an absent `collisions` or `collidingEntries` SHALL dec... | An absent collision report decodes as empty and a present one that fails to decode is refused | "The one exception" becomes "(Requirement: The accessor does not default a report the value does not carry) The one exception" |
+| A present collision field that fails to decode SHALL still be refused. | An absent collision report decodes as empty and a present one that fails to decode is refused | verbatim |
+
+**Platform acquisition from a directory returns a source-carrying artifact**: form c2 (REMOVED plus ADDED); old body 799 characters; new bodies 420, 413, 256.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Acquired platform carries its source | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root, same name | no, byte for byte (checked) |
+| Acquired subpackage names its module root | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root, same name | no, byte for byte (checked) |
+| Registry override honored | The registry mapping of platform acquisition is the kernel's and never touches the process environment, same name | no, byte for byte (checked) |
+| Shape-gate failures propagate | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root, same name | no, byte for byte (checked) |
+| Frontends stop composing load and construct | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL expose `AcquirePlatformFromDir(ctx, dir)`, which loads a `#Platform` CUE package... | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Overlay` nil | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Root` = the absolute path of the enclosing module root (the nearest ancestor holding `cue.mod/mo... | AcquirePlatformFromDir stamps the source of a platform with no overlay and the module root as its Root | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| The kernel SHALL expose `AcquirePlatformFromDir(ctx, dir)`, which loads a `#Platform` CUE package... | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `Pkg` = the package directory relative to `Root` (empty for the root package) | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| A directory with no enclosing module is its own root with an empty `Pkg`. | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root | "is its own root" becomes "SHALL be its own root"; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| The registry mapping used for the platform's catalog imports SHALL be the kernel's (`WithRegistry... | The registry mapping of platform acquisition is the kernel's and never touches the process environment | "the verb takes" becomes "the verb `AcquirePlatformFromDir(ctx, dir)` takes" |
+
+**Platform carries its render source**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 519 characters; new bodies 476, 106.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Value-constructed platform has no source | Platform carries its render source, kept in place | no, byte for byte (checked) |
+| The source type has one name | Platform carries its render source, kept in place | no, byte for byte (checked) |
+| Source-less platform cannot render | Platform carries its render source, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Only Render reads the source" in "No kernel operation other than Render reads the Source field of a platform"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `platform.Platform` SHALL expose `Source *module.Source`. The source type has one name, `module.S... | Platform carries its render source | verbatim |
+| No other kernel operation reads the field. | No kernel operation other than Render reads the Source field of a platform | "No other kernel operation reads the field" becomes "(Requirement: Platform carries its render source) No other kernel operation SHALL read the `Source` field" |
+
+**Platform constructor takes a bare value**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 566 characters; new bodies 430, 170.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Successful construction | Platform constructor takes a bare value, kept in place | no, byte for byte (checked) |
+| Missing metadata is refused | Platform constructor takes a bare value, kept in place | no, byte for byte (checked) |
+| The constructor takes one argument | Platform constructor takes a bare value, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The constructor keeps Package and leaves Source nil" in "The constructor keeps Package unchanged, leaves Source nil and performs no API version detection and no binding lookup"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL expose `func NewPlatformFromValue(v cue.Value) (*Platform, error)` in `opm/plat... | Platform constructor takes a bare value | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| When `metadata` is absent or does not decode, or the root `type` is present but not a string, it... | Platform constructor takes a bare value | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| It SHALL decode `Metadata` from the value's `metadata` field, hoist the root-level `type` into `M... | The constructor keeps Package unchanged, leaves Source nil and performs no API version detection and no binding lookup | "It SHALL decode `Metadata` from the value's `metadata` field, hoist..." becomes "The constructor SHALL set" |
+| It SHALL perform no API version detection and no binding lookup. | The constructor keeps Package unchanged, leaves Source nil and performs no API version detection and no binding lookup | "It SHALL" becomes "The constructor SHALL" |
+
+**A platform records its core floor and contract inventory at construction**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 2059 characters; new bodies 421, 371, 447, 436, 463, 379.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| An older-core platform constructs and is refused later | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| Contracts and the floor no longer read Package | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| Each call returns its own inventory | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| Concurrent reads of one platform are race-free | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| A hand-built platform keeps its results | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| A contracts value that does not evaluate still constructs | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+| The zero platform reports no contracts | A platform records its core floor and contract inventory at construction, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A contracts refusal does not fail construction" in "A contracts refusal does not fail construction, and recording the facts once lets Render and Contracts stop reading Package"
+- "A call returns a value no other call shares" in "Contracts returns the recorded inventory or the recorded refusal without reading Package, and each call returns its own value"
+- "CoreFloor reads the recorded floor" in "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError"
+- "A struct-literal platform decodes its facts once" in "A Platform the constructor did not build decodes the same facts from its Package once"
+- "A caller that changes Package re-runs the constructor" in "Package stays the source of truth and the Platform documentation says the recorded facts are a cache"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| `platform.NewPlatformFromValue`, and therefore `Kernel.AcquirePlatformFromDir`, SHALL read the pl... | A platform records its core floor and contract inventory at construction | verbatim |
+| Where the inventory is refused, it SHALL record the refusal (a missing `#contracts` or report fie... | A platform records its core floor and contract inventory at construction | verbatim |
+| A contracts refusal SHALL NOT fail construction: the constructor still fails only for the metadat... | A contracts refusal does not fail construction, and recording the facts once lets Render and Contracts stop reading Package | verbatim |
+| Recording these facts once is what lets `Render` and `Contracts()` stop reading `Package`, so tha... | A contracts refusal does not fail construction, and recording the facts once lets Render and Contracts stop reading Package | "these facts" becomes "these facts (Requirement: A platform records its core floor and contract inventory at construction)" |
+| On a constructed platform, `Contracts()` SHALL return the recorded inventory or the recorded refu... | Contracts returns the recorded inventory or the recorded refusal without reading Package, and each call returns its own value | "the recorded inventory" becomes "the recorded inventory (Requirement: A platform records its core floor and contract inventory at construction)" |
+| Each call SHALL return a value no other call shares: an inventory whose maps and slices a caller... | Contracts returns the recorded inventory or the recorded refusal without reading Package, and each call returns its own value | verbatim |
+| The library SHALL expose `(*Platform).CoreFloor() error`, which SHALL return nil when the recorde... | CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError | "the recorded floor" becomes "the recorded floor (Requirement: A platform records its core floor and contract inventory at construction)" |
+| It SHALL NOT read `Package` on a constructed platform. | CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError | "It SHALL" becomes "`(*Platform).CoreFloor()` SHALL" |
+| A `Platform` that the constructor did not build (a struct literal or the zero value) SHALL decode... | A Platform the constructor did not build decodes the same facts from its Package once | "the same facts" becomes "the same facts (Requirement: A platform records its core floor and contract inventory at construction)" |
+| So a hand-built platform keeps today's results, and the zero `Platform` returns the `PlatformCore... | A Platform the constructor did not build decodes the same facts from its Package once | verbatim |
+| `Package` stays the source of truth: the recorded facts are a cache stamped at construction, like... | Package stays the source of truth and the Platform documentation says the recorded facts are a cache | "the recorded facts" becomes "the recorded facts (Requirement: A platform records its core floor and contract inventory at construction)" |
+| The `Platform` documentation SHALL say this, and SHALL say that a `Platform` is used through a po... | Package stays the source of truth and the Platform documentation says the recorded facts are a cache | verbatim |
+
+### Ledger: platform-module-generation
+
+**Generation is pure and deterministic**: form c2 (REMOVED plus ADDED); old body 1165 characters; new bodies 338, 56, 141, 134, 371, 145.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Same input, same bytes | Entries and dependencies are emitted in sorted path order, same name | no, byte for byte (checked) |
+| Two catalogs | platform.cue writes one registry entry per subscription, same name | no, byte for byte (checked) |
+| Disabled entry still imports its catalog | platform.cue embeds core.#Platform, declares the name and type and imports each entry's catalog under a positional alias, same name | no, byte for byte (checked) |
+| Invalid input is refused | Generation renders a platform module's two files from typed input only, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The helper does no I/O" in "Generation performs no I/O and reads no environment"
+- "The module file declares the module path, the language version and every dependency" in "cue.mod/module.cue declares the caller's module path, the language version and every dependency"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The helper SHALL render a platform module's two files (`cue.mod/module.cue`, `platform.cue`) from... | Generation renders a platform module's two files from typed input only | verbatim |
+| It SHALL perform no I/O and read no environment. | Generation performs no I/O and reads no environment | "It SHALL" becomes "The helper SHALL" |
+| Entries and dependencies SHALL be emitted in sorted path order whatever order they arrive in, so... | Entries and dependencies are emitted in sorted path order | verbatim |
+| `platform.cue` SHALL embed `core.#Platform`, declare `metadata.name` and `type`, import each entr... | platform.cue embeds core.#Platform, declares the name and type and imports each entry's catalog under a positional alias | verbatim; list punctuation adjusted at the cut (a ":" or "." added, a "," or "and" dropped) |
+| `platform.cue` SHALL | platform.cue writes one registry entry per subscription | verbatim |
+| write one `#registry` entry per subscription carrying `enable`, the entry's expected `version` (t... | platform.cue writes one registry entry per subscription | verbatim |
+| `cue.mod/module.cue` SHALL declare the caller's module path, the language version `v0.17.0`, and... | cue.mod/module.cue declares the caller's module path, the language version and every dependency | verbatim |
+
+**The core pin defaults to the kernel's verified release**: form c2 (REMOVED plus ADDED); old body 515 characters; new bodies 330, 184.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Default core pin | The generated module file pins core at the kernel's default schema module version and Roots derives that pin plus every entry's catalog, same name | no, byte for byte (checked) |
+| Explicit core pin | Roots takes no option and a caller assembles another core pin directly, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The generated `cue.mod/module.cue` SHALL pin `opmodel.dev/core@v2` at the version carried by the... | The generated module file pins core at the kernel's default schema module version and Roots derives that pin plus every entry's catalog | verbatim |
+| The dependency roots `Roots` derives SHALL be that core pin plus every entry's catalog, disabled... | The generated module file pins core at the kernel's default schema module version and Roots derives that pin plus every entry's catalog | verbatim |
+| `Roots` SHALL take no option: a caller that needs another core build assembles its `[]Dep` roots... | Roots takes no option and a caller assembles another core pin directly | verbatim |
+
+**The dependency closure is derived from published module files**: form c2 (REMOVED plus ADDED); old body 828 characters; new bodies 387, 466, 121.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Transitive dependency pinned | The helper derives the dependency list by a breadth-first walk over published module files and the walk honours context cancellation, same name | no, byte for byte (checked) |
+| Root wins a shared path | The helper derives the dependency list by a breadth-first walk over published module files and the walk honours context cancellation, same name | no, byte for byte (checked) |
+| Unpublished build refused | A requirement naming an unpublished build fails with the module path and version, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The result is the list a cue mod tidy would write" in "The result is the tidied list a cue mod tidy would write for the same roots"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The helper SHALL derive the full dependency list from the roots by a breadth-first walk over each... | The helper derives the dependency list by a breadth-first walk over published module files and the walk honours context cancellation | verbatim |
+| The walk SHALL honour context cancellation. | The helper derives the dependency list by a breadth-first walk over published module files and the walk honours context cancellation | verbatim |
+| The result SHALL be the tidied list a `cue mod tidy` would write for the same roots (enhancement... | The result is the tidied list a cue mod tidy would write for the same roots | "The result SHALL" becomes "The result (Requirement: The helper derives the dependency list by a breadth-first walk over published modu..." |
+| A root or transitive requirement naming an unpublished build SHALL fail with an error naming the... | A requirement naming an unpublished build fails with the module path and version | verbatim |
+
+**Registry access is caller-configured**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 590 characters; new bodies 323, 266.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Fixture graph without a registry | Registry access is caller-configured, kept in place | no, byte for byte (checked) |
+| Registry source carries the caller's configuration | Registry access is caller-configured, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A nil environment is the caller's choice" in "The helper reads no process environment and hard-codes no client type, and a nil environment is the caller's choice"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The module-file source the closure reads through SHALL be constructed from caller-supplied config... | Registry access is caller-configured | verbatim |
+| Tests SHALL be able to supply a fixture module-file graph without any registry. | Registry access is caller-configured | verbatim |
+| The helper SHALL NOT read the process environment or hard-code a client type itself; a caller tha... | The helper reads no process environment and hard-codes no client type, and a nil environment is the caller's choice | verbatim |
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -3151,3 +3582,26 @@ Sentences of unit 5 (library-B4 second half) that gained SHALL, or changed a ver
 | --- | --- | --- |
 | In a dry run the receiver computes the diff, title, body and labels and writes them to the job summary, and pushes nothing, opens or edits no PR, and adds no label or comment. | In a dry run the receiver SHALL compute the diff, title, body and labels and write them to the job summary, and push nothing, open or edit no PR, and add no label or comment. | A dry run writes its plan to the job summary and changes nothing |
 | A source that fails to compile or to load is returned as before, without the marker: such a failure can be a registry or a file failure, which is not a statement about the values. | A source that fails to compile or to load SHALL be returned as before, without the marker: such a failure can be a registry or a file failure, which is not a statement about the values. | A source that fails to compile or to load is returned without the ConfigValidationError marker |
+
+Sentences of unit 6 (library-B5 first half) that gained SHALL, or changed a verb form to take it. The pointer, subject and number additions of the decision above are not listed here, because they add no keyword:
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| `FetchUnreachable` means no HTTP response was received: a refused connection, a DNS or TLS failure, a timeout or an expired deadline. | `FetchUnreachable` SHALL mean no HTTP response was received: a refused connection, a DNS or TLS failure, a timeout or an expired deadline. | FetchUnreachable and FetchOther classify the other failed registry interactions and Status holds the answered code |
+| An author-defect resolution failure, which no failed registry interaction caused, is a `*ResolutionError` and never a `*FetchError`. | An author-defect resolution failure, which no failed registry interaction caused, SHALL be a `*ResolutionError` and never a `*FetchError`. | An author-defect resolution failure is a ResolutionError and never a FetchError |
+| A caller tells a refused credential from a refused permission by `Status` (401 or 403). | (Requirement: A token endpoint's answer classifies by its status and never as FetchUnreachable) A caller SHALL tell a refused credential from a refused permission by `Status` (401 or 403). | A caller tells a refused credential from a refused permission by Status |
+| `ResolutionImportUnprovided` means no module of the build provides an imported package. | `ResolutionImportUnprovided` SHALL mean no module of the build provides an imported package. | ResolutionImportUnprovided means no module of the build provides an imported package |
+| `ResolutionImportAmbiguous` means more than one module of the build provides an imported package. | `ResolutionImportAmbiguous` SHALL mean more than one module of the build provides an imported package. | ResolutionImportAmbiguous means more than one module of the build provides an imported package |
+| `ResolutionModuleFileInvalid` means a dependency's module file does not parse, whether the dependency is published or served from a local replacement directory. | `ResolutionModuleFileInvalid` SHALL mean a dependency's module file does not parse, whether the dependency is published or served from a local replacement directory. | ResolutionModuleFileInvalid means a dependency's module file does not parse |
+| A `net.Error` is `FetchUnreachable`, except when the text of the chain is the answered token request of step 1 below, which classifies by its status: the embedded registry client leaves no typed status for a refused token refresh. | A `net.Error` SHALL be `FetchUnreachable`, except when the text of the chain is the answered token request of step 1 below (Requirement: The answered token request is the first fetch form), which classifies by its status: the embedded registry client leaves no typed status for a refused token refresh. | A net.Error is FetchUnreachable except for the answered token request |
+| First is the answered token request: `cannot do HTTP request: ` followed on the same line by a request and `: <code> <status text>` at the end of the line, where the status text is the one HTTP gives the code and the code is 400 or higher. | First SHALL be the answered token request: `cannot do HTTP request: ` followed on the same line by a request and `: <code> <status text>` at the end of the line, where the status text is the one HTTP gives the code and the code is 400 or higher. | The answered token request is the first fetch form |
+| The embedded registry client writes that form only when the token endpoint of a token-authenticated registry answered the token request with that status, so it classifies by the status, as a registry answer does, and never as `FetchUnreachable`. | The embedded registry client writes that form (Requirement: The answered token request is the first fetch form) only when the token endpoint of a token-authenticated registry answered the token request with that status, so it SHALL classify by the status, as a registry answer does, and never as `FetchUnreachable`. | The answered token request classifies by its status and never as FetchUnreachable |
+| Then come `cannot do HTTP request` in any other form, which is `FetchUnreachable`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. | Then come `cannot do HTTP request` in any other form, which SHALL be `FetchUnreachable`, and an HTTP status in the form `<code> <status text>: `, which the embedded CUE keeps for 401, 429 and 5xx answers, so a flattened 5xx stays transient. | Any other cannot do HTTP request form is FetchUnreachable and a flattened HTTP status keeps its class |
+| They also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). | The fetch forms SHALL also include `module not found`, and `cannot find module providing package` followed by a package path at an exact version (`P@vX.Y.Z`). | The module not found and exact-version package forms are fetch forms |
+| Last among them is `cannot fetch`, which is `FetchOther`. | Last among the fetch forms is `cannot fetch`, which SHALL be `FetchOther`. | The generic cannot fetch form is FetchOther |
+| The author-defect forms, in this order: | The author-defect forms SHALL be, in this order: | The author-defect forms are matched in a fixed order |
+| SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decoded once when the constructor builds the platform; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call ("A platform records its core floor and contract inventory at construction") | SHALL be readable through a `Contracts()` accessor returning a decoded `ContractInventory`, decoded once when the constructor builds the platform; a platform the constructor did not build SHALL decode `Package` once, on its first `CoreFloor()` or `Contracts()` call ("A platform records its core floor and contract inventory at construction") | Contracts returns a decoded ContractInventory, decoded once at construction |
+| A disabled entry never counts as a definer. | A disabled entry SHALL never count as a definer. | A disabled entry never counts as a definer |
+| Providers are counted per registry entry, the same count the render's single-provider guard reads: two majors of one catalog are two providers, and two transformers of one entry are one. | Providers SHALL be counted per registry entry, the same count the render's single-provider guard reads: two majors of one catalog are two providers, and two transformers of one entry are one. | Providers are counted per registry entry |
+| A directory with no enclosing module is its own root with an empty `Pkg`. | A directory with no enclosing module SHALL be its own root with an empty `Pkg`. | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root |
+| No other kernel operation reads the field. | (Requirement: Platform carries its render source) No other kernel operation SHALL read the `Source` field. | No kernel operation other than Render reads the Source field of a platform |

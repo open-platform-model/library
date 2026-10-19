@@ -50,12 +50,12 @@ Specs: `deps-cascade` (8), `instance-synthesis` (7), `cascade-wiring` (6), `conf
 
 Specs: `fetch-error-classification` (5), `platform-artifact` (5), `platform-module-generation` (4), `registry-module-loading` (4), `render-parity` (4), `catalog-acquisition` (3), `fixture-pin-maintenance` (3). Gate `N=140`.
 
-- [ ] 5.1 List `openspec/changes/` and confirm no open change other than `publish-go-api-bundle` edits a spec of this batch; list each spec's long requirements with `openspec validate <spec> --type spec --strict --json 2>&1`; the count must equal 28 (a difference is explained in the commit body or stops the section)
-- [ ] 5.2 For each long requirement choose the form (a, b, c2 or d) by the design.md table after reading its text, and search the repo for its old header before any rename, split or c2
-- [ ] 5.3 Write the delta in `specs/<spec>/spec.md` of this change for each spec of the batch: every body 500 or less with SHALL or MUST, each new requirement with a scenario that has a body, no `**Key**:` line, no heading of level 5 or deeper and no fenced block in a body
-- [ ] 5.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table)
-- [ ] 5.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger
-- [ ] 5.6 Run the gate block of design.md with `N=140`: `GATE PASS`, WARNING lines fell by 140 from 153, no new ERROR item, no "Archive would refuse" line
+- [x] 5.1 List `openspec/changes/` and confirm no open change other than `publish-go-api-bundle` edits a spec of this batch; list each spec's long requirements with `openspec validate <spec> --type spec --strict --json 2>&1`; the count must equal 28 (a difference is explained in the commit body or stops the section) (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`: 14 long requirements; the other four specs follow in unit 5b)
+- [x] 5.2 For each long requirement choose the form (a, b, c2 or d) by the design.md table after reading its text, and search the repo for its old header before any rename, split or c2 (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`)
+- [x] 5.3 Write the delta in `specs/<spec>/spec.md` of this change for each spec of the batch: every body 500 or less with SHALL or MUST, each new requirement with a scenario that has a body, no `**Key**:` line, no heading of level 5 or deeper and no fenced block in a body (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`)
+- [x] 5.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table) (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`)
+- [x] 5.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`)
+- [x] 5.6 Run the gate block of design.md with `N=140`: `GATE PASS`, WARNING lines fell by 140 from 153, no new ERROR item, no "Archive would refuse" line (unit 5a: `fetch-error-classification`, `platform-artifact` and `platform-module-generation`: N=126, WARNING lines fell from 153 to 27)
 - [ ] 5.7 `task check` green, then commit `docs(openspec): split the long requirements of library-B5`
 
 ## 6. Batch library-B6: 12 requirements
