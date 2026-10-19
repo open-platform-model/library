@@ -192,14 +192,14 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 | Old requirement | Old Source line (characters) | Handling |
 | --- | --- | --- |
 | The single-provider guard runs inside the build | 430 | Three titles. `Source: enhancement 0010 and enhancement 0015.` on two blocks; `Source: enhancement 0015.` on the block with the longest body; the two titles of enhancement 0015 and the core change on the block "Provenance is the registry key, so two majors of one catalog are two providers"; the title of enhancement 0010 and the core change on "Keys with default fulfilment may be supplied by any number of transformers". Every title stays in one block. |
-| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on 7 of 9 blocks. The parent and 1 other block carry the line without its last clause "as amended by core changes ...", which the other blocks carry. |
-| A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on one block. The other five carry it without the parenthetical about the interim safety net, which has no title. |
+| A caller may skip unprovided provider-fulfilled demands | 178 | The whole line on all 12 blocks, with its clause "as amended by core changes ...". Where the whole line did not fit, the body was split further (the parenthetical of the parent moved to "An unprovided demand's key is absent from the provider count"; "Every other refusal stands with the switch on" became three blocks). |
+| A render refuses a platform whose enabled entries share contract keys | 257 | The whole line on 9 of 11 blocks. Two blocks ("The glue emits no collision row when the platform carries no collision report" and "The collision cause comes first because a colliding key distorts the inventory") carry the first title with its parenthetical, whole, and drop the title "core change `fold-colliding-contract-keys`", which stays on the other blocks. No clause inside a title is dropped. |
 | A render reports every contract its instance requires | 114 | The whole line on the block that holds the first paragraph, because the old text ties it to that paragraph. |
 
 ### Batch library-B3: the form choices and the limits of the verbatim rule
 
 **Context**: B3 holds `kernel-runtime` (17 long requirements) and `artifact-types` (11). Nine bodies run past 1500 characters, and four sentences run past 500 on their own.
-**Decision**: 4 requirements use form b because another file cites the header: "Goroutine Safety Contract" (ADR-002), "Each runtime contract has one home" (ADR-013), "An overlay source can be written to a directory" (a comment in `opm/module/source_test.go`) and "Instance verbs refuse an unset required config value" (two requirements of `kernel-runtime`, one of them a scenario that stays byte for byte). 24 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out), so B3 adds no stale code-comment name to the seven listed above. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary and its lead is repeated (the register option, `AcquireInstanceFromDir`, `AcquireModuleFromDir`, the single registry client, the values sources of `AcquireInstanceFromDir`, the failed synthesis build, the committed-file citation rule and the `SynthesizeInstance` refusal parity sentence). The words added are only these: a keyword (the strength table), a subject or referent copied from the same old requirement (the clause tables name each), and a pointer to another requirement of the same spec by its exact header, where a body used "this", "that build" or "these checks" and the old content cannot fit (16:55 ruling). The Source lines are repeated whole where they fit. Where they do not fit, a block carries the title of the line (`Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").`) and the clause "as revised on 2026-10-03" stays on the last block of that requirement; the second block of the refusal parity pair carries only the second clause of its Source line, `opm-operator#258 for the report of both checks`, because its body needs the room. Reversibility: high.
+**Decision**: 4 requirements use form b because another file cites the header: "Goroutine Safety Contract" (ADR-002), "Each runtime contract has one home" (ADR-013), "An overlay source can be written to a directory" (a comment in `opm/module/source_test.go`) and "Instance verbs refuse an unset required config value" (two requirements of `kernel-runtime`, one of them a scenario that stays byte for byte). 24 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out), so B3 adds no stale code-comment name to the seven listed above. Every new body is built from whole sentences of the old body, copied unchanged. A sentence over 500 characters on its own is cut at a list boundary and its lead is repeated (the register option, `AcquireInstanceFromDir`, `AcquireModuleFromDir`, the single registry client, the values sources of `AcquireInstanceFromDir`, the failed synthesis build, the committed-file citation rule and the `SynthesizeInstance` refusal parity sentence). The words added are only these: a keyword (the strength table), a subject or referent copied from the same old requirement (the clause tables name each), and a pointer to another requirement of the same spec by its exact header, where a body used "this", "that build" or "these checks" and the old content cannot fit (16:55 ruling). The Source lines are repeated whole in every block, with their clauses ("as revised on 2026-10-03"; both clauses of the refusal line). A body that did not fit beside its whole line was split further at a list or clause boundary (the cancellation list and the cancelled-check sentence, the deletion-state conditions). Reversibility: high.
 **Rationale**: The 500-character limit, the rule that a citation stays in the body of the block that carries the rule, and the rule that no word is dropped leave no other choice.
 
 ## Security
@@ -425,7 +425,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | PodDisruptionBudgets weigh 108. | scenario "The weights of the table" | verbatim |
 | Validating and mutating webhook configurations weigh 2000. | scenario "The weights of the table" | verbatim |
 | Every other kind, among them PersistentVolumes, PersistentVolumeClaims, DaemonSets, ReplicaSets... | scenario "The weights of the table" (AND line) | as above; "Every" is lower case |
-| A weight SHALL be looked up by group, version and kind first; then a CustomResourceDefinition o... | A weight is looked up by group and kind first; A weight falls back to the kind alone, then to the Class weight, then to 1000 | verbatim; the sentence is cut at the list boundary "; then by kind alone", the lead "A weight SHALL be looked up" is repeated and the second block points to the first by its header |
+| A weight SHALL be looked up by group, version and kind first; then a CustomResourceDefinition o... | A weight is looked up by group, version and kind first; A weight falls back to the kind alone, then to the Class weight, then to 1000 | verbatim; the sentence is cut at the list boundary "; then by kind alone", the lead "A weight SHALL be looked up" is repeated and the second block points to the first by its header |
 | The library SHALL provide a stable sort by weight, ascending for apply and descending for delet... | The library sorts by weight with a stable sort | verbatim |
 | Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-inter... | One weight table orders apply and delete; The weight table agrees with the staged apply order of Flux; The lib... | verbatim |
 
@@ -675,7 +675,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A change to this encoding SHALL use a new tag line. | The render digest orders the encoded objects and hashes them after a tag line | verbatim |
 | Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores th... | The render digest reads only exported JSON; The render digest blanks the managed-by value and sorts object key... | verbatim |
 
-**The deletion plan orders inventory entries by kind-class delete order**: form c2 (REMOVED plus ADDED); old body 1249 characters; new bodies 411, 493, 267, 231.
+**The deletion plan orders inventory entries by kind-class delete order**: form c2 (REMOVED plus ADDED); old body 1249 characters; new bodies 490, 493, 372, 500.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -692,9 +692,9 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Every CustomResourceDefinition and Namespace entry, as the tier's safety exclusion matches them... | Protected kinds are marked safety-excluded in the plan before any live read | verbatim |
 | Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the per... | A deletion plan needs no render and no stored plan | verbatim |
 | The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the t... | The plan constructor is the only way to build a plan with steps | verbatim |
-| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Protected kinds are marked safety-excluded in the plan before any live read | verbatim |
+| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | Protected kinds are marked safety-excluded in the plan before any live read (whole line); the three pieces that carried `Source: enhancement 0012; ADR-008 (Deletion plans).` now carry one title of it, the first piece without the ADR clause (it does not fit), the last with both titles | verbatim, whole titles only; no clause inside a title dropped |
 
-**The deletion transition names one action per call**: form c2 (REMOVED plus ADDED); old body 1561 characters; new bodies 460, 149, 449, 288, 338.
+**The deletion transition names one action per call**: form c2 (REMOVED plus ADDED); old body 1561 characters; new bodies 428, 348, 273, 471, 288, 338.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -705,20 +705,26 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | A plan that does not prune names done at once | A plan that does not prune names done at once, same name | no, byte for byte (checked) |
 | A prune built with the zero policy deletes nothing | A plan that does not prune names done at once, same name | no, byte for byte (checked) |
 | The transition names only reads, deletions, skips and done | The deletion transition returns the next state and one action, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A call returns the next state and one action" in "The deletion transition returns the next state and one action"
+- "The transition performs no action and names no other kind of action" in "The deletion transition performs no action and names only steps of the plan"
+
 | A prune of a dropped object leaves it for the adopting instance | A prune leaves an object that another instance adopted, same name | no, byte for byte (checked) |
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | The deletion transition SHALL take the plan, the caller's state and the outcome of the action i... | The deletion transition returns the next state and one action | verbatim |
-| It SHALL perform no action itself. | The deletion transition returns the next state and one action | verbatim |
+| It SHALL perform no action itself. | The deletion transition performs no action and names only steps of the plan | "It" becomes "The deletion transition", the subject of the first sentence of the old body; the rest is verbatim |
 | A safety-excluded step SHALL be reported as skipped with the reason `safety-excluded` without a... | A safety-excluded step is skipped without a read | verbatim |
 | Every other step SHALL be read before it is judged, and the library's delete verdict SHALL judg... | Every other step is read, judged, and then skipped or deleted | "Every other step" becomes "Every step that is not safety-excluded" (the negation of the sentence before it in the old body); the rest is verbatim |
 | A skip verdict SHALL be reported as skipped with the verdict's reason and message. | Every other step is read, judged, and then skipped or deleted | verbatim |
 | A proceed verdict SHALL name a delete with Foreground propagation and the verdict's UID precond... | Every other step is read, judged, and then skipped or deleted | verbatim |
 | When the policy does not prune, the first call SHALL name done and no step SHALL be read or del... | A plan that does not prune names done at once | verbatim |
-| Every read, delete and skip action SHALL name a step of the plan, and the transition SHALL name... | The deletion transition returns the next state and one action | verbatim |
+| Every read, delete and skip action SHALL name a step of the plan, and the transition SHALL name... | The deletion transition performs no action and names only steps of the plan | verbatim |
 | So a prune of an object the instance dropped because another instance adopted it leaves the obj... | "A prune leaves an object that another instance adopted" | "So a prune ... leaves" becomes "A prune ... SHALL leave" |
-| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | see "Source line placement" | titles split: second to the non-pruning piece, first to the judging piece, third with the number to the adopted-object piece; the ADR clause to the first two pieces |
+| Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | see "Source line placement" | titles split: second to the non-pruning piece, first to the judging piece, third with the number to the adopted-object piece; the ADR clause to the first two pieces. The pieces "The deletion transition returns the next state and one action", "The deletion transition performs no action and names only steps of the plan" and "A safety-excluded step is skipped without a read" carry the first title, `(enhancements#103)` and the ADR clause, all verbatim (the whole line does not fit) |
 
 **Action outcomes are classified by the library**: form c2 (REMOVED plus ADDED); old body 1361 characters; new bodies 469, 474, 494, 274, 366, 233.
 
@@ -745,14 +751,14 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Each call SHALL append, in step order, the outcomes of the steps it finished and only those, an... | Each call appends the outcomes of the steps it finished | verbatim |
 | Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tie... | The library classifies the raw error of each read or delete; A NotFound read or delete is already absent; A su... | verbatim |
 
-**The deletion state is a serialisable value the caller owns**: form c2 (REMOVED plus ADDED); old body 1065 characters; new bodies 389, 344, 430, 235.
+**The deletion state is a serialisable value the caller owns**: form c2 (REMOVED plus ADDED); old body 1065 characters; new bodies 389, 344, 452, 349, 235.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
 | A round-tripped state advances identically | A state written to JSON advances identically, same name | no, byte for byte (checked) |
 | Advancing twice names the same action | A state written to JSON advances identically, same name | no, byte for byte (checked) |
 | A state past the plan is refused | A state that cannot belong to the plan is refused, same name | no, byte for byte (checked) |
-| A state awaiting something after the last step is refused | A state that cannot belong to the plan is refused, same name | no, byte for byte (checked) |
+| A state awaiting something after the last step is refused | A state that awaits something it cannot await is refused, same name | no, byte for byte (checked) |
 | A state whose outcomes do not match its next step is refused | A state that cannot belong to the plan is refused, same name | no, byte for byte (checked) |
 | A state with an out-of-order or unknown outcome is refused | A state that cannot belong to the plan is refused, same name | no, byte for byte (checked) |
 | The JSON encoding is fixed | The JSON encoding of the deletion state is fixed field by field, same name | no, byte for byte (checked) |
@@ -767,7 +773,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The zero state SHALL be the start of a plan. | The deletion state is a plain value the caller owns | verbatim |
 | The library SHALL keep nothing between calls. | The deletion state is a plain value the caller owns | verbatim |
 | A state written to JSON and read back SHALL advance identically to the state held in memory, an... | A state written to JSON advances identically | verbatim |
-| The transition SHALL return an error, the input state unchanged and no action when the state ca... | A state that cannot belong to the plan is refused | verbatim |
+| The transition SHALL return an error, the input state unchanged and no action when the state ca... | A state that cannot belong to the plan is refused; A state that awaits something it cannot await is refused | the sentence and the title of its Source line do not fit together in 500 characters: cut at the list boundary ", it awaits something after the last step", the lead repeated, the last "," of the first list becomes "."; the conditions of each part are verbatim |
 | The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. | The JSON encoding of the deletion state is fixed field by field | verbatim |
 | Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object... | The deletion state is a plain value the caller owns; A state written to JSON advances identically; The JSON en... | verbatim |
 
@@ -1217,7 +1223,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The generated render module SHALL carry a `gate` field that evaluates to an error exactly when ... | The render module's own gate agrees with the kernel's refusal | verbatim |
 | The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed cau... | The kernel's decoded refusal is authoritative and never reads the gate... | verbatim |
 
-**A caller may skip unprovided provider-fulfilled demands**: form b (MODIFIED parent plus ADDED); old body 2172 characters; new bodies 464, 306, 340, 427, 491, 296, 495, 318, 319.
+**A caller may skip unprovided provider-fulfilled demands**: form b (MODIFIED parent plus ADDED); old body 2172 characters; new bodies 469, 306, 388, 340, 427, 491, 296, 411, 381, 463, 318, 319.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1236,15 +1242,18 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 - "A skipped resource omits the component" in "A skipped resource demand omits its component"
 - "A skipped demand row carries the component and the kind" in "Every skipped demand is reported as a skipped-demand row"
 - "The flag is set on trait rows too" in "The omission flag is set on every skipped row of an omitted component"
-- "Skipped rows are readable beside a refusal" in "Every other refusal stands with the switch on"
+- "An unprovided demand's key is absent from the count" in "An unprovided demand's key is absent from the provider count"
+- "A catalog-fulfilled or unmatched provider-fulfilled demand still refuses" in "Every other refusal stands with the switch on"
+- "An over-subscribed contract or an unmatched component still refuses" in "An over-subscribed contract and an unmatched component still refuse with the switch on"
+- "Skipped rows are readable beside a refusal" in "The skipped-demand rows are readable beside a refusal with the switch on"
 - "An optional trait stays in its table" in "An unhandled optional trait is never a skipped row"
 - "The switch is a literal" in "The render module carries the switch as a literal"
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| `Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip ... | A caller may skip unprovided provider-fulfilled demands | verbatim |
-| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | A caller may skip unprovided provider-fulfilled demands | verbatim |
-| ^. | A caller may skip unprovided provider-fulfilled demands | added words (not in the old body) |
+| `Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip ... | A caller may skip unprovided provider-fulfilled demands | verbatim, cut before the parenthetical (the whole Source line does not fit beside it) |
+| (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads) | An unprovided demand's key is absent from the provider count | the parentheses go; "the key is absent" becomes "The contract key of an unprovided demand of requirement ... SHALL be absent": "contract key" and "unprovided demand" are copied from the sentence, the pointer names the parent by its exact header, "is" takes SHALL (strength table) |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes ... | A caller may skip unprovided provider-fulfilled demands; An unprovided demand's key is absent from the provider count | verbatim, the whole line in both blocks (the earlier blocks lacked the clause "as amended by ...") |
 | With the switch off, the render's verdicts, refusals and rendered output SHALL be exactly those... | With the switch off a render is as without the switch | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | With the switch off a render is as without the switch | verbatim |
 | With the switch on: | A skipped trait demand does not refuse the render | verbatim |
@@ -1258,10 +1267,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | With the switch on: | The omission flag is set on every skipped row of an omitted component | verbatim |
 | The omission flag SHALL be set on every skipped row of an omitted component, trait rows include... | The omission flag is set on every skipped row of an omitted component | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | The omission flag is set on every skipped row of an omitted component | verbatim |
-| With the switch on: | Every other refusal stands with the switch on | verbatim |
-| Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled de... | Every other refusal stands with the switch on | verbatim |
-| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment` | Every other refusal stands with the switch on | verbatim |
-| ^. | Every other refusal stands with the switch on | added words (not in the old body) |
+| With the switch on: | Every other refusal stands with the switch on; An over-subscribed contract and an unmatched component still refuse with the switch on; The skipped-demand rows are readable beside a refusal with the switch on | verbatim, in each of the three blocks |
+| Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled de... | Every other refusal stands with the switch on; An over-subscribed contract and an unmatched component still refuse with the switch on | the sentence and the whole Source line do not fit together in 500 characters: cut at the list boundary ", an over-subscribed provider-fulfilled contract", the lead repeated, the predicate "SHALL refuse the render as without the switch" repeated; no word is dropped and the comma between the first two items stays |
+| The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. | The skipped-demand rows are readable beside a refusal with the switch on | verbatim; "such a refusal" gets a pointer to the two requirements that hold the refusals (16:55) |
+| Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes ... | Every other refusal stands with the switch on; An over-subscribed contract and an unmatched component still refuse with the switch on; The skipped-demand rows are readable beside a refusal with the switch on | verbatim, the whole line (the earlier block lacked the clause "as amended by ...") |
 | With the switch on: | An unhandled optional trait is never a skipped row | verbatim |
 | An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table ent... | An unhandled optional trait is never a skipped row | verbatim |
 | Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core c... | An unhandled optional trait is never a skipped row | verbatim |
@@ -1292,7 +1301,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Apart from the floor, `Render` reads only the platform's `Metadata` and `Source`. | One acquired platform stays shareable across concurrent renders | the verb "reads" gets the keyword SHALL, as an ADDED block needs |
 | One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on o... | One acquired platform stays shareable across concurrent renders | verbatim |
 
-**A render refuses a platform whose enabled entries share contract keys**: form c2 (REMOVED plus ADDED); old body 1969 characters; new bodies 442, 383, 387, 419, 388, 425.
+**A render refuses a platform whose enabled entries share contract keys**: form c2 (REMOVED plus ADDED); old body 1969 characters; new bodies 389, 494, 378, 497, 448, 442, 434, 462, 387, 452, 425.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1304,38 +1313,27 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 
 New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
 
-- "The message names the keys and the definers" in "The collision cause message names each key, its definers and the remedy"
+- "The glue reads the collisions and does not compute them" in "The glue reads the collisions from core's derived contract inventory"
+- "The glue emits the rows only when the platform carries collisions" in "The glue emits collision rows only with a collision report"
+- "The kernel decodes the rows and refuses through the gate" in "The kernel decodes the collision rows and refuses the render"
+- "A colliding key distorts the inventory the other rows are read against" in "The collision cause comes first because a colliding key distorts the inventory"
+- "The message names the keys and the definers" in "The collision cause message names each key and its definers"
+- "The message says how to remedy a collision" in "The collision cause message says how to remedy a collision"
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| The generated glue SHALL read the platform's contract collisions from core's derived contract i... | The glue emits one collision row for each key in the collision report | verbatim |
-| Source: an open question of enhancement 0026 | The glue emits one collision row for each key in the collision report | verbatim |
-| ^, core change | The glue emits one collision row for each key in the collision report | added words (not in the old body) |
-| `fold-colliding-contract-keys` | The glue emits one collision row for each key in the collision report | verbatim |
-| ^. | The glue emits one collision row for each key in the collision report | added words (not in the old body) |
-| The glue SHALL emit the rows only when the platform value carries `collisions`, and SHALL emit ... | The glue emits no collision row when the platform carries no collision... | "the rows" names the collision rows of the first sentence |
-| Source: an open question of enhancement 0026 | The glue emits no collision row when the platform carries no collision... | verbatim |
-| ^, core change | The glue emits no collision row when the platform carries no collision... | added words (not in the old body) |
-| `fold-colliding-contract-keys` | The glue emits no collision row when the platform carries no collision... | verbatim |
-| ^. | The glue emits no collision row when the platform carries no collision... | added words (not in the old body) |
-| The kernel SHALL decode the rows onto the render diagnostics and SHALL refuse the render, throu... | The kernel refuses a colliding platform for every instance and skip sw... | "the rows" names the collision rows of the glue sentence |
-| The refusal is platform-wide: it SHALL hold for every instance and whatever the caller's skip s... | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
-| Source: an open question of enhancement 0026 | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
-| ^, core change | The kernel refuses a colliding platform for every instance and skip sw... | added words (not in the old body) |
-| `fold-colliding-contract-keys` | The kernel refuses a colliding platform for every instance and skip sw... | verbatim |
-| ^. | The kernel refuses a colliding platform for every instance and skip sw... | added words (not in the old body) |
-| When a render refuses for several reasons, the collision cause SHALL be the first joined cause,... | The collision cause is the first joined cause | verbatim |
-| Source: an open question of enhancement 0026 | The collision cause is the first joined cause | verbatim |
-| ^, core change | The collision cause is the first joined cause | added words (not in the old body) |
-| `fold-colliding-contract-keys` | The collision cause is the first joined cause | verbatim |
-| ^. | The collision cause is the first joined cause | added words (not in the old body) |
-| The cause's message SHALL name, per row, the key, the number of enabled registry entries defini... | The collision cause message names each key, its definers and the remed... | "The cause" names the collision cause of the sentences before it |
-| Source: an open question of enhancement 0026 | The collision cause message names each key, its definers and the remed... | verbatim |
-| ^, core change | The collision cause message names each key, its definers and the remed... | added words (not in the old body) |
-| `fold-colliding-contract-keys` | The collision cause message names each key, its definers and the remed... | verbatim |
-| ^. | The collision cause message names each key, its definers and the remed... | added words (not in the old body) |
-| Because the render and the platform's `Contracts()` read the same report, the render's collisio... | The render's collision rows equal the inventory's CollidingEntries | verbatim |
-| Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement,... | The render's collision rows equal the inventory's CollidingEntries | verbatim |
+| The generated glue SHALL read the platform's contract collisions from core's derived contract i... | The glue reads the collisions from core's derived contract inventory | verbatim up to the colon, which becomes "." (the whole Source line does not fit beside the rest) |
+| for every key in `#Platform.#contracts.collisions`, in that (ascending) order, it SHALL emit one... | The glue emits one collision row for each key in the collision report | "it" becomes "the generated glue", the subject of the first sentence; the clause starts the sentence ("For every key") |
+| The glue SHALL emit the rows only when the platform value carries `collisions`, and SHALL emit ... | The glue emits collision rows only with a collision report | "the rows" names the collision rows of the first sentence; the first block ends at ", and SHALL emit none otherwise" (the colon becomes "."), the second block repeats "The glue SHALL emit none otherwise" and keeps the reason after the colon |
+| and SHALL emit none otherwise: every core release carrying `#contracts` without the report fail... | The glue emits no collision row when the platform carries no collision report | verbatim; "otherwise" gets a pointer to the first block (16:55); the Source line is the first title with its parenthetical, whole; the title "core change `fold-colliding-contract-keys`" is dropped here and stays on every other block |
+| The kernel SHALL decode the rows onto the render diagnostics and SHALL refuse the render, throu... | The kernel decodes the collision rows and refuses the render | "the rows" names the collision rows of the glue sentence |
+| The refusal is platform-wide: it SHALL hold for every instance and whatever the caller's skip s... | The kernel refuses a colliding platform for every instance and skip switch | verbatim; "The refusal" gets a pointer to the requirement that states it (16:55) |
+| When a render refuses for several reasons, the collision cause SHALL be the first joined cause,... | The collision cause is the first joined cause; The collision cause comes first because a colliding key distorts the inventory | cut at the clause boundary ", because": the first block keeps ", ahead of unresolved demands, over-subscribed contracts and unmatched components", the second keeps ", because a colliding key is absent from ..."; the lead is repeated and the Source line is the first title with its parenthetical, whole, in the second block |
+| The cause's message SHALL name, per row, the key, the number of enabled registry entries defini... | The collision cause message names each key and its definers | "The cause" names the collision cause of the sentences before it ("The collision cause's message"); cut before ", and SHALL say" |
+| and SHALL say that a contract key must have exactly one enabled definer until side-by-side catal... | The collision cause message says how to remedy a collision | verbatim; the subject "The collision cause's message" is repeated |
+| Because the render and the platform's `Contracts()` read the same report, the render's collision... | The render's collision rows equal the inventory's CollidingEntries | verbatim |
+| Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, ... | every block of this requirement except "The glue emits no collision row when the platform carries no collision report" and "The collision cause comes first because a colliding key distorts the inventory" | verbatim, the whole line |
+| Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, ... | "The glue emits no collision row when the platform carries no collision report"; "The collision cause comes first because a colliding key distorts the inventory" | the first title with its parenthetical, whole; the second title is dropped (the whole line does not fit) |
 
 **A render refuses a not-routable platform no row explains**: form c2 (REMOVED plus ADDED); old body 544 characters; new bodies 283, 280.
 
@@ -1647,7 +1645,7 @@ The should-fix findings of the review of library-B2 (DECISIONS.md 2026-10-19 20:
 | --- | --- | --- |
 | kubernetes-tier: Apply stages follow the weight table | T3 | The sentence "After it comes one stage per distinct weight of the remaining objects, in ascending weight." moves to the new "Stages after the first follow ascending weight" (T1), which names the parent by its header and takes SHALL. |
 | kubernetes-tier: Ordering across modules belongs to a future Bundle | T1 | The sentence on a frontend's readiness gating moves to the new "A frontend's readiness gating is outside the cross-module ordering rule", which names the parent by its header; "is outside this rule" becomes "SHALL be outside this rule". |
-| kubernetes-tier: A weight is looked up by group and kind first | T1 | The old sentence is cut at the list boundary "; then by kind alone". The second block "A weight falls back to the kind alone, then to the Class weight, then to 1000" repeats the lead "A weight SHALL be looked up" and names the first by its header. The first block is renamed (it no longer holds the whole lookup); no other file cites the old name. |
+| kubernetes-tier: A weight is looked up by group, version and kind first | T1 | The old sentence is cut at the list boundary "; then by kind alone". The second block "A weight falls back to the kind alone, then to the Class weight, then to 1000" repeats the lead "A weight SHALL be looked up" and names the first by its header. The first block is renamed (it no longer holds the whole lookup); no other file cites the old name. |
 | kubernetes-tier: A StatefulSet is ready by its update strategy | T2 | The sentence is cut at the list boundary "; otherwise when". The new "A StatefulSet is ready when its updated replicas and revisions agree" repeats the lead and names the first by its header; only the second block keeps "Otherwise `NotReady`.", because it follows all three cases |
 | kubernetes-tier: Empty UUIDs and blank annotations pass the delete verdict | T3 | The sentences "An adopt annotation naming this instance SHALL change nothing." and "An object being deleted SHALL NOT be skipped for that reason." move to "An annotation naming this instance and a deleting object pass the delete verdict", which names the first by its header for "the owner comparison" and "the adoption comparison". The two scenarios on these sentences move with them. |
 | kubernetes-tier: The inventory digest is sha256 over a tagged, length-prefixed encoding | T4 | The sentence "Each entry SHALL be written as ..." moves to "Each entry of the inventory digest is written with length-prefixed fields", which repeats the first sentence of the parent. |
@@ -1662,6 +1660,28 @@ The should-fix findings of the review of library-B2 (DECISIONS.md 2026-10-19 20:
 | schema-dispatch: three blocks that began with "The constant" or "The schema tests" | none | "The constant" is followed by `schema.DefaultSchemaModule`; the schema-tests block starts with the first sentence of the old requirement, which names it. |
 
 Strength rows of this pass: "reads false" to "SHALL read false" in "Routable reads false exactly when the render carries an over-subscription row or a collision row"; "is outside this rule" to "SHALL be outside this rule" in "A frontend's readiness gating is outside the cross-module ordering rule"; "After it comes" to "After it SHALL come" in "Stages after the first follow ascending weight".
+
+### Ledger: fix pass of library-B3 (T4.13-u3-fix)
+
+The findings of the review of library-B3 that the first fix left open (DECISIONS.md 2026-10-19 22:10), under the verbatim-sentence rule (15:50). Each touched body was re-read against `origin/main`. Source lines are whole where they fit; where they did not, the body was split further (17:15, 18:40, 19:15). The other rows of the ledgers above that changed carry the new text in their clause tables.
+
+| Block | Old text on `origin/main` | New text | Row |
+| --- | --- | --- | --- |
+| single-build-render: A caller may skip unprovided provider-fulfilled demands | "...requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). ... Source: core `SPEC.md` ..., as amended by core changes ..." | the parenthetical moves to "An unprovided demand's key is absent from the provider count"; both blocks carry the whole Source line | verbatim except the pointer subject and "SHALL be" (strength table) |
+| single-build-render: Every other refusal stands with the switch on (three blocks) | one bullet: "Every other refusal SHALL stand: <four items> SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal." | cut at the list boundary before the third item and at the sentence boundary; each block has the lead "With the switch on:", the predicate repeated, and the whole Source line | verbatim; pointer in the third block |
+| single-build-render: five collision blocks | one body of six sentences with the Source line "an open question of enhancement 0026 (the interim safety net ..., ...), core change ..." | each block carries the whole line, or (two blocks) the first title with its parenthetical; the sentence is cut at the colon, ", and SHALL emit none otherwise", the sentence boundary, ", because" and ", and SHALL say" | verbatim; "it" becomes "the generated glue"; pointers in two blocks |
+| kernel-runtime: Verbs check their context between stages / after the build | "...after the directory is read, after the values sources are merged, after the package is built and before the next stage starts. ..." | cut at ", after the package is built"; the lead repeated; the whole Source line in both | verbatim |
+| kernel-runtime: The registry acquire verbs and Render check their context | "The registry acquire verbs SHALL check it ... and `Kernel.Render` SHALL check it ..." | "it" becomes "their context" and "its context" ("their context" is in the sentence before it) | pronoun replaced by the antecedent |
+| kernel-runtime: two cancelled-check blocks | "When one of these checks finds the context done, the verb SHALL return ..." | the sentence is repeated once for each group of checks, each with a pointer to the exact headers | verbatim; pointers |
+| kernel-runtime: A compiled file source unwraps a top-level values field | "...and return a `Source` ...  When a kernel operation compiles that source, ..." | the paraphrase "The source is the one that `Kernel.LoadSourceFromFile` returns." is replaced by a pointer to "LoadSourceFromFile reads and parses a file" | pointer |
+| kernel-runtime: two blocks "When they leave one or more unset" | "When they leave one or more unset" (they = the values of the sentence before it) | "When the values leave one or more unset" | subject copied |
+| kernel-runtime: SynthesizeInstance may refuse more ... | Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks. | the whole line | verbatim |
+| artifact-types: A layered instance's Source is in overlay mode | "With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kernel SHALL unify them ... The returned instance's `Source` SHALL then be overlay mode" | "With one or more values sources (...), the returned instance's `Source` SHALL then be overlay mode" | condition copied from the sentence before it |
+| artifact-types: A registry entry with no embedded catalog fails as a missing required field | "... fails here as a missing required field naming the entry." | "... SHALL fail here, at the gate, as a missing required field naming the entry." | "the gate" copied from the old requirement |
+| kubernetes-tier: The deletion plan orders its entries by delete weight; A deletion plan needs no render and no stored plan; The plan constructor is the only way to build a plan with steps | Source: enhancement 0012 ("The library owns ..." and "The Kubernetes runtime surface homes ..."), ADR-008 (Deletion plans). | one or both titles of that line, whole, plus the ADR clause where it fits | whole titles only |
+| kubernetes-tier: The deletion transition returns the next state and one action; The deletion transition performs no action and names only steps of the plan; A safety-excluded step is skipped without a read | Source: enhancement 0012 (three titles) (enhancements#103), ADR-008 rules 1 to 3. | the first title, `(enhancements#103)` and the ADR clause | whole titles only; the first body is cut at the sentence boundary |
+| kubernetes-tier: A state that cannot belong to the plan is refused; A state that awaits something it cannot await is refused | "...cannot belong to the plan: its next step lies outside the plan, ..., it awaits something after the last step, or what it awaits is not a defined value." with "Source: enhancement 0012 (\"The library owns ...\"), ADR-008 rule 2." | cut at the list boundary ", it awaits something after the last step", the lead repeated | verbatim; whole Source line in both |
+| kubernetes-tier: A weight is looked up by group, version and kind first | header "A weight is looked up by group and kind first" over a body that says "by group, version and kind first" | the header says "group, version and kind" | header only |
 
 ### Ledger: kernel-runtime
 
@@ -1750,13 +1770,13 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Instance processing SHALL be kernel-internal: it is reached only through `AcquireInstanceFromDi... | Layered validation and instance processing live on the Kernel | verbatim |
 | No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModuleInstance` free ... | No standalone validate or ParseModuleInstance function remains | verbatim |
 
-**Kernel.LoadSourceFromFile auto-unwraps the values field**: form c2 (REMOVED plus ADDED); old body 774 characters; new bodies 275, 483, 120.
+**Kernel.LoadSourceFromFile auto-unwraps the values field**: form c2 (REMOVED plus ADDED); old body 774 characters; new bodies 275, 499, 120.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
 | Values file is auto-unwrapped | A compiled file source unwraps a top-level values field, same name | no, byte for byte (checked) |
 | File without values field passes through | A compiled file source unwraps a top-level values field, same name | no, byte for byte (checked) |
-| Syntax errors fail at load, schema errors at use | LoadSourceFromFile reads and parses the file and evaluates nothing, same name | no, byte for byte (checked) |
+| Syntax errors fail at load, schema errors at use | LoadSourceFromFile reads and parses a file, same name | no, byte for byte (checked) |
 
 New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
 
@@ -1764,13 +1784,13 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| The `*Kernel.LoadSourceFromFile(path string)` method SHALL read the file at `path`, parse it fo... | LoadSourceFromFile reads and parses the file and evaluates nothing | verbatim |
-| The method SHALL NOT evaluate CUE. | LoadSourceFromFile reads and parses the file and evaluates nothing | verbatim |
+| The `*Kernel.LoadSourceFromFile(path string)` method SHALL read the file at `path`, parse it fo... | LoadSourceFromFile reads and parses a file | verbatim |
+| The method SHALL NOT evaluate CUE. | LoadSourceFromFile reads and parses a file | verbatim |
 | When a kernel operation compiles that source, it SHALL load it through cue/load at the file's d... | A compiled file source unwraps a top-level values field | verbatim |
 | - If the evaluated value contains a top-level `values:` field whose `Exists()` is true and `Err... | A compiled file source unwraps a top-level values field | verbatim |
 | - Otherwise the compiled source SHALL be the whole evaluated value. | A compiled file source unwraps a top-level values field | verbatim |
 | The method SHALL NOT depend on `loaderfile.LoadValuesFile` (which is removed). | LoadSourceFromFile does not depend on loaderfile.LoadValuesFile | subject copied from the first sentence |
-| (added words) | A compiled file source unwraps a top-level values field | subject for 'that source' |
+| (added words) | A compiled file source unwraps a top-level values field | pointer (16:55): 'The source is that of requirement "LoadSourceFromFile reads and parses a file".' for 'that source'; the earlier sentence 'The source is the one that `Kernel.LoadSourceFromFile` returns.' is gone |
 
 **Registry Configuration Option**: form c2 (REMOVED plus ADDED); old body 950 characters; new bodies 373, 426, 56, 164, 141.
 
@@ -1932,7 +1952,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | None of these SHALL name a load or process verb, a separate schema-validation stage, or a packa... | A front-door pipeline ends in kernel.Compiled | verbatim |
 | Where `README.md` carries a layout block, it SHALL list only packages that exist under `opm/`, ... | The README layout lists only packages that exist | verbatim |
 
-**Kernel verbs check cancellation at entry and between stages**: form c2 (REMOVED plus ADDED); old body 1246 characters; new bodies 489, 330, 481, 228, 351.
+**Kernel verbs check cancellation at entry and between stages**: form c2 (REMOVED plus ADDED); old body 1246 characters; new bodies 454, 449, 376, 491, 459, 254, 351.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -1946,23 +1966,21 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
 
 - "Registry verbs and Render check the context" in "The registry acquire verbs and Render check their context"
-- "A done context returns its own error and no artifact" in "A cancelled check returns the context's own error and no artifact"
+- "A verb checks its context after the package is built" in "Verbs check their context after the build"
+- "A done context returns its own error and no artifact" in "A cancelled check of a directory or synthesis verb returns the context's own error and no artifact"
+- "A done check of a registry acquire verb or Render returns its own error and no artifact" in "A cancelled check of a registry acquire verb or Render returns the context's own error and no artifact"
 
 | Old clause | New requirement | Change |
 | --- | --- | --- |
-| `Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`,... | Verbs check their context between stages | verbatim |
-| The registry acquire verbs SHALL check it after the registry fetch returns and after the packag... | The registry acquire verbs and Render check their context | verbatim |
-| When one of these checks finds the context done, the verb SHALL return the context's own error ... | A cancelled check returns the context's own error and no artifact | verbatim |
+| `Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`,... | Verbs check their context between stages; Verbs check their context after the build | the sentence and the whole Source line do not fit together in 500 characters: cut at the list boundary ", after the package is built", the lead repeated, the last "," of the first part becomes "."; every word of each part is verbatim |
+| The registry acquire verbs SHALL check it after the registry fetch returns and after the packag... | The registry acquire verbs and Render check their context | "it" becomes "their context" for the registry acquire verbs and "its context" for `Kernel.Render`; "their context" is copied from the first sentence of the old body |
+| When one of these checks finds the context done, the verb SHALL return the context's own error ... | A cancelled check of a directory or synthesis verb returns the context's own error and no artifact; A cancelled check of a registry acquire verb or Render returns the context's own error and no artifact | verbatim; the sentence is repeated once for each group of checks, each with its pointer, because the pointer to three requirements and the whole Source line do not fit one body |
 | A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.C... | A cancellation inside the registry fetch is still a context error | verbatim |
 | A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage bo... | A running load or build is not interrupted | verbatim |
 | The `opm/kernel` package doc SHALL say so. | A running load or build is not interrupted | verbatim |
 | Cancellation inside a stage is outside this requirement. | A running load or build is not interrupted | verbatim |
-| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | Verbs check their context between stages | citation: whole title kept, the clause 'as revised' is on the last block of this requirement (tail '.') |
-| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | The registry acquire verbs and Render check their context | citation: whole title kept (tail '.') |
-| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A cancelled check returns the context's own error and no artifact | citation: whole title kept (tail '.') |
-| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A cancellation inside the registry fetch is still a context error | citation: whole title kept (tail '.') |
-| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | A running load or build is not interrupted | verbatim |
-| (added words) | A cancelled check returns the context's own error and no artifact | pointer for 'these checks' |
+| Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces i... | every block of this requirement | the whole line, with "as revised on 2026-10-03", in all seven blocks |
+| (added words) | A cancelled check of a directory or synthesis verb returns the context's own error and no artifact; A cancelled check of a registry acquire verb or Render returns the context's own error and no artifact | pointer for 'these checks' to the exact headers (16:55) |
 
 **Each runtime contract has one home**: form b (MODIFIED parent plus ADDED); old body 1191 characters; new bodies 461, 204, 247, 432.
 
@@ -2031,7 +2049,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The opt-in `helper/platformmodule` registry stays caller-built. | The helper platformmodule registry stays caller-built and no exported signature changes | verbatim |
 | No exported signature SHALL change for this: the client is not an option, a parameter or an exp... | The helper platformmodule registry stays caller-built and no exported signature changes | referent copied from the first sentence |
 
-**Instance verbs refuse an unset required config value**: form b (MODIFIED parent plus ADDED); old body 3121 characters; new bodies 308, 323, 447, 423, 348, 381, 370, 455, 418, 298, 359, 394, 400.
+**Instance verbs refuse an unset required config value**: form b (MODIFIED parent plus ADDED); old body 3121 characters; new bodies 308, 323, 447, 423, 348, 387, 376, 455, 418, 298, 359, 394, 470.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -2074,8 +2092,8 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Both concreteness checks, the one on the built spec and the one on the values unified with `#co... | Both concreteness checks run in one instance processing step | verbatim |
 | The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully ... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
 | When the values leave no required value unset, the refusal SHALL be the error of the built-spec... | The refusal is CUE's own error tree framed with the verb and the instance | verbatim |
-| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal holds the value findings of the built-spec check | verbatim |
-| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal names every other unset required value at values.<field> | verbatim |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal holds the value findings of the built-spec check | "they" becomes "the values", the subject of the sentence before it in the old body |
+| When they leave one or more unset, the refusal SHALL hold findings about the values only: | The refusal names every other unset required value at values.<field> | "they" becomes "the values", the subject of the sentence before it in the old body |
 | 1. every finding of the built-spec check at a path under `values` (a value the instance's value... | The refusal holds the value findings of the built-spec check | verbatim |
 | 2. one finding for every other unset required value, at the path `values.<field>` (the full pat... | The refusal names every other unset required value at values.<field> | verbatim |
 | A finding SHALL carry the position of the field's `#config` declaration wherever CUE records on... | A finding carries the position of the field's #config declaration | verbatim |
@@ -2101,7 +2119,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | A caller identifies the refusal by CUE's error type | verbatim |
 | Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 ... | SynthesizeInstance refuses what ValidateConfigDetailed refuses | verbatim |
 | (added words) | A finding carries the position of the field's #config declaration | pointer for the subject: the old sentence is part of that list item |
-| (added words) | SynthesizeInstance may refuse more only through the concreteness check on the built spec | the second clause of the old Source line, whole |
+| (added words) | SynthesizeInstance may refuse more only through the concreteness check on the built spec | none now: the block carries the whole old Source line (the earlier clause-only line is gone) |
 
 ### Ledger: artifact-types
 
@@ -2160,7 +2178,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | `module.Instance` SHALL expose `Source *module.Source`; every instance the kernel returns carri... | Every instance the kernel returns carries a non-nil Source | verbatim |
 | `module.Module.Source` SHALL be populated in overlay mode by both `AcquireModuleFromRegistry` a... | A module's Source is populated by acquisition and nil for a bare value | verbatim |
 
-**Instance acquisition from a directory**: form c2 (REMOVED plus ADDED); old body 1752 characters; new bodies 271, 386, 79, 176, 61, 123, 358, 231, 323, 112.
+**Instance acquisition from a directory**: form c2 (REMOVED plus ADDED); old body 1752 characters; new bodies 271, 386, 79, 176, 61, 123, 358, 231, 409, 112.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -2194,7 +2212,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The unified values are rendered as a values file beside the package's files | verbatim list part (tail '.') |
 | With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The package is built in one pass through the instance shape gate | verbatim part |
 | With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the kerne... | The package is built in one pass through the instance shape gate | verbatim list part (tail '.') |
-| The returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` c... | A layered instance's Source is in overlay mode | verbatim |
+| The returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` c... | A layered instance's Source is in overlay mode | the condition "With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts)," is copied from the sentence before it in the old body; the rest is verbatim |
 | The kernel MUST NOT write into the caller's directory and MUST NOT fill values into the evaluat... | Instance acquisition writes nothing into the caller's directory | verbatim |
 | (added words) | A layered instance's Source is in overlay mode | pointer for 'then' |
 
@@ -2238,7 +2256,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | The registry mapping used for the module's imports SHALL be the kernel's (`WithRegistry`), appl... | The registry mapping for a module's imports is the kernel's | verbatim |
 | The kernel MUST NOT write into the caller's directory. | Module acquisition writes nothing into the caller's directory | verbatim |
 
-**Acquisition shape gate**: form c2 (REMOVED plus ADDED); old body 2434 characters; new bodies 458, 421, 234, 344, 444, 359, 129, 195.
+**Acquisition shape gate**: form c2 (REMOVED plus ADDED); old body 2434 characters; new bodies 458, 421, 234, 344, 458, 359, 129, 195.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -2269,7 +2287,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | - Module: `metadata.name`, `metadata.modulePath`, `metadata.version`. | The required identity fields are those the schema never defaults | verbatim |
 | - Instance: `metadata.name`, `metadata.namespace`, and `#module` present with `#module.kind == ... | The required identity fields are those the schema never defaults | verbatim |
 | - Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(t... | The required identity fields are those the schema never defaults | verbatim |
-| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhan... | A registry entry with no embedded catalog fails as a missing required field | SHALL added: the old sentence has no keyword |
+| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhan... | A registry entry with no embedded catalog fails as a missing required field | SHALL added: the old sentence has no keyword; ", at the gate," follows "fails here" (the subject "the gate" is copied from the old requirement; "here" stays) |
 | This is the refusal `single-build-render` relies on for a subscription-shaped platform. | A registry entry with no embedded catalog fails as a missing required field | verbatim |
 | A required identity field declared as a disjunction with a default (for example `#VersionType /... | A defaulted identity field is not concrete for the gate | verbatim |
 | When the gate rejects such a field, the error SHALL name the default arm's value and state that... | A defaulted identity field is not concrete for the gate | verbatim |
@@ -2396,6 +2414,7 @@ Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an AD
 | ... `Kernel.Render` and `Platform.Contracts()` accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | ... `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on ... | The default is not the render floor |
 | The constant advances only through a deliberate change ... | The constant SHALL advance only through a deliberate change ... | The default advances only through a deliberate change that re-verifies the glue and fixtures |
 | ... they stay literal and are declared in `.cascade-frozen` ... | ... they SHALL stay literal and are declared in `.cascade-frozen` ... | Synthetic, floor and skew literals stay literal and are declared frozen |
+| ... (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads) | The contract key of an unprovided demand of requirement "A caller may skip unprovided provider-fulfilled demands" SHALL be absent from core's `#contracts.providedBy`, the count the single-provider guard reads. | An unprovided demand's key is absent from the provider count |
 
 Sentences of unit 3 that gained SHALL (the old sentence or clause has no keyword), or changed a verb form to take it:
 
@@ -2433,7 +2452,7 @@ Sentences of unit 3 that gained SHALL (the old sentence or clause has no keyword
 | With no values, `Source.Overlay` is nil (on-disk mode). | With no values, `Source.Overlay` SHALL be nil (on-disk mode). | An instance acquired without values has an on-disk source |
 | The render path reads no artifact sub-value in Go: the instance and the platform enter the render build by import, and the generated glue reads `components` and `#composedTransformers` in CUE. | The render path SHALL read no artifact sub-value in Go: the instance and the platform enter the render build by import, and the generated glue reads `components` and `#composedTransformers` in CUE. | The render path reads no artifact sub-value in Go |
 | Required identity fields are those the schema never defaults: | Required identity fields SHALL be those the schema never defaults: | The required identity fields are those the schema never defaults |
-| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. | Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, SHALL fail here as a missing required field naming the entry. | A registry entry with no embedded catalog fails as a missing required field |
+| Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. | Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, SHALL fail here, at the gate, as a missing required field naming the entry. | A registry entry with no embedded catalog fails as a missing required field |
 | The method SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. | `WriteTo` SHALL validate before it writes: a nil receiver, an on-disk source (`Overlay` nil, since `Root` already is the directory) and any entry whose path is not under `Root` SHALL be refused with a plain error and nothing written. | WriteTo validates before it writes |
 | a path that is not a directory SHALL fail with `<label> path "<absolute path>" is not a directory`, where `<label>` is `module`, `catalog`, `platform` or `instance` | A path that is not a directory SHALL fail with `<label> path "<absolute path>" is not a directory`, where `<label>` is `module`, `catalog`, `platform` or `instance` | A directory acquire verb refuses a path that is not a directory |
 | Platform acquisition and instance acquisition without values sources keep the on-disk mode their own requirements state. | Platform acquisition and instance acquisition without values sources SHALL keep the on-disk mode their own requirements state. | Platform acquisition and instance acquisition without values keep the on-disk mode |

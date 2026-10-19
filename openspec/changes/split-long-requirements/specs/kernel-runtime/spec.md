@@ -157,7 +157,7 @@ Each runtime contract of the library SHALL be stated in the doc comment of the p
 
 ### Requirement: Kernel.LoadSourceFromFile auto-unwraps the values field
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "LoadSourceFromFile reads and parses the file and evaluates nothing", "A compiled file source unwraps a top-level values field" and "LoadSourceFromFile does not depend on loaderfile.LoadValuesFile".
+**Migration**: See "LoadSourceFromFile reads and parses a file", "A compiled file source unwraps a top-level values field" and "LoadSourceFromFile does not depend on loaderfile.LoadValuesFile".
 
 ### Requirement: Registry Configuration Option
 **Reason**: Split into requirements that each state one behavior.
@@ -193,7 +193,7 @@ Each runtime contract of the library SHALL be stated in the doc comment of the p
 
 ### Requirement: Kernel verbs check cancellation at entry and between stages
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Verbs check their context between stages", "The registry acquire verbs and Render check their context", "A cancelled check returns the context's own error and no artifact", "A cancellation inside the registry fetch is still a context error" and "A running load or build is not interrupted".
+**Migration**: See "Verbs check their context between stages", "Verbs check their context after the build", "The registry acquire verbs and Render check their context", "A cancelled check of a directory or synthesis verb returns the context's own error and no artifact", "A cancelled check of a registry acquire verb or Render returns the context's own error and no artifact", "A cancellation inside the registry fetch is still a context error" and "A running load or build is not interrupted".
 
 ### Requirement: One registry client per Kernel
 **Reason**: Split into requirements that each state one behavior.
@@ -340,7 +340,7 @@ No standalone `validate.Config` / `validate.ConfigPartial` / `module.ParseModule
 - **WHEN** a developer searches `opm/` for `ParseModuleInstance`
 - **THEN** no free function and no method with that name exists
 
-### Requirement: LoadSourceFromFile reads and parses the file and evaluates nothing
+### Requirement: LoadSourceFromFile reads and parses a file
 The `*Kernel.LoadSourceFromFile(path string)` method SHALL read the file at `path`, parse it for syntax, and return a `Source` whose `Data` is the file's bytes and whose `Origin` is the file's absolute path; `Source` carries no other label. The method SHALL NOT evaluate CUE.
 
 #### Scenario: Syntax errors fail at load, schema errors at use
@@ -350,7 +350,7 @@ The `*Kernel.LoadSourceFromFile(path string)` method SHALL read the file at `pat
 - **AND** a file that parses but violates a module's `#config` loads fine and fails, positioned at the file's path, in the operation that applies it
 
 ### Requirement: A compiled file source unwraps a top-level values field
-The source is the one that `Kernel.LoadSourceFromFile` returns. When a kernel operation compiles that source, it SHALL load it through cue/load at the file's directory (so imports resolve as they do for any CUE file), evaluate it in that operation's own context, and:
+The source is that of requirement "LoadSourceFromFile reads and parses a file". When a kernel operation compiles that source, it SHALL load it through cue/load at the file's directory (so imports resolve as they do for any CUE file), evaluate it in that operation's own context, and:
 - If the evaluated value contains a top-level `values:` field whose `Exists()` is true and `Err()` is nil, the compiled source SHALL be that field.
 - Otherwise the compiled source SHALL be the whole evaluated value.
 
@@ -694,7 +694,7 @@ Where `README.md` carries a layout block, it SHALL list only packages that exist
 - **THEN** every listed package exists, no `opm/core/` row appears, and `Compiled`, where named, sits on the `kernel/` row
 
 ### Requirement: Verbs check their context between stages
-`Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`, `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance` SHALL check their context after their argument checks and between their stages: after the directory is read, after the values sources are merged, after the package is built and before the next stage starts. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
+`Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`, `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance` SHALL check their context after their argument checks and between their stages: after the directory is read, after the values sources are merged. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: A cancelled context stops each directory verb
 
@@ -711,24 +711,40 @@ Where `README.md` carries a layout block, it SHALL list only packages that exist
 - **WHEN** `SynthesizeInstance` is called with a cancelled context and an `InstanceInput` with no `Module`
 - **THEN** the error wraps `oerrors.ErrMissingModule`
 
+### Requirement: Verbs check their context after the build
+`Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`, `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance` SHALL check their context after their argument checks and between their stages: after the package is built and before the next stage starts. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
+
+#### Scenario: A verb checks its context after the package is built
+
+- **WHEN** `AcquireModuleFromDir`, `AcquireCatalogFromDir`, `AcquirePlatformFromDir`, `AcquireInstanceFromDir` or `SynthesizeInstance` has built the package
+- **THEN** it checks its context after the package is built and before the next stage starts
+
 ### Requirement: The registry acquire verbs and Render check their context
-The registry acquire verbs SHALL check it after the registry fetch returns and after the package is built, and `Kernel.Render` SHALL check it after its input checks, after staging and after the render build. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
+The registry acquire verbs SHALL check their context after the registry fetch returns and after the package is built, and `Kernel.Render` SHALL check its context after its input checks, after staging and after the render build. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: Registry verbs and Render check the context
 
 - **WHEN** `Render` runs or a registry acquire verb runs
 - **THEN** `Render` checks the context after its input checks, after staging and after the render build, and a registry acquire verb checks it after the registry fetch returns and after the package is built
 
-### Requirement: A cancelled check returns the context's own error and no artifact
-The checks are those of requirements "Verbs check their context between stages" and "The registry acquire verbs and Render check their context". When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
+### Requirement: A cancelled check of a directory or synthesis verb returns the context's own error and no artifact
+The checks are those of requirements "Verbs check their context between stages" and "Verbs check their context after the build". When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: A done context returns its own error and no artifact
 
 - **WHEN** one of these checks finds the context done
 - **THEN** the verb returns the context's own error unwrapped, so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds, and no artifact
 
+### Requirement: A cancelled check of a registry acquire verb or Render returns the context's own error and no artifact
+The checks are those of requirement "The registry acquire verbs and Render check their context". When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
+
+#### Scenario: A done check of a registry acquire verb or Render returns its own error and no artifact
+
+- **WHEN** one of the checks of requirement "The registry acquire verbs and Render check their context" finds the context done
+- **THEN** the verb returns the context's own error unwrapped, so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds, and no artifact
+
 ### Requirement: A cancellation inside the registry fetch is still a context error
-A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.Canceled)`. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
+A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.Canceled)`. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: A fetch served from the cache still observes cancellation
 
@@ -897,7 +913,7 @@ The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<nam
 - **THEN** the refusal is CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully concrete: …`
 
 ### Requirement: The refusal holds the value findings of the built-spec check
-When they leave one or more unset, the refusal SHALL hold findings about the values only:
+When the values leave one or more unset, the refusal SHALL hold findings about the values only:
 1. every finding of the built-spec check at a path under `values` (a value the instance's values carry in a non-concrete form), positioned where the values carry it; Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal holds the findings of the values only
@@ -906,7 +922,7 @@ When they leave one or more unset, the refusal SHALL hold findings about the val
 - **THEN** the refusal holds every finding of the built-spec check at a path under `values`, positioned where the values carry it
 
 ### Requirement: The refusal names every other unset required value at values.<field>
-When they leave one or more unset, the refusal SHALL hold findings about the values only:
+When the values leave one or more unset, the refusal SHALL hold findings about the values only:
 2. one finding for every other unset required value, at the path `values.<field>` (the full path for a nested field), whether or not a component reads it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal names every other unset value
@@ -955,7 +971,7 @@ For the same module and the same single values source, `SynthesizeInstance` SHAL
 - **THEN** `SynthesizeInstance` refuses every value that `ValidateConfigDetailed(#config, sources)` refuses, and names at `values.<field>` every unset field that `ValidateConfigDetailed` names at `#config.<field>`
 
 ### Requirement: SynthesizeInstance may refuse more only through the concreteness check on the built spec
-For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every value that `ValidateConfigDetailed(#config, sources)` refuses; it MAY refuse more only through the concreteness check on the built spec, which refuses a non-concrete value the instance's values carry even where a `#config` default would complete it. Source: opm-operator#258 for the report of both checks.
+For the same module and the same single values source, `SynthesizeInstance` SHALL refuse every value that `ValidateConfigDetailed(#config, sources)` refuses; it MAY refuse more only through the concreteness check on the built spec, which refuses a non-concrete value the instance's values carry even where a `#config` default would complete it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: SynthesizeInstance may refuse more
 

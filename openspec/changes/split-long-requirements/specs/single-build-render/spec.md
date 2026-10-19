@@ -45,7 +45,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 - **THEN** the built value's `gate` field is `true`
 
 ### Requirement: A caller may skip unprovided provider-fulfilled demands
-`Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip every **unprovided** demand: a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key (the key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads). Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`.
+`Kernel.Render` SHALL accept a per-render switch, off by default, that asks the render to skip every **unprovided** demand: a resource or trait demand whose contract declares `fulfilment: "provider"` and for which no enabled registry entry carries a transformer requiring that contract key. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: Switch off refuses an unprovided trait as before
 
@@ -122,7 +122,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 
 ### Requirement: A render refuses a platform whose enabled entries share contract keys
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The glue emits one collision row for each key in the collision report", "The glue emits no collision row when the platform carries no collision report", "The kernel refuses a colliding platform for every instance and skip switch", "The collision cause is the first joined cause", "The collision cause message names each key, its definers and the remedy" and "The render's collision rows equal the inventory's CollidingEntries".
+**Migration**: See "The glue reads the collisions from core's derived contract inventory", "The glue emits one collision row for each key in the collision report", "The glue emits collision rows only with a collision report", "The glue emits no collision row when the platform carries no collision report", "The kernel decodes the collision rows and refuses the render", "The kernel refuses a colliding platform for every instance and skip switch", "The collision cause is the first joined cause", "The collision cause comes first because a colliding key distorts the inventory", "The collision cause message names each key and its definers", "The collision cause message says how to remedy a collision" and "The render's collision rows equal the inventory's CollidingEntries".
 
 ### Requirement: A render refuses a not-routable platform no row explains
 **Reason**: Split into requirements that each state one behavior.
@@ -571,6 +571,14 @@ With the switch off, the render's verdicts, refusals and rendered output SHALL b
 - **WHEN** the switch is off
 - **THEN** the render's verdicts, refusals and rendered output SHALL be exactly those of a render without the switch
 
+### Requirement: An unprovided demand's key is absent from the provider count
+The contract key of an unprovided demand of requirement "A caller may skip unprovided provider-fulfilled demands" SHALL be absent from core's `#contracts.providedBy`, the count the single-provider guard reads. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+
+#### Scenario: An unprovided demand's key is absent from the count
+
+- **WHEN** a demand is unprovided
+- **THEN** its contract key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads
+
 ### Requirement: A skipped trait demand does not refuse the render
 With the switch on: A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it matched, and nothing SHALL render for the trait. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
@@ -604,7 +612,23 @@ With the switch on: The omission flag SHALL be set on every skipped row of an om
 - **THEN** The omission flag SHALL be set on every skipped row of an omitted component, trait rows included.
 
 ### Requirement: Every other refusal stands with the switch on
-With the switch on: Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified, an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`.
+With the switch on: Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+
+#### Scenario: A catalog-fulfilled or unmatched provider-fulfilled demand still refuses
+
+- **WHEN** the switch is on and a catalog-fulfilled unresolved demand, or a provider-fulfilled demand for which a provider exists but did not match or was disqualified, is present
+- **THEN** it refuses the render as without the switch
+
+### Requirement: An over-subscribed contract and an unmatched component still refuse with the switch on
+With the switch on: Every other refusal SHALL stand: an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+
+#### Scenario: An over-subscribed contract or an unmatched component still refuses
+
+- **WHEN** the switch is on and a provider-fulfilled contract is over-subscribed, or a component other than an omitted one is unmatched
+- **THEN** it refuses the render as without the switch
+
+### Requirement: The skipped-demand rows are readable beside a refusal with the switch on
+With the switch on: The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. The refusals are those of requirements "Every other refusal stands with the switch on" and "An over-subscribed contract and an unmatched component still refuse with the switch on". Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: Skipped rows are readable beside a refusal
 
@@ -667,24 +691,48 @@ Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `So
 - **WHEN** one acquired current-core platform is shared by several goroutines, each calling `Render` on one Kernel
 - **THEN** every render passes the core floor and produces the same objects, with no data race reported under the race detector
 
+### Requirement: The glue reads the collisions from core's derived contract inventory
+The generated glue SHALL read the platform's contract collisions from core's derived contract inventory and SHALL NOT compute them. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
+
+#### Scenario: The glue reads the collisions and does not compute them
+
+- **WHEN** the generated glue needs the platform's contract collisions
+- **THEN** it reads them from core's derived contract inventory and does not compute them
+
 ### Requirement: The glue emits one collision row for each key in the collision report
-The generated glue SHALL read the platform's contract collisions from core's derived contract inventory and SHALL NOT compute them: for every key in `#Platform.#contracts.collisions`, in that (ascending) order, it SHALL emit one collision row naming the key and the registry keys `#contracts.collidingEntries` holds for it (path plus major, ascending). Source: an open question of enhancement 0026, core change `fold-colliding-contract-keys`.
+For every key in `#Platform.#contracts.collisions`, in that (ascending) order, the generated glue SHALL emit one collision row naming the key and the registry keys `#contracts.collidingEntries` holds for it (path plus major, ascending). Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
 
 #### Scenario: A colliding bridge platform is refused instead of rendering twice
 
 - **WHEN** the platform enables `maj@v0` 0.1.0 and `maj@v1` 1.4.0, which list the same container, expose and backup keys, and `maj@v1` ships a bridge transformer requiring `maj@v0`'s container, and an instance of a `maj@v0` module is rendered
 - **THEN** `Render` fails with a `*RenderError` whose joined causes start with a typed collision cause carrying three rows (the container, backup and expose keys in ascending order, each naming `maj@v0` and `maj@v1`), no compiled object is returned, and the diagnostics carry the same three rows
 
+### Requirement: The glue emits collision rows only with a collision report
+The glue SHALL emit the collision rows only when the platform value carries `collisions`, and SHALL emit none otherwise. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
+
+#### Scenario: The glue emits the rows only when the platform carries collisions
+
+- **WHEN** the platform value carries `collisions`
+- **THEN** the glue emits the collision rows, and it emits none otherwise
+
 ### Requirement: The glue emits no collision row when the platform carries no collision report
-The glue SHALL emit the collision rows only when the platform value carries `collisions`, and SHALL emit none otherwise: every core release carrying `#contracts` without the report fails to evaluate a platform whose enabled entries share a key, so an absent report provably means no collision. Source: an open question of enhancement 0026, core change `fold-colliding-contract-keys`.
+The glue SHALL emit none otherwise (requirement "The glue emits collision rows only with a collision report"): every core release carrying `#contracts` without the report fails to evaluate a platform whose enabled entries share a key, so an absent report provably means no collision. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog).
 
 #### Scenario: A platform pinning a core without the report renders unchanged
 
 - **WHEN** the served healthy platform, re-pinned to core `2.0.0-alpha.12`, is rendered
 - **THEN** the render succeeds exactly as before this change, with no collision row and a routable diagnostic reading true
 
+### Requirement: The kernel decodes the collision rows and refuses the render
+The kernel SHALL decode the collision rows onto the render diagnostics and SHALL refuse the render, through the fail-closed gate, with one typed collision cause carrying every row unchanged. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
+
+#### Scenario: The kernel decodes the rows and refuses through the gate
+
+- **WHEN** the glue emits collision rows for a render
+- **THEN** the kernel decodes them onto the render diagnostics and refuses the render, through the fail-closed gate, with one typed collision cause carrying every row unchanged
+
 ### Requirement: The kernel refuses a colliding platform for every instance and skip switch
-The kernel SHALL decode the collision rows onto the render diagnostics and SHALL refuse the render, through the fail-closed gate, with one typed collision cause carrying every row unchanged. The refusal is platform-wide: it SHALL hold for every instance and whatever the caller's skip switch says. Source: an open question of enhancement 0026, core change `fold-colliding-contract-keys`.
+The refusal of requirement "The kernel decodes the collision rows and refuses the render" is platform-wide: it SHALL hold for every instance and whatever the caller's skip switch says. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
 
 #### Scenario: A collision refuses under the skip switch
 
@@ -692,20 +740,36 @@ The kernel SHALL decode the collision rows onto the render diagnostics and SHALL
 - **THEN** `Render` fails with the same typed collision cause
 
 ### Requirement: The collision cause is the first joined cause
-When a render refuses for several reasons, the collision cause SHALL be the first joined cause, ahead of unresolved demands, over-subscribed contracts and unmatched components, because a colliding key is absent from `definedBy`, `requiredBy` and the comparability report and the other rows are read against a distorted inventory. Source: an open question of enhancement 0026, core change `fold-colliding-contract-keys`.
+When a render refuses for several reasons, the collision cause SHALL be the first joined cause, ahead of unresolved demands, over-subscribed contracts and unmatched components. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
 
 #### Scenario: A collision and an over-subscription are both named, collision first
 
 - **WHEN** the colliding platform also enables `bprov@v0` and `bprov@v1`, whose transformers both require the colliding provider-fulfilled backup trait
 - **THEN** `Render` fails with a collision cause and an over-subscription cause for the backup key, reachable through `errors.As`, and the collision cause is the first joined cause
 
-### Requirement: The collision cause message names each key, its definers and the remedy
-The collision cause's message SHALL name, per row, the key, the number of enabled registry entries defining it and those entries, and SHALL say that a contract key must have exactly one enabled definer until side-by-side catalog majors are supported, so all but one of the entries must be disabled. Source: an open question of enhancement 0026, core change `fold-colliding-contract-keys`.
+### Requirement: The collision cause comes first because a colliding key distorts the inventory
+When a render refuses for several reasons, the collision cause SHALL be the first joined cause, because a colliding key is absent from `definedBy`, `requiredBy` and the comparability report and the other rows are read against a distorted inventory. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog).
+
+#### Scenario: A colliding key distorts the inventory the other rows are read against
+
+- **WHEN** a render refuses for several reasons and one of them is a collision
+- **THEN** the collision cause is the first joined cause, because a colliding key is absent from `definedBy`, `requiredBy` and the comparability report and the other rows are read against a distorted inventory
+
+### Requirement: The collision cause message names each key and its definers
+The collision cause's message SHALL name, per row, the key, the number of enabled registry entries defining it and those entries. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
 
 #### Scenario: The message names the keys and the definers
 
 - **WHEN** the render refuses a colliding platform
 - **THEN** the cause's message SHALL name, per row, the key, the number of enabled registry entries defining it and those entries
+
+### Requirement: The collision cause message says how to remedy a collision
+The collision cause's message SHALL say that a contract key must have exactly one enabled definer until side-by-side catalog majors are supported, so all but one of the entries must be disabled. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.
+
+#### Scenario: The message says how to remedy a collision
+
+- **WHEN** the render refuses a colliding platform
+- **THEN** the cause's message says that a contract key must have exactly one enabled definer until side-by-side catalog majors are supported, so all but one of the entries must be disabled
 
 ### Requirement: The render's collision rows equal the inventory's CollidingEntries
 Because the render and the platform's `Contracts()` read the same report, the render's collision rows SHALL equal the inventory's `CollidingEntries` on every platform. Source: an open question of enhancement 0026 (the interim safety net ahead of that enhancement, in which a platform may admit several majors of one catalog and each resolution holds exactly one major per catalog), core change `fold-colliding-contract-keys`.

@@ -254,7 +254,7 @@ With one or more values sources (the `Source` type `ValidateConfigDetailed` acce
 - **THEN** `AcquireInstanceFromDir` returns the validation error naming the conflicting path, with source positions attributable to the values source, and no partial `*Instance`
 
 ### Requirement: A layered instance's Source is in overlay mode
-The values sources are those of requirement "Values sources are unified in order". The returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` carrying every on-disk `.cue` file under the module root (the module's own `cue.mod/module.cue` included) plus the rendered values file, as bytes.
+The values sources are those of requirement "Values sources are unified in order". With one or more values sources (the `Source` type `ValidateConfigDetailed` accepts), the returned instance's `Source` SHALL then be overlay mode: same `Root` and `Pkg`, `Overlay` carrying every on-disk `.cue` file under the module root (the module's own `cue.mod/module.cue` included) plus the rendered values file, as bytes.
 
 #### Scenario: A layered instance carries an overlay source
 
@@ -397,7 +397,7 @@ Required identity fields SHALL be those the schema never defaults:
 - **THEN** the call returns an error wrapping `oerrors.ErrWrongKind`
 
 ### Requirement: A registry entry with no embedded catalog fails as a missing required field
-Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, SHALL fail here as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
+Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, SHALL fail here, at the gate, as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
 
 #### Scenario: Registry entry with no embedded catalog rejected
 

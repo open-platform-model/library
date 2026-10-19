@@ -223,7 +223,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The deletion transition names one action per call
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The deletion transition returns the next state and one action", "A safety-excluded step is skipped without a read", "Every other step is read, judged, and then skipped or deleted", "A plan that does not prune names done at once", "A prune leaves an object that another instance adopted".
+**Migration**: See "The deletion transition returns the next state and one action", "The deletion transition performs no action and names only steps of the plan", "A safety-excluded step is skipped without a read", "Every other step is read, judged, and then skipped or deleted", "A plan that does not prune names done at once", "A prune leaves an object that another instance adopted".
 
 ### Requirement: Action outcomes are classified by the library
 **Reason**: Split into requirements that each state one behavior.
@@ -231,7 +231,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 ### Requirement: The deletion state is a serialisable value the caller owns
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The deletion state is a plain value the caller owns", "A state written to JSON advances identically", "A state that cannot belong to the plan is refused", "The JSON encoding of the deletion state is fixed field by field".
+**Migration**: See "The deletion state is a plain value the caller owns", "A state written to JSON advances identically", "A state that cannot belong to the plan is refused", "A state that awaits something it cannot await is refused", "The JSON encoding of the deletion state is fixed field by field".
 
 ### Requirement: The hold verdict is decided from the policy and the plan's outcome
 **Reason**: Split into requirements that each state one behavior.
@@ -510,7 +510,7 @@ The library SHALL provide a stable sort by weight, ascending for apply and desce
 - **WHEN** objects of equal weight are sorted ascending or descending
 - **THEN** the sort is stable, ascending for apply and descending for delete
 
-### Requirement: A weight is looked up by group and kind first
+### Requirement: A weight is looked up by group, version and kind first
 A weight SHALL be looked up by group, version and kind first; then a CustomResourceDefinition of `apiextensions.k8s.io`, a Namespace of the core group and a ClusterRole of `rbac.authorization.k8s.io` by group and kind in any version. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: A kind is looked up by group and kind in any version
@@ -519,7 +519,7 @@ A weight SHALL be looked up by group, version and kind first; then a CustomResou
 - **THEN** it is looked up by group and kind in any version
 
 ### Requirement: A weight falls back to the kind alone, then to the Class weight, then to 1000
-The lookups of requirement "A weight is looked up by group and kind first" come first. A weight SHALL be looked up then by kind alone, where a kind named CustomResourceDefinition, Namespace or ClusterRole in another group weighs 6; then any kind whose name ends in `Class` weighs 6; else 1000. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The lookups of requirement "A weight is looked up by group, version and kind first" come first. A weight SHALL be looked up then by kind alone, where a kind named CustomResourceDefinition, Namespace or ClusterRole in another group weighs 6; then any kind whose name ends in `Class` weighs 6; else 1000. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: A custom kind ending in Class falls back to the Class weight
 
@@ -1025,7 +1025,7 @@ An object whose JSON does not decode to a single JSON object SHALL fail with an 
 - **THEN** the render digest fails with an error naming position 1
 
 ### Requirement: The deletion plan orders its entries by delete weight
-The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. The plan SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Source: enhancement 0012; ADR-008 (Deletion plans).
+The library SHALL provide `opm/k8s/lifecycle` with a deletion plan built from a list of inventory entries, a deletion policy (`Prune`, `ForceOrphan`) and the deleting instance's UUID. The plan SHALL order the entries by the tier's weight table in descending order, keeping the relative order of entries of equal weight, and SHALL NOT change the caller's list. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: Entries are ordered for deletion
 
@@ -1047,7 +1047,7 @@ Every CustomResourceDefinition and Namespace entry, as the tier's safety exclusi
 - **THEN** both steps are marked safety-excluded in the plan as built
 
 ### Requirement: A deletion plan needs no render and no stored plan
-Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the persisted inventory, and a prune builds it from the stale set the inventory package computes, through the same constructor. Source: enhancement 0012; ADR-008 (Deletion plans).
+Building the plan SHALL NOT need a render or a stored plan: an uninstall builds it from the persisted inventory, and a prune builds it from the stale set the inventory package computes, through the same constructor. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 (Deletion plans).
 
 #### Scenario: A prune hands its stale set to the same plan
 
@@ -1055,7 +1055,7 @@ Building the plan SHALL NOT need a render or a stored plan: an uninstall builds 
 - **THEN** the plan's steps are exactly the stale entries, in kind-class delete order
 
 ### Requirement: The plan constructor is the only way to build a plan with steps
-The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the transition a plan in another order, and the plan's steps SHALL be readable as a copy. Source: enhancement 0012; ADR-008 (Deletion plans).
+The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the transition a plan in another order, and the plan's steps SHALL be readable as a copy. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"), ADR-008 (Deletion plans).
 
 #### Scenario: Changing the listed steps does not change the plan
 
@@ -1063,7 +1063,7 @@ The constructor SHALL be the only way to build a plan with steps, so no frontend
 - **THEN** the plan's own steps keep their deletion order
 
 ### Requirement: The deletion transition returns the next state and one action
-The deletion transition SHALL take the plan, the caller's state and the outcome of the action it last named, and SHALL return the next state and exactly one action: read one step's live object, delete one step's object, report one step as skipped, or done. It SHALL perform no action itself. Every read, delete and skip action SHALL name a step of the plan, and the transition SHALL name no other kind of action. Source: enhancement 0012; ADR-008 rules 1 to 3.
+The deletion transition SHALL take the plan, the caller's state and the outcome of the action it last named, and SHALL return the next state and exactly one action: read one step's live object, delete one step's object, report one step as skipped, or done. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103), ADR-008 rules 1 to 3.
 
 #### Scenario: The transition names only reads, deletions, skips and done
 
@@ -1071,8 +1071,22 @@ The deletion transition SHALL take the plan, the caller's state and the outcome 
 - **THEN** every action is a read, a delete, a skip or done
 - **AND** every read, delete and skip names a step of the plan
 
+#### Scenario: A call returns the next state and one action
+
+- **WHEN** the deletion transition is called with the plan, the caller's state and the outcome of the action it last named
+- **THEN** it returns the next state and exactly one action: read one step's live object, delete one step's object, report one step as skipped, or done
+
+### Requirement: The deletion transition performs no action and names only steps of the plan
+The deletion transition SHALL perform no action itself. Every read, delete and skip action SHALL name a step of the plan, and the transition SHALL name no other kind of action. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103), ADR-008 rules 1 to 3.
+
+#### Scenario: The transition performs no action and names no other kind of action
+
+- **WHEN** the deletion transition is called
+- **THEN** it performs no action itself
+- **AND** every read, delete and skip action names a step of the plan, and the transition names no other kind of action
+
 ### Requirement: A safety-excluded step is skipped without a read
-A safety-excluded step SHALL be reported as skipped with the reason `safety-excluded` without a read. Source: enhancement 0012; ADR-008 rules 1 to 3.
+A safety-excluded step SHALL be reported as skipped with the reason `safety-excluded` without a read. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (enhancements#103), ADR-008 rules 1 to 3.
 
 #### Scenario: A protected kind is skipped without a read
 
@@ -1208,17 +1222,12 @@ A state written to JSON and read back SHALL advance identically to the state hel
 - **THEN** both calls return equal states and equal actions
 
 ### Requirement: A state that cannot belong to the plan is refused
-The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, an outcome is out of step order or carries a result other than deleted, skipped or failed, it awaits something after the last step, or what it awaits is not a defined value. Source: enhancement 0012; ADR-008 rule 2.
+The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, an outcome is out of step order or carries a result other than deleted, skipped or failed. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
 
 #### Scenario: A state past the plan is refused
 
 - **WHEN** the state's next step is beyond the plan's last step
 - **THEN** the transition returns an error
-
-#### Scenario: A state awaiting something after the last step is refused
-
-- **WHEN** the state's next step equals the number of steps and the state awaits a read
-- **THEN** the transition returns an error and the input state unchanged
 
 #### Scenario: A state whose outcomes do not match its next step is refused
 
@@ -1228,6 +1237,14 @@ The transition SHALL return an error, the input state unchanged and no action wh
 #### Scenario: A state with an out-of-order or unknown outcome is refused
 
 - **WHEN** the state names step 2 of a plan and its second outcome records step 9, or records a result other than deleted, skipped or failed
+- **THEN** the transition returns an error and the input state unchanged
+
+### Requirement: A state that awaits something it cannot await is refused
+The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: it awaits something after the last step, or what it awaits is not a defined value. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
+
+#### Scenario: A state awaiting something after the last step is refused
+
+- **WHEN** the state's next step equals the number of steps and the state awaits a read
 - **THEN** the transition returns an error and the input state unchanged
 
 ### Requirement: The JSON encoding of the deletion state is fixed field by field
