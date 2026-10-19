@@ -222,6 +222,12 @@ One more code comment cites a requirement whose rule moved: `opm/kernel/synth_te
 **Decision**: 6 requirements use form b because another text cites the header or only one sentence has to leave: "A fetch or resolution failure is a typed error" (a sentence of the token-endpoint requirement names it for the forbidden tag lookup, and that sentence keeps the citation in its new block, with a pointer to the block that now holds the tag-lookup rule), "The library classifies every fetch and resolution failure it returns" (the unchanged requirement "The library returns author-defect resolution failures typed" names it), "Platform constructor takes a bare value" (a sentence of "A platform records its core floor and contract inventory at construction" names it), "A platform records its core floor and contract inventory at construction" (the `single-build-render` delta names it twice, for `CoreFloor()` and for the decode on a platform the constructor did not build, and so did "Platform Type Shape"; the new blocks that hold those rules carry a pointer, and the two `single-build-render` lines are left to the audit of the whole change because an earlier unit wrote them), "Platform carries its render source" (519 characters: the last sentence leaves) and "Registry access is caller-configured" (590: the sentence on the process environment leaves). In each, the parent keeps all its scenarios and a shorter body, and the cut sentences go to ADDED blocks with a restatement scenario. 8 use c2. No removed header is cited outside `openspec/` (grep over the repository, archive left out) and none is cited inside a kept text except as listed, so no code comment goes stale in this unit. Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table below), a subject copied from the same old requirement (`Classify` or the constructor for "It", `Contracts()` accessor for "The accessor", the verb `AcquirePlatformFromDir(ctx, dir)` for "the verb", "the fetch forms" for "They"), a pointer "(Requirement: <exact header>)" to the requirement of the same spec that holds the referent ("This", "It", "this requirement", "that form", "the recorded floor", "these facts", "step 1 below", "step 2 below", "The result", "A missing"), and the list numbers "1." and "2." of the step list. Sentences over 500 characters on their own are cut at a list boundary with the lead repeated and the closing "," or "and" turned into ".": the inventory sentence of "Platform Type Shape" (the lead up to "`ContractInventory`", then one block per field or pair of fields), the stamped fields of `AcquirePlatformFromDir` (`Overlay` and `Root` in one block, `Pkg` in the other), the constructor's decode list (`Metadata` and `type` stay in the parent, `Package` and `Source` go to the new block) and the `platform.cue` sentence (embed, declare and import in one block, the `#registry` entry in the other, "`platform.cue` SHALL" repeated). The Source line of the three specs that have one ("Source: enhancement 0021 (the GA exit criteria).") is repeated whole as a `**Source**:` line in every block of the old requirement that carried it (every block of "Classify recognises ...", including the ones from its second paragraph). "Platform Type Shape" carries its citations inside two sentences, as a parenthesis: the four titles of enhancement 0015 after "`#Platform.#contracts`" and the two after "all are reports". A body cannot hold the lead and its first parenthesis together (the lead plus the parenthesis is 760 characters), so that parenthesis moved whole, word for word, to the `**Source**:` line of every block that repeats its lead (the human's decision of 2026-10-20 allows a citation there and nothing else). The second parenthesis fits, and stays in its body. The two parentheses that cite enhancement 0019 in `platform-module-generation` ("Generation is pure and deterministic", "The dependency closure is derived from published module files") hold rule text ("tripwire: it unifies with core's readout of the imported catalog"; "tidying happens once, at generation"), so they stay in their bodies. Reversibility: high.
 **Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice.
 
+### Batch library-B5, second half: the form choices and the limits of the verbatim rule
+
+**Context**: The second half of B5 holds `registry-module-loading` (4 long requirements), `render-parity` (4), `catalog-acquisition` (3) and `fixture-pin-maintenance` (3): 14 in all, which completes the 28 of B5. "Registry acquisition accepts bare and v-prefixed versions" in `registry-module-loading` measures 492 characters and is not long, so it is not rewritten. "Acquire a module from the registry" runs to 1608 characters, and one sentence of it runs to 731 on its own.
+**Decision**: 3 requirements use form b: "The shipped catalog stays discriminated" (a comment in `opm/kernel/parity_harness_test.go` names the header), "Pure-CUE unification is the render oracle" (the last sentence leaves) and "Catalog acquisition from a registry and from a directory" (the last two sentences leave). In each, the parent keeps all its scenarios and a shorter body, and the cut sentences go to ADDED blocks with a restatement scenario; the scenario "A comparable pair in a catalog release fails the harness" stays in the parent, because a live scenario cannot move to an ADDED block. 11 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out), so no code comment goes stale in this unit. Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table below), a subject copied from the same old requirement ("The registry module loader" for "It"; `AcquireCatalogFromRegistry` and `AcquireCatalogFromDir` for "Neither"; "The shipped parity group" repeated at the cut), a pointer "(Requirement: <exact header>)" to the requirement of the same spec that holds the referent ("The verification", "the set", "both sources", "The result", "The staged source", "The proof", "the default", "that pin", "The assertion", "a listed location", "the same typed error", "either value", "the inventory", "The module file", "The two paths"). Sentences over 500 characters on their own are cut at a list boundary with the lead repeated and the closing "," or ";" turned into ".": the entry-point sentence of "Acquire a module from the registry" (the first two items, then the last three items; "is" becomes "SHALL be"), the unreadable provider set sentence (two items each) and the sentence of "The shipped catalog stays discriminated" (cut at ", and SHALL assert", the subject repeated). The citation parenthesis of the first sentence of "The catalog's committed dependency requirements are readable" (two enhancement titles) moved whole, word for word, to a `**Source**:` line (the human's decision of 2026-10-20 allows a citation there and nothing else). Two descriptive sentences keep no keyword, because their block carries SHALL: "That module is the one the oracle builds in." and "A listed file can still read the derived version in other places, for example to find the pin it replaces with an old one." The blocks of "Acquire a module from the registry" that begin "For modules that entry point" carry no pointer to "Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind": a pointer does not fit beside the cut sentence in 500 characters, and the sentence names the method `Kernel.AcquireModuleFromRegistry`. The first commit of this unit gave the two `single-build-render` lines that cite "A platform records its core floor and contract inventory at construction" exact-header pointers into `platform-artifact` (DECISIONS.md 2026-10-20 02:50): the check of the core floor cites "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError", and the line on the recorded floor cites that header and "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call" in a `**Source**:` line, because the body measured 506 characters with the second pointer inline. Reversibility: high.
+**Rationale**: The 500-character limit, the rule that a citation stays with the rule it supports, and the rule that no word is dropped leave no other choice.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -3522,6 +3528,294 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Tests SHALL be able to supply a fixture module-file graph without any registry. | Registry access is caller-configured | verbatim |
 | The helper SHALL NOT read the process environment or hard-code a client type itself; a caller tha... | The helper reads no process environment and hard-codes no client type, and a nil environment is the caller's choice | verbatim |
 
+### Ledger: registry-module-loading
+
+**In-Memory Load Without a Temporary Directory**: form c2 (REMOVED plus ADDED); old body 1046 characters; new bodies 132, 458, 478.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| No temporary directory created | The registry module loader loads the fetched module in memory and writes no temporary directory, same name | no, byte for byte (checked) |
+| Staged overlay carries the module's CUE files only | The loader injects the fetched module's CUE files under a deterministic synthetic root and leaves load.Config.FS nil, same name | no, byte for byte (checked) |
+| An existing synthetic root is refused | The synthetic root is an absolute path that does not exist on disk and the loader refuses the acquire when anything exists at it, same name | no, byte for byte (checked) |
+| An existing synthetic root refuses a catalog acquire | The synthetic root is an absolute path that does not exist on disk and the loader refuses the acquire when anything exists at it, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The registry module loader SHALL load the fetched module in memory and SHALL NOT write the module's... | The registry module loader loads the fetched module in memory and writes no temporary directory | verbatim |
+| It SHALL inject the fetched module's CUE files (every `.cue` file under the module root, the module'... | The loader injects the fetched module's CUE files under a deterministic synthetic root and leaves load.Config.FS nil | "It SHALL" becomes "The registry module loader SHALL" |
+| The staged overlay the loader returns on the module's `Source` SHALL be that same set of files. | The loader injects the fetched module's CUE files under a deterministic synthetic root and leaves load.Config.FS nil | verbatim |
+| The synthetic root SHALL be an absolute path on every operating system (on Windows it carries the cu... | The synthetic root is an absolute path that does not exist on disk and the loader refuses the acquire when anything exists at it | verbatim |
+| Because cue/load reads a real directory beneath an overlay root, the loader SHALL refuse the acquire... | The synthetic root is an absolute path that does not exist on disk and the loader refuses the acquire when anything exists at it | verbatim |
+| The same holds for every artifact kind the loader fetches from a registry, a catalog included. | The synthetic root is an absolute path that does not exist on disk and the loader refuses the acquire when anything exists at it | verbatim |
+
+**Registry-Loaded Modules Pass the Module Shape Gate**: form c2 (REMOVED plus ADDED); old body 631 characters; new bodies 401, 267, 105.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Wrong artifact kind rejected | The registry module loader evaluates and shape-gates the fetched module through the kernel's one routine, same name | no, byte for byte (checked) |
+| Missing identity field rejected | The registry module loader evaluates and shape-gates the fetched module through the kernel's one routine, same name | no, byte for byte (checked) |
+| Registry and directory acquisition fail identically | The registry and directory acquisition paths differ only in where the package files come from, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Full schema validation stays the Kernel's contract" in "The registry module loader performs no full schema validation"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The registry module loader SHALL evaluate and shape-gate the fetched module through the kernel's one... | The registry module loader evaluates and shape-gates the fetched module through the kernel's one routine | verbatim |
+| The two acquisition paths SHALL differ only in where the package files come from: a fetched overlay... | The registry and directory acquisition paths differ only in where the package files come from | pointer (Requirement: <exact header>) added after "The two acquisition paths" |
+| It SHALL NOT perform full schema validation, which remains the Kernel's contract. | The registry module loader performs no full schema validation | "It SHALL NOT" becomes "The registry module loader SHALL NOT" |
+
+**Module Identity Verification**: form c2 (REMOVED plus ADDED); old body 1610 characters; new bodies 496, 267, 384, 223, 433, 244.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Address mismatch refused at acquire | The loader verifies a module's declared identity against its fetched coordinate, same name | no, byte for byte (checked) |
+| Version mismatch refused at acquire | The loader verifies a module's declared identity against its fetched coordinate, same name | no, byte for byte (checked) |
+| Honest artifact loads | The loader verifies a module's declared identity against its fetched coordinate, same name | no, byte for byte (checked) |
+| A non-module kind traverses the shared fetch unchecked | The identity verification is scoped to modules, same name | no, byte for byte (checked) |
+| Older-line parent-path declaration verified by convention | A major-free metadata.modulePath has no alternative verification and no module address is composed from a parent path and a name, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Every frontend inherits one verification" in "The identity verification sits on the single module entrypoint of the shared fetch routine"
+- "The check is found in the module entrypoint" in "The identity check is distinguishable in the code rather than by convention"
+- "The kernel does not stamp the declared identity" in "The kernel is a verifier and never a stamper of the declared identity"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| After the artifact shape gate passes, the registry module loader SHALL verify the acquired artifact'... | The loader verifies a module's declared identity against its fetched coordinate | verbatim |
+| A disagreement SHALL fail the load with a typed identity error naming both the declared and the fetc... | The loader verifies a module's declared identity against its fetched coordinate | verbatim |
+| The verification SHALL sit on the single module entrypoint of the shared fetch routine, so every fro... | The identity verification sits on the single module entrypoint of the shared fetch routine | pointer (Requirement: <exact header>) added after "The verification" |
+| The verification SHALL be scoped to modules. | The identity verification is scoped to modules | pointer (Requirement: <exact header>) added after "The verification" |
+| The kind-parameterized fetch routine underneath the module entrypoint SHALL NOT run it, so an artifa... | The identity verification is scoped to modules | verbatim |
+| The two behaviours SHALL be distinguishable in the code rather than by convention: the check lives i... | The identity check is distinguishable in the code rather than by convention | pointer (Requirement: <exact header>) added after "The two behaviours" |
+| There SHALL be no alternative verification for a major-free `metadata.modulePath`: the OPM schema th... | A major-free metadata.modulePath has no alternative verification and no module address is composed from a parent path and a name | pointer (Requirement: <exact header>) added after "the same typed error" |
+| The library SHALL NOT compose a module address from a parent path and a name. | A major-free metadata.modulePath has no alternative verification and no module address is composed from a parent path and a name | verbatim |
+| The kernel SHALL NOT write or correct either value: the schema declares identity, the reader verifie... | The kernel is a verifier and never a stamper of the declared identity | pointer (Requirement: <exact header>) added after "either value" |
+
+**Acquire a module from the registry**: form c2 (REMOVED plus ADDED); old body 1608 characters; new bodies 325, 419, 448, 255, 143, 69, 219.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| One fetch routine serves every kind | Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind, same name | no, byte for byte (checked) |
+| Acquired module carries reusable staged source | AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached, same name | no, byte for byte (checked) |
+| Registry mapping is the kernel's | The registry mapping of module acquisition is the kernel's, same name | no, byte for byte (checked) |
+| No value-only loader | No value-only loader is exported from any package under opm, same name | no, byte for byte (checked) |
+| Staged source drives transitive resolution during synthesis | The acquired module's staged source is consumable by SynthesizeInstance, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Acquisition fetches and loads in memory as the main module" in "AcquireModuleFromRegistry fetches a published module and loads it in memory as the main module"
+- "The staged source is the one used to build the module value" in "The staged source is the tree used to build the module value"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library SHALL provide exactly one registry acquisition entry point per artifact kind. | Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind | verbatim |
+| Every kind's entry point SHALL be served by one fetch routine, parameterized by the shape it gates t... | Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind | verbatim |
+| Fetching and staging a published CUE module artifact reads no `kind`, so a second fetch implementati... | Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind | verbatim |
+| For modules that entry point is `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*modul... | AcquireModuleFromRegistry fetches a published module and loads it in memory as the main module | cut at a list boundary (the first two items of the list), "is" becomes "SHALL be", the closing "," becomes "." |
+| For modules that entry point is `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*modul... | AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached | cut at a list boundary (the last three items of the list), "is" becomes "SHALL be" |
+| The staged source SHALL be the same tree used to build the module value, so no second fetch is requi... | The staged source is the tree used to build the module value | pointer (Requirement: <exact header>) added after "The staged source" |
+| The registry mapping SHALL be the kernel's (`WithRegistry`), applied through the resolver and load c... | The registry mapping of module acquisition is the kernel's | verbatim |
+| No value-only loader SHALL be exported from any package under `opm/`. | No value-only loader is exported from any package under opm | verbatim |
+| The acquired module's staged source SHALL be consumable by `SynthesizeInstance` to construct an inst... | The acquired module's staged source is consumable by SynthesizeInstance | verbatim |
+
+### Ledger: render-parity
+
+**Pure-CUE unification is the render oracle**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 586 characters; new bodies 452, 139.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Agreement on a shipped transformer | Pure-CUE unification is the render oracle, kept in place | no, byte for byte (checked) |
+| Disagreement is attributed to the kernel | Pure-CUE unification is the render oracle, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The harness catches a reintroduced Go-side transformation" in "The harness is the standing tripwire against a Go-side transformation being reintroduced"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The test suite SHALL include a differential parity harness that renders each parity case twice, once... | Pure-CUE unification is the render oracle (kept) | verbatim |
+| When the two disagree the harness SHALL report the kernel as the defective side, naming the case, th... | Pure-CUE unification is the render oracle (kept) | verbatim |
+| The harness is the standing tripwire against any Go-side transformation of a component, instance or... | The harness is the standing tripwire against a Go-side transformation being reintroduced | "The harness is" becomes "The harness SHALL be" |
+
+**The old path was proven equal to Render before deletion**: form c2 (REMOVED plus ADDED); old body 516 characters; new bodies 400, 228.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Proof gated the deletion | The proof of the comparison lives in the archive and after deletion the harness compares Render against the oracle only, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Both renderers were compared per case before the removal" in "The old render path was compared with Render on every parity case before it was removed"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| Before the old render path was removed, the harness SHALL have rendered every parity case through bo... | The old render path was compared with Render on every parity case before it was removed | verbatim |
+| The proof lives in the archive as the record; after deletion the harness compares `Render` against t... | The proof of the comparison lives in the archive and after deletion the harness compares Render against the oracle only | pointer (Requirement: <exact header>) added after "The proof"; "lives" becomes "SHALL live" and "compares" becomes "SHALL compare" |
+
+**The shipped catalog stays discriminated**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 1251 characters; new bodies 446, 442, 225, 310.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The published catalog is discriminated | The shipped catalog stays discriminated, kept in place | no, byte for byte (checked) |
+| A comparable pair in a catalog release fails the harness | The shipped catalog stays discriminated, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The inventory is read in a test function of its own" in "The discrimination read lives in a test function of its own beside the render cases"
+- "The discrimination assertion is skipped where the shipped group is skipped" in "The discrimination assertion is gated as the shipped group is"
+- "A catalog build with two comparable transformers is attributed to the catalog release" in "A catalog build that ships comparable transformers fails the harness naming both transformers and the shared contracts"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The shipped parity group SHALL, in a test function of its own beside the one rendering its cases, re... | The shipped catalog stays discriminated (kept) | cut at the list boundary ", and SHALL assert" (second half of the sentence); the subject "The shipped parity group" repeated; a pointer after "the inventory" |
+| The shipped parity group SHALL, in a test function of its own beside the one rendering its cases, re... | The discrimination read lives in a test function of its own beside the render cases | cut at the list boundary ", and SHALL assert" (first half of the sentence); "." closes it |
+| The read SHALL NOT live inside the render-case function: a catalog release that breaks discriminatio... | The discrimination read lives in a test function of its own beside the render cases | verbatim |
+| The assertion SHALL be gated exactly as the shipped group is: skipped under `-short` and when the pu... | The discrimination assertion is gated as the shipped group is | pointer (Requirement: <exact header>) added after "The assertion" |
+| A published catalog build that ships two transformers whose predicates are comparable over a shared... | A catalog build that ships comparable transformers fails the harness naming both transformers and the shared contracts | verbatim |
+
+**The shipped case table names the catalog build the parity module pins**: form c2 (REMOVED plus ADDED); old body 610 characters; new bodies 376, 383.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A catalog bump edits only module files | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin, same name | no, byte for byte (checked) |
+| A pin naming no shipped transformer | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin, same name | no, byte for byte (checked) |
+| The oracle reports another build than the pin | The harness checks that the catalog build the oracle reports equals the pin, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The shipped case table SHALL name each transformer by its catalog-relative name only. | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin | verbatim |
+| The harness SHALL build every transformer id from the `opmodel.dev/catalogs/opm` version the parity... | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin | verbatim |
+| That module is the one the oracle builds in. | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin | verbatim |
+| No case row, helper or assertion in the parity harness SHALL spell a `catalogs/opm` version as a lit... | The shipped case table names each transformer by its catalog-relative name and the harness builds each id from the parity module's pin | verbatim |
+| The harness SHALL also check, before comparing any case, that the catalog build the oracle reports e... | The harness checks that the catalog build the oracle reports equals the pin | pointer (Requirement: <exact header>) added after "equals that pin" |
+
+### Ledger: catalog-acquisition
+
+**Catalog acquisition from a registry and from a directory**: form b (MODIFIED parent kept with a shorter body and all its scenarios, split-off rules ADDED); old body 588 characters; new bodies 396, 141, 178.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A published catalog is acquired by path and version | Catalog acquisition from a registry and from a directory, kept in place | no, byte for byte (checked) |
+| A catalog directory is acquired | Catalog acquisition from a registry and from a directory, kept in place | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "The two acquisition paths read the package files from different places" in "The two catalog acquisition paths differ only in where the package files come from"
+- "Catalog acquisition writes nothing to the caller's directory" in "Catalog acquisition writes nothing to the caller's directory and builds in a context created for the call"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The kernel SHALL expose `AcquireCatalogFromRegistry(ctx, modPath, version)` and `AcquireCatalogFromD... | Catalog acquisition from a registry and from a directory (kept) | verbatim |
+| Both SHALL reuse the existing acquisition plumbing: the registry path fetches through the same routi... | Catalog acquisition from a registry and from a directory (kept) | verbatim |
+| The two paths SHALL differ only in where the package files come from. | The two catalog acquisition paths differ only in where the package files come from | pointer (Requirement: <exact header>) added after "The two paths" |
+| Neither SHALL write to the caller's directory, and each SHALL build in a `cue.Context` created for t... | Catalog acquisition writes nothing to the caller's directory and builds in a context created for the call | "Neither SHALL" becomes "Neither `AcquireCatalogFromRegistry` nor `AcquireCatalogFromDir` SHALL" |
+
+**The provider-fulfilled contract set is derived from the catalog**: form c2 (REMOVED plus ADDED); old body 1629 characters; new bodies 333, 246, 409, 313, 232, 123, 250, 300.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A provider catalog's contracts are derived | The catalog artifact exposes the set of contracts it implements as a provider, same name | no, byte for byte (checked) |
+| Core's provider set is read when the catalog carries it | The provider set is read from provides when the catalog carries it, same name | no, byte for byte (checked) |
+| A catalog built against an older core falls back | The provider set falls back to a derivation from the catalog's #transformers for an older core or no provides field, same name | no, byte for byte (checked) |
+| Core's provider set and the fallback agree | Both sources of the provider set yield the same set, same name | no, byte for byte (checked) |
+| The derived order is stable | The provider set is deterministically ordered and deduplicated, same name | no, byte for byte (checked) |
+| A catalog implementing no provider contract derives an empty set | A catalog implementing no provider-fulfilled contract derives an empty set and no error, same name | no, byte for byte (checked) |
+| An unreadable provider set is reported | A provider set that cannot be read is an error with no partial set when provides or #transformers is malformed, same name | no, byte for byte (checked) |
+| Transformers that do not evaluate are reported over a present field | A provider set that cannot be read is an error with no partial set when provides or #transformers is malformed, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A demand whose fulfilment is not a concrete string is reported" in "A provider set that cannot be read is an error with no partial set when a demand or a committed module file is malformed"
+- "A committed module file that cannot be read is reported" in "A provider set that cannot be read is an error with no partial set when a demand or a committed module file is malformed"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The catalog artifact SHALL expose the set of contracts it implements as a provider: every contract r... | The catalog artifact exposes the set of contracts it implements as a provider | verbatim |
+| When the catalog was built against a core that derives `provides` (core `v2.0.0-beta.3` and later) a... | The provider set is read from provides when the catalog carries it | pointer (Requirement: <exact header>) added after "the set" |
+| The set SHALL instead be derived from the catalog's `#transformers` by the library's fallback, which... | The provider set falls back to a derivation from the catalog's #transformers for an older core or no provides field | pointer (Requirement: <exact header>) added after "The set" |
+| For any catalog built against a core that derives `provides`, both sources SHALL yield the same set. | Both sources of the provider set yield the same set | pointer (Requirement: <exact header>) added after "both sources" |
+| The result SHALL be deterministically ordered and deduplicated, so two derivations of one catalog co... | The provider set is deterministically ordered and deduplicated | pointer (Requirement: <exact header>) added after "The result" |
+| Derivation SHALL be a report: a catalog implementing no provider-fulfilled contract SHALL return an... | A catalog implementing no provider-fulfilled contract derives an empty set and no error | verbatim |
+| A provider set that cannot be read SHALL be an error with no partial set returned, from either sourc... | A provider set that cannot be read is an error with no partial set when provides or #transformers is malformed | cut at a list boundary (the first two items), the closing ";" of the list becomes "." |
+| A provider set that cannot be read SHALL be an error with no partial set returned, from either sourc... | A provider set that cannot be read is an error with no partial set when a demand or a committed module file is malformed | cut at a list boundary (the last two items), lead repeated |
+
+**The catalog's committed dependency requirements are readable**: form c2 (REMOVED plus ADDED); old body 1124 characters; new bodies 361, 481, 95.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Declared requirements are readable off an acquired catalog | The catalog artifact exposes the requirements recorded in its own cue.mod/module.cue and the library exposes the requirements only, same name | no, byte for byte (checked) |
+| A module file the render stage would refuse is refused | The catalog's module file is read and parsed by the same reader the render stage uses for its input modules, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "A dependency served by a local replacement maps to the empty string" in "A dependency a local replacement serves may carry no version and maps to the empty string"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The catalog artifact SHALL expose the requirements recorded in its own `cue.mod/module.cue`, as modu... | The catalog artifact exposes the requirements recorded in its own cue.mod/module.cue and the library exposes the requirements only | the parenthesis "(enhancement 0015 ... defines)" moved whole, word for word, to the Source line; "." closes the sentence |
+| The library SHALL expose the requirements only; comparing them, and deciding what a mismatch means,... | The catalog artifact exposes the requirements recorded in its own cue.mod/module.cue and the library exposes the requirements only | verbatim |
+| The module file SHALL be read and parsed by the same reader the render stage uses for its input modu... | The catalog's module file is read and parsed by the same reader the render stage uses for its input modules | pointer (Requirement: <exact header>) added after "The module file" |
+| A dependency a local replacement serves may carry no version and maps to the empty string. | A dependency a local replacement serves may carry no version and maps to the empty string | "and maps" becomes "and SHALL map" |
+
+### Ledger: fixture-pin-maintenance
+
+**Test module pins update in one resolution pass**: form c2 (REMOVED plus ADDED); old body 612 characters; new bodies 359, 406.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Nothing to update | The update task updates each test module with one cue mod get that names every direct opmodel.dev dependency, followed by one cue mod tidy, same name | no, byte for byte (checked) |
+| A newer catalog raises a third-party pin only as far as it requires | A non-core OPM dependency is requested at its newest version within its major and a third-party dependency is not named in the get, same name | no, byte for byte (checked) |
+| A third-party pin is not chased | A non-core OPM dependency is requested at its newest version within its major and a third-party dependency is not named in the get, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The library's dependency-update task SHALL update every test CUE module it discovers (the `CUE_MODUL... | The update task updates each test module with one cue mod get that names every direct opmodel.dev dependency, followed by one cue mod tidy | verbatim |
+| That one call SHALL name every direct `opmodel.dev/*` dependency of the module, followed by one `cue... | The update task updates each test module with one cue mod get that names every direct opmodel.dev dependency, followed by one cue mod tidy | verbatim |
+| A module whose OPM dependencies are several releases stale SHALL therefore update in a single run. | The update task updates each test module with one cue mod get that names every direct opmodel.dev dependency, followed by one cue mod tidy | verbatim |
+| Each non-core OPM dependency SHALL be requested at the newest published version within its major. | A non-core OPM dependency is requested at its newest version within its major and a third-party dependency is not named in the get | verbatim |
+| A third-party dependency (such as `cue.dev/x/k8s.io`) SHALL NOT be named in the get; it moves only w... | A non-core OPM dependency is requested at its newest version within its major and a third-party dependency is not named in the get | pointer (Requirement: <exact header>) added after "in the get" |
+
+**Core is held at the kernel default**: form c2 (REMOVED plus ADDED); old body 713 characters; new bodies 299, 311, 237.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Default advanced first | The update task requests core at the release the kernel default names and core moves only together with the default, same name | no, byte for byte (checked) |
+| A catalog built on a newer core | A held resolution that fails because a dependency requires a newer core exits non-zero and names the dependency, same name | no, byte for byte (checked) |
+| Unreadable default | The update task exits non-zero when the default cannot be read from the Go source, same name | no, byte for byte (checked) |
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The update task SHALL request `opmodel.dev/core@v2` at the release `schema.DefaultSchemaModule` name... | The update task requests core at the release the kernel default names and core moves only together with the default | verbatim |
+| Core in the test modules moves only together with the default, never on its own. | The update task requests core at the release the kernel default names and core moves only together with the default | "Core in the test modules moves" becomes "Core in the test modules SHALL move" |
+| When the held resolution fails because a dependency requires a newer core, the task SHALL exit non-z... | A held resolution that fails because a dependency requires a newer core exits non-zero and names the dependency | verbatim |
+| The failure SHALL print the module directory and CUE's own error, and SHALL name each dependency who... | A held resolution that fails because a dependency requires a newer core exits non-zero and names the dependency | verbatim |
+| When the default cannot be read from the Go source, the task SHALL exit non-zero with a message sayi... | The update task exits non-zero when the default cannot be read from the Go source | pointer (Requirement: <exact header>) added after "the default cannot" |
+
+**Intentionally old version literals are declared**: form c2 (REMOVED plus ADDED); old body 1033 characters; new bodies 324, 423, 466, 211.
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Floor test keeps its old core | The repository root carries a .cascade-frozen file listing every test file that keeps a version literal on purpose, same name | no, byte for byte (checked) |
+| Synthetic literal is listed | A file qualifies for the frozen list when its literal names an older release a test needs or is synthetic, same name | no, byte for byte (checked) |
+| Current-core expectation is not frozen | An expectation of the current core or of the pinned catalog build is not a frozen literal, same name | no, byte for byte (checked) |
+
+New scenarios (`new:` lines of the byte check; each restates words of the old text and adds no case):
+
+- "Release-cascade tooling leaves a listed literal alone" in "Release-cascade tooling does not rewrite a version literal at a listed location"
+
+| Old clause | New requirement | Change |
+| --- | --- | --- |
+| The repository root SHALL carry a `.cascade-frozen` file listing every test file that keeps a versio... | The repository root carries a .cascade-frozen file listing every test file that keeps a version literal on purpose | verbatim |
+| Each entry SHALL name a repo-relative `path`, the `pins` (module paths) frozen at that location, and... | The repository root carries a .cascade-frozen file listing every test file that keeps a version literal on purpose | verbatim |
+| A file qualifies when its literal names an older release a floor, skew or pre-collision test needs,... | A file qualifies for the frozen list when its literal names an older release a test needs or is synthetic | pointer (Requirement: <exact header>) added after "A file qualifies" |
+| An expectation of the current core or of the pinned catalog build, and a module file a test authors... | An expectation of the current core or of the pinned catalog build is not a frozen literal | verbatim |
+| A listed file can still read the derived version in other places, for example to find the pin it rep... | An expectation of the current core or of the pinned catalog build is not a frozen literal | pointer (Requirement: <exact header>) added after "A listed file" |
+| Release-cascade tooling SHALL NOT rewrite a version literal at a listed location. | Release-cascade tooling does not rewrite a version literal at a listed location | pointer (Requirement: <exact header>) added after "at a listed location" |
+
+
 ## Strength table
 
 Sentences of unit 2 that gained SHALL: the old sentence has no keyword and an ADDED block needs one. The units before this one list theirs in the clause tables ("is" becomes "SHALL be"); the last unit collects every row here.
@@ -3621,3 +3915,15 @@ Sentences of unit 6 (library-B5 first half) that gained SHALL, or changed a verb
 | Providers are counted per registry entry, the same count the render's single-provider guard reads: two majors of one catalog are two providers, and two transformers of one entry are one. | Providers SHALL be counted per registry entry, the same count the render's single-provider guard reads: two majors of one catalog are two providers, and two transformers of one entry are one. | Providers are counted per registry entry |
 | A directory with no enclosing module is its own root with an empty `Pkg`. | A directory with no enclosing module SHALL be its own root with an empty `Pkg`. | AcquirePlatformFromDir stamps Pkg as the package directory relative to Root |
 | No other kernel operation reads the field. | (Requirement: Platform carries its render source) No other kernel operation SHALL read the `Source` field. | No kernel operation other than Render reads the Source field of a platform |
+
+Sentences of unit 7 (library-B5 second half) that gained SHALL, or changed a verb form to take it. The pointer and subject additions of the decision above add no keyword and are not listed here:
+
+| Old sentence | New sentence | Block |
+| --- | --- | --- |
+| For modules that entry point is `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery, loads it in memory as the main... | For modules that entry point SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery, loads it in memory as the main module (its own `cue.mod/module.c... | AcquireModuleFromRegistry fetches a published module and loads it in memory as the main module |
+| For modules that entry point is `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery, loads it in memory as the main... | For modules that entry point SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which runs the acquisition shape gate, verifies the declared identity against the fetched coordinate, and returns a `*module.Module` wh... | AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached |
+| A dependency a local replacement serves may carry no version and maps to the empty string. | A dependency a local replacement serves may carry no version and SHALL map to the empty string. | A dependency a local replacement serves may carry no version and maps to the empty string |
+| The harness is the standing tripwire against any Go-side transformation of a component, instance or context value being reintroduced. | The harness SHALL be the standing tripwire against any Go-side transformation of a component, instance or context value being reintroduced. | The harness is the standing tripwire against a Go-side transformation being reintroduced |
+| The proof lives in the archive as the record; after deletion the harness compares `Render` against the oracle only. | The proof (Requirement: The old render path was compared with Render on every parity case before it was removed) SHALL live in the archive as the record; after deletion the harness SHALL compare `Render` against the oracle only. | The proof of the comparison lives in the archive and after deletion the harness compares Render against the oracle only |
+| Core in the test modules moves only together with the default, never on its own. | Core in the test modules SHALL move only together with the default, never on its own. | The update task requests core at the release the kernel default names and core moves only together with the default |
+| A file qualifies when its literal names an older release a floor, skew or pre-collision test needs, or when the literal is synthetic: a default move does not break it, because it is parsed or compiled in memory, or coupl... | A file (Requirement: The repository root carries a .cascade-frozen file listing every test file that keeps a version literal on purpose) SHALL qualify when its literal names an older release a floor, skew or pre-collision test needs, or when the literal is syn... | A file qualifies for the frozen list when its literal names an older release a test needs or is synthetic |
