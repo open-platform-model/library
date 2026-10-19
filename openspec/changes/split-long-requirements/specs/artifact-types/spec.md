@@ -638,7 +638,7 @@ No accessor SHALL consult a version or binding. The instance SHALL expose no acc
 - **THEN** none of `InstanceName`, `Namespace`, `InstanceUUID`, `InstanceFQN`, `ModuleVersion`, `Labels`, `Annotations`, `MatchComponents` exists
 
 ### Requirement: The render build reads none of the instance accessors
-The render build SHALL read none of the accessors of `*module.Instance`: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import.
+The render build SHALL read none of `Components()`, `ConfigSchema()`, `Values()` and `ModuleMetadata()`: the transformer context is projected by core (enhancement 0019, "`#TransformerContext` becomes a projection of the other two inputs; the kernel fills `#runtimeName` alone"), and the glue reads the instance by import.
 
 #### Scenario: The render build reads no accessor
 

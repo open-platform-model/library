@@ -686,7 +686,7 @@ Where `CONSTITUTION.md` shows a pipeline, the pipeline SHALL show acquisition or
 - **AND** it names no `core` package, no separate schema-validate stage, and no `Catalog` entering render
 
 ### Requirement: The README layout lists only packages that exist
-Where `README.md` carries a layout block, it SHALL list only packages that exist under `opm/`, and SHALL NOT place `Compiled` outside `opm/kernel`; the front-door files MAY link to this spec instead of restating it. None of these SHALL name a load or process verb, a separate schema-validation stage, or a package that does not exist.
+Where `README.md` carries a layout block, it SHALL list only packages that exist under `opm/`, and SHALL NOT place `Compiled` outside `opm/kernel`; the front-door files MAY link to this spec instead of restating it.
 
 #### Scenario: The README layout names only real packages
 
@@ -716,11 +716,11 @@ The registry acquire verbs SHALL check it after the registry fetch returns and a
 
 #### Scenario: Registry verbs and Render check the context
 
-- **WHEN** `Render` or a registry acquire verb runs
-- **THEN** it checks the context after its input checks, after staging and after the render build, and a registry acquire verb checks it after the registry fetch returns and after the package is built
+- **WHEN** `Render` runs or a registry acquire verb runs
+- **THEN** `Render` checks the context after its input checks, after staging and after the render build, and a registry acquire verb checks it after the registry fetch returns and after the package is built
 
 ### Requirement: A cancelled check returns the context's own error and no artifact
-The checks are those of requirement "Verbs check their context between stages". When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
+The checks are those of requirements "Verbs check their context between stages" and "The registry acquire verbs and Render check their context". When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface").
 
 #### Scenario: A done context returns its own error and no artifact
 
@@ -765,7 +765,7 @@ No committed file outside `openspec/changes/` SHALL cite a session-local decisio
 - **THEN** it cites no decision recorded only in an agent run's own log
 
 ### Requirement: A committed file cites a source a reader can open
-A committed file outside `openspec/changes/` SHALL state the rule and cite a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); a pull request; or an archived change) Source: ADR-013, decision c4.
+A committed file outside `openspec/changes/` that cites a source SHALL state the rule and cite a source a reader can open (an ADR; a decision ADR-013 records, cited as `ADR-013, decision <id>`; an enhancement decision such as enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module"); a pull request; or an archived change). Source: ADR-013, decision c4.
 
 #### Scenario: A committed file states the rule and cites a source a reader can open
 
@@ -915,7 +915,7 @@ When they leave one or more unset, the refusal SHALL hold findings about the val
 - **THEN** the refusal holds one finding for every other unset required value, at the path `values.<field>`, whether or not a component reads it
 
 ### Requirement: A finding carries the position of the field's #config declaration
-A finding SHALL carry the position of the field's `#config` declaration wherever CUE records one; a field CUE records no position for (a field declared `_`) is identified by its path only. A path SHALL be reported once. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+The findings are those of requirement "The refusal names every other unset required value at values.<field>". A finding SHALL carry the position of the field's `#config` declaration wherever CUE records one; a field CUE records no position for (a field declared `_`) is identified by its path only. A path SHALL be reported once. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: A finding carries the position of its declaration
 

@@ -588,7 +588,7 @@ A Deployment SHALL be `Ready` only when `status.observedGeneration` has reached 
 - **THEN** its status is `NotReady`
 
 ### Requirement: A StatefulSet is ready by its update strategy
-A StatefulSet SHALL be `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: always under the `OnDelete` strategy; under a RollingUpdate partition greater than zero, when the updated replicas reach `spec.replicas` minus the partition. Otherwise `NotReady`. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
+A StatefulSet SHALL be `Ready` when the generation is observed and the ready replicas equal `spec.replicas`, and then: always under the `OnDelete` strategy; under a RollingUpdate partition greater than zero, when the updated replicas reach `spec.replicas` minus the partition. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A partitioned StatefulSet is ready at its partition
 
