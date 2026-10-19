@@ -537,7 +537,7 @@ The kernel's decoded refusal SHALL remain the authoritative one, since it carrie
 - **THEN** The kernel's decoded refusal SHALL remain the authoritative one, since it carries the typed causes, and SHALL be decided from decoded rows and the decoded routable diagnostic only, never by reading `gate`.
 
 ### Requirement: With the switch off a render is as without the switch
-With the switch off, the render's verdicts, refusals and rendered output SHALL be exactly those of a render without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch off (Requirement: A caller may skip unprovided provider-fulfilled demands), the render's verdicts, refusals and rendered output SHALL be exactly those of a render without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: The switch off changes nothing
 
@@ -553,7 +553,7 @@ Every **unprovided** demand SHALL be a resource or trait demand whose contract d
 - **THEN** it is an unprovided demand, and its key is absent from core's `#contracts.providedBy`, the count the single-provider guard reads
 
 ### Requirement: A skipped trait demand does not refuse the render
-With the switch on: A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it matched, and nothing SHALL render for the trait. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): A skipped trait demand SHALL NOT refuse the render. Its component SHALL render every pair it matched, and nothing SHALL render for the trait. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: A skipped trait leaves its pairs
 
@@ -561,7 +561,7 @@ With the switch on: A skipped trait demand SHALL NOT refuse the render. Its comp
 - **THEN** Its component SHALL render every pair it matched, and nothing SHALL render for the trait.
 
 ### Requirement: A skipped resource demand omits its component
-With the switch on: A skipped resource demand SHALL NOT refuse the render, and its component SHALL be omitted: no pair of that component SHALL render, and the component SHALL NOT be reported as unmatched. A partly satisfied component never renders. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): A skipped resource demand SHALL NOT refuse the render, and its component SHALL be omitted: no pair of that component SHALL render, and the component SHALL NOT be reported as unmatched. A partly satisfied component never renders. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: A skipped resource omits the component
 
@@ -577,7 +577,7 @@ Every skipped demand SHALL be reported as a skipped-demand row carrying the comp
 - **THEN** Every skipped demand SHALL be reported as a skipped-demand row carrying the component, the contract key, the kind (`resource` or `trait`)
 
 ### Requirement: The omission flag is set on every skipped row of an omitted component
-With the switch on: The omission flag SHALL be set on every skipped row of an omitted component, trait rows included. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): The omission flag SHALL be set on every skipped row of an omitted component, trait rows included. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: The flag is set on trait rows too
 
@@ -585,7 +585,7 @@ With the switch on: The omission flag SHALL be set on every skipped row of an om
 - **THEN** The omission flag SHALL be set on every skipped row of an omitted component, trait rows included.
 
 ### Requirement: Every other refusal stands with the switch on
-With the switch on: Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): Every other refusal SHALL stand: a catalog-fulfilled unresolved demand, a provider-fulfilled demand for which a provider exists but did not match or was disqualified SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: A catalog-fulfilled or unmatched provider-fulfilled demand still refuses
 
@@ -593,7 +593,7 @@ With the switch on: Every other refusal SHALL stand: a catalog-fulfilled unresol
 - **THEN** it refuses the render as without the switch
 
 ### Requirement: An over-subscribed contract and an unmatched component still refuse with the switch on
-With the switch on: Every other refusal SHALL stand: an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): Every other refusal SHALL stand: an over-subscribed provider-fulfilled contract, and an unmatched component (other than an omitted one) SHALL refuse the render as without the switch. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: An over-subscribed contract or an unmatched component still refuses
 
@@ -601,7 +601,8 @@ With the switch on: Every other refusal SHALL stand: an over-subscribed provider
 - **THEN** it refuses the render as without the switch
 
 ### Requirement: The skipped-demand rows are readable beside a refusal with the switch on
-With the switch on: The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. The refusals are those of requirements "Every other refusal stands with the switch on" and "An over-subscribed contract and an unmatched component still refuse with the switch on". Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal. The refusals are those of requirements "Every other refusal stands with the switch on" and "An over-subscribed contract and an unmatched component still refuse with the switch on".
+**Source**: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: Skipped rows are readable beside a refusal
 
@@ -609,7 +610,7 @@ With the switch on: The skipped-demand rows SHALL be readable on the diagnostics
 - **THEN** The skipped-demand rows SHALL be readable on the diagnostics beside such a refusal.
 
 ### Requirement: An unhandled optional trait is never a skipped row
-With the switch on: An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table entry, never a skipped row. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+With the switch on (Requirement: A caller may skip unprovided provider-fulfilled demands): An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table entry, never a skipped row. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: An optional trait stays in its table
 
@@ -617,7 +618,7 @@ With the switch on: An unhandled trait whose effective `optional` is true SHALL 
 - **THEN** An unhandled trait whose effective `optional` is true SHALL remain an unhandled-trait table entry, never a skipped row.
 
 ### Requirement: The render module carries the switch as a literal
-The generated render module SHALL carry the switch as a literal, so its own `gate` field agrees with the kernel's verdict under both values. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
+The generated render module SHALL carry the switch (Requirement: A caller may skip unprovided provider-fulfilled demands) as a literal, so its own `gate` field agrees with the kernel's verdict under both values. Source: core `SPEC.md` §2.1 and §3.1 and capability `contract-fulfilment`, as amended by core changes `skip-unprovided-provider-demands` and `count-providers-per-registry-entry`.
 
 #### Scenario: The switch is a literal
 

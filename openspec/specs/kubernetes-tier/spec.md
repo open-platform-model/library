@@ -824,7 +824,7 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **THEN** the verdict applies
 
 ### Requirement: An adopt annotation with any other value lifts nothing
-The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value (Requirement: An adopt annotation naming the instance lifts an ownership refusal) SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance.
+The annotation value (Requirement: An adopt annotation naming the instance lifts an ownership refusal) SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value (Requirement: An adopt annotation naming the instance lifts an ownership refusal) SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance.
 **Source**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 #### Scenario: An annotation naming another instance lifts nothing
@@ -1145,7 +1145,7 @@ Every step that is not safety-excluded SHALL be read before it is judged, and th
 - **THEN** the next action is a skip with reason `owner-mismatch`
 
 ### Requirement: A plan that does not prune names done at once
-When the policy does not prune, the first call SHALL name done and no step SHALL be read or deleted. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
+When the policy does not prune, the first call (Requirement: The deletion transition returns the next state and one action) SHALL name done and no step SHALL be read or deleted. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 
 #### Scenario: A plan that does not prune names done at once
 
@@ -1223,7 +1223,7 @@ A failure SHALL NOT stop the plan: the next step's action SHALL follow. Source: 
 - **THEN** the next action reads the second step
 
 ### Requirement: Each call appends the outcomes of the steps it finished
-Each call SHALL append, in step order, the outcomes of the steps it finished and only those, and SHALL NOT change an earlier outcome, so a frontend reports the outcomes appended since the state it passed in. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+Each call (Requirement: The deletion transition returns the next state and one action) SHALL append, in step order, the outcomes of the steps it finished and only those, and SHALL NOT change an earlier outcome, so a frontend reports the outcomes appended since the state it passed in. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 #### Scenario: One call can finish two steps
 
@@ -1351,7 +1351,8 @@ The library SHALL decide whether an instance's deletion hold may be released fro
 - **AND** otherwise it releases as `cleanup-complete`, with skipped steps counting as complete
 
 ### Requirement: Each hold verdict carries its reason and a message
-Each hold verdict SHALL carry the reason as the contract's literal and a message the library words. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), the 0012 contract's `#HoldVerdict`.
+Each verdict (Requirement: The hold verdict is decided from the policy, the plan's outcome and the identity) SHALL carry the reason as the contract's literal and a message the library words.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), the 0012 contract's `#HoldVerdict`.
 
 #### Scenario: Reasons are the contract's literals
 

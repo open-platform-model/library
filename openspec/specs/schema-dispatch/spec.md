@@ -142,7 +142,7 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 - **THEN** `cache.ResolvedVersion()` returns `schema.DefaultSchemaVersion()`
 
 ### Requirement: 2.0.0-alpha.13 is the first release that reports contract collisions
-`2.0.0-alpha.13` remains the first release that reports contract collisions on the derived `#Platform.#contracts` inventory (`collisions` and `collidingEntries`, with `routable` false while any exist, and with `defined` and `definedBy` folding only single-definer keys; core change `fold-colliding-contract-keys`). The default's documentation SHALL keep naming `2.0.0-alpha.13` as that release and SHALL NOT attribute those reports to a beta release.
+`2.0.0-alpha.13` remains the first release that reports contract collisions on the derived `#Platform.#contracts` inventory (`collisions` and `collidingEntries`, with `routable` false while any exist, and with `defined` and `definedBy` folding only single-definer keys; core change `fold-colliding-contract-keys`). The default's documentation (`schema.DefaultSchemaModule`) SHALL keep naming `2.0.0-alpha.13` as that release and SHALL NOT attribute those reports to a beta release.
 
 #### Scenario: The documentation names the release of the collision report
 

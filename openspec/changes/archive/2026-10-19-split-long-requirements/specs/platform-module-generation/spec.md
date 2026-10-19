@@ -38,7 +38,7 @@ The helper SHALL render a platform module's two files (`cue.mod/module.cue`, `pl
 - **THEN** generation returns an error naming the offending field or path and emits no files
 
 ### Requirement: Generation performs no I/O and reads no environment
-The helper SHALL perform no I/O and read no environment.
+The helper (Requirement: Generation renders a platform module's two files from typed input only) SHALL perform no I/O and read no environment.
 
 #### Scenario: The helper does no I/O
 
@@ -95,7 +95,7 @@ The generated `cue.mod/module.cue` SHALL pin `opmodel.dev/core@v2` at the versio
 - **AND** no `WithCoreVersion` option or `RootOption` type exists in the package
 
 ### Requirement: The helper derives the dependency list by a breadth-first walk over published module files and the walk honours context cancellation
-The helper SHALL derive the full dependency list from the roots by a breadth-first walk over each reachable module version's published `cue.mod/module.cue`, obtained through a caller-supplied module-file source, selecting the maximum version per major-qualified path with the roots participating in the maximum and skipping local replacements. The walk SHALL honour context cancellation.
+The helper (Requirement: Generation renders a platform module's two files from typed input only) SHALL derive the full dependency list from the roots by a breadth-first walk over each reachable module version's published `cue.mod/module.cue`, obtained through a caller-supplied module-file source, selecting the maximum version per major-qualified path with the roots participating in the maximum and skipping local replacements. The walk SHALL honour context cancellation.
 
 #### Scenario: Transitive dependency pinned
 
@@ -124,7 +124,7 @@ A root or transitive requirement naming an unpublished build SHALL fail with an 
 - **THEN** the closure returns an error naming that module path and version and no partial list
 
 ### Requirement: The helper reads no process environment and hard-codes no client type, and a nil environment is the caller's choice
-The helper SHALL NOT read the process environment or hard-code a client type itself; a caller that passes a nil environment selects the CUE module system's own default (the current process environment) explicitly, and that choice is the caller's, never the helper's.
+The helper (Requirement: Generation renders a platform module's two files from typed input only) SHALL NOT read the process environment or hard-code a client type itself; a caller that passes a nil environment selects the CUE module system's own default (the current process environment) explicitly, and that choice is the caller's, never the helper's.
 
 #### Scenario: A nil environment is the caller's choice
 
