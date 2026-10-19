@@ -270,7 +270,7 @@ A kernel whose configured loader pins an exact release SHALL derive the core rel
 - **THEN** the schema cache is loaded once and the synthesized package imports core at the resolved release's major
 
 ### Requirement: Cache.Get invokes the Loader exactly once per Cache
-The library SHALL expose `opm/schema.Cache` as a struct with at minimum a `Loader Loader` field. `(*Cache).Get() (cue.Value, error)` SHALL invoke `Loader.Load(ctx)` exactly once per `Cache` instance via `sync.Once`-equivalent synchronization, passing a `cue.Context` the Cache creates on first use, owns for its lifetime and never exposes. Subsequent calls — including the call that loses the race — SHALL return the cached `cue.Value` (or the cached error) without re-invoking the Loader.
+The library SHALL expose `opm/schema.Cache` as a struct with at minimum a `Loader Loader` field. `(*Cache).Get() (cue.Value, error)` SHALL invoke `Loader.Load(ctx)` exactly once per `Cache` instance via `sync.Once`-equivalent synchronization, passing a `cue.Context` the Cache creates on first use, owns for its lifetime and never exposes. Subsequent calls, including the call that loses the race, SHALL return the cached `cue.Value` (or the cached error) without re-invoking the Loader.
 
 #### Scenario: Repeated Get returns the cached value
 

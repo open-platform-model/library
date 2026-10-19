@@ -34,7 +34,7 @@ Instance synthesis SHALL be reached only through `Kernel.SynthesizeInstance(ctx,
 
 ### Requirement: synth.Instance constructs the instance by single-build CUE evaluation
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "synth.Instance builds the instance in a single build through the shape gate", "The instance source is overlaid into the module's staged source tree and no module file is fabricated", "The instance source imports the module's package and core, and the module import resolves locally", "A values file rendered from the input's Values is overlaid beside the instance source", "The schema merges the values and the Go code fills only caller-supplied inputs", "synth.Instance lives in opm/internal/synth with a fixed Go signature" and "The parameters in the signature of synth.Instance are the call context, the core release and the package-internal input".
+**Migration**: See "synth.Instance builds the instance in a single build through the shape gate", "The instance source is overlaid into the module's staged source tree and no module file is fabricated", "The instance source imports the module's package and core, and the module import resolves locally", "A values file rendered from the input's Values is overlaid beside the instance source", "The schema merges the values and the Go code fills only caller-supplied inputs", "synth.Instance lives in opm/internal/synth with a fixed Go signature" "The cueCtx and coreVersion parameters of synth.Instance are the call context and the core release" and "The Input parameter of synth.Instance is the package-internal input".
 
 ### Requirement: synth.Instance requires the module's staged source
 **Reason**: Split into requirements that each state one behavior.
@@ -77,7 +77,7 @@ When `InstanceInput.Labels` is non-empty, `synth.Instance` SHALL fill `metadata.
 - **THEN** the returned CUE value's `metadata.annotations` contains that entry
 
 ### Requirement: Caller labels cannot remove schema-stamped labels
-The schema's label stamping (Requirement: Derived fields come from schema unification) unifies with caller-supplied labels — caller labels MUST NOT be allowed to remove schema-stamped labels.
+The schema's label stamping (Requirement: Derived fields come from schema unification) unifies with caller-supplied labels: caller labels MUST NOT be allowed to remove schema-stamped labels.
 
 #### Scenario: Caller labels merged with schema-stamped labels
 
@@ -174,13 +174,21 @@ A values file rendered from the input's `Values` (the unified value of the calle
 - **WHEN** a consumer looks for `synth.Instance`
 - **THEN** it lives in `opm/internal/synth`, off the public surface, with the Go signature `Instance(cueCtx *cue.Context, coreVersion string, in Input) (cue.Value, *module.Source, error)`
 
-### Requirement: The parameters in the signature of synth.Instance are the call context, the core release and the package-internal input
-`cueCtx` SHALL be the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`), and `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the kernel's registry environment.
+### Requirement: The cueCtx and coreVersion parameters of synth.Instance are the call context and the core release
+`synth.Instance`: `cueCtx` SHALL be the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major (the release the import resolves to comes from the module's own `cue.mod/module.cue`).
 
-#### Scenario: The parameters of synth.Instance
+#### Scenario: The cueCtx and coreVersion of synth.Instance
 
 - **WHEN** `Kernel.SynthesizeInstance` calls `synth.Instance`
-- **THEN** `cueCtx` is the context created for the call, `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major, and `Input` is the package-internal input
+- **THEN** `cueCtx` is the context created for the call, and `coreVersion` is the kernel's core release, from which the synthesized `core` import takes its major
+
+### Requirement: The Input parameter of synth.Instance is the package-internal input
+`synth.Instance`: `Input` SHALL be the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the kernel's registry environment.
+
+#### Scenario: The Input of synth.Instance
+
+- **WHEN** `Kernel.SynthesizeInstance` calls `synth.Instance`
+- **THEN** `Input` is the package-internal input
 
 ### Requirement: Synthesis constructs the instance inside the acquired module's staged source tree
 `SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree (the overlay and root produced by `AcquireModuleFromRegistry` or `AcquireModuleFromDir`).
