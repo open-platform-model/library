@@ -97,7 +97,7 @@ The library SHALL expose `Platform` in `opm/platform/` with the uniform artifact
 - **AND** the field set mirrors `#Platform.metadata` plus the top-level `type`
 
 ### Requirement: No exported field of Platform holds a decoded derived CUE view
-No exported field SHALL hold a decoded derived CUE view (`#composedTransformers`, `#contracts`), and `#composedTransformers` SHALL NOT be decoded in Go.
+No exported field (Requirement: Platform has the uniform artifact shape of Metadata, Package and Source) SHALL hold a decoded derived CUE view (`#composedTransformers`, `#contracts`), and `#composedTransformers` SHALL NOT be decoded in Go.
 
 #### Scenario: No exported field holds a decoded derived view
 

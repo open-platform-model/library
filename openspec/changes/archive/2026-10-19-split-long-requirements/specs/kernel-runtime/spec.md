@@ -897,7 +897,7 @@ A required value SHALL be one that `cue.Concrete(true)` refuses on those values 
 - **THEN** a required field (`foo!:`) that is absent, or a field that resolves to no concrete value, is required, and an optional field (`foo?:`) and a field with a default are not required
 
 ### Requirement: Both concreteness checks run in one instance processing step
-Both concreteness checks, the one on the built spec and the one on the values unified with `#config`, SHALL run in the kernel's one instance processing step, with `#config` read off the built spec and never off `Module.Package`, so that both verbs refuse the same instances with the same findings. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+Both concreteness checks, the one on the built spec and the one on the values unified with `#config`, SHALL run in the kernel's one instance processing step, with `#config` read off the built spec and never off `Module.Package`, so that both verbs (Requirement: Instance verbs refuse an unset required config value) refuse the same instances with the same findings. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: Both verbs run both checks in one step
 
@@ -905,7 +905,7 @@ Both concreteness checks, the one on the built spec and the one on the values un
 - **THEN** both concreteness checks run in the kernel's one instance processing step, with `#config` read off the built spec and never off `Module.Package`
 
 ### Requirement: The refusal is CUE's own error tree framed with the verb and the instance
-The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully concrete: …`. When the values leave no required value unset, the refusal SHALL be the error of the built-spec check, unchanged. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+The refusal (Requirement: Instance verbs refuse an unset required config value) SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully concrete: …`. When the values leave no required value unset, the refusal SHALL be the error of the built-spec check, unchanged. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal is CUE's own error tree
 
@@ -913,7 +913,7 @@ The refusal SHALL be CUE's own error tree, framed `Kernel.<Verb>: instance "<nam
 - **THEN** the refusal is CUE's own error tree, framed `Kernel.<Verb>: instance "<name>": not fully concrete: …`
 
 ### Requirement: The refusal holds the value findings of the built-spec check
-When the values leave one or more unset, the refusal SHALL hold findings about the values only:
+When the values leave one or more unset, the refusal (Requirement: Instance verbs refuse an unset required config value) SHALL hold findings about the values only:
 1. every finding of the built-spec check at a path under `values` (a value the instance's values carry in a non-concrete form), positioned where the values carry it; Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal holds the findings of the values only
@@ -922,7 +922,7 @@ When the values leave one or more unset, the refusal SHALL hold findings about t
 - **THEN** the refusal holds every finding of the built-spec check at a path under `values`, positioned where the values carry it
 
 ### Requirement: The refusal names every other unset required value at values.<field>
-When the values leave one or more unset, the refusal SHALL hold findings about the values only:
+When the values leave one or more unset, the refusal (Requirement: Instance verbs refuse an unset required config value) SHALL hold findings about the values only:
 2. one finding for every other unset required value, at the path `values.<field>` (the full path for a nested field), whether or not a component reads it. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: The refusal names every other unset value
@@ -939,7 +939,7 @@ The findings are those of requirement "The refusal names every other unset requi
 - **THEN** it carries the position of the field's `#config` declaration wherever CUE records one, and a path is reported once
 
 ### Requirement: Findings outside values are left out of the refusal
-Every finding of the built-spec check outside `values` SHALL be left out of that refusal: the component fields that read an unset value, and any other incomplete field of the module. Such a field that is still incomplete once the values are complete is then refused with the built-spec error. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
+Every finding of the built-spec check outside `values` SHALL be left out of that refusal (Requirement: Instance verbs refuse an unset required config value): the component fields that read an unset value, and any other incomplete field of the module. Such a field that is still incomplete once the values are complete is then refused with the built-spec error. Source: library#211, settled by the owner in the pull request that closes it; opm-operator#258 for the report of both checks.
 
 #### Scenario: Component findings are left out of the refusal
 

@@ -208,7 +208,7 @@ A directory with no enclosing module SHALL be its own root with an empty `Pkg`.
 - **THEN** the returned `*Instance` has `Source.Root` equal to the module root's absolute path and `Source.Pkg` equal to the subdirectory's slash-separated path relative to it
 
 ### Requirement: The registry mapping for an instance's imports is the kernel's
-The registry mapping used for the instance's imports SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`.
+The registry mapping used for the instance's imports (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`.
 
 #### Scenario: Registry mapping is the kernel's
 
@@ -317,7 +317,7 @@ The kernel SHALL expose `AcquireModuleFromDir(ctx, dir) (*module.Module, error)`
 - **THEN** `Overlay` is every `.cue` file under `Root` keyed by its absolute path, the module's own `cue.mod/module.cue` included
 
 ### Requirement: An acquired module can be passed to SynthesizeInstance without further staging
-The acquired module SHALL satisfy the synthesis precondition (`Module.HasSource()` true) so it can be passed to `SynthesizeInstance` without further staging.
+The acquired module (Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module) SHALL satisfy the synthesis precondition (`Module.HasSource()` true) so it can be passed to `SynthesizeInstance` without further staging.
 
 #### Scenario: Acquired module synthesizes like a registry module
 
@@ -331,7 +331,7 @@ The acquired module SHALL satisfy the synthesis precondition (`Module.HasSource(
 - **AND** it constructs no `module.Source` of its own
 
 ### Requirement: The registry mapping for a module's imports is the kernel's
-The registry mapping used for the module's imports SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`.
+The registry mapping used for the module's imports (Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module) SHALL be the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`.
 
 #### Scenario: The module's imports use the kernel's mapping
 
@@ -630,7 +630,7 @@ No instance constructor SHALL be exported: an instance is produced only by the k
 - **THEN** `ModuleMetadata()` returns that module's metadata, decoded from `Package`, with no processing step having run
 
 ### Requirement: No accessor consults a version or mirrors a metadata field
-No accessor SHALL consult a version or binding. The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection.
+No accessor (Requirement: Instance exposes Components and Values) SHALL consult a version or binding. The instance SHALL expose no accessor that mirrors a single field of its own decoded `Metadata`, because `Metadata` is that projection.
 
 #### Scenario: No metadata-mirroring accessors
 

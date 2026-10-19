@@ -800,7 +800,8 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **THEN** the verdict applies
 
 ### Requirement: An adopt annotation with any other value lifts nothing
-The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
+The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value (Requirement: An adopt annotation naming the instance lifts an ownership refusal) SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance.
+**Source**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 #### Scenario: An annotation naming another instance lifts nothing
 
@@ -832,7 +833,7 @@ The `other-instance` message SHALL ask the user to remove the object from the in
 - **THEN** the message asks to remove it from module instance `u-1` before annotating it `opmodel.dev/adopt=u-9`
 
 ### Requirement: No refusal message names another way past the refusal
-No message SHALL name any other way past a refusal, such as a command-line flag. No message SHALL carry an enhancement reference. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
+No message (Requirement: A refusal names the adopt annotation key and the UUID to set) SHALL name any other way past a refusal, such as a command-line flag. No message SHALL carry an enhancement reference. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 #### Scenario: A refusal message names no other remedy and no enhancement
 
@@ -1497,7 +1498,8 @@ For an inventoried object the `adopted-elsewhere` message SHALL say that this in
 - **THEN** it says that this instance no longer applies the object and drops it from its inventory
 
 ### Requirement: The caller supplies the inventory fact and the instance UUID
-The caller still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. A frontend that installs the operator SHALL be judged as any other instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") are withdrawn.
+The caller (Requirement: Ownership inputs name the object and carry the live object) still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. A frontend that installs the operator SHALL be judged as any other instance.
+**Source**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") are withdrawn.
 
 #### Scenario: The caller supplies two facts and the operator installer is judged as any instance
 
