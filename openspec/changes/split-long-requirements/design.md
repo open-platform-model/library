@@ -10,7 +10,7 @@ State on `main` (origin/main `cbe6e66b`, OpenSpec 1.14.1, run in a scratch copy 
 
 - Every main spec passes `openspec validate --specs --strict` under 1.14.1.
 - Every rewrite is a split or a move into scenarios. No rule, value, default, exit code, citation or RFC 2119 strength is lost or changed.
-- A pinned gate keeps it that way.
+- A per-unit gate proves each rewrite; the CI gate that keeps it that way is a separate change.
 
 **Non-Goals**
 
@@ -118,7 +118,7 @@ echo "GATE PASS"
 ```
 
 Earlier unit: it passes when no ERROR item is new and the WARNING count fell by `N` (from 153 on `main`: 125, 97, 69, 41, 13 after B1 to B5 in plan order). For the batch's specs also run `openspec validate <spec> --type spec --strict --json 2>&1` and read it: no WARNING or ERROR for a rewritten requirement. `N` counts old requirements rewritten, so a c2 split that adds requirements still lowers the count by one per old requirement.
-Last unit (`LAST=1`): it judges the main specs and the change, not other open changes. It passes when `validate split-long-requirements --strict` exits 0, `validate --specs --strict` exits 0 after the archive, `gate.out` has no "Archive would refuse" line, and no ERROR item is new. `validate --all --strict` may still exit 1 for the one warning in `publish-go-api-bundle`; the block prints that and does not fail on it.
+Last unit (`LAST=1`, the sixth): it judges the main specs and the change, not other open changes. It passes when `validate split-long-requirements --strict` exits 0, `validate --specs --strict` exits 0 after the archive, `gate.out` has no "Archive would refuse" line, and no ERROR item is new. `validate --all --strict` may still exit 1 for the one warning in `publish-go-api-bundle`; the block prints that and does not fail on it.
 **Rationale**: Each unit proves the count fell by exactly what it rewrote, with no new ERROR and no broken open change.
 
 ### Batch order
@@ -128,25 +128,17 @@ Last unit (`LAST=1`): it judges the main specs and the change, not other open ch
 **Decision**: Option 1, B1 to B6. B1 holds `kubernetes-tier`, the biggest spec (25 long of 32 requirements), where the form choice is practised most, and the three `api-diff-check` requirements. Mistakes of form show early, in the unit with the most rewrites, and later units copy the settled pattern. B6 is last and smallest. Reversibility: high; the human may reorder, because the batches do not depend on each other. `N` in the gate follows the order actually run.
 **Rationale**: The plan order is simple to check against the inventory; option 3 mixes risk and size without a measured reason, and option 2 leaves the hardest spec for last.
 
-### The gate task and the CI job
+### The CI gate moves to a separate change
 
-**Context**: The library has no OpenSpec task and no OpenSpec CI job. Its `task check` runs fmt, vet, lint, test, docs bundle, cascade wiring, cite-lint, consumer-build tests and api-diff tests. `cli` has `openspec:install` and `openspec:check` that install a global npm package at a fixed version.
-**Explored**: (1) Copy the `cli` form: `npm install -g @fission-ai/openspec@<exact>`, then `openspec validate --all --strict --no-interactive`. (2) Install into the repo's gitignored `.bin/` with `npm install --prefix`, `--ignore-scripts` and an exact version, so the task touches no global state. (3) Run the CLI with `npx` at an exact version at each call. (4) No gate.
-**Decision**: Option 2. Tasks `openspec:install` (exact `@fission-ai/openspec@1.14.1`, `--ignore-scripts`, into `.bin/`, reused when `openspec --version` already prints 1.14.1) and `openspec:check` (`openspec validate --all --strict --no-interactive` from that binary, with a precondition that the binary exists). `task check` runs `openspec:check` after `cite-lint`; `check:fast` stays as it is. One CI job, in a new workflow `openspec.yml` on `push` to `main` and on `pull_request`, with `permissions: contents: read`, `actions/checkout` with `persist-credentials: false`, the same SHA-pinned `actions/setup-node` and `go-task/setup-task` the repo or `cli` already pins (SHAs copied from existing workflows, none is new), and a step that runs `task openspec:install openspec:check`. The AGENTS.md row of `task check` gains the new step. Reversibility: high (hours).
-**Rationale**: This is a supply-chain choice, so it follows the repo's habit for tools (a pinned version, no install script from a mutable ref, `.bin/` gitignored). Option 1 writes global state and runs install scripts. Option 3 hides the version in the call. Option 4 lets the 500-character limit slip back in; 1.14.1 has no flag to turn the limit off, so a gate is the only guard. Two facts are not verified here and the first gate task checks them: that the package works with `--ignore-scripts`, and that 1.14.1 has been published for the seven-day cooldown that the workspace supply-chain rule asks of a new pin. If either fails, the task stops and the human decides (drop `--ignore-scripts` with the reason recorded, or wait).
-
-### Delivery order of the gate
-
-**Decision**: The gate section is the last commit of the branch, and the PR that carries it is opened after `publish-go-api-bundle` lands without long-requirement warnings. Before that, `validate --all --strict` covers that open change and exits 1 on one warning, so the new CI job would fail its own PR. The six batch sections need no such wait; the supervisor may deliver them as an earlier PR and the gate as a second one. Reversibility: high.
+**Decision**: This change does not add the Taskfile tasks or the CI job that run `openspec validate --all --strict`. The gate moves to a separate change after `publish-go-api-bundle` lands (DECISIONS.md 2026-10-19 14:05), because until then `validate --all --strict` covers that open change and exits 1 on its one warning. The per-unit gate block above stays: it runs in a scratch copy and is not the CI gate. Reversibility: high.
 
 ## Security
 
-Assets: none new; the change edits spec text and adds one dev tool. Trust boundary: one new, the npm registry, crossed in `openspec:install` and in the CI job. Baseline: the workspace supply-chain rules (exact pin, no install script, cooldown, read-only workflow token, SHA-pinned actions). Threat: a hijacked release of the pinned package runs code on a developer machine or a runner; the exact pin and `--ignore-scripts` narrow it, and the token is read-only with no secret in the job. Residual risk: the package is trusted when it runs; the owner is the library maintainer, who bumps the pin by hand. No sensitive detail is in this record.
+Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
 
 ## Risks / Trade-offs
 
 - **A rewrite silently drops a rule or a scenario.** The ledger, the byte-equality command and the gate make it visible; the reviewer repeats all three per batch. Trade-off: extra tables in this file, which grows by up to about 150 ledger entries.
 - **A split spreads one rule over several requirements.** One behavior per requirement is the point of the limit, but a reader now follows several headers. The rule above (a split piece must stand alone) limits it.
-- **Seven sections in one change.** Each ends green and leaves `main` releasable, because a spec edit touches no code. If the human wants a smaller cut, the batches can ship as sequential changes.
+- **Six sections in one change.** Each ends green and leaves `main` releasable, because a spec edit touches no code. If the human wants a smaller cut, the batches can ship as sequential changes.
 - **An open change edits a requirement that c2 removes.** Today only `publish-go-api-bundle` is open and it edits no existing requirement. The gate fails on any "Archive would refuse" line, and each unit lists `openspec/changes/` first.
-- **Operational cost.** One new CI job and one Taskfile pair, owned by the library maintainer. The pin lives in the Taskfile only; the CI job calls the task.
