@@ -44,7 +44,7 @@ The update task SHALL request `opmodel.dev/core@v2` at the release `schema.Defau
 - **THEN** the core pin of every module in the task's discovered set (`CUE_MODULE_GLOBS`) moves to that release and the task exits zero; the text-pinned trees outside that set are not the task's to move
 
 ### Requirement: A held resolution that fails because a dependency requires a newer core exits non-zero and names the dependency
-When the held resolution fails because a dependency requires a newer core, the task SHALL exit non-zero. The failure SHALL print the module directory and CUE's own error, and SHALL name each dependency whose own `opmodel.dev/core@v2` requirement is newer than the default, with that requirement and the default.
+When the held resolution (Requirement: The update task requests core at the release the kernel default names and core moves only together with the default) fails because a dependency requires a newer core, the update task SHALL exit non-zero. The failure SHALL print the module directory and CUE's own error, and SHALL name each dependency whose own `opmodel.dev/core@v2` requirement is newer than the default, with that requirement and the default.
 
 #### Scenario: A catalog built on a newer core
 

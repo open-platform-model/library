@@ -14,7 +14,7 @@
 
 ### Requirement: Acquire a module from the registry
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind", "AcquireModuleFromRegistry fetches a published module and loads it in memory as the main module", "AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached", "The staged source is the tree used to build the module value", "The registry mapping of module acquisition is the kernel's", "No value-only loader is exported from any package under opm" and "The acquired module's staged source is consumable by SynthesizeInstance".
+**Migration**: See "Each artifact kind has one registry acquisition entry point", "One fetch routine serves every artifact kind", "AcquireModuleFromRegistry fetches a published module via CUE's native module machinery", "AcquireModuleFromRegistry loads the module in memory as the main module", "AcquireModuleFromRegistry runs the shape gate and verifies the declared identity", "AcquireModuleFromRegistry returns the module with its staged source attached", "The staged source is the tree used to build the module value", "The registry mapping of module acquisition is the kernel's", "No value-only loader is exported from any package under opm" and "The acquired module's staged source is consumable by SynthesizeInstance".
 
 ## ADDED Requirements
 
@@ -142,8 +142,16 @@ The kernel SHALL NOT write or correct either value (Requirement: The loader veri
 - **WHEN** the kernel verifies the declared identity of an acquired module
 - **THEN** the kernel does not write or correct either value, because the schema declares identity and the reader verifies it
 
-### Requirement: Each artifact kind has one registry acquisition entry point and one fetch routine serves every kind
-The library SHALL provide exactly one registry acquisition entry point per artifact kind. Every kind's entry point SHALL be served by one fetch routine, parameterized by the shape it gates to. Fetching and staging a published CUE module artifact reads no `kind`, so a second fetch implementation SHALL NOT exist for any kind.
+### Requirement: Each artifact kind has one registry acquisition entry point
+The library SHALL provide exactly one registry acquisition entry point per artifact kind.
+
+#### Scenario: Each artifact kind has one registry acquisition entry point
+
+- **WHEN** a developer lists the registry acquisition entry points of the library
+- **THEN** there is exactly one registry acquisition entry point per artifact kind
+
+### Requirement: One fetch routine serves every artifact kind
+Every kind's entry point SHALL be served by one fetch routine, parameterized by the shape it gates to. Fetching and staging a published CUE module artifact reads no `kind`, so a second fetch implementation SHALL NOT exist for any kind.
 
 #### Scenario: One fetch routine serves every kind
 
@@ -151,16 +159,32 @@ The library SHALL provide exactly one registry acquisition entry point per artif
 - **THEN** exactly one routine does it, taking the shape to gate to as a parameter
 - **AND** each kind's registry entry point calls that routine with its own shape rather than repeating the fetch
 
-### Requirement: AcquireModuleFromRegistry fetches a published module and loads it in memory as the main module
-For modules that entry point SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery, loads it in memory as the main module (its own `cue.mod/module.cue` drives transitive resolution, its `kind`/`metadata` evaluate at the package root, no wrapper package is synthesized and no temporary directory is written).
+### Requirement: AcquireModuleFromRegistry fetches a published module via CUE's native module machinery
+For modules that entry point (Requirement: Each artifact kind has one registry acquisition entry point) SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which fetches a published `#Module` via CUE's native module machinery.
 
-#### Scenario: Acquisition fetches and loads in memory as the main module
+#### Scenario: Acquisition fetches a published module
 
 - **WHEN** Kernel.AcquireModuleFromRegistry is called for a published module
-- **THEN** it fetches the module via CUE's native module machinery and loads it in memory as the main module, with no wrapper package synthesized and no temporary directory written
+- **THEN** it fetches the module via CUE's native module machinery
 
-### Requirement: AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached
-For modules that entry point SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which runs the acquisition shape gate, verifies the declared identity against the fetched coordinate, and returns a `*module.Module` whose staged source is attached: `Source.Root` the deterministic synthetic root, `Source.Overlay` the module's `.cue` files as bytes (its own `cue.mod/module.cue` included and nothing else).
+### Requirement: AcquireModuleFromRegistry loads the module in memory as the main module
+For modules that entry point (Requirement: Each artifact kind has one registry acquisition entry point) SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which loads it in memory as the main module (its own `cue.mod/module.cue` drives transitive resolution, its `kind`/`metadata` evaluate at the package root, no wrapper package is synthesized and no temporary directory is written).
+
+#### Scenario: Acquisition loads the module in memory as the main module
+
+- **WHEN** Kernel.AcquireModuleFromRegistry is called for a published module
+- **THEN** it loads the module in memory as the main module, with no wrapper package synthesized and no temporary directory written
+
+### Requirement: AcquireModuleFromRegistry runs the shape gate and verifies the declared identity
+For modules that entry point (Requirement: Each artifact kind has one registry acquisition entry point) SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which runs the acquisition shape gate, verifies the declared identity against the fetched coordinate.
+
+#### Scenario: Acquisition runs the shape gate and verifies the identity
+
+- **WHEN** Kernel.AcquireModuleFromRegistry is called for a published module
+- **THEN** it runs the acquisition shape gate and verifies the declared identity against the fetched coordinate
+
+### Requirement: AcquireModuleFromRegistry returns the module with its staged source attached
+For modules that entry point (Requirement: Each artifact kind has one registry acquisition entry point) SHALL be `Kernel.AcquireModuleFromRegistry(ctx, path, version string) (*module.Module, error)`, which returns a `*module.Module` whose staged source is attached: `Source.Root` the deterministic synthetic root, `Source.Overlay` the module's `.cue` files as bytes (its own `cue.mod/module.cue` included and nothing else).
 
 #### Scenario: Acquired module carries reusable staged source
 
@@ -170,7 +194,7 @@ For modules that entry point SHALL be `Kernel.AcquireModuleFromRegistry(ctx, pat
 - **AND** the process environment is not mutated
 
 ### Requirement: The staged source is the tree used to build the module value
-The staged source (Requirement: AcquireModuleFromRegistry runs the shape gate, verifies the identity and returns the module with its staged source attached) SHALL be the same tree used to build the module value, so no second fetch is required to reuse it.
+The staged source (Requirement: AcquireModuleFromRegistry returns the module with its staged source attached) SHALL be the same tree used to build the module value, so no second fetch is required to reuse it.
 
 #### Scenario: The staged source is the one used to build the module value
 
@@ -178,7 +202,7 @@ The staged source (Requirement: AcquireModuleFromRegistry runs the shape gate, v
 - **THEN** the staged source is the same tree used to build the module value, so no second fetch is required to reuse it
 
 ### Requirement: The registry mapping of module acquisition is the kernel's
-The registry mapping SHALL be the kernel's (`WithRegistry`), applied through the resolver and load configuration and never through `os.Setenv`.
+The registry mapping (Requirement: AcquireModuleFromRegistry fetches a published module via CUE's native module machinery) SHALL be the kernel's (`WithRegistry`), applied through the resolver and load configuration and never through `os.Setenv`.
 
 #### Scenario: Registry mapping is the kernel's
 

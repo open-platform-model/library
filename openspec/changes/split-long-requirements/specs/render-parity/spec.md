@@ -76,7 +76,7 @@ The assertion (Requirement: The shipped catalog stays discriminated) SHALL be ga
 #### Scenario: The discrimination assertion is skipped where the shipped group is skipped
 
 - **WHEN** the public registry is unreachable or the tests run under `-short`
-- **THEN** the assertion is skipped exactly as the shipped group is, and it is forced by the same variable CI sets
+- **THEN** the assertion is skipped exactly as the shipped group is
 
 ### Requirement: A catalog build that ships comparable transformers fails the harness naming both transformers and the shared contracts
 A published catalog build that ships two transformers whose predicates are comparable over a shared catalog-fulfilled contract SHALL fail the harness with a message naming both transformer FQNs and the shared contracts, so the break is attributed to the catalog release, not to a platform that later embeds it.

@@ -19,7 +19,7 @@ The kernel SHALL expose `AcquireCatalogFromRegistry(ctx, modPath, version)` and 
 
 ### Requirement: The provider-fulfilled contract set is derived from the catalog
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "The catalog artifact exposes the set of contracts it implements as a provider", "The provider set is read from provides when the catalog carries it", "The provider set falls back to a derivation from the catalog's #transformers for an older core or no provides field", "Both sources of the provider set yield the same set", "The provider set is deterministically ordered and deduplicated", "A catalog implementing no provider-fulfilled contract derives an empty set and no error", "A provider set that cannot be read is an error with no partial set when provides or #transformers is malformed" and "A provider set that cannot be read is an error with no partial set when a demand or a committed module file is malformed".
+**Migration**: See "The catalog artifact exposes the set of contracts it implements as a provider", "The provider set is read from provides when the catalog carries it", "The provider set falls back to a derivation from the catalog's #transformers for an older core or no provides field", "Both sources of the provider set yield the same set", "The provider set is deterministically ordered and deduplicated", "A catalog implementing no provider-fulfilled contract derives an empty set and no error" and "A provider set that cannot be read is an error with no partial set returned".
 
 ### Requirement: The catalog's committed dependency requirements are readable
 **Reason**: Split into requirements that each state one behavior.
@@ -94,8 +94,8 @@ Derivation SHALL be a report: a catalog implementing no provider-fulfilled contr
 - **WHEN** the derivation runs over a catalog none of whose transformers require a provider-fulfilled contract
 - **THEN** it returns an empty set and no error, because implementing none is a fact about the catalog and not a malformed value
 
-### Requirement: A provider set that cannot be read is an error with no partial set when provides or #transformers is malformed
-A provider set that cannot be read SHALL be an error with no partial set returned, from either source: a `#transformers` that does not evaluate, even when a well-formed `provides` is present; a `provides` field that is not a concrete list of strings.
+### Requirement: A provider set that cannot be read is an error with no partial set returned
+A provider set that cannot be read SHALL be an error with no partial set returned, from either source: a `#transformers` that does not evaluate, even when a well-formed `provides` is present; a `provides` field that is not a concrete list of strings; a demand whose `fulfilment` is present but not a concrete string; or, for a catalog carrying its source tree, a committed module file that cannot be read or names a core version that is not SemVer.
 
 #### Scenario: An unreadable provider set is reported
 
@@ -106,9 +106,6 @@ A provider set that cannot be read SHALL be an error with no partial set returne
 
 - **WHEN** the derivation runs over a catalog that carries a well-formed `provides` field but whose `#transformers` do not evaluate
 - **THEN** it fails with an error naming `#transformers`, and no set is returned
-
-### Requirement: A provider set that cannot be read is an error with no partial set when a demand or a committed module file is malformed
-A provider set that cannot be read SHALL be an error with no partial set returned, from either source: a demand whose `fulfilment` is present but not a concrete string; or, for a catalog carrying its source tree, a committed module file that cannot be read or names a core version that is not SemVer.
 
 #### Scenario: A demand whose fulfilment is not a concrete string is reported
 
@@ -139,7 +136,7 @@ The module file (Requirement: The catalog artifact exposes the requirements reco
 - **THEN** reading its requirements fails with an error naming the catalog's `cue.mod/module.cue`, and no requirements are returned
 
 ### Requirement: A dependency a local replacement serves may carry no version and maps to the empty string
-A dependency a local replacement serves may carry no version and SHALL map to the empty string.
+A dependency (Requirement: The catalog artifact exposes the requirements recorded in its own cue.mod/module.cue and the library exposes the requirements only) a local replacement serves may carry no version and SHALL map to the empty string.
 
 #### Scenario: A dependency served by a local replacement maps to the empty string
 
