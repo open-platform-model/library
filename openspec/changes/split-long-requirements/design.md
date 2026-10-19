@@ -4088,7 +4088,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 
 ## Strength table
 
-Sentences that gained a keyword (SHALL or SHALL NOT) because the old sentence has none and an ADDED block needs one. Each row gives the old sentence, the new sentence and the block that holds it; a sentence cut for width ends in "...". The clause tables above name the same changes.
+Sentences that gained a keyword (SHALL or SHALL NOT) because the old sentence has none and an ADDED block needs one. Each row gives the old sentence, the new sentence and the block that holds it; a sentence cut for width ends in "...". The last row is a format change the human made, not a keyword. The clause tables above name the same changes.
 
 | Old sentence | New sentence | Block |
 | --- | --- | --- |
@@ -4200,4 +4200,4 @@ Sentences that gained a keyword (SHALL or SHALL NOT) because the old sentence ha
 | `Input` is the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Values`, `Labels`, `Annotations` and the kernel's registry en... | `synth.Instance`: `Input` SHALL be the package-internal input carrying `Module`, `Name`, `Namespace`, the unified `Value... | The Input parameter of synth.Instance is the package-internal input |
 | Because the weight table never contradicts Flux's staged apply order, a frontend whose apply en... | The weight table SHALL NOT contradict Flux's staged apply order, so a frontend whose apply engine is Flux's staged apply... | A Flux frontend may submit a whole set or one stage |
 | ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` is narrowed to exec... | ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` SHALL be narrowed to executor backends that perform no planned action against a cluster (0009's wasm, HTTP, `cue.eval` and local container hosts). | ADR-008 allows only executor backends that perform no cluster action |
-| The escape hatch of the trailer has an em-dash between "none" and "<reason>" (the escape-hatch trailer in the old body of "Enforcement design is recorded and armed at GA"). | The escape hatch is `Migration: none, <reason>`. | Format change made by the human, not a keyword: the comma replaces the em-dash in the migration-docs block, ADR-004 and `migrations/README.md`. |
+| ... (escape hatch, the trailer has an em-dash between "none" and "<reason>") ... | ... (escape hatch `Migration: none, <reason>`) ... | The GA-time enforcement design is recorded in ADR-004 and summarized in migrations/README.md before GA (format change made by the human, not a keyword; ADR-004 and `migrations/README.md` carry the same form) |
