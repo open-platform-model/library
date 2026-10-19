@@ -184,8 +184,8 @@ func TestPublicRegistry_Value(t *testing.T) {
 }
 
 // TestDefaultSchemaModule_PinsVerifiedRelease asserts the shape of the
-// default schema identifier (spec schema-dispatch, "DefaultSchemaModule
-// constant"): an exact core release on the v2 major, never the floating
+// default schema identifier (spec schema-dispatch, "DefaultSchemaModule names
+// an exact core release"): an exact core release on the v2 major, never the floating
 // major. It does not repeat the release as a literal, so advancing the
 // default edits only the constant; the deliberate re-verification of the
 // glue and the fixtures is the review of the change that advances it.
@@ -208,8 +208,8 @@ func TestDefaultSchemaVersion_IsTheDefaultModulesVersion(t *testing.T) {
 	assert.Equal(t, "opmodel.dev/core@"+schema.DefaultSchemaVersion(), schema.DefaultSchemaModule)
 }
 
-// TestOCILoader_PinnedVersion pins the schema-dispatch requirement "A pinned
-// schema release is known without a load": the accessor reads the release off
+// TestOCILoader_PinnedVersion pins the schema-dispatch requirement "OCILoader
+// reports its pinned core release without any I/O": the accessor reads the release off
 // the module identifier and reports one only for a full release. No test case
 // sets CUE_REGISTRY or a cache: the accessor does no I/O.
 func TestOCILoader_PinnedVersion(t *testing.T) {

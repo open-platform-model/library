@@ -13,8 +13,7 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// kernel-runtime spec, "Kernel verbs check cancellation at entry and between
-// stages": every verb is first shown to succeed on its inputs with a live
+// kernel-runtime spec, "Verbs check their context between stages": every verb is first shown to succeed on its inputs with a live
 // context, so the cancelled call fails on the context and on nothing else.
 
 func cancelledContext() context.Context {

@@ -52,8 +52,9 @@ const (
 	prebackupImpl = "test.example/catalogs/provider/transformers/prebackup@1.0.0"
 )
 
-// catalog-acquisition spec, "The provider-fulfilled contract set is derived
-// from the catalog": the fold collects every contract a transformer of this
+// catalog-acquisition spec, "The catalog artifact exposes the set of contracts
+// it implements as a provider" and "The provider set is deterministically
+// ordered and deduplicated": the fold collects every contract a transformer of this
 // catalog REQUIRES whose value carries fulfilment "provider", from both demand
 // maps, deduplicated across transformers and deterministically ordered. Any
 // other fulfilment, an absent fulfilment, an optional demand and a catalog
