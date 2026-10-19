@@ -208,6 +208,8 @@ Source lines of B2 (the whole line is repeated where it fits; a title drops whol
 **Decision**: 2 requirements use form b because another file cites the header: "The docs examples follow the loader's core" (a sentence of "The cascade task never touches release or steering files" names it, and that sentence keeps the citation in its new block) and "Instance synthesis input" (a comment in `opm/kernel/synth_test.go`). 13 use c2. No other removed header is cited outside `openspec/` (grep over the repository, archive left out). Every new body is built from whole sentences of the old body, copied unchanged. The words added are only these: a keyword (the strength table), a subject copied from the same old requirement ("The task" or `task -x deps:cascade` for "It", `InstanceInput` for "It"), the lead sentence of the old body repeated where a later sentence needs its subject or its referent, the closing ";" of a list bullet turned into ".", and a pointer to another requirement of the same spec by its exact header where the old content cannot fit beside the whole Source line (the target and the modules in scope of the catalog requirement, the files and literals of the docs examples requirement, the fields of "Instance synthesis input", the overlay of the staged tree requirement, the synthetic-root check). The Source lines are repeated whole in every block. A body that did not fit beside its whole line was split further at a sentence boundary (the core pin and the docs examples).
 **Rationale**: The 500-character limit, the rule that a citation stays in the body of the block that carries the rule, and the rule that no word is dropped leave no other choice. Reversibility: high.
 
+One more code comment cites a requirement whose rule moved: `opm/kernel/synth_test.go:168` names "Instance synthesis input" for "InstanceInput carries no schema cache", which is now "InstanceInput carries no schema cache and no cue.Context". The last unit updates it with the comments listed above.
+
 ## Security
 
 Assets: none new; the change edits spec text only. No trust boundary, dependency or workflow changes, so no threat model applies. No sensitive detail is in this record.
@@ -2710,7 +2712,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | `synth.Instance` lives in `opm/internal/synth`, off the public surface; its Go signature is `Inst... | synth.Instance lives in opm/internal/synth with a fixed Go signature | SHALL added: the old sentence has no keyword |
 | `cueCtx` is the context `Kernel.SynthesizeInstance` created for the call, `coreVersion` is the ke... | The parameters in the signature of synth.Instance are the call context, the core release and the package-in... | SHALL added: the old sentence has no keyword |
 
-**synth.Instance requires the module's staged source**: form c2 (REMOVED plus ADDED); old body 1229 characters; new bodies 187, 298, 279, 383, 197.
+**synth.Instance requires the module's staged source**: form c2 (REMOVED plus ADDED); old body 1229 characters; new bodies 187, 486, 467, 383, 197.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -2727,8 +2729,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | `SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree... | Synthesis constructs the instance inside the acquired module's staged source tree | verbatim |
+| `SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree... | A module without staged source is refused and the kernel fetches nothing itself | verbatim |
 | When `InstanceInput.Module` carries no staged source (it was constructed from a bare value), the... | A module without staged source is refused and the kernel fetches nothing itself | verbatim |
 | The kernel SHALL NOT perform a registry fetch or a directory walk of its own to obtain the module... | A module without staged source is refused and the kernel fetches nothing itself | verbatim |
+| `SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree... | A module acquired from a subdirectory of its CUE module is refused | verbatim |
 | When the module's `Source.Pkg` is non-empty (the module was acquired from a subdirectory of its C... | A module acquired from a subdirectory of its CUE module is refused | verbatim |
 | When the module was acquired from a registry, its staged root is a synthetic root that does not e... | An existing synthetic root refuses a synthesis of a registry-acquired module | verbatim |
 | A module acquired from a directory has a real root on disk and is not checked. | A module acquired from a directory is not checked for a synthetic root | SHALL NOT added: the old sentence has no keyword |

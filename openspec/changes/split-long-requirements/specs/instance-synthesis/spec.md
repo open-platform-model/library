@@ -196,7 +196,7 @@ A values file rendered from the input's `Values` (the unified value of the calle
 - **THEN** the instance is staged inside the module's overlay, the module import resolves locally, and the module's own `cue.mod/module.cue` drives transitive resolution
 
 ### Requirement: A module without staged source is refused and the kernel fetches nothing itself
-When `InstanceInput.Module` carries no staged source (it was constructed from a bare value), the call SHALL fail with an error wrapping `oerrors.ErrMissingSource` naming the two acquire verbs. The kernel SHALL NOT perform a registry fetch or a directory walk of its own to obtain the module source.
+`SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree (the overlay and root produced by `AcquireModuleFromRegistry` or `AcquireModuleFromDir`). When `InstanceInput.Module` carries no staged source (it was constructed from a bare value), the call SHALL fail with an error wrapping `oerrors.ErrMissingSource` naming the two acquire verbs. The kernel SHALL NOT perform a registry fetch or a directory walk of its own to obtain the module source.
 
 #### Scenario: Module without staged source is rejected
 
@@ -205,7 +205,7 @@ When `InstanceInput.Module` carries no staged source (it was constructed from a 
 - **AND** no registry fetch and no directory read occurs
 
 ### Requirement: A module acquired from a subdirectory of its CUE module is refused
-When the module's `Source.Pkg` is non-empty (the module was acquired from a subdirectory of its CUE module), the call SHALL fail with an error stating that a synthesizable module is its module's root package, because the synthesized package imports the module by its module path.
+`SynthesizeInstance` SHALL construct the instance inside the acquired module's staged source tree (the overlay and root produced by `AcquireModuleFromRegistry` or `AcquireModuleFromDir`). When the module's `Source.Pkg` is non-empty (the module was acquired from a subdirectory of its CUE module), the call SHALL fail with an error stating that a synthesizable module is its module's root package, because the synthesized package imports the module by its module path.
 
 #### Scenario: Subpackage module is refused
 
