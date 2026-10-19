@@ -17,7 +17,7 @@ The rewrites are split or moves into scenarios. They never change the meaning of
 
 One format changes on purpose, by decision of the maintainers: the escape-hatch trailer in `migration-docs` is now `Migration: none, <reason>`, with a comma instead of an em-dash. ADR-004 and `migrations/README.md` carry the same form. No code reads the trailer.
 
-Not touched: the specs `consumer-build`, `cue-regression-canary` and `transform-input-fill` (no long requirement), the open change `publish-go-api-bundle` and its new spec `docs-bundle`, and every Go and CUE file.
+Not touched: the specs `consumer-build`, `cue-regression-canary` and `transform-input-fill` (no long requirement), the open change `publish-go-api-bundle` and its new spec `docs-bundle`, and every CUE file. No Go code changes: 12 Go test files and `.golangci.yml` get comment edits that cite the new headers.
 
 ## Capabilities
 

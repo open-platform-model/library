@@ -338,19 +338,12 @@ Nothing in the library SHALL perform a cluster action, and the Kubernetes tier S
 
 ### Requirement: ADR-008 allows only executor backends that perform no cluster action
 ADR-008 rule 3's allowance for opt-in executor backends under `opm/helper/` SHALL be narrowed to executor backends that perform no planned action against a cluster (0009's wasm, HTTP, `cue.eval` and local container hosts). Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
+**Source**: Enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") amends enhancement 0009 ("Executor backends ship in the library's opt-in layer; frontends compose them à la carte") so its cluster-acting Ops are performed by the frontend.
 
 #### Scenario: ADR-008 allows only non-cluster executor backends
 
 - **WHEN** a developer reads rule 3 of ADR-008
 - **THEN** it states that no executor backend that performs a planned action against a cluster ships in the library, `opm/helper/` included, that each frontend performs such an action with its own client, and that opt-in executor backends that perform no planned action against a cluster may ship under `opm/helper/`
-
-### Requirement: The frontend performs the cluster-acting Ops of enhancement 0009
-Enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") amends enhancement 0009 ("Executor backends ship in the library's opt-in layer; frontends compose them à la carte") so that its cluster-acting Ops SHALL be performed by the frontend.
-
-#### Scenario: A cluster-acting Op is performed by the frontend
-
-- **WHEN** an Op of enhancement 0009 acts on a cluster
-- **THEN** the frontend performs it
 
 ### Requirement: The frontend performs each deletion action and the tier owns the deletion sequence
 A deletion plan SHALL advance one action per call from a serialisable state the caller owns, and the frontend SHALL perform each action with its own client, in a loop it writes itself. The tier SHALL own the whole deletion sequence (plan, transition, hold verdict). ADR-008 rules 1 to 3 apply to the tier. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
@@ -498,7 +491,8 @@ The library SHALL provide an export of a list of Resources that exports each Res
 - **AND** each result carries its Resource's instance, component and transformer, in input order
 
 ### Requirement: The export leaves the input Resources alone
-The export SHALL NOT change or release the input Resources. A Resource keeps its whole CUE build alive; releasing it after export is the caller's responsibility. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
+The export (Requirement: One export returns each Resource's JSON, object and provenance) SHALL NOT change or release the input Resources. A Resource keeps its whole CUE build alive; releasing it after export is the caller's responsibility.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: The input survives the export
 
@@ -506,7 +500,7 @@ The export SHALL NOT change or release the input Resources. A Resource keeps its
 - **THEN** the list and each Resource's value, instance, component and transformer are unchanged afterwards
 
 ### Requirement: A failing export names the Resource, its position and the step
-A failure SHALL name the failing Resource, its position, and whether the CUE export or the JSON decode failed. A value that exports to JSON that is not an object, `null` included, SHALL fail as a decode failure, so every exported object carries a non-nil object map. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
+A failure (Requirement: One export returns each Resource's JSON, object and provenance) SHALL name the failing Resource, its position, and whether the CUE export or the JSON decode failed. A value that exports to JSON that is not an object, `null` included, SHALL fail as a decode failure, so every exported object carries a non-nil object map. Source: enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module").
 
 #### Scenario: A failing export names the resource and the step
 
@@ -700,7 +694,7 @@ The library SHALL provide `opm/k8s/ownership` with a per-object delete verdict a
 - **AND** the refusal reasons are `terminating`, `foreign-object`, `other-instance` and `adopted-elsewhere`
 
 ### Requirement: The ownership package performs no I/O and never modifies the live object
-The package SHALL perform no cluster read or write, read no clock or environment, and log nothing. It SHALL NOT modify the live object it is given. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008, ADR-011.
+The package `opm/k8s/ownership` SHALL perform no cluster read or write, read no clock or environment, and log nothing. It SHALL NOT modify the live object it is given. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008, ADR-011.
 
 #### Scenario: The live object is not modified
 
@@ -713,7 +707,7 @@ The package SHALL perform no cluster read or write, read no clock or environment
 - **THEN** none of them is `os`, `time`, `log` or `log/slog`
 
 ### Requirement: Ownership inputs name the object and carry the live object
-Each input SHALL name the object by group, kind, namespace and name and SHALL carry the live object as the caller read it, absent when the read found nothing, together with the judging instance's UUID. A frontend reads the live object with its own client. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008, ADR-011.
+Each input (Requirement: The ownership verdicts are pure functions of explicit inputs) SHALL name the object by group, kind, namespace and name and SHALL carry the live object as the caller read it, absent when the read found nothing, together with the judging instance's UUID. A frontend reads the live object with its own client. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008, ADR-011.
 
 #### Scenario: An input names the object and carries the live object
 
@@ -830,7 +824,7 @@ An adopt annotation whose value equals the instance UUID SHALL lift the `foreign
 - **THEN** the verdict applies
 
 ### Requirement: An adopt annotation with any other value lifts nothing
-An adopt annotation whose value does not equal the instance UUID SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
+The annotation value SHALL be compared with surrounding whitespace trimmed, and a value that is empty or only whitespace SHALL count as no annotation. An adopt annotation with any other value SHALL lift nothing, and the refusal message SHALL say that the annotation names another instance. Source: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 #### Scenario: An annotation naming another instance lifts nothing
 
@@ -878,7 +872,8 @@ The library SHALL provide, in `opm/k8s/inventory`, an inventory entry with exact
 - **THEN** the fields are group, kind, namespace, name, version and component, and one constructor builds an entry from a `*unstructured.Unstructured`
 
 ### Requirement: The entry constructor reads identity from the object and component from its label
-The constructor SHALL read group, version and kind, namespace and name from the object, and the component from its `component.opmodel.dev/name` label, which gives an empty component when the label is absent. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
+The constructor (Requirement: An inventory entry has exactly six fields and a constructor from an object) SHALL read group, version and kind, namespace and name from the object, and the component from its `component.opmodel.dev/name` label, which gives an empty component when the label is absent.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: An entry reads the object's identity and component
 
@@ -891,7 +886,8 @@ The constructor SHALL read group, version and kind, namespace and name from the 
 - **THEN** the entry's group, namespace and component are empty, its kind is `Namespace`, its name `team` and its version `v1`
 
 ### Requirement: The entry type carries no struct tags
-The entry type SHALL carry no struct tags, so that no serialisation the library chooses can become the frontends' wire shape. Each frontend maps entries to its own CRD or record fields. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
+The entry type (Requirement: An inventory entry has exactly six fields and a constructor from an object) SHALL carry no struct tags, so that no serialisation the library chooses can become the frontends' wire shape. Each frontend maps entries to its own CRD or record fields.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 #### Scenario: The entry type carries no tags
 
@@ -912,7 +908,8 @@ The library SHALL provide, in `opm/k8s/inventory`, one stale-set function. It SH
 - **THEN** the stale set is empty
 
 ### Requirement: The stale set keeps the previous order and is never nil
-The result SHALL keep the previous inventory's order, SHALL be a non-nil empty list when nothing is stale, and SHALL leave both inputs unchanged. Source: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
+The result (Requirement: The stale set compares group, kind, namespace and name only) SHALL keep the previous inventory's order, SHALL be a non-nil empty list when nothing is stale, and SHALL leave both inputs unchanged.
+**Source**: enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 
 #### Scenario: Removed objects are stale in previous order
 
@@ -949,7 +946,8 @@ The library SHALL provide, in `opm/k8s/inventory`, one inventory digest of the f
 - **THEN** it is written as its group, kind, namespace, name, version and component, in that order, each preceded by its byte length as an 8-byte big-endian unsigned integer
 
 ### Requirement: The inventory digest depends only on the entries' field values
-The digest SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
+The digest (Requirement: The inventory digest is sha256 over a tagged, length-prefixed encoding) SHALL depend only on the entries' field values: not on their input order and not on any JSON or other serialisation of an entry. Two inventories that differ in their entries, or in any field of an entry, SHALL produce different digests.
+**Source**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 
 #### Scenario: Input order does not matter
 
@@ -1036,7 +1034,7 @@ Two object sets that differ in any other label, in whether the managed-by label 
 - **THEN** their render digests differ
 
 ### Requirement: The render digest leaves its input unchanged and fails on a malformed object with its position
-An object whose JSON does not decode to a single JSON object SHALL fail with an error naming its position. The function SHALL leave its input unchanged. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
+An object whose JSON does not decode to a single JSON object SHALL fail with an error naming its position. The function (Requirement: The render digest reads only exported JSON) SHALL leave its input unchanged. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
 
 #### Scenario: The input is not changed
 
@@ -1087,7 +1085,8 @@ Building the plan SHALL NOT need a render or a stored plan: an uninstall builds 
 - **THEN** the plan's steps are exactly the stale entries, in kind-class delete order
 
 ### Requirement: The plan constructor is the only way to build a plan with steps
-The constructor SHALL be the only way to build a plan with steps, so no frontend can hand the transition a plan in another order, and the plan's steps SHALL be readable as a copy. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"), ADR-008 (Deletion plans).
+The constructor (Requirement: The library provides a deletion plan built from inventory entries, a policy and a UUID) SHALL be the only way to build a plan with steps, so no frontend can hand the transition a plan in another order, and the plan's steps SHALL be readable as a copy.
+**Source**: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply" and "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"), ADR-008 (Deletion plans).
 
 #### Scenario: Changing the listed steps does not change the plan
 
@@ -1254,7 +1253,8 @@ A state written to JSON and read back SHALL advance identically to the state hel
 - **THEN** both calls return equal states and equal actions
 
 ### Requirement: A state that cannot belong to the plan is refused
-The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, an outcome is out of step order or carries a result other than deleted, skipped or failed. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
+The transition (Requirement: The deletion transition returns the next state and one action) SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: its next step lies outside the plan, it records a number of outcomes other than its next step, an outcome is out of step order or carries a result other than deleted, skipped or failed.
+**Source**: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
 
 #### Scenario: A state past the plan is refused
 
@@ -1272,7 +1272,7 @@ The transition SHALL return an error, the input state unchanged and no action wh
 - **THEN** the transition returns an error and the input state unchanged
 
 ### Requirement: A state that awaits something it cannot await is refused
-The transition SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: it awaits something after the last step, or what it awaits is not a defined value. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
+The transition (Requirement: The deletion transition returns the next state and one action) SHALL return an error, the input state unchanged and no action when the state cannot belong to the plan: it awaits something after the last step, or what it awaits is not a defined value. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
 
 #### Scenario: A state awaiting something after the last step is refused
 
@@ -1280,7 +1280,7 @@ The transition SHALL return an error, the input state unchanged and no action wh
 - **THEN** the transition returns an error and the input state unchanged
 
 ### Requirement: The JSON encoding of the deletion state is fixed field by field
-The JSON encoding SHALL be fixed field by field, so that renaming a field fails a check. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
+The JSON encoding (Requirement: The deletion state is a plain value the caller owns) SHALL be fixed field by field, so that renaming a field fails a check. Source: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-008 rule 2.
 
 #### Scenario: The JSON encoding is fixed
 
@@ -1350,7 +1350,7 @@ The library SHALL decide whether an instance's deletion hold may be released fro
 - **AND** otherwise it releases as `cleanup-complete`, with skipped steps counting as complete
 
 ### Requirement: Each hold verdict carries its reason and a message
-Each verdict SHALL carry the reason as the contract's literal and a message the library words. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), the 0012 contract's `#HoldVerdict`.
+Each hold verdict SHALL carry the reason as the contract's literal and a message the library words. Source: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)" and "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), the 0012 contract's `#HoldVerdict`.
 
 #### Scenario: Reasons are the contract's literals
 
@@ -1358,7 +1358,8 @@ Each verdict SHALL carry the reason as the contract's literal and a message the 
 - **THEN** they are `prune-disabled`, `inventory-empty`, `cleanup-complete`, `force-orphan`, `cleanup-incomplete`, `cleanup-forbidden` and `identity-unavailable`
 
 ### Requirement: The test universe of the Flux model covers the table, Flux's kinds and both group orders
-The test's universe SHALL hold the library's table, Flux's listed kinds, a copy of each of those kinds in an API group that sorts before the built-in groups and in one that sorts after them, custom kinds in both such groups and a custom kind whose name ends in `Class`. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The test's universe (Requirement: The weight table never contradicts Flux's staged apply order) SHALL hold the library's table, Flux's listed kinds, a copy of each of those kinds in an API group that sorts before the built-in groups and in one that sorts after them, custom kinds in both such groups and a custom kind whose name ends in `Class`.
+**Source**: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: The universe holds copies in groups before and after the built-in groups
 
@@ -1366,7 +1367,7 @@ The test's universe SHALL hold the library's table, Flux's listed kinds, a copy 
 - **THEN** it holds a copy of each of Flux's listed kinds in an API group that sorts before the built-in groups and in one that sorts after them, custom kinds in both such groups and a custom kind whose name ends in `Class`
 
 ### Requirement: The Flux model test fails on any contradicting pair and names it
-The test SHALL fail when the library weighs any pair of the universe strictly opposite to the order Flux applies them in, naming the pair. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The test (Requirement: The weight table never contradicts Flux's staged apply order) SHALL fail when the library weighs any pair of the universe strictly opposite to the order Flux applies them in, naming the pair. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: A contradicting pair fails the test and is named
 
@@ -1374,7 +1375,7 @@ The test SHALL fail when the library weighs any pair of the universe strictly op
 - **THEN** the test fails and names the pair
 
 ### Requirement: A second test shows that the comparison reports an injected contradiction
-A second test SHALL show that the comparison reports a contradiction injected through a modified weight function, and the test SHALL keep asserting that both orders put a CustomResourceDefinition before a Namespace. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+A second test (Requirement: The weight table never contradicts Flux's staged apply order) SHALL show that the comparison reports a contradiction injected through a modified weight function, and the test SHALL keep asserting that both orders put a CustomResourceDefinition before a Namespace. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: Both orders put a CustomResourceDefinition before a Namespace
 

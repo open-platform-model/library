@@ -133,7 +133,7 @@ The generated render module's dependency list SHALL be derived by promotion: the
 - **THEN** the render module lists the instance's entry for that path, and the instance's import resolves
 
 ### Requirement: The two input trees enter the build through directory replacements
-The two input trees SHALL enter the build through build-local directory replacements; neither input is fetched from a registry.
+The two input trees (Requirement: The platform's dependency list wins in the render module) SHALL enter the build through build-local directory replacements; neither input is fetched from a registry.
 
 #### Scenario: Inputs enter through directory replacements
 
@@ -141,7 +141,7 @@ The two input trees SHALL enter the build through build-local directory replacem
 - **THEN** the two input trees enter the build through build-local directory replacements; neither input is fetched from a registry
 
 ### Requirement: Each input module's own path is listed as a default major
-Each input module's own path SHALL be listed in the render module's `cue.mod/module.cue` with a placeholder version of its own major and marked as the default major (unless a promoted entry already marks another major of the same root path default), so an unqualified import of the input's own subpackage from inside it resolves through the main module's default-major table exactly as it does when the input is the main module.
+Each input module's own path (Requirement: Render inputs are source-carrying artifacts) SHALL be listed in the render module's `cue.mod/module.cue` with a placeholder version of its own major and marked as the default major (unless a promoted entry already marks another major of the same root path default), so an unqualified import of the input's own subpackage from inside it resolves through the main module's default-major table exactly as it does when the input is the main module.
 
 #### Scenario: An input's unqualified self-import resolves
 
@@ -162,7 +162,7 @@ When local replacements are enabled for the render, each input's own `cue.mod/lo
 - **THEN** the render module carries no replacement for that path, the build evaluates the platform's pinned bytes, and no replacement row names the path
 
 ### Requirement: A promoted replacement is written as the input wrote it with a relative target resolved against the input
-A promoted replacement SHALL be written into the render module's main-module view exactly as the input wrote it, except that a relative directory target SHALL be resolved against that input's own module root, since the render module's root is elsewhere.
+A promoted replacement (Requirement: Promoted local replacements follow the precedence of the dependencies) SHALL be written into the render module's main-module view exactly as the input wrote it, except that a relative directory target SHALL be resolved against that input's own module root, since the render module's root is elsewhere.
 
 #### Scenario: An instance replacement on an instance-only path is honoured
 

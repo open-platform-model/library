@@ -166,7 +166,7 @@ The library SHALL keep every CUE path the kernel's Go code reads on an OPM artif
 - **THEN** the release reports the registry shape (enhancement 0019: a platform imports its catalog and embeds it whole into the registry entry)
 
 ### Requirement: The default is not the render floor
-The default is not the render floor: `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on, and a platform pinning a release between the floor and `2.0.0-alpha.13` decodes an absent collision report as no collision.
+The default (Requirement: DefaultSchemaModule names an exact core release) is not the render floor: `Kernel.Render` and `Platform.Contracts()` SHALL accept every core from `schema.ProvidedBySince` (`2.0.0-alpha.12`) on, and a platform pinning a release between the floor and `2.0.0-alpha.13` decodes an absent collision report as no collision.
 
 #### Scenario: A platform between the floor and the default renders
 

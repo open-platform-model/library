@@ -262,7 +262,7 @@ The values sources are those of requirement "Values sources are unified in order
 - **THEN** the returned instance's `Source` is overlay mode: same `Root` and `Pkg`, `Overlay` carrying every on-disk `.cue` file under the module root plus the rendered values file, as bytes
 
 ### Requirement: Instance acquisition writes nothing into the caller's directory
-The kernel MUST NOT write into the caller's directory and MUST NOT fill values into the evaluated value from Go.
+The kernel (Requirement: AcquireInstanceFromDir loads a package through the shape gate and processes it) MUST NOT write into the caller's directory and MUST NOT fill values into the evaluated value from Go.
 
 #### Scenario: Acquisition writes nothing and fills nothing from Go
 
@@ -339,7 +339,7 @@ The registry mapping used for the module's imports SHALL be the kernel's (`WithR
 - **THEN** the registry mapping used for the module's imports is the kernel's (`WithRegistry`), applied through the load configuration's environment and never through `os.Setenv`
 
 ### Requirement: Module acquisition writes nothing into the caller's directory
-The kernel MUST NOT write into the caller's directory.
+The kernel (Requirement: AcquireModuleFromDir loads a module package through the shape gate and constructs the typed module) MUST NOT write into the caller's directory.
 
 #### Scenario: Module acquisition writes nothing
 
