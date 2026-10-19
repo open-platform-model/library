@@ -47,3 +47,7 @@ Not in this change: the library release that carries it, and `.tasks/cascade/wir
   exists only after the GitHub rename. The CI edits and the `consumer-build` spec wording are
   therefore one separate, last commit of the branch, applied after the repository is renamed;
   everything before it merges while the repository is still named `opm-operator`.
+
+## Enhancement
+
+None.
