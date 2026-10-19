@@ -118,7 +118,7 @@ The generated render module SHALL carry a `gate` field that evaluates to an erro
 
 ### Requirement: A render refuses a platform whose core predates the provider count
 **Reason**: Split into requirements that each state one behavior.
-**Migration**: See "A render checks the core floor of the platform before staging", "A platform that predates the provider count is refused with PlatformCoreTooOldError", "The refusal of a platform that predates the provider count stages nothing and does not fall back", "The check reads the recorded floor and not the platform's Package" and "One acquired platform stays shareable across concurrent renders".
+**Migration**: See "A render checks the core floor of the platform before staging", "A platform that predates the provider count is refused with PlatformCoreTooOldError", "The refusal of a platform that predates the provider count stages nothing and does not fall back", "The check reads the recorded floor and not the platform's Package", "The check decodes Package once on a platform the constructor did not build" and "One acquired platform stays shareable across concurrent renders".
 
 ### Requirement: A render refuses a platform whose enabled entries share contract keys
 **Reason**: Split into requirements that each state one behavior.
@@ -676,13 +676,19 @@ The refusal with `PlatformCoreTooOldError` SHALL NOT be a `*RenderError`, SHALL 
 - **THEN** `Render` returns an error from which `errors.As` extracts a `PlatformCoreTooOldError` naming the platform, the field `providedBy` and the release `2.0.0-alpha.12`, the error is not a `*RenderError`, no result is returned, and no staging file is written
 
 ### Requirement: The check reads the recorded floor and not the platform's Package
-The check of the platform's core floor SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call. Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`.
-**Source**: `platform-artifact`, "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError" and "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call".
+The check of the platform's core floor SHALL read the recorded floor through `CoreFloor()`, and on a platform the constructor built it SHALL NOT read the platform's `Package`; a platform the constructor did not build decodes `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "CoreFloor returns nil when the recorded floor is met and otherwise the typed PlatformCoreTooOldError").
 
 #### Scenario: A render reads no platform Package
 
 - **WHEN** a current-core platform is acquired, its `Package` is replaced with the zero `cue.Value`, and it is rendered with an acquired instance
 - **THEN** the core floor raises no error and the render produces the same objects as a render of the unchanged platform
+
+### Requirement: The check decodes Package once on a platform the constructor did not build
+A platform the constructor did not build SHALL decode `Package` once, on its first `CoreFloor()` or `Contracts()` call (`platform-artifact`, "A platform the constructor did not build decodes Package once, on its first CoreFloor or Contracts call").
+
+#### Scenario: A platform the constructor did not build decodes Package on its first call
+- **WHEN** the check of the core floor runs on a platform the constructor did not build
+- **THEN** that platform SHALL decode `Package` once, on its first `CoreFloor()` or `Contracts()` call
 
 ### Requirement: One acquired platform stays shareable across concurrent renders
 Apart from the floor, `Render` SHALL read only the platform's `Metadata` and `Source`. One acquired platform therefore stays shareable, as data, across concurrent `Render` calls on one Kernel.
