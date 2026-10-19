@@ -1,6 +1,6 @@
 ## Why
 
-OpenSpec 1.14.1 makes the over-500-character requirement check a WARNING. `--strict` fails on any warning, and no flag turns the check off. The repo moves to 1.14.1 now so its generated skills match the tool that every other repo uses. A later change rewrites the long requirements of this repo and adds a 1.14.1 strict gate.
+OpenSpec 1.14.1 makes the over-500-character requirement check a WARNING. `--strict` fails on any warning, and no flag turns the check off. The repo moves to 1.14.1 now so its generated skills match the tool that the other repos move to. A later change rewrites the long requirements of this repo and adds a 1.14.1 strict gate.
 
 ## What Changes
 
