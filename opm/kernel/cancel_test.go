@@ -13,8 +13,13 @@ import (
 	"github.com/open-platform-model/library/opm/kernel"
 )
 
-// kernel-runtime spec, "Verbs check their context between stages": every verb is first shown to succeed on its inputs with a live
-// context, so the cancelled call fails on the context and on nothing else.
+// kernel-runtime spec, "Verbs check their context between stages", "A
+// cancelled check of a directory or synthesis verb returns the context's own
+// error and no artifact", "The registry acquire verbs and Render check their
+// context" and "A cancelled check of a registry acquire verb or Render returns
+// the context's own error and no artifact": every verb is first shown to
+// succeed on its inputs with a live context, so the cancelled call fails on
+// the context and on nothing else.
 
 func cancelledContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())

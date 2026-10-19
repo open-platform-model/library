@@ -66,6 +66,6 @@ Specs: `migration-docs` (3), `release-pipeline` (3), `duplicate-object-identitie
 - [x] 6.2 For each long requirement choose the form (a, b, c2 or d) by the design.md table after reading its text, and search the repo for its old header before any rename, split or c2
 - [x] 6.3 Write the delta in `specs/<spec>/spec.md` of this change for each spec of the batch: every body 500 or less with SHALL or MUST, each new requirement with a scenario that has a body, no `**Key**:` line, no heading of level 5 or deeper and no fenced block in a body
 - [x] 6.4 Add the ledger tables for the batch to design.md (`### Ledger: <spec>`: scenario table and clause table)
-- [x] 6.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger
+- [x] 6.5 Run the byte-equality command of design.md for every rewritten requirement: exit 0, every `new:` line explained in the ledger (the whole-file command exits 1 three times for `release-pipeline`, a false DIFF on the names "A release is cut" and "No release is cut" that an unchanged requirement shares; the per-requirement comparison, each old requirement's scenarios against the delta, prints 51 `same`, 0 DIFF and 0 LOST)
 - [x] 6.6 Run the gate block of design.md with `N=152`: `GATE PASS`, WARNING lines fell by 152 from 153, no new ERROR item, no "Archive would refuse" line (WARNING lines fell from 153 to 1, the one in `publish-go-api-bundle`)
 - [x] 6.7 `task check` green, then commit `docs(openspec): split the long requirements of library-B6`
