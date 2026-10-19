@@ -212,7 +212,7 @@ Every cascade reference in the library's workflows SHALL name the same full 40-c
 - **THEN** the library's cascade keeps running its pinned commit until a `ci(deps): pin the cascade to .github <sha7>` PR moves all five references together
 
 ### Requirement: cascade-task.yml fails, not skips S5, when the resolver is missing
-`cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit.
+(Requirement: Every cascade reference names the same full .github main SHA and no branch or tag) `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit.
 **Source**: owner decision 24, extended to the two reusable workflows and the resolver checkout by the change join-release-cascade (`openspec/changes/archive/2026-10-04-join-release-cascade`); `.github` README at `6df4000`, "Pinning and bumps", "The wiring check" and "Keeping the copy in sync"; Phase 3 wiring contract (version 3.1, changelogs 3.1.1 and 3.1.2) §2.4 and §10.1 items 2, 3, 6 and 7, with the `release.yml` env allow-list and `runs-on` rules the join-release-cascade change added (its `design.md`).
 
 #### Scenario: A missing resolver fails the task
@@ -248,7 +248,7 @@ The script `.tasks/cascade/wiring-check.sh` SHALL be a byte-identical copy of `.
 - **THEN** the step "Verify the cascade wiring" fails
 
 ### Requirement: The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy
-`.tasks/cascade/wiring-check.sh`: it SHALL run, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH_TOKEN: ${{ github.token }}` and `run: bash .tasks/cascade/wiring-check.sh --pin-on-main`, which also confirms the SHA is on `.github`'s `main` and that the running copy is byte for byte the file at that SHA.
+`.tasks/cascade/wiring-check.sh`: it SHALL run, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH_TOKEN: ${{ github.token }}` and `run: bash .tasks/cascade/wiring-check.sh --pin-on-main`, which also confirms the SHA (Requirement: Every cascade reference names the same full .github main SHA and no branch or tag) is on `.github`'s `main` and that the running copy is byte for byte the file at that SHA.
 **Source**: owner decision 24, extended to the two reusable workflows and the resolver checkout by the change join-release-cascade (`openspec/changes/archive/2026-10-04-join-release-cascade`); `.github` README at `6df4000`, "Pinning and bumps", "The wiring check" and "Keeping the copy in sync"; Phase 3 wiring contract (version 3.1, changelogs 3.1.1 and 3.1.2) §2.4 and §10.1 items 2, 3, 6 and 7, with the `release.yml` env allow-list and `runs-on` rules the join-release-cascade change added (its `design.md`).
 
 #### Scenario: The wiring is as the contract gives it

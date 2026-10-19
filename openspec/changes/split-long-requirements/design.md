@@ -2848,7 +2848,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | `deps-cascade.yml` SHALL pass `${{ inputs.dry_run == true \|\| vars.CASCADE_DRY_RUN != 'false' }}... | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run | verbatim |
-| So the receiver SHALL publish only when the repo variable `CASCADE_DRY_RUN` is `false` (GitHub co... | The receiver publishes only when CASCADE_DRY_RUN is false and the run is not a manual dry run | verbatim |
+| So the receiver SHALL publish only when the repo variable `CASCADE_DRY_RUN` is `false` (GitHub co... | The receiver publishes only when CASCADE_DRY_RUN is false and the run is not a manual dry run | verbatim; the body adds before it `(Requirement: The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run)` (a subject or a pointer to another requirement of the same spec) |
 | An unset, deleted or any other value SHALL mean a dry run. | The receiver treats an unset or other CASCADE_DRY_RUN value as a dry run | verbatim |
 | In a dry run the receiver computes the diff, title, body and labels and writes them to the job su... | A dry run writes its plan to the job summary and changes nothing | SHALL added: the old sentence has no keyword; the verbs take the infinitive after `SHALL` |
 | The gate statuses SHALL still be posted in a dry run. | A dry run writes its plan to the job summary and changes nothing | verbatim |
@@ -2871,7 +2871,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | When a cascade run moves `DefaultSchemaModule`, the resulting PR SHALL carry the label `need-huma... | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
-| The library SHALL get this from its pin report's core row label and from the `cascade-publish` ac... | The need-human-review label comes from the pin report's core row and from the cascade-publish action | verbatim |
+| The library SHALL get this from its pin report's core row label and from the `cascade-publish` ac... | The need-human-review label comes from the pin report's core row and from the cascade-publish action | verbatim; the body adds before it `(Requirement: A core move labels the cascade PR need-human-review, a catalog-only move...` (a subject or a pointer to another requirement of the same spec) |
 | A catalog-only move SHALL NOT add the label. | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
 | The bot SHALL NOT remove the label once set. | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | verbatim |
 | Source: owner selection 9 ("Bot proposes, glue review", label `need-human-review`); w... | A core move labels the cascade PR need-human-review, a catalog-only move does not, and the bot never remove... | the whole Source line, as a `**Source**:` line |
@@ -2894,12 +2894,12 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | The library SHALL have a workflow `.github/workflows/cascade-gates.yml` that runs on `pull_reques... | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | verbatim |
 | It SHALL check out no PR code. | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | verbatim |
-| The concurrency group SHALL be per PR number, cancelling an older run. | The cascade gates cancel an older run per PR and are no required check | verbatim |
+| The concurrency group SHALL be per PR number, cancelling an older run. | The cascade gates cancel an older run per PR and are no required check | verbatim; the body adds before it ``.github/workflows/cascade-gates.yml`:` (a subject or a pointer to another requirement of the same spec) |
 | Neither `cascade/freshness` nor `cascade/settled` SHALL become a required check in this change. | The cascade gates cancel an older run per PR and are no required check | verbatim |
 | Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 1... | The cascade-gates.yml workflow runs on pull_request_target with fixed grants and checks out no PR code | the whole Source line, as a `**Source**:` line |
 | Source: workspace `RELEASING.md`, section "Gates" (G2, G3); owner selections 11 and 1... | The cascade gates cancel an older run per PR and are no required check | the whole Source line, as a `**Source**:` line |
 
-**The cascade references carry one .github SHA, checked on every PR**: form c2 (REMOVED plus ADDED); old body 2633 characters; new bodies 496, 88, 177, 434, 432, 348, 318.
+**The cascade references carry one .github SHA, checked on every PR**: form c2 (REMOVED plus ADDED); old body 2633 characters; new bodies 496, 185, 177, 434, 432, 445, 318.
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
@@ -2921,12 +2921,12 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | Every cascade reference in the library's workflows SHALL name the same full 40-character SHA of a... | Every cascade reference names the same full .github main SHA and no branch or tag | verbatim |
 | No reference SHALL name a branch or a tag. | Every cascade reference names the same full .github main SHA and no branch or tag | verbatim |
-| `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit. | cascade-task.yml fails, not skips S5, when the resolver is missing | verbatim |
+| `cascade-task.yml` SHALL fail, not skip S5, when the resolver is missing at that commit. | cascade-task.yml fails, not skips S5, when the resolver is missing | verbatim; the body adds before it `(Requirement: Every cascade reference names the same full .github main SHA and no branc...` (a subject or a pointer to another requirement of the same spec) |
 | `.github/dependabot.yml` SHALL ignore `open-platform-model/.github*` under `github-actions`. | Dependabot ignores the .github repository and waits 7 days on github-actions | verbatim |
 | `.github/dependabot.yml` SHALL give the `github-actions` entry a cooldown of 7 days. | Dependabot ignores the .github repository and waits 7 days on github-actions | verbatim |
 | The script `.tasks/cascade/wiring-check.sh` SHALL be a byte-identical copy of `.github/scripts/ca... | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin | verbatim |
 | It SHALL check these references and the shapes of this capability, SHALL refuse any `release.yml`... | The wiring check refuses shapes of this capability and runs offline through task cascade:wiring:check | verbatim up to the list boundary; `It` becomes `.tasks/cascade/wiring-check.sh`: it, the pointer (Requirement: ...) follows `these references` and a closing `.` ends the sentence |
-| and, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH... | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy | verbatim from the list boundary; `and,` becomes `.tasks/cascade/wiring-check.sh`: it SHALL run, (the subject and the verb repeated from the cut sentence) |
+| and, in the required `Go tests` job on every PR, as the step "Verify the cascade wiring" with `GH... | The wiring check runs in the required Go tests job on every PR and confirms the pin and the copy | verbatim from the list boundary; `and,` becomes `.tasks/cascade/wiring-check.sh`: it SHALL run, (the subject and the verb repeated from the cut sentence); the pointer (Requirement: ...) follows `confirms the SHA` |
 | In `test.yml`, the workflow's and the `test` job's `env` SHALL name only `CUE_*`, `OPM_*`, `REGIS... | The test.yml workflow keeps a narrow env and only pinned actions before the wiring step | verbatim |
 | The copy moves only with the pin. | The wiring-check script is a byte-identical copy of the .github script and moves only with the pin | verbatim |
 | Source: owner decision 24, extended to the two reusable workflows and the resolver ch... | Every cascade reference names the same full .github main SHA and no branch or tag | the whole Source line, as a `**Source**:` line |
@@ -2972,7 +2972,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | When a `Source` is file-backed (its `Origin` is an absolute path naming an existing file), the op... | File-Backed Sources Resolve Imports Through the Kernel Mapping | verbatim |
-| Absent the option, the load SHALL read the process `CUE_REGISTRY` unchanged. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
+| Absent the option, the load SHALL read the process `CUE_REGISTRY` unchanged. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim; the body adds before it `(Requirement: File-Backed Sources Resolve Imports Through the Kernel Mapping)` (a subject or a pointer to another requirement of the same spec) |
 | This SHALL hold on every path that compiles sources: `ValidateConfigDetailed`, `AcquireInstanceFr... | File-Backed Sources Resolve Imports Through the Kernel Mapping | verbatim |
 | A source compiled from bytes carries no imports and is unaffected. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
 | The process environment SHALL NOT be mutated. | A file-backed source without the option reads the process CUE_REGISTRY and the process environment is not m... | verbatim |
@@ -2993,7 +2993,7 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | --- | --- | --- |
 | The library SHALL retain `walkDisallowed` and `fieldNotAllowedError` as private internals of `opm... | The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error | verbatim |
 | The error type SHALL implement `cuelang.org/go/cue/errors.Error` so that disallowed-field diagnos... | The closed-schema walk is private to opm/kernel/validate.go and its error implements cueerrors.Error | verbatim |
-| The error's `Path()` SHALL return `values` followed by one segment per field label on the way to... | The disallowed-field error Path returns one selector segment per field label and a label with dots is one s... | verbatim |
+| The error's `Path()` SHALL return `values` followed by one segment per field label on the way to... | The disallowed-field error Path returns one selector segment per field label and a label with dots is one s... | verbatim; the body adds before it ``fieldNotAllowedError`:` (a subject or a pointer to another requirement of the same spec) |
 | A label that contains dots SHALL be one segment, so joining the segments with `.` gives the field... | The disallowed-field error Path returns one selector segment per field label and a label with dots is one s... | verbatim |
 
 **Single Kernel Validation Primitive**: form b (MODIFIED plus ADDED); old body 1448 characters; new bodies 431, 420, 300, 467.
@@ -3014,10 +3014,10 @@ New scenarios (`new:` lines of the byte check; each restates words of the old te
 | Old clause | New requirement | Change |
 | --- | --- | --- |
 | The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `ValidateCo... | Single Kernel Validation Primitive | verbatim |
-| (cue.Value, error)`. | Single Kernel Validation Primitive | verbatim |
+| (cue.Value, error)`. | Single Kernel Validation Primitive | verbatim; the body adds before it `The library SHALL expose exactly one validation method on `*Kernel` in `opm/kernel/`: `...` (a subject or a pointer to another requirement of the same spec) |
 | It SHALL compile each source in the schema's own context so that every position names the source'... | ValidateConfigDetailed compiles each source in the schema's context, unifies in stack order, walks disallow... | verbatim; `It` becomes `ValidateConfigDetailed`: it |
-| A failure of the validation step (the disallowed-field walk, the unification with the schema, or... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim |
-| SHALL be returned as a `*ConfigValidationError` (`opm/errors`) that wraps the CUE-native error tr... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim |
+| A failure of the validation step (the disallowed-field walk, the unification with the schema, or... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim; the body adds before it ``ValidateConfigDetailed`:` (a subject or a pointer to another requirement of the same spec) |
+| SHALL be returned as a `*ConfigValidationError` (`opm/errors`) that wraps the CUE-native error tr... | A failure of the validation step is a ConfigValidationError that wraps the CUE error tree unchanged | verbatim; the body adds before it ``ValidateConfigDetailed`: A failure of the validation step (the disallowed-field walk,...` (a subject or a pointer to another requirement of the same spec) |
 | A source that fails to compile or to load is returned as before, without the marker: such a failu... | A source that fails to compile or to load is returned without the ConfigValidationError marker | SHALL added: the old sentence has no keyword; `is returned` becomes `SHALL be returned`; the pointer (Requirement: ...) is added before the sentence |
 | The kernel SHALL NOT expose a single-value or a partial-mode variant: a single value is a one-ele... | Single Kernel Validation Primitive | verbatim |
 
