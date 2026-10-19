@@ -2,7 +2,7 @@
 
 ### Requirement: Match Phase Consumes Platform
 
-**Reason**: the Go matcher and `Kernel.Match` are deleted; matching runs inside the render build over the platform's derived `#composedTransformers` (0019 D10, `single-build-render`).
+**Reason**: the Go matcher and `Kernel.Match` are deleted; matching runs inside the render build over the platform's derived `#composedTransformers` (enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"), `single-build-render`).
 
 **Migration**: `Render`; read `RenderDiagnostics.Pairs`.
 
@@ -14,7 +14,7 @@
 
 ### Requirement: Lookup via Platform.#matchers
 
-**Reason**: core removed `#Platform.#matchers` (0019 D17); the glue builds its own buckets from `#composedTransformers`.
+**Reason**: core removed `#Platform.#matchers` (enhancement 0019, "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index"); the glue builds its own buckets from `#composedTransformers`.
 
 **Migration**: none.
 
@@ -44,7 +44,7 @@
 
 ### Requirement: Always-Unify Before Pairing
 
-**Reason**: carried by the glue as plain unification with no provenance exclusion (0019 D10); specified under `single-build-render`.
+**Reason**: carried by the glue as plain unification with no provenance exclusion (enhancement 0019, "Matching moves into the render build; verdicts are data; the D30 carve-out is deleted"); specified under `single-build-render`.
 
 **Migration**: none.
 

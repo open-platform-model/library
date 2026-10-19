@@ -40,7 +40,7 @@ Required identity fields are those the schema never defaults:
 
 - Module: `metadata.name`, `metadata.modulePath`, `metadata.version`.
 - Instance: `metadata.name`, `metadata.namespace`, and `#module` present with `#module.kind == "Module"`.
-- Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(true)`. Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (0019 D5), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
+- Platform: `metadata.name`, `type`, and every `#registry` entry complete under `cue.Concrete(true)`. Core derives an entry's `version` from its embedded catalog's stamped `metadata.version` (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else"), so an entry with no embedded catalog, or one embedding an unstamped catalog, fails here as a missing required field naming the entry. This is the refusal `single-build-render` relies on for a subscription-shaped platform.
 
 A required identity field declared as a disjunction with a default (for example `#VersionType | *"1.0.1"`) is NOT concrete for the purpose of this gate: the gate judges the value as authored, before default finalization. When the gate rejects such a field, the error SHALL name the default arm's value and state that identity fields must be concrete literals.
 

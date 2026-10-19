@@ -2,11 +2,11 @@
 
 ADR-015 gave typed errors one receiver shape and types one name, and left two listed exceptions for opm-operator: `IdentityError` (value receiver, `As` method) and `catalog.Source`. Two tests carry the exception lists (`TestTypedErrorsUsePointerReceivers` in `opm/errors`, `TestSurface_OneNamePerType` in `opm/schema`). opm-operator#273 removed the last uses.
 
-`opm/k8s/ownership` took an `Admit` input for `opm operator install` over an operator installed from a manifest (0012:D8:R6/R7). The owner withdrew that rule on 2026-10-09; the cli removes its migration in cli#357.
+`opm/k8s/ownership` took an `Admit` input for `opm operator install` over an operator installed from a manifest (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"). The owner withdrew that rule on 2026-10-09; the cli removes its migration in cli#357.
 
 ## Goals / Non-Goals
 
-**Goals:** remove the five exported names in one breaking beta; change no verdict for an input without `Admit`; leave the adopt rule (0012:D8:R8) as it is; correct every text that names a removed thing.
+**Goals:** remove the five exported names in one breaking beta; change no verdict for an input without `Admit`; leave the adopt rule (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") as it is; correct every text that names a removed thing.
 
 **Non-Goals:** any rename (`opm-operator` stays in every string, workflow and script); the kernel; the `providesFold` fallback; a new override of any kind.
 
@@ -47,7 +47,7 @@ if !opmManaged(in.Live) { /* foreign-object */ }
 
 ### Records
 
-**Decision**: ADR-015 gets a dated closing note under Status (the two exceptions are gone). A new ADR-016 records the admission removal with 0012:D8:R6/R7 and what stays (0012:D8:R8). No `enhancement.yaml`.
+**Decision**: ADR-015 gets a dated closing note under Status (the two exceptions are gone). A new ADR-016 records the admission removal (the requirements of enhancement 0012 that the enhancement record withdrew) and what stays (the adopt rule of the same enhancement). No `enhancement.yaml`.
 **Rationale**: AGENTS.md "Where a statement lives": rationale goes in an ADR. The delivery log records delivered decisions, and this change delivers none.
 
 ## Risks / Trade-offs

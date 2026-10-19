@@ -1,6 +1,0 @@
-# Enhancement declaration, read by `task enhancements:delivery:log` at archive time.
-# See enhancements/schema.cue #ChangeDeclaration.
-implements:
-  - enhancement: "0019"
-    decisions: [D8, D9, D10, D13, D26]
-    resolves: []

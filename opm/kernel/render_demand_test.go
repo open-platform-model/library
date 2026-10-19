@@ -18,7 +18,7 @@ import (
 )
 
 // single-build-render spec, "A render reports every contract its instance
-// requires" (0013:D24).
+// requires" (enhancement 0013).
 
 const (
 	containerFQN  = renderCatPath + "/resources/container@v1"

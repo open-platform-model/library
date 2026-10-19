@@ -2,7 +2,7 @@
 
 ### Requirement: Subscription Resolution
 
-**Reason**: `opm/materialize` is deleted (0019 D5/D9). A platform module's `cue.mod` names its catalog builds and the render build resolves them like any CUE dependency; there is no subscription scalar to resolve.
+**Reason**: `opm/materialize` is deleted (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else" and "The render step is one CUE build per render"). A platform module's `cue.mod` names its catalog builds and the render build resolves them like any CUE dependency; there is no subscription scalar to resolve.
 
 **Migration**: pin catalogs in the platform module's `cue.mod`; `Render` resolves them through the promoted render module.
 
@@ -14,13 +14,13 @@
 
 ### Requirement: Transformer Indexing
 
-**Reason**: `#composedTransformers` is derived by core as a fold over enabled entries; the reverse index is built by the render glue from it (0019 D10/D17).
+**Reason**: `#composedTransformers` is derived by core as a fold over enabled entries; the reverse index is built by the render glue from it (enhancement 0019, "Matching moves into the render build; verdicts are data; the D30 carve-out is deleted" and "`#Platform.#matchers` is removed, and the render build's glue owns the reverse index").
 
 **Migration**: none.
 
 ### Requirement: MaterializedPlatform Output Shape
 
-**Reason**: the type is deleted; nothing built is shared between renders (0019 D8).
+**Reason**: the type is deleted; nothing built is shared between renders (enhancement 0019, "ADR-002 is superseded, not amended; nothing built is shared between renders").
 
 **Migration**: hold a source-carrying `*platform.Platform` (the acquired module) instead; `Render` builds per call.
 

@@ -7,7 +7,7 @@ See `proposal.md` for motivation. The mechanics that shape the approach:
 - `Kernel.Finalize` / `compile.FinalizeValue` are public and have a `kernel-runtime` requirement of their own ("Utility Methods on Kernel"). Their removal is 0019 step 4, a MAJOR.
 - `opm/kernel/flow_integration_test.go` builds its instance from a `CompileString` skeleton plus three `FillPath`s and a hard-coded `uuid`; `testdata/parity/instance/instance.cue` is the import-authored shape that resolves `#instance`, and `Kernel.LoadInstancePackage` already accepts it.
 - The parity harness records `names-probe :: web` as expected to diverge because of the strip, and fails when a recorded divergence stops reproducing.
-- ADR-003 forbids `FillPath` into a *closed, independently built* value. The transformer `#transform` is that value today already; what changes is only the filled argument. Experiment 00 (`enhancements/0019/experiments/00-purecue-definitions/`) measured a closed component rendering through unification with its definitions intact.
+- ADR-003 forbids `FillPath` into a *closed, independently built* value. The transformer `#transform` is that value today already; what changes is only the filled argument. Experiment 00 (the pure-CUE definitions experiment of enhancement 0019) measured a closed component rendering through unification with its definitions intact.
 
 ## Goals / Non-Goals
 
@@ -30,7 +30,7 @@ See `proposal.md` for motivation. The mechanics that shape the approach:
 
 `executePair` looks the component up in `schemaComponents` and fills it. `Execute` keeps `(ctx, inst, schemaComponents, dataComponents, plan)`; the doc comment marks `dataComponents` "ignored; deprecated, removed with FinalizeValue". `Kernel.compileModuleInstance` stops calling `FinalizeValue` and passes `schemaComponents` for both arguments.
 
-**Why:** the fix is a removal on the render path (0019 D1's direction) without a public break. Dropping the parameter now would force this slice to MAJOR and couple it to the `FinalizeValue` removal that D4 deliberately sequences later.
+**Why:** the fix is a removal on the render path (the direction of enhancement 0019) without a public break. Dropping the parameter now would force this slice to MAJOR and couple it to the `FinalizeValue` removal that the slice order of enhancement 0019 deliberately sequences later.
 
 **Alternative:** rename `schemaComponents`/`dataComponents` to `components` throughout now. Rejected: it is the same MAJOR in disguise for `Execute`, and pure churn inside the package; done once, in step 4.
 
@@ -58,7 +58,7 @@ Delete `ExpectedDivergence` on `names-probe :: web`; the harness's "no longer re
 
 ## Risks / Trade-offs
 
-- [A published transformer trips the ADR-003 corruption once it receives a closed, unfinalized component] → shipped parity rows catch it as a genuine value divergence; the change halts and the pair is reproduced as a fixture and reported upstream (0019 05-risks names this hazard as probed-and-not-reproduced).
+- [A published transformer trips the ADR-003 corruption once it receives a closed, unfinalized component] → shipped parity rows catch it as a genuine value divergence; the change halts and the pair is reproduced as a fixture and reported upstream (the risks of enhancement 0019 name this hazard as probed-and-not-reproduced).
 - [`cue.Final()`-derived defaults: a transformer relying on defaults having been resolved in the finalized value] → unification resolves defaults at read time the same way; the parity rows are byte-identical for every shipped transformer or the harness says which one is not.
 - [Flow fixture assertions depend on the hand-built instance's shape (component count, labels)] → the import-authored instance carries the same two components and labels; the test's assertions are unchanged, only the construction is.
 - [`compile_test.go` helpers still call `FinalizeValue` and pass the result to `Execute`] → harmless while the parameter is ignored; they are cleaned in step 4 with the parameter. Not touched here to keep the slice small.

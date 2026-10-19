@@ -28,10 +28,10 @@ import (
 // and `definedBy` folding only keys with exactly one enabled definer), on
 // top of the per-registry-entry provider count (`providedBy`, with `overSubscribed`, `unfulfilled` and `routable`
 // recounted from it), the comparable-predicate report (`comparable` and
-// `discriminated`; 0015:D5, 0015:OQ9), the 0015:D1/D2/D18 inventory, the
-// 0019:D5 registry shape (a #Platform.#registry entry embeds its catalog by
-// import and derives `version` from it) and the 0019:D12
-// transformer-context projection.
+// `discriminated`; enhancement 0015), the contract inventory (enhancement
+// 0015), the registry shape (a #Platform.#registry entry embeds its catalog by
+// import and derives `version` from it, enhancement 0019) and the
+// transformer-context projection (enhancement 0019).
 //
 // The default is not the render floor: Kernel.Render and Platform.Contracts
 // accept every core from [ProvidedBySince] on, and a platform pinning a

@@ -56,7 +56,7 @@ place, `classifyText`.
 **Goals:**
 
 - A caller tells an author-defect resolution failure by type (`errors.As(err, &re)`) and its
-  kind by `re.Kind`, with no text matching (0021:D8:R12).
+  kind by `re.Kind`, with no text matching (enhancement 0021, "A beta line reaches GA only when its exit criteria hold").
 - Every `*FetchError` and `ErrTransient` answer stays as it is, and every message stays
   byte-identical.
 - Both cli text matches the 0021 delivery log records can move onto the types with their pinned
@@ -100,7 +100,7 @@ func (e *ResolutionError) Unwrap() error // e.Err
 `*ResolutionError` is a separate type from `*FetchError`. It is not a `FetchKind`, because a
 frontend that retries every `*FetchError` (the operator does, `IsTransientFailure`) must never
 retry an author defect. It has no `Is` method, so `errors.Is(err, ErrTransient)` is false through
-it. The name follows the 0021:D8:R12 wording "fetch or resolution failure". The operator already
+it. The name follows the enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") wording "fetch or resolution failure". The operator already
 uses "typed resolution error" for its own identity and render-gate causes
 (`isTypedResolutionError`). The library type does not change that function. When the operator
 adopts it, it uses `*ResolutionError` only for its stall reason and condition message. It must
@@ -230,7 +230,7 @@ it in this change, so the cli can drop both matches on this library release.
 **Decision**: A separate `*ResolutionError`.
 **Rationale**: Any new `FetchKind` would change the operator's retry answer for these failures
 from stall to retry. The operator would then retry an author's import typo forever, which is the
-failure 0021:D8:R12 exists to prevent. A separate type changes no existing answer.
+failure enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") exists to prevent. A separate type changes no existing answer.
 
 ### Three kinds, not one
 
@@ -258,7 +258,7 @@ code changes. Its findings go under "Spike findings" below.
 
 ### Where resolution ends
 
-0021:D8:R12 asks for each fetch or resolution failure by type. This change counts as a resolution
+Enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") asks for each fetch or resolution failure by type. This change counts as a resolution
 failure a failure to find, choose or read the module that provides an imported package. These
 `cue/load` failures are not resolution failures, and `Classify` keeps returning them unchanged:
 

@@ -2,7 +2,7 @@
 
 The OPM core catalog lives at `library/modules/opm/` and is currently broken: it imports `opmodel.dev/core/v1alpha2@v1` and pins `opmodel.dev/core@v1.0.6` (unresolvable), so `cue vet ./...` fails. Its `cue.mod` was already partially renamed to `opmodel.dev/catalogs/opm@v1` while every internal import and metadata literal still uses the old `opmodel.dev/modules/opm` path and `version: "v1"`. The `opm_platform` consumer fixture is quarantined (`_platform.cue.quarantined`) because it predates the new shape.
 
-Enhancement 0001's core slice shipped `opmodel.dev/core@v0.3.0` with: a SemVer-only `#FQNType` (`@\d+\.\d+\.\d+…`), a top-level `#Catalog`/`#CatalogFQNType` (D19, D25), and a `#Subscription`-shaped `#Platform.#registry`. This change is the `library`/`modules` slice — it brings the catalog and its consumer onto that shape and republishes. Per D22, Part B (binding-dispatch removal + OCI-loader) has shipped, so this can land now. The materialize/match kernel slice has also landed and consumes `#composedTransformers`/`#matchers` off the materialized platform — it is agnostic to the catalog's identity, so no Go code changes here.
+Enhancement 0001's core slice shipped `opmodel.dev/core@v0.3.0` with: a SemVer-only `#FQNType` (`@\d+\.\d+\.\d+…`), a top-level `#Catalog`/`#CatalogFQNType` (enhancement 0001), and a `#Subscription`-shaped `#Platform.#registry`. This change is the `library`/`modules` slice — it brings the catalog and its consumer onto that shape and republishes. Per the sequencing of enhancement 0001, Part B (binding-dispatch removal + OCI-loader) has shipped, so this can land now. The materialize/match kernel slice has also landed and consumes `#composedTransformers`/`#matchers` off the materialized platform — it is agnostic to the catalog's identity, so no Go code changes here.
 
 Constraints: pure-CUE module work + Taskfile + CI; no `opm/` Go API surface touched (Principle VI: PATCH-equivalent for the Go library). Library Principle VIII (small batches) makes the three phases distinct commit groups.
 
@@ -19,7 +19,7 @@ Constraints: pure-CUE module work + Taskfile + CI; no `opm/` Go API surface touc
 - Conventional-commit/release-please-driven versioning or per-catalog changelogs (explicitly deferred — see Decisions).
 - Rewiring workspace `modules/*` (jellyfin, garage, …) onto the new catalog tag (separate non-blocking wave per D23).
 - Any `opm/` Go kernel change; any change to the Go-module release-please flow.
-- Per-primitive SemVer or introspection sibling maps on `#Catalog` (rejected/deferred in 0001 D18/D19).
+- Per-primitive SemVer or introspection sibling maps on `#Catalog` (rejected/deferred in enhancement 0001 ("Catalog-monolithic SemVer; every primitive's `metadata.version` is `Catalog.Version`" and "`#Catalog` is a top-level definition with schema-enforced subpath stamping; supersedes D7 + D15; amends D9")).
 
 ## Decisions
 
@@ -30,7 +30,7 @@ Resources, traits, blueprints, **and** transformers derive `metadata.modulePath`
 - *Why:* keeps FQNs concrete for map keys without a circular import; `identity/` (constants only) sits at the bottom of the import graph.
 - *Alternative:* rely on stamping alone → map keys non-concrete at author time → fails. Rejected.
 
-### D-B: `#Catalog` uses the `M=metadata` label-alias (inherited from 0001 D25)
+### D-B: `#Catalog` uses the `M=metadata` label-alias (inherited from enhancement 0001)
 
 `catalog.cue` embeds bare `c.#Catalog` (modules pattern, no `Catalog:` wrapper). The stamping bridge is the field-label alias the published core schema already uses.
 
@@ -42,7 +42,7 @@ A dedicated `cue:publish:catalog` task does the D9/D19 stamping (rsync → `.bui
 
 - *Why standalone, not RP:* the library repo already runs release-please for the **Go module** with **bare `vX.Y.Z`** tags, which `go get` requires. Adding the catalog as an RP component with `include-component-in-tag: true` would prefix *every* tag (`library-v…`), breaking the Go module's tag contract. Keeping the Go flow untouched and giving the catalog a standalone publisher avoids that collision entirely.
 - *Why registry-presence over checksum content-diff:* the existing `cue:publish:smart` checksum approach must write the new checksum back to `cue-versions.yml`, which in an unattended `push: main` workflow means a bot commit-back that can re-trigger the run; it also auto-patch-bumps, mislabelling breaking primitive changes as patches. Registry-presence is stateless and keeps version intent (major/minor/patch) in the author's hands. It is the proven `publish-cue.yml` pattern.
-- *Alternatives considered:* (1) **checksum content-diff + auto-bump** (`cue:publish:smart` style) — needs CI commit-back, dishonest semver; rejected. (2) **multi-component RP** with mixed per-package tag formats — uncertain RP supports bare-for-one + prefixed-for-another, higher risk to `go get`; deferred. (3) extract the catalog to its own repo (clean core-style RP) — contradicts 0001 D23 + graduation ("at `library/modules/opm/`"), biggest restructure; deferred. Revisitable if conventional-commit versioning becomes a real need.
+- *Alternatives considered:* (1) **checksum content-diff + auto-bump** (`cue:publish:smart` style) — needs CI commit-back, dishonest semver; rejected. (2) **multi-component RP** with mixed per-package tag formats — uncertain RP supports bare-for-one + prefixed-for-another, higher risk to `go get`; deferred. (3) extract the catalog to its own repo (clean core-style RP) — contradicts enhancement 0001 ("Catalog repackage is a hard switch; first new-shape tag is `opmodel.dev/catalogs/opm@0.1.0`; no graceful coexistence with the legacy `@v1` shape") + graduation ("at `library/modules/opm/`"), biggest restructure; deferred. Revisitable if conventional-commit versioning becomes a real need.
 
 ### D-D: Version layering — `v`-prefixed OCI tag, bare FQN
 

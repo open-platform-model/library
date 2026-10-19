@@ -4,7 +4,7 @@ package catalog
 // carries no name: its identity is the module path it is published under and
 // the version stamped on every member it ships, so ModulePath and Version are
 // the two fields core declares required with no default. FQN is core's
-// derivation and equals ModulePath (0010:D1); it is decoded so a
+// derivation and equals ModulePath (enhancement 0010); it is decoded so a
 // caller reading provenance off the artifact does not have to know that.
 //
 //nolint:revive // stutter intentional: catalog.CatalogMetadata reads clearly at call sites

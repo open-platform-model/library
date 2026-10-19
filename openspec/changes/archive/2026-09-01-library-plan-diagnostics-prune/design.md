@@ -1,12 +1,12 @@
 ## Context
 
-See proposal.md, Why. The 2026-09-01 review verified each removed identifier has zero production readers in the library and zero references in `cli` and `opm-operator`; the only readers are the identifiers' own tests, two spec requirements, and doc prose. Two of the removals retire surfaces that were kept "for later" by the 2026-08-31 sweeps and have since acquired an owner-level answer: `MissingFQN` was pre-softened by the D28 rework ("retained for compatibility"), and `core.Resource`/`core.Identity` is the exact subject of enhancement 0012 OQ3.
+See proposal.md, Why. The 2026-09-01 review verified each removed identifier has zero production readers in the library and zero references in `cli` and `opm-operator`; the only readers are the identifiers' own tests, two spec requirements, and doc prose. Two of the removals retire surfaces that were kept "for later" by the 2026-08-31 sweeps and have since acquired an owner-level answer: `MissingFQN` was pre-softened by the rework of the unresolved-demand rule (enhancement 0010) ("retained for compatibility"), and `core.Resource`/`core.Identity` is the exact subject of an open question of enhancement 0012.
 
 Constraints that shape the approach:
 
 - Principle VI: MAJOR; pre-GA, consumers migrate in the same wave (here: nothing to migrate) and the record is changelog plus archive.
 - Principle VII bounds the list to zero-reader identifiers: `MatchPlan.Unmatched`, `ModuleVersion()`, `TransformError.ComponentName` and `alternativesFor` all have readers and stay.
-- 0019 owns `Kernel.Match`/`MatchInput` (D10 retires the Go matcher) and the platform file-load path (D6/D9); neither is touched here.
+- 0019 owns `Kernel.Match`/`MatchInput` (enhancement 0019 retires the Go matcher) and the platform file-load path; neither is touched here.
 - 0012 is `draft`; its OQ3 is answered in place per the enhancements rules, with this change cited.
 
 ## Goals / Non-Goals
@@ -15,7 +15,7 @@ Constraints that shape the approach:
 
 - Remove the write-only diagnostics (`MatchPlan.Missing`/`MissingFQN`, `CompileResult.Unmatched`), the dead accessors (`TransformError.Component()`, `Instance.ModuleFQN()` and the `InstanceView.ModuleFQN` member), and the implementation-less adapter contract (`core.Resource`, `core.Identity`).
 - Keep every diagnostic a consumer actually reads byte-identical: `UnresolvedDemand`(sError), `UnifyError`, `MatchPlan.Unmatched`, `UnhandledTraits`, warnings.
-- Record 0012 OQ3's resolution where 0012's promotion gate reads it.
+- Record the resolution of that open question where the promotion gate of enhancement 0012 reads it.
 
 **Non-Goals:**
 
@@ -45,19 +45,19 @@ Constraints that shape the approach:
 
 **Rationale**: The gate made the field unreachable; the spec delta states the invariant explicitly so it cannot silently return.
 
-### D3: Delete the neutral `core.Resource`/`core.Identity` contract outright (0012 OQ3)
+### D3: Delete the neutral `core.Resource`/`core.Identity` contract outright (an open question of enhancement 0012)
 
-**Context**: The interface has zero implementations anywhere; both frontends define their own `Resource` structs and import `opm/core` only for `Compiled`. 0012 OQ3 asks delete-or-retain and blocks 0012's promotion; 0012's own alternatives analysis rejects retaining an abstraction with one hypothetical implementer whose vocabulary cannot express Kubernetes concepts (propagation policy, ownerReferences, subresources).
+**Context**: The interface has zero implementations anywhere; both frontends define their own `Resource` structs and import `opm/core` only for `Compiled`. That open question of enhancement 0012 asks delete-or-retain and blocks its promotion; the alternatives analysis of enhancement 0012 rejects retaining an abstraction with one hypothetical implementer whose vocabulary cannot express Kubernetes concepts (propagation policy, ownerReferences, subresources).
 
 **Explored**: Retaining it unused until 0012 resolves OQ3 itself. Rejected by the owner (2026-09-01): the question's library half is exactly "does anything use it", which is now measured; deleting resolves OQ3 with evidence instead of leaving the blocker to re-derive it.
 
 **Decision**: Delete `resource.go` and its test; `Compiled` is the terminal output and platform identity is stated as the frontend's concern. 0012's OQ3 and history are updated in place, citing this change.
 
-**Rationale**: 0012 D2's direction (kernel written for Kubernetes, no portability abstraction maintained on its behalf) makes the neutral contract a dead end in every future; if 0012 is later rejected, the contract can return shaped by an actual second platform, which it never had.
+**Rationale**: the direction of enhancement 0012 (kernel written for Kubernetes, no portability abstraction maintained on its behalf) makes the neutral contract a dead end in every future; if enhancement 0012 is later rejected, the contract can return shaped by an actual second platform, which it never had.
 
 ### D4: Drop `ModuleFQN` from `InstanceView` rather than keeping the interface stable
 
-**Context**: `BuildTransformerContext` fills `#moduleInstanceMetadata.fqn` from `InstanceFQN()` (the instance's own identity, 0010 D41); `ModuleFQN()` exists beside it and nothing calls it.
+**Context**: `BuildTransformerContext` fills `#moduleInstanceMetadata.fqn` from `InstanceFQN()` (the instance's own identity, enhancement 0010 ("Instance identity derives from the module's registry path, not from its FQN")); `ModuleFQN()` exists beside it and nothing calls it.
 
 **Explored**: Keeping the member for interface stability. Rejected: the interface is library-owned with one production implementer; a member no caller reads is exactly the surface under removal, and a test fake carrying an extra method stays valid Go regardless.
 
@@ -68,12 +68,12 @@ Constraints that shape the approach:
 ## Risks / Trade-offs
 
 - [A future frontend wants per-miss records without the fail-gate] → `Match` still returns the full plan without failing; `Unresolved` is that record. If a distinct "miss" shape is ever needed, it returns with its reader.
-- [0012 lands and wants a shared resource type after all] → It gets a Kubernetes-native one per 0012 D2; the deleted neutral tuple would not have satisfied it (its own analysis).
+- [0012 lands and wants a shared resource type after all] → It gets a Kubernetes-native one per enhancement 0012 ("The library is written for Kubernetes; no portability abstraction is maintained on its behalf"); the deleted neutral tuple would not have satisfied it (its own analysis).
 - [Spec drift: the modified `artifact-types`/`schema-dispatch` requirements keep stale binding-era wording] → Accepted; wording beyond the touched clauses is a separate hygiene pass, as the 2026-08-31 sweep also recorded.
 
 ## Migration Plan
 
 1. `library`: tasks 1 through 4; `task check`.
-2. Docs and 0012 OQ3 note (task 5); no consumer edits exist.
+2. Docs and the open-question note of enhancement 0012 (task 5); no consumer edits exist.
 
 Rollback is a single revert; no consumer, schema or registry surface is involved.

@@ -31,13 +31,13 @@ Constraints: `cue-owned-verdicts` has landed (task 1.1 checks it, since the tree
 
 ### Destination is `cli/internal/compat`, package name unchanged
 
-**Context**: three candidates. `cli/internal/publish` already holds `compat.go`, the gate; merging the pure walk into it joins the two concerns 0011 keeps apart (the walk reports, the gate decides). `cli/pkg/compat` stays importable by other Go programs and so preserves 0011 D9's "any CI action" sharing, at the cost of dragging the cli module's dependency graph into any importer. `cli/internal/compat` states that no non-cli consumer exists.
+**Context**: three candidates. `cli/internal/publish` already holds `compat.go`, the gate; merging the pure walk into it joins the two concerns that enhancement 0011 keeps apart (the walk reports, the gate decides). `cli/pkg/compat` stays importable by other Go programs and so preserves the "any CI action" sharing of enhancement 0011, at the cost of dragging the cli module's dependency graph into any importer. `cli/internal/compat` states that no non-cli consumer exists.
 **Decision**: `cli/internal/compat`, the owner's choice on 2026-09-07. The package name stays `compat`, so the two call sites change only the import path and the four files move byte-for-byte; the package doc's consumer list drops library-matching.
 **Rationale**: no non-cli consumer exists today; `internal` says so. The day one appears, promoting the directory to `cli/pkg/compat` is a rename inside the cli, and the code is pure and self-contained.
 
 ### `HighestStable` becomes `scaffold.highestStable`
 
-**Context**: 0011 D23 struck `HighestStable` as the gate's predecessor selector and kept it only because template resolution (`cli-template-modules`) calls it. That caller is `scaffold.ResolveTemplateVersion`; nothing else calls it.
+**Context**: enhancement 0011 ("Predecessor selection is D9's literal rule: a backward scan of the published history, prereleases included") struck `HighestStable` as the gate's predecessor selector and kept it only because template resolution (`cli-template-modules`) calls it. That caller is `scaffold.ResolveTemplateVersion`; nothing else calls it.
 **Decision**: unexported `highestStable` in `cli/internal/scaffold`, with `predecessor.go`'s doc comment carried over (it explains why the float selector is not the gate's) and the four cases of `predecessor_test.go` in the scaffold tests.
 **Alternative rejected**: keeping it in `cli/internal/compat` beside the ladder. It shares nothing with the comparator but the semver import, and a "compat" package holding a float selector is the confusion D23 had to explain away.
 
@@ -48,8 +48,8 @@ Constraints: `cue-owned-verdicts` has landed (task 1.1 checks it, since the tree
 
 ### The enhancements record is amended, not contradicted
 
-**Context**: 0011 D9's rationale and D23's note (accepted) place the code in the library; 0020 (draft) plans to extend it there and orders delivery "library before cli".
-**Decision**: this change carries `enhancement.yaml` declaring 0011 D9, so `task enhancements:delivery:log` writes a line whose summary names the new home; 0020's `06-operational.md` item 3 and the four `schemas/target.cue` comments are edited in a separate `enhancements/` commit before this change merges (a draft entry is editable and `task vet` must pass). No decision text in 0011 changes.
+**Context**: the rationale and a note of enhancement 0011 (accepted) place the code in the library; enhancement 0020 (draft) plans to extend it there and orders delivery "library before cli".
+**Decision**: this change carries `enhancement.yaml` declaring enhancement 0011 ("`opm catalog publish` refuses a build that breaks a contract it already published"), so `task enhancements:delivery:log` writes a line whose summary names the new home; the operational plan of enhancement 0020 (item 3) and the four comments in its target schema are edited in a separate `enhancements/` commit before this change merges (a draft entry is editable and `task vet` must pass). No decision text in 0011 changes.
 **Rationale**: decision numbers and accepted text are immutable; a landed relocation belongs in the log; a future landing point belongs in the draft that plans it.
 
 ### The library keeps its semver dependency

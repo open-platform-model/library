@@ -16,7 +16,7 @@ const inventoryTag = "opm-inventory-v1\n"
 
 // Digest returns the inventory digest of entries, "sha256:" followed by 64
 // lowercase hex digits. It hashes this encoding, written field by field so
-// that no serialiser, struct tag or Go release can move it (0012:D7):
+// that no serialiser, struct tag or Go release can move it (enhancement 0012):
 //
 //	"opm-inventory-v1\n"
 //	for each entry, sorted by Group, Kind, Namespace, Name, Component, Version:

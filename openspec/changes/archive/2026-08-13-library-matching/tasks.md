@@ -38,7 +38,7 @@
 
 ## 6. Own-graph test (D10)
 
-- [x] 6.1 Integration fixture: platform catalog publishes a divergent definition for a contract key the module's own dependency also defines; assert `UnifyError` reports the divergence and rendered output follows the module-side definition (fails if module and platform ever share one resolution). Cite the 04-graduation gate in the test comment.
+- [x] 6.1 Integration fixture: platform catalog publishes a divergent definition for a contract key the module's own dependency also defines; assert `UnifyError` reports the divergence and rendered output follows the module-side definition (fails if module and platform ever share one resolution). Cite the graduation gate of the enhancement in the test comment.
 
 ## 7. Specs, docs, migrations
 
@@ -49,4 +49,4 @@
 ## 8. Verify & record
 
 - [x] 8.1 `task check` clean; GHCR flow test forced.
-- [x] 8.2 Record back in `enhancements/0010/`: slice → `done` + history event; note the catalog follow-on (duplicate `metadata.labels` droppable from catalog primitives once this ships; component-side labels stay for render reads) and the unlanded `opm.opmodel.dev/workload-type` rename for the catalog repo.
+- [x] 8.2 Record back in enhancement 0010: slice → `done` + history event; note the catalog follow-on (duplicate `metadata.labels` droppable from catalog primitives once this ships; component-side labels stay for render reads) and the unlanded `opm.opmodel.dev/workload-type` rename for the catalog repo.

@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. The decision is `enhancements/0015` D5 (comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated) with OQ9 resolved by core's `comparable-predicate-guard`: core derives the report, the generation step refuses, and the library's obligation is to read the report off a built value and to pin the shipped catalog against it.
+See `proposal.md` § Why. The decision is the comparable-predicate rule of enhancement 0015 (comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated) with its open question resolved by core's `comparable-predicate-guard`: core derives the report, the generation step refuses, and the library's obligation is to read the report off a built value and to pin the shipped catalog against it.
 
 Current state, measured 2026-09-18:
 
@@ -22,7 +22,7 @@ Current state, measured 2026-09-18:
 
 **Non-Goals**
 
-- Any refusal. Core reports; the generation step refuses (0015 D18's shape, D5's site); this change gates nothing (see Research & Decisions).
+- Any refusal. Core reports; the generation step refuses (the shape and site set by enhancement 0015); this change gates nothing (see Research & Decisions).
 - A render-time tripwire on `discriminated` in the kernel's render gate.
 - A new fixture catalog for the equal-predicate case; that derivation is core's, pinned in core.
 - Any change to `platformmodule.Generate`, the in-build single-provider guard, or the match glue.
@@ -36,7 +36,7 @@ Current state, measured 2026-09-18:
 ```go
 // ComparablePredicates is one row of the comparable-predicate report: two
 // enabled transformers whose match predicates are comparable over at least
-// one shared catalog-fulfilled contract (enhancement 0015 D5). Broader
+// one shared catalog-fulfilled contract (enhancement 0015). Broader
 // matches every component Narrower matches; Contracts names the shared
 // contracts. A report row, never a refusal: the generation step refuses.
 type ComparablePredicates struct {
@@ -99,7 +99,7 @@ Section 2 opened with a throwaway read through `contractsKernel` on every served
 
 ### No render-time tripwire
 
-**Context**: 0015 D5 fixes the guard at platform-package generation and calls render-build tripwires "defense in depth, not the gate". The kernel's render gate today raises `OverSubscribedContractsError` from render-time diagnostics (`RenderDiagnostics`), a different path from the platform inventory.
+**Context**: enhancement 0015 ("Comparable predicates within one catalog-fulfilled bucket are refused, not arbitrated") fixes the guard at platform-package generation and calls render-build tripwires "defense in depth, not the gate". The kernel's render gate today raises `OverSubscribedContractsError` from render-time diagnostics (`RenderDiagnostics`), a different path from the platform inventory.
 **Explored**: reading `Contracts().Discriminated` inside `Render` and refusing; leaving the refusal to the two consumers, each of which acquires the platform once.
 **Decision**: no tripwire here.
 **Rationale**: the property belongs to the platform, not to a render, and evaluating the inventory per render pays the pairwise fold on every instance for a fact the consumer can ask once at acquisition. The operator's generation gate and `opm platform check` are the named sites; the CLI's local-build path (a platform module directory, no generation step) is the one runtime with no gate today and decides in the cli slice whether to read the inventory at platform resolution. A kernel tripwire remains an additive follow-up if a runtime turns out to need it.

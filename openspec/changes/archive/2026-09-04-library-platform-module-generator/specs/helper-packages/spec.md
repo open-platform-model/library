@@ -2,7 +2,7 @@
 
 ### Requirement: No platform synthesis helper
 
-`opm/helper/synth` SHALL expose no `Platform` function and no `PlatformInput`/`SubscriptionSpec` types, and the kernel SHALL expose no `SynthesizePlatform`. A platform is a CUE module on disk that imports its catalogs (0019 D5/D6); a frontend that starts from catalog coordinates generates that module through `opm/helper/platformmodule` (`platform-module-generation`) or writes it by hand, and acquires it with `AcquirePlatformFromDir`. No helper SHALL turn typed subscription inputs into a platform `cue.Value` without a module on disk.
+`opm/helper/synth` SHALL expose no `Platform` function and no `PlatformInput`/`SubscriptionSpec` types, and the kernel SHALL expose no `SynthesizePlatform`. A platform is a CUE module on disk that imports its catalogs (enhancement 0019, "A platform imports its catalog and embeds it whole into the registry entry, which derives everything else" and "The Platform CR keeps naming a catalog coordinate; the operator generates the platform package"); a frontend that starts from catalog coordinates generates that module through `opm/helper/platformmodule` (`platform-module-generation`) or writes it by hand, and acquires it with `AcquirePlatformFromDir`. No helper SHALL turn typed subscription inputs into a platform `cue.Value` without a module on disk.
 
 #### Scenario: Synth surface is instance-only
 

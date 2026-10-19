@@ -91,7 +91,7 @@ object category (the cli writes \"inventory\"), not a component name" and points
 `ComponentName` for the component a rendered object came from. A rename to `ObjectCategory`
 was weighed and not taken: it would hide the key, and the doc comment carries the warning where
 an IDE shows it. The package doc states the rule: it names and
-recognises labels, and it never stamps them on rendered objects (0012:D6). The values are
+recognises labels, and it never stamps them on rendered objects (enhancement 0012, "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"). The values are
 byte-equal to the frontends' copies, and a table test pins each one. lib-e4 later adds the
 adopt annotation key here.
 **Rationale**: `labels.LabelManagedBy` stutters. The frontends rewrite every import line when
@@ -195,11 +195,11 @@ The only rename is `GetWeight` to `Weight`. The cli's `weights_test.go` and `sor
 with it. A guard test pins every constant's value and every table entry, so a later edit is
 deliberate. The file header comment cites the source commit once.
 **Rationale**: "Matches what cli#289 uses" holds by construction. The operator has no table of
-its own today (0012:D5 deleted it). It uses Flux's order, which KO7 documents.
+its own today (enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle") deleted it). It uses Flux's order, which KO7 documents.
 
 ### KO6: Stages cut an apply set by the order
 
-**Context**: The operator applies one library weight group per fluxssa `ApplyAll` (0012:D4, ADR-011),
+**Context**: The operator applies one library weight group per fluxssa `ApplyAll` (enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-011),
 because Flux re-sorts every call with its own table (ssa v0.77.0 `manager_apply.go:207`). The
 cli's apply has two stages: the cluster definitions (`IsProtectedKind`: a
 CustomResourceDefinition in `apiextensions.k8s.io`, a Namespace in the core group), an
@@ -251,7 +251,7 @@ Known members include PersistentVolume and PersistentVolumeClaim after Deploymen
 library, and the webhook configurations last in Flux but at 500, before custom resources at
 1000, in the library (the custom resource ranks 0 in Flux, between the two). It also asserts that
 CustomResourceDefinition before Namespace is no contradiction, the pair KO6's definition stage
-rests on. The test decides nothing. With one library stage per Flux `ApplyAll`, so Flux refines and never contradicts the library order (0012:D4, ADR-011), these contradictions cannot appear
+rests on. The test decides nothing. With one library stage per Flux `ApplyAll`, so Flux refines and never contradicts the library order (enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-011), these contradictions cannot appear
 inside one `ApplyAll` call, because each call holds a single weight.
 **Outcome (section 4)**: the committed list holds 196 pairs over a 35-kind universe. It is
 grouped by cause with one comment per group (the early `*Class`, ResourceQuota and LimitRange
@@ -377,10 +377,10 @@ names `opm/k8s/object.Resource` as the Kubernetes wrapper. That is prose only, w
 - **SA1019 in frontend lint on the bump PR** (KO10). Mitigation: each bump PR carries the
   mechanical import swap; the count is measured in section 5 and reported.
 - **Go floor 1.26.0** shuts out an embedder on Go 1.25. Mitigation: the only embedders are on
-  1.26. 0012:D2 accepted the apimachinery floor.
+  1.26. Enhancement 0012 ("The library is written for Kubernetes; no portability abstraction is maintained on its behalf") accepted the apimachinery floor.
 - **Weight-table contradictions with Flux** stay (KO7). Mitigation: they are documented and
   pinned, and the operator's per-stage apply keeps any one `ApplyAll` call within a single weight
-  (0012:D4, ADR-011).
+  (enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), ADR-011).
 - **Export holds all JSON and objects at once.** The operator already holds both. The peak is
   the CUE build, not these bytes (j2/g1 research: bytes under 1 MB, the build up to GBs).
 

@@ -50,3 +50,16 @@ jobs:
 
       - name: Run linter
         run: task lint
+
+  # The comment rule of the enhancements store, run by the shared reusable
+  # workflow of .github (its references/cite-lint.md). The tool commit lives in that
+  # workflow; `task cite-lint` runs the same tool at the same commit.
+  # No excludes: the tree has 0 findings. Keep the exclude list equal to the one
+  # in the Taskfile.yml task cite-lint if one is added.
+  cite-lint:
+    name: Cite lint
+    permissions:
+      contents: read
+    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@a2a13733f34f952d81e6f08b84c743cc2efb86e9 # .github main
+    with:
+      paths: .

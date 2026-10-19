@@ -2,7 +2,7 @@
 
 ### Requirement: A render reports every contract its instance requires
 
-The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredContracts`. The field holds every contract key that a component of the render requires: the keys of each component's `#resources`, plus the keys of its `#traits` when it attaches any. The keys are sorted in byte order with duplicates removed. Source: 0013:D24.
+The render SHALL report the instance's contract demand as data on `RenderDiagnostics.RequiredContracts`. The field holds every contract key that a component of the render requires: the keys of each component's `#resources`, plus the keys of its `#traits` when it attaches any. The keys are sorted in byte order with duplicates removed. Source: enhancement 0013 ("The kernel reports every contract a render required, synthesised components included").
 
 The demand SHALL be computed inside the build, from the same component set the matcher iterates. A component that is omitted under `RenderInput.SkipUnprovided` still counts. The list SHALL NOT be narrowed to provider-fulfilled contracts or to contracts the platform implements. The list SHALL be an empty, non-nil slice for an instance with no components.
 

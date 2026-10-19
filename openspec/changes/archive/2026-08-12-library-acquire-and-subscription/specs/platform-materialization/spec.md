@@ -86,7 +86,7 @@ Under the v0.17 CUE toolchain, the returned `*MaterializedPlatform` SHALL be saf
 
 ### Requirement: Version Enumeration and Filtering
 
-**Reason**: 0010 D14 — `#SubscriptionFilter` does not exist in core v2 and the no-filter highest-stable default is deleted with it; selection reads the authored scalar. Version enumeration survives only as a failure diagnostic (see the modified Subscription Resolution requirement); the filtering pipeline (`range` ∧ `allow` ∧ `deny`), its prerelease opt-in rules, and the highest-stable fallback are gone.
+**Reason**: enhancement 0010 ("A subscription names exactly one catalog build") — `#SubscriptionFilter` does not exist in core v2 and the no-filter highest-stable default is deleted with it; selection reads the authored scalar. Version enumeration survives only as a failure diagnostic (see the modified Subscription Resolution requirement); the filtering pipeline (`range` ∧ `allow` ∧ `deny`), its prerelease opt-in rules, and the highest-stable fallback are gone.
 
 ## ADDED Requirements
 

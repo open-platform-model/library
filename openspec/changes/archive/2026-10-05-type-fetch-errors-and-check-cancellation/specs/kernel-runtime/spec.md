@@ -4,7 +4,7 @@
 
 `Kernel.AcquireModuleFromDir`, `Kernel.AcquireCatalogFromDir`, `Kernel.AcquirePlatformFromDir`, `Kernel.AcquireInstanceFromDir` and `Kernel.SynthesizeInstance` SHALL check their context after their argument checks and between their stages: after the directory is read, after the values sources are merged, after the package is built and before the next stage starts. The registry acquire verbs SHALL check it after the registry fetch returns and after the package is built, and `Kernel.Render` SHALL check it after its input checks, after staging and after the render build. When one of these checks finds the context done, the verb SHALL return the context's own error unwrapped (so `errors.Is(err, context.Canceled)` or `errors.Is(err, context.DeadlineExceeded)` holds) and no artifact. A cancellation observed inside the registry fetch SHALL still satisfy `errors.Is(err, context.Canceled)`.
 
-A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage boundary. The `opm/kernel` package doc SHALL say so. Cancellation inside a stage is outside this requirement. Source: 0009:D9, as revised on 2026-10-03.
+A running `cue/load` or build SHALL NOT be interrupted; cancellation lands at the next stage boundary. The `opm/kernel` package doc SHALL say so. Cancellation inside a stage is outside this requirement. Source: enhancement 0009 ("The execution half owns cancellation inside a stage and introduces its own injection surface"), as revised on 2026-10-03.
 
 #### Scenario: A cancelled context stops each directory verb
 

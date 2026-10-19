@@ -2,9 +2,9 @@
 
 ## Context
 
-See `proposal.md` § Why. The architecture was decided and measured in `enhancements/0019` (D7 to D10, D13, D17, D18; experiments 01 to 08); this document maps it onto this repo. Prerequisites: `library-platform-source` (Source on both inputs) and a published core prerelease carrying D5/D17 (`core-registry-import`: `#CatalogEntry`, derived `#composedTransformers`, no `#matchers`).
+See `proposal.md` § Why. The architecture was decided and measured in enhancement 0019 (skew, shares-nothing, the single build, matching, promotion and the imported-catalog registry; experiments 01 to 08); this document maps it onto this repo. Prerequisites: `library-platform-source` (Source on both inputs) and a published core prerelease carrying the registry entry and the removal of `#matchers` that enhancement 0019 decides (`core-registry-import`: `#CatalogEntry`, derived `#composedTransformers`, no `#matchers`).
 
-The render module's target shape (0019 `02-design.md` § The render build):
+The render module's target shape (the design of enhancement 0019, § The render build):
 
 ```
 <render tmp dir>/
@@ -38,7 +38,7 @@ The render module's target shape (0019 `02-design.md` § The render build):
 
 ### Staging writes a real temp directory, including overlay-mode instances
 
-**Context**: `local-module.cue` directory replacements are served from disk (`modpkgload/replace.go`, cited in 0019 `02-design.md`); a synthesized instance's Source is an in-memory overlay.
+**Context**: `local-module.cue` directory replacements are served from disk (`modpkgload/replace.go`, cited in the design of enhancement 0019); a synthesized instance's Source is an in-memory overlay.
 **Explored**: serving replacements through `load.Config.Overlay` (unproven against the replace path; a spike that stops paying once temp staging is accepted); requiring frontends to persist instances themselves (pushes kernel mechanics into every frontend, against the workspace rule that structure lives in the library).
 **Decision**: `Render` materializes everything into one per-render temp directory: the generated `cue.mod` pair, `render.cue`, and the instance tree when its `Source.Overlay` is non-nil. An on-disk source (platform always, per the operator writing its generated platform module to disk; dir-acquired instances too) is referenced in place via its absolute path in `replaceWith`. The directory is removed on return (`defer`), success or failure.
 **Rationale**: writing a handful of small files per render is noise against the measured fixed ~85 ms catalog term (experiment 07); determinism holds because content, not path, feeds the build. If overlay-through-replacement is later proven, dropping the copy is an internal optimization with no contract change.
@@ -47,7 +47,7 @@ The render module's target shape (0019 `02-design.md` § The render build):
 
 **Context**: D13 fixes the rule; the mechanics need a parser.
 **Explored**: computing the list from the module graph (rejected by D13: that is maximum-version selection, the resolver this exists to bypass); render-time tidy (rejected by D13: tidy writes resolutions, render inherits one).
-**Decision**: parse both inputs' `cue.mod/module.cue` with `cuelang.org/go/mod/modfile`; emit the platform's dependency entries whole (preserving default-major markers: the default-major trap is a measured failure, 0019 `02-design.md`), union in instance-only paths, platform wins shared paths; write the render `module.cue` with a fresh module path (a reserved, never-published render module identity) and the same `language.version` floor as the inputs' maximum. The refusal invariant then re-parses the written file and asserts every OPM-namespace path (`opmodel.dev/...`) present in either input list appears in it.
+**Decision**: parse both inputs' `cue.mod/module.cue` with `cuelang.org/go/mod/modfile`; emit the platform's dependency entries whole (preserving default-major markers: the default-major trap is a measured failure, in the design of enhancement 0019), union in instance-only paths, platform wins shared paths; write the render `module.cue` with a fresh module path (a reserved, never-published render module identity) and the same `language.version` floor as the inputs' maximum. The refusal invariant then re-parses the written file and asserts every OPM-namespace path (`opmodel.dev/...`) present in either input list appears in it.
 **Rationale**: promotion is string-level modfile mechanics over two committed files the inputs already carry (`Source` gives both roots); no evaluation, no I/O. The invariant is cheap (one parse) and is the D13 "authority fails by omission" tripwire.
 
 ### Skew compares the two committed lists, never the promoted one

@@ -28,7 +28,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   every Flux-listed class kind, ResourceQuota and LimitRange in the kind table. Add the
   group-and-kind step for the three cluster definitions and map their names in the kind table to
   `WeightClass`; add the `Class` suffix step before the default (design D2). Rewrite the file
-  header and the `Weight` doc: the table agrees with Flux's staged apply order (0012:D5:R1),
+  header and the `Weight` doc: the table agrees with Flux's staged apply order (enhancement 0012, "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle"),
   every kind Flux does not list weighs the default so Flux's tie-break only refines, and the
   lookup order. No exported name is renamed or removed.
 - [x] 1.3 `opm/k8s/object/weights_test.go`: rewrite `TestWeightTableGuard` to pin the new
@@ -57,7 +57,7 @@ of the main checkout's, never a symlink. Every commit task stages the files it n
   ported unchanged from the cli; it says the table was ported from the cli's
   `pkg/resourceorder` and then aligned with Flux's staged apply order wherever Flux orders two
   kinds, with every kind Flux leaves to its alphabetical tie-break at one weight, so the
-  operator's engine only refines the order the cli submits (0012:D5:R1). Append to Status an
+  operator's engine only refines the order the cli submits (enhancement 0012, "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle"). Append to Status an
   "Amended <date> by `order-kinds-like-flux`: …" sentence in the form of the existing ones.
 - [x] 2.2 `AGENTS.md` layout line for `object/`: "the kind-class Weight table ported from cli
   pkg/resourceorder" becomes "the kind-class Weight table, aligned with Flux's staged apply

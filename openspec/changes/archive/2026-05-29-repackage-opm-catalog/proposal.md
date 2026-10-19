@@ -1,6 +1,6 @@
 ## Why
 
-The OPM core catalog at `library/modules/opm/` is broken and half-migrated: it still imports `opmodel.dev/core/v1alpha2@v1` and pins `opmodel.dev/core@v1.0.6` (which no longer resolves), so `cue vet ./...` fails outright. Enhancement 0001's core slice already shipped `opmodel.dev/core@v0.3.0` with a SemVer-only `#FQNType`, a top-level `#Catalog` definition (D19/D25), and a `#Subscription`-shaped `#Platform.#registry` — but nothing downstream consumes that new shape. This change re-targets the catalog onto `core@v0`, restructures it to the `#Catalog` contract, publishes it under its new identity, and restores the one in-repo consumer that depends on it. It is the `library`/`modules` slice of enhancement 0001 (D22 sequencing: Part B has shipped, so this can land).
+The OPM core catalog at `library/modules/opm/` is broken and half-migrated: it still imports `opmodel.dev/core/v1alpha2@v1` and pins `opmodel.dev/core@v1.0.6` (which no longer resolves), so `cue vet ./...` fails outright. Enhancement 0001's core slice already shipped `opmodel.dev/core@v0.3.0` with a SemVer-only `#FQNType`, a top-level `#Catalog` definition (enhancement 0001), and a `#Subscription`-shaped `#Platform.#registry` — but nothing downstream consumes that new shape. This change re-targets the catalog onto `core@v0`, restructures it to the `#Catalog` contract, publishes it under its new identity, and restores the one in-repo consumer that depends on it. It is the `library`/`modules` slice of enhancement 0001 (sequencing: Part B has shipped, so this can land).
 
 ## What Changes
 

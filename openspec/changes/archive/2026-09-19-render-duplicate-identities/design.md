@@ -2,7 +2,7 @@
 
 ## Context
 
-See `proposal.md` § Why. The decision is `enhancements/0015` D15 (one registration per module, refused before apply naming both carrying components) with D12 (the registration's instance-derived name, so two registrations collide on one object). The refusal site was left to the slice ("module vet or render-output validation"); this change picks render output, the one place every runtime passes through with provenance in hand.
+See `proposal.md` § Why. The decision is the one-registration-per-module rule of enhancement 0015 (refused before apply naming both carrying components) with the instance-derived registration name (so two registrations collide on one object). The refusal site was left to the slice ("module vet or render-output validation"); this change picks render output, the one place every runtime passes through with provenance in hand.
 
 Current state, read 2026-09-19 (library `v1.0.0-alpha.32`):
 

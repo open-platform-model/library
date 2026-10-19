@@ -4,14 +4,14 @@ The kernel's four phase verbs were designed for frontends that never materialise
 
 ## What Changes
 
-- **BREAKING** `opm/kernel`: remove `Kernel.Plan`, `PlanInput`, `PlanResult`. `Compile` remains the single terminal verb; `Match` remains the single phase-only diagnostic verb (its `MatchPlan` is what the CLI prints, and 0019 D10 retires the Go matcher on its own schedule).
+- **BREAKING** `opm/kernel`: remove `Kernel.Plan`, `PlanInput`, `PlanResult`. `Compile` remains the single terminal verb; `Match` remains the single phase-only diagnostic verb (its `MatchPlan` is what the CLI prints, and enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted") retires the Go matcher on its own schedule).
 - **BREAKING** `opm/kernel`: remove `Kernel.Validate` and `ValidateInput`. `ProcessModuleInstance` is where user values are validated and filled; `Compile` no longer re-validates a value it does not apply.
-- **BREAKING** `opm/kernel`: remove `CompileInput.Values`. `CompileInput` keeps `ModuleInstance`, `Platform`, `RuntimeName` and stays a struct (0019 D7 adds a skew-policy field to it later).
+- **BREAKING** `opm/kernel`: remove `CompileInput.Values`. `CompileInput` keeps `ModuleInstance`, `Platform`, `RuntimeName` and stays a struct (enhancement 0019 ("Catalog version skew between a module and its platform is detected by the kernel, and the response is caller-configured") adds a skew-policy field to it later).
 - **BREAKING** `opm/kernel`: remove the six typed wrappers `ValidateModuleValues`, `ValidateModuleValuesPartial`, `ValidateModuleValuesDetailed`, `ValidateInstanceValues`, `ValidateInstanceValuesPartial`, `ValidateInstanceValuesDetailed`. `Module.ConfigSchema()` and `Instance.ConfigSchema()` stay; a caller composes them with the primitive it wants.
 - Kept, deliberately: `ValidateConfig`, `ValidateConfigPartial`, `ValidateConfigDetailed`, `Source`, `ValidateOption`, `Partial()`, `LoadSourceFromFile` / `LoadSourceFromBytes` / `LoadSourceFromString`. The `cli` sibling change `cli-layered-values` replaces the CLI's own values-file unification with this surface so `-f a.cue -f b.cue` conflicts report both file positions.
 - Docs: delete `docs/design/kernel-validate-flow.md` (it documents `Kernel.Validate` and a binding layer that no longer exists); rewrite the phase table in `CLAUDE.md`, `README.md`, `docs/getting-started.md` and `opm/kernel/doc.go` to the two verbs; `MIGRATIONS.md` entry under Unreleased, Breaking.
 
-Out of scope: `context.Context` threading and the logger, tracer and clock slots (enhancement 0009 D9); the dead-symbol removals in `library-dead-symbol-sweep`; any change to matching semantics or to `Match`'s output.
+Out of scope: `context.Context` threading and the logger, tracer and clock slots (enhancement 0009, "The execution half owns cancellation inside a stage and introduces its own injection surface"); the dead-symbol removals in `library-dead-symbol-sweep`; any change to matching semantics or to `Match`'s output.
 
 ## Capabilities
 

@@ -14,7 +14,7 @@ import (
 
 // ComparablePredicates is one row of the comparable-predicate report: two
 // enabled transformers whose match predicates are comparable over at least
-// one shared catalog-fulfilled contract (0015:D5). A
+// one shared catalog-fulfilled contract (enhancement 0015). A
 // transformer's predicate is every required demand it declares — resources,
 // traits and label key-value pairs together — and a pair is comparable when
 // one predicate contains the other, so Broader matches every component
@@ -35,8 +35,7 @@ type ComparablePredicates struct {
 
 // ContractInventory is the decoded view of #Platform.#contracts, the
 // inventory core derives from the enabled registry entries' contract maps
-// and the required demands of #composedTransformers (0015:D1,
-// D2, D5, D18). Providers are counted per registry entry (path plus major),
+// and the required demands of #composedTransformers (enhancement 0015). Providers are counted per registry entry (path plus major),
 // the one count the render's single-provider guard reads too: two majors of
 // one catalog are two providers, two transformers of one entry are one, and
 // a provider counts whether or not an enabled catalog defines the contract.
@@ -69,7 +68,7 @@ type ContractInventory struct {
 	// RequiredBy maps each defined contract FQN to the implementation FQNs
 	// of every enabled transformer whose requiredResources or
 	// requiredTraits name it, in the build's order. Required demands only:
-	// optional consumption is tolerance, not fulfilment (0010:D32). A
+	// optional consumption is tolerance, not fulfilment (enhancement 0010). A
 	// defined contract nothing requires maps to an empty list. A colliding
 	// key is not defined, so it is absent however many transformers
 	// require it.
@@ -88,7 +87,7 @@ type ContractInventory struct {
 	// Unfulfilled lists the provider-fulfilled resources and traits an
 	// enabled catalog defines and no enabled registry entry provides (no
 	// ProvidedBy key). A report the controller surfaces as a non-gating
-	// condition (0015:D18), never a refusal. A colliding key is not
+	// condition (enhancement 0015), never a refusal. A colliding key is not
 	// defined, so it is never listed here.
 	Unfulfilled []string `json:"unfulfilled"`
 
@@ -96,12 +95,12 @@ type ContractInventory struct {
 	// required by transformers of two or more enabled registry entries
 	// (path plus major), whether or not an enabled catalog defines them:
 	// the ProvidedBy keys with two or more entries, and what the generation
-	// step refuses on (0010:D37). ProvidedBy names the entries.
+	// step refuses on (enhancement 0010). ProvidedBy names the entries.
 	OverSubscribed []string `json:"overSubscribed"`
 
 	// Comparable lists every pair of enabled transformers whose match
 	// predicates are comparable over at least one shared catalog-fulfilled
-	// contract (0015:D5), in the build's comprehension order. The accessor
+	// contract (enhancement 0015), in the build's comprehension order. The accessor
 	// does not sort; a caller that needs a stable order sorts. Only
 	// defined contracts are compared, so no row shares a colliding key,
 	// even when two transformers require one under equal predicates.

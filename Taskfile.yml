@@ -3,10 +3,6 @@ version: "3"
 # Silent by default — set TASK_VERBOSE=1 or use --verbose to show commands
 silent: true
 
-includes:
-  enhancements:
-    taskfile: ./.tasks/enhancements.yaml
-
 vars:
   COVERAGE_FILE: coverage.out
   COVERAGE_HTML: coverage.html
@@ -31,13 +27,13 @@ vars:
   CUE_VERSION_FILE: cue-versions.yml
   CUE_DEFAULT_VERSION: v1.0.0
   # All-local mapping, forced in-script by the publish tasks only (Registry
-  # Policy rule 2, root AGENTS.md — local publish is a gated exception). Both
+  # Policy rule 2, workspace references/registry.md — local publish is a gated exception). Both
   # opmodel.dev and testing.opmodel.dev route to localhost so the workspace
   # fixtures (modules/opm_platform, testdata/**) publish locally; an unmapped
   # prefix would fall through to registry.cue.works.
   CUE_LOCAL_REGISTRY: "testing.opmodel.dev=localhost:5000+insecure,opmodel.dev=localhost:5000+insecure,registry.cue.works"
 
-  # Canonical read mapping (Registry Policy, root AGENTS.md): opmodel.dev/*
+  # Canonical read mapping (workspace references/registry.md): opmodel.dev/*
   # resolves from GHCR; testing.opmodel.dev/* from the local registry. Used by
   # the discover/fmt/vet/tidy tasks — no local registry needed for reads.
   CUE_CANONICAL_REGISTRY: "opmodel.dev=ghcr.io/open-platform-model,testing.opmodel.dev=localhost:5000+insecure,registry.cue.works"
@@ -53,7 +49,7 @@ vars:
   # pin the drift check verifies exists on GHCR. CATALOG_FIXTURE_MODULES lists
   # cue.mod dep pins, the platform fixtures included: a platform module
   # imports its catalog, so its cue.mod pin IS the build the render executes
-  # (0019:D5). The platform fixture's derived #registry version is checked
+  # (enhancement 0019). The platform fixture's derived #registry version is checked
   # separately inside the task (see CATALOG_PLATFORM_FIXTURE) as the readout
   # of that pin.
   CATALOG_GHCR_REPO: "ghcr.io/open-platform-model/opmodel.dev/catalogs/opm"
@@ -62,7 +58,7 @@ vars:
     modules/opm_platform
     testdata/parity/opm_platform
   # Platform fixture whose #registry `version` (derived by core from the
-  # embedded catalog's stamped version, 0019:D5) names the build the render
+  # embedded catalog's stamped version, enhancement 0019) names the build the render
   # executes. The drift check only verifies the named tag exists on GHCR;
   # bumping the cue.mod pin is an ordinary fixture update, any published tag
   # in the key's major.
@@ -139,7 +135,7 @@ tasks:
       # Every package once: the race-checked packages run only in the -race
       # pass below, so they are excluded here rather than built and run twice.
       - go test $(go list ./... | grep -v -E '/opm/(kernel|platform|internal/renderstage|internal/cueenv)(/|$)')
-      # Render shares nothing between renders (0019:D8); run the render
+      # Render shares nothing between renders (enhancement 0019); run the render
       # packages under -race so the concurrency claim the docs make is
       # checked on every push (the earlier shared-platform claim went
       # unchecked and was measured false, see ADR-002). opm/platform runs
@@ -211,9 +207,22 @@ tasks:
       - bash .tasks/consumer-build-test.sh
 
   cascade:wiring:check:
-    desc: Check the release-cascade caller workflows offline (.github README, "The wiring check"; CI adds --pin-on-main)
+    desc: Check the release-cascade caller workflows offline (.github references/cascade-wiring-check.md; CI adds --pin-on-main)
     cmds:
       - bash .tasks/cascade/wiring-check.sh
+
+  cite-lint:
+    desc: Check the Go and CUE comments against the enhancement citation rule (enh cite-lint, the commit .github cite-lint.yml uses)
+    # No excludes: the tool reports 0 findings on the whole tree. If one is
+    # needed later, put it in the --exclude flags here AND in the `exclude`
+    # input of the cite-lint job in .github/workflows/lint.yml, each with its
+    # reason; keep the two lists equal.
+    # The module commit is the default `enh-ref` of .github cite-lint.yml at
+    # the .github pin of this repo; move both together.
+    vars:
+      ENH_REF: e0335b2ec44e659c0191bc3523d79d17f26f8e7d
+    cmds:
+      - go run github.com/open-platform-model/enhancements/tools/enh@{{.ENH_REF}} cite-lint --root . .
 
   docs:bundle:check:
     desc: Check the docs-kit pins agree, then build and lint the library docs bundle into a temporary directory
@@ -225,7 +234,7 @@ tasks:
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the api:diff tests and the consumer-build script tests
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the cite-lint rule, the api:diff tests and the consumer-build script tests
     cmds:
       - task: fmt
       - task: vet
@@ -233,6 +242,7 @@ tasks:
       - task: test
       - task: docs:bundle:check
       - task: cascade:wiring:check
+      - task: cite-lint
       - task: consumer-build:test
       - task: api:diff:test
 
@@ -493,7 +503,7 @@ tasks:
         - the platform fixture's derived #registry `version`
           (CATALOG_PLATFORM_FIXTURE), the readout of its cue.mod pin.
 
-      The pin is load-bearing (0010:D14, 0019:D5): the render build executes
+      The pin is load-bearing (enhancements 0010 and 0019): the render build executes
       exactly the build the platform module's cue.mod names, so the only
       drift that can break the suite is a pin that names a build the registry
       does not serve. Bumping a pin is an ordinary fixture update, not a
@@ -534,7 +544,7 @@ tasks:
           exit 1
         fi
 
-        # check NAME PINNED — the pin is load-bearing (0010:D14): the kernel
+        # check NAME PINNED — the pin is load-bearing (enhancement 0010): the kernel
         # pulls exactly the named build, so the check is existence, not
         # currency. Sets drift=1 when the pinned tag is not published.
         drift=0

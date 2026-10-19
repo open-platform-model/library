@@ -36,7 +36,7 @@ never published; not discovered by the repo's CUE tasks.
 
 ## Platforms (`testdata/render/platform*`)
 
-Each is its own CUE module in the D5 shape, importing the served catalogs:
+Each is its own CUE module in the catalog-importing shape (enhancement 0019), importing the served catalogs:
 
 | Directory | Carries | Exercises |
 | --- | --- | --- |

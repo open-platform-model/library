@@ -1,6 +1,6 @@
 ## Context
 
-This is slice **L1** of cross-cutting enhancement [`0002`](../../../enhancements/0002/) — renaming OPM's deployable-artifact family from `Release` to `Instance` vocabulary. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the second hard gate in the wave (`C1 → L1 → {opm-operator ‖ cli}`); both `opm-operator` and `cli` pin the published library tag, so nothing downstream advances until this lands and is tagged.
+This is slice **L1** of cross-cutting enhancement 0002 — renaming OPM's deployable-artifact family from `Release` to `Instance` vocabulary. The `core` slice (C1) already landed: `#ModuleRelease` → `#ModuleInstance`, published as `opmodel.dev/core@v1` `v1.0.0-alpha.1`. The library is the second hard gate in the wave (`C1 → L1 → {opm-operator ‖ cli}`); both `opm-operator` and `cli` pin the published library tag, so nothing downstream advances until this lands and is tagged.
 
 The library is the OPM kernel — a single cohesive Go module embedded by every front-end. Its `opm/` surface is contractual (Principle VI). This change is a hard, breaking rename of that surface plus the wire strings that couple it to `core@v1`. No behavior changes.
 
@@ -8,11 +8,11 @@ The library is the OPM kernel — a single cohesive Go module embedded by every 
 
 **Goals:**
 
-- Rename the Go `Release` public surface to `Instance` across `opm/` (types, methods, functions, fields) with a `// Was: <OldName>` breadcrumb at every renamed identifier (enhancement D11/D12).
+- Rename the Go `Release` public surface to `Instance` across `opm/` (types, methods, functions, fields) with a `// Was: <OldName>` breadcrumb at every renamed identifier (enhancement 0002, which requires the breadcrumb at every rename site).
 - Pin `opmodel.dev/core@v1` `v1.0.0-alpha.1` and migrate every `@v0` reference (Go const + ~30 fixture imports + doc comments) to `@v1`.
 - Update the wire-coupled strings that MUST match `core@v1`: kind literal `"ModuleRelease"` → `"ModuleInstance"`, transformer-context path `#moduleReleaseMetadata` → `#moduleInstanceMetadata`, label-domain assertions.
 - Bump the CUE `language: version:` field to `v0.17.0-alpha.1` in non-frozen fixtures and the two generators.
-- `git mv` every `release`-named file/dir to its instance equivalent (enhancement D10).
+- `git mv` every `release`-named file/dir to its instance equivalent (enhancement 0002: every `release`-named file and directory is renamed on disk).
 - Publish the `v1.0.0-alpha.N` library tag that unblocks O*/X*.
 
 **Non-Goals:**
@@ -26,7 +26,7 @@ The library is the OPM kernel — a single cohesive Go module embedded by every 
 
 ### D-L1.1 — One atomic PR despite exceeding small-batch size
 
-A pure rename cannot be split into separately *mergeable* PRs: any intermediate state where some identifiers are renamed and others are not does not compile, and the wire strings must flip in lockstep with `core@v1`. The library is one Go module with no internal concern boundary to slice on. **Alternative considered:** a compat-alias/deprecation window (type aliases `Release = Instance`). **Rejected** by enhancement D8 — hard rename, no aliases, because the whole stack moves together on the prerelease line and aliases would leak the retired vocabulary into the `v1` surface. The six capability deltas partition *spec authoring*, not the implementation.
+A pure rename cannot be split into separately *mergeable* PRs: any intermediate state where some identifiers are renamed and others are not does not compile, and the wire strings must flip in lockstep with `core@v1`. The library is one Go module with no internal concern boundary to slice on. **Alternative considered:** a compat-alias/deprecation window (type aliases `Release = Instance`). **Rejected** by enhancement 0002 — hard rename, no aliases, because the whole stack moves together on the prerelease line and aliases would leak the retired vocabulary into the `v1` surface. The six capability deltas partition *spec authoring*, not the implementation.
 
 ### D-L1.2 — Three axes fold into one change
 
@@ -61,7 +61,7 @@ The `language: version:` field in non-frozen library fixtures and the two genera
 4. Flip wire strings (Axis 3); update label-domain test assertions.
 5. `task check` + `task cue:test:flow` green; residual-literal grep gate clean.
 6. Append `MIGRATIONS.md` entry; bulk-archive the six spec deltas (`openspec-bulk-archive-change`).
-7. Publish the `v1.0.0-alpha.N` library tag; record the slice as a `history` event in enhancement `0002/config.yaml`.
+7. Publish the `v1.0.0-alpha.N` library tag; record the slice as a `history` event in the record of enhancement 0002.
 
 **Rollback:** revert the branch; the tag is a prerelease, not yet pinned by any published downstream until O*/X* advance.
 

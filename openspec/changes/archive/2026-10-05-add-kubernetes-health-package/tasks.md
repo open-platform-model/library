@@ -27,7 +27,7 @@ ported code: cli `origin/main` `bd4d1a7c`, `internal/kubernetes/health.go` and
       reasons. `Aggregate` per HP2. Doc comments keep the cli's wording where it still holds;
       `Aggregate`'s says what `unhealthy` counts. Verify: `go build ./opm/k8s/...` clean.
 - [x] 1.2 `opm/k8s/health/doc.go`: the package doc holds only reader-facing contract, with
-      0012:D3 cited once: that it is pure and the caller fetches every object with its own
+      Enhancement 0012 ("The Kubernetes runtime decisions live in a fenced tier, `opm/k8s`, beside the kernel and inside the library module") cited once: that it is pure and the caller fetches every object with its own
       client; that a caller must read the object after its apply, uncached, or a pre-apply read
       can report the old rollout as `Ready` (design Risks); and that the status strings are
       stable. ADR-011, the cli source commit `bd4d1a7c` and the rule that the strings change only

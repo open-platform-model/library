@@ -49,7 +49,7 @@ var (
 
 	// Platform. Contracts is #Platform.#contracts, the contract inventory
 	// core derives from the enabled registry entries' contract maps and the
-	// transformers' required demands (0015:D1, D2, D5, D18).
+	// transformers' required demands (enhancement 0015).
 	// platform.NewPlatformFromValue decodes its eleven data fields once
 	// and records them, and (*platform.Platform).Contracts returns the
 	// record (a Platform the constructor did not build decodes them on its

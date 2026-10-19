@@ -14,8 +14,8 @@ import (
 
 // moduleImportPath returns the CUE registry module path — major suffix
 // included — the synthesized package imports the module by: the module's
-// metadata.modulePath verbatim (0010:D1: fqn = modulePath = the
-// import path; nothing is recombined). The schema requires the major-suffixed
+// metadata.modulePath verbatim (fqn = modulePath = the import path; nothing
+// is recombined, enhancement 0010). The schema requires the major-suffixed
 // form, so a value that somehow lacks it fails the build with CUE's own
 // import error naming the path.
 func moduleImportPath(m *module.Module) string {

@@ -147,7 +147,7 @@ func TestFetchModule_MissingRequiredField(t *testing.T) {
 	assert.True(t, errors.Is(err, oerrors.ErrMissingRequiredField), "want ErrMissingRequiredField, got %v", err)
 }
 
-// 0010:D11 — a module whose metadata declares a different modulePath than the one
+// A module whose metadata declares a different modulePath than the one
 // it was fetched by is rejected with a typed IdentityError naming both values.
 func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")
@@ -171,8 +171,8 @@ func TestFetchModule_IdentityPathMismatch(t *testing.T) {
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
 }
 
-// 0010:D11 — a module declaring the major-free PARENT path (the core-v0/v1 shape,
-// once verified by the enhancements/0003 publishing convention) is refused
+// A module declaring the major-free PARENT path (the core-v0/v1 shape,
+// once verified by the publishing convention of enhancement 0003) is refused
 // like any other disagreement: the schema the library consumes requires the
 // major-suffixed form, so there is no convention fallback and the typed error
 // carries the declared parent path and the fetched path.
@@ -197,7 +197,7 @@ func TestFetchModule_IdentityMajorFreeDeclarationRefused(t *testing.T) {
 	assert.Equal(t, modPath+"@v0", ie.Fetched)
 }
 
-// 0010:D9 — a module whose metadata declares a different version than the tag it
+// A module whose metadata declares a different version than the tag it
 // was fetched by is rejected with a typed IdentityError naming both values
 // (the "three published jellyfin artifacts carried one label value" defect).
 func TestFetchModule_IdentityVersionMismatch(t *testing.T) {

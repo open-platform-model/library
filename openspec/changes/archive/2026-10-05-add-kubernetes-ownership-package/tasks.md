@@ -15,7 +15,7 @@ export OPM_REGISTRY="$CUE_REGISTRY"
 cross-process cache race. Rerun `go test ./opm/helper/platformmodule -count=1` on its own before
 treating it as a finding. Commit bodies never start a line with `word(` and carry no bare
 at-sign. The only trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`. Comments cite
-enhancement decisions as `0012:D8:R5`, never a bare `D8`. Messages a verdict returns carry no
+enhancement decisions as enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), never a bare `D8`. Messages a verdict returns carry no
 enhancement reference.
 
 ## 1. The adopt annotation key (labels; design OW1)
@@ -23,7 +23,7 @@ enhancement reference.
 - [x] 1.1 `opm/k8s/labels/labels.go`: add `AnnotationAdopt = "opmodel.dev/adopt"` in its own
       `const` block after the labels. Its doc says three things: it is an annotation a user sets
       on an existing live object; its value is the adopting instance's
-      `module-instance.opmodel.dev/uuid`; and no OPM runtime writes it (0012:D8:R6, cited once).
+      `module-instance.opmodel.dev/uuid`; and no OPM runtime writes it (enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), cited once).
       `doc.go`: the package names the labels and this one annotation, and still stamps nothing.
       Verify: `go build ./opm/k8s/...` clean.
 - [x] 1.2 `labels_test.go`: a new `TestAdoptAnnotationKey` pins `AnnotationAdopt` to its
@@ -43,7 +43,7 @@ enhancement reference.
         clock or logging, stated in its own words with no ADR or other maintainer pointer (the
         doc publishes into the Library reference);
       - the frontend obligation, which is to consult a verdict on every apply, prune and delete
-        path (0012:D4:R1/R2);
+        path (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply");
       - that a refusal or skip message is the library's wording for both frontends;
       - that a frontend reports a failed DELETE precondition as left behind or to retry, never
         as deleted.

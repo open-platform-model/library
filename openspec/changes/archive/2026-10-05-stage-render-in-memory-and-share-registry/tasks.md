@@ -24,7 +24,7 @@ report it. Do not implement a fallback that keeps a temporary directory.
 - [x] 2.1 `opm/internal/renderstage/stage.go`:
   - Add the exported constant `RenderRoot`: `/opm-render`, built with the OS separator (design D1).
   - `Stage` drops its `dir` parameter and stages under `RenderRoot`: the re-keyed inputs as today, plus `cue.mod/module.cue`, `cue.mod/local-module.cue` and `render.cue` as overlay entries. It writes nothing; delete every `os.MkdirAll` and `os.WriteFile`.
-  - The 0019:D13 tripwire looks up the stored `module.cue` entry and passes those bytes to `VerifyCoverage` (design D2).
+  - The enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") tripwire looks up the stored `module.cue` entry and passes those bytes to `VerifyCoverage` (design D2).
   - Update the `Staged`, `Staged.Dir`, `Staged.Overlay`, `Stage` and `Build` docs.
   - Rewrite the section 1 tests onto the new `Stage`. Drop the move-into-memory helper; the tests now assert `staged.Dir == RenderRoot` directly.
 - [x] 2.2 `opm/internal/renderstage` tests:
@@ -34,7 +34,7 @@ report it. Do not implement a fallback that keeps a temporary directory.
 - [x] 2.3 `opm/kernel/render.go`: delete `os.MkdirTemp`, the deferred `os.RemoveAll` and the "creating render staging directory" error, and call `renderstage.Stage(in.Instance.Source, ...)`. Drop the `os` import if it is unused. Refusal order, wraps and causes stay as they are.
 - [x] 2.4 `opm/kernel` tests:
   - Replace `stagingDirs` (`render_test.go:591-621`) with a helper that points `TMPDIR` at a test-owned directory and asserts it is empty. Use it in every test that lists staging directories today (`render_test.go:621, :1037, :1150`, `render_core_floor_test.go:50`).
-  - Add a test that one success, one older-core refusal, one local-replacement refusal without the opt-in, one dependency covered by no version or replacement, one skew refusal and one build failure each leave (the 0019:D13 uncovered-path tripwire cannot be reached through `Render`: promotion never produces an uncovered path, and `TestVerifyCoverage_DoctoredPromotionRefuses` pins it in `renderstage`) that directory empty and leave `renderstage.RenderRoot` absent on disk ("A render writes no staging file").
+  - Add a test that one success, one older-core refusal, one local-replacement refusal without the opt-in, one dependency covered by no version or replacement, one skew refusal and one build failure each leave (the enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") uncovered-path tripwire cannot be reached through `Render`: promotion never produces an uncovered path, and `TestVerifyCoverage_DoctoredPromotionRefuses` pins it in `renderstage`) that directory empty and leave `renderstage.RenderRoot` absent on disk ("A render writes no staging file").
   - Add a test that two renders of the same inputs whose build fails report error positions that are byte-identical and name `RenderRoot`.
 - [x] 2.5 Docs in this section (design D5, section 2 list):
   - the renderstage package doc;

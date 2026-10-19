@@ -57,7 +57,6 @@ opm/
   internal/renderstage/   Single-build render staging: promoted cue.mod, skew, embedded render glue, one cue/load build
   internal/               Internal runtime packages (cueenv, modversion, sourcetree, valuesfile) plus test-only helpers (schematest, registrytest) and the CUE closedness canary (cueregression)
 adr/                      Architecture decision records
-enhancements/             Frozen historical proposals (cite as legacy:NNN; new work lives in the workspace enhancements/)
 openspec/                 OpenSpec proposals, specs, archives
 modules/                  Test-only OPM modules used by integration tests
 testdata/                 CUE module fixtures consumed by package tests
@@ -87,7 +86,7 @@ The two tracks are independent. The kernel's schema loader pins an exact core re
 
 ### Beta promise
 
-From its first beta, the library is on the path to GA, together with the other prerelease lines (`opmodel.dev/core@v2`, cli, opm-controller). A breaking change is still allowed during beta, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the [CHANGELOG](CHANGELOG.md) shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)). It advances the `-beta.N` counter and never moves the Go module path to a new major (no `v2` of the library during beta). Stable lines (`opmodel.dev/catalogs/opm@v4` and the module fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false` plus a visible carrier commit per package, in dependency order. GA is cut only when the GA exit criteria in 0021:D8 (workspace root, `enhancements/0021/03-decisions.md`) hold, among them the library's API-quality criteria, 0021:D8:R11 to 0021:D8:R14: no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change.
+From its first beta, the library is on the path to GA, together with the other prerelease lines (`opmodel.dev/core@v2`, cli, opm-controller). A breaking change is still allowed during beta, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the [CHANGELOG](CHANGELOG.md) shows ([ADR-010](adr/010-beta-migration-notes-in-changelog.md)). It advances the `-beta.N` counter and never moves the Go module path to a new major (no `v2` of the library during beta). Stable lines (`opmodel.dev/catalogs/opm@v4` and the module fleets) keep the normal SemVer rule: a break is a new major. A core beta break that would force a catalogs/opm major needs owner sign-off. GA drops the suffix: `prerelease: false` plus a visible carrier commit per package, in dependency order. GA is cut only when the GA exit criteria of enhancement 0021 hold, among them the library's API-quality criteria: no `cue.Value` in Render output, typed fetch and resolution errors, docs and specs that match the code, and three consecutive library betas with no breaking change.
 
 Pin an explicit `v1.0.0-beta.N` (`go get github.com/open-platform-model/library@v1.0.0-beta.N`): `go get ...@latest` resolves the retired `v0.7.0`.
 
@@ -112,7 +111,7 @@ Today this layer holds exactly one subpackage:
 
 - `opm/helper/platformmodule` — Platform module generation from catalog coordinates: `Roots` + `Closure` derive the tidied dependency list from published module files (through a caller-configured `ModFileSource`), `Generate` renders `cue.mod/module.cue` and `platform.cue` deterministically, `Files.WriteTo` writes them into a caller-owned directory for `Kernel.AcquirePlatformFromDir`. The core pin defaults to `schema.DefaultSchemaVersion()`.
 
-Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. See `enhancements/001-kernel-redesign-around-platform/02-design.md`.
+Layered values validation lives on the kernel itself — see `Kernel.ValidateConfigDetailed` and the `Source` type in `opm/kernel`. The design is the retired library proposal `legacy:001`, kept in git history.
 
 The loader and synth subpackages that used to live here folded into `opm/internal/loader` and `opm/internal/synth`: the kernel imported both, so the "opt-in" tier was mandatory. Their behaviour is unchanged and reached through the acquire verbs and `Kernel.SynthesizeInstance`; the sentinels a frontend branches on (`ErrInvalidPackage`, `ErrWrongKind`, `ErrMissingRequiredField`, `ErrMissingModule`, `ErrMissingName`, `ErrMissingNamespace`, `ErrMissingSource`, `ErrSchemaUnavailable`) are declared in `opm/errors`.
 
@@ -134,7 +133,7 @@ task check
 - `opmodel.dev/core@v2` — current OPM schema, published as an OCI CUE module (sources live in the workspace `core/` repo).
 - `docs/getting-started.md` — end-to-end embedding walkthrough.
 - `docs/design/` — CUE evaluator notes: the v0.17.x closedness regression and its canary, plus historical bug records whose code no longer exists.
-- `enhancements/` — frozen historical proposals; the single-build render design is workspace enhancement 0019.
+- The single-build render design is enhancement 0019, in the `enhancements` store.
 - `adr/` — architecture decision records (ADR-006: one CUE build per artifact; ADR-005: shares-nothing renders; ADR-008: the kernel plans lifecycle and never runs it).
 - `CHANGELOG.md` — released-version history (generated by release-please).
 - `migrations/README.md` — migration-documentation policy: per-change fragments, dormant until GA (pre-GA breaking changes are recorded in `CHANGELOG.md` and the OpenSpec archive).

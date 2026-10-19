@@ -9,7 +9,7 @@ import (
 // key declared `fulfilment: "provider"` on a required demand of transformers
 // from two or more of the platform's enabled registry entries (path plus
 // major: two majors of one catalog are two entries), whether or not an
-// enabled catalog defines the key (0010:D32/D37). The render build enforces
+// enabled catalog defines the key (enhancement 0010). The render build enforces
 // the guard. The count is core's #Platform.#contracts.providedBy, which the render glue
 // reads and never recomputes, so the rows are exactly the keys the platform's
 // contract inventory reports over-subscribed. A platform must carry exactly

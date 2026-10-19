@@ -55,7 +55,7 @@ func (k ResolutionKind) String() string {
 // imports do not resolve, and no failed registry interaction caused it. It
 // is typed so a caller tells it apart from a fetch failure ([*FetchError])
 // and from other author defects without reading message text
-// (0021:D8:R12). The library builds it through [Classify] at every site
+// (enhancement 0021). The library builds it through [Classify] at every site
 // where such a failure leaves it, inside the site's existing wrap.
 //
 // It is never transient: errors.Is(err, [ErrTransient]) is false through

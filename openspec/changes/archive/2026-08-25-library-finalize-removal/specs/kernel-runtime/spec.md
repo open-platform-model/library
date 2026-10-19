@@ -1,7 +1,7 @@
 ## REMOVED Requirements
 
 ### Requirement: Utility Methods on Kernel
-**Reason**: `Finalize` performed schema-constraint stripping for the render path; the render path no longer strips (`library-component-fill`), and the kernel exposes only the pipeline it runs (0019 D1). The requirement's other method, `DetectAPIVersion`, was already removed with the `opm/apiversion` package (commit 4276ec4); the spec text was stale on it. No utility method remains, pinned by the requirement below.
+**Reason**: `Finalize` performed schema-constraint stripping for the render path; the render path no longer strips (`library-component-fill`), and the kernel exposes only the pipeline it runs (enhancement 0019, "Pure-CUE unification is the parity oracle, and divergence is closed by removing kernel behaviour"). The requirement's other method, `DetectAPIVersion`, was already removed with the `opm/apiversion` package (commit 4276ec4); the spec text was stale on it. No utility method remains, pinned by the requirement below.
 **Migration**: Drop calls to `Kernel.Finalize` / `compile.FinalizeValue`. A consumer that needs a constraint-free export of a value evaluates `v.Syntax(cue.Final())` and rebuilds it in its own `*cue.Context`; the kernel offers no wrapper.
 
 ## ADDED Requirements

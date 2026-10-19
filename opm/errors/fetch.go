@@ -15,7 +15,8 @@ import "errors"
 // Match it with errors.Is; a [*FetchError] in the chain answers for it. The
 // caller owns retries, and a cache that memoized the failure keeps it: a
 // schema load error held by an opm/schema Cache keeps its classification, so
-// a retry needs a fresh Cache (a fresh Kernel). Source: 0021:D8:R12.
+// a retry needs a fresh Cache (a fresh Kernel). Typed fetch failures keep
+// frontends from matching message text (enhancement 0021).
 var ErrTransient = errors.New("transient registry failure")
 
 // FetchKind says which kind of registry fetch failure a [*FetchError]
@@ -72,7 +73,7 @@ func (k FetchKind) String() string {
 
 // FetchError is a failed registry interaction, during a fetch or during
 // dependency resolution, typed so a caller branches on it without reading
-// message text (0021:D8:R12). An author-defect resolution failure, which no
+// message text (enhancement 0021). An author-defect resolution failure, which no
 // registry interaction caused, is a [*ResolutionError] instead. The library
 // builds both through [Classify] at every site where such a failure leaves
 // it, inside the site's existing wrap.

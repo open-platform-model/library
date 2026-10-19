@@ -24,7 +24,7 @@ Commits:
 
 - No body line starts with `word(`, and no commit carries a bare at-sign.
 - The only trailer is `Co-Authored-By: Claude <noreply@anthropic.com>`.
-- Comments cite enhancement decisions as `0012:D4:R5`, never as a bare `D4`.
+- Comments cite enhancement decisions as enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), never as a bare `D4`.
 - Messages the package returns carry no enhancement reference.
 
 ## 1. The deletion plan and its transition (lifecycle; design LC1, LC2, LC3, LC4, LC6, LC7)
@@ -42,7 +42,7 @@ Commits:
       - The doc publishes into the Library reference, so it carries no ADR or enhancement
         reference.
       - After the package clause, add a non-doc comment with the maintainer pointers: ADR-008
-        rules 1 to 3 and its Deletion plans consequence, ADR-011 item 6, and 0012:D4 (cited once).
+        rules 1 to 3 and its Deletion plans consequence, ADR-011 item 6, and enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") (cited once).
       Verify: `go build ./opm/k8s/...` is clean.
 - [x] 1.2 Write `opm/k8s/lifecycle/plan.go`.
       - Declare `Policy`, `Step`, `DeletionPlan` (unexported fields) and `NewDeletionPlan`, plus
@@ -141,7 +141,7 @@ Commits:
         `add-kubernetes-lifecycle-package`: `opm/k8s/lifecycle` holds the deletion plan, built
         from inventory entries in descending kind weight, the one-action transition, with
         Foreground deletes and the UID precondition, the caller-owned JSON state and the hold
-        verdict (0012:D4)."
+        verdict (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply")."
       Verify: `grep -n "k8s/lifecycle" README.md AGENTS.md CONSTITUTION.md adr/011-*.md` shows
       each edit; the layout block is still one code fence; `task docs:bundle:check` is green.
 - [x] 3.2 Run the whole-tree checks on the final code.

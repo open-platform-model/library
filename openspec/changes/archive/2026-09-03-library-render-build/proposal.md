@@ -1,8 +1,8 @@
 ## Why
 
-Enhancement 0019 Phase B collapses the render to one CUE build per render (D9): the kernel stages the instance and the platform into a generated render module, evaluates it once in a context that dies with the render (D8), and reads `rendered` and `diagnostics` off the built value. Nothing crosses a build boundary, so parity with pure CUE stops being a property the harness polices and becomes one the kernel cannot violate. This change builds that path; it does not switch anything over to it.
+Enhancement 0019 Phase B collapses the render to one CUE build per render: the kernel stages the instance and the platform into a generated render module, evaluates it once in a context that dies with the render, and reads `rendered` and `diagnostics` off the built value. Nothing crosses a build boundary, so parity with pure CUE stops being a property the harness polices and becomes one the kernel cannot violate. This change builds that path; it does not switch anything over to it.
 
-This change is `library-render-build`, the second library slice of 0019 Phase B. It consumes `library-platform-source` (the `Source` fields on instance and platform) and the released D5/D17 core schema (`core-registry-import`: registry entries carry the catalog by import, `#matchers` gone). It implements D9 (the single build), D13 (the promoted `cue.mod` and the refusal invariant), D7/D18 (skew detection and policy), D10 (matching in the build, verdicts as data), and the per-render context lifetime rule of D8.
+This change is `library-render-build`, the second library slice of 0019 Phase B. It consumes `library-platform-source` (the `Source` fields on instance and platform) and the released core schema of that enhancement (`core-registry-import`: registry entries carry the catalog by import, `#matchers` gone). It implements the single build, the promoted `cue.mod` and the refusal invariant, skew detection and policy, matching in the build (verdicts as data), and the per-render context lifetime rule.
 
 ## What Changes
 
@@ -25,7 +25,7 @@ MINOR: new kernel surface (`Render`, its input/result types, the skew policy typ
 
 - New: `opm/internal/renderstage` (staging, promotion, skew, glue generation), kernel-level `Render` entry plus input/result/diagnostics types; new render fixtures under `testdata/` (a platform module importing a catalog fixture, pinned to the D5 core prerelease).
 - Touched: `opm/kernel` (new render files; `acquire.go`'s directory acquisitions now stamp `Source.Root` as the enclosing module root and `Pkg` as the package directory relative to it, so a subpackage imports correctly from the render build: MODIFIED deltas on `artifact-types` and `platform-artifact`), `opm/errors` (a skew diagnostic type if none fits; reuse first), `opm/internal/registrytest` (a helper serving a committed fixture registry tree).
-- **`cli` / `opm-operator`**: no action; nothing calls `Render` until the cutover wave. The operator's platform-package generation (0019 D6) and the CLI's authored `./opm` platform become `Render`'s real inputs then.
+- **`cli` / `opm-operator`**: no action; nothing calls `Render` until the cutover wave. The operator's platform-package generation (enhancement 0019, "The Platform CR keeps naming a catalog coordinate; the operator generates the platform package") and the CLI's authored `./opm` platform become `Render`'s real inputs then.
 - **Sequencing hazard (coordinated wave, stated in design.md):** the kernel's default schema loader floats on `opmodel.dev/core@v2`, so the moment core publishes the D5 alpha, `synth.Platform` (which writes subscription `version` fields the D5 schema derives instead) breaks on any cold cache, before any re-pin. Core's D5 release and the library's cutover wave must land as one train; this change's own fixtures pin the D5 prerelease explicitly and are immune.
 
 ## Complexity justification

@@ -1,6 +1,6 @@
 ## Context
 
-0012:D4 gives the library the whole deletion sequence: the plan, the transition that names the next
+Enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") gives the library the whole deletion sequence: the plan, the transition that names the next
 action, and the hold verdict. Both frontends' delete paths must use it. ADR-008 fixes the shape.
 The library plans and the caller runs (rule 1). A plan advances one step per call, from a
 serialisable state the caller owns (rule 2). The library names an action and never performs one
@@ -28,7 +28,7 @@ The two frontends today (cli `bd4d1a7c`, opm-operator `bcfa722`):
 | Propagation | Foreground | client default (Background) |
 | NotFound on read or delete | already gone, not an error | already gone, not an error |
 | Other error | per-resource error; continue; instance kept | joined error; continue; finalizer kept |
-| Hold | none (0012:OQ6) | finalizer `opmodel.dev/cleanup`; release branches below |
+| Hold | none (an open question of enhancement 0012) | finalizer `opmodel.dev/cleanup`; release branches below |
 
 The operator's `handleDeletion` branches, in this order:
 
@@ -50,29 +50,29 @@ The operator's `handleDeletion` branches, in this order:
 
 - One package, `opm/k8s/lifecycle`, holding `DeletionPlan`, `State`, `Advance` and
   `MayReleaseHold`. Given the same inventory, policy, owner UUID, live objects and outcomes, every
-  frontend gets the same order, actions, skip reasons and hold verdict (0012:D1:R1/R5/R6).
+  frontend gets the same order, actions, skip reasons and hold verdict (enhancement 0012, "The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)").
 - A frontend makes progress only by asking for the next action, so it has no way to skip a guard
   (ADR-011 item 3).
-- The state can be written out and read back, and advances identically (0012:D4:R5).
-- No hook semantics (0012:D4:R6).
+- The state can be written out and read back, and advances identically (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
+- No hook semantics (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply").
 
 **Non-Goals:**
 
 - Frontend loops, status conditions, events, dry-run reporting and exit codes. These stay with the
   frontends.
-- Answering 0012:OQ5 or 0012:OQ6.
+- Answering the open questions of enhancement 0012 about the prune default and the hold.
 - A stored plan, a stored state or a new CRD field.
-- The operator install's admitted deletions outside the inventory (0012:D8:R7).
+- The operator install's admitted deletions outside the inventory (enhancement 0012, "The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override").
 
 ## Research & Decisions
 
 ### LC1: The plan is ordered entries with safety exclusions marked up front
 
-**Context**: 0012:D1:R6 asks for one defined deletion order. The 0012 contract describes a plan as
+**Context**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") asks for one defined deletion order. The 0012 contract describes a plan as
 "Ordered. Reverse apply-weight". `object.Sort` already exists and is stable.
 
 **Explored**: three options. (a) Keep inventory order. That is the operator's order today, and
-0012:D1:R6 rules it out. (b) Sort inside `Advance`. That is redundant on every call, and the plan
+Enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") rules it out. (b) Sort inside `Advance`. That is redundant on every call, and the plan
 would no longer be something a frontend can list up front. (c) Sort once in the constructor.
 
 **Decision**: (c).
@@ -102,7 +102,7 @@ func (p DeletionPlan) Len() int
 ```
 
 The plan's fields are unexported, so `NewDeletionPlan` is its only constructor. A frontend cannot
-build a plan literal in inventory order and bypass the defined order of 0012:D1:R6. `Steps`
+build a plan literal in inventory order and bypass the defined order of enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)"). `Steps`
 returns a copy, so a frontend can list the plan before it acts but cannot reorder it. The zero
 `DeletionPlan` is a plan with no steps and a policy that does not prune.
 
@@ -126,13 +126,13 @@ read or deleted. Each caller therefore states its policy:
 - The operator's prune on reconcile runs only when `spec.prune` is true today, and passes
   `Prune: spec.prune`.
 - The cli's `opm instance delete` and the cli's stale-set prune after an apply pass
-  `Prune: true`. The cli has no `spec.prune` input on those paths, and 0012:OQ5/OQ6 stay open.
+  `Prune: true`. The cli has no `spec.prune` input on those paths, and those two open questions of enhancement 0012 stay open.
 
 A scenario pins the footgun: a plan with `Prune: false` over a non-empty stale set names `done` and
 deletes nothing.
 
 **Rationale**: the order is a value the frontend can show before it acts, it is computed once, and
-it comes from the one weight table (0012:D5).
+it comes from the one weight table (enhancement 0012, "Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 ### LC2: The transition names one action per call
 
@@ -261,8 +261,8 @@ It also records the error text as `Message`. NotFound is never a failure.
 
 ### LC4: The state is a JSON value the caller owns
 
-**Context**: 0012:D4:R5 requires a written-out state to advance identically to one held in memory.
-0012:D4 says the operator carries the state across reconciles. Because the state is serialisable,
+**Context**: enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") requires a written-out state to advance identically to one held in memory.
+Enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") says the operator carries the state across reconciles. Because the state is serialisable,
 a controller can carry it. Whether the operator does is its adoption change's choice, not this package's. That change
 plans to rebuild it each pass from `status.inventory` plus the live objects, with no new CRD field
 (ADR-008, Deletion plans): the reconcile is level-triggered, and after a pass a deleted object
@@ -291,7 +291,7 @@ type Outcome struct {
 
 The zero `State` is the start. The live object is never part of the state: `Advance` judges it in
 the same call it arrives in. The state carries struct tags, while `inventory.Entry` deliberately
-does not. The difference is that the state is the library's own value, and 0012:D4:R5 needs one
+does not. The difference is that the state is the library's own value, and enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply") needs one
 encoding. The JSON encoding is SemVer surface, and a golden test pins it: it marshals a state with
 every field set and compares the bytes with a literal, so renaming a tag fails a check (`task
 api:diff` checks Go API only). The cli holds the state in memory for one command.
@@ -302,10 +302,10 @@ every step, and requires equal actions and equal states.
 
 ### LC5: The hold verdict reproduces handleDeletion with inputs that do not depend on who holds the hold
 
-**Context**: 0012:D1:R5 says whether an instance's hold may be released is decided from its policy
+**Context**: enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") says whether an instance's hold may be released is decided from its policy
 and the plan's outcome, identically for whichever frontend asks, with the reason named. The 0012
 contract's `#HoldVerdict` lists seven reasons. The operator's branches are listed in Context. The
-cli bears no hold today (0012:OQ6), and the verdict must not presume an answer to that question.
+cli bears no hold today (an open question of enhancement 0012), and the verdict must not presume an answer to that question.
 
 **Decision**:
 
@@ -372,7 +372,7 @@ names a finalizer or a frontend.
 
 **Decision**: the `delete` action carries `metav1.DeletePropagationForeground`. That is the cli's
 behaviour today, and the operator adopts it in its adoption change with a release note. This is the per-frontend
-divergence 0012:D1:R1 exists to remove. Making propagation a policy field would let it diverge
+divergence enhancement 0012 ("The Kubernetes runtime surface homes in the library's Kubernetes tier (supersedes only the placement conclusion of the CLI inventory and handoff enhancement)") exists to remove. Making propagation a policy field would let it diverge
 again.
 
 **Rationale**: with Foreground, a dependent the object owns (a ReplicaSet under a Deployment) is
@@ -391,12 +391,12 @@ whole subtree go.
 A test reads the package's direct imports and fails on `os`, `time`, `log`, `log/slog` and `sync`.
 Another test parses the package's non-test files and fails on any `go` statement, which pins "no
 goroutines". The action kinds are exactly the four above, and every `read`, `delete` and `skip`
-names a plan step (0012:D4:R6). No new depguard rule is added. The tier's allow list already holds
+names a plan step (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"). No new depguard rule is added. The tier's allow list already holds
 the package to the standard library, apimachinery and `opm/`, and the import test covers the
 rest.
 
 The package doc publishes into the Library reference, so it carries no ADR or enhancement pointer.
-The maintainer pointers (ADR-008 rules 1 to 3, ADR-011 item 6, 0012:D4) go in a non-doc comment
+The maintainer pointers (ADR-008 rules 1 to 3, ADR-011 item 6, enhancement 0012 ("The library owns the whole deletion sequence but only the per-object verdict and the order for apply")) go in a non-doc comment
 after the package clause, as in `opm/k8s/ownership/doc.go`.
 
 ## Risks / Trade-offs

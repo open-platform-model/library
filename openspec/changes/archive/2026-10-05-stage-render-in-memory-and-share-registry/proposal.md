@@ -3,7 +3,7 @@
 Every `Kernel.Render` still touches disk. It creates a temporary directory
 (`opm/kernel/render.go:376-380`), and `renderstage.Stage` writes three generated files into it:
 `cue.mod/module.cue`, `cue.mod/local-module.cue` and the glue `render.cue`. It then reads
-`module.cue` back for the 0019:D13 coverage tripwire (`opm/internal/renderstage/stage.go:126-184`).
+`module.cue` back for the enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") coverage tripwire (`opm/internal/renderstage/stage.go:126-184`).
 The inputs themselves already reach the build from memory, through `load.Config.Overlay`. Only the
 generated module still goes through the filesystem. In the operator that is a directory created
 and removed on every reconcile. It is also the reason for a test-only spec requirement about
@@ -31,7 +31,7 @@ and is not in this one.
   refuses when anything exists at that root on disk, since cue/load would read it beneath the
   overlay. The three generated files go into `Staged.Overlay` next to the
   re-keyed overlay-mode inputs. An on-disk input is still referenced in place through its
-  `local-module.cue` replacement. The 0019:D13 tripwire re-parses the `module.cue` bytes that the
+  `local-module.cue` replacement. The enhancement 0019 ("The render module's `cue.mod` is derived by promotion, never computed, and a render refuses when derivation cannot cover a path") tripwire re-parses the `module.cue` bytes that the
   overlay serves, not the in-memory list. `Build` keeps `Dir = ModuleRoot = staged.Dir` and needs
   nothing on disk. `Kernel.Render` drops `os.MkdirTemp` and `os.RemoveAll`, together with the
   "creating render staging directory" error path. A render then writes no staging file: nothing

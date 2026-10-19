@@ -1,5 +1,5 @@
 # Values for wiring-check.sh (the byte-identical copy of the canonical check
-# in open-platform-model/.github; README "The wiring check"). Data, read with
+# in open-platform-model/.github; references/cascade-wiring-check.md). Data, read with
 # yq, never run.
 pin-comment: .github main
 receiver: true
@@ -14,3 +14,5 @@ notify:
   tag: ${{ needs.release-please.outputs.tag_name }}
 publish:
   labels-managed: false
+extra-references:
+  - {file: lint.yml, kind: cite-lint}

@@ -11,7 +11,7 @@
 //
 // [StaleSet] is the set of previously applied objects the current render no
 // longer produces, the objects a prune removes. It is component-blind
-// (0012:D7): an object that moved to another component, or to another API
+// (enhancement 0012): an object that moved to another component, or to another API
 // version of its group, is the same object and never stale. [SameObject] is
 // that comparison on its own.
 //
@@ -19,7 +19,7 @@
 // canonical encoding, the same in every frontend whatever wire shape it
 // stores the entries in. [RenderDigest] is the render digest: a hash of the
 // objects [object.Export] returned, with the managed-by label's value left
-// out, so the cli and the controller digest one render equally (0012:D6).
+// out, so the cli and the controller digest one render equally (enhancement 0012).
 //
 // The inventory digest and the render digest are stored values: each frontend
 // records them and compares a later value against them. Their encodings are

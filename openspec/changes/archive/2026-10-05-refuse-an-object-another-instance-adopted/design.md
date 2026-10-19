@@ -6,9 +6,9 @@ numbering. Code references are at library `origin/main` `88afdfb` (2026-10-05):
 `opm/k8s/ownership/doc.go`, and `opm/k8s/lifecycle/advance.go` (`answerRead`, the only library
 caller of `CanDelete` with a live object).
 
-The contract is enhancement 0012:D8:R1 to R7 as merged, plus the amendment the owner chose for
+The contract is enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") to R7 as merged, plus the amendment the owner chose for
 enhancements#103: "the apply guard also refuses an in-inventory object whose live adopt
-annotation names another instance; A drops it from its next inventory. Extends 0012:D8." The
+annotation names another instance; A drops it from its next inventory. Extends enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override")." The
 owner first selected "adopt annotation or UUID label" and narrowed it to the annotation only, so
 that a module-path move, which changes the instance UUID, keeps working, except an object whose adopt annotation still names the old UUID; re-annotate it with the new UUID.
 
@@ -42,7 +42,7 @@ mean "drop it" for inventoried objects only would put the action in the frontend
 **Decision**: `RefuseAdoptedElsewhere ApplyRefusal = "adopted-elsewhere"` and
 `SkipAdoptedElsewhere SkipReason = "adopted-elsewhere"`. The two literals are equal on purpose:
 they name the same fact about the live object, seen from apply and from delete.
-**Rationale**: A reason is the contract's literal (0012:D4), and one literal per fact keeps the
+**Rationale**: A reason is the contract's literal (enhancement 0012, "The library owns the whole deletion sequence but only the per-object verdict and the order for apply"), and one literal per fact keeps the
 frontends' reports aligned.
 
 ### AD2: The apply order
@@ -165,10 +165,10 @@ does today.
 
 ### AD7: Citing the amended decision
 
-**Context**: The 0012:D8 amendment is written in parallel in the enhancements repo and not merged
+**Context**: The enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") amendment is written in parallel in the enhancements repo and not merged
 when this change is planned, so its requirement number is not yet fixed.
-**Decision**: The spec deltas and comments cite `0012:D8:R8`, the next free requirement number of
-0012:D8, together with enhancements#103. Task 3.1 is a hard merge gate: the library PR
+**Decision**: The spec deltas and comments cite enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), the next free requirement number of
+Enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override"), together with enhancements#103. Task 3.1 is a hard merge gate: the library PR
 merges only after the amendment has merged, and every citation is corrected if its number
 differs.
 **Rationale**: A committed citation must resolve; the issue resolves now and the requirement

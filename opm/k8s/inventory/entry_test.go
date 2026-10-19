@@ -37,7 +37,7 @@ func TestNewEntry_CoreGroupClusterScopedNoLabel(t *testing.T) {
 }
 
 // kubernetes-tier: "The entry type carries no tags". A tag would suggest the
-// library owns the wire shape of an inventory, which it does not (0012:OQ9).
+// library owns the wire shape of an inventory, which it does not (an open question of enhancement 0012).
 func TestEntry_CarriesNoTags(t *testing.T) {
 	typ := reflect.TypeFor[inventory.Entry]()
 	assert.Equal(t, 6, typ.NumField())

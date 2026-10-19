@@ -46,7 +46,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       Negative check, not committed: render the second time with `opm-cli` instead of
       `opm-controller` and confirm that the managed-by assertion fails.
 - [x] 1.2 If 1.1 shows that the runtime name reaches anything beyond the managed-by value,
-      stop. Write the finding into design.md KI5/KI6 and report it, because 0012:D6's premise
+      stop. Write the finding into design.md KI5/KI6 and report it, because the premise of enhancement 0012 (labels are stamped by the CUE render)
       would then be false. Otherwise add one sentence under KI6: "Spike result: confirmed at
       `<commit>`".
 - [x] 1.3 `task check` green, then commit
@@ -57,7 +57,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
 - [x] 2.1 `opm/k8s/inventory/doc.go`: the package's place in the tier (ADR-011). It covers what
       it holds (entries, the stale set, the two digests) and that it owns no wire shape:
       frontends map `Entry` to their CRD or record. It also says that the stale set is
-      component-blind (0012:D7, cited once at the package) and that both digests are stored
+      component-blind (enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"), cited once at the package) and that both digests are stored
       values, whose encodings change only under a new tag line with a migration note in each
       frontend.
 - [x] 2.2 `opm/k8s/inventory/entry.go`: `Entry`, `NewEntry`, `SameObject` per KI2 and KI1.
@@ -80,7 +80,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         unchanged. One table case ports the cli's
         `ComputeStaleSet` + `ApplyComponentRenameSafetyCheck` composition as a local oracle
         over a mixed fixture (renames, version moves, removals) and asserts `StaleSet` equals
-        it. This is the "no behaviour change" claim of 0012:D7.
+        it. This is the "no behaviour change" claim of enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
       - `surface_test.go`: the scenario "The package exports no other comparison". It parses
         the package's non-test files with `go/parser` and asserts that the exported top-level
         identifiers are exactly `Entry`, `NewEntry`, `SameObject`, `StaleSet`, `Digest` and
@@ -115,7 +115,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       swapping `Version` and `Component` in the write order fails the encoding test.
 - [x] 3.3 `task check` green, then commit `feat(k8s): add the canonical inventory digest`.
       The body says that the digest replaces both frontends' `ComputeDigest` when they adopt
-      it, and that their stored values change once then (0012:D7:R4).
+      it, and that their stored values change once then (enhancement 0012, "The stale set is component-blind, and the inventory digest hashes a canonical field encoding").
 
 ## 4. The shared render digest (opm/k8s/inventory; design KI5, KI7)
 
@@ -150,7 +150,7 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
       managed-by label counts"; reusing `Exported.Object` instead of re-decoding fails "Large
       integers are not rounded".
 - [x] 4.3 `task check` green, then commit `feat(k8s): add the shared render digest`. The body
-      says that the managed-by value is the one byte range ignored (0012:D6), and that both
+      says that the managed-by value is the one byte range ignored (enhancement 0012, "Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"), and that both
       frontends' stored render digests change once when they adopt it.
 
 ## 5. Docs say what exists, and whole-tree checks (README, AGENTS, CONSTITUTION, ADR-011; design KI8)
@@ -167,8 +167,8 @@ for the frontend code this replaces: cli `origin/main` `bd4d1a7c`, opm-operator 
         `opm/k8s/inventory`.
       - `adr/011-kubernetes-tier-beside-the-kernel.md` Status: one sentence, "Amended
         <date> by `add-kubernetes-inventory-package`: `opm/k8s/inventory` holds the entry,
-        the component-blind stale set and the inventory and render digests (0012:D6,
-        0012:D7)." The date is the day the sentence is written; 6.1 sets it to the day of
+        the component-blind stale set and the inventory and render digests (enhancement 0012 ("Labels are stamped by the CUE render; the shared render digest ignores the runtime-name label value"),
+        Enhancement 0012 ("The stale set is component-blind, and the inventory digest hashes a canonical field encoding"))." The date is the day the sentence is written; 6.1 sets it to the day of
         the archive commit, since sibling changes edit the same Status line and merge in
         an order this plan does not know.
 

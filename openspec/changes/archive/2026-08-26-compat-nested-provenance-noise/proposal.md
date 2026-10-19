@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- `Check` skips 0010 D30's provenance fields wherever a `metadata` block occurs in the walk, not only at the compared root: `<path>.metadata.catalogVersion` and `<path>.metadata.description` at any depth are never compared. Same denylist, same direct-children-of-metadata scope, applied per occurrence.
+- `Check` skips the provenance fields of enhancement 0010 wherever a `metadata` block occurs in the walk, not only at the compared root: `<path>.metadata.catalogVersion` and `<path>.metadata.description` at any depth are never compared. Same denylist, same direct-children-of-metadata scope, applied per occurrence.
 - `Check` walks lists element-wise when both sides have the same length, so member references inside `appliesTo` / `composedResources` are compared structurally (and reach the skip above) instead of as one opaque leaf; lists of different length stay a leaf and are judged by subsumption as today.
 - `Check` short-circuits a leaf whose emitted syntax is identical on both sides: an unchanged leaf cannot have narrowed, so the subsume false positive on `matchN` / comprehension-bearing leaves no longer reports. A *changed* leaf inside such a construct may still report noise; the spec's known-limitation note shrinks to that residue.
 - Fixture-backed regression tests reproduce the three shapes against real catalog member syntax.
@@ -24,4 +24,4 @@
 
 - `opm/compat/compat.go` (`walk`, `walkStruct`, new `walkList`, leaf identity check), `opm/compat/compat_test.go`, new testdata mirroring `#ExposeTrait` / `#StatefulWorkloadBlueprint` / `#Image` shapes.
 - Consumers: `cli/internal/publish/compat.go` (behavioural improvement only), library-matching's unify rung (unaffected: it uses `StripProvenance`, not `Check`).
-- Sequencing: lands before `cli` change `compat-prerelease-line-exemption`, which depends on a clean stable-line comparison of the real tree. Related to enhancement 0011 D26's delivery note; see `enhancement.yaml`.
+- Sequencing: lands before `cli` change `compat-prerelease-line-exemption`, which depends on a clean stable-line comparison of the real tree. Related to the delivery note of enhancement 0011 on the compatibility gate.

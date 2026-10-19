@@ -50,5 +50,5 @@
 
 ## 9. Enhancement bookkeeping
 
-- [x] 9.1 Add `enhancements/0001/config.yaml` history events for the landed library + catalog pieces (dated); confirm whether to flip `implementation.status` (umbrella may still await workspace `modules/*` rewire — leave per 0001 graduation).
+- [x] 9.1 Add history events to the config of enhancement 0001 for the landed library + catalog pieces (dated); confirm whether to flip `implementation.status` (umbrella may still await workspace `modules/*` rewire — leave per the graduation of enhancement 0001).
 - [x] 9.2 Note the deviations from 0001's graduation text (publish in `library/Taskfile.yml`; CI workflow vs Taskfile-only; standalone vs RP) for 0001's README `## Deviations from Design`.

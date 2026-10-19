@@ -3,7 +3,7 @@
 ## 1. Precondition and the enhancements record
 
 - [x] 1.1 Verify `cue-owned-verdicts` has landed: `opm/internal/renderstage/alternatives.go` no longer exists on `main`, `go list -deps ./opm/kernel/... ./opm/internal/... | grep opm/compat` is empty, and `grep -rn 'opm/compat' opm --include='*.go' | grep -v '^opm/compat/'` is empty.
-- [x] 1.2 In `../enhancements`, as its own commit: `0020/06-operational.md` Cross-Repo Coordination item 3 states that the cross-build rules live in `cli/internal/compat` and that the library-before-cli constraint no longer applies to them; the four comments in `0020/schemas/target.cue` naming `library/opm/compat` (near lines 34, 161, 174 and 232) name `cli/internal/compat`; verify `task vet` and `task check` pass in `enhancements/` and `grep -rn 'library/opm/compat' 0020` is empty.
+- [x] 1.2 In `../enhancements`, as its own commit: the operational plan of enhancement 0020, Cross-Repo Coordination item 3 states that the cross-build rules live in `cli/internal/compat` and that the library-before-cli constraint no longer applies to them; the four comments in the target schema of enhancement 0020 naming `library/opm/compat` (near lines 34, 161, 174 and 232) name `cli/internal/compat`; verify `task vet` and `task check` pass in `enhancements/` and `grep -rn 'library/opm/compat' 0020` is empty.
 
 ## 2. Remove the package
 

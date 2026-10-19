@@ -1,5 +1,5 @@
-// Disabled-definer render fixture platform (the core its cue.mod pins, 0019:D5
-// shape): cat 0.1.0 DISABLED beside cat2 0.2.0 and cat 1.0.0 enabled. cat
+// Disabled-definer render fixture platform (the core its cue.mod pins, enhancement 0019
+// catalog-importing shape): cat 0.1.0 DISABLED beside cat2 0.2.0 and cat 1.0.0 enabled. cat
 // lists the provider-fulfilled gateway contract but defines nothing while
 // disabled; cat2 and cat 1.0.0 each still supply a transformer requiring it.
 // Two registry entries are two providers whether or not an enabled catalog

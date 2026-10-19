@@ -5,8 +5,8 @@ import (
 )
 
 // IdentityError reports a mismatch between an artifact's declared identity
-// and the coordinate it was fetched by (0010:D11), including the version
-// clause (0010:D9): the kernel is the version label's verifier, never its source.
+// and the coordinate it was fetched by (enhancement 0010), including the version
+// clause (enhancement 0010): the kernel is the version label's verifier, never its source.
 // It is emitted at the one library read site that holds both a fetched
 // coordinate and decoded metadata: module acquire
 // (the kernel's registry acquisition) returns a *IdentityError bare, so
@@ -20,7 +20,7 @@ import (
 //
 // A platform's catalog builds are verified structurally by core
 // instead: the registry key binds to the embedded catalog's modulePath
-// (0019:D5), so no catalog read site produces it.
+// (enhancement 0019), so no catalog read site produces it.
 type IdentityError struct {
 	// Field names the mismatched identity field: "path" | "version".
 	Field string
@@ -37,7 +37,7 @@ type IdentityError struct {
 }
 
 // Error names both values, the declared identity and the fetched coordinate
-// (0010:D11). The condition is a comparison, not a wrapped failure, so there
+// (enhancement 0010). The condition is a comparison, not a wrapped failure, so there
 // is no Cause and no Unwrap.
 func (e *IdentityError) Error() string {
 	return fmt.Sprintf("identity mismatch at %s: metadata declares %q but the artifact was fetched as %q (%s)",

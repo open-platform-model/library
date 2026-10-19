@@ -23,7 +23,7 @@
 ## 5. Docs and cross-references
 
 - [x] 5.1 `README.md` + `CLAUDE.md`: remove the "adapters wrap each Compiled with a platform-specific core.Resource filling core.Identity" story; state that frontends own platform identity for compiled output.
-- [x] 5.2 `enhancements/0012/07-questions.md`: record OQ3's in-place resolution (neutral contract deleted by this change; delete-vs-retain no longer blocks promotion) with a matching `config.yaml` history event. 0012 is draft; revise in place per the enhancements rules.
+- [x] 5.2 In the questions file of enhancement 0012: record the in-place resolution of the neutral-contract question (neutral contract deleted by this change; delete-vs-retain no longer blocks promotion) with a matching `config.yaml` history event. The entry is draft; revise in place per the enhancements rules.
 
 ## 6. Validation
 

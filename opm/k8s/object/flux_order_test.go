@@ -210,7 +210,7 @@ func contradictions(weight func(schema.GroupVersionKind) int) []string {
 // TestWeightNeverContradictsFlux is the guard of kubernetes-tier "The weight
 // table never contradicts Flux's staged apply order": the controller hands the
 // whole set to Flux's ApplyAllStaged, which re-sorts it, so Flux may refine
-// the library's order and never contradict it (0012:D5:R1). A table edit, or
+// the library's order and never contradict it (enhancement 0012). A table edit, or
 // a change to the literals above, that reorders a pair fails here, naming
 // the pair.
 func TestWeightNeverContradictsFlux(t *testing.T) {

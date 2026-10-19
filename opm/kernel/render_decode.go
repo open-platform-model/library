@@ -115,7 +115,7 @@ func pairsOf(rows []gluePair) []RenderPair {
 	return out
 }
 
-// gateErrors is the fail-closed gate (0010:D28, D37) as the kernel enforces
+// gateErrors is the fail-closed gate (enhancement 0010) as the kernel enforces
 // it from the decoded verdicts: contract collisions, unresolved demands,
 // over-subscribed provider-fulfilled contracts and unmatched components all
 // refuse, through one exit path, each reachable via errors.As. Each cause
@@ -258,7 +258,7 @@ func splitOutput(out cue.Value, p RenderPair, instanceName string) ([]*Compiled,
 // unstatedPosture finds, in the diagnostics' traitPostures table, an attached
 // trait whose effective `optional` is neither concrete nor defaulted: the
 // declaring catalog stated no posture, so the verdicts that depend on it
-// cannot evaluate (0010:D28; measured boundary, 0019:D10). The refusal
+// cannot evaluate (the fail-closed gate of enhancement 0010; measured boundary, enhancement 0019). The refusal
 // is fail-closed and names the component, the trait and the `optional` field.
 // Returns nil when every posture is stated.
 func unstatedPosture(diagnostics cue.Value) error {

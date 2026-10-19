@@ -26,7 +26,7 @@ const (
 )
 
 // TestRender_RuntimeNameReachesOnlyManagedBy is half of the cross-runtime
-// render-digest parity proof (0012:D6:R2). It renders one instance as the cli
+// render-digest parity proof (enhancement 0012). It renders one instance as the cli
 // and as the controller and shows that the two renders differ only in the
 // managed-by label value. The other half is the opm/k8s/inventory render
 // digest tests, which show that the digest ignores exactly that value. The

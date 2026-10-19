@@ -5,7 +5,7 @@ See proposal.md, Why. The phase verbs date from `add-phase-methods-and-rename-co
 Constraints:
 
 - `library-dead-symbol-sweep` lands first and touches no phase surface; this change touches nothing that one removes.
-- Enhancement 0019 D7/D18 adds a skew-policy field to `CompileInput`, and D10 moves matching into the build. `CompileInput` therefore stays a struct, and `Match` stays until D10 replaces the Go matcher.
+- Enhancement 0019 ("Catalog version skew between a module and its platform is detected by the kernel, and the response is caller-configured" and "Skew policy defaults to warn-and-render; the comparison reads the two committed resolutions; older-than-platform is data") adds a skew-policy field to `CompileInput`, and the same enhancement moves matching into the build. `CompileInput` therefore stays a struct, and `Match` stays until that move replaces the Go matcher.
 - The `cli` sibling `cli-layered-values` adopts `Source`, `LoadSourceFromFile` and `ValidateConfigDetailed`; those stay, and so do `Partial()` and `ValidateConfigPartial` (the `vet` primitive).
 
 ## Goals / Non-Goals
@@ -18,9 +18,9 @@ Constraints:
 
 **Non-Goals:**
 
-- Making `Match` cheaper or moving it into CUE (0019 D10).
+- Making `Match` cheaper or moving it into CUE (enhancement 0019, "Matching moves into the render build; verdicts are data; the D30 carve-out is deleted").
 - Changing `MatchPlan`, `CompileResult` or `ComponentSummary` shapes; the CLI prints them.
-- Removing `Match`. It is the only phase-only diagnostic verb, and 0019 D10 owns its retirement.
+- Removing `Match`. It is the only phase-only diagnostic verb, and enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted") owns its retirement.
 
 ## Decisions
 
@@ -62,7 +62,7 @@ Constraints:
 
 - [A consumer branch calls `Plan` or `Validate`] → Both consumers' `main` were grepped 2026-08-30; `MIGRATIONS.md` gives the one-line replacement for each.
 - [Removing `Compile`'s re-validation drops a safety net for hand-built instances] → A hand-built `*module.Instance` (tests, `NewInstanceFromValue`) was never validated by that path either, because `in.Values` was always zero. `ProcessModuleInstance` remains the validated entry; `NewInstanceFromValue` stays documented as the raw one.
-- [`Match` looks like the next candidate on the same logic] → It stays by explicit decision (proposal, Non-Goals); 0019 D10 owns it.
+- [`Match` looks like the next candidate on the same logic] → It stays by explicit decision (proposal, Non-Goals); enhancement 0019 ("Matching moves into the render build; verdicts are data; the D30 carve-out is deleted") owns it.
 - [The CLI sibling names surface this change keeps] → The two proposals were written together; the kept set is listed in both.
 
 ## Migration Plan

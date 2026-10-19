@@ -61,4 +61,4 @@ Code change only; no artifact publishes. Rollback is a revert. No `MIGRATIONS.md
 
 ## Open Questions
 
-None. Whether a catalog transformer may read siblings through the filled instance is settled by 0019 D11 (reachable, discouraged by contract).
+None. Whether a catalog transformer may read siblings through the filled instance is settled by enhancement 0019 ("Sibling access through `#moduleInstance` stays reachable and is discouraged by contract, never narrowed structurally") (reachable, discouraged by contract).

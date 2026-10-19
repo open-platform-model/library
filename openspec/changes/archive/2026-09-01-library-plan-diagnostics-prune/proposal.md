@@ -31,4 +31,4 @@ All removals are **BREAKING** by SemVer rule; none has a caller in `cli` or `opm
 - Packages: `opm/compile` (`match.go`, `module.go`), `opm/errors` (`match.go`, `domain.go`), `opm/module` (`instance.go`), `opm/schema` (`metadata.go`), `opm/core` (`resource.go` deleted, package doc to `compiled.go`).
 - Consumers: zero references to any removed identifier in `cli` or `opm-operator`; both keep compiling unchanged. MAJOR under SemVer (Principle VI).
 - Tests: tests exercising the removed symbols go with them; two `assert.Empty(out.Unmatched)` lines and the `ModuleFQN` accessor assertion are dropped; no behavior covered by a remaining test changes.
-- Enhancements: 0012 OQ3 gets its in-place resolution note when this lands (tracked as a task; 0012 is draft, decisions and questions revise in place).
+- Enhancements: the open question of enhancement 0012 about the neutral contract gets its in-place resolution note when this lands (tracked as a task; the entry is draft, decisions and questions revise in place).

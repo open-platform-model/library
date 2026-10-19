@@ -48,4 +48,4 @@ package lifecycle
 // state, actions named and never performed) and its Deletion plans
 // consequence (the plan comes from the persisted inventory plus the live
 // objects, with no render and no stored plan); ADR-011 item 6 gives the
-// library the whole deletion sequence; the contract is 0012:D4.
+// library the whole deletion sequence; the contract is the deletion protocol of enhancement 0012.

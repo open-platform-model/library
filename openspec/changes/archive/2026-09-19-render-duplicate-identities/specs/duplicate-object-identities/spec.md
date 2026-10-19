@@ -1,6 +1,6 @@
 ## Purpose
 
-The opt-in check between render and apply that finds rendered objects sharing one Kubernetes apply identity, so a runtime refuses the render before the last write silently wins (enhancement 0015 D15 and D12).
+The opt-in check between render and apply that finds rendered objects sharing one Kubernetes apply identity, so a runtime refuses the render before the last write silently wins (enhancement 0015, "One registration per module" and "The rendered CR's name is instance-derived: dot-joined `namespace.name`").
 
 ## ADDED Requirements
 
