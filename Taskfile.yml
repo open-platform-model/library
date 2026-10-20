@@ -4,6 +4,10 @@ version: "3"
 silent: true
 
 vars:
+  # The OpenSpec CLI. The one pin: task openspec:install and the CI job read it
+  # from here.
+  OPENSPEC_VERSION: 1.14.1
+
   COVERAGE_FILE: coverage.out
   COVERAGE_HTML: coverage.html
 
@@ -231,10 +235,27 @@ tasks:
       - task: docs:pins:check
       - .bin/opm-docs check --project library
 
+  openspec:install:
+    desc: Install the openspec CLI at OPENSPEC_VERSION (needs npm; install scripts do not run)
+    cmds:
+      - npm install -g --ignore-scripts @fission-ai/openspec@{{.OPENSPEC_VERSION}}
+
+  openspec:check:
+    desc: Validate every main spec and change with the pinned openspec in strict mode (the long-requirement limit is a warning, and strict fails on it)
+    env:
+      OPENSPEC_TELEMETRY: "0"
+    preconditions:
+      - sh: command -v openspec >/dev/null
+        msg: "openspec not found: run `task openspec:install` (needs npm)"
+      - sh: test "$(openspec --version)" = "{{.OPENSPEC_VERSION}}"
+        msg: "openspec is not {{.OPENSPEC_VERSION}}: run `task openspec:install`"
+    cmds:
+      - openspec validate --all --strict --no-interactive
+
   ## Aggregates
 
   check:
-    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the cite-lint rule, the api:diff tests and the consumer-build script tests
+    desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the cite-lint rule, the api:diff tests, the consumer-build script tests and the strict OpenSpec check
     cmds:
       - task: fmt
       - task: vet
@@ -245,6 +266,7 @@ tasks:
       - task: cite-lint
       - task: consumer-build:test
       - task: api:diff:test
+      - task: openspec:check
 
   check:fast:
     desc: Run fmt, vet, tests, the docs bundle check, and the api:diff tests (skip lint)

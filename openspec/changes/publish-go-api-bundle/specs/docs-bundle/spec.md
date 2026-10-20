@@ -2,17 +2,21 @@
 
 ### Requirement: The library publishes one docs bundle
 
-The repository SHALL declare one docs-kit project, `library`, in `docs-kit.cue`: placed in a site version's `/docs/` tree, owning `reference/go-api/`, versioned from tags with the prefix `v`, built from a `go-api` source over the packages matching `./opm/...` and a `markdown` source over `docs/site`. The bundle SHALL carry the authored pages under `docs/site/` and the Go API reference together (docs-kit DESIGN decision 20). `task docs:bundle` SHALL build it into `out/library/` and `task docs:bundle:check` SHALL build and lint it without publishing.
-
-#### Scenario: The bundle holds both kinds of page
-
-- **WHEN** `task docs:bundle` runs on a clean checkout
-- **THEN** `out/library/content/` holds `diagnostics/version-skew.md` (authored), `reference/go-api/_index.md` and `reference/go-api/kernel.md` (generated)
+The repository SHALL declare one docs-kit project, `library`, in `docs-kit.cue`: placed in a site version's `/docs/` tree, owning `reference/go-api/`, versioned from tags with the prefix `v`, built from a `go-api` source over the packages matching `./opm/...` and a `markdown` source over `docs/site`.
 
 #### Scenario: Internal packages stay out
 
 - **WHEN** the bundle is built
 - **THEN** no page documents a package under `opm/internal/`
+
+### Requirement: The bundle carries both kinds of page and its tasks build it
+
+The bundle SHALL carry the authored pages under `docs/site/` and the Go API reference together (docs-kit DESIGN decision 20). `task docs:bundle` SHALL build it into `out/library/` and `task docs:bundle:check` SHALL build and lint it without publishing.
+
+#### Scenario: The bundle holds both kinds of page
+
+- **WHEN** `task docs:bundle` runs on a clean checkout
+- **THEN** `out/library/content/` holds `diagnostics/version-skew.md` (authored), `reference/go-api/_index.md` and `reference/go-api/kernel.md` (generated)
 
 ### Requirement: Every exported symbol of the Go API reference has prose
 
