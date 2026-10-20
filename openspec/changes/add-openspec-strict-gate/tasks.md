@@ -1,9 +1,9 @@
 ## 1. Split the long block of publish-go-api-bundle
 
-- [ ] 1.1 Copy `openspec/changes/publish-go-api-bundle/specs/docs-bundle/spec.md` to a scratch folder. In the original, replace the ADDED block "The library publishes one docs bundle" with the two blocks of design.md: sentence 1 under the old header with the scenario "Internal packages stay out"; sentences 2 and 3 under "The bundle carries both kinds of page and its tasks build it" with the scenario "The bundle holds both kinds of page". Touch no other block and no other file of the change.
-- [ ] 1.2 Compare the scratch copy and the new file: the sentences and both scenarios are byte equal, and only the new header and the block break differ. Both bodies are 500 characters or less and hold SHALL.
-- [ ] 1.3 `openspec validate --all --strict --no-interactive` under 1.14.1 exits 0, and `openspec validate publish-go-api-bundle --strict --no-interactive` exits 0.
-- [ ] 1.4 Commit `docs(openspec): split the long docs-bundle requirement of publish-go-api-bundle`
+- [x] 1.1 Copy `openspec/changes/publish-go-api-bundle/specs/docs-bundle/spec.md` to a scratch folder. In the original, replace the ADDED block "The library publishes one docs bundle" with the two blocks of design.md: sentence 1 under the old header with the scenario "Internal packages stay out"; sentences 2 and 3 under "The bundle carries both kinds of page and its tasks build it" with the scenario "The bundle holds both kinds of page". Touch no other block and no other file of the change.
+- [x] 1.2 Compare the scratch copy and the new file: the sentences and both scenarios are byte equal, and only the new header and the block break differ. Both bodies are 500 characters or less and hold SHALL.
+- [x] 1.3 `openspec validate --all --strict --no-interactive` under 1.14.1 exits 0, and `openspec validate publish-go-api-bundle --strict --no-interactive` exits 0.
+- [x] 1.4 Commit `docs(openspec): split the long docs-bundle requirement of publish-go-api-bundle`
 
 ## 2. Add the pinned gate
 
