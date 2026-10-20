@@ -17,8 +17,8 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// single-build-render spec, "A render reports every contract its instance
-// requires" (enhancement 0013).
+// single-build-render spec, "A render reports the instance's contract demand
+// as data on RequiredContracts" (enhancement 0013).
 
 const (
 	containerFQN  = renderCatPath + "/resources/container@v1"

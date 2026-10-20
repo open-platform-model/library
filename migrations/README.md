@@ -62,7 +62,7 @@ when known.
 ## Enforcement (armed at GA)
 
 - Every breaking PR (`type!:` / `BREAKING CHANGE:`) carries a `Migration: <slug>` trailer
-  in its description; `Migration: none — <reason>` is the escape hatch for breaks that need
+  in its description; `Migration: none, <reason>` is the escape hatch for breaks that need
   no consumer action.
 - A PR-time gate requires the trailer and a matching `migrations/unreleased/<slug>.md` in
   the diff. A release-time backstop re-derives the breaking set for the release range and

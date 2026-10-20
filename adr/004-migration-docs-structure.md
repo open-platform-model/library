@@ -4,6 +4,8 @@
 
 Accepted. Amended 2026-10-03 by `record-walkthrough-decisions`: the arming condition now points
 at the GA exit criteria in enhancement 0021 ("A beta line reaches GA only when its exit criteria hold") (the same enhancement also holds the arming condition).
+Amended 2026-10-19 by `split-long-requirements`: the escape-hatch trailer is
+`Migration: none, <reason>` (comma, not em-dash).
 
 ## Context
 
@@ -44,7 +46,7 @@ under `migrations/`, and enforcement is deferred until the first GA release.
 - **Correlation (carried forward from `add-migration-guard`):** one slug flows through the
   OpenSpec change directory, the breaking commit's `Migration: <slug>` trailer (placed in
   the PR body; squash-only merges with `squash_merge_commit_message=PR_BODY` land it on
-  `main`), and the fragment filename. `Migration: none — <reason>` stays the escape hatch.
+  `main`), and the fragment filename. `Migration: none, <reason>` stays the escape hatch.
   Breaking detection uses a real Conventional Commits parser, the same signal
   release-please uses.
 - **Enforcement (armed at GA, not before):** a required PR-time check (breaking commit

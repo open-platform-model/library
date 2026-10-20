@@ -715,8 +715,8 @@ func TestRender_CatalogFulfilledPluralityRenders(t *testing.T) {
 
 // TestRender_WithRegistryDoesNotMutateEnv asserts WithRegistry plumbs the
 // mapping into the render build's load configuration without writing the
-// process CUE_REGISTRY (spec kernel-runtime, "Registry Configuration
-// Option").
+// process CUE_REGISTRY (spec kernel-runtime, "WithRegistry mutates no process
+// environment").
 func TestRender_WithRegistryDoesNotMutateEnv(t *testing.T) {
 	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
 	// Point the process env somewhere the fixture catalog is NOT served: the

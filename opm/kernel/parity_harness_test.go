@@ -112,8 +112,10 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	}
 }
 
-// render-parity spec, "The shipped catalog stays discriminated": the
-// opm_platform fixture is the one place the library resolves the published
+// render-parity spec, "The shipped catalog stays discriminated", "The
+// discrimination read lives in a test function of its own beside the render
+// cases" and "The discrimination assertion is gated as the shipped group is":
+// the opm_platform fixture is the one place the library resolves the published
 // catalogs/opm build into a #Platform, so it is the one place that build can
 // be measured against the comparable-predicate report core derives
 // (enhancement 0015; core imports no catalog and cannot check itself).

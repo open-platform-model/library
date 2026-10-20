@@ -16,8 +16,9 @@ import (
 )
 
 // TestFlow_ImportedModule_SynthToRender is the end-to-end imported-module
-// render coverage (spec instance-synthesis, "Imported-module render coverage
-// exists"): a real published module — referenced by IMPORT, named at its
+// render coverage (spec instance-synthesis, "A test renders an instance whose
+// module is referenced by import, on the synth path and an authored-package
+// path"): a real published module — referenced by IMPORT, named at its
 // snake_case path leaf per core v2's identity rule (enhancement 0010) — is synthesized into
 // a #ModuleInstance and rendered through Kernel.Render against a platform that imports its catalog
 // (enhancement 0019) to concrete resources. An authored instance.cue importing the

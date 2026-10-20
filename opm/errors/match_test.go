@@ -67,8 +67,9 @@ func TestUnresolvedDemandsError_MessageShape(t *testing.T) {
 	assert.Contains(t, disq.Error(), "1 candidate(s) disqualified")
 }
 
-// single-build-render spec, "Unresolved demands are diagnosed with
-// alternatives": the row words four cases, and the defining catalog
+// single-build-render spec, "The unresolved-demand row distinguishes four
+// cases" and "An unresolved-demand row names the enabled catalog that lists
+// the demanded key": the row words four cases, and the defining catalog
 // (enhancement 0015) is named wherever an enabled catalog lists the key. This table
 // covers the three cases without a collision; the colliding case is
 // TestUnresolvedDemand_CollidingCase in collision_test.go.

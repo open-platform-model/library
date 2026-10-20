@@ -17,8 +17,8 @@ import (
 	"github.com/open-platform-model/library/opm/module"
 )
 
-// TestRender_WritesNoStagingFile pins single-build-render "A render writes no
-// staging file": a successful render, each refusal before evaluation and a
+// TestRender_WritesNoStagingFile pins single-build-render "Kernel.Render writes
+// no staging file": a successful render, each refusal before evaluation and a
 // build failure leave the test's private temp dir empty and the render root
 // absent from disk.
 func TestRender_WritesNoStagingFile(t *testing.T) {

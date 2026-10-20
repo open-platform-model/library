@@ -11,8 +11,10 @@ linters:
   settings:
     depguard:
       rules:
-        # The helper tier is opt-in (helper-packages spec, "Helper Boundary at
-        # opm/helper/"): a frontend MAY skip every package under opm/helper/,
+        # The helper tier is opt-in (helper-packages spec, "The library
+        # maintains an opm/helper subdirectory of opt-in frontend conveniences"
+        # and "Helper Boundary at opm/helper/"): a frontend MAY skip every
+        # package under opm/helper/,
         # which is only true while nothing the kernel needs lives there. The
         # boundary is enforced here rather than described, because it inverted
         # once already — opm/kernel imported opm/helper/loader for the type of
@@ -90,7 +92,7 @@ linters:
             - pkg: sigs.k8s.io
               desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the controller (ADR-011)
         # The label vocabulary is dependency-free (kubernetes-tier spec, "The
-        # label vocabulary names labels and never stamps them"): it names and
+        # labels package imports only the standard library"): it names and
         # recognises label keys and values, so the standard library is all it
         # needs, and a frontend can import it without pulling apimachinery or
         # CUE. Test files may use testify.
@@ -101,8 +103,9 @@ linters:
             - "!**/*_test.go"
           allow:
             - $gostd
-        # The readiness evaluator is pure (kubernetes-tier spec, "Readiness
-        # evaluation is a pure function over fetched objects"): it judges
+        # The readiness evaluator is pure (kubernetes-tier spec, "Readiness is
+        # judged by a pure function over fetched objects" and "Lint holds the
+        # health package to the standard library and apimachinery"): it judges
         # objects the frontend has fetched, so the standard library and
         # apimachinery's unstructured objects are all it needs. Holding it to
         # those keeps a cluster client, and every other opm/ package, out of
