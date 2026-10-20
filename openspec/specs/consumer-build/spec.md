@@ -10,7 +10,7 @@ breaks without blocking the merge, and the workflow that does it holds only a re
 
 ### Requirement: Library PRs build the consumers against the PR's merge commit
 
-A pull request from a branch in this repository that changes `opm/**`, `go.mod`, `go.sum`, the consumer-build workflow or its script SHALL run one job per consumer, cli and opm-controller. Each job SHALL check out the consumer's `main`, install the Go version the consumer's `go.mod` names, and run `go build ./...` and `go vet ./...` in the consumer with the library resolved to the PR's merge commit, the tree `actions/checkout` checks out by default for a pull request. Source: ADR-013, decision j4.
+A pull request from a branch in this repository that changes `opm/**`, `go.mod`, `go.sum`, the consumer-build workflow or its script SHALL run one job per consumer, cli and opm-controller. Each job SHALL check out the consumer's `main`, install the Go version the consumer's `go.mod` names, and run `go build ./...` and `go vet ./...` in the consumer with the library resolved to the PR's merge commit, the tree `actions/checkout` checks out by default for a PR. Source: ADR-013, decision j4.
 
 #### Scenario: A PR changes library code
 
