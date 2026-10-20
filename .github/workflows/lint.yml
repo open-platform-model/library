@@ -63,3 +63,33 @@ jobs:
     uses: open-platform-model/.github/.github/workflows/cite-lint.yml@a2a13733f34f952d81e6f08b84c743cc2efb86e9 # .github main
     with:
       paths: .
+
+  # Every main spec and every change, in strict mode, with the CLI pinned in
+  # Taskfile.yml (OPENSPEC_VERSION). The CLI is npm code that no lockfile pins:
+  # it installs without scripts, the token only reads, and no job with a write
+  # token runs this task or `task check`.
+  openspec:
+    name: OpenSpec
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.x
+
+      - name: Setup Node for the OpenSpec CLI
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Install the pinned OpenSpec CLI
+        run: task openspec:install
+
+      - name: Validate every spec and change in strict mode
+        run: task openspec:check

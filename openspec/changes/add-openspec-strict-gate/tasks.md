@@ -7,10 +7,10 @@
 
 ## 2. Add the pinned gate
 
-- [ ] 2.1 `Taskfile.yml`: add `OPENSPEC_VERSION: 1.14.1` to `vars`, the tasks `openspec:install` and `openspec:check` as in design.md, and `openspec:check` at the end of the `check` task.
-- [ ] 2.2 `.github/workflows/lint.yml`: add the job `openspec` as in design.md, with the action pins already used in the file and the `setup-node` pin of `core`. `permissions` stay `contents: read`.
-- [ ] 2.3 `task openspec:install` and `task check` pass; `task openspec:check` exits 0. A scratch copy with a requirement body over 500 characters makes `task openspec:check` exit 1. `actionlint` and `zizmor` are clean on the changed workflow; the `yq` timeout query of the workflow guide is answered for the new job.
-- [ ] 2.4 Commit `ci(openspec): validate every spec and change in strict mode`
+- [x] 2.1 `Taskfile.yml`: add `OPENSPEC_VERSION: 1.14.1` to `vars`, the tasks `openspec:install` and `openspec:check` as in design.md, and `openspec:check` at the end of the `check` task.
+- [x] 2.2 `.github/workflows/lint.yml`: add the job `openspec` as in design.md, with the action pins already used in the file and the `setup-node` pin of `core`. `permissions` stay `contents: read`.
+- [x] 2.3 `task openspec:install` and `task check` pass; `task openspec:check` exits 0. A scratch copy with a requirement body over 500 characters makes `task openspec:check` exit 1. `actionlint` and `zizmor` are clean on the changed workflow; the `yq` timeout query of the workflow guide is answered for the new job.
+- [x] 2.4 Commit `ci(openspec): validate every spec and change in strict mode`
 
 ## 3. Verify and archive
 
