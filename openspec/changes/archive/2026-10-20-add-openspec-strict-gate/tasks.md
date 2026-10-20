@@ -14,5 +14,5 @@
 
 ## 3. Verify and archive
 
-- [ ] 3.1 `openspec validate add-openspec-strict-gate --strict --no-interactive` passes.
-- [ ] 3.2 Archive the change with `skip_specs: true` (no spec sync) and commit `chore(openspec): archive add-openspec-strict-gate`.
+- [x] 3.1 `openspec validate add-openspec-strict-gate --strict --no-interactive` passes.
+- [x] 3.2 Archive the change with `skip_specs: true` (no spec sync) and commit `chore(openspec): archive add-openspec-strict-gate`.
