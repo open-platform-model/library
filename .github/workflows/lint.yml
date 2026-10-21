@@ -60,7 +60,7 @@ jobs:
     name: Cite lint
     permissions:
       contents: read
-    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@a2a13733f34f952d81e6f08b84c743cc2efb86e9 # .github main
+    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@3dcc82b2f30328cc01bbc478f825842de3fd207f # .github main
     with:
       paths: .
 
