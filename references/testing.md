@@ -21,7 +21,7 @@ the kernel constructor godoc (no load at construction, and which calls load) and
 schema-cache accessor (one cache per Kernel for its lifetime). Edit the godoc; do not restate it here. Facts the godoc does not carry:
 
 - On a pinned kernel (the default), the only calls that load the schema are the
-  consumers' own: the cli publish gate and the operator's startup smoke check call
+  consumers' own: the cli publish gate and the controller's startup smoke check call
   the schema cache.
 - Frontends set `CUE_REGISTRY` (the library applies no default, `opm/schema` package
   doc); tests use the workspace-local cache through `opm/internal/schematest` (see

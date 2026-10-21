@@ -1,7 +1,7 @@
 # golangci-lint v2 configuration.
 # Kept intentionally small: the standard linter set plus formatting checks and
 # the architectural fences the repo enforces mechanically.
-# This is a library, not the operator — no custom logcheck plugin.
+# This is a library, not the controller — no custom logcheck plugin.
 version: "2"
 
 linters:
@@ -59,7 +59,7 @@ linters:
         # The Kubernetes tier names actions and never performs them (ADR-008,
         # ADR-011): it may import k8s.io/apimachinery and the kernel's public
         # packages, never a cluster client or a controller framework. Flux and
-        # controller-runtime are the operator's engine and must not reach the
+        # controller-runtime are the controller's engine and must not reach the
         # cli through the library. opm/internal is reachable by Go's internal
         # rule, and opm/helper is the opt-in tier a mandatory tier must not
         # lean on, so lint closes both.
@@ -68,7 +68,7 @@ linters:
             - "**/opm/k8s/**"
           deny:
             - pkg: github.com/fluxcd
-              desc: Flux is the operator's apply engine; the library owns the per-object verdict and the order (ADR-011)
+              desc: Flux is the controller's apply engine; the library owns the per-object verdict and the order (ADR-011)
             - pkg: github.com/open-platform-model/library/opm/internal
               desc: opm/k8s reads only the kernel's exported output types (ADR-011)
             - pkg: github.com/open-platform-model/library/opm/helper
@@ -90,7 +90,7 @@ linters:
             - pkg: k8s.io
               desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; client-go stays with the frontends (ADR-011)
             - pkg: sigs.k8s.io
-              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the operator (ADR-011)
+              desc: of the Kubernetes modules opm/k8s imports only k8s.io/apimachinery; controller-runtime stays with the controller (ADR-011)
         # The label vocabulary is dependency-free (kubernetes-tier spec, "The
         # labels package imports only the standard library"): it names and
         # recognises label keys and values, so the standard library is all it
@@ -123,7 +123,7 @@ linters:
         # ADR-011 item 2 left one question to add-kubernetes-object-packages:
         # whether a strict allow list for the tier pays. It does. The tier is
         # mandatory for every Kubernetes frontend, so each third-party import
-        # here lands in the cli's and the operator's module graphs; this list
+        # here lands in the cli's and the controller's module graphs; this list
         # refuses one before a reviewer has to notice it. The broad library
         # prefix is safe because the deny rules above still refuse
         # opm/internal and opm/helper, leaving the kernel's exported packages
@@ -195,9 +195,9 @@ linters:
             - pkg: k8s.io/client-go
               desc: no opm/ package performs cluster I/O; a frontend brings its own client (ADR-011)
             - pkg: sigs.k8s.io/controller-runtime
-              desc: controller-runtime is the operator's framework and must not become a library or cli dependency (ADR-011)
+              desc: controller-runtime is the controller's framework and must not become a library or cli dependency (ADR-011)
             - pkg: github.com/fluxcd
-              desc: Flux is the operator's apply engine and must not become a library or cli dependency (ADR-011)
+              desc: Flux is the controller's apply engine and must not become a library or cli dependency (ADR-011)
 
 formatters:
   enable:

@@ -121,7 +121,7 @@ Apply when scope is project-wide or covers a significant subsystem.
 
 **Defense in depth**:
 - Shape-gate + schema validation + unification at fixed fill paths + trusted-catalog sourcing layer up — no single one is the sole barrier
-- Kernel neutrality (no global state, no process mutation) limits blast radius across embedders (`cli`, `opm-operator`)
+- Kernel neutrality (no global state, no process mutation) limits blast radius across embedders (`cli`, `opm-controller`)
 
 ---
 

@@ -95,7 +95,7 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	wantDemand, err := walkDeclaredContracts(inst)
 	require.NoError(t, err)
 	assert.Equal(t, wantDemand, res.Diagnostics.RequiredContracts,
-		"the build's demand equals the operator walk on the shipped catalog")
+		"the build's demand equals the controller walk on the shipped catalog")
 
 	// ── pair sets (spec: "Matched pair sets agree") ──────────────────
 	pairs := oraclePairs(t, oracle)

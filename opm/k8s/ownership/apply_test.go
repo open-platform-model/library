@@ -11,8 +11,8 @@ import (
 )
 
 func TestCanApply(t *testing.T) {
-	operatorNS := ownership.Object{Kind: "Namespace", Name: "opm-operator-system"}
-	clusterRole := ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: "opm-operator-manager"}
+	controllerNS := ownership.Object{Kind: "Namespace", Name: "opm-system"}
+	clusterRole := ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: "opm-controller-manager"}
 	adoptKey := labels.AnnotationAdopt
 
 	tests := []struct {
@@ -173,17 +173,17 @@ func TestCanApply(t *testing.T) {
 		},
 		{
 			name: "an earlier install manifest's Namespace is refused like any foreign object",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize")), InstanceUUID: thisUUID},
-			want: ownership.RefuseForeignObject, contains: []string{"Namespace/opm-operator-system", adoptKey + "=" + thisUUID},
+			in:   ownership.ApplyInput{Object: controllerNS, Live: live("v1", "Namespace", "", "opm-system", managedBy("kustomize")), InstanceUUID: thisUUID},
+			want: ownership.RefuseForeignObject, contains: []string{"Namespace/opm-system", adoptKey + "=" + thisUUID},
 		},
 		{
 			name: "an earlier install manifest's ClusterRole with no labels is refused",
-			in:   ownership.ApplyInput{Object: clusterRole, Live: live("rbac.authorization.k8s.io/v1", "ClusterRole", "", "opm-operator-manager"), InstanceUUID: thisUUID},
+			in:   ownership.ApplyInput{Object: clusterRole, Live: live("rbac.authorization.k8s.io/v1", "ClusterRole", "", "opm-controller-manager"), InstanceUUID: thisUUID},
 			want: ownership.RefuseForeignObject,
 		},
 		{
 			name: "the adopt annotation takes an earlier install manifest's object over",
-			in:   ownership.ApplyInput{Object: operatorNS, Live: live("v1", "Namespace", "", "opm-operator-system", managedBy("kustomize"), adopt(thisUUID)), InstanceUUID: thisUUID},
+			in:   ownership.ApplyInput{Object: controllerNS, Live: live("v1", "Namespace", "", "opm-system", managedBy("kustomize"), adopt(thisUUID)), InstanceUUID: thisUUID},
 		},
 	}
 	for _, tt := range tests {

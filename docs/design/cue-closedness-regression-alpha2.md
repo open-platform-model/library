@@ -238,7 +238,7 @@ with the authoring rule documented in the catalog repo at
 `docs/cue-guard-closedness-workaround.md` and a pitfall note in its `AGENTS.md`.
 Validated: catalog vet + the `web_app` repro module clean on both `alpha.1` and
 `v0.17.0`, flattened spec output byte-identical. The library-pin recommendation
-stands until a fixed catalog version is published and the operator/CLI/kernel
+stands until a fixed catalog version is published and the controller/CLI/kernel
 matrix is re-run against it.
 
 ### Minimal in-package reproduction — SUPERSEDED 2026-07-16: one exists
@@ -376,7 +376,7 @@ completion work.
 ## Impact on OPM
 
 - **Today (since 2026-07-16):** none at runtime, but for a different reason than
-  before. The kernel (`library`/`opm-operator`) now pins `cuelang.org/go v0.17.1`
+  before. The kernel (`library`/`opm-controller`) now pins `cuelang.org/go v0.17.1`
   — an **affected** version. Rendering is green solely because the catalog no
   longer contains the trigger: all five workload blueprints use the hoisted-guard
   form. The safety margin is the workaround, not the toolchain.
@@ -387,7 +387,7 @@ completion work.
 - **Historically (pre-2026-07-16):** the kernel pinned the clean `alpha.1`, so
   only a developer running a newer `cue` CLI locally saw the false errors — and
   could misdiagnose a module as broken, which happened during the
-  [release-vs-modulerelease render-divergence](../../../opm-operator/docs/design/release-vs-modulerelease-render-divergence.md)
+  [release-vs-modulerelease render-divergence](../../../opm-controller/docs/design/release-vs-modulerelease-render-divergence.md)
   investigation.
 
 ## Recommendations

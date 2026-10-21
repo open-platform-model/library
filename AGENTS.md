@@ -1,7 +1,7 @@
 # Library repository guide
 
 The OPM kernel, the reference Go runtime for Open Platform Model, consumed as a Go library by every
-frontend (`cli`, `opm-operator`, a planned Crossplane composition function). The repo ships no binary
+frontend (`cli`, `opm-controller`, a planned Crossplane composition function). The repo ships no binary
 and has no `main` package. It must never grow command, controller or output concerns: those belong to
 the frontends.
 
@@ -44,7 +44,7 @@ the frontends.
 - Before pre-GA, a kernel-surface break writes no migration fragment. On the beta line it lands only as
   a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note the CHANGELOG shows (ADR-010).
   From GA a break needs a migration fragment under `migrations/`, per the policy there. When a signature
-  changes, check the effect on `cli/` and `opm-operator/`.
+  changes, check the effect on `cli/` and `opm-controller/`.
 - A `retract` in `go.mod` takes effect only from the go.mod of the version the go command resolves as
   latest, which is the highest release and falls back to a prerelease only when no release exists.
   While a release exists, a retract shipped in a prerelease is ignored: fix a bad beta with the next

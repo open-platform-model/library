@@ -27,7 +27,7 @@ Gate G2-library: docs-kit's `add-go-api-extractor`, `add-authored-docs` and `gen
 
 ## 3. Publish the bundle the cli pins
 
-Gate: section 2 is merged. Part of gate G2-pins (core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-operator `v1.0.0-beta.4` backfilled, then cli `v1.0.0-beta.6`). This section's deliverable is a publishing operation (the owner's), so its steps are the implementation.
+Gate: section 2 is merged. Part of gate G2-pins (core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-controller `v1.0.0-beta.4` backfilled, then cli `v1.0.0-beta.6`). This section's deliverable is a publishing operation (the owner's), so its steps are the implementation.
 
 - [ ] 3.1 Owner: dispatch `gh workflow run docs.yml --ref main -f mode=release -f tag=v1.0.0-beta.1` (owner decision 2026-10-03; design.md D5), then check `ghcr.io/open-platform-model/docs/library` is public and linked to `open-platform-model/library` (change it in the package settings if not).
 - [ ] 3.2 Owner, only if release PR library#155 (`v1.0.0-beta.2`) merged before section 2: dispatch `gh workflow run docs.yml --ref main -f mode=release -f tag=v1.0.0-beta.2` too, since that release ran no `publish-docs`. No docs revision of `1.0.0-beta.1`: section 1's and library#172's comment fixes do not cherry-pick onto the tag (design.md D5), so they reach v1.0 through the next library release the cli pins.
@@ -37,7 +37,7 @@ Gate: section 2 is merged. Part of gate G2-pins (core `v2.0.0-beta.1`, library `
 
 ## 4. Link the Go API reference
 
-Gate G2-switch: opmodel.dev's v1.0 reads core, cli, library and opm-operator from bundles (docs-kit `docs/orchestration.md`).
+Gate G2-switch: opmodel.dev's v1.0 reads core, cli, library and opm-controller from bundles (docs-kit `docs/orchestration.md`).
 
 - [ ] 4.1 `docs/site/embedding/embed-the-kernel.md`: under "Next steps", a visible link `[Go API: opm/kernel](/docs/reference/go-api/kernel/)` after the brief. Verify: `task docs:bundle:check` passes (bundle-mode lint checks the link against `reference/go-api/`).
 - [ ] 4.2 `openspec archive publish-go-api-bundle --yes`. Verify: `openspec validate --specs --strict` passes for `docs-bundle`.

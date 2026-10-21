@@ -88,7 +88,7 @@ The exported identity type (Requirement: Each returned row carries the identity 
 - **THEN** it keeps its fields: apiVersion, kind, namespace and name
 
 ### Requirement: opm/k8s/object provides an error type that aggregates duplicate rows in one wording
-`opm/k8s/object` SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the operator refuse with one wording.
+`opm/k8s/object` SHALL provide an error type aggregating duplicate rows, whose message names each identity and every producer as component and transformer, one identity per line, so the CLI and the controller refuse with one wording.
 
 #### Scenario: The message names both carrying components
 

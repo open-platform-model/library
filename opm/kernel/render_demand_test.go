@@ -120,9 +120,9 @@ func TestRenderDemand_TraitsOnlyComponent(t *testing.T) {
 	assert.Equal(t, []string{sidecarFQN}, demand)
 }
 
-// walkDeclaredContracts copies the operator's demand walk:
-// opm-operator internal/render/demand.go, declaredContracts and contractKeys,
-// at opm-operator origin/main 9b83611. The paths are built locally: the
+// walkDeclaredContracts copies the controller's demand walk:
+// opm-controller internal/render/demand.go, declaredContracts and contractKeys,
+// at opm-controller origin/main 9b83611. The paths are built locally: the
 // library's opm/schema carries no component #resources or #traits path
 // (schema-dispatch, "Matcher and transformer paths are gone").
 func walkDeclaredContracts(inst *module.Instance) ([]string, error) {
@@ -164,10 +164,10 @@ func walkDeclaredContracts(inst *module.Instance) ([]string, error) {
 
 // "The demand equals the declared contracts of the instance": for every
 // render fixture instance (none has synthesised components), the build's
-// demand equals the operator walk it replaces. Every scenario package on
+// demand equals the controller walk it replaces. Every scenario package on
 // disk is classified, so a new one must either join the parity set or be
 // named as a render that never reaches its diagnostics.
-func TestRenderDemand_ParityWithOperatorWalk(t *testing.T) {
+func TestRenderDemand_ParityWithControllerWalk(t *testing.T) {
 	// Scenarios whose render returns a plain error before or at the
 	// diagnostics decode, so no demand is reported. bad_traits and
 	// no_resources are not acquirable at all.

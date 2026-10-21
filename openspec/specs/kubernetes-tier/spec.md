@@ -78,7 +78,7 @@ The Kubernetes tier SHALL NOT be described as opt-in. A frontend that targets Ku
 
 ### Requirement: Labels are stamped in CUE and the shared digest ignores the runtime name
 
-Label stamping SHALL stay in CUE at render, where core's `#runtimeName` fills the managed-by label. The tier's shared render digest SHALL leave the managed-by label's value out of its input, so that the CLI and the operator, rendering the same instance, compute the same digest bytes. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
+Label stamping SHALL stay in CUE at render, where core's `#runtimeName` fills the managed-by label. The tier's shared render digest SHALL leave the managed-by label's value out of its input, so that the CLI and the controller, rendering the same instance, compute the same digest bytes. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
 
 #### Scenario: The digest rule is recorded
 
@@ -224,7 +224,7 @@ The library SHALL report a core-group `Namespace` and an `apiextensions.k8s.io` 
 - **THEN** it is deeply equal to a copy taken before the call
 
 ### Requirement: The weight table never contradicts Flux's staged apply order
-The library SHALL keep a test that models the staged apply of Flux's `ssa` package at the version the operator pins, as literals without importing Flux: its stages as scenario "The model of Flux's stages" lists, its `ReconcileOrder` ranks (every kind it does not list at rank 0), and its tie-break by API group, then kind. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The library SHALL keep a test that models the staged apply of Flux's `ssa` package at the version the controller pins, as literals without importing Flux: its stages as scenario "The model of Flux's stages" lists, its `ReconcileOrder` ranks (every kind it does not list at rank 0), and its tie-break by API group, then kind. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: The shipped table contradicts Flux nowhere
 
@@ -258,7 +258,7 @@ The library SHALL keep a test that models the staged apply of Flux's `ssa` packa
 
 #### Scenario: An earlier install manifest's object is refused on apply
 
-- **WHEN** the apply verdict is asked for `Namespace/opm-operator-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
+- **WHEN** the apply verdict is asked for `Namespace/opm-system`, live with managed-by `kustomize` and no UUID label, outside the inventory
 - **THEN** it refuses as `foreign-object`
 - **AND** the message names `opmodel.dev/adopt` with the instance UUID
 
@@ -359,7 +359,7 @@ For apply, the tier SHALL own the per-object verdict (CanApply) and the order, n
 #### Scenario: Apply engines stay with the frontends
 
 - **WHEN** a developer reads ADR-011
-- **THEN** it states that the operator keeps `fluxcd/pkg/ssa` and the CLI keeps its own server-side apply, that the library owns the per-object apply verdict and the order and never an apply engine, and that an engine's staging may refine the library's order and never contradict it
+- **THEN** it states that the controller keeps `fluxcd/pkg/ssa` and the CLI keeps its own server-side apply, that the library owns the per-object apply verdict and the order and never an apply engine, and that an engine's staging may refine the library's order and never contradict it
 
 ### Requirement: Each frontend submits objects in the library order
 Each frontend SHALL submit objects in the library's order. An engine's own staging MAY refine that order, for example by sorting within a stage, and SHALL NOT contradict it. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
@@ -395,11 +395,11 @@ In the OPM model, ordering across modules belongs to a future Bundle definition,
 - **THEN** it adds no ordering across modules before a Bundle definition exists
 
 ### Requirement: A frontend's readiness gating is outside the cross-module ordering rule
-The rule is the one of requirement "Ordering across modules belongs to a future Bundle". A frontend's readiness gating between its own custom resources, such as the operator's ModulePackage `spec.dependsOn`, SHALL be outside this rule; whether a future Bundle definition subsumes it is not decided. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The rule is the one of requirement "Ordering across modules belongs to a future Bundle". A frontend's readiness gating between its own custom resources, such as the controller's ModulePackage `spec.dependsOn`, SHALL be outside this rule; whether a future Bundle definition subsumes it is not decided. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: Readiness gating between custom resources is outside the rule
 
-- **WHEN** a frontend gates readiness between its own custom resources, such as the operator's ModulePackage `spec.dependsOn`
+- **WHEN** a frontend gates readiness between its own custom resources, such as the controller's ModulePackage `spec.dependsOn`
 - **THEN** the gating is outside the rule, and whether a future Bundle definition subsumes it is not decided
 
 ### Requirement: ADR-008 rule 4 excludes module-specific ordering only
@@ -440,7 +440,7 @@ The library SHALL provide `opm/k8s/labels`, which imports nothing outside the Go
 #### Scenario: The vocabulary matches the frontends' copies
 
 - **WHEN** a table test pins each declared key and value to its literal
-- **THEN** each equals the literal, and the literals are the ones a scripted comparison found byte-equal to the cli's `pkg/core/labels.go` at cli `1338e700` and the operator's at opm-operator `9b83611`
+- **THEN** each equals the literal, and the literals are the ones a scripted comparison found byte-equal to the cli's `pkg/core/labels.go` at cli `1338e700` and the controller's at opm-controller `9b83611`
 
 #### Scenario: The package declares these keys and values
 
@@ -513,11 +513,11 @@ A failure (Requirement: One export returns each Resource's JSON, object and prov
 - **THEN** the export fails with an error naming that Resource and its position and reporting that the JSON decode failed
 
 ### Requirement: The weight table agrees with the staged apply order of Flux
-The weight table SHALL agree with the staged apply order of Flux's `ssa` package at the version the operator pins (v0.77.0), so that an engine applying through Flux only refines it. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
+The weight table SHALL agree with the staged apply order of Flux's `ssa` package at the version the controller pins (v0.77.0), so that an engine applying through Flux only refines it. Source: enhancement 0012 ("Ordering is kind-class order in the Kubernetes tier; no module-internal ordering is planned, and cross-module order belongs to a future Bundle").
 
 #### Scenario: An engine applying through Flux only refines the table
 
-- **WHEN** an engine applies through Flux's `ssa` package at the version the operator pins (v0.77.0)
+- **WHEN** an engine applies through Flux's `ssa` package at the version the controller pins (v0.77.0)
 - **THEN** it only refines the order of the weight table
 
 ### Requirement: The library sorts by weight with a stable sort
@@ -1016,8 +1016,8 @@ Two exported object sets that differ only in the value of the managed-by label S
 - **WHEN** two exported object sets differ only in the value of the managed-by label
 - **THEN** their render digests are equal
 
-### Requirement: The cli and the operator compute the same render digest for one render
-The cli (`opm-cli`) and the operator (`opm-controller`) SHALL compute the same digest for one render as long as the catalogs pass `#runtimeName` only through `#context.labels`, which is the case the kernel test checks on the library's render fixture and on the shipped catalog. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
+### Requirement: The cli and the controller compute the same render digest for one render
+The cli (`opm-cli`) and the controller (`opm-controller`) SHALL compute the same digest for one render as long as the catalogs pass `#runtimeName` only through `#context.labels`, which is the case the kernel test checks on the library's render fixture and on the shipped catalog. Source: enhancement 0012 (labels are stamped by the CUE render and the shared digest ignores the runtime name).
 
 #### Scenario: The two runtimes digest one render equally
 
@@ -1529,12 +1529,12 @@ For an inventoried object the `adopted-elsewhere` message SHALL say that this in
 - **THEN** it says that this instance no longer applies the object and drops it from its inventory
 
 ### Requirement: The caller supplies the inventory fact and the instance UUID
-The caller (Requirement: Ownership inputs name the object and carry the live object) still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. A frontend that installs the operator SHALL be judged as any other instance.
+The caller (Requirement: Ownership inputs name the object and carry the live object) still supplies two facts the library does not check, as the frontend's own ownership record: whether the object is in the instance's recorded inventory, and the instance UUID. A frontend that installs the controller SHALL be judged as any other instance.
 **Source**: enhancement 0012 ("The apply guard runs on every apply, refusing foreign objects outside the inventory and any object adopted by another instance; a per-object adopt annotation is its only override") are withdrawn.
 
-#### Scenario: The caller supplies two facts and the operator installer is judged as any instance
+#### Scenario: The caller supplies two facts and the controller installer is judged as any instance
 
-- **WHEN** a frontend that installs the operator asks for a verdict
+- **WHEN** a frontend that installs the controller asks for a verdict
 - **THEN** it supplies whether the object is in the instance's recorded inventory and the instance UUID, and is judged as any other instance
 
 ### Requirement: Only an adopt annotation outside the inventory lifts an ownership refusal

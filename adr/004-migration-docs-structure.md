@@ -13,7 +13,7 @@ Amended 2026-10-19 by `split-long-requirements`: the escape-hatch trailer is
 By 2026-08-31 it had grown to 1244 lines in which every entry still sat in the two
 `## Unreleased` buckets: graduation into versioned sections never happened, entries drifted
 and duplicated, and each breaking PR paid an editing tax on one contended file. During the
-alpha line the recipes also have no audience: both consumers (`cli`, `opm-operator`) live in
+alpha line the recipes also have no audience: both consumers (`cli`, `opm-controller`) live in
 this workspace and migrate in the same coordinated PR wave, and every break is already
 recorded by release-please in `CHANGELOG.md` and, with design context, in
 `openspec/changes/archive/`.

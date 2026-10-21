@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Runtime-verify a library change through its real surface — a standalone downstream Go consumer, plus the cli/opm-operator embedders — instead of re-running the test suite.
+description: Runtime-verify a library change through its real surface — a standalone downstream Go consumer, plus the cli/opm-controller embedders — instead of re-running the test suite.
 ---
 
 # Verifying library changes at the package boundary
@@ -67,7 +67,7 @@ Gotchas:
 
 ## 2. Downstream embedders (migration-claim probe)
 
-Build `cli` and `opm-operator` against the branch non-invasively with a
+Build `cli` and `opm-controller` against the branch non-invasively with a
 GOWORK overlay — no go.mod edits:
 
 ```

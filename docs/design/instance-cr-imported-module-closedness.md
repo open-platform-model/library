@@ -12,7 +12,7 @@ pinned to `v0.4.0` (e.g. the `opm-kind-demo` registry) hits the old failure.
 **not** affect `Instance` packages that author the module inline.
 
 This note records the empirical resolution of the issue documented in
-[`opm-operator/docs/design/release-vs-modulerelease-render-divergence.md`](../../../opm-operator/docs/design/release-vs-modulerelease-render-divergence.md)
+[`opm-controller/docs/design/release-vs-modulerelease-render-divergence.md`](../../../opm-controller/docs/design/release-vs-modulerelease-render-divergence.md)
 (its recommended durable fix — Option 2, fix the closedness in `core@v0` —
 shipped in `core@v0.5.0`). It is a sibling to the toolchain regression in
 [`cue-closedness-regression-alpha2.md`](./cue-closedness-regression-alpha2.md),
@@ -22,7 +22,7 @@ verified end-to-end.
 
 ## Summary
 
-The operator (and the CLI) can author a `Instance` two ways:
+The controller (and the CLI) can author a `Instance` two ways:
 
 - **inline** — `instance.cue` declares the whole `#Module` body itself
   (`#module: { core.#Module, metadata: …, #components: … }`). One `#Module`
@@ -108,7 +108,7 @@ exactly the `#module: <import>` unification the workaround exists to avoid.
 required fields (`modulePath!: #ModulePathType`, `version!: #VersionType`)
 rather than self-references. Verified above: re-unifying a published module
 against this schema admits the concrete `metadata` and renders components
-concretely. This is the operator doc's Option 2 (durable fix in `core@v0`), and
+concretely. This is the controller doc's Option 2 (durable fix in `core@v0`), and
 it also makes `synth.Instance`'s `userModule`-scope workaround droppable for any
 consumer whose floor is ≥ `v0.5.0`.
 
@@ -141,8 +141,8 @@ delete the workarounds; its task 0.1 already records
    deleted, not yet replaced with the `v0` imported-module fixture above).
 4. **Correct stale claims** — **DONE.** `opm-kind-demo/web_app/instance.cue` +
    `web_app/README.md` now state the import works on `core@v0` ≥ `v0.5.0` and
-   describe the `v0.4.0` failure as historical. The operator render-divergence
-   doc (`opm-operator/docs/design/release-vs-modulerelease-render-divergence.md`)
+   describe the `v0.4.0` failure as historical. The controller render-divergence
+   doc (`opm-controller/docs/design/release-vs-modulerelease-render-divergence.md`)
    was updated 2026-06-17 to a split status: closedness failure RESOLVED in
    `core@v0.5.0`; render-path divergence OPEN, tracked in
    `simplify-render-single-build`. The doc-refresh of *this* file is itself
@@ -156,5 +156,5 @@ delete the workarounds; its task 0.1 already records
 - `library/opm/helper/synth/instance.go` — `synth.Instance` now constructs the instance via single-build CUE evaluation of a synthesized package that **imports** the module; the `userModule`-scope workaround and the Go `#config` pre-merge were deleted by `simplify-render-single-build`.
 - `library/opm/helper/loader/file/build.go` — the shared `buildAndShapeGate` both `synth.Instance` (overlay source) and `LoadInstancePackage` (on-disk source) now run.
 - `library/opm/helper/loader/file/instance.go` — `LoadInstancePackage` (re-pointed at the shared build step).
-- `opm-operator/docs/design/release-vs-modulerelease-render-divergence.md` — full two-path analysis.
+- `opm-controller/docs/design/release-vs-modulerelease-render-divergence.md` — full two-path analysis.
 - `library/docs/design/cue-closedness-regression-alpha2.md` — the separate `alpha.2+` toolchain regression that masks this on a newer CLI.

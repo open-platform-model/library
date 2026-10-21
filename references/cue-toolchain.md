@@ -5,7 +5,7 @@ CUE language floor, the CUE CLI in CI, and the unfixed closedness regression.
 
 Two independent knobs — do not conflate them:
 
-- **SDK** — `cuelang.org/go` in `go.mod`, currently **`v0.17.1`**. Because Go uses MVS, every embedder (`cli`, `opm-operator`) resolves *at least* this version; the library effectively sets their CUE floor.
+- **SDK** — `cuelang.org/go` in `go.mod`, currently **`v0.17.1`**. Because Go uses MVS, every embedder (`cli`, `opm-controller`) resolves *at least* this version; the library effectively sets their CUE floor.
 - **`k8s.io/apimachinery`** — in `go.mod` for the Kubernetes tier, currently **`v0.36.4`**. By the same MVS rule it is every embedder's apimachinery floor, as `cuelang.org/go` is their CUE floor. No bump policy is set here.
 - **Declared `language.version`** — what the CUE modules here (`modules/opm_platform`, `testdata/**`, and the one Go constant in `opm/internal/modversion/`, which sets the render floor, the generated platform module and the `opm/internal/registrytest` fixtures) declare, currently **`v0.17.0`**. This is a *consumer* floor: a module declaring `vX` is rejected by every `cue` older than `vX`. Declare `v0.17.0` — the minimum enabling `cue.mod/local-module.cue` — not `v0.17.1`, which would lock out v0.17.0 tools for no gain.
 

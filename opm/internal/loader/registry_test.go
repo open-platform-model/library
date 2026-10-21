@@ -30,7 +30,7 @@ func lookupString(t *testing.T, v cue.Value, path string) string {
 
 // 5.1 + 5.2 — a published core@v2 module that imports a catalog loads by
 // path@version with its author-set, self-referential metadata intact (the
-// fields that regressed under the operator's wrapper approach), and its
+// fields that regressed under the controller's wrapper approach), and its
 // transitive catalog dependency resolves through the in-memory Overlay load.
 func TestFetchModule_HappyPathAndTransitiveDeps(t *testing.T) {
 	base := registrytest.UniquePath(t, "app")

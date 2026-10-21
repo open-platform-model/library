@@ -14,8 +14,8 @@ var (
 	deployment = ownership.Object{Group: "apps", Kind: "Deployment", Namespace: "web", Name: "api"}
 	namespace  = ownership.Object{Kind: "Namespace", Name: "team-a"}
 	crd        = ownership.Object{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition", Name: "widgets.example.com"}
-	roleBind   = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "RoleBinding", Namespace: "opm-operator-system", Name: "leader"}
-	clusterRB  = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRoleBinding", Name: "opm-operator-manager"}
+	roleBind   = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "RoleBinding", Namespace: "opm-system", Name: "leader"}
+	clusterRB  = ownership.Object{Group: "rbac.authorization.k8s.io", Kind: "ClusterRoleBinding", Name: "opm-controller-manager"}
 )
 
 func TestCanDelete(t *testing.T) {
@@ -105,12 +105,12 @@ func TestCanDelete(t *testing.T) {
 		},
 		{
 			name: "an earlier install manifest's RoleBinding with no labels is not deleted",
-			in:   ownership.DeleteInput{Object: roleBind, Live: live("rbac.authorization.k8s.io/v1", "RoleBinding", "opm-operator-system", "leader"), InstanceUUID: thisUUID},
+			in:   ownership.DeleteInput{Object: roleBind, Live: live("rbac.authorization.k8s.io/v1", "RoleBinding", "opm-system", "leader"), InstanceUUID: thisUUID},
 			want: ownership.SkipNotOPMManaged,
 		},
 		{
 			name: "an earlier install manifest's ClusterRoleBinding is not deleted",
-			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-operator-manager", managedBy("kustomize")), InstanceUUID: thisUUID},
+			in:   ownership.DeleteInput{Object: clusterRB, Live: live("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "opm-controller-manager", managedBy("kustomize")), InstanceUUID: thisUUID},
 			want: ownership.SkipNotOPMManaged,
 		},
 	}

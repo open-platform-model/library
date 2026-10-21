@@ -10,7 +10,7 @@ import (
 
 // TestVocabularyLiterals pins every key and value to its literal. The
 // literals are byte-equal to the frontends' pkg/core/labels.go (cli 1338e700,
-// opm-operator 9b83611), which a scripted comparison checked when the
+// opm-controller 9b83611), which a scripted comparison checked when the
 // vocabulary moved here; a change to any of them changes what OPM writes to
 // or recognises on a cluster.
 func TestVocabularyLiterals(t *testing.T) {
