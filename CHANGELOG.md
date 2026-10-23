@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-beta.10](https://github.com/open-platform-model/library/compare/v1.0.0-beta.9...v1.0.0-beta.10) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** bump golang.org/x/net to v0.61.0 ([#235](https://github.com/open-platform-model/library/issues/235)) ([12a7a20](https://github.com/open-platform-model/library/commit/12a7a20f054d0bd5d5ffef05153d89fb25b8edc9))
+
 ## [1.0.0-beta.9](https://github.com/open-platform-model/library/compare/v1.0.0-beta.8...v1.0.0-beta.9) (2026-10-09)
 
 
