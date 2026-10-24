@@ -37,6 +37,6 @@ None.
 | --- | --- |
 | cli | Nothing: its `main` already pins `v1.0.0-beta.1`, which section 3 backfills (gate G2-pins); no `go.mod` bump. |
 | opmodel.dev | Nothing until `pull-reference-bundles`; then v1.0 gains `/docs/reference/go-api/` from the pinned library's bundle. |
-| opm-operator | Nothing. |
+| opm-controller | Nothing. |
 
 **Owner items:** merging docs-kit's release PRs (gate G2-library), the `v1.0.0-beta.1` backfill dispatch (and `v1.0.0-beta.2`'s, if it is released first), checking `ghcr.io/open-platform-model/docs/library` is public on first push.

@@ -52,7 +52,7 @@ jobs:
         run: task lint
 
   # The comment rule of the enhancements store, run by the shared reusable
-  # workflow of .github (its README, "cite-lint"). The tool commit lives in that
+  # workflow of .github (its references/cite-lint.md). The tool commit lives in that
   # workflow; `task cite-lint` runs the same tool at the same commit.
   # No excludes: the tree has 0 findings. Keep the exclude list equal to the one
   # in the Taskfile.yml task cite-lint if one is added.
@@ -60,6 +60,36 @@ jobs:
     name: Cite lint
     permissions:
       contents: read
-    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@2b66da51fede4332969c324b069012632d8edea9 # .github main
+    uses: open-platform-model/.github/.github/workflows/cite-lint.yml@3dcc82b2f30328cc01bbc478f825842de3fd207f # .github main
     with:
       paths: .
+
+  # Every main spec and every change, in strict mode, with the CLI pinned in
+  # Taskfile.yml (OPENSPEC_VERSION). The CLI is npm code that no lockfile pins:
+  # it installs without scripts, the token only reads, and no job with a write
+  # token runs this task or `task check`.
+  openspec:
+    name: OpenSpec
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.x
+
+      - name: Setup Node for the OpenSpec CLI
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Install the pinned OpenSpec CLI
+        run: task openspec:install
+
+      - name: Validate every spec and change in strict mode
+        run: task openspec:check

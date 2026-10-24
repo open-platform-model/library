@@ -21,7 +21,7 @@ workaround (§7) is now defence-in-depth. See §11 (pure-CUE control: not CUE), 
 **Severity:** High — breaks *every* container workload render (Deployment / StatefulSet / DaemonSet /
 Job / CronJob) until the catalog is patched.
 **First observed:** 2026-06-13, rendering `testdata/modules/web_app` on `modules/opm_platform` via the
-operator and via `TestFlow_WebApp_OnOpmPlatform`.
+controller and via `TestFlow_WebApp_OnOpmPlatform`.
 
 This document is a handoff for a later agent to fix the underlying behaviour (or to convert it into a
 documented, enforced authoring constraint). The symptom was worked around in `catalog_opm`; the kernel
@@ -148,7 +148,7 @@ for `#transform`-scope helpers but not `output`-local ones — pin down which st
 - `opm/compile/execute.go:117` — `unified.FillPath(schema.Context, ctxVal)` (fills `#context`). FillPath #4.
 - `opm/compile/execute.go:123` — `outputVal := unified.LookupPath(schema.Output)`; the Compiled value
   is `outputVal` verbatim (StructKind) — its lazy `containers` expression is marshalled later by the
-  consumer, which is where the operator sees the failure.
+  consumer, which is where the controller sees the failure.
 - `opm/compile/finalize.go:12` `FinalizeValue` — `v.Syntax(cue.Final())` → `cueCtx.BuildExpr`. Applied
   to *components* (not transformers), but the same Syntax→rebuild technique is a candidate mental model
   for what's detaching references; worth checking whether anything finalizes the transformer/output.
@@ -164,7 +164,7 @@ Prereqs: local OCI registry at `localhost:5000` with `opmodel.dev/core@v1` and a
 the bug (i.e. `_convertedSidecars` declared inside `output`). **Correction (see §10.2):** the buggy
 placement is `@v0.5.0`–`@v0.5.4`; the workaround landed at **`@v0.5.5`** (not v0.5.7). The clean
 buggy-but-matching repro version is **`@v0.5.2`** — `0.5.0`/`0.5.1` additionally hit the matcher miss
-documented in §10.5 (and `opm-operator/hack/kind-opm-dev-test/FINDINGS.md` §4). The single-version
+documented in §10.5 (and `opm-controller/hack/kind-opm-dev-test/FINDINGS.md` §4). The single-version
 recipe in §10.1 supersedes the multi-step instrumentation below.
 
 A clean repro path:
@@ -219,7 +219,7 @@ with all the `let`-binding context (handy for reading the resolved reference gra
 In `catalog_opm` (branch `fix/container-non-concrete-marshal`, local tag `…/catalogs/opm@v0.5.7`), all
 five workload transformers were changed to declare `_convertedSidecars` at `#transform` scope instead of
 inside `output`. `containers: list.Concat([[_mainContainer], _convertedSidecars])` is unchanged.
-Validated: flow test passes; operator renders web-app `@v1.0.10` → Deployment 2/2 + Service + HTTPRoute
+Validated: flow test passes; controller renders web-app `@v1.0.10` → Deployment 2/2 + Service + HTTPRoute
 - 2 ConfigMaps.
 
 This unblocks rendering but does **not** fix the kernel. Any future transformer author who declares a
@@ -250,7 +250,7 @@ Pick one (or both):
 
 ## 9. Cross-references
 
-- `opm-operator/hack/kind-opm-dev-test/FINDINGS.md` §3a — operator-side discovery + end-to-end validation.
+- `opm-controller/hack/kind-opm-dev-test/FINDINGS.md` §3a — controller-side discovery + end-to-end validation.
 - `docs/design/compile-pipeline-known-gaps.md` — prior compile-pipeline findings (matcher / executor),
   same fixture pair (`testdata/modules/web_app` + `modules/opm_platform`).
 - `cmd/flow-inspect` — inspection harness.
@@ -268,7 +268,7 @@ multi-version composed map is *not* required. Recipe used:
 2. Inject a subscription filter so Materialize selects exactly that version (the on-disk fixture has
    **no** filter, which makes Materialize pull all published versions — see §10.5):
    `#registry."opmodel.dev/catalogs/opm".filter.range: ">=0.5.2 <0.5.3"`.
-3. Compile the release and `MarshalJSON()` every `*core.Compiled.Value` (what the operator's
+3. Compile the release and `MarshalJSON()` every `*core.Compiled.Value` (what the controller's
    `ToUnstructured` does). Only `deployment-transformer@0.5.2` fails:
 
    ```
@@ -376,7 +376,7 @@ for _, p := range paths {
 
 Two viable, non-exclusive paths — pick per appetite for kernel surface area:
 
-1. **Ship the §10.6 re-fill as a kernel workaround.** Pros: defends every front-end (operator, CLI)
+1. **Ship the §10.6 re-fill as a kernel workaround.** Pros: defends every front-end (controller, CLI)
    and lets future transformer authors declare output-local helpers without tripping the bug; the
    catalog workaround (§7) then becomes belt-and-suspenders. Cons: a per-render walk + re-fill over
    `output`; should carry a `// TODO` referencing this doc and be deleted once the upstream Go

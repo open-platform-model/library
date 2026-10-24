@@ -42,7 +42,7 @@ var errNotObject = errors.New("the JSON is not an object")
 // or not a string reads as "".
 //
 // The managed-by value is the one value ignored: it is the runtime's name
-// (opm-cli or opm-controller), so the cli and the operator digest one render
+// (opm-cli or opm-controller), so the cli and the controller digest one render
 // equally, while any other change, including adding or removing the label,
 // moves the digest (enhancement 0012). The empty set hashes the tag line alone.
 //

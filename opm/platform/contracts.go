@@ -86,7 +86,7 @@ type ContractInventory struct {
 
 	// Unfulfilled lists the provider-fulfilled resources and traits an
 	// enabled catalog defines and no enabled registry entry provides (no
-	// ProvidedBy key). A report the operator surfaces as a non-gating
+	// ProvidedBy key). A report the controller surfaces as a non-gating
 	// condition (enhancement 0015), never a refusal. A colliding key is not
 	// defined, so it is never listed here.
 	Unfulfilled []string `json:"unfulfilled"`

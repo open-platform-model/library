@@ -9,12 +9,12 @@ Accepted (2026-09-30). Implemented by `adopt-beta-release-line`.
 [ADR-004](004-migration-docs-structure.md) moved migration documentation to per-change
 fragments under `migrations/` and left that directory dormant until the first GA release:
 no fragment is written before GA, and the enforcement gates arm at GA. It was written for the
-alpha line, where both consumers (`cli`, `opm-operator`) live in this workspace and migrate in
+alpha line, where both consumers (`cli`, `opm-controller`) live in this workspace and migrate in
 the same coordinated PR wave, so a standing recipe document had no audience.
 
 The library now leaves alpha. From its first beta (`v1.0.0-beta.1`) it is on the path to GA,
 together with the other prerelease lines of the cutover (`opmodel.dev/core@v2`,
-`opmodel.dev/catalogs/k8s@v1`, cli, opm-operator). The beta promise still allows a breaking
+`opmodel.dev/catalogs/k8s@v1`, cli, opm-controller). The beta promise still allows a breaking
 change, but only as a `feat!` commit whose `BREAKING CHANGE:` footer is the migration note;
 the break advances the `-beta.N` counter and never moves the module path to a new major.
 That promise needs a stated home for the migration note during beta. Two homes are

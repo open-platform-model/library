@@ -176,7 +176,7 @@ func TestMayReleaseHold(t *testing.T) {
 				assert.Equal(t, tt.message, got.Message)
 			}
 			assert.NotEmpty(t, got.Message)
-			for _, banned := range []string{"0012:", "opm.dev/", "operator", "cli", "finalizer", "ServiceAccount"} {
+			for _, banned := range []string{"0012:", "opm.dev/", "controller", "operator", "cli", "finalizer", "ServiceAccount"} {
 				assert.NotContains(t, got.Message, banned)
 			}
 		})

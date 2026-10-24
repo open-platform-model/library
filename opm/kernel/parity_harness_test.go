@@ -95,7 +95,7 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	wantDemand, err := walkDeclaredContracts(inst)
 	require.NoError(t, err)
 	assert.Equal(t, wantDemand, res.Diagnostics.RequiredContracts,
-		"the build's demand equals the operator walk on the shipped catalog")
+		"the build's demand equals the controller walk on the shipped catalog")
 
 	// ── pair sets (spec: "Matched pair sets agree") ──────────────────
 	pairs := oraclePairs(t, oracle)
@@ -112,8 +112,10 @@ func TestParity_ShippedCatalog(t *testing.T) {
 	}
 }
 
-// render-parity spec, "The shipped catalog stays discriminated": the
-// opm_platform fixture is the one place the library resolves the published
+// render-parity spec, "The shipped catalog stays discriminated", "The
+// discrimination read lives in a test function of its own beside the render
+// cases" and "The discrimination assertion is gated as the shipped group is":
+// the opm_platform fixture is the one place the library resolves the published
 // catalogs/opm build into a #Platform, so it is the one place that build can
 // be measured against the comparable-predicate report core derives
 // (enhancement 0015; core imports no catalog and cannot check itself).

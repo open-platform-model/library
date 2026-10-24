@@ -1,7 +1,7 @@
 package labels
 
 // Label keys and values. The values are byte-equal to the copies the cli and
-// the operator carried in their pkg/core before the tier existed.
+// the controller carried in their pkg/core before the tier existed.
 const (
 	// ManagedBy is the standard Kubernetes managed-by label key. Core's CUE
 	// stamps it on every rendered object with the rendering runtime's value.
@@ -11,8 +11,8 @@ const (
 	// when the cli renders.
 	ManagedByCLI = "opm-cli"
 
-	// ManagedByController is the managed-by value of the operator, core's
-	// #runtimeName when the operator renders.
+	// ManagedByController is the managed-by value of the controller, core's
+	// #runtimeName when the controller renders.
 	ManagedByController = "opm-controller"
 
 	// ManagedByLegacy is the managed-by value OPM stamped before each runtime
@@ -58,7 +58,7 @@ const (
 )
 
 // IsOPMManagedBy reports whether a managed-by label value identifies an OPM
-// runtime: the cli's value, the operator's value, or the legacy value objects
+// runtime: the cli's value, the controller's value, or the legacy value objects
 // applied before runtime-owned values still carry. The match is exact and
 // case-sensitive.
 func IsOPMManagedBy(value string) bool {

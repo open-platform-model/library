@@ -260,7 +260,7 @@
 // without the file renders identically under either setting. The switch is a
 // security boundary, not an extension point: it is the one place a render may
 // read a directory an artifact names, so a frontend sets it for a developer's
-// checkout and never for an artifact it did not author (the operator never
+// checkout and never for an artifact it did not author (the controller never
 // sets it). The frontend words the rows (an instance replacement the platform
 // made inert is not a row, so the frontend computes the inert set from the
 // file it read):

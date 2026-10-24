@@ -161,7 +161,7 @@ func TestRender_HappyOnDiskInputs(t *testing.T) {
 }
 
 // synthRenderInstance acquires the fixture module from the in-process registry
-// and synthesizes an overlay-mode instance from it (the CLI / operator path).
+// and synthesizes an overlay-mode instance from it (the CLI / controller path).
 func synthRenderInstance(t *testing.T, k *kernel.Kernel, version string) *module.Instance {
 	t.Helper()
 	ctx := context.Background()
@@ -715,8 +715,8 @@ func TestRender_CatalogFulfilledPluralityRenders(t *testing.T) {
 
 // TestRender_WithRegistryDoesNotMutateEnv asserts WithRegistry plumbs the
 // mapping into the render build's load configuration without writing the
-// process CUE_REGISTRY (spec kernel-runtime, "Registry Configuration
-// Option").
+// process CUE_REGISTRY (spec kernel-runtime, "WithRegistry mutates no process
+// environment").
 func TestRender_WithRegistryDoesNotMutateEnv(t *testing.T) {
 	mapping := registrytest.NewRegistryFromDir(t, renderFixtureDir(t, "registry"), renderPrefix)
 	// Point the process env somewhere the fixture catalog is NOT served: the

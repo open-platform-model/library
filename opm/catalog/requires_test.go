@@ -33,8 +33,9 @@ func withSource(t *testing.T, src *module.Source) *catalog.Catalog {
 	return c
 }
 
-// catalog-acquisition spec, "The catalog's committed dependency requirements
-// are readable": both requirements of an acquired catalog are readable as a
+// catalog-acquisition spec, "The catalog artifact exposes the requirements
+// recorded in its own cue.mod/module.cue and the library exposes the
+// requirements only": both requirements of an acquired catalog are readable as a
 // path and a version, in both source modes, and the library reports no verdict
 // about either.
 func TestCatalog_Requires(t *testing.T) {

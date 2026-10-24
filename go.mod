@@ -2,6 +2,8 @@ module github.com/open-platform-model/library
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20260717083115-5eb5795f322a
 	cuelang.org/go v0.17.1
