@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-beta.11](https://github.com/open-platform-model/library/compare/v1.0.0-beta.10...v1.0.0-beta.11) (2026-10-27)
+
+
+### Bug Fixes
+
+* **deps:** bump k8s.io/apimachinery to v0.37.1 and refresh pins ([#250](https://github.com/open-platform-model/library/issues/250)) ([e16060f](https://github.com/open-platform-model/library/commit/e16060f526360e64d5205a26ddbd6e48c6863107))
+
 ## [1.0.0-beta.10](https://github.com/open-platform-model/library/compare/v1.0.0-beta.9...v1.0.0-beta.10) (2026-10-21)
 
 
