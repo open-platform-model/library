@@ -7,6 +7,7 @@ Router only. Facts and rules are in `AGENTS.md`.
 | Change the kernel API, a verb or the render pipeline | `opm/kernel/` | `CONSTITUTION.md` |
 | Find or add a package, or decide where code lives | `references/package-map.md` | `references/kernel-tiers.md` |
 | Check what a package may import | `references/kernel-tiers.md` | `.golangci.yml`, the depguard rules |
+| Name a concept, or check which word the repo uses for it | `GLOSSARY.md` | `adr/` |
 | Record a design decision | `adr/` | `openspec/config.yaml` |
 | Start a feature change | `openspec/config.yaml` | `.claude/skills/` (`openspec-*`) |
 | Write or fix a test, or a registry fixture | `references/testing.md` | `opm/internal/registrytest/` |

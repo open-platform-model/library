@@ -7,6 +7,7 @@ the frontends.
 
 ## Repository rules
 
+- `GLOSSARY.md` holds the domain terms of this repo. Use its words, and extend it when a new concept needs a name.
 - `CONSTITUTION.md` is the human-readable principle source and `openspec/config.yaml` is normative.
   Their principles are not restated here.
 - Mergeable sections (Principle VIII) have a hard gate. A request that cannot be cut into about five
