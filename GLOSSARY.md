@@ -85,11 +85,11 @@ A Component's requirement of a Contract: every declared Resource is a required d
 _Avoid_: Request, dependency
 
 **Resource**:
-A kind of Contract (`#Resource`) that a Component declares in `#resources`. Not a Kubernetes object and not `object.Resource`.
+A kind of Contract (`#Resource`) that a Catalog defines in `#resources` and a Component declares. Not a Kubernetes object and not `object.Resource`.
 _Avoid_: Object, manifest
 
 **Trait**:
-A kind of Contract (`#Trait`) that a Component declares in `#traits`. An optional Trait that no Transformer handles is reported as an unhandled trait, not as a refusal.
+A kind of Contract (`#Trait`) that a Catalog defines in `#traits` and a Component declares. An optional Trait that no Transformer handles is reported as an unhandled trait, not as a refusal.
 _Avoid_: Option, feature, annotation
 
 **Provider-fulfilled contract**:
