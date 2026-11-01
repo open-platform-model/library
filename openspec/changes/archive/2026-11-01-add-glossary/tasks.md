@@ -6,5 +6,5 @@
 
 ## 2. Verify and archive
 
-- [ ] 2.1 `openspec validate add-glossary --strict --no-interactive` passes.
-- [ ] 2.2 Archive the change with `skip_specs: true` (no spec sync) and commit `chore(openspec): archive add-glossary`.
+- [x] 2.1 `openspec validate add-glossary --strict --no-interactive` passes.
+- [x] 2.2 Archive the change with `skip_specs: true` (no spec sync) and commit `chore(openspec): archive add-glossary`.
