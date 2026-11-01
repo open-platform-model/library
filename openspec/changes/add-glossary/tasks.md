@@ -2,7 +2,7 @@
 
 - [x] 1.1 Create `GLOSSARY.md` at the repo root with the domain terms of the library, each with a definition and an `_Avoid_` line.
 - [x] 1.2 Add one rule line to `AGENTS.md` and one router row to `CONTEXT.md` that point to `GLOSSARY.md`.
-- [x] 1.3 Commit `docs: add glossary of the domain terms`
+- [x] 1.3 Commit `docs(glossary): add glossary of the domain terms`
 
 ## 2. Verify and archive
 

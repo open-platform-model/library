@@ -25,7 +25,7 @@ The `opm/k8s/` packages beside the Kernel that hold the Kubernetes decisions OPM
 _Avoid_: Kubernetes adapter, k8s helpers
 
 **Helper tier**:
-The opt-in `opm/helper/` packages. A frontend may skip them, and nothing outside the tier may import them.
+The opt-in `opm/helper/` packages. A frontend may skip them, and no kernel or Kubernetes-tier package may import them.
 _Avoid_: Utils, convenience layer
 
 **Verb**:
@@ -36,7 +36,7 @@ _Avoid_: Command, endpoint, API call
 
 **Artifact**:
 One of the four kinds the Kernel holds: Module, Module Instance, Platform and Catalog. Each has the shape Metadata plus Package, plus a Source when the Kernel staged it.
-_Avoid_: Resource, object, definition
+_Avoid_: Object, definition
 
 **Module**:
 The `#Module` artifact (`*module.Module`): a published or on-disk CUE module that declares components and a `#config` schema.
@@ -48,7 +48,7 @@ _Avoid_: Release, deployment, install
 
 **Platform**:
 The `#Platform` artifact (`*platform.Platform`): a CUE module that imports its Catalogs and is the only platform input of Render.
-_Avoid_: Provider, environment, cluster
+_Avoid_: Environment, cluster
 
 **Catalog**:
 The `#Catalog` artifact (`*catalog.Catalog`): an acquired kind that the Kernel reads and derives from but never renders and never judges beyond its shape.
@@ -59,12 +59,12 @@ A unit inside a Module Instance, read through `Instance.Components`, that the ma
 _Avoid_: Service, workload, part
 
 **Source**:
-The staged tree an artifact was loaded or built from, in on-disk mode or in overlay mode (files as bytes). It lets a later build import the artifact as a package.
+The staged tree an artifact was loaded or built from (`module.Source`), in on-disk mode or in overlay mode (files as bytes in memory, so a render writes no staging file). It lets a later build import the artifact as a package.
 _Avoid_: Files, checkout, bundle
 
-**Overlay**:
-The in-memory byte form of a Source tree, keyed under a root. A render writes no staging file because it uses overlays.
-_Avoid_: Temp dir, virtual filesystem
+**Values source**:
+One values input, CUE source bytes plus an origin, that the Kernel validates and layers (`kernel.Source`). It is not a staged tree.
+_Avoid_: Values file, config input
 
 ### Rendering
 
@@ -74,15 +74,31 @@ _Avoid_: Compile, materialize, build, deploy
 
 **Transformer**:
 A Catalog entry (`#ComponentTransformer`) that matches a Component and produces output objects from it. The Platform composes the Transformers of its Catalogs.
-_Avoid_: Provider, plugin, generator
+_Avoid_: Plugin, generator
 
 **Contract**:
-A keyed demand that a Component makes and a Catalog's Transformers fulfil. The Platform's `#contracts` inventory records which keys are defined, required and provided.
+A key, a Resource or Trait FQN, that a Catalog defines in its contract maps. The Platform's `#contracts` inventory records which keys are defined, required and provided.
 _Avoid_: Capability, interface, requirement
 
+**Demand**:
+A Component's requirement of a Contract: every declared Resource is a required demand, and a Trait is one unless it is optional. A demand nothing on the Platform fulfils is an unresolved demand.
+_Avoid_: Request, dependency
+
+**Resource**:
+A kind of Contract (`#Resource`) that a Component declares in `#resources`. Not a Kubernetes object and not `object.Resource`.
+_Avoid_: Object, manifest
+
+**Trait**:
+A kind of Contract (`#Trait`) that a Component declares in `#traits`. An optional Trait that no Transformer handles is reported as an unhandled trait, not as a refusal.
+_Avoid_: Option, feature, annotation
+
 **Provider-fulfilled contract**:
-A Contract whose demand carries `fulfilment: "provider"`, so the Platform must carry exactly one provider for it.
+A Contract whose demand carries `fulfilment: "provider"`, so the Platform must carry exactly one Provider for it.
 _Avoid_: Singleton transformer, platform service
+
+**Provider**:
+A Catalog whose Transformers fulfil a provider-fulfilled Contract that another Catalog defines (`Catalog.Provides`).
+_Avoid_: Plugin, backend
 
 **Registry entry**:
 One `#registry` line of a Platform that embeds a Catalog by import. Two majors of one Catalog are two entries.
@@ -93,7 +109,7 @@ Plain data (no `Error` method) that the render build decided, such as an unresol
 _Avoid_: Error, warning, finding
 
 **Gate cause**:
-A pointer-receiver error that the fail-closed gate builds from verdict rows. It carries the rows unchanged and wraps nothing.
+A pointer-receiver error that the fail-closed gate raises. All but the not-routable catch-all aggregate verdict rows, carry them unchanged and wrap nothing.
 _Avoid_: Render error, failure
 
 **Fail-closed gate**:
@@ -115,12 +131,8 @@ _Avoid_: Manifest, output, resource
 ### Schema
 
 **Core schema**:
-The `opmodel.dev/core@v2` CUE module that defines the artifact shapes, resolved at runtime through `CUE_REGISTRY` and cached per Kernel. The default loader pins an exact release.
+The `opmodel.dev/core@v2` CUE module that defines the artifact shapes, resolved at runtime through `CUE_REGISTRY` and memoized per Kernel in a `*schema.Cache`. The default loader pins an exact release.
 _Avoid_: Spec, API, types
-
-**Schema cache**:
-The per-Kernel `*schema.Cache` that memoizes the loaded core schema.
-_Avoid_: Module cache, CUE cache
 
 ### Kubernetes tier
 
