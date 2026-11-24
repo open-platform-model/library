@@ -9,7 +9,8 @@ Router only. Facts and rules are in `AGENTS.md`.
 | Check what a package may import | `references/kernel-tiers.md` | `.golangci.yml`, the depguard rules |
 | Name a concept, or check which word the repo uses for it | `GLOSSARY.md` | `adr/` |
 | Record a design decision | `adr/` | `openspec/config.yaml` |
-| Start a feature change | `openspec/config.yaml` | `.claude/skills/` (`openspec-*`) |
+| Start a feature change | `openspec/config.yaml` | `.agents/skills/` (`openspec-*`) |
+| Verify a change before archive | `openspec/verify.md` | `.agents/skills/` |
 | Write or fix a test, or a registry fixture | `references/testing.md` | `opm/internal/registrytest/` |
 | Bump CUE, `cuelang.org/go` or apimachinery | `references/cue-toolchain.md` | `docs/design/` |
 | Adapt the Go code to a new core schema shape | `opm/schema/` | `opm/internal/renderstage/` |

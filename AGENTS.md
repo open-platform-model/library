@@ -107,6 +107,8 @@ opm/k8s/           the Kubernetes tier beside the kernel (ADR-011); fenced by de
 opm/internal/      loader, synth, renderstage, cueenv, modversion, registrytest and other internals
 adr/               architecture decision records (the template is inside)
 openspec/          OpenSpec specs, active changes and archive
+.agents/skills/    generated OpenSpec skills; never edited, because every update rewrites them
+.claude/skills/    hand-written skills, and links to the generated skills in .agents/skills/
 modules/           test-only CUE modules (fixtures, not shipped)
 testdata/          CUE fixtures for package tests, including the parity oracle and render fixtures
 migrations/        migration policy and fragments (dormant through beta until GA, ADR-004)

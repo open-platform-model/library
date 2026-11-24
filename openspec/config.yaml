@@ -5,6 +5,9 @@ references:
     remote: https://github.com/open-platform-model/enhancements.git
 
 context: |
+  Verify: when you verify a change, also apply every rule in `openspec/verify.md`, in the same run
+  and the same report. OpenSpec never writes that file.
+
   # OPM Library Development Constitution
 
   ## Core Principles (Kernel Library)
@@ -264,3 +267,6 @@ operations:
   archive:
     guidance:
       - "If the change delivers a line of an enhancement's `tasks.md`, name it in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line."
+
+# Keep the generated skills in this repo; stops openspec update from asking.
+skillsScope: project
