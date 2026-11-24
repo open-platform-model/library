@@ -13,6 +13,8 @@ the frontends.
 - Mergeable sections (Principle VIII) have a hard gate. A request that cannot be cut into about five
   task sections, each ending green and closing with its own commit, gets the gate phrase from
   `openspec/config.yaml` and a proposed split. This keeps `main` releasable.
+- A verify run on an OpenSpec change also applies `openspec/verify.md`, because the generated verify
+  skill does not name that file.
 - Kernel neutrality (Principle I). The kernel is consumed by several runtimes, so it holds no global
   mutable state or package-level singleton, no `os.Exit`, no direct stdout or stderr output, no shell
   invocation, no hidden environment lookup (config arrives as arguments) and no non-determinism.
