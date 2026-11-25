@@ -136,7 +136,7 @@ asks. New tests use the in-process registry in `opm/internal/registrytest`; test
 | `task fmt` / `task vet` / `task lint` / `task test` | gofmt + goimports, go vet, golangci-lint, go test | while working |
 | `task check:fast` | the four above without lint | iterative work |
 | `task check` | the four, then `docs:bundle:check`, `cascade:wiring:check`, `cite-lint`, `api:diff:test` | before merge |
-| `task check:commit` | `fmt`, `vet`, `lint`, `openspec:check`; no tests | before every commit except a tests commit |
+| `task check:commit` | `fmt:check` (gofmt, rewrites nothing), `vet`, `lint`, `openspec:check`; no tests | before every commit except a tests commit |
 | `task test:run TEST=TestName` | one Go test | debugging |
 | `task cite-lint` | the enhancement citation rule for Go and CUE comments | after editing comments |
 | `task api:diff` | incompatible changes to the exported `opm/` API since the last release tag (`BASE=<tag>` to pick one) | before a kernel-surface change |

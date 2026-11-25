@@ -85,6 +85,17 @@ tasks:
           goimports -w .
         fi
 
+  fmt:check:
+    desc: Fail on Go files that gofmt would change; rewrites nothing
+    cmds:
+      - |
+        out=$(git ls-files -z '*.go' ':(exclude,glob)**/testdata/**' ':(exclude,glob)vendor/**' | xargs -0 -r gofmt -l)
+        if [ -n "$out" ]; then
+          echo "gofmt would change these files (run task fmt):"
+          echo "$out"
+          exit 1
+        fi
+
   vet:
     desc: Run go vet (and once for windows, so the windows build the cli ships at least compiles)
     cmds:
@@ -255,9 +266,9 @@ tasks:
   ## Aggregates
 
   check:commit:
-    desc: "Checks before a commit (no tests): fmt, vet, lint and the openspec check"
+    desc: "Checks before a commit (no tests): fmt:check, vet, lint and the openspec check"
     cmds:
-      - task: fmt
+      - task: fmt:check
       - task: vet
       - task: lint
       - task: openspec:check
