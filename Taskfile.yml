@@ -254,6 +254,14 @@ tasks:
 
   ## Aggregates
 
+  check:commit:
+    desc: "Checks before a commit (no tests): fmt, vet, lint and the openspec check"
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: lint
+      - task: openspec:check
+
   check:
     desc: Run fmt, vet, lint, tests, the docs bundle check, the cascade wiring check, the cite-lint rule, the api:diff tests, the consumer-build script tests and the strict OpenSpec check
     cmds:

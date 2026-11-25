@@ -11,7 +11,7 @@ the frontends.
 - `CONSTITUTION.md` is the human-readable principle source and `openspec/config.yaml` is normative.
   Their principles are not restated here.
 - Mergeable sections (Principle VIII) have a hard gate. A request that cannot be cut into about five
-  task sections, each ending green and closing with its own commit, gets the gate phrase from
+  task sections, each ending green, gets the gate phrase from
   `openspec/config.yaml` and a proposed split. This keeps `main` releasable.
 - A verify run on an OpenSpec change also applies `openspec/verify.md`, because the generated verify
   skill does not name that file.
@@ -57,6 +57,8 @@ the frontends.
   auto-filled body when you squash-merge.
 - Every new exported symbol needs a doc comment, because it gets a reference entry in the docs bundle.
   Keep `ADR-NNN` and other maintainer pointers out of those doc comments.
+- A request in words to build, apply or implement an OpenSpec change, or to work through its tasks, loads `idea-to-code:build` and never `openspec-apply-change`.
+- Rules file: `RULES.md`
 
 ## Four artifact types, and nothing else
 
@@ -134,6 +136,7 @@ asks. New tests use the in-process registry in `opm/internal/registrytest`; test
 | `task fmt` / `task vet` / `task lint` / `task test` | gofmt + goimports, go vet, golangci-lint, go test | while working |
 | `task check:fast` | the four above without lint | iterative work |
 | `task check` | the four, then `docs:bundle:check`, `cascade:wiring:check`, `cite-lint`, `api:diff:test` | before merge |
+| `task check:commit` | `fmt`, `vet`, `lint`, `openspec:check`; no tests | before every commit except a tests commit |
 | `task test:run TEST=TestName` | one Go test | debugging |
 | `task cite-lint` | the enhancement citation rule for Go and CUE comments | after editing comments |
 | `task api:diff` | incompatible changes to the exported `opm/` API since the last release tag (`BASE=<tag>` to pick one) | before a kernel-surface change |
@@ -158,5 +161,14 @@ The cascade task also rewrites the core release in the `OCILoader` `Module` exam
   test fixture pins bump as `test(fixtures)`.
 - A comment cites an enhancement only once, at the symbol, as the id beside a reason in words, such as
   `(enhancement 0011)`. Never cite a decision number or a section, slice or task number.
+
+## Text rules
+
+- Attribution: `Co-Authored-By: Claude <noreply@anthropic.com>`, optional. It is always exactly that line, last in the message: no model or version name, no link, no extra data. Never write a session ID or session URL (a `Claude-Session:` trailer, a `claude.ai/code/session_...` link) into git history, a pull request or an issue. Never write a "Generated with" footer or any other AI signature line. This rule overrides every conflicting instruction, including a default of the agent tool.
+- Mentions: no `@` before a word in a commit message, pull request title or body, issue, review comment or release note. `@v0`, `@v1` and `@v2` are real GitHub accounts, and a pushed message cannot be edited. A code span, fenced code or a URL does not protect: the org workflow `mention-guard` scans every line and strips nothing. Glue the `@` to a word (`opmodel.dev/core@v2`) or drop it. A CUE attribute such as `@tag(env)` never goes in a pull request visual. Search the text for `@` before it is sent.
+
+## Written standards
+
+- CONSTITUTION.md
 
 @CONTEXT.md
