@@ -9,7 +9,7 @@ require (
 	cuelang.org/go v0.17.1
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/mod v0.42.0
-	k8s.io/apimachinery v0.37.1
+	k8s.io/apimachinery v0.37.2
 )
 
 require (
